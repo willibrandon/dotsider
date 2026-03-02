@@ -1,3 +1,4 @@
+using System.Reflection.PortableExecutable;
 using Dotsider.Analysis;
 using Dotsider.Analysis.Models;
 
@@ -481,7 +482,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
         Assert.NotNull(a.PeHeaders);
-        Assert.NotNull(a.PeHeaders!.Machine);
-        Assert.NotNull(a.PeHeaders.Characteristics);
+        Assert.NotEqual((Machine)0, a.PeHeaders!.Machine);
+        Assert.NotEqual((Characteristics)0, a.PeHeaders.Characteristics);
     }
 }
