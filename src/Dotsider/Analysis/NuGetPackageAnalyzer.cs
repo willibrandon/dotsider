@@ -45,9 +45,11 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         if (zipEntry is null)
             throw new FileNotFoundException($"Entry not found in package: {entry.FullPath}");
 
-        using var source = zipEntry.Open();
-        using var target = File.Create(tempPath);
-        source.CopyTo(target);
+        using (var source = zipEntry.Open())
+        using (var target = File.Create(tempPath))
+        {
+            source.CopyTo(target);
+        }
 
         return new AssemblyAnalyzer(tempPath);
     }

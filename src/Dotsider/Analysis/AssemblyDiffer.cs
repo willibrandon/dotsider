@@ -32,8 +32,10 @@ public static class AssemblyDiffer
     private static IReadOnlyList<DiffEntry<TypeDefInfo>> CompareTypes(
         IReadOnlyList<TypeDefInfo> left, IReadOnlyList<TypeDefInfo> right)
     {
-        var leftByName = left.ToDictionary(t => t.FullName);
-        var rightByName = right.ToDictionary(t => t.FullName);
+        var leftByName = new Dictionary<string, TypeDefInfo>();
+        foreach (var t in left) leftByName.TryAdd(t.FullName, t);
+        var rightByName = new Dictionary<string, TypeDefInfo>();
+        foreach (var t in right) rightByName.TryAdd(t.FullName, t);
         var result = new List<DiffEntry<TypeDefInfo>>();
 
         foreach (var lt in left)
@@ -116,8 +118,10 @@ public static class AssemblyDiffer
     private static IReadOnlyList<DiffEntry<AssemblyRefInfo>> CompareRefs(
         IReadOnlyList<AssemblyRefInfo> left, IReadOnlyList<AssemblyRefInfo> right)
     {
-        var leftByName = left.ToDictionary(r => r.Name);
-        var rightByName = right.ToDictionary(r => r.Name);
+        var leftByName = new Dictionary<string, AssemblyRefInfo>();
+        foreach (var r in left) leftByName.TryAdd(r.Name, r);
+        var rightByName = new Dictionary<string, AssemblyRefInfo>();
+        foreach (var r in right) rightByName.TryAdd(r.Name, r);
         var result = new List<DiffEntry<AssemblyRefInfo>>();
 
         foreach (var lr in left)

@@ -34,7 +34,7 @@ public sealed class StringExtractor
         if (reader is null) return [];
 
         var results = new List<StringEntry>();
-        var handle = MetadataTokens.UserStringHandle(0);
+        var handle = MetadataTokens.UserStringHandle(1);
 
         while (!handle.IsNil)
         {
@@ -69,7 +69,7 @@ public sealed class StringExtractor
         if (reader is null) return [];
 
         var results = new List<StringEntry>();
-        var handle = MetadataTokens.StringHandle(0);
+        var handle = MetadataTokens.StringHandle(1);
 
         while (!handle.IsNil)
         {

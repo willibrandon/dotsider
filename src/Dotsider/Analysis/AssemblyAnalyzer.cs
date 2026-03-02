@@ -159,18 +159,25 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         if (_metadataReader is null) return $"0x{token:X8}";
 
-        var handle = MetadataTokens.EntityHandle(token);
-        return handle.Kind switch
+        try
         {
-            HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)handle),
-            HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)handle),
-            HandleKind.MethodDefinition => GetMethodDefName((MethodDefinitionHandle)handle),
-            HandleKind.MemberReference => GetMemberRefName((MemberReferenceHandle)handle),
-            HandleKind.FieldDefinition => GetFieldDefName((FieldDefinitionHandle)handle),
-            HandleKind.StandaloneSignature => $"StandaloneSig(0x{token:X8})",
-            HandleKind.UserString => GetUserString(MetadataTokens.UserStringHandle(token & 0x00FFFFFF)),
-            _ => $"0x{token:X8}"
-        };
+            var handle = MetadataTokens.EntityHandle(token);
+            return handle.Kind switch
+            {
+                HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)handle),
+                HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)handle),
+                HandleKind.MethodDefinition => GetMethodDefName((MethodDefinitionHandle)handle),
+                HandleKind.MemberReference => GetMemberRefName((MemberReferenceHandle)handle),
+                HandleKind.FieldDefinition => GetFieldDefName((FieldDefinitionHandle)handle),
+                HandleKind.StandaloneSignature => $"StandaloneSig(0x{token:X8})",
+                HandleKind.UserString => GetUserString(MetadataTokens.UserStringHandle(token & 0x00FFFFFF)),
+                _ => $"0x{token:X8}"
+            };
+        }
+        catch (ArgumentException)
+        {
+            return $"0x{token:X8}";
+        }
     }
 
     /// <inheritdoc/>

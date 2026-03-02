@@ -6,5 +6,12 @@
     <Project Path="samples/RichLibrary/RichLibrary.csproj" />
     <Project Path="samples/ComplexApp/ComplexApp.csproj" />
     <Project Path="samples/RichLibraryV2/RichLibraryV2.csproj" />
+    <Project Path="samples/MinimalApi/MinimalApi.csproj" />
+    <Project Path="samples/NativeLib/NativeLib.csproj" />
+    <Project Path="samples/EmptyLib/EmptyLib.csproj" />
+  </Folder>
+
+  <Folder Name="/tests/">
+    <Project Path="tests/Dotsider.Tests/Dotsider.Tests.csproj" />
   </Folder>
 </Solution>
