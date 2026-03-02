@@ -96,7 +96,22 @@ samples/
   ComplexApp/         Async pipeline with embedded resources
   RichLibrary/        Library with NuGet deps (Newtonsoft.Json, System.Text.Json)
   RichLibraryV2/      Same library with deliberate API changes (for diff testing)
+  MinimalApi/         ASP.NET Core minimal API (web SDK, hosted entry point)
+  NativeLib/          Unsafe code, P/Invoke, pointer operations
+  EmptyLib/           Minimal library (edge case testing)
+
+tests/Dotsider.Tests/
+  SampleAssemblyFixture.cs   Builds all 7 samples once, shared across tests
+  *Tests.cs                  Integration tests against real assemblies
 ```
+
+## Testing
+
+```
+dotnet test
+```
+
+Integration tests run against real .NET assemblies. The test fixture builds all sample projects automatically. First run takes longer due to NuGet restore; subsequent runs use cache.
 
 ## Samples
 
