@@ -6,6 +6,8 @@ A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, depend
 dotsider MyApp.dll
 ```
 
+[![dotsider demo](https://asciinema.org/a/LEm7dBvcqlWUM6Z5.svg)](https://asciinema.org/a/LEm7dBvcqlWUM6Z5)
+
 ## What it does
 
 dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:

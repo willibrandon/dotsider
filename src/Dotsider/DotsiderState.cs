@@ -3,6 +3,7 @@ using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Widgets;
+using TraceProcessState = Dotsider.Analysis.Models.TraceProcessState;
 
 namespace Dotsider;
 
@@ -151,6 +152,38 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The editor state for the hex dump view.</summary>
     public EditorState HexEditorState { get; private set; }
 
+    // --- Dynamic Analysis Tab State ---
+
+    /// <summary>Whether the assembly has a CLR entry point (executable, not library).</summary>
+    public bool HasEntryPoint => Analyzer.ClrHeader is { EntryPointToken: > 0 };
+
+    /// <summary>Whether the assembly appears to be NativeAOT (no CLR metadata).</summary>
+    public bool IsNativeAot => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
+
+    /// <summary>The runtime tracer instance, created on first launch.</summary>
+    public RuntimeTracer? Tracer { get; set; }
+
+    /// <summary>The selected sub-tab in the Dynamic view (0=Events, 1=Counters, 2=Output, 3=Summary).</summary>
+    public int DynamicSubTab { get; set; }
+
+    /// <summary>The focused event row key in the events table.</summary>
+    public object? DynamicEventsFocusedKey { get; set; }
+
+    /// <summary>Whether the events table auto-scrolls to the bottom.</summary>
+    public bool DynamicAutoScroll { get; set; } = true;
+
+    /// <summary>Event category filter, or null for all.</summary>
+    public TraceEventCategory? DynamicCategoryFilter { get; set; }
+
+    /// <summary>Command-line arguments to pass to the traced process.</summary>
+    public string DynamicArguments { get; set; } = "";
+
+    /// <summary>Whether the args editing mode is active.</summary>
+    public bool DynamicEditingArgs { get; set; }
+
+    /// <summary>Focused key in the output table.</summary>
+    public object? DynamicOutputFocusedKey { get; set; }
+
     /// <summary>
     /// Pushes a new assembly onto the navigation stack and makes it the active analyzer.
     /// </summary>
@@ -204,6 +237,13 @@ public sealed class DotsiderState : IDisposable
         TreemapCurrentLevel = null;
         TreemapBreadcrumb.Clear();
         TreemapHoveredItem = null;
+        DynamicSubTab = 0;
+        DynamicEventsFocusedKey = null;
+        DynamicAutoScroll = true;
+        DynamicCategoryFilter = null;
+        DynamicEditingArgs = false;
+        DynamicOutputFocusedKey = null;
+        // Note: Tracer and DynamicArguments intentionally NOT reset
     }
 
     /// <summary>
@@ -246,6 +286,7 @@ public sealed class DotsiderState : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        Tracer?.Dispose();
         foreach (var analyzer in NavigationStack)
             analyzer.Dispose();
         Analyzer.Dispose();

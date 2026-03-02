@@ -26,11 +26,11 @@ for (var i = 0; i < args.Length; i++)
             }
             break;
         case "--tab" or "-t":
-            if (i + 1 < args.Length && int.TryParse(args[++i], out var tab) && tab >= 1 && tab <= 7)
+            if (i + 1 < args.Length && int.TryParse(args[++i], out var tab) && tab >= 1 && tab <= 8)
                 initialTab = tab - 1;
             else
             {
-                Console.Error.WriteLine("Error: --tab requires a value from 1 to 7");
+                Console.Error.WriteLine("Error: --tab requires a value from 1 to 8");
                 return 1;
             }
             break;
@@ -161,7 +161,7 @@ static void PrintUsage()
     Console.Error.WriteLine("Analyze .NET assemblies like a boss.");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Options:");
-    Console.Error.WriteLine("  -t, --tab <1-7>       Initial tab (1=General .. 5=Hex, 6=DepGraph, 7=SizeMap)");
+    Console.Error.WriteLine("  -t, --tab <1-8>       Initial tab (1=General .. 7=SizeMap, 8=Dynamic)");
     Console.Error.WriteLine("  -n, --min-len <n>     Minimum raw string length (default: 4)");
     Console.Error.WriteLine("  -h, --help            Show this help");
 }

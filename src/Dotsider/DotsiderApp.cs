@@ -67,7 +67,9 @@ public sealed class DotsiderApp
                 tp.Tab("Dep Graph", t => [DependencyGraphView.Build(t, _state)])
                     .Selected(_state.CurrentTab == 5),
                 tp.Tab("Size Map", t => [SizeTreemapView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 6)
+                    .Selected(_state.CurrentTab == 6),
+                tp.Tab("Dynamic", t => [DynamicAnalysisView.Build(t, _state)])
+                    .Selected(_state.CurrentTab == 7)
             ])
             .OnSelectionChanged(e =>
             {
@@ -83,7 +85,7 @@ public sealed class DotsiderApp
         .WithInputBindings(bindings =>
         {
             // Number keys 1-7 to switch tabs
-            for (var i = 0; i < 7; i++)
+            for (var i = 0; i < 8; i++)
             {
                 var tabIndex = i;
                 var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
@@ -106,7 +108,7 @@ public sealed class DotsiderApp
         return ctx.InfoBar(s =>
         {
             var hints = new List<IInfoBarChild>();
-            hints.Add(s.Section("1-7: Tabs"));
+            hints.Add(s.Section("1-8: Tabs"));
 
             if (_state.NavigationStack.Count > 0)
                 hints.Add(s.Section("Backspace: Back"));
@@ -123,6 +125,16 @@ public sealed class DotsiderApp
             else if (_state.CurrentTab == 6)
             {
                 hints.Add(s.Section("Backspace: Up"));
+            }
+            else if (_state.CurrentTab == 7)
+            {
+                if (_state.Tracer?.ProcessState == Analysis.Models.TraceProcessState.Running)
+                    hints.Add(s.Section("Ctrl+K: Stop"));
+                else if (_state.Tracer?.ProcessState is Analysis.Models.TraceProcessState.Exited
+                    or Analysis.Models.TraceProcessState.Error)
+                    hints.Add(s.Section("Enter: Re-run"));
+                else if (_state.HasEntryPoint)
+                    hints.Add(s.Section("Enter: Launch"));
             }
 
             hints.Add(s.Section("s: Sizes"));

@@ -1,0 +1,547 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Tracing;
+using System.Globalization;
+using Dotsider.Analysis.Models;
+using Hex1b;
+using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.EventPipe;
+using Microsoft.Diagnostics.Tracing.Parsers;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
+using TraceEventCategory = Dotsider.Analysis.Models.TraceEventCategory;
+using TraceEventEntry = Dotsider.Analysis.Models.TraceEventEntry;
+
+namespace Dotsider.Analysis;
+
+/// <summary>
+/// Manages launching a .NET assembly as a child process and collecting
+/// runtime events via EventPipe diagnostics (PID-based connect with retry).
+/// </summary>
+public sealed class RuntimeTracer : IDisposable
+{
+    private const int MaxEvents = 10_000;
+    private const int MaxOutputLines = 5_000;
+    private const int MaxConnectRetries = 25;        // 25 × 200ms = 5s max wait
+    private const int ConnectRetryDelayMs = 200;
+
+    private readonly string _assemblyPath;
+    private readonly string _arguments;
+    private readonly Hex1bApp _app;
+    private readonly bool _isExe;
+
+    private Process? _process;
+    private EventPipeSession? _session;
+    private Task? _processingTask;
+    private CancellationTokenSource? _cts;
+    private Stopwatch? _stopwatch;
+    private Timer? _invalidateTimer;
+
+    // Ring buffer for events — lock protects both read and write
+    private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
+    private int _eventHead;
+    private int _eventCount;
+    private readonly object _eventLock = new();
+
+    // Counter snapshot — atomic via Interlocked.Exchange
+    private CounterSnapshot? _latestCounters;
+    private readonly Dictionary<string, double> _counterAccumulators = new(StringComparer.OrdinalIgnoreCase);
+
+    // Summary accumulators (written under _eventLock for simplicity)
+    private readonly Dictionary<TraceEventCategory, int> _eventCounts = new();
+    private int _jittedMethodCount;
+    private double _peakWorkingSetMb;
+    private double _peakGcHeapMb;
+
+    // Dirty flag for throttled invalidation
+    private int _dirty;
+
+    // Process output
+    private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
+
+    public RuntimeTracer(string assemblyPath, string arguments, Hex1bApp app)
+    {
+        _assemblyPath = assemblyPath;
+        _arguments = arguments;
+        _app = app;
+        _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --- Public state ---
+
+    public TraceProcessState ProcessState { get; private set; } = TraceProcessState.Idle;
+    public int? ExitCode { get; private set; }
+    public string? ErrorMessage { get; private set; }
+    public int? ProcessId => _process?.Id;
+    public TimeSpan Elapsed => _stopwatch?.Elapsed ?? TimeSpan.Zero;
+
+    /// <summary>Returns a snapshot of all collected events (copied under lock).</summary>
+    public IReadOnlyList<TraceEventEntry> GetEvents()
+    {
+        lock (_eventLock)
+        {
+            var count = _eventCount;
+            var head = _eventHead;
+            var result = new TraceEventEntry[count];
+            for (var i = 0; i < count; i++)
+                result[i] = _eventRing[((head - count + i) % MaxEvents + MaxEvents) % MaxEvents];
+            return result;
+        }
+    }
+
+    /// <summary>Returns the most recent counter snapshot, or null.</summary>
+    public CounterSnapshot? GetLatestCounters() => Volatile.Read(ref _latestCounters);
+
+    /// <summary>Returns process output lines.</summary>
+    public IReadOnlyList<OutputLine> GetOutput() => _outputQueue.ToArray();
+
+    /// <summary>Returns aggregated summary statistics.</summary>
+    public TraceSummary GetSummary()
+    {
+        Dictionary<TraceEventCategory, int> counts;
+        int totalEvents, jitted;
+        lock (_eventLock)
+        {
+            counts = new Dictionary<TraceEventCategory, int>(_eventCounts);
+            totalEvents = counts.Values.Sum();
+            jitted = _jittedMethodCount;
+        }
+
+        var counters = GetLatestCounters();
+        return new TraceSummary(
+            totalEvents,
+            counts,
+            Elapsed,
+            _peakWorkingSetMb,
+            _peakGcHeapMb,
+            counters?.ExceptionCount ?? 0,
+            (counters?.Gen0Collections ?? 0) + (counters?.Gen1Collections ?? 0) + (counters?.Gen2Collections ?? 0),
+            jitted);
+    }
+
+    /// <summary>Launches the target process and starts collecting events.</summary>
+    public void Start()
+    {
+        _cts = new CancellationTokenSource();
+        _stopwatch = Stopwatch.StartNew();
+
+        // Launch the target process (no diagnostic port — PID-based connect)
+        var psi = new ProcessStartInfo
+        {
+            FileName = _isExe ? _assemblyPath : "dotnet",
+            Arguments = _isExe ? _arguments : $"exec \"{_assemblyPath}\" {_arguments}",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        _process = Process.Start(psi);
+
+        if (_process is null)
+        {
+            ErrorMessage = "Failed to start process";
+            ProcessState = TraceProcessState.Error;
+            MarkDirty();
+            return;
+        }
+
+        // Capture stdout/stderr on background threads
+        var startTime = _stopwatch;
+        Task.Run(() => ReadOutput(_process.StandardOutput, false, startTime));
+        Task.Run(() => ReadOutput(_process.StandardError, true, startTime));
+
+        // Handle process exit
+        _process.EnableRaisingEvents = true;
+        _process.Exited += (_, _) =>
+        {
+            if (ProcessState == TraceProcessState.Running)
+            {
+                ProcessState = TraceProcessState.Exited;
+                ExitCode = _process.HasExited ? _process.ExitCode : null;
+                _stopwatch?.Stop();
+                // Stop the EventPipe session to unblock source.Process()
+                try { _session?.Stop(); } catch { }
+                // Direct invalidate — don't rely on timer (it may be disposed by Stop())
+                _app.Invalidate();
+            }
+        };
+
+        ProcessState = TraceProcessState.Starting;
+        MarkDirty();
+
+        // Invalidation timer (100ms interval). While the process is Running,
+        // always invalidate so the elapsed time display stays current.
+        // Otherwise, only invalidate when the dirty flag is set.
+        _invalidateTimer = new Timer(_ =>
+        {
+            if (Interlocked.Exchange(ref _dirty, 0) == 1
+                || ProcessState == TraceProcessState.Running)
+                _app.Invalidate();
+        }, null, 0, 100);
+
+        // Connection + event processing on background task.
+        // PID-based connect with retry: the runtime's diagnostic pipe takes
+        // a moment to become available after process launch.
+        var providers = BuildProviders();
+        var pid = _process.Id;
+        _processingTask = Task.Run(async () =>
+        {
+            try
+            {
+                // Retry connecting — the diagnostic IPC endpoint may not be
+                // available immediately after process start
+                DiagnosticsClient? client = null;
+                EventPipeSession? session = null;
+
+                for (var attempt = 0; attempt < MaxConnectRetries; attempt++)
+                {
+                    _cts.Token.ThrowIfCancellationRequested();
+
+                    if (_process.HasExited)
+                    {
+                        // Process exited before we connected — short-lived program
+                        ProcessState = TraceProcessState.Exited;
+                        ExitCode = _process.ExitCode;
+                        return;
+                    }
+
+                    try
+                    {
+                        client = new DiagnosticsClient(pid);
+                        // requestRundown: false — lower overhead, we accept missing
+                        // pre-connect JIT events as a trade-off
+                        session = client.StartEventPipeSession(providers, requestRundown: false);
+                        break; // connected
+                    }
+                    catch (ServerNotAvailableException)
+                    {
+                        // Runtime diagnostic pipe not ready yet — wait and retry
+                        await Task.Delay(ConnectRetryDelayMs, _cts.Token);
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        // Process likely exiting during connect attempt
+                        await Task.Delay(ConnectRetryDelayMs, _cts.Token);
+                    }
+                }
+
+                if (session is null)
+                {
+                    ErrorMessage = "Timed out connecting to runtime diagnostics (5s). Is this a valid .NET assembly?";
+                    ProcessState = TraceProcessState.Error;
+                    return;
+                }
+
+                _session = session;
+                ProcessState = TraceProcessState.Running;
+                MarkDirty();
+
+                // Process events — blocks until session ends
+                ProcessEventsLoop(session);
+            }
+            catch (OperationCanceledException) { /* user cancelled */ }
+            catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
+            {
+                // Expected: process exited (pipe broke) or user cancelled
+                if (ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+                {
+                    ProcessState = TraceProcessState.Exited;
+                    ExitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+                ProcessState = TraceProcessState.Error;
+            }
+            finally
+            {
+                _stopwatch?.Stop();
+                MarkDirty();
+            }
+        });
+    }
+
+    /// <summary>Stops the traced process and event collection.</summary>
+    public void Stop()
+    {
+        _cts?.Cancel();
+        try { _session?.Stop(); } catch { }
+
+        if (_process is { HasExited: false } p)
+        {
+            // Process.Kill() sends SIGKILL on Unix, TerminateProcess on Windows.
+            // Both are immediate and forceful. There is no cross-platform
+            // graceful shutdown for arbitrary console processes.
+            try { p.Kill(entireProcessTree: true); } catch { }
+            try { p.WaitForExit(5000); } catch { }
+        }
+
+        _invalidateTimer?.Dispose();
+        _invalidateTimer = null;
+        _stopwatch?.Stop();
+
+        if (ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+        {
+            ProcessState = TraceProcessState.Exited;
+            ExitCode = _process?.HasExited == true ? _process.ExitCode : null;
+        }
+
+        MarkDirty();
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _process?.Dispose();
+        _cts?.Dispose();
+    }
+
+    // --- Private implementation ---
+
+    private void MarkDirty() => Volatile.Write(ref _dirty, 1);
+
+    private static List<EventPipeProvider> BuildProviders() =>
+    [
+        new("Microsoft-Windows-DotNETRuntime",
+            EventLevel.Informational,
+            (long)(ClrTraceEventParser.Keywords.GC          // 0x1
+                 | ClrTraceEventParser.Keywords.Jit         // 0x10
+                 | ClrTraceEventParser.Keywords.Exception   // 0x8000
+                 | ClrTraceEventParser.Keywords.Loader      // 0x8
+                 | ClrTraceEventParser.Keywords.Threading)), // 0x10000
+
+        new("System.Runtime",
+            EventLevel.Informational, 0L,
+            new Dictionary<string, string> { ["EventCounterIntervalSec"] = "1" }),
+
+        new("System.Net.Http",
+            EventLevel.Informational, long.MaxValue),
+
+        new("System.Net.Sockets",
+            EventLevel.Informational, long.MaxValue)
+    ];
+
+    private void ProcessEventsLoop(EventPipeSession session)
+    {
+        using var source = new EventPipeEventSource(session.EventStream);
+
+        // CLR events
+        source.Clr.GCStart += data =>
+            AddEvent(TraceEventCategory.GC, "GCStart", $"Gen {data.Depth}, Reason: {data.Reason}");
+
+        source.Clr.GCStop += data =>
+            AddEvent(TraceEventCategory.GC, "GCStop", $"Gen {data.Depth}");
+
+        source.Clr.GCHeapStats += data =>
+            AddEvent(TraceEventCategory.GC, "GCHeapStats",
+                $"Gen0: {data.GenerationSize0 / 1024}KB, Gen1: {data.GenerationSize1 / 1024}KB, Gen2: {data.GenerationSize2 / 1024}KB");
+
+        source.Clr.MethodJittingStarted += data =>
+        {
+            lock (_eventLock) _jittedMethodCount++;
+            AddEvent(TraceEventCategory.JIT, "MethodJitting",
+                $"{data.MethodNamespace}.{data.MethodName}");
+        };
+
+        source.Clr.ExceptionStart += data =>
+            AddEvent(TraceEventCategory.Exception, "ExceptionThrown", data.ExceptionType);
+
+        source.Clr.LoaderAssemblyLoad += data =>
+            AddEvent(TraceEventCategory.Loader, "AssemblyLoad",
+                TruncateAssemblyName(data.FullyQualifiedAssemblyName));
+
+        source.Clr.ThreadPoolWorkerThreadStart += data =>
+            AddEvent(TraceEventCategory.Threading, "ThreadPoolStart",
+                $"Active: {data.ActiveWorkerThreadCount}");
+
+        // Dynamic events (counters, HTTP, sockets)
+        source.Dynamic.All += HandleDynamicEvent;
+
+        try { source.Process(); }
+        catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
+        {
+            // Expected: process exited, pipe broke
+        }
+    }
+
+    private void HandleDynamicEvent(Microsoft.Diagnostics.Tracing.TraceEvent data)
+    {
+        if (data.ProviderName == "System.Runtime" && data.EventName == "EventCounters")
+        {
+            var snapshot = ParseCounterEvent(data);
+            if (snapshot != null)
+            {
+                Interlocked.Exchange(ref _latestCounters, snapshot);
+                if (snapshot.WorkingSetMb > _peakWorkingSetMb)
+                    _peakWorkingSetMb = snapshot.WorkingSetMb;
+                if (snapshot.GcHeapSizeMb > _peakGcHeapMb)
+                    _peakGcHeapMb = snapshot.GcHeapSizeMb;
+            }
+            return;
+        }
+
+        if (data.ProviderName == "System.Net.Http")
+        {
+            AddEvent(TraceEventCategory.Http, data.EventName, data.ToString());
+            return;
+        }
+
+        if (data.ProviderName == "System.Net.Sockets")
+        {
+            AddEvent(TraceEventCategory.Socket, data.EventName, data.ToString());
+        }
+    }
+
+    // The System.Runtime EventCounters payload structure:
+    //   data.PayloadByName("Payload") → IDictionary<string, object>
+    //   Inside: "Name" (string), "DisplayName" (string),
+    //           "Mean" (double, for gauge counters like cpu-usage)
+    //           "Increment" (double, for rate counters like gen-0-gc-count)
+    //           "CounterType" → "Mean" or "Sum"
+    //
+    // IMPORTANT: Counter names and payload shape vary across .NET versions.
+    // Be defensive: use TryGetValue, default to 0 for missing counters,
+    // don't crash on unexpected names. Known counters:
+    //   cpu-usage, working-set, gc-heap-size, gen-0-gc-count,
+    //   gen-1-gc-count, gen-2-gc-count, threadpool-thread-count,
+    //   threadpool-queue-length, exception-count, active-timer-count
+    // Some of these may not exist on older runtimes.
+    // working-set and gc-heap-size are reported in MB on modern runtimes.
+    private CounterSnapshot? ParseCounterEvent(Microsoft.Diagnostics.Tracing.TraceEvent data)
+    {
+        // EventCounters have a NESTED payload structure:
+        //   PayloadValue(0) → outer IDictionary with a "Payload" key
+        //   outer["Payload"] → inner IDictionary with Name, CounterType, Mean/Increment
+        if (data.PayloadValue(0) is not IDictionary<string, object> outerPayload)
+            return BuildCounterSnapshot();
+
+        if (!outerPayload.TryGetValue("Payload", out var innerObj)
+            || innerObj is not IDictionary<string, object> payload)
+            return BuildCounterSnapshot();
+
+        if (!payload.TryGetValue("Name", out var counterNameRaw) || counterNameRaw is not string counterName)
+            return BuildCounterSnapshot();
+
+        if (!payload.TryGetValue("CounterType", out var counterTypeRaw) || counterTypeRaw is not string counterType)
+            return BuildCounterSnapshot();
+
+        if (counterType.Equals("Mean", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryGetDouble(payload, "Mean", out var meanValue))
+                _counterAccumulators[counterName] = meanValue;
+        }
+        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryGetDouble(payload, "Increment", out var incrementValue))
+                _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
+        }
+
+        return BuildCounterSnapshot();
+    }
+
+    private CounterSnapshot BuildCounterSnapshot()
+    {
+        var gen0Collections = ToNonNegativeLong(ReadCounter("gen-0-gc-count"));
+        var gen1Collections = ToNonNegativeLong(ReadCounter("gen-1-gc-count"));
+        var gen2Collections = ToNonNegativeLong(ReadCounter("gen-2-gc-count"));
+        var threadPoolThreadCount = ToNonNegativeInt(ReadCounter("threadpool-thread-count"));
+        var threadPoolQueueLength = ToNonNegativeLong(ReadCounter("threadpool-queue-length"));
+        var exceptionCount = ToNonNegativeLong(ReadCounter("exception-count"));
+        var activeTimerCount = ToNonNegativeLong(ReadCounter("active-timer-count"));
+
+        return new CounterSnapshot(
+            Elapsed,
+            CpuUsagePercent: ReadCounter("cpu-usage"),
+            WorkingSetMb: ReadCounter("working-set"),
+            GcHeapSizeMb: ReadCounter("gc-heap-size"),
+            Gen0Collections: gen0Collections,
+            Gen1Collections: gen1Collections,
+            Gen2Collections: gen2Collections,
+            ThreadPoolThreadCount: threadPoolThreadCount,
+            ThreadPoolQueueLength: threadPoolQueueLength,
+            ExceptionCount: exceptionCount,
+            ActiveTimerCount: activeTimerCount);
+    }
+
+    private double ReadCounter(string name) =>
+        _counterAccumulators.TryGetValue(name, out var value) ? value : 0d;
+
+    private static bool TryGetDouble(IDictionary<string, object> payload, string key, out double value)
+    {
+        value = 0d;
+        if (!payload.TryGetValue(key, out var raw) || raw is null)
+            return false;
+
+        switch (raw)
+        {
+            case double d:
+                value = d;
+                return true;
+            case float f:
+                value = f;
+                return true;
+            case int i:
+                value = i;
+                return true;
+            case long l:
+                value = l;
+                return true;
+            case decimal m:
+                value = (double)m;
+                return true;
+            case string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed):
+                value = parsed;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static long ToNonNegativeLong(double value)
+    {
+        if (value <= 0) return 0;
+        return (long)Math.Round(value, MidpointRounding.AwayFromZero);
+    }
+
+    private static int ToNonNegativeInt(double value)
+    {
+        if (value <= 0) return 0;
+        return (int)Math.Round(value, MidpointRounding.AwayFromZero);
+    }
+
+    private void AddEvent(TraceEventCategory category, string eventName, string detail)
+    {
+        var entry = new TraceEventEntry(Elapsed, category, eventName, detail);
+        lock (_eventLock)
+        {
+            _eventRing[_eventHead % MaxEvents] = entry;
+            _eventHead++;
+            if (_eventCount < MaxEvents) _eventCount++;
+
+            _eventCounts.TryGetValue(category, out var count);
+            _eventCounts[category] = count + 1;
+        }
+        MarkDirty();
+    }
+
+    private void ReadOutput(StreamReader reader, bool isStdErr, Stopwatch timer)
+    {
+        try
+        {
+            while (reader.ReadLine() is { } line)
+            {
+                _outputQueue.Enqueue(new OutputLine(timer.Elapsed, isStdErr, line));
+                while (_outputQueue.Count > MaxOutputLines)
+                    _outputQueue.TryDequeue(out _);
+                MarkDirty();
+            }
+        }
+        catch (Exception) { /* stream closed */ }
+    }
+
+    private static string TruncateAssemblyName(string name)
+    {
+        var comma = name.IndexOf(',');
+        return comma > 0 ? name[..comma] : name;
+    }
+}
