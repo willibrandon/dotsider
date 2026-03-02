@@ -151,6 +151,19 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(exceptionEvents, summary.TotalExceptions);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task ComplexApp_ShortLived_StillCapturesEvents()
+    {
+        var tracer = CreateTracer(samples.ComplexAppDll);
+        tracer.Start();
+        await TestHelpers.WaitUntilAsync(
+            () => tracer.ProcessState == TraceProcessState.Exited,
+            TimeSpan.FromSeconds(20));
+        Assert.Equal(0, tracer.ExitCode);
+        var events = tracer.GetEvents();
+        Assert.NotEmpty(events);
+    }
+
     // --- Lifecycle edge cases ---
 
     [Fact(Timeout = 30_000)]

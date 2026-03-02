@@ -126,7 +126,8 @@ public sealed class RuntimeTracer : IDisposable
         _cts = new CancellationTokenSource();
         _stopwatch = Stopwatch.StartNew();
 
-        // Launch the target process (no diagnostic port — PID-based connect)
+        // Launch with diagnostic port suspend so we can attach EventPipe
+        // before Main() runs — this captures events even for short-lived processes
         var psi = new ProcessStartInfo
         {
             FileName = _isExe ? _assemblyPath : "dotnet",
@@ -135,6 +136,7 @@ public sealed class RuntimeTracer : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        psi.Environment["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
         _process = Process.Start(psi);
 
         if (_process is null)
@@ -180,8 +182,8 @@ public sealed class RuntimeTracer : IDisposable
         }, null, 0, 100);
 
         // Connection + event processing on background task.
-        // PID-based connect with retry: the runtime's diagnostic pipe takes
-        // a moment to become available after process launch.
+        // The process is suspended (DOTNET_DefaultDiagnosticPortSuspend=1)
+        // so it won't exit while we're connecting.
         var providers = BuildProviders();
         var pid = _process.Id;
         _processingTask = Task.Run(async () =>
@@ -197,19 +199,9 @@ public sealed class RuntimeTracer : IDisposable
                 {
                     _cts.Token.ThrowIfCancellationRequested();
 
-                    if (_process.HasExited)
-                    {
-                        // Process exited before we connected — short-lived program
-                        ProcessState = TraceProcessState.Exited;
-                        ExitCode = _process.ExitCode;
-                        return;
-                    }
-
                     try
                     {
                         client = new DiagnosticsClient(pid);
-                        // requestRundown: false — lower overhead, we accept missing
-                        // pre-connect JIT events as a trade-off
                         session = client.StartEventPipeSession(providers, requestRundown: false);
                         break; // connected
                     }
@@ -220,7 +212,6 @@ public sealed class RuntimeTracer : IDisposable
                     }
                     catch (EndOfStreamException)
                     {
-                        // Process likely exiting during connect attempt
                         await Task.Delay(ConnectRetryDelayMs, _cts.Token);
                     }
                 }
@@ -229,12 +220,17 @@ public sealed class RuntimeTracer : IDisposable
                 {
                     ErrorMessage = "Timed out connecting to runtime diagnostics (5s). Is this a valid .NET assembly?";
                     ProcessState = TraceProcessState.Error;
+                    // Kill suspended process so it doesn't hang
+                    try { _process.Kill(); } catch { }
                     return;
                 }
 
                 _session = session;
                 ProcessState = TraceProcessState.Running;
                 MarkDirty();
+
+                // Resume the suspended runtime now that EventPipe is attached
+                client!.ResumeRuntime();
 
                 // Process events — blocks until session ends
                 ProcessEventsLoop(session);
