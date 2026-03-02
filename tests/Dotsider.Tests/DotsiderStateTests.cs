@@ -181,5 +181,6 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

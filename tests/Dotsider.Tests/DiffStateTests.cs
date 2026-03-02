@@ -76,5 +76,6 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

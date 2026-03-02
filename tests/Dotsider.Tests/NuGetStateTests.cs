@@ -78,5 +78,6 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

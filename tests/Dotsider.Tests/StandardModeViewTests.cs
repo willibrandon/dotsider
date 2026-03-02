@@ -229,5 +229,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
