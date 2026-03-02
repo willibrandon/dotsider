@@ -137,6 +137,20 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(tracer.ErrorMessage);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task Summary_TotalExceptions_MatchesEventCount()
+    {
+        var tracer = CreateTracer(samples.HelloWorldDll);
+        tracer.Start();
+        await TestHelpers.WaitUntilAsync(
+            () => tracer.ProcessState == TraceProcessState.Exited,
+            TimeSpan.FromSeconds(20));
+        var summary = tracer.GetSummary();
+        var exceptionEvents = summary.EventsByCategory
+            .GetValueOrDefault(TraceEventCategory.Exception);
+        Assert.Equal(exceptionEvents, summary.TotalExceptions);
+    }
+
     // --- Lifecycle edge cases ---
 
     [Fact(Timeout = 30_000)]

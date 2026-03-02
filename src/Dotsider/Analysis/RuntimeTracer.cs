@@ -108,13 +108,14 @@ public sealed class RuntimeTracer : IDisposable
         }
 
         var counters = GetLatestCounters();
+        var exceptionEvents = counts.GetValueOrDefault(TraceEventCategory.Exception);
         return new TraceSummary(
             totalEvents,
             counts,
             Elapsed,
             _peakWorkingSetMb,
             _peakGcHeapMb,
-            counters?.ExceptionCount ?? 0,
+            exceptionEvents,
             (counters?.Gen0Collections ?? 0) + (counters?.Gen1Collections ?? 0) + (counters?.Gen2Collections ?? 0),
             jitted);
     }
