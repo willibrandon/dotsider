@@ -1,0 +1,13 @@
+{
+  "appName": "ComplexApp",
+  "version": "1.0.0",
+  "features": {
+    "logging": true,
+    "caching": true,
+    "maxRetries": 3
+  },
+  "endpoints": [
+    "https://api.example.com/v1",
+    "https://api.example.com/v2"
+  ]
+}

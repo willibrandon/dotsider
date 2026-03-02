@@ -66,8 +66,7 @@
   │ Loading spinner       │ Spinner / Progress (indeterminate)         │
   └───────────────────────┴────────────────────────────────────────────┘
 
-  Plus you get things binsider doesn't have: charts for visualizing section sizes (BreakdownChart, ColumnChart), sixel for rendering embedded image resources, drag-and-drop for rearranging
-   views, and the Responsive widget for adapting layout to terminal size.
+  Plus you get things binsider doesn't have: charts for visualizing section sizes (BreakdownChart, ColumnChart), sixel for rendering embedded image resources, drag-and-drop for rearranging views, and the Responsive widget for adapting layout to terminal size.
 
   Key .NET APIs (no heavy dependencies needed)
 

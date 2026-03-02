@@ -1,0 +1,453 @@
+using Dotsider.Analysis.Models;
+using Hex1b;
+using Hex1b.Input;
+using Hex1b.Layout;
+using Hex1b.Widgets;
+
+namespace Dotsider.Views;
+
+/// <summary>
+/// Builds the PE/Metadata tab (Tab 2), showing PE headers, CLR header,
+/// and sub-tabbed metadata tables for sections, types, methods, and more.
+/// </summary>
+public static class PeMetadataView
+{
+    /// <summary>
+    /// Builds the PE/Metadata view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The shared application state.</param>
+    /// <returns>The root widget for the PE/Metadata tab.</returns>
+    public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var analyzer = state.Analyzer;
+
+        return ctx.ZStack(z =>
+        [
+            // Layer 0: Main content
+            z.VStack(outer =>
+            {
+                var widgets = new List<Hex1bWidget>();
+
+                // Top section: PE Headers | CLR Header (side by side)
+                widgets.Add(outer.HSplitter(
+                    left =>
+                    [
+                        left.Border(
+                            left.VScrollPanel(scroll =>
+                            {
+                                var lines = new List<Hex1bWidget>();
+                                if (analyzer.PeHeaders is { } pe)
+                                {
+                                    lines.Add(PeLine(scroll, "Machine", pe.Machine.ToString()));
+                                    lines.Add(PeLine(scroll, "Magic", pe.Magic.ToString()));
+                                    lines.Add(PeLine(scroll, "Characteristics", pe.Characteristics.ToString()));
+                                    lines.Add(PeLine(scroll, "Timestamp", $"0x{pe.TimeDateStamp:X8}"));
+                                    lines.Add(PeLine(scroll, "Linker Version", $"{pe.MajorLinkerVersion}.{pe.MinorLinkerVersion}"));
+                                    lines.Add(PeLine(scroll, "Size of Code", FormatSize(pe.SizeOfCode, state)));
+                                    lines.Add(PeLine(scroll, "Entry Point RVA", $"0x{pe.EntryPointRva:X8}"));
+                                    lines.Add(PeLine(scroll, "Image Base", $"0x{pe.ImageBase:X16}"));
+                                    lines.Add(PeLine(scroll, "Section Alignment", FormatSize(pe.SectionAlignment, state)));
+                                    lines.Add(PeLine(scroll, "File Alignment", FormatSize(pe.FileAlignment, state)));
+                                    lines.Add(PeLine(scroll, "Size of Image", FormatSize(pe.SizeOfImage, state)));
+                                    lines.Add(PeLine(scroll, "Size of Headers", FormatSize(pe.SizeOfHeaders, state)));
+                                    lines.Add(PeLine(scroll, "Subsystem", pe.Subsystem.ToString()));
+                                    lines.Add(PeLine(scroll, "DLL Characteristics", pe.DllCharacteristics.ToString()));
+                                    lines.Add(PeLine(scroll, "Number of Sections", pe.NumberOfSections.ToString()));
+                                }
+                                else
+                                {
+                                    lines.Add(scroll.Text("  No PE headers available"));
+                                }
+                                return lines.ToArray();
+                            })
+                        ).Title(" PE Headers ").Fill()
+                    ],
+                    right =>
+                    [
+                        right.Border(
+                            right.VScrollPanel(scroll =>
+                            {
+                                var lines = new List<Hex1bWidget>();
+                                if (analyzer.ClrHeader is { } clr)
+                                {
+                                    lines.Add(PeLine(scroll, "Runtime Version", $"{clr.MajorRuntimeVersion}.{clr.MinorRuntimeVersion}"));
+                                    lines.Add(PeLine(scroll, "Metadata RVA", $"0x{clr.MetadataRva:X8}"));
+                                    lines.Add(PeLine(scroll, "Metadata Size", FormatSize(clr.MetadataSize, state)));
+                                    lines.Add(PeLine(scroll, "Flags", clr.Flags.ToString()));
+                                    lines.Add(PeLine(scroll, "Entry Point Token", $"0x{clr.EntryPointToken:X8}"));
+                                    lines.Add(PeLine(scroll, "Resources RVA", $"0x{clr.ResourcesRva:X8}"));
+                                    lines.Add(PeLine(scroll, "Resources Size", FormatSize(clr.ResourcesSize, state)));
+                                    lines.Add(PeLine(scroll, "Strong Name RVA", $"0x{clr.StrongNameSignatureRva:X8}"));
+                                    lines.Add(PeLine(scroll, "Strong Name Size", FormatSize(clr.StrongNameSignatureSize, state)));
+                                }
+                                else
+                                {
+                                    lines.Add(scroll.Text("  No CLR header (not a .NET assembly)"));
+                                }
+                                return lines.ToArray();
+                            })
+                        ).Title(" CLR Header ").Fill()
+                    ],
+                    leftWidth: 50).FixedHeight(12));
+
+                // Search bar (conditional)
+                if (state.PeSearchActive)
+                {
+                    widgets.Add(outer.HStack(h =>
+                    [
+                        h.Text(" / "),
+                        h.TextBox(state.PeSearchQuery ?? "")
+                            .OnTextChanged(e => state.PeSearchQuery = e.NewText)
+                            .Fill()
+                    ]).FixedHeight(1));
+                }
+
+                // Bottom section: Metadata tables in sub-tabs
+                widgets.Add(outer.TabPanel(tp =>
+                [
+                    tp.Tab("Sections", t => [BuildSectionsTable(t, state)])
+                        .Selected(state.PeSubTab == 0),
+                    tp.Tab("TypeDef", t => [BuildTypeDefsTable(t, state)])
+                        .Selected(state.PeSubTab == 1),
+                    tp.Tab("MethodDef", t => [BuildMethodDefsTable(t, state)])
+                        .Selected(state.PeSubTab == 2),
+                    tp.Tab("TypeRef", t => [BuildTypeRefsTable(t, state)])
+                        .Selected(state.PeSubTab == 3),
+                    tp.Tab("MemberRef", t => [BuildMemberRefsTable(t, state)])
+                        .Selected(state.PeSubTab == 4),
+                    tp.Tab("Attributes", t => [BuildAttributesTable(t, state)])
+                        .Selected(state.PeSubTab == 5),
+                    tp.Tab("Resources", t => [BuildResourcesTable(t, state)])
+                        .Selected(state.PeSubTab == 6)
+                ])
+                .OnSelectionChanged(e =>
+                {
+                    state.PeSubTab = e.SelectedIndex;
+                    state.PeFocusedKey = null;
+                })
+                .Compact()
+                .Fill());
+
+                return widgets.ToArray();
+            })
+            .WithInputBindings(bindings =>
+            {
+                bindings.Key(Hex1bKey.S).Action(_ =>
+                {
+                    state.HumanReadableSizes = !state.HumanReadableSizes;
+                    state.App.Invalidate();
+                }, "Toggle size format");
+                bindings.Key(Hex1bKey.OemQuestion).Action(_ =>
+                {
+                    state.PeSearchActive = !state.PeSearchActive;
+                    if (!state.PeSearchActive) state.PeSearchQuery = null;
+                    state.App.Invalidate();
+                }, "Toggle search");
+                bindings.Key(Hex1bKey.Escape).Action(_ =>
+                {
+                    if (state.PeDetailContent is not null)
+                    {
+                        state.PeDetailContent = null;
+                        state.App.Invalidate();
+                    }
+                }, "Close detail");
+            })
+            .Fill(),
+
+            // Layer 1: Detail popup overlay (conditional)
+            state.PeDetailContent is not null
+                ? z.Backdrop(
+                    z.Border(
+                        z.VScrollPanel(scroll =>
+                            state.PeDetailContent.Split('\n')
+                                .Select(line => scroll.Text($"  {line}"))
+                                .ToArray()
+                        )
+                    ).Title(" Detail ").FixedWidth(60).FixedHeight(12)
+                ).OnClickAway(() =>
+                {
+                    state.PeDetailContent = null;
+                    state.App.Invalidate();
+                })
+                : null
+        ]).Fill();
+    }
+
+    private static Hex1bWidget BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.Sections, state.PeSearchQuery,
+            s => $"{s.Name} {s.Characteristics}");
+
+        return ctx.Table(data)
+            .RowKey(s => s.Name)
+            .Header(h =>
+            [
+                h.Cell("Name").Width(SizeHint.Fixed(12)),
+                h.Cell("Virtual Addr").Width(SizeHint.Fixed(14)),
+                h.Cell("Virtual Size").Width(SizeHint.Fixed(14)),
+                h.Cell("Raw Offset").Width(SizeHint.Fixed(14)),
+                h.Cell("Raw Size").Width(SizeHint.Fixed(14)),
+                h.Cell("Characteristics").Width(SizeHint.Fill)
+            ])
+            .Row((r, s, _) =>
+            [
+                r.Cell(s.Name),
+                r.Cell($"0x{s.VirtualAddress:X8}"),
+                r.Cell(FormatSize(s.VirtualSize, state)),
+                r.Cell($"0x{s.RawDataOffset:X8}"),
+                r.Cell(FormatSize(s.RawDataSize, state)),
+                r.Cell(s.Characteristics.ToString())
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, s) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"Section: {s.Name}",
+                    $"Virtual Address: 0x{s.VirtualAddress:X8}",
+                    $"Virtual Size: {s.VirtualSize} (0x{s.VirtualSize:X})",
+                    $"Raw Offset: 0x{s.RawDataOffset:X8}",
+                    $"Raw Size: {s.RawDataSize} (0x{s.RawDataSize:X})",
+                    $"Characteristics: {s.Characteristics}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.TypeDefs, state.PeSearchQuery,
+            t => $"{t.FullName} {t.BaseType} {t.Attributes}");
+
+        return ctx.Table(data)
+            .RowKey(t => t.Token)
+            .Header(h =>
+            [
+                h.Cell("Token").Width(SizeHint.Fixed(12)),
+                h.Cell("Full Name").Width(SizeHint.Fill),
+                h.Cell("Base Type").Width(SizeHint.Fixed(30)),
+                h.Cell("Attributes").Width(SizeHint.Fixed(20)),
+                h.Cell("Methods").Width(SizeHint.Fixed(8)),
+                h.Cell("Fields").Width(SizeHint.Fixed(8))
+            ])
+            .Row((r, t, _) =>
+            [
+                r.Cell($"0x{t.Token:X8}"),
+                r.Cell(t.FullName),
+                r.Cell(t.BaseType ?? ""),
+                r.Cell(t.Attributes.ToString()),
+                r.Cell(t.MethodCount.ToString()),
+                r.Cell(t.FieldCount.ToString())
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, t) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"TypeDef: {t.FullName}",
+                    $"Token: 0x{t.Token:X8}",
+                    $"Base Type: {t.BaseType ?? "none"}",
+                    $"Attributes: {t.Attributes}",
+                    $"Methods: {t.MethodCount}",
+                    $"Fields: {t.FieldCount}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.MethodDefs, state.PeSearchQuery,
+            m => $"{m.DeclaringType} {m.Name} {m.Signature}");
+
+        return ctx.Table(data)
+            .RowKey(m => m.Token)
+            .Header(h =>
+            [
+                h.Cell("Token").Width(SizeHint.Fixed(12)),
+                h.Cell("Type").Width(SizeHint.Fixed(30)),
+                h.Cell("Name").Width(SizeHint.Fixed(25)),
+                h.Cell("Signature").Width(SizeHint.Fill),
+                h.Cell("Attributes").Width(SizeHint.Fixed(20)),
+                h.Cell("RVA").Width(SizeHint.Fixed(12))
+            ])
+            .Row((r, m, _) =>
+            [
+                r.Cell($"0x{m.Token:X8}"),
+                r.Cell(m.DeclaringType),
+                r.Cell(m.Name),
+                r.Cell(m.Signature),
+                r.Cell(m.Attributes.ToString()),
+                r.Cell(m.Rva == 0 ? "" : $"0x{m.Rva:X8}")
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, m) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"MethodDef: {m.DeclaringType}::{m.Name}",
+                    $"Token: 0x{m.Token:X8}",
+                    $"Signature: {m.Signature}",
+                    $"Attributes: {m.Attributes}",
+                    $"Impl: {m.ImplAttributes}",
+                    $"RVA: 0x{m.Rva:X8}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.TypeRefs, state.PeSearchQuery,
+            t => $"{t.FullName} {t.ResolutionScope}");
+
+        return ctx.Table(data)
+            .RowKey(t => t.Token)
+            .Header(h =>
+            [
+                h.Cell("Token").Width(SizeHint.Fixed(12)),
+                h.Cell("Full Name").Width(SizeHint.Fill),
+                h.Cell("Resolution Scope").Width(SizeHint.Fixed(30))
+            ])
+            .Row((r, t, _) =>
+            [
+                r.Cell($"0x{t.Token:X8}"),
+                r.Cell(t.FullName),
+                r.Cell(t.ResolutionScope)
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, t) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"TypeRef: {t.FullName}",
+                    $"Token: 0x{t.Token:X8}",
+                    $"Namespace: {t.Namespace}",
+                    $"Name: {t.Name}",
+                    $"Resolution Scope: {t.ResolutionScope}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.MemberRefs, state.PeSearchQuery,
+            m => $"{m.DeclaringType} {m.Name}");
+
+        return ctx.Table(data)
+            .RowKey(m => m.Token)
+            .Header(h =>
+            [
+                h.Cell("Token").Width(SizeHint.Fixed(12)),
+                h.Cell("Declaring Type").Width(SizeHint.Fixed(30)),
+                h.Cell("Name").Width(SizeHint.Fill)
+            ])
+            .Row((r, m, _) =>
+            [
+                r.Cell($"0x{m.Token:X8}"),
+                r.Cell(m.DeclaringType),
+                r.Cell(m.Name)
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, m) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"MemberRef: {m.DeclaringType}::{m.Name}",
+                    $"Token: 0x{m.Token:X8}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.CustomAttributes, state.PeSearchQuery,
+            a => $"{a.Parent} {a.Constructor} {a.Value}");
+
+        return ctx.Table(data)
+            .RowKey(a => $"{a.Parent}|{a.Constructor}")
+            .Header(h =>
+            [
+                h.Cell("Parent").Width(SizeHint.Fixed(30)),
+                h.Cell("Constructor").Width(SizeHint.Fill),
+                h.Cell("Value").Width(SizeHint.Fixed(40))
+            ])
+            .Row((r, a, _) =>
+            [
+                r.Cell(a.Parent),
+                r.Cell(a.Constructor),
+                r.Cell(a.Value ?? "")
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, a) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "Custom Attribute",
+                    $"Parent: {a.Parent}",
+                    $"Constructor: {a.Constructor}",
+                    $"Value: {a.Value ?? "null"}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static Hex1bWidget BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var data = ApplySearch(state.Analyzer.Resources, state.PeSearchQuery,
+            r => $"{r.Name} {r.Visibility}");
+
+        return ctx.Table(data)
+            .RowKey(r => r.Name)
+            .Header(h =>
+            [
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Visibility").Width(SizeHint.Fixed(10)),
+                h.Cell("Offset").Width(SizeHint.Fixed(12)),
+                h.Cell("Size").Width(SizeHint.Fixed(12)),
+                h.Cell("Linked").Width(SizeHint.Fixed(8))
+            ])
+            .Row((r, res, _) =>
+            [
+                r.Cell(res.Name),
+                r.Cell(res.Visibility),
+                r.Cell($"0x{res.Offset:X8}"),
+                r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
+                r.Cell(res.IsLinked ? "Yes" : "No")
+            ])
+            .Focus(state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, res) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    $"Resource: {res.Name}",
+                    $"Visibility: {res.Visibility}",
+                    $"Offset: 0x{res.Offset:X8}",
+                    $"Size: {(res.Size >= 0 ? res.Size.ToString() : "unknown")}",
+                    $"Linked: {res.IsLinked}");
+            })
+            .Compact().FillHeight();
+    }
+
+    private static string FormatSize(int size, DotsiderState state)
+    {
+        return state.HumanReadableSizes
+            ? DotsiderState.FormatSize(size)
+            : $"0x{size:X}";
+    }
+
+    private static IReadOnlyList<T> ApplySearch<T>(
+        IReadOnlyList<T> items, string? query, Func<T, string> toSearchable)
+    {
+        if (string.IsNullOrEmpty(query)) return items;
+        return items
+            .Where(i => toSearchable(i).Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private static Hex1bWidget PeLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
+    {
+        return ctx.HStack(row =>
+        [
+            row.Text($"  {label}: ").FixedWidth(22),
+            row.Text(value)
+        ]).FixedHeight(1);
+    }
+}

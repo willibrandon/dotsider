@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>RichLibrary</AssemblyName>
+    <RootNamespace>RichLibrary</RootNamespace>
+    <AssemblyVersion>3.0.0.0</AssemblyVersion>
+    <Version>3.0.0</Version>
+    <Description>V2 of RichLibrary with API changes for diff testing.</Description>
+    <Authors>Dotsider Test Suite</Authors>
+    <Company>Dotsider</Company>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>

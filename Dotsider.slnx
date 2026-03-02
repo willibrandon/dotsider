@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="src/Dotsider/Dotsider.csproj" />
+
+  <Folder Name="/samples/">
+    <Project Path="samples/HelloWorld/HelloWorld.csproj" />
+    <Project Path="samples/RichLibrary/RichLibrary.csproj" />
+    <Project Path="samples/ComplexApp/ComplexApp.csproj" />
+    <Project Path="samples/RichLibraryV2/RichLibraryV2.csproj" />
+  </Folder>
+</Solution>

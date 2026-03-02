@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyVersion>2.5.1.0</AssemblyVersion>
+    <Version>2.5.1</Version>
+    <Description>A rich .NET class library for testing dotsider analysis features.</Description>
+    <Authors>Dotsider Test Suite</Authors>
+    <Company>Dotsider</Company>
+    <PackageId>RichLibrary</PackageId>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+  </ItemGroup>
+</Project>
