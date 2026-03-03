@@ -18,6 +18,12 @@ public static class DependencyGraphView
     private static readonly Hex1bColor EdgeColor = Hex1bColor.FromRgb(80, 80, 100);
     private static readonly Hex1bColor HighlightColor = Hex1bColor.FromRgb(255, 220, 100);
 
+    /// <summary>
+    /// Builds the Dependency Graph view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The shared application state.</param>
+    /// <returns>The root widget for the Dependency Graph tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var (nodes, edges) = state.CachedGraph ??= DependencyGraphBuilder.Build(state.Analyzer);

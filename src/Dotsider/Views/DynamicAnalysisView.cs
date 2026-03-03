@@ -37,6 +37,12 @@ public static class DynamicAnalysisView
         [TraceEventCategory.Other] = DimGray,
     };
 
+    /// <summary>
+    /// Builds the Dynamic Analysis view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The shared application state.</param>
+    /// <returns>The root widget for the Dynamic tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         // NativeAOT — no CLR metadata

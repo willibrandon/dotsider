@@ -25,6 +25,12 @@ public static class SizeTreemapView
         Hex1bColor.FromRgb(120, 120, 170),
     ];
 
+    /// <summary>
+    /// Builds the Size Treemap view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The shared application state.</param>
+    /// <returns>The root widget for the Size Map tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var sizeTree = state.CachedSizeTree ??= SizeAnalyzer.BuildSizeTree(state.Analyzer, state.IlDisassembler);

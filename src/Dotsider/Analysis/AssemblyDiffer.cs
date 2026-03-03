@@ -8,6 +8,12 @@ namespace Dotsider.Analysis;
 /// </summary>
 public static class AssemblyDiffer
 {
+    /// <summary>
+    /// Compares two assemblies and returns a structured diff result.
+    /// </summary>
+    /// <param name="left">The baseline assembly.</param>
+    /// <param name="right">The changed assembly.</param>
+    /// <returns>A diff result containing type, method, and reference differences.</returns>
     public static AssemblyDiffResult Compare(AssemblyAnalyzer left, AssemblyAnalyzer right)
     {
         var typeDiffs = CompareTypes(left.TypeDefs, right.TypeDefs);

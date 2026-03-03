@@ -59,6 +59,12 @@ public sealed class RuntimeTracer : IDisposable
     // Process output
     private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
 
+    /// <summary>
+    /// Creates a new runtime tracer for the specified assembly.
+    /// </summary>
+    /// <param name="assemblyPath">Path to the .NET assembly to trace.</param>
+    /// <param name="arguments">Command-line arguments to pass to the traced process.</param>
+    /// <param name="app">The Hex1b application instance for UI invalidation.</param>
     public RuntimeTracer(string assemblyPath, string arguments, Hex1bApp app)
     {
         _assemblyPath = assemblyPath;
@@ -69,10 +75,19 @@ public sealed class RuntimeTracer : IDisposable
 
     // --- Public state ---
 
+    /// <summary>The current state of the traced process.</summary>
     public TraceProcessState ProcessState { get; private set; } = TraceProcessState.Idle;
+
+    /// <summary>The exit code of the traced process, or null if not yet exited.</summary>
     public int? ExitCode { get; private set; }
+
+    /// <summary>The error message if the trace failed, or null.</summary>
     public string? ErrorMessage { get; private set; }
+
+    /// <summary>The OS process ID of the traced process, or null if not started.</summary>
     public int? ProcessId => _process?.Id;
+
+    /// <summary>The elapsed time since the trace was started.</summary>
     public TimeSpan Elapsed => _stopwatch?.Elapsed ?? TimeSpan.Zero;
 
     /// <summary>Returns a snapshot of all collected events (copied under lock).</summary>
@@ -286,6 +301,7 @@ public sealed class RuntimeTracer : IDisposable
         MarkDirty();
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         Stop();

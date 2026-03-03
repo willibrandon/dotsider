@@ -11,6 +11,12 @@ namespace Dotsider.Views;
 /// </summary>
 public static class NuGetBrowserView
 {
+    /// <summary>
+    /// Builds the NuGet browser view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The NuGet mode application state.</param>
+    /// <returns>The root widget for the package browser.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, NuGetState state)
     {
         var pkg = state.Package;

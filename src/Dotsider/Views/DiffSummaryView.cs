@@ -14,6 +14,12 @@ public static class DiffSummaryView
     private static readonly Hex1bColor Red = Hex1bColor.FromRgb(200, 80, 80);
     private static readonly Hex1bColor Yellow = Hex1bColor.FromRgb(200, 200, 80);
 
+    /// <summary>
+    /// Builds the diff summary view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The diff mode application state.</param>
+    /// <returns>The root widget for the Summary tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DiffState state)
     {
         var summary = state.DiffResult.MetadataSummary;

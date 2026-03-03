@@ -13,8 +13,17 @@ public sealed class NuGetApp
 {
     private readonly NuGetState _state;
 
+    /// <summary>
+    /// Creates a new NuGet application with the specified state.
+    /// </summary>
+    /// <param name="state">The NuGet state holding the package analyzer and UI state.</param>
     public NuGetApp(NuGetState state) => _state = state;
 
+    /// <summary>
+    /// Builds the root widget tree for the NuGet package browser.
+    /// </summary>
+    /// <param name="ctx">The Hex1b root context for widget construction.</param>
+    /// <returns>The root widget of the NuGet application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
         return ctx.VStack(outer =>

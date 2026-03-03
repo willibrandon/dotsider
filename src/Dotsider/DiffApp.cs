@@ -16,8 +16,17 @@ public sealed class DiffApp
 {
     private readonly DiffState _state;
 
+    /// <summary>
+    /// Creates a new diff application with the specified state.
+    /// </summary>
+    /// <param name="state">The diff state holding both analyzers and the diff result.</param>
     public DiffApp(DiffState state) => _state = state;
 
+    /// <summary>
+    /// Builds the root widget tree for the diff view.
+    /// </summary>
+    /// <param name="ctx">The Hex1b root context for widget construction.</param>
+    /// <returns>The root widget of the diff application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
         var summary = _state.DiffResult.MetadataSummary;

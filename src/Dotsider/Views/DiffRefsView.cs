@@ -16,6 +16,12 @@ public static class DiffRefsView
     private static readonly Hex1bColor Yellow = Hex1bColor.FromRgb(200, 200, 80);
     private static readonly Hex1bColor Gray = Hex1bColor.FromRgb(100, 100, 120);
 
+    /// <summary>
+    /// Builds the diff references view widget tree.
+    /// </summary>
+    /// <param name="ctx">The widget context for building widgets.</param>
+    /// <param name="state">The diff mode application state.</param>
+    /// <returns>The root widget for the References tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DiffState state)
     {
         var filtered = FilterEntries(state.DiffResult.AssemblyRefDiffs, state.FilterMode);

@@ -13,6 +13,10 @@ public sealed class NuGetPackageAnalyzer : IDisposable
     private readonly ZipArchive _archive;
     private readonly string _tempDir;
 
+    /// <summary>
+    /// Opens and analyzes the specified NuGet package file.
+    /// </summary>
+    /// <param name="nupkgPath">Path to the .nupkg file.</param>
     public NuGetPackageAnalyzer(string nupkgPath)
     {
         FilePath = nupkgPath;
@@ -23,13 +27,28 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         BuildFileList();
     }
 
+    /// <summary>The full path to the .nupkg file.</summary>
     public string FilePath { get; }
+
+    /// <summary>The file name of the .nupkg file.</summary>
     public string FileName { get; }
+
+    /// <summary>The NuGet package ID from the .nuspec manifest, or null.</summary>
     public string? PackageId { get; private set; }
+
+    /// <summary>The package version from the .nuspec manifest, or null.</summary>
     public string? PackageVersion { get; private set; }
+
+    /// <summary>The package authors from the .nuspec manifest, or null.</summary>
     public string? Authors { get; private set; }
+
+    /// <summary>The package description from the .nuspec manifest, or null.</summary>
     public string? Description { get; private set; }
+
+    /// <summary>All files in the package.</summary>
     public IReadOnlyList<NuGetFileEntry> Files { get; private set; } = [];
+
+    /// <summary>Only the DLL files in the package.</summary>
     public IReadOnlyList<NuGetFileEntry> DllFiles { get; private set; } = [];
 
     /// <summary>
@@ -96,6 +115,7 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         DllFiles = dlls.OrderBy(f => f.FullPath).ToList();
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         _archive.Dispose();

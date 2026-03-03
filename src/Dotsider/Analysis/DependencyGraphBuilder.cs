@@ -8,6 +8,11 @@ namespace Dotsider.Analysis;
 /// </summary>
 public static class DependencyGraphBuilder
 {
+    /// <summary>
+    /// Builds a graph of assembly references with positioned nodes and weighted edges.
+    /// </summary>
+    /// <param name="analyzer">The assembly analyzer to read references from.</param>
+    /// <returns>The graph nodes and edges for rendering.</returns>
     public static (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build(
         AssemblyAnalyzer analyzer)
     {

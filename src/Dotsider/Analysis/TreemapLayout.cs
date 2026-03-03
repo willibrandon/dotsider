@@ -13,6 +13,15 @@ public sealed record TreemapRect(double X, double Y, double Width, double Height
 /// </summary>
 public static class TreemapLayout
 {
+    /// <summary>
+    /// Computes a squarified treemap layout for the given nodes within the specified bounds.
+    /// </summary>
+    /// <param name="nodes">The size nodes to lay out.</param>
+    /// <param name="x">The left edge of the layout area.</param>
+    /// <param name="y">The top edge of the layout area.</param>
+    /// <param name="width">The width of the layout area.</param>
+    /// <param name="height">The height of the layout area.</param>
+    /// <returns>A list of positioned rectangles for each node.</returns>
     public static IReadOnlyList<TreemapRect> Layout(
         IReadOnlyList<SizeNode> nodes, double x, double y, double width, double height)
     {

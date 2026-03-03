@@ -8,6 +8,12 @@ namespace Dotsider.Analysis;
 /// </summary>
 public static class SizeAnalyzer
 {
+    /// <summary>
+    /// Builds a hierarchical size tree from the assembly's methods grouped by type and namespace.
+    /// </summary>
+    /// <param name="analyzer">The assembly analyzer to read method metadata from.</param>
+    /// <param name="disassembler">The IL disassembler (used for method body access).</param>
+    /// <returns>The root <see cref="SizeNode"/> representing the entire assembly.</returns>
     public static SizeNode BuildSizeTree(AssemblyAnalyzer analyzer, IlDisassembler disassembler)
     {
         // Get method sizes
