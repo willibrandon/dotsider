@@ -697,7 +697,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (File.Exists(local)) return local;
 
         // .NET runtime directory (BCL assemblies)
-        var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        var coreLocation = typeof(object).Assembly.Location;
+        var runtimeDir = string.IsNullOrEmpty(coreLocation)
+            ? AppContext.BaseDirectory
+            : Path.GetDirectoryName(coreLocation);
         if (runtimeDir is not null)
         {
             var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
