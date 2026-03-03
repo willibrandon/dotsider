@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 using Dotsider.Analysis.Models;
 
 namespace Dotsider.Analysis;
@@ -697,12 +698,9 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (File.Exists(local)) return local;
 
         // .NET runtime directory (BCL assemblies)
-        var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
-        if (runtimeDir is not null)
-        {
-            var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
-            if (File.Exists(runtimeDll)) return runtimeDll;
-        }
+        var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
+        var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
+        if (File.Exists(runtimeDll)) return runtimeDll;
 
         return null;
     }
