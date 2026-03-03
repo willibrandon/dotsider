@@ -77,6 +77,24 @@ public static class GeneralView
                     .Compact()
                     .Empty(e => e.Text("  No assembly references"))
                     .FillHeight()
+                    .WithInputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Enter).Action(_ =>
+                        {
+                            var focusedName = state.GeneralFocusedDep as string
+                                ?? analyzer.AssemblyRefs.FirstOrDefault()?.Name;
+                            if (focusedName is not null)
+                            {
+                                var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
+                                    state.Analyzer.FilePath, focusedName);
+                                if (resolvedPath is not null)
+                                {
+                                    state.PushAssembly(resolvedPath);
+                                    state.App.Invalidate();
+                                }
+                            }
+                        }, "Drill into reference");
+                    })
             ).Title($" Assembly References ({analyzer.AssemblyRefs.Count}) ").Fill()
         ])
         .WithInputBindings(bindings =>

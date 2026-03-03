@@ -206,6 +206,28 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 10_000)]
+    public async Task General_EnterOnReference_DrillsIntoAssembly()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            // Tab to focus the dependency table, then Enter to drill into the first ref
+            .Key(Hex1bKey.Tab)
+            .Key(Hex1bKey.Enter)
+            // After drill-down, the title bar should no longer show "HelloWorld.dll"
+            .WaitUntil(s => !s.ContainsText("HelloWorld.dll"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
     public async Task QuitKey_ExitsApp()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
