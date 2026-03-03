@@ -271,7 +271,7 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
-    /// Formats a file size in bytes to a human-readable string.
+    /// Formats a file size in bytes to a human-readable string (always human-readable).
     /// </summary>
     /// <param name="bytes">The size in bytes.</param>
     /// <returns>A formatted string like "1.5 KB" or "3.2 MB".</returns>
@@ -282,6 +282,13 @@ public sealed class DotsiderState : IDisposable
         < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
         _ => $"{bytes / (1024.0 * 1024 * 1024):F1} GB"
     };
+
+    /// <summary>
+    /// Formats a size respecting the current <see cref="HumanReadableSizes"/> toggle.
+    /// Returns human-readable (e.g. "1.5 KB") or hex (e.g. "0x600").
+    /// </summary>
+    public string FormatSizeToggleable(long bytes) =>
+        HumanReadableSizes ? FormatSize(bytes) : $"0x{bytes:X}";
 
     /// <inheritdoc/>
     public void Dispose()

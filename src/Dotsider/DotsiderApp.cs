@@ -47,7 +47,7 @@ public sealed class DotsiderApp
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100))),
                 bar.Separator(" | "),
-                bar.Section(DotsiderState.FormatSize(_state.Analyzer.FileSize)).Theme(t => t
+                bar.Section(_state.FormatSizeToggleable(_state.Analyzer.FileSize)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100)))
             ]),
 
@@ -97,6 +97,11 @@ public sealed class DotsiderApp
             }
 
             // Global keybindings matching binsider
+            bindings.Key(Hex1bKey.S).Global().Action(_ =>
+            {
+                _state.HumanReadableSizes = !_state.HumanReadableSizes;
+                _state.App.Invalidate();
+            }, "Toggle size format");
             bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
@@ -137,7 +142,9 @@ public sealed class DotsiderApp
                     hints.Add(s.Section("Enter: Launch"));
             }
 
-            hints.Add(s.Section("s: Sizes"));
+            // Show size toggle hint only on tabs that display sizes
+            if (_state.CurrentTab is 0 or 1 or 6) // General, PE/Metadata, Size Map
+                hints.Add(s.Section(_state.HumanReadableSizes ? "s: Sizes (dec)" : "s: Sizes (hex)"));
             hints.Add(s.Spacer());
             hints.Add(s.Section("q: Quit"));
             return hints;

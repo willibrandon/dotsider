@@ -133,11 +133,6 @@ public static class PeMetadataView
             })
             .WithInputBindings(bindings =>
             {
-                bindings.Key(Hex1bKey.S).Action(_ =>
-                {
-                    state.HumanReadableSizes = !state.HumanReadableSizes;
-                    state.App.Invalidate();
-                }, "Toggle size format");
                 bindings.Key(Hex1bKey.OemQuestion).Action(_ =>
                 {
                     state.PeSearchActive = !state.PeSearchActive;
@@ -426,12 +421,8 @@ public static class PeMetadataView
             .Compact().FillHeight();
     }
 
-    private static string FormatSize(int size, DotsiderState state)
-    {
-        return state.HumanReadableSizes
-            ? DotsiderState.FormatSize(size)
-            : $"0x{size:X}";
-    }
+    private static string FormatSize(int size, DotsiderState state) =>
+        state.FormatSizeToggleable(size);
 
     private static IReadOnlyList<T> ApplySearch<T>(
         IReadOnlyList<T> items, string? query, Func<T, string> toSearchable)
