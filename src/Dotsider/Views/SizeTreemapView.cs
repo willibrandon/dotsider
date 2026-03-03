@@ -37,7 +37,7 @@ public static class SizeTreemapView
             {
                 var parts = new List<Hex1bWidget>();
                 parts.Add(row.Text($" {BuildBreadcrumb(state)} "));
-                parts.Add(row.Text($"| Total: {DotsiderState.FormatSize(currentLevel.Size)}").Fill());
+                parts.Add(row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill());
                 return parts.ToArray();
             }).FixedHeight(1),
 
@@ -133,7 +133,7 @@ public static class SizeTreemapView
 
                 if (cellH > 1)
                 {
-                    var sizeLabel = DotsiderState.FormatSize(rect.Node.Size);
+                    var sizeLabel = state.FormatSizeToggleable(rect.Node.Size);
                     if (sizeLabel.Length <= cellW - 2)
                         surface.WriteText(x1 + 1, y1 + 1, sizeLabel, Hex1bColor.Black, color);
                 }
@@ -142,7 +142,7 @@ public static class SizeTreemapView
             // Mouse hover detection
             if (mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2)
             {
-                state.TreemapHoveredItem = $" {rect.Node.FullPath}: {DotsiderState.FormatSize(rect.Node.Size)} ({rect.Node.Children.Count} children)";
+                state.TreemapHoveredItem = $" {rect.Node.FullPath}: {state.FormatSizeToggleable(rect.Node.Size)} ({rect.Node.Children.Count} children)";
             }
         }
     }

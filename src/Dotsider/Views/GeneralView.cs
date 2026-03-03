@@ -35,7 +35,7 @@ public static class GeneralView
                     InfoLine(info, "Culture", analyzer.Culture ?? "neutral"),
                     InfoLine(info, "Public Key Token", analyzer.PublicKeyToken ?? "(none)"),
                     info.Text(""),
-                    InfoLine(info, "File Size", DotsiderState.FormatSize(analyzer.FileSize)),
+                    InfoLine(info, "File Size", state.FormatSizeToggleable(analyzer.FileSize)),
                     InfoLine(info, "Architecture", analyzer.Architecture),
                     InfoLine(info, "Last Modified", analyzer.LastModified.ToString("yyyy-MM-dd HH:mm:ss UTC")),
                     InfoLine(info, "Created", analyzer.CreatedTime.ToString("yyyy-MM-dd HH:mm:ss UTC")),
