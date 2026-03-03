@@ -486,3 +486,4 @@ $RECYCLE.BIN/
 
 # Claude AI files
 .claude/settings.local.json
+.claude/commands/
