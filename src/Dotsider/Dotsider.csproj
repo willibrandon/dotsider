@@ -10,8 +10,26 @@
     <AssemblyName>dotsider</AssemblyName>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dotsider</ToolCommandName>
+    <PackageId>dotsider</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>willibrandon</Authors>
+    <Description>A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, dependencies, and more.</Description>
+    <PackageTags>dotnet;assembly;tui;il;metadata;pe;disassembler;nuget</PackageTags>
+    <PackageProjectUrl>https://github.com/willibrandon/dotsider</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/willibrandon/dotsider</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="Hex1b" Version="*" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hex1b" Version="0.103.0" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.*" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.*" />
   </ItemGroup>

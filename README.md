@@ -8,6 +8,18 @@ dotsider HelloWorld.dll
 
 [![dotsider demo](https://asciinema.org/a/bPs2Bop54ust8e3C.svg)](https://asciinema.org/a/bPs2Bop54ust8e3C)
 
+## Installation
+
+### dotnet tool (recommended)
+
+```
+dotnet tool install -g dotsider
+```
+
+### Download binary
+
+Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
+
 ## What it does
 
 dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:
