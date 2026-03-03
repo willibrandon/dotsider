@@ -45,15 +45,6 @@ public static class IlInspectorView
                 left =>
                 [
                     left.Tree(t => BuildMethodTree(t, state))
-                        .OnItemActivated(e =>
-                        {
-                            var method = FindMethodByLabel(state, e.Item.Label);
-                            if (method is not null)
-                            {
-                                state.IlSelectedMethod = method;
-                                state.App.Invalidate();
-                            }
-                        })
                         .FillHeight()
                 ],
                 // Right pane: IL disassembly in a vertical scroll panel
@@ -119,7 +110,7 @@ public static class IlInspectorView
             }
 
             yield return t.Item(nsGroup.Key, ns =>
-                BuildTypeItems(ns, nsTypes, methodsByType, searchQuery)
+                BuildTypeItems(ns, nsTypes, methodsByType, searchQuery, state)
             ).Expanded();
         }
     }
@@ -128,7 +119,8 @@ public static class IlInspectorView
         TreeContext t,
         List<TypeDefInfo> types,
         Dictionary<string, List<MethodDefInfo>> methodsByType,
-        string? searchQuery)
+        string? searchQuery,
+        DotsiderState state)
     {
         foreach (var typeDef in types)
         {
@@ -147,14 +139,19 @@ public static class IlInspectorView
             }
 
             yield return t.Item(typeDef.Name, type =>
-                filteredMethods.Select(m => type.Item($"{m.Name}{m.Signature}"))
+                filteredMethods.Select(m =>
+                {
+                    void SelectMethod()
+                    {
+                        state.IlSelectedMethod = m;
+                        state.App.Invalidate();
+                    }
+
+                    return type.Item($"{m.Name}{m.Signature}")
+                        .OnClicked(_ => SelectMethod())
+                        .OnActivated(_ => SelectMethod());
+                })
             );
         }
-    }
-
-    private static MethodDefInfo? FindMethodByLabel(DotsiderState state, string label)
-    {
-        return state.Analyzer.MethodDefs.FirstOrDefault(m =>
-            $"{m.Name}{m.Signature}" == label);
     }
 }
