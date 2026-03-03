@@ -1,5 +1,8 @@
+using System.Text;
 using Dotsider;
 using Hex1b;
+
+Console.OutputEncoding = Encoding.UTF8;
 
 // Parse CLI arguments
 string? filePath = null;
