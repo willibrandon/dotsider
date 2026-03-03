@@ -1,0 +1,1201 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1027.64666626" height="671.9998320000001" font-family="'Cascadia Code','Source Code Pro',Menlo,Consolas,'DejaVu Sans Mono',monospace,'Symbols Nerd Font'" font-size="14px">
+  <style>
+    .br { font-weight: bold }
+    .fa { fill-opacity: 0.5 }
+    .it { font-style: italic }
+    .un { text-decoration: underline }
+
+    @font-face {
+      font-family: "Symbols Nerd Font";
+      src: url("https://asciinema.org/fonts/SymbolsNerdFont-Regular-337b40fc23735cb78fbe3379fae18138.woff2?vsn=d") format("woff2");
+    }
+
+  </style>
+
+  <rect width="100%" height="100%" style="fill: #121314" rx="4" ry="4"></rect>
+
+  <svg x="8.42333333" y="9.333331000000001" class="default-text-fill">
+    <image x="0" y="0" width="1010.7999996" height="653.33317" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA8AAAANICAIAAACHVxF5AAASy0lEQVR4Xu3asQ0mVxWAUW8L9roVIDCEgGTXQAvUQgvUYEtACA4stJ3YpoUleBFoRr6f/tHsvtlzwjdXuu9lXzBvPvvh288+Je9//fWn9FwAAC72RkADAMCcgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAARvPv/ibRgHAIBPm4AGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAA48I+//+3gdH+//8Mf938EfGACGgAOCGjgjIAGgAMCGjgjoAHgwM8//Xhwur8v3n65/yPgAxPQAHBAQANnBDQAHBDQwBkBDQAHBDRwRkADwAEBDZwR0ABwQEADZwQ0ABwQ0MAZAQ0ABwQ0cEZAA8ABAQ2cEdAAcEBAA2cENAAcENDAGQENAAcENHBGQAPAAQENnBHQAHBAQANnBDQAHBDQwBkBDQAHBDRwRkADwAEBDZwR0ABwQEADZwQ0ABwQ0MAZAQ0ABwQ0cEZAA8ABAQ2cEdAAcEBAA2cENAAcENDAGQENAAcENHDmzbt3786+AQAA/0dAAwBAIKABACDwDzQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKC51c8//Xjrvrt88fbLu1YBAB+YgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYDmVgIaANidgOZWAhoA2J2A5lYCGgDYnYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAAgYAGAIBAQAMAQCCgAQAgENAAABAIaAAACAQ0AAAEAhoAAAIBDQAA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AACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAARv3r9/H8YBAODTJqABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgEBAAwBAIKABACAQ0AAAEAhoAAAIBDQAAAQCGgAAAgENAACBgAYAgOC/nvcCv1XnOMQAAAAASUVORK5CYII=" preserveAspectRatio="none" style="image-rendering: pixelated; image-rendering: crisp-edges;"></image>
+
+    <g style="shape-rendering: optimizeSpeed">
+
+    </g>
+
+    <text style="fill: #cccccc">
+      <tspan y="0.0">
+        <tspan dy="1em" x="8.42333333" style="fill: #000000">
+          dotsider 
+        </tspan><tspan x="92.65666663" style="fill: #b4b4c8">
+          HelloWorld.dll
+        </tspan><tspan x="884.44999965" style="fill: #c8b464">
+          AnyCPU
+        </tspan><tspan x="943.41333296" style="fill: #000000">
+          | 
+        </tspan><tspan x="960.25999962" style="fill: #c8b464">
+          6.5 KB
+        </tspan>
+      </tspan><tspan y="37.333324000000005">
+        <tspan dy="1em" x="8.42333333">
+          General
+        </tspan><tspan x="84.2333333">
+          PE/Metadata
+        </tspan><tspan x="193.73666659">
+          IL Inspector
+        </tspan><tspan x="311.66333321">
+          Strings
+        </tspan><tspan x="387.47333318">
+          Hex Dump
+        </tspan><tspan x="471.70666648">
+          Dep Graph
+        </tspan><tspan x="564.36333311">
+          Size Map 
+        </tspan><tspan x="648.59666641" style="fill: #000000">
+          Dynamic 
+        </tspan><tspan x="968.68333295" style="fill: #404040">
+          ◀
+        </tspan><tspan x="993.95333294" style="fill: #404040">
+          ▶ 
+        </tspan>
+      </tspan><tspan y="74.66664800000001">
+        <tspan dy="1em" x="8.42333333" style="fill: #00c8b4">
+          ○ Exited (code 0) | Duration: 00:02 
+        </tspan>
+      </tspan><tspan y="93.33331000000001">
+        <tspan dy="1em" x="8.42333333">
+          Events
+        </tspan><tspan x="75.80999997">
+          Counters
+        </tspan><tspan x="160.04333327">
+          Output 
+        </tspan><tspan x="227.42999991" style="fill: #000000">
+          Summary 
+        </tspan><tspan x="968.68333295" style="fill: #404040">
+          ◀
+        </tspan><tspan x="993.95333294" style="fill: #404040">
+          ▶ 
+        </tspan>
+      </tspan><tspan y="111.99997200000001">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          ┌
+        </tspan><tspan x="8.42333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="16.84666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="25.269999990000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="33.69333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="42.11666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="50.539999980000005" style="fill: #808080">
+          ─
+        </tspan><tspan x="58.96333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="67.38666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="75.80999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="84.2333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="92.65666663" style="fill: #808080">
+          ─
+        </tspan><tspan x="101.07999996000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="109.50333329" style="fill: #808080">
+          ─
+        </tspan><tspan x="117.92666662" style="fill: #808080">
+          ─
+        </tspan><tspan x="126.34999995" style="fill: #808080">
+          ─
+        </tspan><tspan x="134.77333328" style="fill: #808080">
+          ─
+        </tspan><tspan x="143.19666661" style="fill: #808080">
+          ─
+        </tspan><tspan x="151.61999994" style="fill: #808080">
+          ─
+        </tspan><tspan x="160.04333327" style="fill: #808080">
+          ─
+        </tspan><tspan x="168.4666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="176.88999993000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="185.31333326" style="fill: #808080">
+          ─
+        </tspan><tspan x="193.73666659" style="fill: #808080">
+          ─
+        </tspan><tspan x="202.15999992000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="210.58333325" style="fill: #808080">
+          ─
+        </tspan><tspan x="219.00666658" style="fill: #808080">
+          ─
+        </tspan><tspan x="227.42999991" style="fill: #808080">
+          ─
+        </tspan><tspan x="235.85333324" style="fill: #808080">
+          ─
+        </tspan><tspan x="244.27666657" style="fill: #808080">
+          ─
+        </tspan><tspan x="252.6999999" style="fill: #808080">
+          ─
+        </tspan><tspan x="261.12333323" style="fill: #808080">
+          ─
+        </tspan><tspan x="269.54666656" style="fill: #808080">
+          ─
+        </tspan><tspan x="277.96999989" style="fill: #808080">
+          ─
+        </tspan><tspan x="286.39333322" style="fill: #808080">
+          ─
+        </tspan><tspan x="294.81666655" style="fill: #808080">
+          ─
+        </tspan><tspan x="303.23999988" style="fill: #808080">
+          ─
+        </tspan><tspan x="311.66333321" style="fill: #808080">
+          ─
+        </tspan><tspan x="320.08666654" style="fill: #808080">
+          ─
+        </tspan><tspan x="328.50999987" style="fill: #808080">
+          ─
+        </tspan><tspan x="336.9333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="345.35666653" style="fill: #808080">
+          ─
+        </tspan><tspan x="353.77999986000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="362.20333319" style="fill: #808080">
+          ─
+        </tspan><tspan x="370.62666652" style="fill: #808080">
+          ─
+        </tspan><tspan x="379.04999985" style="fill: #808080">
+          ─
+        </tspan><tspan x="387.47333318" style="fill: #808080">
+          ─
+        </tspan><tspan x="395.89666651" style="fill: #808080">
+          ─
+        </tspan><tspan x="404.31999984000004" style="fill: #808080">
+          ─
+        </tspan><tspan x="412.74333317" style="fill: #808080">
+          ─
+        </tspan><tspan x="421.1666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="429.58999983" style="fill: #808080">
+          ─
+        </tspan><tspan x="446.43666649" style="fill: #ffffff">
+          Trace Summary 
+        </tspan><tspan x="564.36333311" style="fill: #808080">
+          ─
+        </tspan><tspan x="572.78666644" style="fill: #808080">
+          ─
+        </tspan><tspan x="581.20999977" style="fill: #808080">
+          ─
+        </tspan><tspan x="589.6333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="598.0566664300001" style="fill: #808080">
+          ─
+        </tspan><tspan x="606.47999976" style="fill: #808080">
+          ─
+        </tspan><tspan x="614.90333309" style="fill: #808080">
+          ─
+        </tspan><tspan x="623.32666642" style="fill: #808080">
+          ─
+        </tspan><tspan x="631.74999975" style="fill: #808080">
+          ─
+        </tspan><tspan x="640.17333308" style="fill: #808080">
+          ─
+        </tspan><tspan x="648.59666641" style="fill: #808080">
+          ─
+        </tspan><tspan x="657.01999974" style="fill: #808080">
+          ─
+        </tspan><tspan x="665.44333307" style="fill: #808080">
+          ─
+        </tspan><tspan x="673.8666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="682.28999973" style="fill: #808080">
+          ─
+        </tspan><tspan x="690.71333306" style="fill: #808080">
+          ─
+        </tspan><tspan x="699.13666639" style="fill: #808080">
+          ─
+        </tspan><tspan x="707.5599997200001" style="fill: #808080">
+          ─
+        </tspan><tspan x="715.98333305" style="fill: #808080">
+          ─
+        </tspan><tspan x="724.40666638" style="fill: #808080">
+          ─
+        </tspan><tspan x="732.82999971" style="fill: #808080">
+          ─
+        </tspan><tspan x="741.25333304" style="fill: #808080">
+          ─
+        </tspan><tspan x="749.67666637" style="fill: #808080">
+          ─
+        </tspan><tspan x="758.0999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="766.52333303" style="fill: #808080">
+          ─
+        </tspan><tspan x="774.94666636" style="fill: #808080">
+          ─
+        </tspan><tspan x="783.36999969" style="fill: #808080">
+          ─
+        </tspan><tspan x="791.79333302" style="fill: #808080">
+          ─
+        </tspan><tspan x="800.21666635" style="fill: #808080">
+          ─
+        </tspan><tspan x="808.6399996800001" style="fill: #808080">
+          ─
+        </tspan><tspan x="817.0633330100001" style="fill: #808080">
+          ─
+        </tspan><tspan x="825.48666634" style="fill: #808080">
+          ─
+        </tspan><tspan x="833.90999967" style="fill: #808080">
+          ─
+        </tspan><tspan x="842.333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="850.75666633" style="fill: #808080">
+          ─
+        </tspan><tspan x="859.17999966" style="fill: #808080">
+          ─
+        </tspan><tspan x="867.60333299" style="fill: #808080">
+          ─
+        </tspan><tspan x="876.02666632" style="fill: #808080">
+          ─
+        </tspan><tspan x="884.44999965" style="fill: #808080">
+          ─
+        </tspan><tspan x="892.87333298" style="fill: #808080">
+          ─
+        </tspan><tspan x="901.29666631" style="fill: #808080">
+          ─
+        </tspan><tspan x="909.71999964" style="fill: #808080">
+          ─
+        </tspan><tspan x="918.1433329700001" style="fill: #808080">
+          ─
+        </tspan><tspan x="926.5666663000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="934.98999963" style="fill: #808080">
+          ─
+        </tspan><tspan x="943.41333296" style="fill: #808080">
+          ─
+        </tspan><tspan x="951.83666629" style="fill: #808080">
+          ─
+        </tspan><tspan x="960.25999962" style="fill: #808080">
+          ─
+        </tspan><tspan x="968.68333295" style="fill: #808080">
+          ─
+        </tspan><tspan x="977.10666628" style="fill: #808080">
+          ─
+        </tspan><tspan x="985.52999961" style="fill: #808080">
+          ─
+        </tspan><tspan x="993.95333294" style="fill: #808080">
+          ─
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          ┐
+        </tspan>
+      </tspan><tspan y="130.66663400000002">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          Total Events:
+        </tspan><tspan x="202.15999992000002">
+          27
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="149.33329600000002">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          Duration:
+        </tspan><tspan x="202.15999992000002">
+          00:02.706
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="167.99995800000002">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          JIT&#39;d Methods:
+        </tspan><tspan x="202.15999992000002">
+          0
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="186.66662000000002">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          GC Collections:
+        </tspan><tspan x="202.15999992000002">
+          12
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="205.33328200000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          Exceptions:
+        </tspan><tspan x="202.15999992000002">
+          1
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="223.99994400000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          Peak Working Set:
+        </tspan><tspan x="202.15999992000002">
+          51.4 MB
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="242.66660600000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="25.269999990000002">
+          Peak GC Heap:
+        </tspan><tspan x="202.15999992000002">
+          1.0 MB
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="261.33326800000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          └
+        </tspan><tspan x="8.42333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="16.84666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="25.269999990000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="33.69333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="42.11666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="50.539999980000005" style="fill: #808080">
+          ─
+        </tspan><tspan x="58.96333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="67.38666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="75.80999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="84.2333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="92.65666663" style="fill: #808080">
+          ─
+        </tspan><tspan x="101.07999996000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="109.50333329" style="fill: #808080">
+          ─
+        </tspan><tspan x="117.92666662" style="fill: #808080">
+          ─
+        </tspan><tspan x="126.34999995" style="fill: #808080">
+          ─
+        </tspan><tspan x="134.77333328" style="fill: #808080">
+          ─
+        </tspan><tspan x="143.19666661" style="fill: #808080">
+          ─
+        </tspan><tspan x="151.61999994" style="fill: #808080">
+          ─
+        </tspan><tspan x="160.04333327" style="fill: #808080">
+          ─
+        </tspan><tspan x="168.4666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="176.88999993000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="185.31333326" style="fill: #808080">
+          ─
+        </tspan><tspan x="193.73666659" style="fill: #808080">
+          ─
+        </tspan><tspan x="202.15999992000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="210.58333325" style="fill: #808080">
+          ─
+        </tspan><tspan x="219.00666658" style="fill: #808080">
+          ─
+        </tspan><tspan x="227.42999991" style="fill: #808080">
+          ─
+        </tspan><tspan x="235.85333324" style="fill: #808080">
+          ─
+        </tspan><tspan x="244.27666657" style="fill: #808080">
+          ─
+        </tspan><tspan x="252.6999999" style="fill: #808080">
+          ─
+        </tspan><tspan x="261.12333323" style="fill: #808080">
+          ─
+        </tspan><tspan x="269.54666656" style="fill: #808080">
+          ─
+        </tspan><tspan x="277.96999989" style="fill: #808080">
+          ─
+        </tspan><tspan x="286.39333322" style="fill: #808080">
+          ─
+        </tspan><tspan x="294.81666655" style="fill: #808080">
+          ─
+        </tspan><tspan x="303.23999988" style="fill: #808080">
+          ─
+        </tspan><tspan x="311.66333321" style="fill: #808080">
+          ─
+        </tspan><tspan x="320.08666654" style="fill: #808080">
+          ─
+        </tspan><tspan x="328.50999987" style="fill: #808080">
+          ─
+        </tspan><tspan x="336.9333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="345.35666653" style="fill: #808080">
+          ─
+        </tspan><tspan x="353.77999986000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="362.20333319" style="fill: #808080">
+          ─
+        </tspan><tspan x="370.62666652" style="fill: #808080">
+          ─
+        </tspan><tspan x="379.04999985" style="fill: #808080">
+          ─
+        </tspan><tspan x="387.47333318" style="fill: #808080">
+          ─
+        </tspan><tspan x="395.89666651" style="fill: #808080">
+          ─
+        </tspan><tspan x="404.31999984000004" style="fill: #808080">
+          ─
+        </tspan><tspan x="412.74333317" style="fill: #808080">
+          ─
+        </tspan><tspan x="421.1666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="429.58999983" style="fill: #808080">
+          ─
+        </tspan><tspan x="438.01333316" style="fill: #808080">
+          ─
+        </tspan><tspan x="446.43666649" style="fill: #808080">
+          ─
+        </tspan><tspan x="454.85999982" style="fill: #808080">
+          ─
+        </tspan><tspan x="463.28333315000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="471.70666648" style="fill: #808080">
+          ─
+        </tspan><tspan x="480.12999981" style="fill: #808080">
+          ─
+        </tspan><tspan x="488.55333314" style="fill: #808080">
+          ─
+        </tspan><tspan x="496.97666647" style="fill: #808080">
+          ─
+        </tspan><tspan x="505.3999998" style="fill: #808080">
+          ─
+        </tspan><tspan x="513.82333313" style="fill: #808080">
+          ─
+        </tspan><tspan x="522.24666646" style="fill: #808080">
+          ─
+        </tspan><tspan x="530.66999979" style="fill: #808080">
+          ─
+        </tspan><tspan x="539.09333312" style="fill: #808080">
+          ─
+        </tspan><tspan x="547.51666645" style="fill: #808080">
+          ─
+        </tspan><tspan x="555.93999978" style="fill: #808080">
+          ─
+        </tspan><tspan x="564.36333311" style="fill: #808080">
+          ─
+        </tspan><tspan x="572.78666644" style="fill: #808080">
+          ─
+        </tspan><tspan x="581.20999977" style="fill: #808080">
+          ─
+        </tspan><tspan x="589.6333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="598.0566664300001" style="fill: #808080">
+          ─
+        </tspan><tspan x="606.47999976" style="fill: #808080">
+          ─
+        </tspan><tspan x="614.90333309" style="fill: #808080">
+          ─
+        </tspan><tspan x="623.32666642" style="fill: #808080">
+          ─
+        </tspan><tspan x="631.74999975" style="fill: #808080">
+          ─
+        </tspan><tspan x="640.17333308" style="fill: #808080">
+          ─
+        </tspan><tspan x="648.59666641" style="fill: #808080">
+          ─
+        </tspan><tspan x="657.01999974" style="fill: #808080">
+          ─
+        </tspan><tspan x="665.44333307" style="fill: #808080">
+          ─
+        </tspan><tspan x="673.8666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="682.28999973" style="fill: #808080">
+          ─
+        </tspan><tspan x="690.71333306" style="fill: #808080">
+          ─
+        </tspan><tspan x="699.13666639" style="fill: #808080">
+          ─
+        </tspan><tspan x="707.5599997200001" style="fill: #808080">
+          ─
+        </tspan><tspan x="715.98333305" style="fill: #808080">
+          ─
+        </tspan><tspan x="724.40666638" style="fill: #808080">
+          ─
+        </tspan><tspan x="732.82999971" style="fill: #808080">
+          ─
+        </tspan><tspan x="741.25333304" style="fill: #808080">
+          ─
+        </tspan><tspan x="749.67666637" style="fill: #808080">
+          ─
+        </tspan><tspan x="758.0999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="766.52333303" style="fill: #808080">
+          ─
+        </tspan><tspan x="774.94666636" style="fill: #808080">
+          ─
+        </tspan><tspan x="783.36999969" style="fill: #808080">
+          ─
+        </tspan><tspan x="791.79333302" style="fill: #808080">
+          ─
+        </tspan><tspan x="800.21666635" style="fill: #808080">
+          ─
+        </tspan><tspan x="808.6399996800001" style="fill: #808080">
+          ─
+        </tspan><tspan x="817.0633330100001" style="fill: #808080">
+          ─
+        </tspan><tspan x="825.48666634" style="fill: #808080">
+          ─
+        </tspan><tspan x="833.90999967" style="fill: #808080">
+          ─
+        </tspan><tspan x="842.333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="850.75666633" style="fill: #808080">
+          ─
+        </tspan><tspan x="859.17999966" style="fill: #808080">
+          ─
+        </tspan><tspan x="867.60333299" style="fill: #808080">
+          ─
+        </tspan><tspan x="876.02666632" style="fill: #808080">
+          ─
+        </tspan><tspan x="884.44999965" style="fill: #808080">
+          ─
+        </tspan><tspan x="892.87333298" style="fill: #808080">
+          ─
+        </tspan><tspan x="901.29666631" style="fill: #808080">
+          ─
+        </tspan><tspan x="909.71999964" style="fill: #808080">
+          ─
+        </tspan><tspan x="918.1433329700001" style="fill: #808080">
+          ─
+        </tspan><tspan x="926.5666663000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="934.98999963" style="fill: #808080">
+          ─
+        </tspan><tspan x="943.41333296" style="fill: #808080">
+          ─
+        </tspan><tspan x="951.83666629" style="fill: #808080">
+          ─
+        </tspan><tspan x="960.25999962" style="fill: #808080">
+          ─
+        </tspan><tspan x="968.68333295" style="fill: #808080">
+          ─
+        </tspan><tspan x="977.10666628" style="fill: #808080">
+          ─
+        </tspan><tspan x="985.52999961" style="fill: #808080">
+          ─
+        </tspan><tspan x="993.95333294" style="fill: #808080">
+          ─
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          ┘
+        </tspan>
+      </tspan><tspan y="279.99993">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          ┌
+        </tspan><tspan x="8.42333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="16.84666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="25.269999990000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="33.69333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="42.11666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="50.539999980000005" style="fill: #808080">
+          ─
+        </tspan><tspan x="58.96333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="67.38666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="75.80999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="84.2333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="92.65666663" style="fill: #808080">
+          ─
+        </tspan><tspan x="101.07999996000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="109.50333329" style="fill: #808080">
+          ─
+        </tspan><tspan x="117.92666662" style="fill: #808080">
+          ─
+        </tspan><tspan x="126.34999995" style="fill: #808080">
+          ─
+        </tspan><tspan x="134.77333328" style="fill: #808080">
+          ─
+        </tspan><tspan x="143.19666661" style="fill: #808080">
+          ─
+        </tspan><tspan x="151.61999994" style="fill: #808080">
+          ─
+        </tspan><tspan x="160.04333327" style="fill: #808080">
+          ─
+        </tspan><tspan x="168.4666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="176.88999993000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="185.31333326" style="fill: #808080">
+          ─
+        </tspan><tspan x="193.73666659" style="fill: #808080">
+          ─
+        </tspan><tspan x="202.15999992000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="210.58333325" style="fill: #808080">
+          ─
+        </tspan><tspan x="219.00666658" style="fill: #808080">
+          ─
+        </tspan><tspan x="227.42999991" style="fill: #808080">
+          ─
+        </tspan><tspan x="235.85333324" style="fill: #808080">
+          ─
+        </tspan><tspan x="244.27666657" style="fill: #808080">
+          ─
+        </tspan><tspan x="252.6999999" style="fill: #808080">
+          ─
+        </tspan><tspan x="261.12333323" style="fill: #808080">
+          ─
+        </tspan><tspan x="269.54666656" style="fill: #808080">
+          ─
+        </tspan><tspan x="277.96999989" style="fill: #808080">
+          ─
+        </tspan><tspan x="286.39333322" style="fill: #808080">
+          ─
+        </tspan><tspan x="294.81666655" style="fill: #808080">
+          ─
+        </tspan><tspan x="303.23999988" style="fill: #808080">
+          ─
+        </tspan><tspan x="311.66333321" style="fill: #808080">
+          ─
+        </tspan><tspan x="320.08666654" style="fill: #808080">
+          ─
+        </tspan><tspan x="328.50999987" style="fill: #808080">
+          ─
+        </tspan><tspan x="336.9333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="345.35666653" style="fill: #808080">
+          ─
+        </tspan><tspan x="353.77999986000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="362.20333319" style="fill: #808080">
+          ─
+        </tspan><tspan x="370.62666652" style="fill: #808080">
+          ─
+        </tspan><tspan x="379.04999985" style="fill: #808080">
+          ─
+        </tspan><tspan x="387.47333318" style="fill: #808080">
+          ─
+        </tspan><tspan x="395.89666651" style="fill: #808080">
+          ─
+        </tspan><tspan x="404.31999984000004" style="fill: #808080">
+          ─
+        </tspan><tspan x="412.74333317" style="fill: #808080">
+          ─
+        </tspan><tspan x="429.58999983" style="fill: #ffffff">
+          Event Distribution 
+        </tspan><tspan x="589.6333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="598.0566664300001" style="fill: #808080">
+          ─
+        </tspan><tspan x="606.47999976" style="fill: #808080">
+          ─
+        </tspan><tspan x="614.90333309" style="fill: #808080">
+          ─
+        </tspan><tspan x="623.32666642" style="fill: #808080">
+          ─
+        </tspan><tspan x="631.74999975" style="fill: #808080">
+          ─
+        </tspan><tspan x="640.17333308" style="fill: #808080">
+          ─
+        </tspan><tspan x="648.59666641" style="fill: #808080">
+          ─
+        </tspan><tspan x="657.01999974" style="fill: #808080">
+          ─
+        </tspan><tspan x="665.44333307" style="fill: #808080">
+          ─
+        </tspan><tspan x="673.8666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="682.28999973" style="fill: #808080">
+          ─
+        </tspan><tspan x="690.71333306" style="fill: #808080">
+          ─
+        </tspan><tspan x="699.13666639" style="fill: #808080">
+          ─
+        </tspan><tspan x="707.5599997200001" style="fill: #808080">
+          ─
+        </tspan><tspan x="715.98333305" style="fill: #808080">
+          ─
+        </tspan><tspan x="724.40666638" style="fill: #808080">
+          ─
+        </tspan><tspan x="732.82999971" style="fill: #808080">
+          ─
+        </tspan><tspan x="741.25333304" style="fill: #808080">
+          ─
+        </tspan><tspan x="749.67666637" style="fill: #808080">
+          ─
+        </tspan><tspan x="758.0999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="766.52333303" style="fill: #808080">
+          ─
+        </tspan><tspan x="774.94666636" style="fill: #808080">
+          ─
+        </tspan><tspan x="783.36999969" style="fill: #808080">
+          ─
+        </tspan><tspan x="791.79333302" style="fill: #808080">
+          ─
+        </tspan><tspan x="800.21666635" style="fill: #808080">
+          ─
+        </tspan><tspan x="808.6399996800001" style="fill: #808080">
+          ─
+        </tspan><tspan x="817.0633330100001" style="fill: #808080">
+          ─
+        </tspan><tspan x="825.48666634" style="fill: #808080">
+          ─
+        </tspan><tspan x="833.90999967" style="fill: #808080">
+          ─
+        </tspan><tspan x="842.333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="850.75666633" style="fill: #808080">
+          ─
+        </tspan><tspan x="859.17999966" style="fill: #808080">
+          ─
+        </tspan><tspan x="867.60333299" style="fill: #808080">
+          ─
+        </tspan><tspan x="876.02666632" style="fill: #808080">
+          ─
+        </tspan><tspan x="884.44999965" style="fill: #808080">
+          ─
+        </tspan><tspan x="892.87333298" style="fill: #808080">
+          ─
+        </tspan><tspan x="901.29666631" style="fill: #808080">
+          ─
+        </tspan><tspan x="909.71999964" style="fill: #808080">
+          ─
+        </tspan><tspan x="918.1433329700001" style="fill: #808080">
+          ─
+        </tspan><tspan x="926.5666663000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="934.98999963" style="fill: #808080">
+          ─
+        </tspan><tspan x="943.41333296" style="fill: #808080">
+          ─
+        </tspan><tspan x="951.83666629" style="fill: #808080">
+          ─
+        </tspan><tspan x="960.25999962" style="fill: #808080">
+          ─
+        </tspan><tspan x="968.68333295" style="fill: #808080">
+          ─
+        </tspan><tspan x="977.10666628" style="fill: #808080">
+          ─
+        </tspan><tspan x="985.52999961" style="fill: #808080">
+          ─
+        </tspan><tspan x="993.95333294" style="fill: #808080">
+          ─
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          ┐
+        </tspan>
+      </tspan><tspan y="298.66659200000004">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="317.333254">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="16.84666666" style="fill: #ffffff">
+          GC
+        </tspan><tspan x="160.04333327" style="fill: #ffffff">
+          15
+        </tspan><tspan x="631.74999975" style="fill: #646478">
+          56%
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="335.99991600000004">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="16.84666666" style="fill: #ffffff">
+          Loader
+        </tspan><tspan x="168.4666666" style="fill: #ffffff">
+          9
+        </tspan><tspan x="454.85999982" style="fill: #646478">
+          33%
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="354.666578">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="16.84666666" style="fill: #ffffff">
+          Threading
+        </tspan><tspan x="168.4666666" style="fill: #ffffff">
+          2
+        </tspan><tspan x="252.6999999" style="fill: #646478">
+          7%
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="373.33324000000005">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="16.84666666" style="fill: #ffffff">
+          Exception
+        </tspan><tspan x="168.4666666" style="fill: #ffffff">
+          1
+        </tspan><tspan x="227.42999991" style="fill: #646478">
+          4%
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="391.999902">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="410.66656400000005">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="429.333226">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="447.99988800000006">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="466.66655000000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="485.33321200000006">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="503.99987400000003">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="522.6665360000001">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="541.333198">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="559.99986">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="578.6665220000001">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="597.3331840000001">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          │
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          │
+        </tspan>
+      </tspan><tspan y="615.999846">
+        <tspan dy="1em" x="0.0" style="fill: #808080">
+          └
+        </tspan><tspan x="8.42333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="16.84666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="25.269999990000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="33.69333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="42.11666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="50.539999980000005" style="fill: #808080">
+          ─
+        </tspan><tspan x="58.96333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="67.38666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="75.80999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="84.2333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="92.65666663" style="fill: #808080">
+          ─
+        </tspan><tspan x="101.07999996000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="109.50333329" style="fill: #808080">
+          ─
+        </tspan><tspan x="117.92666662" style="fill: #808080">
+          ─
+        </tspan><tspan x="126.34999995" style="fill: #808080">
+          ─
+        </tspan><tspan x="134.77333328" style="fill: #808080">
+          ─
+        </tspan><tspan x="143.19666661" style="fill: #808080">
+          ─
+        </tspan><tspan x="151.61999994" style="fill: #808080">
+          ─
+        </tspan><tspan x="160.04333327" style="fill: #808080">
+          ─
+        </tspan><tspan x="168.4666666" style="fill: #808080">
+          ─
+        </tspan><tspan x="176.88999993000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="185.31333326" style="fill: #808080">
+          ─
+        </tspan><tspan x="193.73666659" style="fill: #808080">
+          ─
+        </tspan><tspan x="202.15999992000002" style="fill: #808080">
+          ─
+        </tspan><tspan x="210.58333325" style="fill: #808080">
+          ─
+        </tspan><tspan x="219.00666658" style="fill: #808080">
+          ─
+        </tspan><tspan x="227.42999991" style="fill: #808080">
+          ─
+        </tspan><tspan x="235.85333324" style="fill: #808080">
+          ─
+        </tspan><tspan x="244.27666657" style="fill: #808080">
+          ─
+        </tspan><tspan x="252.6999999" style="fill: #808080">
+          ─
+        </tspan><tspan x="261.12333323" style="fill: #808080">
+          ─
+        </tspan><tspan x="269.54666656" style="fill: #808080">
+          ─
+        </tspan><tspan x="277.96999989" style="fill: #808080">
+          ─
+        </tspan><tspan x="286.39333322" style="fill: #808080">
+          ─
+        </tspan><tspan x="294.81666655" style="fill: #808080">
+          ─
+        </tspan><tspan x="303.23999988" style="fill: #808080">
+          ─
+        </tspan><tspan x="311.66333321" style="fill: #808080">
+          ─
+        </tspan><tspan x="320.08666654" style="fill: #808080">
+          ─
+        </tspan><tspan x="328.50999987" style="fill: #808080">
+          ─
+        </tspan><tspan x="336.9333332" style="fill: #808080">
+          ─
+        </tspan><tspan x="345.35666653" style="fill: #808080">
+          ─
+        </tspan><tspan x="353.77999986000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="362.20333319" style="fill: #808080">
+          ─
+        </tspan><tspan x="370.62666652" style="fill: #808080">
+          ─
+        </tspan><tspan x="379.04999985" style="fill: #808080">
+          ─
+        </tspan><tspan x="387.47333318" style="fill: #808080">
+          ─
+        </tspan><tspan x="395.89666651" style="fill: #808080">
+          ─
+        </tspan><tspan x="404.31999984000004" style="fill: #808080">
+          ─
+        </tspan><tspan x="412.74333317" style="fill: #808080">
+          ─
+        </tspan><tspan x="421.1666665" style="fill: #808080">
+          ─
+        </tspan><tspan x="429.58999983" style="fill: #808080">
+          ─
+        </tspan><tspan x="438.01333316" style="fill: #808080">
+          ─
+        </tspan><tspan x="446.43666649" style="fill: #808080">
+          ─
+        </tspan><tspan x="454.85999982" style="fill: #808080">
+          ─
+        </tspan><tspan x="463.28333315000003" style="fill: #808080">
+          ─
+        </tspan><tspan x="471.70666648" style="fill: #808080">
+          ─
+        </tspan><tspan x="480.12999981" style="fill: #808080">
+          ─
+        </tspan><tspan x="488.55333314" style="fill: #808080">
+          ─
+        </tspan><tspan x="496.97666647" style="fill: #808080">
+          ─
+        </tspan><tspan x="505.3999998" style="fill: #808080">
+          ─
+        </tspan><tspan x="513.82333313" style="fill: #808080">
+          ─
+        </tspan><tspan x="522.24666646" style="fill: #808080">
+          ─
+        </tspan><tspan x="530.66999979" style="fill: #808080">
+          ─
+        </tspan><tspan x="539.09333312" style="fill: #808080">
+          ─
+        </tspan><tspan x="547.51666645" style="fill: #808080">
+          ─
+        </tspan><tspan x="555.93999978" style="fill: #808080">
+          ─
+        </tspan><tspan x="564.36333311" style="fill: #808080">
+          ─
+        </tspan><tspan x="572.78666644" style="fill: #808080">
+          ─
+        </tspan><tspan x="581.20999977" style="fill: #808080">
+          ─
+        </tspan><tspan x="589.6333331" style="fill: #808080">
+          ─
+        </tspan><tspan x="598.0566664300001" style="fill: #808080">
+          ─
+        </tspan><tspan x="606.47999976" style="fill: #808080">
+          ─
+        </tspan><tspan x="614.90333309" style="fill: #808080">
+          ─
+        </tspan><tspan x="623.32666642" style="fill: #808080">
+          ─
+        </tspan><tspan x="631.74999975" style="fill: #808080">
+          ─
+        </tspan><tspan x="640.17333308" style="fill: #808080">
+          ─
+        </tspan><tspan x="648.59666641" style="fill: #808080">
+          ─
+        </tspan><tspan x="657.01999974" style="fill: #808080">
+          ─
+        </tspan><tspan x="665.44333307" style="fill: #808080">
+          ─
+        </tspan><tspan x="673.8666664" style="fill: #808080">
+          ─
+        </tspan><tspan x="682.28999973" style="fill: #808080">
+          ─
+        </tspan><tspan x="690.71333306" style="fill: #808080">
+          ─
+        </tspan><tspan x="699.13666639" style="fill: #808080">
+          ─
+        </tspan><tspan x="707.5599997200001" style="fill: #808080">
+          ─
+        </tspan><tspan x="715.98333305" style="fill: #808080">
+          ─
+        </tspan><tspan x="724.40666638" style="fill: #808080">
+          ─
+        </tspan><tspan x="732.82999971" style="fill: #808080">
+          ─
+        </tspan><tspan x="741.25333304" style="fill: #808080">
+          ─
+        </tspan><tspan x="749.67666637" style="fill: #808080">
+          ─
+        </tspan><tspan x="758.0999997" style="fill: #808080">
+          ─
+        </tspan><tspan x="766.52333303" style="fill: #808080">
+          ─
+        </tspan><tspan x="774.94666636" style="fill: #808080">
+          ─
+        </tspan><tspan x="783.36999969" style="fill: #808080">
+          ─
+        </tspan><tspan x="791.79333302" style="fill: #808080">
+          ─
+        </tspan><tspan x="800.21666635" style="fill: #808080">
+          ─
+        </tspan><tspan x="808.6399996800001" style="fill: #808080">
+          ─
+        </tspan><tspan x="817.0633330100001" style="fill: #808080">
+          ─
+        </tspan><tspan x="825.48666634" style="fill: #808080">
+          ─
+        </tspan><tspan x="833.90999967" style="fill: #808080">
+          ─
+        </tspan><tspan x="842.333333" style="fill: #808080">
+          ─
+        </tspan><tspan x="850.75666633" style="fill: #808080">
+          ─
+        </tspan><tspan x="859.17999966" style="fill: #808080">
+          ─
+        </tspan><tspan x="867.60333299" style="fill: #808080">
+          ─
+        </tspan><tspan x="876.02666632" style="fill: #808080">
+          ─
+        </tspan><tspan x="884.44999965" style="fill: #808080">
+          ─
+        </tspan><tspan x="892.87333298" style="fill: #808080">
+          ─
+        </tspan><tspan x="901.29666631" style="fill: #808080">
+          ─
+        </tspan><tspan x="909.71999964" style="fill: #808080">
+          ─
+        </tspan><tspan x="918.1433329700001" style="fill: #808080">
+          ─
+        </tspan><tspan x="926.5666663000001" style="fill: #808080">
+          ─
+        </tspan><tspan x="934.98999963" style="fill: #808080">
+          ─
+        </tspan><tspan x="943.41333296" style="fill: #808080">
+          ─
+        </tspan><tspan x="951.83666629" style="fill: #808080">
+          ─
+        </tspan><tspan x="960.25999962" style="fill: #808080">
+          ─
+        </tspan><tspan x="968.68333295" style="fill: #808080">
+          ─
+        </tspan><tspan x="977.10666628" style="fill: #808080">
+          ─
+        </tspan><tspan x="985.52999961" style="fill: #808080">
+          ─
+        </tspan><tspan x="993.95333294" style="fill: #808080">
+          ─
+        </tspan><tspan x="1002.37666627" style="fill: #808080">
+          ┘
+        </tspan>
+      </tspan><tspan y="634.666508">
+        <tspan dy="1em" x="0.0" style="fill: #000000">
+          1-8: Tabs | Enter: Re-run | s: Sizes
+        </tspan><tspan x="951.83666629" style="fill: #000000">
+          q: Quit
+        </tspan>
+      </tspan>
+    </text>
+  </svg>
+
+  <svg x="446.623" y="268.8" width="134.4" height="134.4">
+    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000.0 1000.0" style="filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.4))">
+  <defs>
+    <mask id="small-triangle-mask">
+      <rect width="100%" height="100%" fill="white"></rect>
+      <polygon points="700.0 500.0, 400.00000000000006 326.7949192431122, 399.9999999999999 673.2050807568877" fill="black">
+      </polygon>
+    </mask>
+  </defs>
+  <polygon points="1000.0 500.0, 250.0000000000001 66.98729810778059, 249.99999999999977 933.0127018922192" mask="url(#small-triangle-mask)" fill="white">
+  </polygon>
+  <polyline points="673.2050807568878 400.0, 326.7949192431123 600.0" stroke="white" stroke-width="90">
+  </polyline>
+</svg>
+  </svg>
+</svg>
