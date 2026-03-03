@@ -696,12 +696,17 @@ public sealed class AssemblyAnalyzer : IDisposable
         local = Path.Combine(directory, $"{assemblyName}.exe");
         if (File.Exists(local)) return local;
 
-        // .NET runtime directory (BCL assemblies)
-        var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
-        if (runtimeDir is not null)
+        // Search trusted platform assemblies (runtime + app assemblies)
+        var tpa = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+        if (tpa is not null)
         {
-            var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
-            if (File.Exists(runtimeDll)) return runtimeDll;
+            foreach (var path in tpa.Split(Path.PathSeparator))
+            {
+                if (Path.GetFileNameWithoutExtension(path)
+                        .Equals(assemblyName, StringComparison.OrdinalIgnoreCase)
+                    && File.Exists(path))
+                    return path;
+            }
         }
 
         return null;
