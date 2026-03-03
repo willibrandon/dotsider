@@ -76,7 +76,7 @@ dotsider reads assemblies using APIs that ship with the .NET runtime itself — 
 
 The dynamic analysis tab uses `Microsoft.Diagnostics.NETCore.Client` to connect to a running .NET process via EventPipe — the same diagnostic infrastructure that powers `dotnet-trace` and `dotnet-counters`. It launches your assembly with a reverse-connect diagnostic port, so events are captured from the very first instruction.
 
-The TUI is built on [Hex1b](https://github.com/mitchdenny/hex1b), a .NET terminal UI framework with widget reconciliation, surface-based custom rendering, and mouse support.
+The TUI is built on [Hex1b](https://github.com/mitchdenny/hex1b), a .NET terminal UI library with a React-inspired declarative API, constraint-based layout, theming, and efficient widget reconciliation.
 
 ## Project structure
 
