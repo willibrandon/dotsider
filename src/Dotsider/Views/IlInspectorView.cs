@@ -50,7 +50,9 @@ public static class IlInspectorView
                             var searchQuery = state.Search[TabId.IlInspector].Query;
                             var disassembly = state.IlDisassembler.FormatDisassembly(method);
                             return disassembly.Split('\n')
-                                .Select(line => HighlightHelper.HighlightText(scroll, line, searchQuery))
+                                .Select(line => string.IsNullOrEmpty(searchQuery)
+                                    ? scroll.Text(IlColorizer.ColorizeLine(line))
+                                    : HighlightHelper.HighlightText(scroll, line, searchQuery))
                                 .ToArray();
                         }
 

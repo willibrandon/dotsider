@@ -12,6 +12,7 @@ namespace Dotsider.Views;
 /// </summary>
 public static class StringsView
 {
+    private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
     private static readonly string[] SourceTabs = ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary"];
 
     /// <summary>
@@ -89,7 +90,8 @@ public static class StringsView
                     ])
                     .Row((r, entry, rowState) =>
                     [
-                        r.Cell($"0x{entry.Offset:X8}"),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor),
+                            c.Text($"0x{entry.Offset:X8}"))),
                         r.Cell(c => HighlightHelper.HighlightCell(c,
                             entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
                             query, !string.IsNullOrEmpty(query)))
