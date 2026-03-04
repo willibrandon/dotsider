@@ -57,7 +57,7 @@ public static class IlInspectorView
                         }
 
                         return [scroll.Text("  Select a method to view IL disassembly")];
-                    })
+                    }).FillHeight()
                 ],
                 leftWidth: 35).FillWidth().FillHeight());
 
