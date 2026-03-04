@@ -215,11 +215,33 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
-            // Tab to focus the dependency table, then Enter to drill into the first ref
-            .Key(Hex1bKey.Tab)
+            // Focus starts on the dependency table; Enter to drill into the first ref
             .Key(Hex1bKey.Enter)
             // After drill-down, the title bar should no longer show "HelloWorld.dll"
             .WaitUntil(s => !s.ContainsText("HelloWorld.dll"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab3_ArrowKeysWorkImmediately()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
+            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3))
+            // Arrow keys should work immediately without clicking first
+            .Key(Hex1bKey.DownArrow) // Move to Program
+            .Key(Hex1bKey.RightArrow) // Expand Program
+            .WaitUntil(s => s.ContainsText(".ctor"), TimeSpan.FromSeconds(3))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, cts.Token);
