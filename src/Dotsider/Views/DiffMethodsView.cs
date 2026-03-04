@@ -1,5 +1,6 @@
 using Dotsider.Analysis.Models;
 using Hex1b;
+using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -24,37 +25,81 @@ public static class DiffMethodsView
     /// <returns>The root widget for the Methods tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DiffState state)
     {
+        var search = state.Search[2]; // Methods = tab 2
+        var query = search.Query;
         var filtered = FilterEntries(state.DiffResult.MethodDiffs, state.FilterMode);
 
-        return ctx.Table(filtered)
-            .RowKey(r => r.Kind.ToString() + ":" + (r.Left?.DeclaringType ?? r.Right?.DeclaringType ?? "") + "::" +
-                         (r.Left?.Name ?? r.Right?.Name ?? "") + (r.Left?.Signature ?? r.Right?.Signature ?? ""))
-            .Header(h =>
-            [
-                h.Cell("").Width(SizeHint.Fixed(3)),
-                h.Cell("Declaring Type").Width(SizeHint.Fixed(30)),
-                h.Cell("Method").Width(SizeHint.Fixed(25)),
-                h.Cell("Signature").Width(SizeHint.Fill),
-                h.Cell("Change").Width(SizeHint.Fixed(30))
-            ])
-            .Row((r, entry, rowState) =>
+        // Apply search filter by method name/signature
+        if (!string.IsNullOrEmpty(query))
+        {
+            filtered = filtered.Where(e =>
             {
-                var (prefix, color) = GetDiffStyle(entry.Kind);
-                var method = entry.Right ?? entry.Left!;
-                return
+                var method = e.Right ?? e.Left!;
+                return method.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                       method.Signature.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                       method.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+            search.SetMatchCount(filtered.Count);
+        }
+
+        // Set up match navigation
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
+
+        return ctx.VStack(outer =>
+        {
+            var widgets = new List<Hex1bWidget>();
+
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
+
+            // Table
+            widgets.Add(outer.Table(filtered)
+                .RowKey(r => r.Kind.ToString() + ":" + (r.Left?.DeclaringType ?? r.Right?.DeclaringType ?? "") + "::" +
+                             (r.Left?.Name ?? r.Right?.Name ?? "") + (r.Left?.Signature ?? r.Right?.Signature ?? ""))
+                .Header(h =>
                 [
-                    r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
-                    r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.DeclaringType))),
-                    r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Name))),
-                    r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Signature))),
-                    r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
-                ];
-            })
-            .Focus(state.DiffFocusedKey)
-            .OnFocusChanged(key => state.DiffFocusedKey = key)
-            .Compact()
-            .Empty(e => e.Text("  No method differences with current filter"))
-            .Fill();
+                    h.Cell("").Width(SizeHint.Fixed(3)),
+                    h.Cell("Declaring Type").Width(SizeHint.Fixed(30)),
+                    h.Cell("Method").Width(SizeHint.Fixed(25)),
+                    h.Cell("Signature").Width(SizeHint.Fill),
+                    h.Cell("Change").Width(SizeHint.Fixed(30))
+                ])
+                .Row((r, entry, rowState) =>
+                {
+                    var (prefix, color) = GetDiffStyle(entry.Kind);
+                    var method = entry.Right ?? entry.Left!;
+                    return
+                    [
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.DeclaringType))),
+                        r.Cell(c => !string.IsNullOrEmpty(query)
+                            ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, HighlightHelper.MatchBgColor), c.Text(method.Name))
+                            : c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Name))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Signature))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
+                    ];
+                })
+                .Focus(state.DiffFocusedKey)
+                .OnFocusChanged(key => state.DiffFocusedKey = key)
+                .Compact()
+                .Empty(e => e.Text("  No method differences with current filter"))
+                .Fill());
+
+            return widgets.ToArray();
+        })
+        .WithInputBindings(bindings =>
+        {
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
+        })
+        .Fill();
     }
 
     private static IReadOnlyList<DiffEntry<MethodDefInfo>> FilterEntries(

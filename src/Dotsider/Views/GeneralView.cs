@@ -3,6 +3,7 @@ using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -22,11 +23,30 @@ public static class GeneralView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var analyzer = state.Analyzer;
+        var search = state.Search[TabId.General];
+        var query = search.Query;
+
+        // Filter assembly refs by search query
+        var refs = (IReadOnlyList<AssemblyRefInfo>)analyzer.AssemblyRefs;
+        if (!string.IsNullOrEmpty(query))
+        {
+            refs = refs
+                .Where(r => $"{r.Name} {r.Version} {r.Culture} {r.PublicKeyToken}"
+                    .Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            search.SetMatchCount(refs.Count);
+        }
+
+        // Set up match navigation
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
 
         return ctx.VStack(outer =>
-        [
+        {
+            var widgets = new List<Hex1bWidget>();
+
             // Assembly Info section
-            outer.Border(
+            widgets.Add(outer.Border(
                 outer.VStack(info =>
                 [
                     InfoLine(info, "Assembly Name", analyzer.AssemblyName ?? "(none)"),
@@ -42,11 +62,14 @@ public static class GeneralView
                     InfoLine(info, "Read-Only", analyzer.IsReadOnly ? "Yes" : "No"),
                     InfoLine(info, "Has Metadata", analyzer.HasMetadata ? "Yes" : "No")
                 ])
-            ).Title(" Assembly Info "),
+            ).Title(" Assembly Info "));
+
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
             // Assembly References table
-            outer.Border(
-                outer.Table((IReadOnlyList<AssemblyRefInfo>)analyzer.AssemblyRefs)
+            widgets.Add(outer.Border(
+                outer.Table(refs)
                     .RowKey(r => r.Name)
                     .Header(h =>
                     [
@@ -57,7 +80,8 @@ public static class GeneralView
                     ])
                     .Row((r, asmRef, rowState) =>
                     [
-                        r.Cell(asmRef.Name),
+                        r.Cell(c => HighlightHelper.HighlightCell(c, asmRef.Name, query,
+                            !string.IsNullOrEmpty(query))),
                         r.Cell(asmRef.Version),
                         r.Cell(asmRef.Culture),
                         r.Cell(asmRef.PublicKeyToken ?? "")
@@ -95,8 +119,10 @@ public static class GeneralView
                             }
                         }, "Drill into reference");
                     })
-            ).Title($" Assembly References ({analyzer.AssemblyRefs.Count}) ").Fill()
-        ])
+            ).Title($" Assembly References ({refs.Count}) ").Fill());
+
+            return widgets.ToArray();
+        })
         .WithInputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Backspace).Action(_ =>
@@ -106,6 +132,15 @@ public static class GeneralView
                     state.App.Invalidate();
                 }
             }, "Back");
+
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
         })
         .Fill();
     }

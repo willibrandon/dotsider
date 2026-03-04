@@ -10,7 +10,7 @@ namespace Dotsider.Views;
 
 /// <summary>
 /// Builds the Size Treemap tab (Tab 7), showing a squarified treemap of
-/// assembly size by namespace/type/method using SurfaceWidget.
+/// assembly size by namespace/type/method using SurfaceWidget with search highlighting.
 /// </summary>
 public static class SizeTreemapView
 {
@@ -35,20 +35,59 @@ public static class SizeTreemapView
     {
         var sizeTree = state.CachedSizeTree ??= SizeAnalyzer.BuildSizeTree(state.Analyzer, state.IlDisassembler);
         var currentLevel = state.TreemapCurrentLevel ?? sizeTree;
+        var search = state.Search[TabId.SizeMap];
+        var query = search.Query;
+
+        // Find matching items for navigation
+        var matchingItems = new List<int>();
+        if (!string.IsNullOrEmpty(query))
+        {
+            for (var i = 0; i < currentLevel.Children.Count; i++)
+            {
+                if (currentLevel.Children[i].Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    matchingItems.Add(i);
+            }
+            search.SetMatchCount(matchingItems.Count);
+        }
+
+        // Clamp match index to current results
+        if (state.TreemapMatchIndex >= matchingItems.Count)
+            state.TreemapMatchIndex = matchingItems.Count > 0 ? 0 : -1;
+
+        // Set up match navigation using stable index
+        state.NavigateNextMatch = matchingItems.Count > 0 ? () =>
+        {
+            state.TreemapMatchIndex = state.TreemapMatchIndex < 0
+                ? 0 : (state.TreemapMatchIndex + 1) % matchingItems.Count;
+            var child = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
+            state.TreemapHoveredItem = $" {child.FullPath}: {state.FormatSizeToggleable(child.Size)} ({child.Children.Count} children)";
+        } : null;
+        state.NavigatePrevMatch = matchingItems.Count > 0 ? () =>
+        {
+            state.TreemapMatchIndex = state.TreemapMatchIndex <= 0
+                ? matchingItems.Count - 1 : state.TreemapMatchIndex - 1;
+            var child = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
+            state.TreemapHoveredItem = $" {child.FullPath}: {state.FormatSizeToggleable(child.Size)} ({child.Children.Count} children)";
+        } : null;
 
         return ctx.VStack(outer =>
-        [
+        {
+            var widgets = new List<Hex1bWidget>();
+
             // Breadcrumb
-            outer.HStack(row =>
+            widgets.Add(outer.HStack(row =>
             {
                 var parts = new List<Hex1bWidget>();
                 parts.Add(row.Text($" {BuildBreadcrumb(state)} "));
                 parts.Add(row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill());
                 return parts.ToArray();
-            }).FixedHeight(1),
+            }).FixedHeight(1));
+
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
             // Treemap surface
-            outer.Surface(s =>
+            widgets.Add(outer.Surface(s =>
             [
                 s.Layer(surface =>
                 {
@@ -60,13 +99,22 @@ public static class SizeTreemapView
                     var rects = TreemapLayout.Layout(
                         currentLevel.Children, 0, 0, surface.Width, surface.Height);
                     state.TreemapHoveredItem = null;
-                    DrawTreemap(surface, rects, state, s.MouseX, s.MouseY);
+                    DrawTreemap(surface, rects, state, s.MouseX, s.MouseY, query);
                 })
-            ]).Fill(),
+            ]).Fill());
 
-            // Detail bar
-            outer.Text(state.TreemapHoveredItem ?? " Click to drill down | Backspace to go up").FixedHeight(1)
-        ])
+            // Detail bar: hover takes priority, then navigated match, then default
+            var detailText = state.TreemapHoveredItem;
+            if (detailText is null && state.TreemapMatchIndex >= 0
+                && state.TreemapMatchIndex < matchingItems.Count)
+            {
+                var child = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
+                detailText = $" {child.FullPath}: {state.FormatSizeToggleable(child.Size)} ({child.Children.Count} children)";
+            }
+            widgets.Add(outer.Text(detailText ?? " Click to drill down | Backspace to go up").FixedHeight(1));
+
+            return widgets.ToArray();
+        })
         .WithInputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Backspace).Action(_ =>
@@ -77,6 +125,15 @@ public static class SizeTreemapView
                     state.App.Invalidate();
                 }
             }, "Go up");
+
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
         })
         .Fill();
     }
@@ -94,12 +151,17 @@ public static class SizeTreemapView
     }
 
     private static void DrawTreemap(Surface surface, IReadOnlyList<TreemapRect> rects,
-        DotsiderState state, int mouseX, int mouseY)
+        DotsiderState state, int mouseX, int mouseY, string? query)
     {
+        var hasQuery = !string.IsNullOrEmpty(query);
+
         for (var i = 0; i < rects.Count; i++)
         {
             var rect = rects[i];
-            var color = Palette[i % Palette.Length];
+            var isMatch = hasQuery && rect.Node.Name.Contains(query!, StringComparison.OrdinalIgnoreCase);
+            var color = isMatch ? Palette[i % Palette.Length]
+                : hasQuery ? HighlightHelper.DimColor
+                : Palette[i % Palette.Length];
 
             var x1 = (int)rect.X;
             var y1 = (int)rect.Y;

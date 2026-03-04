@@ -127,13 +127,27 @@ public static class DynamicAnalysisView
     private static Hex1bWidget BuildActiveView(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
+        var search = state.Search[TabId.Dynamic];
+        // Search bar hidden on Counters (1) and Summary (3) sub-tabs
+        var showSearch = state.DynamicSubTab is 0 or 2;
+
+        // Set up match navigation
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
+
         return ctx.VStack(outer =>
-        [
+        {
+            var widgets = new List<Hex1bWidget>();
+
             // Status bar
-            BuildStatusBar(outer, tracer),
+            widgets.Add(BuildStatusBar(outer, tracer));
+
+            // Search bar (only on Events and Output sub-tabs)
+            if (showSearch)
+                SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
             // Sub-tabs: Events | Counters | Output | Summary
-            outer.TabPanel(tp =>
+            widgets.Add(outer.TabPanel(tp =>
             [
                 tp.Tab("Events", t => [BuildEventsSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == 0),
@@ -150,8 +164,10 @@ public static class DynamicAnalysisView
                 state.App.Invalidate();
             })
             .Compact()
-            .Fill()
-        ])
+            .Fill());
+
+            return widgets.ToArray();
+        })
         .WithInputBindings(bindings =>
         {
             // Left/Right arrows to switch sub-tabs
@@ -195,6 +211,15 @@ public static class DynamicAnalysisView
                     state.App.Invalidate();
                 }, "Re-run process");
             }
+
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
         })
         .Fill();
     }
@@ -231,9 +256,21 @@ public static class DynamicAnalysisView
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var events = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+        var search = state.Search[TabId.Dynamic];
+        var query = search.Query;
 
         if (state.DynamicCategoryFilter is { } filter)
             events = events.Where(e => e.Category == filter).ToList();
+
+        // Apply search filter
+        if (!string.IsNullOrEmpty(query))
+        {
+            events = events.Where(e =>
+                e.EventName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Detail.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            search.SetMatchCount(events.Count);
+        }
 
         var filterText = state.DynamicCategoryFilter is { } f
             ? $" | Filter: {f} (Esc to clear)"
@@ -262,8 +299,10 @@ public static class DynamicAnalysisView
                         t => t.Set(GlobalTheme.ForegroundColor,
                             CategoryColors.GetValueOrDefault(evt.Category, Hex1bColor.White)),
                         c.Text(evt.Category.ToString()))),
-                    r.Cell(evt.EventName),
-                    r.Cell(evt.Detail)
+                    r.Cell(c => HighlightHelper.HighlightCell(c, evt.EventName, query,
+                        !string.IsNullOrEmpty(query))),
+                    r.Cell(c => HighlightHelper.HighlightCell(c, evt.Detail, query,
+                        !string.IsNullOrEmpty(query)))
                 ])
                 .Focus(state.DynamicEventsFocusedKey)
                 .OnFocusChanged(key => state.DynamicEventsFocusedKey = key)
@@ -279,7 +318,18 @@ public static class DynamicAnalysisView
             bindings.Key(Hex1bKey.E).Action(_ => SetFilter(state, TraceEventCategory.Exception), "Filter Exceptions");
             bindings.Key(Hex1bKey.L).Action(_ => SetFilter(state, TraceEventCategory.Loader), "Filter Loader");
             bindings.Key(Hex1bKey.H).Action(_ => SetFilter(state, TraceEventCategory.Http), "Filter HTTP");
-            bindings.Key(Hex1bKey.Escape).Action(_ => SetFilter(state, null), "Clear filter");
+            bindings.Key(Hex1bKey.Escape).Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+                else
+                {
+                    SetFilter(state, null);
+                }
+            }, "Esc");
         })
         .Fill();
     }
@@ -366,7 +416,18 @@ public static class DynamicAnalysisView
     private static Hex1bWidget BuildOutputSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
-        var output = tracer.GetOutput();
+        var output = (IReadOnlyList<Analysis.Models.OutputLine>)tracer.GetOutput();
+        var search = state.Search[TabId.Dynamic];
+        var query = search.Query;
+
+        // Apply search filter
+        if (!string.IsNullOrEmpty(query))
+        {
+            output = output.Where(o =>
+                o.Text.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            search.SetMatchCount(output.Count);
+        }
 
         return ctx.Table(output)
             .RowKey(o => $"{o.Timestamp.Ticks}:{o.Text}")
@@ -384,7 +445,8 @@ public static class DynamicAnalysisView
                     : c.Text("out")),
                 r.Cell(c => line.IsStdErr
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text))
-                    : c.Text(line.Text))
+                    : HighlightHelper.HighlightCell(c, line.Text, query,
+                        !string.IsNullOrEmpty(query)))
             ])
             .Focus(state.DynamicOutputFocusedKey)
             .OnFocusChanged(key => state.DynamicOutputFocusedKey = key)

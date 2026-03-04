@@ -7,6 +7,9 @@ using TraceProcessState = Dotsider.Analysis.Models.TraceProcessState;
 
 namespace Dotsider;
 
+/// <summary>Endianness for the hex data interpretation panel.</summary>
+public enum HexEndianness { Little, Big }
+
 /// <summary>
 /// Holds all mutable UI state for the dotsider application.
 /// Rebuilt each frame by the Hex1b render loop.
@@ -22,7 +25,9 @@ public sealed class DotsiderState : IDisposable
         Analyzer = new AssemblyAnalyzer(filePath);
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
-        HexEditorState = new EditorState(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc);
     }
 
     /// <summary>
@@ -34,20 +39,22 @@ public sealed class DotsiderState : IDisposable
         Analyzer = analyzer;
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
-        HexEditorState = new EditorState(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc);
     }
 
     /// <summary>The Hex1b application instance.</summary>
     public Hex1bApp App { get; }
 
     /// <summary>The core assembly analyzer (current top of navigation stack).</summary>
-    public AssemblyAnalyzer Analyzer { get; private set; }
+    public AssemblyAnalyzer Analyzer { get; internal set; }
 
     /// <summary>The IL disassembler for method body inspection.</summary>
-    public IlDisassembler IlDisassembler { get; private set; }
+    public IlDisassembler IlDisassembler { get; internal set; }
 
     /// <summary>The string extractor for all string sources.</summary>
-    public StringExtractor StringExtractor { get; private set; }
+    public StringExtractor StringExtractor { get; internal set; }
 
     // --- Tab Navigation ---
 
@@ -62,6 +69,17 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Navigation stack of assembly paths for drill-down.</summary>
     public Stack<AssemblyAnalyzer> NavigationStack { get; } = new();
 
+    // --- Search State (shared across all tabs) ---
+
+    /// <summary>Per-tab search state, indexed by <see cref="TabId"/> constants.</summary>
+    public SearchState[] Search { get; } = Enumerable.Range(0, 8).Select(_ => new SearchState()).ToArray();
+
+    /// <summary>Delegate to navigate to the next search match in the current view.</summary>
+    public Action? NavigateNextMatch { get; set; }
+
+    /// <summary>Delegate to navigate to the previous search match in the current view.</summary>
+    public Action? NavigatePrevMatch { get; set; }
+
     // --- PE/Metadata Tab State ---
 
     /// <summary>The selected sub-tab index in the PE/Metadata view (Sections, TypeDef, etc.).</summary>
@@ -69,12 +87,6 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Whether to display sizes in human-readable format.</summary>
     public bool HumanReadableSizes { get; set; } = true;
-
-    /// <summary>The current search query for the PE/Metadata tab, or null if search is inactive.</summary>
-    public string? PeSearchQuery { get; set; }
-
-    /// <summary>Whether the PE/Metadata search input is active.</summary>
-    public bool PeSearchActive { get; set; }
 
     /// <summary>The item being shown in the detail popup, or null.</summary>
     public string? PeDetailContent { get; set; }
@@ -87,12 +99,6 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The currently selected method for disassembly, or null.</summary>
     public MethodDefInfo? IlSelectedMethod { get; set; }
 
-    /// <summary>The current search query for IL search, or null.</summary>
-    public string? IlSearchQuery { get; set; }
-
-    /// <summary>Whether IL search mode is active.</summary>
-    public bool IlSearchActive { get; set; }
-
     // --- Strings Tab State ---
 
     /// <summary>The minimum string length filter for raw strings.</summary>
@@ -100,12 +106,6 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The selected string source tab (0=User, 1=Metadata, 2=Raw).</summary>
     public int StringsSourceTab { get; set; }
-
-    /// <summary>The current search query for strings, or null.</summary>
-    public string? StringsSearchQuery { get; set; }
-
-    /// <summary>Whether string search mode is active.</summary>
-    public bool StringsSearchActive { get; set; }
 
     /// <summary>The focused string entry key in the strings table.</summary>
     public object? StringsFocusedKey { get; set; }
@@ -133,6 +133,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The currently hovered/selected node name in the graph view.</summary>
     public string? GraphSelectedNode { get; set; }
 
+    /// <summary>Stable match index for dependency graph search navigation.</summary>
+    public int GraphMatchIndex { get; set; } = -1;
+
     // --- Size Treemap Tab State ---
 
     /// <summary>Cached size tree for treemap visualization.</summary>
@@ -147,10 +150,52 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The hovered item description in the treemap.</summary>
     public string? TreemapHoveredItem { get; set; }
 
+    /// <summary>Stable match index for treemap search navigation.</summary>
+    public int TreemapMatchIndex { get; set; } = -1;
+
     // --- Hex Dump Tab State ---
 
     /// <summary>The editor state for the hex dump view.</summary>
-    public EditorState HexEditorState { get; private set; }
+    public EditorState HexEditorState { get; internal set; }
+
+    /// <summary>The hex-row-aware document wrapper. Used to keep BytesPerRow in sync with the renderer.</summary>
+    public HexRowDocument HexRowDoc { get; internal set; }
+
+    /// <summary>Byte offsets of hex search matches in the current assembly.</summary>
+    public List<long> HexMatchOffsets { get; set; } = [];
+
+    /// <summary>Index into <see cref="HexMatchOffsets"/> for the currently highlighted match, or -1.</summary>
+    public int HexCurrentMatchIndex { get; set; } = -1;
+
+    /// <summary>Byte count of the search pattern, used for match range highlighting.</summary>
+    public int HexMatchPatternLength { get; set; }
+
+    /// <summary>Last search query, used to detect query changes for live search.</summary>
+    public string? HexLastSearchQuery { get; set; }
+
+    /// <summary>Endianness for the data interpretation panel.</summary>
+    public HexEndianness HexEndianness { get; set; } = HexEndianness.Little;
+
+    /// <summary>Status notification message (save result, errors).</summary>
+    public string? HexNotification { get; set; }
+
+    /// <summary>Whether the jump-to-byte dialog is open.</summary>
+    public bool HexJumpDialogOpen { get; set; }
+
+    /// <summary>Text input for the jump-to-byte dialog.</summary>
+    public string HexJumpInput { get; set; } = "";
+
+    /// <summary>Search mode: false = ASCII text, true = hex bytes.</summary>
+    public bool HexSearchModeHex { get; set; }
+
+    /// <summary>Adaptive throttle flag: set on first slow search to degrade to Enter-only.</summary>
+    public bool HexLiveSearchTooSlow { get; set; }
+
+    /// <summary>Target byte offset for renderer scroll override. Set by NavigateToOffset, cleared after EditorNode catches up.</summary>
+    public long? HexScrollTarget { get; set; }
+
+    /// <summary>Tracks the EditorNode's raw scroll offset to detect when it catches up after programmatic navigation.</summary>
+    public int HexLastEditorScrollOffset { get; set; }
 
     // --- Dynamic Analysis Tab State ---
 
@@ -193,7 +238,9 @@ public sealed class DotsiderState : IDisposable
         Analyzer = new AssemblyAnalyzer(filePath);
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
-        HexEditorState = new EditorState(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc);
         ResetViewState();
     }
 
@@ -207,36 +254,49 @@ public sealed class DotsiderState : IDisposable
         Analyzer = NavigationStack.Pop();
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
-        HexEditorState = new EditorState(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc);
         ResetViewState();
         return true;
     }
 
     private void ResetViewState()
     {
+        foreach (var s in Search) s.Reset();
+        NavigateNextMatch = null;
+        NavigatePrevMatch = null;
         GeneralFocusedDep = null;
         PeSubTab = 0;
         PeFocusedKey = null;
         PeDetailContent = null;
-        PeSearchQuery = null;
-        PeSearchActive = false;
         IlSelectedMethod = null;
-        IlSearchQuery = null;
-        IlSearchActive = false;
         StringsSourceTab = 0;
         StringsFocusedKey = null;
         StringsDetailContent = null;
-        StringsSearchQuery = null;
-        StringsSearchActive = false;
         CachedUserStrings = null;
         CachedMetadataStrings = null;
         CachedRawStrings = null;
         CachedGraph = null;
         GraphSelectedNode = null;
+        GraphMatchIndex = -1;
         CachedSizeTree = null;
         TreemapCurrentLevel = null;
         TreemapBreadcrumb.Clear();
         TreemapHoveredItem = null;
+        TreemapMatchIndex = -1;
+        HexMatchOffsets = [];
+        HexCurrentMatchIndex = -1;
+        HexMatchPatternLength = 0;
+        HexLastSearchQuery = null;
+        HexNotification = null;
+        HexJumpDialogOpen = false;
+        HexJumpInput = "";
+        HexSearchModeHex = false;
+        HexLiveSearchTooSlow = false;
+        HexScrollTarget = null;
+        HexLastEditorScrollOffset = 0;
+        // Note: HexEndianness intentionally NOT reset (user preference)
         DynamicSubTab = 0;
         DynamicEventsFocusedKey = null;
         DynamicAutoScroll = true;
@@ -260,10 +320,11 @@ public sealed class DotsiderState : IDisposable
             _ => []
         };
 
-        if (!string.IsNullOrEmpty(StringsSearchQuery))
+        var query = Search[TabId.Strings].Query;
+        if (!string.IsNullOrEmpty(query))
         {
             entries = entries
-                .Where(e => e.Value.Contains(StringsSearchQuery, StringComparison.OrdinalIgnoreCase))
+                .Where(e => e.Value.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
 

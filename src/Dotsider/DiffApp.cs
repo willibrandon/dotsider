@@ -88,28 +88,28 @@ public sealed class DiffApp
             .Fill(),
 
             // Hints bar
-            outer.InfoBar(s =>
-            [
-                s.Section("1-4: Tabs"),
-                s.Separator(" | "),
-                s.Section("f: Filter"),
-                s.Separator(" | "),
-                s.Section("/: Search"),
-                s.Spacer(),
-                s.Section("q: Quit")
-            ]).WithDefaultSeparator(" | ")
+            BuildHintsBar(outer)
         ])
         .WithInputBindings(bindings =>
         {
-            for (var i = 0; i < 4; i++)
+            var currentSearch = _state.Search[_state.CurrentTab];
+            var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
+
+            // Number keys 1-4, f, q suppressed during search editing to let TextBox receive input
+            if (!isSearchEditing)
             {
-                var tabIndex = i;
-                var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                bindings.Key(key).Global().Action(_ =>
+                for (var i = 0; i < 4; i++)
                 {
-                    _state.CurrentTab = tabIndex;
-                    _state.App.Invalidate();
-                }, $"Tab {tabIndex + 1}");
+                    var tabIndex = i;
+                    var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
+                    bindings.Key(key).Global().Action(_ =>
+                    {
+                        _state.CurrentTab = tabIndex;
+                        _state.App.Invalidate();
+                    }, $"Tab {tabIndex + 1}");
+                }
+
+                bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
             }
 
             bindings.Key(Hex1bKey.F).Action(_ =>
@@ -118,10 +118,69 @@ public sealed class DiffApp
                 _state.App.Invalidate();
             }, "Cycle filter");
 
-            bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+            // Global search toggle (same dual-binding strategy as DotsiderApp)
+            Action searchToggle = () =>
+            {
+                _state.Search[_state.CurrentTab].ActivateOrCycle();
+                var s = _state.Search[_state.CurrentTab];
+                if (s.IsActive && !s.IsConfirmed)
+                    _state.App.RequestFocus(node => node is TextBoxNode);
+                _state.App.Invalidate();
+            };
+            bindings.Key(Hex1bKey.OemQuestion).Global().Action(_ => searchToggle(), "Search");
+            if (!isSearchEditing)
+            {
+                bindings.Key(Hex1bKey.None).Global().Action(_ => searchToggle(), "Search");
+            }
+            if (isSearchEditing)
+            {
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
+                {
+                    if (!string.IsNullOrEmpty(currentSearch.Query))
+                    {
+                        currentSearch.Confirm();
+                        _state.App.Invalidate();
+                    }
+                }, "Confirm search");
+            }
+
+            // n/N only registered when search is confirmed
+            if (currentSearch.IsActive && currentSearch.IsConfirmed)
+            {
+                bindings.Key(Hex1bKey.N).Global().Action(_ =>
+                {
+                    _state.NavigateNextMatch?.Invoke();
+                    _state.App.Invalidate();
+                }, "Next match");
+                bindings.Shift().Key(Hex1bKey.N).Global().Action(_ =>
+                {
+                    _state.NavigatePrevMatch?.Invoke();
+                    _state.App.Invalidate();
+                }, "Prev match");
+            }
+
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
         });
+    }
+
+    private Hex1bWidget BuildHintsBar(WidgetContext<VStackWidget> ctx)
+    {
+        return ctx.InfoBar(s =>
+        {
+            var hints = new List<IInfoBarChild>();
+            hints.Add(s.Section("1-4: Tabs"));
+            hints.Add(s.Section("f: Filter"));
+
+            var currentSearch = _state.Search[_state.CurrentTab];
+            if (currentSearch.IsActive)
+                hints.Add(s.Section("Esc: Clear"));
+            hints.Add(s.Section("/: Search"));
+
+            hints.Add(s.Spacer());
+            hints.Add(s.Section("q: Quit"));
+            return hints;
+        }).WithDefaultSeparator(" | ");
     }
 
     private static int CountChanges<T>(IReadOnlyList<DiffEntry<T>> diffs)

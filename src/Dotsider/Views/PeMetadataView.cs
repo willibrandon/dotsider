@@ -2,6 +2,7 @@ using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -21,6 +22,11 @@ public static class PeMetadataView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var analyzer = state.Analyzer;
+        var search = state.Search[TabId.PeMetadata];
+
+        // Set up match navigation
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
 
         return ctx.ZStack(z =>
         [
@@ -91,17 +97,8 @@ public static class PeMetadataView
                     ],
                     leftWidth: 50).FixedHeight(12));
 
-                // Search bar (conditional)
-                if (state.PeSearchActive)
-                {
-                    widgets.Add(outer.HStack(h =>
-                    [
-                        h.Text(" / "),
-                        h.TextBox(state.PeSearchQuery ?? "")
-                            .OnTextChanged(e => state.PeSearchQuery = e.NewText)
-                            .Fill()
-                    ]).FixedHeight(1));
-                }
+                // Search bar (shared helper)
+                SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
                 // Bottom section: Metadata tables in sub-tabs
                 widgets.Add(outer.TabPanel(tp =>
@@ -133,20 +130,20 @@ public static class PeMetadataView
             })
             .WithInputBindings(bindings =>
             {
-                bindings.Key(Hex1bKey.OemQuestion).Action(_ =>
+                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                 {
-                    state.PeSearchActive = !state.PeSearchActive;
-                    if (!state.PeSearchActive) state.PeSearchQuery = null;
-                    state.App.Invalidate();
-                }, "Toggle search");
-                bindings.Key(Hex1bKey.Escape).Action(_ =>
-                {
+                    if (search.IsActive)
+                    {
+                        search.Dismiss();
+                        state.App.Invalidate();
+                        return;
+                    }
                     if (state.PeDetailContent is not null)
                     {
                         state.PeDetailContent = null;
                         state.App.Invalidate();
                     }
-                }, "Close detail");
+                }, "Esc");
             })
             .Fill(),
 
@@ -171,8 +168,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.Sections, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.Sections, query,
             s => $"{s.Name} {s.Characteristics}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(s => s.Name)
@@ -187,7 +186,7 @@ public static class PeMetadataView
             ])
             .Row((r, s, _) =>
             [
-                r.Cell(s.Name),
+                r.Cell(c => HighlightHelper.HighlightCell(c, s.Name, query, true)),
                 r.Cell($"0x{s.VirtualAddress:X8}"),
                 r.Cell(FormatSize(s.VirtualSize, state)),
                 r.Cell($"0x{s.RawDataOffset:X8}"),
@@ -211,8 +210,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.TypeDefs, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.TypeDefs, query,
             t => $"{t.FullName} {t.BaseType} {t.Attributes}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(t => t.Token)
@@ -228,7 +229,7 @@ public static class PeMetadataView
             .Row((r, t, _) =>
             [
                 r.Cell($"0x{t.Token:X8}"),
-                r.Cell(t.FullName),
+                r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
                 r.Cell(t.BaseType ?? ""),
                 r.Cell(t.Attributes.ToString()),
                 r.Cell(t.MethodCount.ToString()),
@@ -251,8 +252,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.MethodDefs, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.MethodDefs, query,
             m => $"{m.DeclaringType} {m.Name} {m.Signature}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(m => m.Token)
@@ -269,7 +272,7 @@ public static class PeMetadataView
             [
                 r.Cell($"0x{m.Token:X8}"),
                 r.Cell(m.DeclaringType),
-                r.Cell(m.Name),
+                r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true)),
                 r.Cell(m.Signature),
                 r.Cell(m.Attributes.ToString()),
                 r.Cell(m.Rva == 0 ? "" : $"0x{m.Rva:X8}")
@@ -291,8 +294,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.TypeRefs, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.TypeRefs, query,
             t => $"{t.FullName} {t.ResolutionScope}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(t => t.Token)
@@ -305,7 +310,7 @@ public static class PeMetadataView
             .Row((r, t, _) =>
             [
                 r.Cell($"0x{t.Token:X8}"),
-                r.Cell(t.FullName),
+                r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
                 r.Cell(t.ResolutionScope)
             ])
             .Focus(state.PeFocusedKey)
@@ -324,8 +329,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.MemberRefs, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.MemberRefs, query,
             m => $"{m.DeclaringType} {m.Name}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(m => m.Token)
@@ -339,7 +346,7 @@ public static class PeMetadataView
             [
                 r.Cell($"0x{m.Token:X8}"),
                 r.Cell(m.DeclaringType),
-                r.Cell(m.Name)
+                r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true))
             ])
             .Focus(state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -354,8 +361,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.CustomAttributes, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.CustomAttributes, query,
             a => $"{a.Parent} {a.Constructor} {a.Value}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(a => $"{a.Parent}|{a.Constructor}")
@@ -367,7 +376,7 @@ public static class PeMetadataView
             ])
             .Row((r, a, _) =>
             [
-                r.Cell(a.Parent),
+                r.Cell(c => HighlightHelper.HighlightCell(c, a.Parent, query, true)),
                 r.Cell(a.Constructor),
                 r.Cell(a.Value ?? "")
             ])
@@ -386,8 +395,10 @@ public static class PeMetadataView
 
     private static Hex1bWidget BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var data = ApplySearch(state.Analyzer.Resources, state.PeSearchQuery,
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.Resources, query,
             r => $"{r.Name} {r.Visibility}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
             .RowKey(r => r.Name)
@@ -401,7 +412,7 @@ public static class PeMetadataView
             ])
             .Row((r, res, _) =>
             [
-                r.Cell(res.Name),
+                r.Cell(c => HighlightHelper.HighlightCell(c, res.Name, query, true)),
                 r.Cell(res.Visibility),
                 r.Cell($"0x{res.Offset:X8}"),
                 r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
