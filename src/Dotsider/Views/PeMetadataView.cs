@@ -121,7 +121,9 @@ public static class PeMetadataView
                 .OnSelectionChanged(e =>
                 {
                     state.PeSubTab = e.SelectedIndex;
+                    search.Reset();
                     state.PeFocusedKey = null;
+                    state.App.Invalidate();
                 })
                 .Compact()
                 .Fill());
@@ -271,9 +273,9 @@ public static class PeMetadataView
             .Row((r, m, _) =>
             [
                 r.Cell($"0x{m.Token:X8}"),
-                r.Cell(m.DeclaringType),
+                r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true)),
-                r.Cell(m.Signature),
+                r.Cell(c => HighlightHelper.HighlightCell(c, m.Signature, query, true)),
                 r.Cell(m.Attributes.ToString()),
                 r.Cell(m.Rva == 0 ? "" : $"0x{m.Rva:X8}")
             ])
@@ -345,7 +347,7 @@ public static class PeMetadataView
             .Row((r, m, _) =>
             [
                 r.Cell($"0x{m.Token:X8}"),
-                r.Cell(m.DeclaringType),
+                r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true))
             ])
             .Focus(state.PeFocusedKey)
@@ -377,8 +379,8 @@ public static class PeMetadataView
             .Row((r, a, _) =>
             [
                 r.Cell(c => HighlightHelper.HighlightCell(c, a.Parent, query, true)),
-                r.Cell(a.Constructor),
-                r.Cell(a.Value ?? "")
+                r.Cell(c => HighlightHelper.HighlightCell(c, a.Constructor, query, true)),
+                r.Cell(c => HighlightHelper.HighlightCell(c, a.Value ?? "", query, true))
             ])
             .Focus(state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
