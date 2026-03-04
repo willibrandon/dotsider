@@ -1,6 +1,7 @@
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -21,7 +22,35 @@ public static class StringsView
     /// <returns>The root widget for the Strings tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        var search = state.Search[TabId.Strings];
         var activeStrings = state.GetActiveStrings();
+        var query = search.Query;
+
+        // Set match count when search is active
+        if (!string.IsNullOrEmpty(query))
+            search.SetMatchCount(activeStrings.Count);
+
+        // Set up match navigation — cycle through filtered table rows
+        if (activeStrings.Count > 0 && !string.IsNullOrEmpty(query))
+        {
+            state.NavigateNextMatch = () =>
+            {
+                var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
+                idx = (idx + 1) % activeStrings.Count;
+                state.StringsFocusedKey = RowKey(activeStrings[idx]);
+            };
+            state.NavigatePrevMatch = () =>
+            {
+                var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
+                idx = idx <= 0 ? activeStrings.Count - 1 : idx - 1;
+                state.StringsFocusedKey = RowKey(activeStrings[idx]);
+            };
+        }
+        else
+        {
+            state.NavigateNextMatch = null;
+            state.NavigatePrevMatch = null;
+        }
 
         return ctx.ZStack(z =>
         [
@@ -41,32 +70,18 @@ public static class StringsView
                 .OnSelectionChanged(e =>
                 {
                     state.StringsSourceTab = e.SelectedIndex;
-                    state.StringsSearchQuery = null;
-                    state.StringsSearchActive = false;
+                    search.Reset();
                     state.StringsFocusedKey = null;
                     state.App.Invalidate();
                 })
                 .FixedHeight(1));
 
-                // Search bar (visible when active)
-                if (state.StringsSearchActive)
-                {
-                    widgets.Add(outer.HStack(row =>
-                    [
-                        row.Text(" Search: ").FixedWidth(9),
-                        row.TextBox(state.StringsSearchQuery ?? "")
-                            .OnTextChanged(e =>
-                            {
-                                state.StringsSearchQuery = e.NewText;
-                                state.App.Invalidate();
-                            })
-                            .Fill()
-                    ]).FixedHeight(1));
-                }
+                // Search bar (shared helper)
+                SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
                 // Strings table
                 widgets.Add(outer.Table((IReadOnlyList<Analysis.Models.StringEntry>)activeStrings)
-                    .RowKey(e => $"{e.Offset}:{e.Source}")
+                    .RowKey(RowKey)
                     .Header(h =>
                     [
                         h.Cell("Offset").Width(SizeHint.Fixed(12)),
@@ -75,7 +90,9 @@ public static class StringsView
                     .Row((r, entry, rowState) =>
                     [
                         r.Cell($"0x{entry.Offset:X8}"),
-                        r.Cell(entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value)
+                        r.Cell(c => HighlightHelper.HighlightCell(c,
+                            entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
+                            query, !string.IsNullOrEmpty(query)))
                     ])
                     .Focus(state.StringsFocusedKey)
                     .OnFocusChanged(key => state.StringsFocusedKey = key)
@@ -132,21 +149,20 @@ public static class StringsView
                     }
                 }, "Decrease min length");
 
-                bindings.Key(Hex1bKey.OemQuestion).Action(_ =>
+                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                 {
-                    state.StringsSearchActive = !state.StringsSearchActive;
-                    if (!state.StringsSearchActive) state.StringsSearchQuery = null;
-                    state.App.Invalidate();
-                }, "Toggle search");
-
-                bindings.Key(Hex1bKey.Escape).Action(_ =>
-                {
+                    if (search.IsActive)
+                    {
+                        search.Dismiss();
+                        state.App.Invalidate();
+                        return;
+                    }
                     if (state.StringsDetailContent is not null)
                     {
                         state.StringsDetailContent = null;
                         state.App.Invalidate();
                     }
-                }, "Close detail");
+                }, "Esc");
             })
             .Fill(),
 
@@ -170,5 +186,18 @@ public static class StringsView
                 })
                 : null
         ]).Fill();
+    }
+
+    private static string RowKey(Analysis.Models.StringEntry e) => $"{e.Offset}:{e.Source}";
+
+    private static int FindFocusedIndex(IReadOnlyList<Analysis.Models.StringEntry> entries, object? focusedKey)
+    {
+        if (focusedKey is not string key) return -1;
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (RowKey(entries[i]) == key)
+                return i;
+        }
+        return -1;
     }
 }

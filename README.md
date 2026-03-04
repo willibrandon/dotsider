@@ -6,7 +6,7 @@ A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, depend
 dotsider HelloWorld.dll
 ```
 
-[![dotsider demo](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/demo.svg)](https://asciinema.org/a/bPs2Bop54ust8e3C)
+[![dotsider demo](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/demo.svg)](https://asciinema.org/a/jrvMzSQviPEsOKfE)
 
 ## Installation
 
@@ -30,7 +30,7 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources. |
 | **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Select a method, read its bytecode. |
 | **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
-| **5 Hex Dump** | Raw hex viewer with ASCII sidebar. |
+| **5 Hex Dump** | Hex editor with byte category coloring, search highlighting, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. |
 | **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in. |
 | **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. |
@@ -72,9 +72,20 @@ Options:
 | `1`-`8` | Switch tabs |
 | `Enter` | Drill into selected item (assembly ref, method, DLL in package) |
 | `Backspace` | Go back |
-| `/` | Search |
+| `/` | Search (highlights matches inline) |
+| `n` / `N` | Next / previous search match |
 | `s` | Toggle human-readable sizes |
 | `q` | Quit |
+
+**Hex Dump tab** adds:
+
+| Key | Action |
+|-----|--------|
+| `h` `j` `k` `l` | Vim-style cursor movement |
+| `g` | Jump to hex offset |
+| `e` | Toggle endianness (LE/BE) |
+| `Ctrl+T` | Toggle text/hex search mode |
+| `Ctrl+S` | Save edited bytes |
 
 Diff mode adds `f` to cycle filters (All / Added / Removed / Changed).
 

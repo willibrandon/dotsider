@@ -1,6 +1,7 @@
 using Dotsider.Analysis;
 using Dotsider.Analysis.Models;
 using Hex1b;
+using Hex1b.Input;
 using Hex1b.Surfaces;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -9,7 +10,7 @@ namespace Dotsider.Views;
 
 /// <summary>
 /// Builds the Dependency Graph tab (Tab 6), rendering an interactive
-/// assembly reference graph using SurfaceWidget.
+/// assembly reference graph using SurfaceWidget with search highlighting.
 /// </summary>
 public static class DependencyGraphView
 {
@@ -27,30 +28,96 @@ public static class DependencyGraphView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var (nodes, edges) = state.CachedGraph ??= DependencyGraphBuilder.Build(state.Analyzer);
+        var search = state.Search[TabId.DepGraph];
+        var query = search.Query;
+
+        // Find matching node indices for navigation
+        var matchingNodes = new List<int>();
+        if (!string.IsNullOrEmpty(query))
+        {
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                if (nodes[i].Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    matchingNodes.Add(i);
+            }
+            search.SetMatchCount(matchingNodes.Count);
+        }
+
+        // Clamp match index to current results
+        if (state.GraphMatchIndex >= matchingNodes.Count)
+            state.GraphMatchIndex = matchingNodes.Count > 0 ? 0 : -1;
+
+        // Set up match navigation using stable index
+        state.NavigateNextMatch = matchingNodes.Count > 0 ? () =>
+        {
+            state.GraphMatchIndex = (state.GraphMatchIndex + 1) % matchingNodes.Count;
+            var node = nodes[matchingNodes[state.GraphMatchIndex]];
+            var version = node.Version is not null ? $" v{node.Version}" : "";
+            state.GraphSelectedNode = $"{node.Name}{version}";
+        } : null;
+        state.NavigatePrevMatch = matchingNodes.Count > 0 ? () =>
+        {
+            state.GraphMatchIndex = state.GraphMatchIndex <= 0
+                ? matchingNodes.Count - 1 : state.GraphMatchIndex - 1;
+            var node = nodes[matchingNodes[state.GraphMatchIndex]];
+            var version = node.Version is not null ? $" v{node.Version}" : "";
+            state.GraphSelectedNode = $"{node.Name}{version}";
+        } : null;
 
         return ctx.VStack(outer =>
-        [
-            outer.HStack(row =>
+        {
+            var widgets = new List<Hex1bWidget>();
+
+            // Display: hover info takes priority, then navigated match, then default
+            var displayNode = state.GraphSelectedNode;
+            if (displayNode is null && state.GraphMatchIndex >= 0
+                && state.GraphMatchIndex < matchingNodes.Count)
+            {
+                var node = nodes[matchingNodes[state.GraphMatchIndex]];
+                var version = node.Version is not null ? $" v{node.Version}" : "";
+                displayNode = $"{node.Name}{version}";
+            }
+
+            widgets.Add(outer.HStack(row =>
             [
                 row.Text($" Nodes: {nodes.Count}  Edges: {edges.Count}"),
-                row.Text(state.GraphSelectedNode is { } sel
-                    ? $"  | {sel}"
+                row.Text(displayNode is not null
+                    ? $"  | {displayNode}"
                     : "  | Hover over a node for details").Fill()
-            ]).FixedHeight(1),
+            ]).FixedHeight(1));
 
-            outer.Surface(s =>
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
+
+            widgets.Add(outer.Surface(s =>
             [
-                s.Layer(surface => DrawGraph(surface, nodes, edges, state, s.MouseX, s.MouseY))
-            ]).Fill()
-        ]).Fill();
+                s.Layer(surface => DrawGraph(surface, nodes, edges, state, s.MouseX, s.MouseY, query))
+            ]).Fill());
+
+            return widgets.ToArray();
+        })
+        .WithInputBindings(bindings =>
+        {
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
+        })
+        .Fill();
     }
 
     private static void DrawGraph(Surface surface, IReadOnlyList<GraphNode> nodes,
-        IReadOnlyList<GraphEdge> edges, DotsiderState state, int mouseX, int mouseY)
+        IReadOnlyList<GraphEdge> edges, DotsiderState state, int mouseX, int mouseY, string? query)
     {
         var w = surface.Width;
         var h = surface.Height;
         if (w < 10 || h < 5) return;
+
+        var hasQuery = !string.IsNullOrEmpty(query);
 
         // Draw edges first (underneath nodes)
         foreach (var edge in edges)
@@ -66,7 +133,8 @@ public static class DependencyGraphView
 
             // Simple vertical-first routing
             var midY = (y1 + y2) / 2;
-            var edgeC = edge.TypeRefCount > 10 ? Hex1bColor.FromRgb(140, 140, 180) : EdgeColor;
+            var edgeC = hasQuery ? HighlightHelper.DimColor :
+                edge.TypeRefCount > 10 ? Hex1bColor.FromRgb(140, 140, 180) : EdgeColor;
 
             for (var y = Math.Min(y1, midY); y <= Math.Max(y1, midY); y++)
                 surface.WriteChar(x1, y, '│', edgeC);
@@ -98,7 +166,10 @@ public static class DependencyGraphView
             if (x0 + boxW > w) x0 = w - boxW;
             if (y0 + 3 > h) y0 = h - 3;
 
-            var bg = node.IsRoot ? RootColor : RefColor;
+            var isMatch = hasQuery && node.Name.Contains(query!, StringComparison.OrdinalIgnoreCase);
+            var bg = isMatch ? (node.IsRoot ? RootColor : RefColor)
+                : hasQuery ? HighlightHelper.DimColor
+                : node.IsRoot ? RootColor : RefColor;
             var fg = Hex1bColor.Black;
 
             // Check mouse hover

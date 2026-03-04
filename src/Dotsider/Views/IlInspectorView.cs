@@ -19,25 +19,18 @@ public static class IlInspectorView
     /// <returns>The root widget for the IL Inspector tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        var search = state.Search[TabId.IlInspector];
+
+        // Set up match navigation
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
+
         return ctx.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>();
 
-            // Search bar (visible when IlSearchActive is true)
-            if (state.IlSearchActive)
-            {
-                widgets.Add(outer.HStack(row =>
-                [
-                    row.Text(" Search: ").FixedWidth(9),
-                    row.TextBox(state.IlSearchQuery ?? "")
-                        .OnTextChanged(e =>
-                        {
-                            state.IlSearchQuery = e.NewText;
-                            state.App.Invalidate();
-                        })
-                        .Fill()
-                ]).FixedHeight(1));
-            }
+            // Search bar (shared helper)
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
             // Main content: HSplitter with tree on left, disassembly on right
             widgets.Add(outer.HSplitter(
@@ -54,9 +47,10 @@ public static class IlInspectorView
                     {
                         if (state.IlSelectedMethod is { } method)
                         {
+                            var searchQuery = state.Search[TabId.IlInspector].Query;
                             var disassembly = state.IlDisassembler.FormatDisassembly(method);
                             return disassembly.Split('\n')
-                                .Select(line => scroll.Text(line))
+                                .Select(line => HighlightHelper.HighlightText(scroll, line, searchQuery))
                                 .ToArray();
                         }
 
@@ -69,19 +63,21 @@ public static class IlInspectorView
         })
         .WithInputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.OemQuestion).Action(_ =>
+            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {
-                state.IlSearchActive = !state.IlSearchActive;
-                if (!state.IlSearchActive) state.IlSearchQuery = null;
-                state.App.Invalidate();
-            }, "Toggle search");
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
         })
         .FillWidth().FillHeight();
     }
 
     private static IEnumerable<TreeItemWidget> BuildMethodTree(TreeContext t, DotsiderState state)
     {
-        var searchQuery = state.IlSearchQuery;
+        var searchQuery = state.Search[TabId.IlInspector].Query;
 
         // Group methods by declaring type
         var methodsByType = state.Analyzer.MethodDefs
@@ -109,7 +105,8 @@ public static class IlInspectorView
                 if (nsTypes.Count == 0) continue;
             }
 
-            yield return t.Item(nsGroup.Key, ns =>
+            yield return t.Item(
+                HighlightHelper.HighlightSubstring(nsGroup.Key, searchQuery), ns =>
                 BuildTypeItems(ns, nsTypes, methodsByType, searchQuery, state)
             ).Expanded();
         }
@@ -138,7 +135,8 @@ public static class IlInspectorView
                 if (filteredMethods.Count == 0) continue;
             }
 
-            yield return t.Item(typeDef.Name, type =>
+            yield return t.Item(
+                HighlightHelper.HighlightSubstring(typeDef.Name, searchQuery), type =>
                 filteredMethods.Select(m =>
                 {
                     void SelectMethod()
@@ -147,7 +145,8 @@ public static class IlInspectorView
                         state.App.Invalidate();
                     }
 
-                    return type.Item($"{m.Name}{m.Signature}")
+                    return type.Item(
+                            HighlightHelper.HighlightSubstring($"{m.Name}{m.Signature}", searchQuery))
                         .OnClicked(_ => SelectMethod())
                         .OnActivated(_ => SelectMethod());
                 })

@@ -44,11 +44,14 @@ public sealed class DiffState : IDisposable
     /// <summary>The active filter mode for diff entries.</summary>
     public DiffFilterMode FilterMode { get; set; } = DiffFilterMode.All;
 
-    /// <summary>The current search query for diff tables, or null if search is inactive.</summary>
-    public string? DiffSearchQuery { get; set; }
+    /// <summary>Per-tab search state for diff views (Summary=0, Types=1, Methods=2, References=3).</summary>
+    public SearchState[] Search { get; } = Enumerable.Range(0, 4).Select(_ => new SearchState()).ToArray();
 
-    /// <summary>Whether the diff search input is active.</summary>
-    public bool DiffSearchActive { get; set; }
+    /// <summary>Delegate to navigate to the next search match in the current diff view.</summary>
+    public Action? NavigateNextMatch { get; set; }
+
+    /// <summary>Delegate to navigate to the previous search match in the current diff view.</summary>
+    public Action? NavigatePrevMatch { get; set; }
 
     /// <inheritdoc/>
     public void Dispose()
