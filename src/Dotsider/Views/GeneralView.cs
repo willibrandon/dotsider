@@ -100,7 +100,7 @@ public static class GeneralView
                     })
                     .Compact()
                     .Empty(e => e.Text("  No assembly references"))
-                    .FillHeight()
+                    .Fill()
                     .WithInputBindings(bindings =>
                     {
                         bindings.Key(Hex1bKey.Enter).Action(_ =>

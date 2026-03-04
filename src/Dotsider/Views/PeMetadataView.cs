@@ -193,7 +193,7 @@ public static class PeMetadataView
                 r.Cell(FormatSize(s.VirtualSize, state)),
                 r.Cell($"0x{s.RawDataOffset:X8}"),
                 r.Cell(FormatSize(s.RawDataSize, state)),
-                r.Cell(s.Characteristics.ToString())
+                r.Cell(c => HighlightHelper.HighlightCell(c, s.Characteristics.ToString(), query, true))
             ])
             .Focus(state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -207,7 +207,7 @@ public static class PeMetadataView
                     $"Raw Size: {s.RawDataSize} (0x{s.RawDataSize:X})",
                     $"Characteristics: {s.Characteristics}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -232,8 +232,8 @@ public static class PeMetadataView
             [
                 r.Cell($"0x{t.Token:X8}"),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
-                r.Cell(t.BaseType ?? ""),
-                r.Cell(t.Attributes.ToString()),
+                r.Cell(c => HighlightHelper.HighlightCell(c, t.BaseType ?? "", query, true)),
+                r.Cell(c => HighlightHelper.HighlightCell(c, t.Attributes.ToString(), query, true)),
                 r.Cell(t.MethodCount.ToString()),
                 r.Cell(t.FieldCount.ToString())
             ])
@@ -249,7 +249,7 @@ public static class PeMetadataView
                     $"Methods: {t.MethodCount}",
                     $"Fields: {t.FieldCount}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -291,7 +291,7 @@ public static class PeMetadataView
                     $"Impl: {m.ImplAttributes}",
                     $"RVA: 0x{m.Rva:X8}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -313,7 +313,7 @@ public static class PeMetadataView
             [
                 r.Cell($"0x{t.Token:X8}"),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
-                r.Cell(t.ResolutionScope)
+                r.Cell(c => HighlightHelper.HighlightCell(c, t.ResolutionScope, query, true))
             ])
             .Focus(state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -326,7 +326,7 @@ public static class PeMetadataView
                     $"Name: {t.Name}",
                     $"Resolution Scope: {t.ResolutionScope}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -341,8 +341,8 @@ public static class PeMetadataView
             .Header(h =>
             [
                 h.Cell("Token").Width(SizeHint.Fixed(12)),
-                h.Cell("Declaring Type").Width(SizeHint.Fixed(30)),
-                h.Cell("Name").Width(SizeHint.Fill)
+                h.Cell("Declaring Type").Width(SizeHint.Fill),
+                h.Cell("Name").Width(SizeHint.Fixed(25))
             ])
             .Row((r, m, _) =>
             [
@@ -358,7 +358,7 @@ public static class PeMetadataView
                     $"MemberRef: {m.DeclaringType}::{m.Name}",
                     $"Token: 0x{m.Token:X8}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -392,7 +392,7 @@ public static class PeMetadataView
                     $"Constructor: {a.Constructor}",
                     $"Value: {a.Value ?? "null"}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static Hex1bWidget BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -415,7 +415,7 @@ public static class PeMetadataView
             .Row((r, res, _) =>
             [
                 r.Cell(c => HighlightHelper.HighlightCell(c, res.Name, query, true)),
-                r.Cell(res.Visibility),
+                r.Cell(c => HighlightHelper.HighlightCell(c, res.Visibility, query, true)),
                 r.Cell($"0x{res.Offset:X8}"),
                 r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
                 r.Cell(res.IsLinked ? "Yes" : "No")
@@ -431,7 +431,7 @@ public static class PeMetadataView
                     $"Size: {(res.Size >= 0 ? res.Size.ToString() : "unknown")}",
                     $"Linked: {res.IsLinked}");
             })
-            .Compact().FillHeight();
+            .Compact().Fill();
     }
 
     private static string FormatSize(int size, DotsiderState state) =>

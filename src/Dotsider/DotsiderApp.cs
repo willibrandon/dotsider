@@ -131,10 +131,10 @@ public sealed class DotsiderApp
             };
             if (!_state.HexJumpDialogOpen)
             {
-                bindings.Key(Hex1bKey.OemQuestion).Global().Action(_ => searchToggle(), "Search");
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().Action(_ => searchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
                 }
             }
             if (isSearchEditing)
