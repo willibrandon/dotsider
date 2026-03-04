@@ -132,6 +132,28 @@ public static class PeMetadataView
             })
             .WithInputBindings(bindings =>
             {
+                bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                {
+                    if (state.PeSubTab > 0)
+                    {
+                        state.PeSubTab--;
+                        search.Reset();
+                        state.PeFocusedKey = null;
+                        state.App.Invalidate();
+                    }
+                }, "Previous sub-tab");
+
+                bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                {
+                    if (state.PeSubTab < 6)
+                    {
+                        state.PeSubTab++;
+                        search.Reset();
+                        state.PeFocusedKey = null;
+                        state.App.Invalidate();
+                    }
+                }, "Next sub-tab");
+
                 bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                 {
                     if (search.IsActive)
