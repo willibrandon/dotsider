@@ -16,6 +16,7 @@ namespace Dotsider;
 public sealed class DotsiderApp
 {
     private readonly DotsiderState _state;
+    private bool _initialFocusRequested;
 
     /// <summary>
     /// Creates a new dotsider application with the specified state.
@@ -33,6 +34,14 @@ public sealed class DotsiderApp
     /// <returns>The root widget of the application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
+        // On first render, move focus from the tab bar into the content area
+        if (!_initialFocusRequested)
+        {
+            _initialFocusRequested = true;
+            _state.App.RequestFocus(node =>
+                node is EditorNode or TreeNode
+                || node.GetType().Name.StartsWith("TableNode"));
+        }
         return ctx.VStack(outer =>
         [
             // Title bar
@@ -102,7 +111,7 @@ public sealed class DotsiderApp
                         _state.CurrentTab = tabIndex;
                         // Move focus from tab bar into content so arrow keys work immediately
                         _state.App.RequestFocus(node =>
-                            node is EditorNode or TreeItemNode
+                            node is EditorNode or TreeNode
                             || node.GetType().Name.StartsWith("TableNode"));
                         _state.App.Invalidate();
                     }, $"Tab {tabIndex + 1}");

@@ -13,6 +13,9 @@ namespace Dotsider.Views;
 /// </summary>
 public static class PeMetadataView
 {
+    private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
+    private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
+
     /// <summary>
     /// Builds the PE/Metadata view widget tree.
     /// </summary>
@@ -211,9 +214,9 @@ public static class PeMetadataView
             .Row((r, s, _) =>
             [
                 r.Cell(c => HighlightHelper.HighlightCell(c, s.Name, query, true)),
-                r.Cell($"0x{s.VirtualAddress:X8}"),
+                r.Cell(c => HexCell(c, $"0x{s.VirtualAddress:X8}")),
                 r.Cell(FormatSize(s.VirtualSize, state)),
-                r.Cell($"0x{s.RawDataOffset:X8}"),
+                r.Cell(c => HexCell(c, $"0x{s.RawDataOffset:X8}")),
                 r.Cell(FormatSize(s.RawDataSize, state)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, s.Characteristics.ToString(), query, true))
             ])
@@ -252,7 +255,7 @@ public static class PeMetadataView
             ])
             .Row((r, t, _) =>
             [
-                r.Cell($"0x{t.Token:X8}"),
+                r.Cell(c => HexCell(c, $"0x{t.Token:X8}")),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.BaseType ?? "", query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.Attributes.ToString(), query, true)),
@@ -294,12 +297,12 @@ public static class PeMetadataView
             ])
             .Row((r, m, _) =>
             [
-                r.Cell($"0x{m.Token:X8}"),
+                r.Cell(c => HexCell(c, $"0x{m.Token:X8}")),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Signature, query, true)),
                 r.Cell(m.Attributes.ToString()),
-                r.Cell(m.Rva == 0 ? "" : $"0x{m.Rva:X8}")
+                r.Cell(c => m.Rva == 0 ? c.Text("") : HexCell(c, $"0x{m.Rva:X8}"))
             ])
             .Focus(state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -333,7 +336,7 @@ public static class PeMetadataView
             ])
             .Row((r, t, _) =>
             [
-                r.Cell($"0x{t.Token:X8}"),
+                r.Cell(c => HexCell(c, $"0x{t.Token:X8}")),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.ResolutionScope, query, true))
             ])
@@ -368,7 +371,7 @@ public static class PeMetadataView
             ])
             .Row((r, m, _) =>
             [
-                r.Cell($"0x{m.Token:X8}"),
+                r.Cell(c => HexCell(c, $"0x{m.Token:X8}")),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true))
             ])
@@ -438,7 +441,7 @@ public static class PeMetadataView
             [
                 r.Cell(c => HighlightHelper.HighlightCell(c, res.Name, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, res.Visibility, query, true)),
-                r.Cell($"0x{res.Offset:X8}"),
+                r.Cell(c => HexCell(c, $"0x{res.Offset:X8}")),
                 r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
                 r.Cell(res.IsLinked ? "Yes" : "No")
             ])
@@ -468,11 +471,15 @@ public static class PeMetadataView
             .ToList();
     }
 
+    private static Hex1bWidget HexCell<T>(WidgetContext<T> c, string text) where T : Hex1bWidget =>
+        c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor), c.Text(text));
+
     private static Hex1bWidget PeLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [
-            row.Text($"  {label}: ").FixedWidth(22),
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text($"  {label}: ")).FixedWidth(22),
             row.Text(value)
         ]).FixedHeight(1);
     }

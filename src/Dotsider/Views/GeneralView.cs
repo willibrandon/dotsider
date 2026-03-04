@@ -14,6 +14,8 @@ namespace Dotsider.Views;
 /// </summary>
 public static class GeneralView
 {
+    private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
+
     /// <summary>
     /// Builds the General view widget tree.
     /// </summary>
@@ -149,7 +151,8 @@ public static class GeneralView
     {
         return ctx.HStack(row =>
         [
-            row.Text($"  {label}: ").FixedWidth(22),
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text($"  {label}: ")).FixedWidth(22),
             row.Text(value)
         ]).FixedHeight(1);
     }

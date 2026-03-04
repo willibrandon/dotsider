@@ -6,7 +6,7 @@ A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, depend
 dotsider HelloWorld.dll
 ```
 
-[![dotsider demo](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/demo.svg)](https://asciinema.org/a/jrvMzSQviPEsOKfE)
+[![dotsider demo](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/demo.svg)](https://asciinema.org/a/1LtrQnTDxJUUjCMq)
 
 ## Installation
 
