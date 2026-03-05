@@ -89,6 +89,31 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task Enter_OnDllRow_OpensDllInspector()
+    {
+        var (terminal, app) = CreateNuGetApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
+            // Focus the DLL row and press Enter
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.False(_state!.IsBrowsingPackage);
+        Assert.NotNull(_state.SelectedDllState);
+        Assert.NotNull(_state.SelectedDllEntry);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

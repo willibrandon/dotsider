@@ -12,7 +12,7 @@ namespace Dotsider;
 public sealed class NuGetApp
 {
     private readonly NuGetState _state;
-
+    
     /// <summary>
     /// Creates a new NuGet application with the specified state.
     /// </summary>
@@ -36,13 +36,13 @@ public sealed class NuGetApp
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(160, 100, 200))),
                 bar.Separator(" "),
                 bar.Section(_state.Package.FileName).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(180, 180, 200))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.IsBrowsingPackage ? "Package Browser" : "DLL Inspector").Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(130, 110, 30))),
                 bar.Separator(" | "),
                 bar.Section($"{_state.Package.DllFiles.Count} DLLs").Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100)))
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(130, 110, 30)))
             ]),
 
             // Main content: browser or inspector
@@ -62,6 +62,33 @@ public sealed class NuGetApp
         ])
         .WithInputBindings(bindings =>
         {
+            if (_state.IsBrowsingPackage)
+            {
+                bindings.Key(Hex1bKey.Enter).Action(_ =>
+                {
+                    var focusedKey = _state.FileTreeFocusedKey as string;
+                    var entry = focusedKey is not null
+                        ? _state.Package.DllFiles.FirstOrDefault(d => d.FullPath == focusedKey)
+                        : _state.Package.DllFiles.FirstOrDefault();
+
+                    if (entry is null) return;
+
+                    try
+                    {
+                        var analyzer = _state.Package.OpenDll(entry);
+                        _state.SelectedDllState?.Dispose();
+                        _state.SelectedDllState = new DotsiderState(_state.App, analyzer);
+                        _state.SelectedDllEntry = entry;
+                        _state.IsBrowsingPackage = false;
+                        _state.App.Invalidate();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to open DLL: {ex.Message}");
+                    }
+                }, "Open DLL");
+            }
+
             bindings.Key(Hex1bKey.Backspace).Action(_ =>
             {
                 if (!_state.IsBrowsingPackage)
