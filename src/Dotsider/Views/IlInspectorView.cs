@@ -89,6 +89,22 @@ public static class IlInspectorView
                     state.App.Invalidate();
                 }
             }, "Esc");
+
+            bindings.Key(Hex1bKey.PageDown).Action(_ =>
+            {
+                if (state.IlSelectedMethod is null) return;
+                state.IlDisassemblyScrollOffset += 20;
+                state.IlRestoreDisassemblyScroll = true;
+                state.App.Invalidate();
+            }, "Page Down");
+
+            bindings.Key(Hex1bKey.PageUp).Action(_ =>
+            {
+                if (state.IlSelectedMethod is null) return;
+                state.IlDisassemblyScrollOffset = Math.Max(0, state.IlDisassemblyScrollOffset - 20);
+                state.IlRestoreDisassemblyScroll = true;
+                state.App.Invalidate();
+            }, "Page Up");
         })
         .FillWidth().FillHeight();
     }
