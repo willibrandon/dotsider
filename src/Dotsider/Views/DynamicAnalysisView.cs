@@ -21,11 +21,12 @@ public static class DynamicAnalysisView
     private static readonly Hex1bColor Green = Hex1bColor.FromRgb(80, 200, 80);
     private static readonly Hex1bColor Purple = Hex1bColor.FromRgb(180, 130, 220);
     private static readonly Hex1bColor Blue = Hex1bColor.FromRgb(80, 140, 220);
+    private static readonly Hex1bColor Orange = Hex1bColor.FromRgb(220, 140, 60);
     private static readonly Hex1bColor DimGray = Hex1bColor.FromRgb(100, 100, 120);
     private static readonly Hex1bColor Teal = Hex1bColor.FromRgb(0, 200, 180);
     private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
 
-    private static readonly Dictionary<TraceEventCategory, Hex1bColor> CategoryColors = new()
+    internal static readonly Dictionary<TraceEventCategory, Hex1bColor> CategoryColors = new()
     {
         [TraceEventCategory.GC] = Cyan,
         [TraceEventCategory.JIT] = Yellow,
@@ -33,7 +34,7 @@ public static class DynamicAnalysisView
         [TraceEventCategory.Loader] = Green,
         [TraceEventCategory.Threading] = Purple,
         [TraceEventCategory.Http] = Blue,
-        [TraceEventCategory.Socket] = Blue,
+        [TraceEventCategory.Socket] = Orange,
         [TraceEventCategory.Counter] = DimGray,
         [TraceEventCategory.Other] = DimGray,
     };
