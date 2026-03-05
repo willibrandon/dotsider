@@ -39,19 +39,6 @@ public static class DynamicAnalysisView
         [TraceEventCategory.Other] = DimGray,
     };
 
-    internal static readonly Dictionary<TraceEventCategory, string> CategoryPrefixes = new()
-    {
-        [TraceEventCategory.GC] = "GC",
-        [TraceEventCategory.JIT] = "JIT",
-        [TraceEventCategory.Exception] = "EXC",
-        [TraceEventCategory.Loader] = "LDR",
-        [TraceEventCategory.Threading] = "THR",
-        [TraceEventCategory.Http] = "HTTP",
-        [TraceEventCategory.Socket] = "SOCK",
-        [TraceEventCategory.Counter] = "CTR",
-        [TraceEventCategory.Other] = "OTH",
-    };
-
     /// <summary>
     /// Builds the Dynamic Analysis view widget tree.
     /// </summary>
@@ -563,11 +550,7 @@ public static class DynamicAnalysisView
             .OrderByDescending(kv => kv.Value)
             .ToList();
 
-        // Fixed columns: 1 (margin) + 12 (category) + 1 + 6 (count) + 2 + 7 (tag) + 5 (pct) = 34
-        // Tag column is fixed-width using the longest prefix ([SOCK] ) so bars align
-        const int tagColumnWidth = 7; // "[SOCK] " — longest tag
-        var barStart = 1 + 12 + 1 + 6 + 2 + tagColumnWidth;
-        var maxBarWidth = Math.Max(1, surface.Width - barStart - 6);
+        var maxBarWidth = Math.Max(1, surface.Width - 26);
         var y = 1;
 
         foreach (var (category, count) in sorted)
@@ -578,18 +561,14 @@ public static class DynamicAnalysisView
             var barLen = Math.Max(1, (int)(pct * maxBarWidth));
             var color = CategoryColors.GetValueOrDefault(category, DimGray);
 
-            var prefix = CategoryPrefixes.GetValueOrDefault(category, "???");
             var label = $"{category,-12} {count,6}  ";
             surface.WriteText(1, y, label, Hex1bColor.White);
 
-            var tagText = $"[{prefix}]";
-            surface.WriteText(label.Length + 1, y, tagText, color);
-
             for (var x = 0; x < barLen; x++)
-                surface.WriteChar(barStart + x, y, '█', color);
+                surface.WriteChar(label.Length + 1 + x, y, '█', color);
 
             var pctText = $" {pct:P0}";
-            surface.WriteText(barStart + barLen, y, pctText, DimGray);
+            surface.WriteText(label.Length + 1 + barLen, y, pctText, DimGray);
 
             y++;
         }

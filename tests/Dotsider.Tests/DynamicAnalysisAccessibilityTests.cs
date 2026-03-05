@@ -32,34 +32,6 @@ public class DynamicAnalysisAccessibilityTests
     }
 
     [Fact]
-    public void CategoryPrefixes_AllCategoriesHaveEntries()
-    {
-        foreach (var category in Enum.GetValues<TraceEventCategory>())
-            Assert.True(DynamicAnalysisView.CategoryPrefixes.ContainsKey(category),
-                $"Missing prefix for {category}");
-    }
-
-    [Fact]
-    public void CategoryPrefixes_AllNonEmpty()
-    {
-        foreach (var (category, prefix) in DynamicAnalysisView.CategoryPrefixes)
-            Assert.False(string.IsNullOrWhiteSpace(prefix),
-                $"Prefix for {category} is empty");
-    }
-
-    [Fact]
-    public void CategoryPrefixes_NoDuplicates()
-    {
-        var seen = new Dictionary<string, TraceEventCategory>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (category, prefix) in DynamicAnalysisView.CategoryPrefixes)
-        {
-            Assert.False(seen.TryGetValue(prefix, out var existing),
-                $"{category} shares prefix \"{prefix}\" with {existing}");
-            seen[prefix] = category;
-        }
-    }
-
-    [Fact]
     public void SocketAndHttp_HaveDifferentColors()
     {
         var httpColor = DynamicAnalysisView.CategoryColors[TraceEventCategory.Http];
