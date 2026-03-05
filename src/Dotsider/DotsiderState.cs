@@ -7,9 +7,6 @@ using TraceProcessState = Dotsider.Analysis.Models.TraceProcessState;
 
 namespace Dotsider;
 
-/// <summary>Endianness for the hex data interpretation panel.</summary>
-public enum HexEndianness { Little, Big }
-
 /// <summary>
 /// Holds all mutable UI state for the dotsider application.
 /// Rebuilt each frame by the Hex1b render loop.
@@ -27,7 +24,8 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
-        HexEditorState = new EditorState(hexDoc);
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
     }
 
     /// <summary>
@@ -41,7 +39,8 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
-        HexEditorState = new EditorState(hexDoc);
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
     }
 
     /// <summary>The Hex1b application instance.</summary>
@@ -193,7 +192,7 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Endianness for the data interpretation panel.</summary>
     public HexEndianness HexEndianness { get; set; } = HexEndianness.Little;
 
-    /// <summary>Status notification message (save result, errors).</summary>
+    /// <summary>Status notification message (save result, errors). Auto-clears after 3 seconds.</summary>
     public string? HexNotification { get; set; }
 
     /// <summary>Whether the jump-to-byte dialog is open.</summary>
@@ -213,6 +212,15 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Tracks the EditorNode's raw scroll offset to detect when it catches up after programmatic navigation.</summary>
     public int HexLastEditorScrollOffset { get; set; }
+
+    /// <summary>Vi-style editing mode: Normal (read-only navigation) or Insert (byte editing).</summary>
+    public HexEditMode HexMode { get; set; } = HexEditMode.Normal;
+
+    /// <summary>Document version at last save, used to detect dirty state.</summary>
+    public long HexCleanVersion { get; set; }
+
+    /// <summary>Whether the hex document has unsaved edits.</summary>
+    public bool HexIsDirty => HexEditorState.Document.Version != HexCleanVersion;
 
     // --- Dynamic Analysis Tab State ---
 
@@ -257,7 +265,8 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
-        HexEditorState = new EditorState(hexDoc);
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
         ResetViewState();
     }
 
@@ -273,7 +282,8 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
-        HexEditorState = new EditorState(hexDoc);
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
         ResetViewState();
         return true;
     }
@@ -316,6 +326,7 @@ public sealed class DotsiderState : IDisposable
         HexLiveSearchTooSlow = false;
         HexScrollTarget = null;
         HexLastEditorScrollOffset = 0;
+        HexMode = HexEditMode.Normal;
         // Note: HexEndianness intentionally NOT reset (user preference)
         DynamicSubTab = 0;
         DynamicEventsFocusedKey = null;

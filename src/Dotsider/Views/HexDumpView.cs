@@ -85,12 +85,6 @@ public static class HexDumpView
                     widgets.Add(outer.Text($" Match {idx}/{total} at offset 0x{offset:X8}").FixedHeight(1));
                 }
 
-                // Notification bar
-                if (!string.IsNullOrEmpty(state.HexNotification))
-                {
-                    widgets.Add(outer.Text($" {state.HexNotification}").FixedHeight(1));
-                }
-
                 // Hex editor with custom renderer
                 widgets.Add(outer.Editor(state.HexEditorState)
                     .WithViewRenderer(new DotsiderHexRenderer(state))
@@ -113,6 +107,13 @@ public static class HexDumpView
                         state.App.Invalidate();
                         return;
                     }
+                    if (state.HexMode == HexEditMode.Insert)
+                    {
+                        state.HexMode = HexEditMode.Normal;
+                        state.HexEditorState.IsReadOnly = true;
+                        state.App.Invalidate();
+                        return;
+                    }
                     if (search.IsActive)
                     {
                         search.Dismiss();
@@ -132,29 +133,14 @@ public static class HexDumpView
                     state.App.Invalidate();
                 }, "Toggle hex/text mode");
 
-                // Vim navigation — only when not editing search
+                // Vim navigation and mode switching — only when not editing search
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.H).Action(_ =>
-                    {
-                        state.HexEditorState.MoveCursor(CursorDirection.Left);
-                        state.App.Invalidate();
-                    }, "Left");
-                    bindings.Key(Hex1bKey.L).Action(_ =>
-                    {
-                        state.HexEditorState.MoveCursor(CursorDirection.Right);
-                        state.App.Invalidate();
-                    }, "Right");
-                    bindings.Key(Hex1bKey.K).Action(_ =>
-                    {
-                        state.HexEditorState.MoveCursor(CursorDirection.Up);
-                        state.App.Invalidate();
-                    }, "Up");
-                    bindings.Key(Hex1bKey.J).Action(_ =>
-                    {
-                        state.HexEditorState.MoveCursor(CursorDirection.Down);
-                        state.App.Invalidate();
-                    }, "Down");
+                    // hjkl navigation — normal mode only
+                    // Note: i/h/j/k/l are registered as Global in DotsiderApp because
+                    // EditorNode's AnyCharacter() binding consumes letter keys before
+                    // parent VStack bindings in the path-based routing.
+
                 }
             })
             .Fill(),

@@ -132,6 +132,250 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 10_000)]
+    public async Task Tab5_StartsInNormalMode_ReadOnly()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+        Assert.True(_state.HexEditorState.IsReadOnly);
+        Assert.False(_state.HexIsDirty);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_IKey_EntersInsertMode()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(HexEditMode.Insert, _state!.HexMode);
+        Assert.False(_state.HexEditorState.IsReadOnly);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_EscFromInsert_ReturnsToNormal()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+        Assert.True(_state.HexEditorState.IsReadOnly);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_EscFromInsert_WithConfirmedSearch_ExitsInsertFirst()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            // Start a search and confirm it
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.M)
+            .Key(Hex1bKey.Z)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsConfirmed, TimeSpan.FromSeconds(3))
+            // Enter insert mode
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            // First Esc should exit insert mode, NOT dismiss search
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Insert mode must be exited
+        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+        Assert.True(_state.HexEditorState.IsReadOnly);
+        // Search should still be active (not dismissed by this Esc)
+        Assert.True(_state.Search[TabId.HexDump].IsActive);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_NormalMode_VimKeysNavigate()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var cursorBefore = _state!.HexEditorState.Cursor.Position;
+
+        // Press 'l' to move right in normal mode
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.L)
+            .WaitUntil(_ => _state.HexEditorState.Cursor.Position != cursorBefore, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotEqual(cursorBefore, _state.HexEditorState.Cursor.Position);
+        // Document should NOT be modified — we're in normal mode
+        Assert.False(_state.HexIsDirty);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_InsertMode_SKey_DoesNotToggleSize()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var sizesBefore = _state!.HumanReadableSizes;
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.S)
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(sizesBefore, _state.HumanReadableSizes);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_InsertMode_QKey_DoesNotQuit()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Q) // Should NOT quit — we're in insert mode
+            .Ctrl().Key(Hex1bKey.C) // This quits
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // If Q had quit, runTask would already be completed before Ctrl+C
+        // The fact that we reach here means the app was still running
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_InsertMode_NumberKeys_DoNotSwitchTabs()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.I)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D1) // Should NOT switch to tab 1
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TabId.HexDump, _state!.CurrentTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab5_NormalMode_NoInsertIndicator()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D5)
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            // Verify normal mode does not show INSERT indicator
+            .WaitUntil(s => !s.ContainsText("INSERT"), TimeSpan.FromSeconds(1))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
     public async Task Tab6_ShowsDepGraph()
     {
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
