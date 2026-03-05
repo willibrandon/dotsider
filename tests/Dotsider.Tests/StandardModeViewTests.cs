@@ -375,6 +375,60 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 15_000)]
+    public async Task Tab5_CtrlS_SavesWithCorrectFileName()
+    {
+        // Work on a disposable copy so we don't modify the shared fixture assembly
+        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
+        File.Copy(samples.HelloWorldDll, tempDll);
+
+        try
+        {
+            var (terminal, app) = CreateDotsiderApp(tempDll);
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var runTask = app.RunAsync(cts.Token);
+
+            await new Hex1bTerminalInputSequenceBuilder()
+                .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+                .Key(Hex1bKey.D5)
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                // Enter insert mode, skip past MZ header into DOS stub padding,
+                // then type two nibbles to complete a byte edit without breaking PE
+                .Key(Hex1bKey.I)
+                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+                .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
+                .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
+                .Key(Hex1bKey.F)
+                .Key(Hex1bKey.F)
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
+                // Return to normal mode, then save
+                .Key(Hex1bKey.Escape)
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .Ctrl().Key(Hex1bKey.S)
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
+                .Ctrl().Key(Hex1bKey.C)
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+
+            // FilePath must be the original, not the .tmp fallback
+            Assert.Equal(tempDll, _state!.Analyzer.FilePath);
+            Assert.DoesNotContain(".tmp", _state.Analyzer.FileName);
+            Assert.Contains("written", _state.HexNotification);
+            Assert.Contains("HelloWorld.dll", _state.HexNotification);
+            // No temp file should remain
+            Assert.False(File.Exists(tempDll + ".tmp"));
+
+            await runTask.ContinueWith(_ => { });
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
     [Fact(Timeout = 10_000)]
     public async Task Tab6_ShowsDepGraph()
     {

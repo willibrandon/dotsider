@@ -14,7 +14,7 @@ namespace Dotsider.Analysis;
 /// </summary>
 public sealed class AssemblyAnalyzer : IDisposable
 {
-    private readonly FileStream _stream;
+    private readonly Stream _stream;
     private readonly PEReader _peReader;
     private readonly MetadataReader? _metadataReader;
     private readonly byte[] _rawBytes;
@@ -48,6 +48,35 @@ public sealed class AssemblyAnalyzer : IDisposable
         IsReadOnly = fileInfo.IsReadOnly;
 
         _stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        _peReader = new PEReader(_stream);
+
+        if (_peReader.HasMetadata)
+        {
+            _metadataReader = _peReader.GetMetadataReader();
+            ReadAssemblyIdentity();
+            ReadTargetFramework();
+        }
+
+        ReadPeHeaders();
+        ReadClrHeader();
+    }
+
+    /// <summary>
+    /// Creates an analyzer from raw bytes in memory. Used as a last-resort
+    /// fallback when disk I/O is unavailable after a save operation.
+    /// </summary>
+    internal AssemblyAnalyzer(byte[] bytes, string filePath)
+    {
+        FilePath = filePath;
+        FileName = Path.GetFileName(filePath);
+
+        _rawBytes = bytes;
+        FileSize = bytes.Length;
+
+        LastModified = DateTime.UtcNow;
+        CreatedTime = DateTime.UtcNow;
+
+        _stream = new MemoryStream(bytes, writable: false);
         _peReader = new PEReader(_stream);
 
         if (_peReader.HasMetadata)
