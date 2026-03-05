@@ -62,11 +62,11 @@ public static class StringsView
 
                 // Sub-tab selector for string sources
                 widgets.Add(outer.TabPanel(tp =>
-                [
-                    tp.Tab(SourceTabs[0], t => [t.Text("")]),
-                    tp.Tab(SourceTabs[1], t => [t.Text("")]),
-                    tp.Tab(SourceTabs[2], t => [t.Text("")])
-                ])
+                    SourceTabs.Select((name, i) =>
+                        tp.Tab(name, t => [t.Text("")])
+                            .Selected(state.StringsSourceTab == i)
+                    ).ToArray()
+                )
                 .Compact()
                 .OnSelectionChanged(e =>
                 {
@@ -107,7 +107,7 @@ public static class StringsView
 
                 // Status line
                 var statusParts = new List<string> { $"{activeStrings.Count} strings" };
-                if (state.StringsSourceTab == 2)
+                if (state.StringsSourceTab == StringsSubTabId.RawBinary)
                 {
                     statusParts.Add($"Min length: {state.StringsMinLength}");
                 }
@@ -117,6 +117,34 @@ public static class StringsView
             })
             .WithInputBindings(bindings =>
             {
+                var isSearchEditing = search.IsActive && !search.IsConfirmed;
+
+                // Left/Right arrows to switch sub-tabs (suppressed during search editing)
+                if (!isSearchEditing)
+                {
+                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                    {
+                        if (state.StringsSourceTab > 0)
+                        {
+                            state.StringsSourceTab--;
+                            search.Reset();
+                            state.StringsFocusedKey = null;
+                            state.App.Invalidate();
+                        }
+                    }, "Previous sub-tab");
+
+                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                    {
+                        if (state.StringsSourceTab < StringsSubTabId.Count - 1)
+                        {
+                            state.StringsSourceTab++;
+                            search.Reset();
+                            state.StringsFocusedKey = null;
+                            state.App.Invalidate();
+                        }
+                    }, "Next sub-tab");
+                }
+
                 bindings.Key(Hex1bKey.OemPlus).Action(_ =>
                 {
                     state.StringsMinLength++;

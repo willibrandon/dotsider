@@ -206,6 +206,38 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Dynamic tab and launch the process
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter) // Launch process
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Process has exited — activating search must not crash with
+        // "Global binding conflict: Enter is already registered"
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state!.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.Search[TabId.Dynamic].IsActive);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     [Fact(Timeout = 10_000)]
     public async Task General_EnterOnReference_DrillsIntoAssembly()
     {
@@ -289,6 +321,100 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, cts.Token);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab4_ArrowKeysCycleSubTabs()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D4) // Tab 4 — Strings
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Verify starting state
+        Assert.Equal(0, _state!.StringsSourceTab);
+
+        // Right arrow → sub-tab 1
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state.StringsSourceTab);
+
+        // Right arrow → sub-tab 2
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.StringsSourceTab == 2, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(2, _state.StringsSourceTab);
+
+        // Left arrow → back to sub-tab 1
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state.StringsSourceTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab4_ArrowKeysDuringSearchEditing_DoNotSwitchSubTab()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D4) // Tab 4 — Strings
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state!.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.StringsSourceTab);
+
+        // Arrow keys during search editing should NOT switch sub-tabs
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .Key(Hex1bKey.RightArrow)
+            .Key(Hex1bKey.LeftArrow)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.StringsSourceTab);
+        Assert.True(_state.Search[TabId.Strings].IsActive);
+
+        // Dismiss search, then arrows should work again
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state.StringsSourceTab);
 
         await runTask.ContinueWith(_ => { });
     }
