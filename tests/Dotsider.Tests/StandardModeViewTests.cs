@@ -1,5 +1,6 @@
 using Hex1b;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -242,6 +243,49 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.DownArrow) // Move to Program
             .Key(Hex1bKey.RightArrow) // Expand Program
             .WaitUntil(s => s.ContainsText(".ctor"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab3_DisassemblyPaneScrolls()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to StringHelpers.ToTitleCase (139 bytes of IL, overflows viewport)
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D3)
+            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3));
+
+        for (var i = 0; i < 15; i++)
+            builder = builder.Key(Hex1bKey.DownArrow);
+
+        await builder
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Focus the scroll panel and scroll down
+        _hex1bApp!.RequestFocus(node => node is ScrollPanelNode);
+        _hex1bApp.Invalidate();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(1))
+            .PageDown()
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, cts.Token);
