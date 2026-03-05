@@ -20,27 +20,45 @@ public static class NuGetBrowserView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, NuGetState state)
     {
         var pkg = state.Package;
+        var search = state.BrowserSearch;
+        var query = search.Query;
+
+        // Filter DLL list by search query
+        var dlls = (IReadOnlyList<NuGetFileEntry>)pkg.DllFiles;
+        if (!string.IsNullOrEmpty(query))
+        {
+            dlls = dlls.Where(d =>
+                d.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                d.Directory.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            search.SetMatchCount(dlls.Count);
+        }
 
         return ctx.VStack(outer =>
-        [
+        {
+            var widgets = new List<Hex1bWidget>();
+
             // Package metadata
-            outer.Border(
+            widgets.Add(outer.Border(
                 outer.VStack(info =>
                 [
-                    InfoLine(info, "Package ID", pkg.PackageId ?? "(unknown)"),
-                    InfoLine(info, "Version", pkg.PackageVersion ?? "(unknown)"),
-                    InfoLine(info, "Authors", pkg.Authors ?? "(unknown)"),
-                    InfoLine(info, "Description", pkg.Description ?? "(none)"),
+                    InfoLine(info, "Package ID", pkg.PackageId ?? "(unknown)", query),
+                    InfoLine(info, "Version", pkg.PackageVersion ?? "(unknown)", query),
+                    InfoLine(info, "Authors", pkg.Authors ?? "(unknown)", query),
+                    InfoLine(info, "Description", pkg.Description ?? "(none)", query),
                     info.Text(""),
-                    InfoLine(info, "Total Files", pkg.Files.Count.ToString()),
-                    InfoLine(info, "DLL Files", pkg.DllFiles.Count.ToString()),
-                    InfoLine(info, "Total Size", DotsiderState.FormatSize(pkg.Files.Sum(f => f.UncompressedSize)))
+                    InfoLine(info, "Total Files", pkg.Files.Count.ToString(), query),
+                    InfoLine(info, "DLL Files", pkg.DllFiles.Count.ToString(), query),
+                    InfoLine(info, "Total Size", DotsiderState.FormatSize(pkg.Files.Sum(f => f.UncompressedSize)), query)
                 ])
-            ).Title(" Package Info "),
+            ).Title(" Package Info "));
+
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
             // DLL selector table
-            outer.Border(
-                outer.Table(pkg.DllFiles)
+            widgets.Add(outer.Border(
+                outer.Table(dlls)
                     .RowKey(r => r.FullPath)
                     .Header(h =>
                     [
@@ -50,8 +68,8 @@ public static class NuGetBrowserView
                     ])
                     .Row((r, entry, rowState) =>
                     [
-                        r.Cell(entry.Name),
-                        r.Cell(entry.Directory),
+                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Name, query, !string.IsNullOrEmpty(query))),
+                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Directory, query, !string.IsNullOrEmpty(query))),
                         r.Cell(DotsiderState.FormatSize(entry.UncompressedSize))
                     ])
                     .Focus(state.FileTreeFocusedKey)
@@ -75,16 +93,18 @@ public static class NuGetBrowserView
                     .Compact()
                     .Empty(e => e.Text("  No DLL files in package"))
                     .FillHeight()
-            ).Title($" DLL Files ({pkg.DllFiles.Count}) — Enter to inspect ").Fill()
-        ]).Fill();
+            ).Title($" DLL Files ({pkg.DllFiles.Count}) — Enter to inspect ").Fill());
+
+            return widgets.ToArray();
+        }).Fill();
     }
 
-    private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
+    private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [
             row.Text($"  {label}: ").FixedWidth(18),
-            row.Text(value)
+            HighlightHelper.HighlightText(row, value, query)
         ]).FixedHeight(1);
     }
 }

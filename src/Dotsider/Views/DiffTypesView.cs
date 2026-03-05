@@ -70,9 +70,8 @@ public static class DiffTypesView
                     return
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
-                        r.Cell(c => !string.IsNullOrEmpty(query)
-                            ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, HighlightHelper.MatchBgColor), c.Text(type.FullName))
-                            : c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.FullName))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
+                            HighlightHelper.HighlightCell(c, type.FullName, query, !string.IsNullOrEmpty(query)))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.BaseType ?? ""))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.MethodCount.ToString()))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.FieldCount.ToString()))),
@@ -89,7 +88,7 @@ public static class DiffTypesView
         })
         .WithInputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
                 {
