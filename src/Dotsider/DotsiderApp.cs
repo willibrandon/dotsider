@@ -236,6 +236,19 @@ public sealed class DotsiderApp
     private void SelectTab(int tabIndex)
     {
         if (_state.CurrentTab == tabIndex) return;
+
+        // If the current tab has an in-progress search edit, finalize it before
+        // switching away. Otherwise the editing state persists without a focused
+        // TextBox, which blocks the Hex1bKey.None "/" binding on return.
+        var previousSearch = _state.Search[_state.CurrentTab];
+        if (previousSearch.IsActive && !previousSearch.IsConfirmed)
+        {
+            if (string.IsNullOrEmpty(previousSearch.Query))
+                previousSearch.Dismiss();
+            else
+                previousSearch.Confirm();
+        }
+
         var previousTab = _state.CurrentTab;
         _state.CurrentTab = tabIndex;
         if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)

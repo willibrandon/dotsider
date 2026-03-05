@@ -331,9 +331,9 @@ public sealed class DotsiderState : IDisposable
     {
         var entries = StringsSourceTab switch
         {
-            0 => CachedUserStrings ??= StringExtractor.ExtractUserStrings(),
-            1 => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
-            2 => GetCachedRawStrings(),
+            StringsSubTabId.UserStrings => CachedUserStrings ??= StringExtractor.ExtractUserStrings(),
+            StringsSubTabId.Metadata => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
+            StringsSubTabId.RawBinary => GetCachedRawStrings(),
             _ => []
         };
 

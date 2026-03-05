@@ -107,19 +107,19 @@ public static class PeMetadataView
                 widgets.Add(outer.TabPanel(tp =>
                 [
                     tp.Tab("Sections", t => [BuildSectionsTable(t, state)])
-                        .Selected(state.PeSubTab == 0),
+                        .Selected(state.PeSubTab == PeSubTabId.Sections),
                     tp.Tab("TypeDef", t => [BuildTypeDefsTable(t, state)])
-                        .Selected(state.PeSubTab == 1),
+                        .Selected(state.PeSubTab == PeSubTabId.TypeDef),
                     tp.Tab("MethodDef", t => [BuildMethodDefsTable(t, state)])
-                        .Selected(state.PeSubTab == 2),
+                        .Selected(state.PeSubTab == PeSubTabId.MethodDef),
                     tp.Tab("TypeRef", t => [BuildTypeRefsTable(t, state)])
-                        .Selected(state.PeSubTab == 3),
+                        .Selected(state.PeSubTab == PeSubTabId.TypeRef),
                     tp.Tab("MemberRef", t => [BuildMemberRefsTable(t, state)])
-                        .Selected(state.PeSubTab == 4),
+                        .Selected(state.PeSubTab == PeSubTabId.MemberRef),
                     tp.Tab("Attributes", t => [BuildAttributesTable(t, state)])
-                        .Selected(state.PeSubTab == 5),
+                        .Selected(state.PeSubTab == PeSubTabId.Attributes),
                     tp.Tab("Resources", t => [BuildResourcesTable(t, state)])
-                        .Selected(state.PeSubTab == 6)
+                        .Selected(state.PeSubTab == PeSubTabId.Resources)
                 ])
                 .OnSelectionChanged(e =>
                 {
@@ -135,27 +135,32 @@ public static class PeMetadataView
             })
             .WithInputBindings(bindings =>
             {
-                bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
-                {
-                    if (state.PeSubTab > 0)
-                    {
-                        state.PeSubTab--;
-                        search.Reset();
-                        state.PeFocusedKey = null;
-                        state.App.Invalidate();
-                    }
-                }, "Previous sub-tab");
+                var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
-                bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                if (!isSearchEditing)
                 {
-                    if (state.PeSubTab < 6)
+                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                     {
-                        state.PeSubTab++;
-                        search.Reset();
-                        state.PeFocusedKey = null;
-                        state.App.Invalidate();
-                    }
-                }, "Next sub-tab");
+                        if (state.PeSubTab > 0)
+                        {
+                            state.PeSubTab--;
+                            search.Reset();
+                            state.PeFocusedKey = null;
+                            state.App.Invalidate();
+                        }
+                    }, "Previous sub-tab");
+
+                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                    {
+                        if (state.PeSubTab < PeSubTabId.Count - 1)
+                        {
+                            state.PeSubTab++;
+                            search.Reset();
+                            state.PeFocusedKey = null;
+                            state.App.Invalidate();
+                        }
+                    }, "Next sub-tab");
+                }
 
                 bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                 {

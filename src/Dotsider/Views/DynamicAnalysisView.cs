@@ -129,7 +129,7 @@ public static class DynamicAnalysisView
     {
         var search = state.Search[TabId.Dynamic];
         // Search bar hidden on Counters (1) and Summary (3) sub-tabs
-        var showSearch = state.DynamicSubTab is 0 or 2;
+        var showSearch = state.DynamicSubTab is DynamicSubTabId.Events or DynamicSubTabId.Output;
 
         // Set up match navigation
         state.NavigateNextMatch = null;
@@ -150,13 +150,13 @@ public static class DynamicAnalysisView
             widgets.Add(outer.TabPanel(tp =>
             [
                 tp.Tab("Events", t => [BuildEventsSubTab(t, state, tracer)])
-                    .Selected(state.DynamicSubTab == 0),
+                    .Selected(state.DynamicSubTab == DynamicSubTabId.Events),
                 tp.Tab("Counters", t => [BuildCountersSubTab(t, state, tracer)])
-                    .Selected(state.DynamicSubTab == 1),
+                    .Selected(state.DynamicSubTab == DynamicSubTabId.Counters),
                 tp.Tab("Output", t => [BuildOutputSubTab(t, state, tracer)])
-                    .Selected(state.DynamicSubTab == 2),
+                    .Selected(state.DynamicSubTab == DynamicSubTabId.Output),
                 tp.Tab("Summary", t => [BuildSummarySubTab(t, state, tracer)])
-                    .Selected(state.DynamicSubTab == 3)
+                    .Selected(state.DynamicSubTab == DynamicSubTabId.Summary)
             ])
             .OnSelectionChanged(e =>
             {
@@ -170,24 +170,29 @@ public static class DynamicAnalysisView
         })
         .WithInputBindings(bindings =>
         {
-            // Left/Right arrows to switch sub-tabs
-            bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
-            {
-                if (state.DynamicSubTab > 0)
-                {
-                    state.DynamicSubTab--;
-                    state.App.Invalidate();
-                }
-            }, "Previous sub-tab");
+            var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
-            bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+            // Left/Right arrows to switch sub-tabs (suppressed during search editing)
+            if (!isSearchEditing)
             {
-                if (state.DynamicSubTab < 3)
+                bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                 {
-                    state.DynamicSubTab++;
-                    state.App.Invalidate();
-                }
-            }, "Next sub-tab");
+                    if (state.DynamicSubTab > 0)
+                    {
+                        state.DynamicSubTab--;
+                        state.App.Invalidate();
+                    }
+                }, "Previous sub-tab");
+
+                bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                {
+                    if (state.DynamicSubTab < DynamicSubTabId.Count - 1)
+                    {
+                        state.DynamicSubTab++;
+                        state.App.Invalidate();
+                    }
+                }, "Next sub-tab");
+            }
 
             // Ctrl+K to stop the traced process
             bindings.Ctrl().Key(Hex1bKey.K).Global().Action(_ =>
@@ -196,8 +201,9 @@ public static class DynamicAnalysisView
                 state.App.Invalidate();
             }, "Stop traced process");
 
-            // Enter to re-run after exit
-            if (tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error)
+            // Enter to re-run after exit (suppressed during search editing to avoid
+            // conflicting with DotsiderApp's global "Confirm search" Enter binding)
+            if (!isSearchEditing && tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error)
             {
                 bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
                 {
