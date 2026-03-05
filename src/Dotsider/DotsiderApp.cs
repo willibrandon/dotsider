@@ -54,7 +54,7 @@ public sealed class DotsiderApp
                 bar.Section(_state.NavigationStack.Count > 0
                     ? $"{_state.Analyzer.FileName} (depth {_state.NavigationStack.Count + 1})"
                     : _state.Analyzer.FileName).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(180, 180, 200))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40))),
