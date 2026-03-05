@@ -67,25 +67,25 @@ public sealed class DotsiderApp
             outer.TabPanel(tp =>
             [
                 tp.Tab("General", t => [GeneralView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 0),
+                    .Selected(_state.CurrentTab == TabId.General),
                 tp.Tab("PE/Metadata", t => [PeMetadataView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 1),
+                    .Selected(_state.CurrentTab == TabId.PeMetadata),
                 tp.Tab("IL Inspector", t => [IlInspectorView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 2),
+                    .Selected(_state.CurrentTab == TabId.IlInspector),
                 tp.Tab("Strings", t => [StringsView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 3),
+                    .Selected(_state.CurrentTab == TabId.Strings),
                 tp.Tab("Hex Dump", t => [HexDumpView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 4),
+                    .Selected(_state.CurrentTab == TabId.HexDump),
                 tp.Tab("Dep Graph", t => [DependencyGraphView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 5),
+                    .Selected(_state.CurrentTab == TabId.DepGraph),
                 tp.Tab("Size Map", t => [SizeTreemapView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 6),
+                    .Selected(_state.CurrentTab == TabId.SizeMap),
                 tp.Tab("Dynamic", t => [DynamicAnalysisView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == 7)
+                    .Selected(_state.CurrentTab == TabId.Dynamic)
             ])
             .OnSelectionChanged(e =>
             {
-                _state.CurrentTab = e.SelectedIndex;
+                SelectTab(e.SelectedIndex);
                 _state.App.Invalidate();
             })
             .Full()
@@ -108,7 +108,7 @@ public sealed class DotsiderApp
                     var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
                     bindings.Key(key).Global().Action(_ =>
                     {
-                        _state.CurrentTab = tabIndex;
+                        SelectTab(tabIndex);
                         // Move focus from tab bar into content so arrow keys work immediately
                         _state.App.RequestFocus(node =>
                             node is EditorNode or TreeNode
@@ -231,6 +231,15 @@ public sealed class DotsiderApp
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
         });
+    }
+
+    private void SelectTab(int tabIndex)
+    {
+        if (_state.CurrentTab == tabIndex) return;
+        var previousTab = _state.CurrentTab;
+        _state.CurrentTab = tabIndex;
+        if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
+            _state.IlRestoreDisassemblyScroll = true;
     }
 
     private Hex1bWidget BuildHintsBar(WidgetContext<VStackWidget> ctx)

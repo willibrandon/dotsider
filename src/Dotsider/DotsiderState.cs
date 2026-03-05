@@ -99,6 +99,20 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The currently selected method for disassembly, or null.</summary>
     public MethodDefInfo? IlSelectedMethod { get; set; }
 
+    /// <summary>
+    /// Expansion state map for IL Inspector tree nodes (keyed by stable namespace/type keys).
+    /// </summary>
+    public Dictionary<string, bool> IlTreeExpansionState { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The current vertical scroll offset in the IL disassembly pane.</summary>
+    public int IlDisassemblyScrollOffset { get; set; }
+
+    /// <summary>
+    /// Indicates that IL disassembly scroll should be restored on next scroll callback
+    /// after returning to the IL tab.
+    /// </summary>
+    public bool IlRestoreDisassemblyScroll { get; set; }
+
     // --- Strings Tab State ---
 
     /// <summary>The minimum string length filter for raw strings.</summary>
@@ -271,6 +285,9 @@ public sealed class DotsiderState : IDisposable
         PeFocusedKey = null;
         PeDetailContent = null;
         IlSelectedMethod = null;
+        IlTreeExpansionState.Clear();
+        IlDisassemblyScrollOffset = 0;
+        IlRestoreDisassemblyScroll = false;
         StringsSourceTab = 0;
         StringsFocusedKey = null;
         StringsDetailContent = null;

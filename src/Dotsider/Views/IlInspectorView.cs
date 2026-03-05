@@ -1,7 +1,9 @@
 using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
+using System.Reflection;
 
 namespace Dotsider.Views;
 
@@ -20,6 +22,7 @@ public static class IlInspectorView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var search = state.Search[TabId.IlInspector];
+        ScheduleDisassemblyScrollRestore(state);
 
         // Set up match navigation
         state.NavigateNextMatch = null;
@@ -57,7 +60,20 @@ public static class IlInspectorView
                         }
 
                         return [scroll.Text("  Select a method to view IL disassembly")];
-                    }).FillHeight()
+                    })
+                    .OnScroll(e =>
+                    {
+                        if (state.IlRestoreDisassemblyScroll
+                            && TrySetScrollOffset(e.Node, state.IlDisassemblyScrollOffset, e.Context))
+                        {
+                            state.IlRestoreDisassemblyScroll = false;
+                            state.IlDisassemblyScrollOffset = e.Node.Offset;
+                            return;
+                        }
+
+                        state.IlDisassemblyScrollOffset = e.Offset;
+                    })
+                    .FillHeight()
                 ],
                 leftWidth: 35).FillWidth().FillHeight());
 
@@ -107,10 +123,14 @@ public static class IlInspectorView
                 if (nsTypes.Count == 0) continue;
             }
 
+            var nsKey = $"ns:{nsGroup.Key}";
             yield return t.Item(
                 HighlightHelper.HighlightSubstring(nsGroup.Key, searchQuery), ns =>
                 BuildTypeItems(ns, nsTypes, methodsByType, searchQuery, state)
-            ).Expanded();
+            )
+            .Expanded(GetTreeExpansionState(state, nsKey, defaultExpanded: true))
+            .OnExpanded(_ => state.IlTreeExpansionState[nsKey] = true)
+            .OnCollapsed(_ => state.IlTreeExpansionState[nsKey] = false);
         }
     }
 
@@ -137,6 +157,7 @@ public static class IlInspectorView
                 if (filteredMethods.Count == 0) continue;
             }
 
+            var typeKey = $"type:{typeDef.FullName}";
             yield return t.Item(
                 HighlightHelper.HighlightSubstring(typeDef.Name, searchQuery), type =>
                 filteredMethods.Select(m =>
@@ -144,6 +165,8 @@ public static class IlInspectorView
                     void SelectMethod()
                     {
                         state.IlSelectedMethod = m;
+                        state.IlDisassemblyScrollOffset = 0;
+                        state.IlRestoreDisassemblyScroll = false;
                         state.App.Invalidate();
                     }
 
@@ -152,7 +175,65 @@ public static class IlInspectorView
                         .OnClicked(_ => SelectMethod())
                         .OnActivated(_ => SelectMethod());
                 })
-            );
+            )
+            .Expanded(GetTreeExpansionState(state, typeKey, defaultExpanded: false))
+            .OnExpanded(_ => state.IlTreeExpansionState[typeKey] = true)
+            .OnCollapsed(_ => state.IlTreeExpansionState[typeKey] = false);
         }
+    }
+
+    private static bool GetTreeExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
+        state.IlTreeExpansionState.TryGetValue(key, out var expanded) ? expanded : defaultExpanded;
+
+    private static void ScheduleDisassemblyScrollRestore(DotsiderState state)
+    {
+        if (!state.IlRestoreDisassemblyScroll) return;
+
+        // RequestFocus is processed post-reconciliation, so this sees the newly built
+        // IL scroll panel node after tab activation.
+        state.App.RequestFocus(node =>
+        {
+            if (!state.IlRestoreDisassemblyScroll) return false;
+            if (node is not ScrollPanelNode scroll || scroll.Orientation != ScrollOrientation.Vertical)
+                return false;
+
+            if (!TrySetScrollOffset(scroll, state.IlDisassemblyScrollOffset, null))
+                return false;
+
+            state.IlRestoreDisassemblyScroll = false;
+            state.IlDisassemblyScrollOffset = scroll.Offset;
+            state.App.Invalidate();
+            return false;
+        });
+    }
+
+    private static bool TrySetScrollOffset(ScrollPanelNode node, int requestedOffset, InputBindingActionContext? context)
+    {
+        var targetOffset = Math.Clamp(requestedOffset, 0, node.MaxOffset);
+        if (targetOffset == node.Offset) return true;
+
+        if (context is not null)
+        {
+            var setOffset = typeof(ScrollPanelNode).GetMethod(
+                "SetOffset",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: [typeof(int), typeof(InputBindingActionContext)],
+                modifiers: null);
+            if (setOffset is not null)
+            {
+                setOffset.Invoke(node, [targetOffset, context]);
+                return true;
+            }
+        }
+
+        var offsetProperty = typeof(ScrollPanelNode).GetProperty(
+            "Offset",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        var setter = offsetProperty?.SetMethod;
+        if (setter is null) return false;
+
+        setter.Invoke(node, [targetOffset]);
+        return true;
     }
 }
