@@ -1,3 +1,4 @@
+using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Nodes;
@@ -419,6 +420,41 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(1, _state.StringsSourceTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Dynamic tab, launch the process, wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Record initial size toggle state
+        var sizesBefore = _state!.HumanReadableSizes;
+
+        // Press S on the Events sub-tab — should set Socket filter, not toggle sizes
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.S)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.Socket, _state.DynamicCategoryFilter);
+        Assert.Equal(sizesBefore, _state.HumanReadableSizes);
 
         await runTask.ContinueWith(_ => { });
     }

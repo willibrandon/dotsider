@@ -117,11 +117,15 @@ public sealed class DotsiderApp
                     }, $"Tab {tabIndex + 1}");
                 }
 
-                bindings.Key(Hex1bKey.S).Global().Action(_ =>
+                // Suppress size toggle on Dynamic Events sub-tab where S is used for Socket filter
+                if (!(_state.CurrentTab == TabId.Dynamic && _state.DynamicSubTab == DynamicSubTabId.Events))
                 {
-                    _state.HumanReadableSizes = !_state.HumanReadableSizes;
-                    _state.App.Invalidate();
-                }, "Toggle size format");
+                    bindings.Key(Hex1bKey.S).Global().Action(_ =>
+                    {
+                        _state.HumanReadableSizes = !_state.HumanReadableSizes;
+                        _state.App.Invalidate();
+                    }, "Toggle size format");
+                }
                 bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
             }
 
@@ -252,7 +256,10 @@ public sealed class DotsiderApp
         var previousTab = _state.CurrentTab;
         _state.CurrentTab = tabIndex;
         if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
+        {
             _state.IlRestoreDisassemblyScroll = true;
+            _state.IlNeedsTreeFocus = true;
+        }
     }
 
     private Hex1bWidget BuildHintsBar(WidgetContext<VStackWidget> ctx)

@@ -24,6 +24,13 @@ public static class IlInspectorView
         var search = state.Search[TabId.IlInspector];
         ScheduleDisassemblyScrollRestore(state);
 
+        // Focus the tree after scroll restore completes (second render)
+        if (state.IlNeedsTreeFocus && !state.IlRestoreDisassemblyScroll)
+        {
+            state.IlNeedsTreeFocus = false;
+            state.App.RequestFocus(node => node is TreeNode);
+        }
+
         // Set up match navigation
         state.NavigateNextMatch = null;
         state.NavigatePrevMatch = null;
