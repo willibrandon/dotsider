@@ -17,6 +17,10 @@ public sealed class HexRowDocument : IHex1bDocument
     private readonly IHex1bDocument _inner;
     private int _bytesPerRow = 16;
 
+    /// <summary>
+    /// Initializes a new instance wrapping the specified document.
+    /// </summary>
+    /// <param name="inner">The underlying document to wrap.</param>
     public HexRowDocument(IHex1bDocument inner)
     {
         _inner = inner;
@@ -33,21 +37,49 @@ public sealed class HexRowDocument : IHex1bDocument
 
     // --- Delegated properties and methods (unchanged semantics) ---
 
+    /// <inheritdoc />
     public int Length => _inner.Length;
+
+    /// <inheritdoc />
     public int ByteCount => _inner.ByteCount;
+
+    /// <inheritdoc />
     public long Version => _inner.Version;
+
+    /// <inheritdoc />
     public string GetText() => _inner.GetText();
+
+    /// <inheritdoc />
     public string GetText(DocumentRange range) => _inner.GetText(range);
+
+    /// <inheritdoc />
     public ReadOnlyMemory<byte> GetBytes() => _inner.GetBytes();
+
+    /// <inheritdoc />
     public ReadOnlyMemory<byte> GetBytes(int byteOffset, int count) => _inner.GetBytes(byteOffset, count);
+
+    /// <inheritdoc />
     public Utf8ByteMap GetByteMap() => _inner.GetByteMap();
+
+    /// <inheritdoc />
     public EditResult Apply(EditOperation operation, string? source = null) => _inner.Apply(operation, source);
+
+    /// <inheritdoc />
     public EditResult Apply(IReadOnlyList<EditOperation> operations, string? source = null) => _inner.Apply(operations, source);
+
+    /// <inheritdoc />
     public EditResult ApplyBytes(ByteEditOperation operation, string? source = null) => _inner.ApplyBytes(operation, source);
+
+    /// <inheritdoc />
     public void BeginBatch() => _inner.BeginBatch();
+
+    /// <inheritdoc />
     public void EndBatch() => _inner.EndBatch();
+
+    /// <inheritdoc />
     public DocumentDiagnosticInfo? GetDiagnosticInfo() => _inner.GetDiagnosticInfo();
 
+    /// <inheritdoc />
     public event EventHandler<DocumentChangedEventArgs>? Changed
     {
         add => _inner.Changed += value;
@@ -56,8 +88,16 @@ public sealed class HexRowDocument : IHex1bDocument
 
     // --- Overridden: line semantics use hex rows ---
 
+    /// <summary>
+    /// Gets the total number of hex rows, computed from <see cref="ByteCount"/> and <see cref="BytesPerRow"/>.
+    /// </summary>
     public int LineCount => Math.Max(1, (ByteCount + _bytesPerRow - 1) / _bytesPerRow);
 
+    /// <summary>
+    /// Converts a character offset into a row/column position based on hex row layout.
+    /// </summary>
+    /// <param name="offset">The character offset within the document.</param>
+    /// <returns>A <see cref="DocumentPosition"/> with 1-based line and column.</returns>
     public DocumentPosition OffsetToPosition(DocumentOffset offset)
     {
         if (ByteCount == 0)
@@ -75,6 +115,11 @@ public sealed class HexRowDocument : IHex1bDocument
         return new DocumentPosition(row, col);
     }
 
+    /// <summary>
+    /// Converts a row/column position back into a character offset.
+    /// </summary>
+    /// <param name="position">A 1-based line and column position.</param>
+    /// <returns>The corresponding <see cref="DocumentOffset"/>.</returns>
     public DocumentOffset PositionToOffset(DocumentPosition position)
     {
         if (ByteCount == 0)
@@ -87,6 +132,12 @@ public sealed class HexRowDocument : IHex1bDocument
         return new DocumentOffset(Math.Clamp(charOffset, 0, Length));
     }
 
+    /// <summary>
+    /// Returns the text content of the specified hex row.
+    /// </summary>
+    /// <param name="line">The 1-based row number.</param>
+    /// <returns>The text spanning the bytes in the given row.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="line"/> is outside <c>1..<see cref="LineCount"/></c>.</exception>
     public string GetLineText(int line)
     {
         if (line < 1 || line > LineCount)
@@ -107,6 +158,12 @@ public sealed class HexRowDocument : IHex1bDocument
         return startChar < endChar ? _inner.GetText()[startChar..endChar] : "";
     }
 
+    /// <summary>
+    /// Returns the character length of the specified hex row.
+    /// </summary>
+    /// <param name="line">The 1-based row number.</param>
+    /// <returns>The number of characters in the given row.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="line"/> is outside <c>1..<see cref="LineCount"/></c>.</exception>
     public int GetLineLength(int line)
     {
         if (line < 1 || line > LineCount)
