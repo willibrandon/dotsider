@@ -563,7 +563,11 @@ public static class DynamicAnalysisView
             .OrderByDescending(kv => kv.Value)
             .ToList();
 
-        var maxBarWidth = Math.Max(1, surface.Width - 34);
+        // Fixed columns: 1 (margin) + 12 (category) + 1 + 6 (count) + 2 + 7 (tag) + 5 (pct) = 34
+        // Tag column is fixed-width using the longest prefix ([SOCK] ) so bars align
+        const int tagColumnWidth = 7; // "[SOCK] " — longest tag
+        var barStart = 1 + 12 + 1 + 6 + 2 + tagColumnWidth;
+        var maxBarWidth = Math.Max(1, surface.Width - barStart - 6);
         var y = 1;
 
         foreach (var (category, count) in sorted)
@@ -578,14 +582,14 @@ public static class DynamicAnalysisView
             var label = $"{category,-12} {count,6}  ";
             surface.WriteText(1, y, label, Hex1bColor.White);
 
-            var tagText = $"[{prefix}] ";
+            var tagText = $"[{prefix}]";
             surface.WriteText(label.Length + 1, y, tagText, color);
 
             for (var x = 0; x < barLen; x++)
-                surface.WriteChar(label.Length + 1 + tagText.Length + x, y, '█', color);
+                surface.WriteChar(barStart + x, y, '█', color);
 
             var pctText = $" {pct:P0}";
-            surface.WriteText(label.Length + 1 + tagText.Length + barLen, y, pctText, DimGray);
+            surface.WriteText(barStart + barLen, y, pctText, DimGray);
 
             y++;
         }
