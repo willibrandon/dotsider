@@ -38,10 +38,6 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
     {
         var nodes = CreateTestNodes(8);
         var rects = TreemapLayout.Layout(nodes, 0, 0, 100, 100);
-        // TODO(human): Implement overlap detection
-        // Given a list of TreemapRect, return true if any two rects overlap.
-        // Two axis-aligned rects overlap if their X and Y ranges both intersect.
-        // Use a tolerance (e.g., 0.1) for floating-point comparisons.
         AssertNoOverlaps(rects);
     }
 
@@ -106,6 +102,42 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
     }
 
     [Fact(Timeout = 5_000)]
+    public void Layout_NoOverlappingRects_RealAssembly()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
+        var rects = TreemapLayout.Layout(tree.Children, 0, 0, 800, 600);
+        Assert.NotEmpty(rects);
+        AssertNoOverlaps(rects);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void AssertNoOverlaps_DetectsKnownOverlap()
+    {
+        var node = new SizeNode("test", "test", 100, SizeNodeKind.Type, []);
+        var overlapping = new List<TreemapRect>
+        {
+            new(0, 0, 50, 50, node),
+            new(25, 25, 50, 50, node),
+        };
+        var ex = Assert.ThrowsAny<Exception>(() => AssertNoOverlaps(overlapping));
+        Assert.Contains("overlap", ex.Message);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void AssertNoOverlaps_AllowsAdjacentRects()
+    {
+        var node = new SizeNode("test", "test", 100, SizeNodeKind.Type, []);
+        var adjacent = new List<TreemapRect>
+        {
+            new(0, 0, 50, 50, node),
+            new(50, 0, 50, 50, node),
+        };
+        AssertNoOverlaps(adjacent);
+    }
+
+    [Fact(Timeout = 5_000)]
     public void Layout_RectsMatchInputNodes()
     {
         var nodes = CreateTestNodes(5);
@@ -125,15 +157,6 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
 
     private static void AssertNoOverlaps(IReadOnlyList<TreemapRect> rects)
     {
-        // TODO(human): Implement overlap detection
-        // Check that no two rectangles in the list overlap.
-        // Two axis-aligned rectangles overlap when:
-        //   rect1.X < rect2.X + rect2.Width AND
-        //   rect1.X + rect1.Width > rect2.X AND
-        //   rect1.Y < rect2.Y + rect2.Height AND
-        //   rect1.Y + rect1.Height > rect2.Y
-        // Use a tolerance of 0.1 for floating-point comparison.
-        // Throw Assert.Fail($"Rects {i} and {j} overlap") on first violation.
         const double tolerance = 0.1;
         for (var i = 0; i < rects.Count; i++)
         {
