@@ -310,14 +310,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        // Focus the scroll panel and scroll down
+        // Focus the scroll panel and scroll down.
+        // RequestFocus is async — send multiple PageDowns so at least one
+        // lands after focus has been applied to the scroll panel.
         _hex1bApp!.RequestFocus(node => node is ScrollPanelNode);
         _hex1bApp.Invalidate();
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(1))
             .PageDown()
-            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .PageDown()
+            .PageDown()
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, cts.Token);
