@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using Dotsider;
 using Hex1b;
@@ -37,6 +38,11 @@ for (var i = 0; i < args.Length; i++)
                 return 1;
             }
             break;
+        case "--version" or "-v":
+            var version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+            Console.WriteLine(version);
+            return 0;
         case "--help" or "-h":
             PrintUsage();
             return 0;
@@ -166,5 +172,6 @@ static void PrintUsage()
     Console.Error.WriteLine("Options:");
     Console.Error.WriteLine("  -t, --tab <1-8>       Initial tab (1=General .. 7=SizeMap, 8=Dynamic)");
     Console.Error.WriteLine("  -n, --min-len <n>     Minimum raw string length (default: 4)");
+    Console.Error.WriteLine("  -v, --version         Show version");
     Console.Error.WriteLine("  -h, --help            Show this help");
 }
