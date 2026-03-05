@@ -43,17 +43,17 @@ public sealed class DiffApp
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(200, 200, 80))),
                 bar.Separator(" "),
                 bar.Section(_state.Left.FileName).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(180, 180, 200))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Section(" <> "),
                 bar.Section(_state.Right.FileName).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(180, 180, 200))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section($"+{summary.TypesAdded + summary.MethodsAdded}").Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 200, 120))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(20, 100, 50))),
                 bar.Section($" -{summary.TypesRemoved + summary.MethodsRemoved}").Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 80))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 30, 30))),
                 bar.Section($" ~{summary.TypesChanged + summary.MethodsChanged}").Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 200, 80)))
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(130, 110, 30)))
             ]),
 
             // Filter indicator
@@ -110,6 +110,27 @@ public sealed class DiffApp
                 }
 
                 bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+
+                // Left/Right arrows to cycle tabs
+                bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                {
+                    if (_state.CurrentTab > 0)
+                    {
+                        _state.CurrentTab--;
+                        _state.DiffFocusedKey = null;
+                        _state.App.Invalidate();
+                    }
+                }, "Previous tab");
+
+                bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                {
+                    if (_state.CurrentTab < 3)
+                    {
+                        _state.CurrentTab++;
+                        _state.DiffFocusedKey = null;
+                        _state.App.Invalidate();
+                    }
+                }, "Next tab");
             }
 
             bindings.Key(Hex1bKey.F).Action(_ =>
@@ -127,10 +148,10 @@ public sealed class DiffApp
                     _state.App.RequestFocus(node => node is TextBoxNode);
                 _state.App.Invalidate();
             };
-            bindings.Key(Hex1bKey.OemQuestion).Global().Action(_ => searchToggle(), "Search");
+            bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
             if (!isSearchEditing)
             {
-                bindings.Key(Hex1bKey.None).Global().Action(_ => searchToggle(), "Search");
+                bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
             }
             if (isSearchEditing)
             {
@@ -169,7 +190,7 @@ public sealed class DiffApp
         return ctx.InfoBar(s =>
         {
             var hints = new List<IInfoBarChild>();
-            hints.Add(s.Section("1-4: Tabs"));
+            hints.Add(s.Section("1-4/←→: Tabs"));
             hints.Add(s.Section("f: Filter"));
 
             var currentSearch = _state.Search[_state.CurrentTab];

@@ -72,11 +72,12 @@ public static class DiffMethodsView
                     return
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.DeclaringType))),
-                        r.Cell(c => !string.IsNullOrEmpty(query)
-                            ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, HighlightHelper.MatchBgColor), c.Text(method.Name))
-                            : c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Name))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(method.Signature))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
+                            HighlightHelper.HighlightCell(c, method.DeclaringType, query, !string.IsNullOrEmpty(query)))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
+                            HighlightHelper.HighlightCell(c, method.Name, query, !string.IsNullOrEmpty(query)))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
+                            HighlightHelper.HighlightCell(c, method.Signature, query, !string.IsNullOrEmpty(query)))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
                     ];
                 })
@@ -90,7 +91,7 @@ public static class DiffMethodsView
         })
         .WithInputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
                 {

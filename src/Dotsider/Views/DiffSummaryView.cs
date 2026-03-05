@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -22,23 +23,34 @@ public static class DiffSummaryView
     /// <returns>The root widget for the Summary tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DiffState state)
     {
+        var search = state.Search[0]; // Summary = tab 0
+        var query = search.Query;
         var summary = state.DiffResult.MetadataSummary;
 
+        // Set up match navigation (not applicable for static view)
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
+
         return ctx.VStack(outer =>
-        [
+        {
+            var widgets = new List<Hex1bWidget>();
+
+            // Search bar
+            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
+
             // Side-by-side assembly info
-            outer.HSplitter(
+            widgets.Add(outer.HSplitter(
                 left =>
                 [
                     left.Border(
                         left.VStack(info =>
                         [
-                            DiffInfoLine(info, "Name", state.Left.AssemblyName ?? ""),
-                            DiffInfoLine(info, "Version", state.Left.AssemblyVersion ?? ""),
-                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Left.FileSize)),
-                            DiffInfoLine(info, "Types", state.Left.TypeDefs.Count.ToString()),
-                            DiffInfoLine(info, "Methods", state.Left.MethodDefs.Count.ToString()),
-                            DiffInfoLine(info, "References", state.Left.AssemblyRefs.Count.ToString())
+                            DiffInfoLine(info, "Name", state.Left.AssemblyName ?? "", query),
+                            DiffInfoLine(info, "Version", state.Left.AssemblyVersion ?? "", query),
+                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Left.FileSize), query),
+                            DiffInfoLine(info, "Types", state.Left.TypeDefs.Count.ToString(), query),
+                            DiffInfoLine(info, "Methods", state.Left.MethodDefs.Count.ToString(), query),
+                            DiffInfoLine(info, "References", state.Left.AssemblyRefs.Count.ToString(), query)
                         ])
                     ).Title($" {state.Left.FileName} (Left) ").Fill()
                 ],
@@ -47,19 +59,19 @@ public static class DiffSummaryView
                     right.Border(
                         right.VStack(info =>
                         [
-                            DiffInfoLine(info, "Name", state.Right.AssemblyName ?? ""),
-                            DiffInfoLine(info, "Version", state.Right.AssemblyVersion ?? ""),
-                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Right.FileSize)),
-                            DiffInfoLine(info, "Types", state.Right.TypeDefs.Count.ToString()),
-                            DiffInfoLine(info, "Methods", state.Right.MethodDefs.Count.ToString()),
-                            DiffInfoLine(info, "References", state.Right.AssemblyRefs.Count.ToString())
+                            DiffInfoLine(info, "Name", state.Right.AssemblyName ?? "", query),
+                            DiffInfoLine(info, "Version", state.Right.AssemblyVersion ?? "", query),
+                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Right.FileSize), query),
+                            DiffInfoLine(info, "Types", state.Right.TypeDefs.Count.ToString(), query),
+                            DiffInfoLine(info, "Methods", state.Right.MethodDefs.Count.ToString(), query),
+                            DiffInfoLine(info, "References", state.Right.AssemblyRefs.Count.ToString(), query)
                         ])
                     ).Title($" {state.Right.FileName} (Right) ").Fill()
                 ],
-                leftWidth: 50).FixedHeight(9),
+                leftWidth: 50).FixedHeight(9));
 
             // Change statistics
-            outer.Border(
+            widgets.Add(outer.Border(
                 outer.VStack(stats =>
                 [
                     stats.HStack(h =>
@@ -86,16 +98,30 @@ public static class DiffSummaryView
                     stats.Text(""),
                     stats.Text($"  Size delta: {(summary.SizeDelta >= 0 ? "+" : "")}{DotsiderState.FormatSize(Math.Abs(summary.SizeDelta))}")
                 ])
-            ).Title(" Change Summary ").Fill()
-        ]).Fill();
+            ).Title(" Change Summary ").Fill());
+
+            return widgets.ToArray();
+        })
+        .WithInputBindings(bindings =>
+        {
+            bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+            {
+                if (search.IsActive)
+                {
+                    search.Dismiss();
+                    state.App.Invalidate();
+                }
+            }, "Esc");
+        })
+        .Fill();
     }
 
-    private static Hex1bWidget DiffInfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
+    private static Hex1bWidget DiffInfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [
             row.Text($"  {label}: ").FixedWidth(16),
-            row.Text(value)
+            HighlightHelper.HighlightText(row, value, query)
         ]).FixedHeight(1);
     }
 }

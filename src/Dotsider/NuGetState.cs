@@ -38,6 +38,9 @@ public sealed class NuGetState : IDisposable
     /// <summary>Whether the user is viewing the package file list (true) or a DLL inspector (false).</summary>
     public bool IsBrowsingPackage { get; set; } = true;
 
+    /// <summary>Search state for the package browser view.</summary>
+    public SearchState BrowserSearch { get; } = new();
+
     /// <summary>The currently selected tab index in the DLL inspector.</summary>
     public int CurrentTab { get; set; }
 

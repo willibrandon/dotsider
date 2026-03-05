@@ -52,24 +52,79 @@ public sealed class NuGetApp
 
             // Hints bar
             outer.InfoBar(s =>
-            [
-                s.Section(_state.IsBrowsingPackage ? "Enter: Open DLL" : "1-5: Tabs"),
-                s.Separator(" | "),
-                s.Section("Backspace: Back"),
-                s.Spacer(),
-                s.Section("q: Quit")
-            ]).WithDefaultSeparator(" | ")
+            {
+                var hints = new List<IInfoBarChild>();
+                hints.Add(s.Section(_state.IsBrowsingPackage ? "Enter: Open DLL" : "1-5: Tabs"));
+                hints.Add(s.Section("Backspace: Back"));
+                if (_state.IsBrowsingPackage)
+                {
+                    if (_state.BrowserSearch.IsActive)
+                        hints.Add(s.Section("Esc: Clear"));
+                    hints.Add(s.Section("/: Search"));
+                }
+                hints.Add(s.Spacer());
+                hints.Add(s.Section("q: Quit"));
+                return hints;
+            }).WithDefaultSeparator(" | ")
         ])
         .WithInputBindings(bindings =>
         {
+            var browserSearch = _state.BrowserSearch;
+            var isSearchEditing = browserSearch.IsActive && !browserSearch.IsConfirmed;
+
             if (_state.IsBrowsingPackage)
             {
+                // Search toggle (same dual-binding strategy as DotsiderApp/DiffApp)
+                Action searchToggle = () =>
+                {
+                    browserSearch.ActivateOrCycle();
+                    if (browserSearch.IsActive && !browserSearch.IsConfirmed)
+                        _state.App.RequestFocus(node => node is TextBoxNode);
+                    _state.App.Invalidate();
+                };
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                if (!isSearchEditing)
+                {
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                }
+                if (isSearchEditing)
+                {
+                    bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
+                    {
+                        if (!string.IsNullOrEmpty(browserSearch.Query))
+                        {
+                            browserSearch.Confirm();
+                            _state.App.Invalidate();
+                        }
+                    }, "Confirm search");
+                }
+
+                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                {
+                    if (browserSearch.IsActive)
+                    {
+                        browserSearch.Dismiss();
+                        _state.App.Invalidate();
+                    }
+                }, "Esc");
+
                 bindings.Key(Hex1bKey.Enter).Action(_ =>
                 {
+                    // Filter against search query so Enter cannot open a hidden DLL
+                    var visibleDlls = (IReadOnlyList<Analysis.Models.NuGetFileEntry>)_state.Package.DllFiles;
+                    var q = browserSearch.Query;
+                    if (!string.IsNullOrEmpty(q))
+                    {
+                        visibleDlls = visibleDlls.Where(d =>
+                            d.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                            d.Directory.Contains(q, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                    }
+
                     var focusedKey = _state.FileTreeFocusedKey as string;
                     var entry = focusedKey is not null
-                        ? _state.Package.DllFiles.FirstOrDefault(d => d.FullPath == focusedKey)
-                        : _state.Package.DllFiles.FirstOrDefault();
+                        ? visibleDlls.FirstOrDefault(d => d.FullPath == focusedKey)
+                        : visibleDlls.FirstOrDefault();
 
                     if (entry is null) return;
 
@@ -115,7 +170,8 @@ public sealed class NuGetApp
                 }
             }
 
-            bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+            if (!isSearchEditing)
+                bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
         });

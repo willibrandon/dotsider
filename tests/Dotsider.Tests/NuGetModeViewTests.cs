@@ -114,6 +114,31 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task Search_ActivatesAndDismisses()
+    {
+        var (terminal, app) = CreateNuGetApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("DLL"), TimeSpan.FromSeconds(5))
+            // Activate search
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(2))
+            // Dismiss with Esc
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(2))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.False(_state!.BrowserSearch.IsActive);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

@@ -74,9 +74,8 @@ public static class DiffRefsView
                     return
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
-                        r.Cell(c => !string.IsNullOrEmpty(query)
-                            ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, HighlightHelper.MatchBgColor), c.Text(name))
-                            : c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(name))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
+                            HighlightHelper.HighlightCell(c, name, query, !string.IsNullOrEmpty(query)))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(leftVer))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(rightVer))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
@@ -92,7 +91,7 @@ public static class DiffRefsView
         })
         .WithInputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+            bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
                 {

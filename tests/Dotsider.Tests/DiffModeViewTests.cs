@@ -93,6 +93,80 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task ArrowKeys_CycleTabs()
+    {
+        var (terminal, app) = CreateDiffApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            // Start on tab 0 (Summary), arrow right to Types (tab 1)
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            // Arrow right again to Methods (tab 2)
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            // Arrow left back to Types (tab 1)
+            .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state!.CurrentTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Search_ActivatesAndFilters()
+    {
+        var (terminal, app) = CreateDiffApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            // Switch to Types tab, then activate search
+            .Key(Hex1bKey.D2)
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[1].IsActive, TimeSpan.FromSeconds(2))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.Search[1].IsActive);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task LeftArrow_DoesNotGoBelowZero()
+    {
+        var (terminal, app) = CreateDiffApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            // On tab 0, press left twice — should stay at 0
+            .Key(Hex1bKey.LeftArrow)
+            .Key(Hex1bKey.LeftArrow)
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.CurrentTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     public void Dispose()
     {
         _state?.Dispose();
