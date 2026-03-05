@@ -30,7 +30,7 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources. |
 | **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Select a method, read its bytecode. |
 | **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
-| **5 Hex Dump** | Hex editor with byte category coloring, search highlighting, data interpretation panel, jump-to-offset, and vim navigation. |
+| **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. |
 | **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in. |
 | **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. |
@@ -62,6 +62,7 @@ dotsider <package.nupkg>        # browse a NuGet package
 Options:
   -t, --tab <1-8>               start on a specific tab
   -n, --min-len <n>             minimum raw string length (default: 4)
+  -v, --version                 show version
   -h, --help                    show help
 ```
 
@@ -77,15 +78,17 @@ Options:
 | `s` | Toggle human-readable sizes |
 | `q` | Quit |
 
-**Hex Dump tab** adds:
+**Hex Dump tab** uses vi-style modal editing — the editor starts in normal mode (read-only) to prevent accidental writes:
 
-| Key | Action |
-|-----|--------|
-| `h` `j` `k` `l` | Vim-style cursor movement |
-| `g` | Jump to hex offset |
-| `e` | Toggle endianness (LE/BE) |
-| `Ctrl+T` | Toggle text/hex search mode |
-| `Ctrl+S` | Save edited bytes |
+| Key | Mode | Action |
+|-----|------|--------|
+| `i` | Normal | Enter insert mode (enables byte editing) |
+| `Esc` | Insert | Return to normal mode |
+| `h` `j` `k` `l` | Normal | Vim-style cursor movement |
+| `g` | Normal | Jump to hex offset |
+| `e` | Normal | Toggle endianness (LE/BE) |
+| `Ctrl+T` | Any | Toggle text/hex search mode |
+| `Ctrl+S` | Normal | Save edited bytes (only when modified) |
 
 Diff mode adds `f` to cycle filters (All / Added / Removed / Changed).
 

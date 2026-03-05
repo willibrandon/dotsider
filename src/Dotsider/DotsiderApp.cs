@@ -54,13 +54,13 @@ public sealed class DotsiderApp
                 bar.Section(_state.NavigationStack.Count > 0
                     ? $"{_state.Analyzer.FileName} (depth {_state.NavigationStack.Count + 1})"
                     : _state.Analyzer.FileName).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(180, 180, 200))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100))),
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40))),
                 bar.Separator(" | "),
                 bar.Section(_state.FormatSizeToggleable(_state.Analyzer.FileSize)).Theme(t => t
-                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 180, 100)))
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40)))
             ]),
 
             // Main content: Tab panel with 7 tabs (controlled via CurrentTab)
@@ -99,8 +99,10 @@ public sealed class DotsiderApp
             var currentSearch = _state.Search[_state.CurrentTab];
             var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
 
-            // Number keys 1-8, s, q suppressed during search editing or jump dialog to let TextBox receive input
-            if (!isSearchEditing && !_state.HexJumpDialogOpen)
+            // Number keys 1-8, s, q suppressed during search editing, jump dialog,
+            // or hex insert mode to let EditorNode/TextBox receive character input
+            var hexInsertMode = _state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert;
+            if (!isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode)
             {
                 for (var i = 0; i < 8; i++)
                 {
@@ -117,8 +119,11 @@ public sealed class DotsiderApp
                     }, $"Tab {tabIndex + 1}");
                 }
 
-                // Suppress size toggle on Dynamic Events sub-tab where S is used for Socket filter
-                if (!(_state.CurrentTab == TabId.Dynamic && _state.DynamicSubTab == DynamicSubTabId.Events))
+                // Suppress size toggle on Dynamic Events sub-tab (S = Socket filter)
+                // and hex tab in insert mode (S = byte input)
+                var suppressSizeToggle = (_state.CurrentTab == TabId.Dynamic && _state.DynamicSubTab == DynamicSubTabId.Events)
+                    || (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert);
+                if (!suppressSizeToggle)
                 {
                     bindings.Key(Hex1bKey.S).Global().Action(_ =>
                     {
@@ -126,7 +131,10 @@ public sealed class DotsiderApp
                         _state.App.Invalidate();
                     }, "Toggle size format");
                 }
-                bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+
+                // Suppress Q quit in hex insert mode — let editor receive it as byte input
+                if (!(_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert))
+                    bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
             }
 
             // Global search toggle — array-indexed, no switch statement
@@ -165,9 +173,20 @@ public sealed class DotsiderApp
                 }, "Confirm search");
             }
 
-            // Hex tab keybindings: g (jump), e (endianness) — only when not editing search or in jump dialog
-            if (!isSearchEditing && !_state.HexJumpDialogOpen && _state.CurrentTab == TabId.HexDump)
+            // Hex tab keybindings — normal mode only, registered global because
+            // EditorNode's AnyCharacter() binding consumes letter keys in path-based routing
+            if (!isSearchEditing && !_state.HexJumpDialogOpen
+                && _state.CurrentTab == TabId.HexDump
+                && _state.HexMode == HexEditMode.Normal)
             {
+                bindings.Key(Hex1bKey.I).Global().Action(_ =>
+                {
+                    _state.HexMode = HexEditMode.Insert;
+                    _state.HexEditorState.IsReadOnly = false;
+                    _state.HexNotification = null;
+                    _state.App.Invalidate();
+                }, "Insert mode");
+
                 bindings.Key(Hex1bKey.G).Global().Action(_ =>
                 {
                     _state.HexJumpDialogOpen = true;
@@ -183,6 +202,27 @@ public sealed class DotsiderApp
                         ? HexEndianness.Big : HexEndianness.Little;
                     _state.App.Invalidate();
                 }, "Toggle endianness");
+
+                bindings.Key(Hex1bKey.H).Global().Action(_ =>
+                {
+                    _state.HexEditorState.MoveCursor(CursorDirection.Left);
+                    _state.App.Invalidate();
+                }, "Left");
+                bindings.Key(Hex1bKey.L).Global().Action(_ =>
+                {
+                    _state.HexEditorState.MoveCursor(CursorDirection.Right);
+                    _state.App.Invalidate();
+                }, "Right");
+                bindings.Key(Hex1bKey.K).Global().Action(_ =>
+                {
+                    _state.HexEditorState.MoveCursor(CursorDirection.Up);
+                    _state.App.Invalidate();
+                }, "Up");
+                bindings.Key(Hex1bKey.J).Global().Action(_ =>
+                {
+                    _state.HexEditorState.MoveCursor(CursorDirection.Down);
+                    _state.App.Invalidate();
+                }, "Down");
             }
 
             // Jump dialog Enter — global so it fires above TextBox capture
@@ -195,13 +235,16 @@ public sealed class DotsiderApp
                 }, "Jump");
             }
 
-            // Ctrl+S: Save hex changes (hex tab only)
-            if (_state.CurrentTab == TabId.HexDump)
+            // Ctrl+S: Save hex changes — only in normal mode with pending edits
+            if (_state.CurrentTab == TabId.HexDump
+                && _state.HexMode == HexEditMode.Normal
+                && _state.HexIsDirty)
             {
                 bindings.Ctrl().Key(Hex1bKey.S).Global().OverridesCapture().Action(_ =>
                 {
                     SaveHexChanges(_state);
                     _state.App.Invalidate();
+                    ScheduleNotificationClear(_state);
                 }, "Save hex changes");
             }
 
@@ -226,6 +269,14 @@ public sealed class DotsiderApp
                 {
                     bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
+                        // In hex insert mode, Esc exits insert first — search stays active
+                        if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert)
+                        {
+                            _state.HexMode = HexEditMode.Normal;
+                            _state.HexEditorState.IsReadOnly = true;
+                            _state.App.Invalidate();
+                            return;
+                        }
                         currentSearch.Dismiss();
                         _state.App.Invalidate();
                     }, "Clear search");
@@ -267,6 +318,15 @@ public sealed class DotsiderApp
         return ctx.InfoBar(s =>
         {
             var hints = new List<IInfoBarChild>();
+
+            // Hex tab: neovim-style mode indicator (left side, only in insert mode)
+            if (_state.CurrentTab == 4 && _state.HexMode == HexEditMode.Insert)
+            {
+                hints.Add(s.Section("-- INSERT --").Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 120, 80))));
+                hints.Add(s.Separator(" "));
+            }
+
             hints.Add(s.Section("1-8: Tabs"));
 
             if (_state.NavigationStack.Count > 0)
@@ -275,7 +335,17 @@ public sealed class DotsiderApp
             if (_state.CurrentTab is 1 or 3)
                 hints.Add(s.Section("Enter: Detail"));
             else if (_state.CurrentTab == 4)
-                hints.Add(s.Section("g: Jump | e: Endian | Ctrl+S: Save"));
+            {
+                if (_state.HexMode == HexEditMode.Insert)
+                    hints.Add(s.Section("Esc: Normal"));
+                else
+                {
+                    var hexHints = "i: Edit | g: Jump | e: Endian";
+                    if (_state.HexIsDirty)
+                        hexHints += " | Ctrl+S: Save";
+                    hints.Add(s.Section(hexHints));
+                }
+            }
             else if (_state.CurrentTab == 6)
                 hints.Add(s.Section("Backspace: Up"));
             else if (_state.CurrentTab == 7)
@@ -298,7 +368,17 @@ public sealed class DotsiderApp
             // Show size toggle hint only on tabs that display sizes
             if (_state.CurrentTab is 0 or 1 or 6) // General, PE/Metadata, Size Map
                 hints.Add(s.Section(_state.HumanReadableSizes ? "s: Sizes (dec)" : "s: Sizes (hex)"));
+
             hints.Add(s.Spacer());
+
+            // Hex tab: vim-style save notification (right side)
+            if (_state.CurrentTab == 4 && !string.IsNullOrEmpty(_state.HexNotification))
+            {
+                hints.Add(s.Section(_state.HexNotification).Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 110, 30))));
+                hints.Add(s.Separator(" "));
+            }
+
             hints.Add(s.Section("q: Quit"));
             return hints;
         }).WithDefaultSeparator(" | ");
@@ -356,7 +436,9 @@ public sealed class DotsiderApp
                 CommitAnalyzer(state, newAnalyzer);
             }
 
-            state.HexNotification = "Saved successfully";
+            var fileName = Path.GetFileName(filePath);
+            var size = new FileInfo(filePath).Length;
+            state.HexNotification = $"\"{fileName}\" {size}B written";
         }
         catch (Exception ex)
         {
@@ -375,7 +457,9 @@ public sealed class DotsiderApp
         state.StringExtractor = new StringExtractor(analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(analyzer.RawBytes.ToArray()));
         state.HexRowDoc = hexDoc;
-        state.HexEditorState = new EditorState(hexDoc);
+        state.HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        state.HexCleanVersion = hexDoc.Version;
+        state.HexMode = HexEditMode.Normal;
         state.CachedUserStrings = null;
         state.CachedMetadataStrings = null;
         state.CachedRawStrings = null;
@@ -384,5 +468,14 @@ public sealed class DotsiderApp
         state.TreemapCurrentLevel = null;
         state.TreemapBreadcrumb.Clear();
         state.IlSelectedMethod = null;
+    }
+
+    private static void ScheduleNotificationClear(DotsiderState state)
+    {
+        _ = Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+        {
+            state.HexNotification = null;
+            state.App.Invalidate();
+        }, TaskScheduler.Default);
     }
 }
