@@ -389,61 +389,74 @@ public sealed class DotsiderApp
         var filePath = state.Analyzer.FilePath;
         var tempPath = filePath + ".tmp";
 
+        // Phase 1: write and validate. state.Analyzer is still live here,
+        // so any exception is safe — just report and return.
+        byte[] newBytes;
         try
         {
-            var newBytes = state.HexEditorState.Document.GetBytes().ToArray();
+            newBytes = state.HexEditorState.Document.GetBytes().ToArray();
             File.WriteAllBytes(tempPath, newBytes);
-
-            // Build replacement from temp BEFORE disposing old analyzer.
-            // This validates the image AND gives us a ready fallback.
-            AssemblyAnalyzer newAnalyzer;
-            try
-            {
-                newAnalyzer = new AssemblyAnalyzer(tempPath);
-            }
-            catch (Exception ex)
-            {
-                try { File.Delete(tempPath); } catch { }
-                state.HexNotification = $"Cannot save: invalid image — {ex.Message}";
-                return;
-            }
-
-            // Replacement ready — dispose old analyzer to release file lock
-            state.Analyzer.Dispose();
-
-            try
-            {
-                File.Move(tempPath, filePath, overwrite: true);
-            }
-            catch (Exception moveEx)
-            {
-                // Move failed — commit the temp analyzer directly
-                CommitAnalyzer(state, newAnalyzer);
-                state.HexNotification = $"Save failed, working from {tempPath}: {moveEx.Message}";
-                return;
-            }
-
-            // Move succeeded — reopen from original path for correct FilePath.
-            // Keep newAnalyzer as fallback (its FD survived the rename).
-            try
-            {
-                var finalAnalyzer = new AssemblyAnalyzer(filePath);
-                newAnalyzer.Dispose();
-                CommitAnalyzer(state, finalAnalyzer);
-            }
-            catch
-            {
-                CommitAnalyzer(state, newAnalyzer);
-            }
-
-            var fileName = Path.GetFileName(filePath);
-            var size = new FileInfo(filePath).Length;
-            state.HexNotification = $"\"{fileName}\" {size}B written";
         }
         catch (Exception ex)
         {
             state.HexNotification = $"Save failed: {ex.Message}";
+            return;
         }
+
+        try
+        {
+            using var validator = new AssemblyAnalyzer(tempPath);
+        }
+        catch (Exception ex)
+        {
+            try { File.Delete(tempPath); } catch { }
+            state.HexNotification = $"Cannot save: invalid image — {ex.Message}";
+            return;
+        }
+
+        // Phase 2: replace analyzer. After Dispose(), every path must
+        // commit a live replacement before returning — no exceptions
+        // may propagate without first restoring state.Analyzer.
+        state.Analyzer.Dispose();
+
+        // Move temp → original. If move fails, the file is still at tempPath.
+        string savedPath;
+        try { File.Move(tempPath, filePath, overwrite: true); savedPath = filePath; }
+        catch { savedPath = tempPath; }
+
+        // Try reopening from the saved path, then alt path, then recovery.
+        string[] candidates =
+        [
+            savedPath,
+            savedPath == filePath ? tempPath : filePath,
+            filePath + ".recovery"
+        ];
+
+        foreach (var path in candidates)
+        {
+            try
+            {
+                // Recovery path needs the bytes written first
+                if (path.EndsWith(".recovery") && !File.Exists(path))
+                    File.WriteAllBytes(path, newBytes);
+
+                CommitAnalyzer(state, new AssemblyAnalyzer(path));
+                savedPath = path;
+
+                var fileName = Path.GetFileName(savedPath);
+                var size = new FileInfo(savedPath).Length;
+                state.HexNotification = savedPath == filePath
+                    ? $"\"{fileName}\" {size}B written"
+                    : $"Saved to {fileName} (could not overwrite original)";
+                return;
+            }
+            catch { /* try next candidate */ }
+        }
+
+        // All disk candidates exhausted. Fall back to in-memory analyzer
+        // constructed from the validated bytes — no filesystem I/O required.
+        CommitAnalyzer(state, new AssemblyAnalyzer(newBytes, filePath));
+        state.HexNotification = "Saved (working from memory — file may be locked)";
     }
 
     /// <summary>

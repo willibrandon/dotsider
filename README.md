@@ -90,6 +90,8 @@ Options:
 | `Ctrl+T` | Any | Toggle text/hex search mode |
 | `Ctrl+S` | Normal | Save edited bytes (only when modified) |
 
+In insert mode, type two hex digits (0-9, a-f) to overwrite one byte. The first digit sets the high nibble; the second commits the edit. Saving validates the PE image before writing — invalid edits are rejected.
+
 Diff mode adds `f` to cycle filters (All / Added / Removed / Changed).
 
 ## How it works
