@@ -113,6 +113,9 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public bool IlRestoreDisassemblyScroll { get; set; }
 
+    /// <summary>Whether the IL Inspector tree needs focus after a tab switch.</summary>
+    public bool IlNeedsTreeFocus { get; set; }
+
     // --- Strings Tab State ---
 
     /// <summary>The minimum string length filter for raw strings.</summary>

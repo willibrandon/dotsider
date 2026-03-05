@@ -23,6 +23,7 @@ public static class DynamicAnalysisView
     private static readonly Hex1bColor Blue = Hex1bColor.FromRgb(80, 140, 220);
     private static readonly Hex1bColor DimGray = Hex1bColor.FromRgb(100, 100, 120);
     private static readonly Hex1bColor Teal = Hex1bColor.FromRgb(0, 200, 180);
+    private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
 
     private static readonly Dictionary<TraceEventCategory, Hex1bColor> CategoryColors = new()
     {
@@ -91,13 +92,15 @@ public static class DynamicAnalysisView
         return ctx.VStack(outer =>
         [
             outer.Text(""),
-            outer.Text($"  Assembly:    {state.Analyzer.FileName}"),
-            outer.Text($"  Entry Point: 0x{state.Analyzer.ClrHeader!.EntryPointToken:X8}"),
-            outer.Text($"  Args:        {argsDisplay}"),
+            IdleLine(outer, "Assembly:   ", state.Analyzer.FileName),
+            IdleLine(outer, "Entry Point:", $"0x{state.Analyzer.ClrHeader!.EntryPointToken:X8}"),
+            IdleLine(outer, "Args:       ", argsDisplay),
             outer.Text(""),
-            outer.Text("  Press Enter to launch with EventPipe tracing."),
+            outer.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Teal),
+                outer.Text("  Press Enter to launch with EventPipe tracing.")),
             outer.Text(""),
-            outer.Text("  Providers:"),
+            outer.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                outer.Text("  Providers:")),
             outer.Text("    CLR Runtime — GC, JIT, Exceptions, Loader, Threading"),
             outer.Text("    System.Runtime — Performance Counters (1s interval)"),
             outer.Text("    System.Net.Http, System.Net.Sockets")
@@ -111,6 +114,8 @@ public static class DynamicAnalysisView
                     state.Tracer = new RuntimeTracer(
                         state.Analyzer.FilePath, state.DynamicArguments, state.App);
                     state.Tracer.Start();
+                    state.App.RequestFocus(node =>
+                        node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
                 }
             }, "Launch process");
@@ -214,6 +219,8 @@ public static class DynamicAnalysisView
                     state.DynamicEventsFocusedKey = null;
                     state.DynamicOutputFocusedKey = null;
                     state.DynamicCategoryFilter = null;
+                    state.App.RequestFocus(node =>
+                        node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
                 }, "Re-run process");
             }
@@ -280,7 +287,7 @@ public static class DynamicAnalysisView
 
         var filterText = state.DynamicCategoryFilter is { } f
             ? $" | Filter: {f} (Esc to clear)"
-            : " | g/j/e/l/h to filter";
+            : " | g/j/e/l/t/h/s to filter";
 
         return ctx.VStack(inner =>
         [
@@ -324,6 +331,8 @@ public static class DynamicAnalysisView
             bindings.Key(Hex1bKey.E).Action(_ => SetFilter(state, TraceEventCategory.Exception), "Filter Exceptions");
             bindings.Key(Hex1bKey.L).Action(_ => SetFilter(state, TraceEventCategory.Loader), "Filter Loader");
             bindings.Key(Hex1bKey.H).Action(_ => SetFilter(state, TraceEventCategory.Http), "Filter HTTP");
+            bindings.Key(Hex1bKey.T).Action(_ => SetFilter(state, TraceEventCategory.Threading), "Filter Threading");
+            bindings.Key(Hex1bKey.S).Action(_ => SetFilter(state, TraceEventCategory.Socket), "Filter Socket");
             bindings.Key(Hex1bKey.Escape).Action(_ =>
             {
                 if (search.IsActive)
@@ -370,8 +379,8 @@ public static class DynamicAnalysisView
             inner.Border(
                 inner.VStack(v =>
                 [
-                    v.Text($"  Working Set:  {counters.WorkingSetMb:F1} MB"),
-                    v.Text($"  GC Heap Size: {counters.GcHeapSizeMb:F1} MB")
+                    CounterLine(v, "  Working Set:  ", $"{counters.WorkingSetMb:F1} MB"),
+                    CounterLine(v, "  GC Heap Size: ", $"{counters.GcHeapSizeMb:F1} MB")
                 ])
             ).Title(" Memory ").FixedHeight(4),
 
@@ -379,9 +388,9 @@ public static class DynamicAnalysisView
             inner.Border(
                 inner.HStack(row =>
                 [
-                    row.Text($"  Gen 0: {counters.Gen0Collections}"),
-                    row.Text($"    Gen 1: {counters.Gen1Collections}"),
-                    row.Text($"    Gen 2: {counters.Gen2Collections}").Fill()
+                    CounterLine(row, "  Gen 0: ", $"{counters.Gen0Collections}"),
+                    CounterLine(row, "    Gen 1: ", $"{counters.Gen1Collections}"),
+                    CounterLine(row, "    Gen 2: ", $"{counters.Gen2Collections}").Fill()
                 ])
             ).Title(" GC Collections ").FixedHeight(3),
 
@@ -389,10 +398,10 @@ public static class DynamicAnalysisView
             inner.Border(
                 inner.HStack(row =>
                 [
-                    row.Text($"  Threads: {counters.ThreadPoolThreadCount}"),
-                    row.Text($"    Queue: {counters.ThreadPoolQueueLength}"),
-                    row.Text($"    Exceptions: {counters.ExceptionCount}"),
-                    row.Text($"    Timers: {counters.ActiveTimerCount}").Fill()
+                    CounterLine(row, "  Threads: ", $"{counters.ThreadPoolThreadCount}"),
+                    CounterLine(row, "    Queue: ", $"{counters.ThreadPoolQueueLength}"),
+                    CounterLine(row, "    Exceptions: ", $"{counters.ExceptionCount}"),
+                    CounterLine(row, "    Timers: ", $"{counters.ActiveTimerCount}").Fill()
                 ])
             ).Title(" Threading ").FixedHeight(3),
 
@@ -492,12 +501,35 @@ public static class DynamicAnalysisView
         ]).Fill();
     }
 
+    private static Hex1bWidget IdleLine<T>(WidgetContext<T> ctx, string label, string value)
+        where T : Hex1bWidget
+    {
+        return ctx.HStack(row =>
+        [
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text($"  {label}")).FixedWidth(16),
+            row.Text(value).Fill()
+        ]).FixedHeight(1);
+    }
+
+    private static Hex1bWidget CounterLine<T>(WidgetContext<T> ctx, string label, string value)
+        where T : Hex1bWidget
+    {
+        return ctx.HStack(row =>
+        [
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text(label)),
+            row.Text(value)
+        ]);
+    }
+
     private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value)
         where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [
-            row.Text($"  {label}:").FixedWidth(22),
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text($"  {label}:")).FixedWidth(22),
             row.Text($" {value}").Fill()
         ]).FixedHeight(1);
     }
