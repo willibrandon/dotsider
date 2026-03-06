@@ -1039,6 +1039,274 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task Tab8_Exe_IdleView_ShowsAssemblyInfoAndProviders()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Verify idle view shows assembly info and provider list
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly:"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Entry Point:"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Providers:"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("CLR Runtime"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Null(_state!.Tracer);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Launch process and wait for exit so sub-tabs are visible
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Starts on Events sub-tab
+        Assert.Equal(DynamicSubTabId.Events, _state!.DynamicSubTab);
+
+        // Right → Counters
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
+
+        // Right → Output
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
+
+        // Right → Summary
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
+
+        // Right at max → stays on Summary (no wrap)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
+
+        // Left → back to Output
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_CategoryFilterKeys_UpdateState()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Launch, wait for exit, stay on Events sub-tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Null(_state!.DynamicCategoryFilter);
+
+        // g → GC filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.G)
+            .WaitUntil(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.GC, _state.DynamicCategoryFilter);
+
+        // j → JIT filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.J)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.JIT, _state.DynamicCategoryFilter);
+
+        // e → Exception filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.E)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.Exception, _state.DynamicCategoryFilter);
+
+        // l → Loader filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.L)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.Loader, _state.DynamicCategoryFilter);
+
+        // t → Threading filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.T)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.Threading, _state.DynamicCategoryFilter);
+
+        // h → HTTP filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.H)
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceEventCategory.Http, _state.DynamicCategoryFilter);
+
+        // Esc → clears filter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state.DynamicCategoryFilter is null, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Null(_state.DynamicCategoryFilter);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_CtrlK_StopsRunningProcess()
+    {
+        // MinimalApi is a web server that stays alive until killed,
+        // so Ctrl+K is the only way to reach Exited within the timeout.
+        var (terminal, app) = CreateDotsiderApp(samples.MinimalApiDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Dynamic tab and launch
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running,
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.Tracer);
+        Assert.Equal(TraceProcessState.Running, _state.Tracer!.ProcessState);
+
+        // Ctrl+K to stop — the web server would run indefinitely without this
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Ctrl().Key(Hex1bKey.K)
+            .WaitUntil(_ => _state.Tracer!.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error,
+                TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.Tracer!.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab8_Enter_RerunsAfterExit()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Launch and wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var firstTracer = _state!.Tracer;
+        Assert.NotNull(firstTracer);
+
+        // Press Enter to re-run
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.Tracer != firstTracer, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // A new tracer was created
+        Assert.NotNull(_state.Tracer);
+        Assert.NotEqual(firstTracer, _state.Tracer);
+
+        // Wait for the re-run to exit successfully
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.Tracer!.ProcessState == TraceProcessState.Exited,
+                TimeSpan.FromSeconds(8))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TraceProcessState.Exited, _state.Tracer!.ProcessState);
+        Assert.Equal(0, _state.Tracer.ExitCode);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     [Fact(Timeout = 15_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {

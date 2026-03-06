@@ -13,19 +13,14 @@ namespace Dotsider;
 /// The root application class that builds the entire dotsider widget tree.
 /// Manages the top-level layout: title bar, tab panel, and keybinding hints bar.
 /// </summary>
-public sealed class DotsiderApp
+/// <remarks>
+/// Creates a new dotsider application with the specified state.
+/// </remarks>
+/// <param name="state">The application state holding the analyzer and all UI state.</param>
+public sealed class DotsiderApp(DotsiderState state)
 {
-    private readonly DotsiderState _state;
+    private readonly DotsiderState _state = state;
     private bool _initialFocusRequested;
-
-    /// <summary>
-    /// Creates a new dotsider application with the specified state.
-    /// </summary>
-    /// <param name="state">The application state holding the analyzer and all UI state.</param>
-    public DotsiderApp(DotsiderState state)
-    {
-        _state = state;
-    }
 
     /// <summary>
     /// Builds the root widget tree for the current frame.
@@ -42,6 +37,7 @@ public sealed class DotsiderApp
                 node is EditorNode or TreeNode or InteractableNode
                 || node.GetType().Name.StartsWith("TableNode"));
         }
+        
         return ctx.VStack(outer =>
         [
             // Title bar
@@ -320,9 +316,8 @@ public sealed class DotsiderApp
         }
     }
 
-    private Hex1bWidget BuildHintsBar(WidgetContext<VStackWidget> ctx)
-    {
-        return ctx.InfoBar(s =>
+    private InfoBarWidget BuildHintsBar(WidgetContext<VStackWidget> ctx) =>
+        ctx.InfoBar(s =>
         {
             var hints = new List<IInfoBarChild>();
 
@@ -391,7 +386,6 @@ public sealed class DotsiderApp
             hints.Add(s.Section("q: Quit"));
             return hints;
         }).WithDefaultSeparator(" | ");
-    }
 
     private static void SaveHexChanges(DotsiderState state)
     {

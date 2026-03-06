@@ -12,19 +12,14 @@ namespace Dotsider;
 /// EnsureCursorVisible computes document lines (based on \n bytes in raw binary data)
 /// while the hex renderer interprets scrollOffset as hex dump rows (based on bytesPerRow).
 /// </summary>
-public sealed class HexRowDocument : IHex1bDocument
+/// <remarks>
+/// Initializes a new instance wrapping the specified document.
+/// </remarks>
+/// <param name="inner">The underlying document to wrap.</param>
+public sealed class HexRowDocument(IHex1bDocument inner) : IHex1bDocument
 {
-    private readonly IHex1bDocument _inner;
+    private readonly IHex1bDocument _inner = inner;
     private int _bytesPerRow = 16;
-
-    /// <summary>
-    /// Initializes a new instance wrapping the specified document.
-    /// </summary>
-    /// <param name="inner">The underlying document to wrap.</param>
-    public HexRowDocument(IHex1bDocument inner)
-    {
-        _inner = inner;
-    }
 
     /// <summary>
     /// Number of bytes per hex row. Updated by the renderer when viewport width changes.

@@ -7,24 +7,18 @@ namespace Dotsider;
 /// <summary>
 /// State for NuGet package mode — holds the package analyzer and optional DLL inspector state.
 /// </summary>
-public sealed class NuGetState : IDisposable
+/// <remarks>
+/// Creates a new NuGet state for the specified package file.
+/// </remarks>
+/// <param name="app">The Hex1b application instance.</param>
+/// <param name="nupkgPath">File path to the .nupkg file.</param>
+public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
 {
-    /// <summary>
-    /// Creates a new NuGet state for the specified package file.
-    /// </summary>
-    /// <param name="app">The Hex1b application instance.</param>
-    /// <param name="nupkgPath">File path to the .nupkg file.</param>
-    public NuGetState(Hex1bApp app, string nupkgPath)
-    {
-        App = app;
-        Package = new NuGetPackageAnalyzer(nupkgPath);
-    }
-
     /// <summary>The Hex1b application instance.</summary>
-    public Hex1bApp App { get; }
+    public Hex1bApp App { get; } = app;
 
     /// <summary>The NuGet package analyzer for the opened .nupkg file.</summary>
-    public NuGetPackageAnalyzer Package { get; }
+    public NuGetPackageAnalyzer Package { get; } = new NuGetPackageAnalyzer(nupkgPath);
 
     /// <summary>The focused key in the package file tree.</summary>
     public object? FileTreeFocusedKey { get; set; }
