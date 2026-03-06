@@ -308,7 +308,7 @@ public sealed class DotsiderApp
         _state.CurrentTab = tabIndex;
         if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
         {
-            _state.IlRestoreDisassemblyScroll = true;
+            _state.IlScrollRestoreFrames = 2;
             _state.IlNeedsTreeFocus = true;
         }
     }
