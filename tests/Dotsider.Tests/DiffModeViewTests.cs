@@ -147,6 +147,56 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 10_000)]
+    public async Task DiffApp_ShowsReferencesTab()
+    {
+        var (terminal, app) = CreateDiffApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.D4) // Tab 4 — References
+            .WaitUntil(_ => _state!.CurrentTab == 3, TimeSpan.FromSeconds(2))
+            .WaitUntil(s =>
+                s.ContainsText("References") || s.ContainsText("Assembly") ||
+                s.ContainsText("Version"),
+                TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(3, _state!.CurrentTab);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task DiffApp_ShowsMethodsTab()
+    {
+        var (terminal, app) = CreateDiffApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.D3) // Tab 3 — Methods
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            .WaitUntil(s =>
+                s.ContainsText("Methods") || s.ContainsText("Method") ||
+                s.ContainsText("Added") || s.ContainsText("Removed"),
+                TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(2, _state!.CurrentTab);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 10_000)]
     public async Task LeftArrow_DoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDiffApp();
