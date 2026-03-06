@@ -149,9 +149,11 @@ await using var terminal = Hex1bTerminal.CreateBuilder()
         options.Theme = DotsiderTheme.Create();
         options.EnableMouse = true;
 
-        var state = new DotsiderState(app, filePath);
-        state.CurrentTab = initialTab;
-        state.StringsMinLength = minStringLength;
+        var state = new DotsiderState(app, filePath)
+        {
+            CurrentTab = initialTab,
+            StringsMinLength = minStringLength
+        };
         var dotsiderApp = new DotsiderApp(state);
         return ctx => dotsiderApp.Build(ctx);
     })
