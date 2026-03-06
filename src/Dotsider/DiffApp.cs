@@ -12,15 +12,13 @@ namespace Dotsider;
 /// <summary>
 /// Root application class for diff mode. Compares two assemblies side-by-side.
 /// </summary>
-public sealed class DiffApp
+/// <remarks>
+/// Creates a new diff application with the specified state.
+/// </remarks>
+/// <param name="state">The diff state holding both analyzers and the diff result.</param>
+public sealed class DiffApp(DiffState state)
 {
-    private readonly DiffState _state;
-
-    /// <summary>
-    /// Creates a new diff application with the specified state.
-    /// </summary>
-    /// <param name="state">The diff state holding both analyzers and the diff result.</param>
-    public DiffApp(DiffState state) => _state = state;
+    private readonly DiffState _state = state;
 
     /// <summary>
     /// Builds the root widget tree for the diff view.
@@ -140,14 +138,15 @@ public sealed class DiffApp
             }, "Cycle filter");
 
             // Global search toggle (same dual-binding strategy as DotsiderApp)
-            Action searchToggle = () =>
+            void searchToggle()
             {
                 _state.Search[_state.CurrentTab].ActivateOrCycle();
                 var s = _state.Search[_state.CurrentTab];
                 if (s.IsActive && !s.IsConfirmed)
                     _state.App.RequestFocus(node => node is TextBoxNode);
                 _state.App.Invalidate();
-            };
+            }
+
             bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
             if (!isSearchEditing)
             {
@@ -185,13 +184,14 @@ public sealed class DiffApp
         });
     }
 
-    private Hex1bWidget BuildHintsBar(WidgetContext<VStackWidget> ctx)
-    {
-        return ctx.InfoBar(s =>
+    private InfoBarWidget BuildHintsBar(WidgetContext<VStackWidget> ctx) =>
+        ctx.InfoBar(s =>
         {
-            var hints = new List<IInfoBarChild>();
-            hints.Add(s.Section("1-4/←→: Tabs"));
-            hints.Add(s.Section("f: Filter"));
+            var hints = new List<IInfoBarChild>
+            {
+                s.Section("1-4/←→: Tabs"),
+                s.Section("f: Filter")
+            };
 
             var currentSearch = _state.Search[_state.CurrentTab];
             if (currentSearch.IsActive)
@@ -202,8 +202,7 @@ public sealed class DiffApp
             hints.Add(s.Section("q: Quit"));
             return hints;
         }).WithDefaultSeparator(" | ");
-    }
 
-    private static int CountChanges<T>(IReadOnlyList<DiffEntry<T>> diffs)
-        => diffs.Count(d => d.Kind != DiffKind.Unchanged);
+    private static int CountChanges<T>(IReadOnlyList<DiffEntry<T>> diffs) =>
+        diffs.Count(d => d.Kind != DiffKind.Unchanged);
 }

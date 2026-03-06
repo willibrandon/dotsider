@@ -60,8 +60,3 @@ public sealed class DiffState : IDisposable
         Right.Dispose();
     }
 }
-
-/// <summary>
-/// Specifies which diff entries to display.
-/// </summary>
-public enum DiffFilterMode { All, AddedOnly, RemovedOnly, ChangedOnly }
