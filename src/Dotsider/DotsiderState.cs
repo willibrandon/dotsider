@@ -106,11 +106,14 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The current vertical scroll offset in the IL disassembly pane.</summary>
     public int IlDisassemblyScrollOffset { get; set; }
 
+    /// <summary>The viewport height of the IL disassembly scroll panel (saved from OnScroll).</summary>
+    public int IlDisassemblyViewportSize { get; set; }
+
     /// <summary>
-    /// Indicates that IL disassembly scroll should be restored on next scroll callback
-    /// after returning to the IL tab.
+    /// Scroll restore frame counter. 2 = focus the interactable anchor,
+    /// 1 = let EnsureFocusedVisible adjust offset during layout, 0 = done.
     /// </summary>
-    public bool IlRestoreDisassemblyScroll { get; set; }
+    public int IlScrollRestoreFrames { get; set; }
 
     /// <summary>Whether the IL Inspector tree needs focus after a tab switch.</summary>
     public bool IlNeedsTreeFocus { get; set; }
@@ -300,7 +303,8 @@ public sealed class DotsiderState : IDisposable
         IlSelectedMethod = null;
         IlTreeExpansionState.Clear();
         IlDisassemblyScrollOffset = 0;
-        IlRestoreDisassemblyScroll = false;
+        IlDisassemblyViewportSize = 0;
+        IlScrollRestoreFrames = 0;
         StringsSourceTab = 0;
         StringsFocusedKey = null;
         StringsDetailContent = null;

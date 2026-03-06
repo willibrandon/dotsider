@@ -757,6 +757,78 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 20_000)]
+    public async Task Tab3_ScrollPositionPreservedAcrossTabSwitch()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(18));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to IL Inspector and select ToTitleCase (139 bytes of IL, overflows viewport)
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D3)
+            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3));
+
+        // Navigate tree to StringHelpers > ToTitleCase
+        for (var i = 0; i < 15; i++)
+            builder = builder.Key(Hex1bKey.DownArrow);
+
+        await builder
+            .Key(Hex1bKey.RightArrow) // Expand StringHelpers
+            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter) // Select ToTitleCase
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Scroll down via PageDown — exercises the full keyboard scroll path
+        // without seeding IlDisassemblyViewportSize.
+        // Verify rendered output actually scrolled past IL_0000.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.PageDown)
+            .WaitUntil(_ => _state!.IlDisassemblyScrollOffset > 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var savedOffset = _state!.IlDisassemblyScrollOffset;
+        var savedMethod = _state.IlSelectedMethod;
+        Assert.True(savedOffset > 0, "Scroll offset should be non-zero after PageDown");
+
+        // Switch to tab 1 (General)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D1)
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // State must survive while on another tab
+        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
+        Assert.Equal(savedMethod, _state.IlSelectedMethod);
+
+        // Switch back to tab 3 — triggers scroll restore state machine.
+        // Verify the rendered disassembly is restored past IL_0000 (not reset to top).
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D3)
+            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.IlScrollRestoreFrames == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Scroll offset must be preserved after restore completes
+        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
+        Assert.Equal(savedMethod, _state.IlSelectedMethod);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     [Fact(Timeout = 10_000)]
     public async Task QuitKey_ExitsApp()
     {

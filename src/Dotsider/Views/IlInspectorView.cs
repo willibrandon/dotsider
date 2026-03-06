@@ -3,7 +3,6 @@ using Hex1b;
 using Hex1b.Input;
 using Hex1b.Nodes;
 using Hex1b.Widgets;
-using System.Reflection;
 
 namespace Dotsider.Views;
 
@@ -22,10 +21,35 @@ public static class IlInspectorView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var search = state.Search[TabId.IlInspector];
-        ScheduleDisassemblyScrollRestore(state);
 
-        // Focus the tree after scroll restore completes (second render)
-        if (state.IlNeedsTreeFocus && !state.IlRestoreDisassemblyScroll)
+        // Scroll restore state machine:
+        //   2 → focus the interactable anchor and capture viewport size, decrement to 1
+        //   1 → EnsureFocusedVisible adjusts Offset during layout, decrement to 0
+        //   0 → done
+        var scrollRestorePhase = state.IlScrollRestoreFrames;
+        if (state.IlScrollRestoreFrames > 0)
+            state.IlScrollRestoreFrames--;
+
+        if (scrollRestorePhase == 2)
+        {
+            // The predicate visits ScrollPanelNode before its children (InteractableNode),
+            // so we capture ViewportSize as a side effect. OnScroll never fires for this
+            // panel because EnsureFocusedVisible bypasses SetOffset/ScrollAction.
+            state.App.RequestFocus(node =>
+            {
+                if (node is ScrollPanelNode sp)
+                    state.IlDisassemblyViewportSize = sp.ViewportSize;
+                return node is InteractableNode;
+            });
+        }
+        else if (scrollRestorePhase == 1)
+        {
+            // Force another frame so tree focus runs after scroll is restored
+            state.App.Invalidate();
+        }
+
+        // Focus the tree after scroll restore completes
+        if (state.IlNeedsTreeFocus && scrollRestorePhase == 0)
         {
             state.IlNeedsTreeFocus = false;
             state.App.RequestFocus(node => node is TreeNode);
@@ -59,26 +83,22 @@ public static class IlInspectorView
                         {
                             var searchQuery = state.Search[TabId.IlInspector].Query;
                             var disassembly = state.IlDisassembler.FormatDisassembly(method);
-                            return disassembly.Split('\n')
-                                .Select(line => string.IsNullOrEmpty(searchQuery)
-                                    ? scroll.Text(IlColorizer.ColorizeLine(line))
-                                    : HighlightHelper.HighlightText(scroll, line, searchQuery))
-                                .ToArray();
+                            var lines = disassembly.Split('\n');
+
+                            return BuildDisassemblyWidgets(
+                                scroll, lines, searchQuery, scrollRestorePhase, state);
                         }
 
                         return [scroll.Text("  Select a method to view IL disassembly")];
                     })
                     .OnScroll(e =>
                     {
-                        if (state.IlRestoreDisassemblyScroll
-                            && TrySetScrollOffset(e.Node, state.IlDisassemblyScrollOffset, e.Context))
-                        {
-                            state.IlRestoreDisassemblyScroll = false;
-                            state.IlDisassemblyScrollOffset = e.Node.Offset;
-                            return;
-                        }
-
-                        state.IlDisassemblyScrollOffset = e.Offset;
+                        // Don't overwrite the saved offset during scroll restore —
+                        // the scroll panel starts at 0 when recreated after a tab switch,
+                        // and clobbering the saved value would defeat the anchor mechanism.
+                        if (state.IlScrollRestoreFrames <= 0)
+                            state.IlDisassemblyScrollOffset = e.Offset;
+                        state.IlDisassemblyViewportSize = e.ViewportSize;
                     })
                     .FillHeight()
                 ],
@@ -101,7 +121,7 @@ public static class IlInspectorView
             {
                 if (state.IlSelectedMethod is null) return;
                 state.IlDisassemblyScrollOffset += 20;
-                state.IlRestoreDisassemblyScroll = true;
+                state.IlScrollRestoreFrames = 2;
                 state.App.Invalidate();
             }, "Page Down");
 
@@ -109,11 +129,77 @@ public static class IlInspectorView
             {
                 if (state.IlSelectedMethod is null) return;
                 state.IlDisassemblyScrollOffset = Math.Max(0, state.IlDisassemblyScrollOffset - 20);
-                state.IlRestoreDisassemblyScroll = true;
+                state.IlScrollRestoreFrames = 2;
                 state.App.Invalidate();
             }, "Page Up");
         })
         .FillWidth().FillHeight();
+    }
+
+    /// <summary>
+    /// Builds the disassembly line widgets, optionally wrapping a viewport-sized
+    /// span in an Interactable anchor for scroll position restoration.
+    /// </summary>
+    private static Hex1bWidget[] BuildDisassemblyWidgets<T>(
+        WidgetContext<T> ctx,
+        string[] lines,
+        string? searchQuery,
+        int scrollRestorePhase,
+        DotsiderState state) where T : Hex1bWidget
+    {
+        // When not restoring scroll, just build plain text widgets
+        if (scrollRestorePhase <= 0)
+        {
+            return lines
+                .Select(line => MakeLineWidget(ctx, line, searchQuery))
+                .ToArray();
+        }
+
+        // Calculate the anchor span: a viewport-sized range starting at the target offset.
+        // When EnsureFocusedVisible sees a focused child spanning [target..target+viewport],
+        // it adjusts Offset to exactly `target` regardless of scroll direction.
+        // Use a minimum of 1 so the anchor is still created even if OnScroll hasn't
+        // fired yet to populate the viewport size (e.g. first PageDown after selecting a method).
+        var viewportSize = Math.Max(state.IlDisassemblyViewportSize, 1);
+        var anchorStart = Math.Clamp(state.IlDisassemblyScrollOffset, 0, Math.Max(0, lines.Length - 1));
+        var anchorEnd = Math.Min(anchorStart + viewportSize, lines.Length);
+
+        if (anchorEnd <= anchorStart)
+        {
+            return lines
+                .Select(line => MakeLineWidget(ctx, line, searchQuery))
+                .ToArray();
+        }
+
+        var widgets = new Hex1bWidget[lines.Length - (anchorEnd - anchorStart) + 1];
+        var wi = 0;
+
+        // Lines before anchor
+        for (var i = 0; i < anchorStart; i++)
+            widgets[wi++] = MakeLineWidget(ctx, lines[i], searchQuery);
+
+        // Anchor: wrap viewport-sized span in Interactable for EnsureFocusedVisible
+        widgets[wi++] = ctx.Interactable(ic =>
+        {
+            var anchorWidgets = new Hex1bWidget[anchorEnd - anchorStart];
+            for (var j = 0; j < anchorWidgets.Length; j++)
+                anchorWidgets[j] = MakeLineWidget(ic, lines[anchorStart + j], searchQuery);
+            return anchorWidgets;
+        });
+
+        // Lines after anchor
+        for (var i = anchorEnd; i < lines.Length; i++)
+            widgets[wi++] = MakeLineWidget(ctx, lines[i], searchQuery);
+
+        return widgets;
+    }
+
+    private static Hex1bWidget MakeLineWidget<T>(
+        WidgetContext<T> ctx, string line, string? searchQuery) where T : Hex1bWidget
+    {
+        return string.IsNullOrEmpty(searchQuery)
+            ? ctx.Text(IlColorizer.ColorizeLine(line))
+            : HighlightHelper.HighlightText(ctx, line, searchQuery);
     }
 
     private static IEnumerable<TreeItemWidget> BuildMethodTree(TreeContext t, DotsiderState state)
@@ -189,7 +275,7 @@ public static class IlInspectorView
                     {
                         state.IlSelectedMethod = m;
                         state.IlDisassemblyScrollOffset = 0;
-                        state.IlRestoreDisassemblyScroll = false;
+                        state.IlScrollRestoreFrames = 0;
                         state.App.Invalidate();
                     }
 
@@ -207,56 +293,4 @@ public static class IlInspectorView
 
     private static bool GetTreeExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
         state.IlTreeExpansionState.TryGetValue(key, out var expanded) ? expanded : defaultExpanded;
-
-    private static void ScheduleDisassemblyScrollRestore(DotsiderState state)
-    {
-        if (!state.IlRestoreDisassemblyScroll) return;
-
-        // RequestFocus is processed post-reconciliation, so this sees the newly built
-        // IL scroll panel node after tab activation.
-        state.App.RequestFocus(node =>
-        {
-            if (!state.IlRestoreDisassemblyScroll) return false;
-            if (node is not ScrollPanelNode scroll || scroll.Orientation != ScrollOrientation.Vertical)
-                return false;
-
-            if (!TrySetScrollOffset(scroll, state.IlDisassemblyScrollOffset, null))
-                return false;
-
-            state.IlRestoreDisassemblyScroll = false;
-            state.IlDisassemblyScrollOffset = scroll.Offset;
-            state.App.Invalidate();
-            return false;
-        });
-    }
-
-    private static bool TrySetScrollOffset(ScrollPanelNode node, int requestedOffset, InputBindingActionContext? context)
-    {
-        var targetOffset = Math.Clamp(requestedOffset, 0, node.MaxOffset);
-        if (targetOffset == node.Offset) return true;
-
-        if (context is not null)
-        {
-            var setOffset = typeof(ScrollPanelNode).GetMethod(
-                "SetOffset",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: [typeof(int), typeof(InputBindingActionContext)],
-                modifiers: null);
-            if (setOffset is not null)
-            {
-                setOffset.Invoke(node, [targetOffset, context]);
-                return true;
-            }
-        }
-
-        var offsetProperty = typeof(ScrollPanelNode).GetProperty(
-            "Offset",
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        var setter = offsetProperty?.SetMethod;
-        if (setter is null) return false;
-
-        setter.Invoke(node, [targetOffset]);
-        return true;
-    }
 }
