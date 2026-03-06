@@ -23,6 +23,12 @@ public sealed class StringExtractor
         _analyzer = analyzer;
     }
 
+    /// <summary>Number of malformed entries skipped during the last <see cref="ExtractUserStrings"/> call.</summary>
+    public int SkippedUserStringCount { get; private set; }
+
+    /// <summary>Number of malformed entries skipped during the last <see cref="ExtractMetadataStrings"/> call.</summary>
+    public int SkippedMetadataStringCount { get; private set; }
+
     /// <summary>
     /// Extracts all user string literals from the #US metadata heap.
     /// These are the string constants used in IL code via <c>ldstr</c>.
@@ -33,6 +39,7 @@ public sealed class StringExtractor
         var reader = _analyzer.GetMetadataReader();
         if (reader is null) return [];
 
+        SkippedUserStringCount = 0;
         var results = new List<StringEntry>();
         var handle = MetadataTokens.UserStringHandle(1);
 
@@ -49,7 +56,7 @@ public sealed class StringExtractor
             }
             catch
             {
-                // Skip malformed entries
+                SkippedUserStringCount++;
             }
 
             handle = reader.GetNextHandle(handle);
@@ -68,6 +75,7 @@ public sealed class StringExtractor
         var reader = _analyzer.GetMetadataReader();
         if (reader is null) return [];
 
+        SkippedMetadataStringCount = 0;
         var results = new List<StringEntry>();
         var handle = MetadataTokens.StringHandle(1);
 
@@ -84,7 +92,7 @@ public sealed class StringExtractor
             }
             catch
             {
-                // Skip malformed entries
+                SkippedMetadataStringCount++;
             }
 
             handle = reader.GetNextHandle(handle);
@@ -120,6 +128,7 @@ public sealed class StringExtractor
                 {
                     results.Add(new StringEntry(startOffset, sb.ToString(), StringSource.RawBinary));
                 }
+                
                 sb.Clear();
                 startOffset = -1;
             }

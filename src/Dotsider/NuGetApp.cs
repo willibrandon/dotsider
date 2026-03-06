@@ -60,6 +60,15 @@ public sealed class NuGetApp(NuGetState state)
                     hints.Add(s.Section("/: Search"));
                 }
                 hints.Add(s.Spacer());
+
+                // Navigation error in DLL inspector (right side)
+                if (!_state.IsBrowsingPackage && _state.SelectedDllState is { NavigationError: { } navError })
+                {
+                    hints.Add(s.Section(navError).Theme(t => t
+                        .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
+                    hints.Add(s.Separator(" "));
+                }
+
                 hints.Add(s.Section("q: Quit"));
                 return hints;
             }).WithDefaultSeparator(" | ")

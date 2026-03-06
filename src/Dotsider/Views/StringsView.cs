@@ -58,10 +58,9 @@ public static class StringsView
             // Layer 0: Main content
             z.VStack(outer =>
             {
-                var widgets = new List<Hex1bWidget>();
-
-                // Sub-tab selector for string sources
-                widgets.Add(outer.TabPanel(tp =>
+                var widgets = new List<Hex1bWidget> {
+                    // Sub-tab selector for string sources
+                outer.TabPanel(tp =>
                     SourceTabs.Select((name, i) =>
                         tp.Tab(name, t => [t.Text("")])
                             .Selected(state.StringsSourceTab == i)
@@ -75,7 +74,7 @@ public static class StringsView
                     state.StringsFocusedKey = null;
                     state.App.Invalidate();
                 })
-                .FixedHeight(1));
+                .FixedHeight(1) };
 
                 // Search bar (shared helper)
                 SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
@@ -111,9 +110,22 @@ public static class StringsView
                 {
                     statusParts.Add($"Min length: {state.StringsMinLength}");
                 }
+
+                var skipped = state.StringsSourceTab switch
+                {
+                    StringsSubTabId.UserStrings => state.StringExtractor.SkippedUserStringCount,
+                    StringsSubTabId.Metadata => state.StringExtractor.SkippedMetadataStringCount,
+                    _ => 0
+                };
+                
+                if (skipped > 0)
+                {
+                    statusParts.Add($"{skipped} malformed skipped");
+                }
+
                 widgets.Add(outer.Text($" {string.Join(" | ", statusParts)}").FixedHeight(1));
 
-                return widgets.ToArray();
+                return [.. widgets];
             })
             .WithInputBindings(bindings =>
             {
@@ -218,7 +230,8 @@ public static class StringsView
         ]).Fill();
     }
 
-    private static string RowKey(Analysis.Models.StringEntry e) => $"{e.Offset}:{e.Source}";
+    private static string RowKey(Analysis.Models.StringEntry e) =>
+        $"{e.Offset}:{e.Source}";
 
     private static int FindFocusedIndex(IReadOnlyList<Analysis.Models.StringEntry> entries, object? focusedKey)
     {
@@ -228,6 +241,7 @@ public static class StringsView
             if (RowKey(entries[i]) == key)
                 return i;
         }
+        
         return -1;
     }
 }

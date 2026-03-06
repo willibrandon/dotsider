@@ -92,7 +92,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldDll);
         Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
-        state.PushAssembly(samples.RichLibraryDll);
+        Assert.True(state.PushAssembly(samples.RichLibraryDll));
         Assert.Equal("RichLibrary.dll", state.Analyzer.FileName);
         Assert.Single(state.NavigationStack);
     }
@@ -102,10 +102,86 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     {
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldDll);
-        state.PushAssembly(samples.RichLibraryDll);
+        Assert.True(state.PushAssembly(samples.RichLibraryDll));
         Assert.True(state.PopAssembly());
         Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
         Assert.Empty(state.NavigationStack);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PushAssembly_InvalidPath_ReturnsFalseAndSetsError()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        Assert.False(state.PushAssembly("/nonexistent/fake.dll"));
+        Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
+        Assert.Empty(state.NavigationStack);
+        Assert.NotNull(state.NavigationError);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PushAssembly_DepthLimit_ReturnsFalseAtMax()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        // Push to the limit (alternating two assemblies)
+        for (var i = 0; i < DotsiderState.MaxNavigationDepth; i++)
+        {
+            var path = i % 2 == 0 ? samples.RichLibraryDll : samples.EmptyLibDll;
+            Assert.True(state.PushAssembly(path), $"Push {i + 1} should succeed");
+        }
+        // Next push should fail
+        Assert.False(state.PushAssembly(samples.ComplexAppDll));
+        Assert.Contains("depth limit", state.NavigationError);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PushAssembly_SuccessClearsError()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        // Trigger an error first
+        state.PushAssembly("/nonexistent/fake.dll");
+        Assert.NotNull(state.NavigationError);
+        // Successful push clears it
+        Assert.True(state.PushAssembly(samples.RichLibraryDll));
+        Assert.Null(state.NavigationError);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PopAssembly_ClearsNavigationError()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        Assert.True(state.PushAssembly(samples.RichLibraryDll));
+        // Set an error, then pop
+        state.PushAssembly("/nonexistent/fake.dll");
+        Assert.NotNull(state.NavigationError);
+        Assert.True(state.PopAssembly());
+        Assert.Null(state.NavigationError);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PushAssembly_BadImage_ReturnsFalseAndPreservesState()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        Assert.False(state.PushAssembly(samples.NonDotNetBinaryPath));
+        Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
+        Assert.Empty(state.NavigationStack);
+        Assert.Contains("Cannot open assembly", state.NavigationError);
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void PushAssembly_UnauthorizedAccess_ReturnsFalse()
+    {
+        // File.ReadAllBytes on a directory throws UnauthorizedAccessException on all platforms
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        Assert.False(state.PushAssembly(Path.GetTempPath()));
+        Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
+        Assert.Empty(state.NavigationStack);
+        Assert.NotNull(state.NavigationError);
     }
 
     [Fact(Timeout = 5_000)]

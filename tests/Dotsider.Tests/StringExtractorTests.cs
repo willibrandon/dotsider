@@ -142,4 +142,15 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         var metaStrings = extractor.ExtractMetadataStrings();
         Assert.All(metaStrings, s => Assert.True(s.Offset >= 0));
     }
+
+    [Fact(Timeout = 5_000)]
+    public void SkippedCounts_ZeroForValidAssembly()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var extractor = new StringExtractor(a);
+        extractor.ExtractUserStrings();
+        Assert.Equal(0, extractor.SkippedUserStringCount);
+        extractor.ExtractMetadataStrings();
+        Assert.Equal(0, extractor.SkippedMetadataStringCount);
+    }
 }
