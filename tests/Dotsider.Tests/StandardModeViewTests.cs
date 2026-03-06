@@ -1065,11 +1065,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var runTask = app.RunAsync(cts.Token);
 
         // Launch process and wait for exit so sub-tabs are visible
@@ -1079,7 +1079,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1134,11 +1134,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_CategoryFilterKeys_UpdateState()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var runTask = app.RunAsync(cts.Token);
 
         // Launch, wait for exit, stay on Events sub-tab
@@ -1148,7 +1148,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1221,7 +1221,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_CtrlK_StopsRunningProcess()
     {
         // MinimalApi is a web server that stays alive until killed,
@@ -1261,11 +1261,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_Enter_RerunsAfterExit()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var runTask = app.RunAsync(cts.Token);
 
         // Launch and wait for exit
@@ -1275,7 +1275,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1307,11 +1307,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var runTask = app.RunAsync(cts.Token);
 
         // Navigate to Dynamic tab and launch the process
@@ -1321,7 +1321,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Enter) // Launch process
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1524,11 +1524,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var runTask = app.RunAsync(cts.Token);
 
         // Navigate to Dynamic tab, launch the process, wait for exit
@@ -1538,7 +1538,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(8))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 

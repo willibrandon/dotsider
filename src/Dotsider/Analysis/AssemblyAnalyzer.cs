@@ -48,17 +48,26 @@ public sealed class AssemblyAnalyzer : IDisposable
         IsReadOnly = fileInfo.IsReadOnly;
 
         _stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        _peReader = new PEReader(_stream);
-
-        if (_peReader.HasMetadata)
+        try
         {
-            _metadataReader = _peReader.GetMetadataReader();
-            ReadAssemblyIdentity();
-            ReadTargetFramework();
-        }
+            _peReader = new PEReader(_stream);
 
-        ReadPeHeaders();
-        ReadClrHeader();
+            if (_peReader.HasMetadata)
+            {
+                _metadataReader = _peReader.GetMetadataReader();
+                ReadAssemblyIdentity();
+                ReadTargetFramework();
+            }
+
+            ReadPeHeaders();
+            ReadClrHeader();
+        }
+        catch
+        {
+            _peReader?.Dispose();
+            _stream.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -77,17 +86,26 @@ public sealed class AssemblyAnalyzer : IDisposable
         CreatedTime = DateTime.UtcNow;
 
         _stream = new MemoryStream(bytes, writable: false);
-        _peReader = new PEReader(_stream);
-
-        if (_peReader.HasMetadata)
+        try
         {
-            _metadataReader = _peReader.GetMetadataReader();
-            ReadAssemblyIdentity();
-            ReadTargetFramework();
-        }
+            _peReader = new PEReader(_stream);
 
-        ReadPeHeaders();
-        ReadClrHeader();
+            if (_peReader.HasMetadata)
+            {
+                _metadataReader = _peReader.GetMetadataReader();
+                ReadAssemblyIdentity();
+                ReadTargetFramework();
+            }
+
+            ReadPeHeaders();
+            ReadClrHeader();
+        }
+        catch
+        {
+            _peReader?.Dispose();
+            _stream.Dispose();
+            throw;
+        }
     }
 
     /// <summary>The full path to the analyzed assembly file.</summary>
