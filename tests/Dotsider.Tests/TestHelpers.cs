@@ -20,7 +20,7 @@ internal static class TestHelpers
         while (sw.Elapsed < timeout)
         {
             if (condition()) return;
-            await Task.Delay(poll);
+            await Task.Delay(poll, TestContext.Current.CancellationToken);
         }
 
         if (!condition())

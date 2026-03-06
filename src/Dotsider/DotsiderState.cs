@@ -289,7 +289,7 @@ public sealed class DotsiderState : IDisposable
         {
             newAnalyzer = new AssemblyAnalyzer(filePath);
         }
-        catch (Exception ex) when (ex is BadImageFormatException or FileNotFoundException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is BadImageFormatException or FileNotFoundException or IOException or UnauthorizedAccessException or OverflowException)
         {
             NavigationError = $"Cannot open assembly: {ex.Message}";
             return false;

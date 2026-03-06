@@ -108,7 +108,7 @@ public sealed class DotsiderHexRenderer : IEditorViewRenderer
 
     // --- Layout (duplicated: CalculateLayout is internal to hex1b) ---
 
-    private static int CalculateLayout(int availableWidth)
+    internal static int CalculateLayout(int availableWidth)
     {
         // Row width = 4N + 11 (address:8 + sep:2 + hex:3N-1 + sep:2 + ascii:N)
         var maxFit = Math.Max(1, (availableWidth - 11) / 4);
@@ -148,7 +148,7 @@ public sealed class DotsiderHexRenderer : IEditorViewRenderer
 
     // --- Byte category coloring ---
 
-    private static string GetByteCategoryFgAnsi(byte b)
+    internal static string GetByteCategoryFgAnsi(byte b)
     {
         if (b == 0x00) return NullFgAnsi;
         if (b is 0x09 or 0x0A or 0x0D) return WhitespaceFgAnsi;

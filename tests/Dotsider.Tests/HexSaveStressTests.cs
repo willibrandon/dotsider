@@ -65,15 +65,15 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var runTask = app.RunAsync(cts.Token);
+            var ct = TestContext.Current.CancellationToken;
+            var runTask = app.RunAsync(ct);
 
             await EditSafeByte(new Hex1bTerminalInputSequenceBuilder())
                 .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
                 .Key(Hex1bKey.Escape)
                 .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
             // Block File.Move from overwriting the original.
             // Windows: hold a read handle without FileShare.Delete so
@@ -99,13 +99,13 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
                 .Ctrl().Key(Hex1bKey.C)
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
             Assert.Contains("could not overwrite original", _state!.HexNotification);
             Assert.True(File.Exists(tempDll + ".tmp"), ".tmp file should remain after fallback");
             Assert.False(_state.HexIsDirty);
 
-            await runTask.ContinueWith(_ => { });
+            await runTask.ContinueWith(_ => { }, ct);
         }
         finally
         {
@@ -134,8 +134,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var runTask = app.RunAsync(cts.Token);
+            var ct = TestContext.Current.CancellationToken;
+            var runTask = app.RunAsync(ct);
 
             // Enter insert mode and corrupt the MZ header at offset 0
             await new Hex1bTerminalInputSequenceBuilder()
@@ -154,7 +154,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
                 .Ctrl().Key(Hex1bKey.C)
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
             Assert.Contains("invalid image", _state!.HexNotification);
             Assert.False(File.Exists(tempDll + ".tmp"), ".tmp should be cleaned up after validation failure");
@@ -162,7 +162,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             // Analyzer should still be functional (never disposed during Phase 1 failure)
             Assert.Equal(tempDll, _state.Analyzer.FilePath);
 
-            await runTask.ContinueWith(_ => { });
+            await runTask.ContinueWith(_ => { }, ct);
         }
         finally
         {
@@ -181,8 +181,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var runTask = app.RunAsync(cts.Token);
+            var ct = TestContext.Current.CancellationToken;
+            var runTask = app.RunAsync(ct);
 
             // Edit, save, verify clean state
             await EditSafeByte(new Hex1bTerminalInputSequenceBuilder())
@@ -192,7 +192,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .Ctrl().Key(Hex1bKey.S)
                 .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
             Assert.False(_state!.HexIsDirty, "Should not be dirty after save");
             Assert.Equal(HexEditMode.Normal, _state.HexMode);
@@ -209,7 +209,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .Key(Hex1bKey.E)
                 .WaitUntil(_ => _state!.HexEndianness != endiannessBefore, TimeSpan.FromSeconds(3))
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
             Assert.Null(_state.HexNotification);
             Assert.False(File.Exists(tempDll + ".tmp"), "No .tmp should be created on non-dirty save");
@@ -217,9 +217,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             await new Hex1bTerminalInputSequenceBuilder()
                 .Ctrl().Key(Hex1bKey.C)
                 .Build()
-                .ApplyAsync(terminal, cts.Token);
+                .ApplyAsync(terminal, ct);
 
-            await runTask.ContinueWith(_ => { });
+            await runTask.ContinueWith(_ => { }, ct);
         }
         finally
         {
