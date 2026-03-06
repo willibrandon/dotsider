@@ -375,6 +375,14 @@ public sealed class DotsiderApp(DotsiderState state)
 
             hints.Add(s.Spacer());
 
+            // General tab: navigation error (right side)
+            if (_state.CurrentTab == 0 && !string.IsNullOrEmpty(_state.NavigationError))
+            {
+                hints.Add(s.Section(_state.NavigationError).Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
+                hints.Add(s.Separator(" "));
+            }
+
             // Hex tab: vim-style save notification (right side)
             if (_state.CurrentTab == 4 && !string.IsNullOrEmpty(_state.HexNotification))
             {

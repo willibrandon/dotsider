@@ -68,10 +68,16 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Navigation stack of assembly paths for drill-down.</summary>
     public Stack<AssemblyAnalyzer> NavigationStack { get; } = new();
 
+    /// <summary>Maximum navigation depth for assembly drill-down.</summary>
+    public const int MaxNavigationDepth = 10;
+
+    /// <summary>Error message from the last failed navigation attempt, or null.</summary>
+    public string? NavigationError { get; set; }
+
     // --- Search State (shared across all tabs) ---
 
     /// <summary>Per-tab search state, indexed by <see cref="TabId"/> constants.</summary>
-    public SearchState[] Search { get; } = Enumerable.Range(0, 8).Select(_ => new SearchState()).ToArray();
+    public SearchState[] Search { get; } = [.. Enumerable.Range(0, 8).Select(_ => new SearchState())];
 
     /// <summary>Delegate to navigate to the next search match in the current view.</summary>
     public Action? NavigateNextMatch { get; set; }
@@ -268,11 +274,30 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>
     /// Pushes a new assembly onto the navigation stack and makes it the active analyzer.
+    /// Returns false if the assembly could not be loaded or the depth limit is reached.
     /// </summary>
-    public void PushAssembly(string filePath)
+    public bool PushAssembly(string filePath)
     {
+        if (NavigationStack.Count >= MaxNavigationDepth)
+        {
+            NavigationError = $"Navigation depth limit reached ({MaxNavigationDepth})";
+            return false;
+        }
+
+        AssemblyAnalyzer newAnalyzer;
+        try
+        {
+            newAnalyzer = new AssemblyAnalyzer(filePath);
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileNotFoundException or IOException or UnauthorizedAccessException)
+        {
+            NavigationError = $"Cannot open assembly: {ex.Message}";
+            return false;
+        }
+
+        NavigationError = null;
         NavigationStack.Push(Analyzer);
-        Analyzer = new AssemblyAnalyzer(filePath);
+        Analyzer = newAnalyzer;
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
@@ -280,6 +305,7 @@ public sealed class DotsiderState : IDisposable
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
         ResetViewState();
+        return true;
     }
 
     /// <summary>
@@ -288,6 +314,7 @@ public sealed class DotsiderState : IDisposable
     public bool PopAssembly()
     {
         if (NavigationStack.Count == 0) return false;
+        NavigationError = null;
         Analyzer.Dispose();
         Analyzer = NavigationStack.Pop();
         IlDisassembler = new IlDisassembler(Analyzer);
@@ -370,9 +397,7 @@ public sealed class DotsiderState : IDisposable
         var query = Search[TabId.Strings].Query;
         if (!string.IsNullOrEmpty(query))
         {
-            entries = entries
-                .Where(e => e.Value.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            entries = [.. entries.Where(e => e.Value.Contains(query, StringComparison.OrdinalIgnoreCase))];
         }
 
         return entries;
@@ -414,6 +439,7 @@ public sealed class DotsiderState : IDisposable
             CachedRawStrings = StringExtractor.ExtractRawStrings(StringsMinLength);
             CachedRawStringsMinLength = StringsMinLength;
         }
+        
         return CachedRawStrings;
     }
 }

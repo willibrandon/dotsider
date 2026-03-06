@@ -139,6 +139,49 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { });
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task DllInspector_DepthLimit_ShowsErrorInHintsBar()
+    {
+        var (terminal, app) = CreateNuGetApp();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+        var depthLimitHit = false;
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
+            // Enter DLL inspector
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(3))
+            // Push assemblies to hit the depth limit, then verify the error renders
+            .WaitUntil(s =>
+            {
+                if (!depthLimitHit)
+                {
+                    var dllState = _state!.SelectedDllState!;
+                    for (var i = 0; i < DotsiderState.MaxNavigationDepth; i++)
+                    {
+                        var path = i % 2 == 0 ? samples.RichLibraryDll : samples.EmptyLibDll;
+                        dllState.PushAssembly(path);
+                    }
+                    // This push should fail with depth limit
+                    dllState.PushAssembly(samples.ComplexAppDll);
+                    _state.App.Invalidate();
+                    depthLimitHit = true;
+                }
+
+                return s.ContainsText("depth limit");
+            }, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Contains("depth limit", _state!.SelectedDllState!.NavigationError);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
     public void Dispose()
     {
         _state?.Dispose();
