@@ -40,25 +40,25 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     public async Task NuGetApp_Launches_ShowsPackageInfo()
     {
         var (terminal, app) = CreateNuGetApp();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var runTask = app.RunAsync(cts.Token);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("nupkg"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, cts.Token);
+            .ApplyAsync(terminal, ct);
 
-        await runTask.ContinueWith(_ => { });
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     [Fact(Timeout = 10_000)]
     public async Task NuGetApp_ShowsFileList()
     {
         var (terminal, app) = CreateNuGetApp();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var runTask = app.RunAsync(cts.Token);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -67,25 +67,26 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, cts.Token);
+            .ApplyAsync(terminal, ct);
 
-        await runTask.ContinueWith(_ => { });
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     [Fact(Timeout = 10_000)]
     public async Task QuitKey_ExitsNuGetApp()
     {
         var (terminal, app) = CreateNuGetApp();
-        var runTask = app.RunAsync(CancellationToken.None);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("nupkg"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.Q)
             .Build()
-            .ApplyAsync(terminal);
+            .ApplyAsync(terminal, ct);
 
-        var completed = await Task.WhenAny(runTask, Task.Delay(5000));
+        var completed = await Task.WhenAny(runTask, Task.Delay(5000, ct));
         Assert.Equal(runTask, completed);
     }
 
@@ -93,8 +94,8 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     public async Task Enter_OnDllRow_OpensDllInspector()
     {
         var (terminal, app) = CreateNuGetApp();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var runTask = app.RunAsync(cts.Token);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -105,21 +106,21 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(3))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, cts.Token);
+            .ApplyAsync(terminal, ct);
 
         Assert.False(_state!.IsBrowsingPackage);
         Assert.NotNull(_state.SelectedDllState);
         Assert.NotNull(_state.SelectedDllEntry);
 
-        await runTask.ContinueWith(_ => { });
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     [Fact(Timeout = 10_000)]
     public async Task Search_ActivatesAndDismisses()
     {
         var (terminal, app) = CreateNuGetApp();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var runTask = app.RunAsync(cts.Token);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -132,19 +133,19 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => !_state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(2))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, cts.Token);
+            .ApplyAsync(terminal, ct);
 
         Assert.False(_state!.BrowserSearch.IsActive);
 
-        await runTask.ContinueWith(_ => { });
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     [Fact(Timeout = 10_000)]
     public async Task DllInspector_DepthLimit_ShowsErrorInHintsBar()
     {
         var (terminal, app) = CreateNuGetApp();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var runTask = app.RunAsync(cts.Token);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
         var depthLimitHit = false;
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -175,11 +176,11 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             }, TimeSpan.FromSeconds(3))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, cts.Token);
+            .ApplyAsync(terminal, ct);
 
         Assert.Contains("depth limit", _state!.SelectedDllState!.NavigationError);
 
-        await runTask.ContinueWith(_ => { });
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     public void Dispose()

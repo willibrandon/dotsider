@@ -121,7 +121,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         var elapsed1 = tracer.Elapsed;
         if (tracer.ProcessState == TraceProcessState.Running)
         {
-            await Task.Delay(100);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
             Assert.True(tracer.Elapsed > elapsed1);
         }
     }
