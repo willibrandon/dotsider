@@ -39,7 +39,7 @@ public sealed class DotsiderApp
         {
             _initialFocusRequested = true;
             _state.App.RequestFocus(node =>
-                node is EditorNode or TreeNode
+                node is EditorNode or TreeNode or InteractableNode
                 || node.GetType().Name.StartsWith("TableNode"));
         }
         return ctx.VStack(outer =>
@@ -86,6 +86,9 @@ public sealed class DotsiderApp
             .OnSelectionChanged(e =>
             {
                 SelectTab(e.SelectedIndex);
+                _state.App.RequestFocus(node =>
+                    node is EditorNode or TreeNode or InteractableNode
+                    || node.GetType().Name.StartsWith("TableNode"));
                 _state.App.Invalidate();
             })
             .Full()
@@ -113,7 +116,7 @@ public sealed class DotsiderApp
                         SelectTab(tabIndex);
                         // Move focus from tab bar into content so arrow keys work immediately
                         _state.App.RequestFocus(node =>
-                            node is EditorNode or TreeNode
+                            node is EditorNode or TreeNode or InteractableNode
                             || node.GetType().Name.StartsWith("TableNode"));
                         _state.App.Invalidate();
                     }, $"Tab {tabIndex + 1}");
@@ -168,6 +171,10 @@ public sealed class DotsiderApp
                         if (_state.CurrentTab == TabId.HexDump)
                             Views.HexDumpView.ExecuteSearch(_state);
                         currentSearch.Confirm();
+                        // Restore focus from the search TextBox back to the content area
+                        _state.App.RequestFocus(node =>
+                            node is EditorNode or TreeNode or InteractableNode
+                            || node.GetType().Name.StartsWith("TableNode"));
                         _state.App.Invalidate();
                     }
                 }, "Confirm search");
@@ -346,8 +353,10 @@ public sealed class DotsiderApp
                     hints.Add(s.Section(hexHints));
                 }
             }
+            else if (_state.CurrentTab == 5)
+                hints.Add(s.Section("←→: Select"));
             else if (_state.CurrentTab == 6)
-                hints.Add(s.Section("Backspace: Up"));
+                hints.Add(s.Section("Enter: Drill | ←→: Select | Backspace: Up"));
             else if (_state.CurrentTab == 7)
             {
                 if (_state.Tracer?.ProcessState == Analysis.Models.TraceProcessState.Running)

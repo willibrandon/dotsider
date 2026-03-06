@@ -14,7 +14,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -26,7 +26,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, dllPath);
+                if (_state is null)
+                {
+                    _state = new DotsiderState(_hex1bApp!, dllPath);
+                    if (initialTab.HasValue)
+                        _state.CurrentTab = initialTab.Value;
+                }
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -463,6 +468,535 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, cts.Token);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab6_ShowsNodeAndEdgeCounts()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:") && s.ContainsText("Edges:"), TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraph);
+        Assert.True(_state.CachedGraph.Value.Nodes.Count > 0);
+        Assert.True(_state.CachedGraph.Value.Edges.Count > 0);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab6_SearchShowsMatchCount()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S) // "sys"
+            .Key(Hex1bKey.Enter) // Confirm
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.Search[TabId.DepGraph].MatchCount > 0,
+            "Search for 'sys' should match System.* dependencies");
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab6_MatchNavigation_CyclesGraphSelectedNode()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to dep graph and search for "sys"
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Press 'n' to navigate to first match
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.N)
+            .WaitUntil(_ => _state!.GraphMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var firstIndex = _state!.GraphMatchIndex;
+        Assert.True(firstIndex >= 0);
+
+        // Press 'n' again — should advance to next match
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.N)
+            .WaitUntil(_ => _state.GraphMatchIndex != firstIndex
+                            || _state.Search[TabId.DepGraph].MatchCount == 1,
+                TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        if (_state.Search[TabId.DepGraph].MatchCount > 1)
+            Assert.NotEqual(firstIndex, _state.GraphMatchIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab6_ArrowKeys_WorkAfterSearchConfirm()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to dep graph, search for "sys", confirm
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Arrow keys should work immediately — focus restored to Interactable
+        Assert.Equal(-1, _state!.GraphSelectedIndex);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.GraphSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_ArrowKeys_WorkAfterSearchConfirm()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Size Map, search for "rich", confirm
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.R).Key(Hex1bKey.I).Key(Hex1bKey.C).Key(Hex1bKey.H)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Arrow keys should work immediately — focus restored to Interactable
+        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab6_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
+    {
+        // Start directly on Dep Graph tab — tests the initial focus predicate
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.DepGraph);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(-1, _state!.GraphSelectedIndex);
+
+        // Arrow keys should work immediately without switching tabs first
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.GraphSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
+    {
+        // Start directly on Size Map tab — tests the initial focus predicate
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.SizeMap);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+
+        // Arrow keys should work immediately without switching tabs first
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab6_ArrowKeys_CycleSelectedIndex()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to dep graph tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(-1, _state!.GraphSelectedIndex);
+
+        // Press Right to select first node
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.GraphSelectedIndex);
+
+        // Press Right again — should advance
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.GraphSelectedIndex == 1, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state.GraphSelectedIndex);
+
+        // Press Left — should go back
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(_ => _state.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.GraphSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_ArrowKeys_CycleSelectedIndex()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Size Map tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+
+        // Press Right to select first item
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+
+        // Press Right again — should advance
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.TreemapSelectedIndex == 1, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(1, _state.TreemapSelectedIndex);
+
+        // Press Left — should go back
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(_ => _state.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Tab7_ShowsBreadcrumbAndTotalSize()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"),
+                TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedSizeTree);
+        Assert.True(_state.CachedSizeTree.Size > 0);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_Backspace_PopsBreadcrumb()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to tab 7, let treemap render
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"),
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Programmatically drill down into first child namespace
+        var root = _state!.CachedSizeTree!;
+        var firstChild = root.Children[0];
+        _state.TreemapBreadcrumb.Push(root);
+        _state.TreemapCurrentLevel = firstChild;
+        _hex1bApp!.Invalidate();
+
+        // Wait for breadcrumb to show the drill-down path (root > child)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText(firstChild.Name), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Single(_state.TreemapBreadcrumb);
+
+        // Press Backspace to go up
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Backspace)
+            .WaitUntil(_ => _state.TreemapBreadcrumb.Count == 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Empty(_state.TreemapBreadcrumb);
+        Assert.Equal(root, _state.TreemapCurrentLevel);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_SearchMatchNavigation_UpdatesHoveredItem()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to tab 7 and search for a namespace
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.R).Key(Hex1bKey.I).Key(Hex1bKey.C).Key(Hex1bKey.H) // "rich"
+            .Key(Hex1bKey.Enter) // Confirm
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.Search[TabId.SizeMap].MatchCount > 0,
+            "Search for 'rich' should match RichLibrary namespace");
+
+        // Press 'n' to navigate to first match
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.N)
+            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.TreemapMatchIndex >= 0);
+
+        await runTask.ContinueWith(_ => { });
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task Tab7_Enter_PrefersSearchMatchOverStaleSelection()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var runTask = app.RunAsync(cts.Token);
+
+        // Navigate to Size Map, select first item with arrow key
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D7)
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var currentLevel = _state!.TreemapCurrentLevel ?? _state.CachedSizeTree!;
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+
+        // Find a drillable child at index != 0 whose name differs from child 0
+        var child0Name = currentLevel.Children[0].Name;
+        string? searchTerm = null;
+        for (var i = 1; i < currentLevel.Children.Count; i++)
+        {
+            var child = currentLevel.Children[i];
+            if (child.Children.Count == 0) continue;
+            // Use enough of the name to get a unique-ish match, but not child 0
+            var candidate = child.Name.Length > 3 ? child.Name[..4] : child.Name;
+            if (!child0Name.Contains(candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                searchTerm = candidate.ToLowerInvariant();
+                break;
+            }
+        }
+
+        if (searchTerm is null)
+        {
+            // No suitable child found — skip
+            await new Hex1bTerminalInputSequenceBuilder()
+                .Ctrl().Key(Hex1bKey.C)
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+            await runTask.ContinueWith(_ => { });
+            return;
+        }
+
+        // Search for the non-zero child, confirm, navigate to match
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .Type(searchTerm)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        if (_state.Search[TabId.SizeMap].MatchCount == 0)
+        {
+            await new Hex1bTerminalInputSequenceBuilder()
+                .Ctrl().Key(Hex1bKey.C)
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+            await runTask.ContinueWith(_ => { });
+            return;
+        }
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.N)
+            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Stale selection is still 0, but search match points elsewhere
+        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.True(_state.TreemapMatchIndex >= 0);
+
+        // Press Enter — should drill into search match, not stale selection at index 0
+        var previousLevel = _state.TreemapCurrentLevel;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.TreemapCurrentLevel != previousLevel
+                            || _state.TreemapBreadcrumb.Count > 0, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Verify we drilled into the search match (name contains query), not child 0
+        if (_state.TreemapCurrentLevel != previousLevel)
+        {
+            Assert.Contains(searchTerm, _state.TreemapCurrentLevel!.Name,
+                StringComparison.OrdinalIgnoreCase);
+        }
 
         await runTask.ContinueWith(_ => { });
     }

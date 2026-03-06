@@ -18,6 +18,7 @@ public static class DependencyGraphView
     private static readonly Hex1bColor RefColor = Hex1bColor.FromRgb(100, 130, 180);
     private static readonly Hex1bColor EdgeColor = Hex1bColor.FromRgb(80, 80, 100);
     private static readonly Hex1bColor HighlightColor = Hex1bColor.FromRgb(255, 220, 100);
+    private static readonly Hex1bColor SelectionBorder = Hex1bColor.FromRgb(255, 255, 255);
 
     /// <summary>
     /// Builds the Dependency Graph view widget tree.
@@ -51,25 +52,26 @@ public static class DependencyGraphView
         state.NavigateNextMatch = matchingNodes.Count > 0 ? () =>
         {
             state.GraphMatchIndex = (state.GraphMatchIndex + 1) % matchingNodes.Count;
-            var node = nodes[matchingNodes[state.GraphMatchIndex]];
-            var version = node.Version is not null ? $" v{node.Version}" : "";
-            state.GraphSelectedNode = $"{node.Name}{version}";
         } : null;
         state.NavigatePrevMatch = matchingNodes.Count > 0 ? () =>
         {
             state.GraphMatchIndex = state.GraphMatchIndex <= 0
                 ? matchingNodes.Count - 1 : state.GraphMatchIndex - 1;
-            var node = nodes[matchingNodes[state.GraphMatchIndex]];
-            var version = node.Version is not null ? $" v{node.Version}" : "";
-            state.GraphSelectedNode = $"{node.Name}{version}";
         } : null;
 
         return ctx.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>();
 
-            // Display: hover info takes priority, then navigated match, then default
+            // Display: hover > keyboard selection > search match > default
             var displayNode = state.GraphSelectedNode;
+            if (displayNode is null && state.GraphSelectedIndex >= 0
+                && state.GraphSelectedIndex < nodes.Count)
+            {
+                var node = nodes[state.GraphSelectedIndex];
+                var version = node.Version is not null ? $" v{node.Version}" : "";
+                displayNode = $"{node.Name}{version}";
+            }
             if (displayNode is null && state.GraphMatchIndex >= 0
                 && state.GraphMatchIndex < matchingNodes.Count)
             {
@@ -89,12 +91,36 @@ public static class DependencyGraphView
             // Search bar
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
-            widgets.Add(outer.Surface(s =>
-            [
-                s.Layer(surface => DrawGraph(surface, nodes, edges, state, s.MouseX, s.MouseY, query))
-            ]).Fill());
+            // Graph surface wrapped in Interactable for keyboard/click support
+            widgets.Add(outer.Interactable(ic =>
+                ic.Surface(s =>
+                [
+                    s.Layer(surface => DrawGraph(surface, nodes, edges, state, s.MouseX, s.MouseY, query))
+                ]).Fill()
+            ).WithInputBindings(bindings =>
+            {
+                bindings.Key(Hex1bKey.RightArrow).Action(_ =>
+                {
+                    if (nodes.Count > 0)
+                    {
+                        state.GraphSelectedIndex = (state.GraphSelectedIndex + 1) % nodes.Count;
+                        state.App.Invalidate();
+                    }
+                }, "Next node");
 
-            return widgets.ToArray();
+                bindings.Key(Hex1bKey.LeftArrow).Action(_ =>
+                {
+                    if (nodes.Count > 0)
+                    {
+                        state.GraphSelectedIndex = state.GraphSelectedIndex <= 0
+                            ? nodes.Count - 1
+                            : state.GraphSelectedIndex - 1;
+                        state.App.Invalidate();
+                    }
+                }, "Previous node");
+            }).Fill());
+
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {
@@ -118,6 +144,7 @@ public static class DependencyGraphView
         if (w < 10 || h < 5) return;
 
         var hasQuery = !string.IsNullOrEmpty(query);
+        var selectedIndex = state.GraphSelectedIndex;
 
         // Draw edges first (underneath nodes)
         foreach (var edge in edges)
@@ -153,8 +180,9 @@ public static class DependencyGraphView
 
         // Draw nodes on top
         state.GraphSelectedNode = null;
-        foreach (var node in nodes)
+        for (var i = 0; i < nodes.Count; i++)
         {
+            var node = nodes[i];
             var cx = (int)(node.X * (w - 1));
             var cy = (int)(node.Y * (h - 1));
             var label = node.Name;
@@ -167,6 +195,7 @@ public static class DependencyGraphView
             if (y0 + 3 > h) y0 = h - 3;
 
             var isMatch = hasQuery && node.Name.Contains(query!, StringComparison.OrdinalIgnoreCase);
+            var isSelected = i == selectedIndex;
             var bg = isMatch ? (node.IsRoot ? RootColor : RefColor)
                 : hasQuery ? HighlightHelper.DimColor
                 : node.IsRoot ? RootColor : RefColor;
@@ -180,18 +209,20 @@ public static class DependencyGraphView
                 state.GraphSelectedNode = $"{node.Name}{version}";
             }
 
+            var borderColor = isSelected ? SelectionBorder : bg;
+
             // Draw box
-            surface.WriteChar(x0, y0, '┌', bg);
-            surface.WriteChar(x0 + boxW - 1, y0, '┐', bg);
-            surface.WriteChar(x0, y0 + 2, '└', bg);
-            surface.WriteChar(x0 + boxW - 1, y0 + 2, '┘', bg);
+            surface.WriteChar(x0, y0, '┌', borderColor);
+            surface.WriteChar(x0 + boxW - 1, y0, '┐', borderColor);
+            surface.WriteChar(x0, y0 + 2, '└', borderColor);
+            surface.WriteChar(x0 + boxW - 1, y0 + 2, '┘', borderColor);
             for (var x = x0 + 1; x < x0 + boxW - 1; x++)
             {
-                surface.WriteChar(x, y0, '─', bg);
-                surface.WriteChar(x, y0 + 2, '─', bg);
+                surface.WriteChar(x, y0, '─', borderColor);
+                surface.WriteChar(x, y0 + 2, '─', borderColor);
             }
-            surface.WriteChar(x0, y0 + 1, '│', bg);
-            surface.WriteChar(x0 + boxW - 1, y0 + 1, '│', bg);
+            surface.WriteChar(x0, y0 + 1, '│', borderColor);
+            surface.WriteChar(x0 + boxW - 1, y0 + 1, '│', borderColor);
 
             // Fill interior and write label
             for (var x = x0 + 1; x < x0 + boxW - 1; x++)

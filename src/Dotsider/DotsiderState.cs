@@ -155,6 +155,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Stable match index for dependency graph search navigation.</summary>
     public int GraphMatchIndex { get; set; } = -1;
 
+    /// <summary>Keyboard-selected node index in the dependency graph, or -1 for none.</summary>
+    public int GraphSelectedIndex { get; set; } = -1;
+
     // --- Size Treemap Tab State ---
 
     /// <summary>Cached size tree for treemap visualization.</summary>
@@ -169,8 +172,14 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The hovered item description in the treemap.</summary>
     public string? TreemapHoveredItem { get; set; }
 
+    /// <summary>The hovered SizeNode in the treemap, used for click/Enter drill-down.</summary>
+    public SizeNode? TreemapHoveredNode { get; set; }
+
     /// <summary>Stable match index for treemap search navigation.</summary>
     public int TreemapMatchIndex { get; set; } = -1;
+
+    /// <summary>Keyboard-selected child index in the treemap, or -1 for none.</summary>
+    public int TreemapSelectedIndex { get; set; } = -1;
 
     // --- Hex Dump Tab State ---
 
@@ -314,11 +323,14 @@ public sealed class DotsiderState : IDisposable
         CachedGraph = null;
         GraphSelectedNode = null;
         GraphMatchIndex = -1;
+        GraphSelectedIndex = -1;
         CachedSizeTree = null;
         TreemapCurrentLevel = null;
         TreemapBreadcrumb.Clear();
         TreemapHoveredItem = null;
+        TreemapHoveredNode = null;
         TreemapMatchIndex = -1;
+        TreemapSelectedIndex = -1;
         HexMatchOffsets = [];
         HexCurrentMatchIndex = -1;
         HexMatchPatternLength = 0;
