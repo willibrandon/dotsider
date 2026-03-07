@@ -40,4 +40,33 @@ public class DynamicAnalysisAccessibilityTests
             httpColor.R == socketColor.R && httpColor.G == socketColor.G && httpColor.B == socketColor.B,
             "Http and Socket must have distinct colors for accessibility");
     }
+
+    // --- JIT detail parsing tests ---
+
+    [Theory]
+    [InlineData("System.String.Concat", "System.String", "Concat")]
+    [InlineData("MyApp.Services.UserService.GetUser", "MyApp.Services.UserService", "GetUser")]
+    [InlineData("GlobalType.Run", "GlobalType", "Run")]
+    public void TryParseJitDetail_ValidFormat_ReturnsTrueWithComponents(
+        string detail, string expectedType, string expectedMethod)
+    {
+        Assert.True(DynamicAnalysisView.TryParseJitDetail(detail, out var declaringType, out var methodName));
+        Assert.Equal(expectedType, declaringType);
+        Assert.Equal(expectedMethod, methodName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("NoDotHere")]
+    [InlineData(".LeadingDot")]
+    public void TryParseJitDetail_InvalidFormat_ReturnsFalse(string detail)
+    {
+        Assert.False(DynamicAnalysisView.TryParseJitDetail(detail, out _, out _));
+    }
+
+    [Fact]
+    public void TryParseJitDetail_TrailingDot_ReturnsFalse()
+    {
+        Assert.False(DynamicAnalysisView.TryParseJitDetail("System.String.", out _, out _));
+    }
 }

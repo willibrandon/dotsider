@@ -110,4 +110,39 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
         Assert.NotEmpty(tree.Children);
     }
+
+    [Fact(Timeout = 5_000)]
+    public void MethodLeafNodes_FullPathContainsToken()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
+        var methods = tree.Children
+            .SelectMany(ns => ns.Children)
+            .SelectMany(t => t.Children)
+            .Where(m => m.Kind == SizeNodeKind.Method)
+            .ToList();
+        Assert.NotEmpty(methods);
+        // Every method FullPath should contain :: and @0x for token disambiguation
+        Assert.All(methods, m =>
+        {
+            Assert.Contains("::", m.FullPath);
+            Assert.Contains("@0x", m.FullPath);
+        });
+    }
+
+    [Fact(Timeout = 5_000)]
+    public void MethodLeafNodes_TokensAreUnique()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
+        var fullPaths = tree.Children
+            .SelectMany(ns => ns.Children)
+            .SelectMany(t => t.Children)
+            .Where(m => m.Kind == SizeNodeKind.Method)
+            .Select(m => m.FullPath)
+            .ToList();
+        Assert.Equal(fullPaths.Count, fullPaths.Distinct().Count());
+    }
 }

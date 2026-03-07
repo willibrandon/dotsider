@@ -60,7 +60,7 @@ public static class SizeAnalyzer
                     .OrderByDescending(m => m.Size)
                     .Select(m => new SizeNode(
                         m.Method.Name,
-                        $"{typeDef.FullName}::{m.Method.Name}",
+                        $"{typeDef.FullName}::{m.Method.Name}@0x{m.Method.Token:X8}",
                         m.Size,
                         SizeNodeKind.Method,
                         []))

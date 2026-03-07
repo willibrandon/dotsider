@@ -315,8 +315,12 @@ public sealed class RuntimeTracer : IDisposable
 
     private static List<EventPipeProvider> BuildProviders() =>
     [
+        // Verbose level is required for MethodJittingStarted events (which
+        // are classified as Verbose in the CLR provider).  The keyword mask
+        // still limits the event categories, so only GC/JIT/Exception/Loader/
+        // Threading events are delivered — Verbose just unlocks the JIT ones.
         new("Microsoft-Windows-DotNETRuntime",
-            EventLevel.Informational,
+            EventLevel.Verbose,
             (long)(ClrTraceEventParser.Keywords.GC          // 0x1
                  | ClrTraceEventParser.Keywords.Jit         // 0x10
                  | ClrTraceEventParser.Keywords.Exception   // 0x8000
@@ -353,7 +357,8 @@ public sealed class RuntimeTracer : IDisposable
         {
             lock (_eventLock) _jittedMethodCount++;
             AddEvent(TraceEventCategory.JIT, "MethodJitting",
-                $"{data.MethodNamespace}.{data.MethodName}");
+                $"{data.MethodNamespace}.{data.MethodName}",
+                data.MethodToken);
         };
 
         source.Clr.ExceptionStart += data =>
@@ -522,9 +527,10 @@ public sealed class RuntimeTracer : IDisposable
         return (int)Math.Round(value, MidpointRounding.AwayFromZero);
     }
 
-    private void AddEvent(TraceEventCategory category, string eventName, string detail)
+    private void AddEvent(TraceEventCategory category, string eventName, string detail,
+        int metadataToken = 0)
     {
-        var entry = new TraceEventEntry(Elapsed, category, eventName, detail);
+        var entry = new TraceEventEntry(Elapsed, category, eventName, detail, metadataToken);
         lock (_eventLock)
         {
             _eventRing[_eventHead % MaxEvents] = entry;

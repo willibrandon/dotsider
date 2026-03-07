@@ -27,13 +27,13 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:
 | Tab | What you see |
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
-| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources. |
-| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Select a method, read its bytecode. |
+| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources. Press `g` on a TypeDef or MethodDef to jump to its IL. |
+| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Select a method, read its bytecode. Press `x` to jump to the method body in the hex dump. |
 | **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
-| **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. |
-| **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in. |
-| **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. |
+| **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
+| **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in; Enter on a method leaf jumps to its IL. |
+| **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. Press Enter on a JIT event to jump to that method's IL. |
 
 ### Additional modes
 
@@ -72,7 +72,9 @@ Options:
 |-----|--------|
 | `1`-`8` | Switch tabs |
 | `Enter` | Drill into selected item (assembly ref, method, DLL in package) |
-| `Backspace` | Go back |
+| `Backspace` | Go back (assembly stack, breadcrumb, or cross-view jump) |
+| `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |
+| `x` | Jump to method body in Hex Dump (IL Inspector tab, when a method with RVA is selected) |
 | `/` | Search (highlights matches inline) |
 | `n` / `N` | Next / previous search match |
 | `s` | Toggle human-readable sizes |

@@ -105,12 +105,12 @@ public static class DiffMethodsView
 
     private static IReadOnlyList<DiffEntry<MethodDefInfo>> FilterEntries(
         IReadOnlyList<DiffEntry<MethodDefInfo>> entries, DiffFilterMode mode) => mode switch
-    {
-        DiffFilterMode.AddedOnly => entries.Where(e => e.Kind == DiffKind.Added).ToList(),
-        DiffFilterMode.RemovedOnly => entries.Where(e => e.Kind == DiffKind.Removed).ToList(),
-        DiffFilterMode.ChangedOnly => entries.Where(e => e.Kind != DiffKind.Unchanged).ToList(),
-        _ => entries
-    };
+        {
+            DiffFilterMode.AddedOnly => [.. entries.Where(e => e.Kind == DiffKind.Added)],
+            DiffFilterMode.RemovedOnly => [.. entries.Where(e => e.Kind == DiffKind.Removed)],
+            DiffFilterMode.ChangedOnly => [.. entries.Where(e => e.Kind != DiffKind.Unchanged)],
+            _ => entries
+        };
 
     private static (string Prefix, Hex1bColor Color) GetDiffStyle(DiffKind kind) => kind switch
     {

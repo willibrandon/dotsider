@@ -59,12 +59,14 @@ public static class SizeTreemapView
         {
             state.TreemapMatchIndex = state.TreemapMatchIndex < 0
                 ? 0 : (state.TreemapMatchIndex + 1) % matchingItems.Count;
-        } : null;
+        }
+        : null;
         state.NavigatePrevMatch = matchingItems.Count > 0 ? () =>
         {
             state.TreemapMatchIndex = state.TreemapMatchIndex <= 0
                 ? matchingItems.Count - 1 : state.TreemapMatchIndex - 1;
-        } : null;
+        }
+        : null;
 
         return ctx.VStack(outer =>
         {
@@ -139,6 +141,20 @@ public static class SizeTreemapView
                     state.TreemapMatchIndex = -1;
                     state.TreemapHoveredNode = null;
                     state.App.Invalidate();
+                }
+                else if (drillTarget is { Kind: SizeNodeKind.Method, FullPath: var fullPath })
+                {
+                    // Leaf method node — navigate to IL Inspector
+                    // FullPath format: "DeclaringType::MethodName@0xTOKEN"
+                    var atIdx = fullPath.LastIndexOf('@');
+                    if (atIdx > 0 && fullPath.Length > atIdx + 3
+                        && int.TryParse(fullPath[(atIdx + 3)..],
+                            System.Globalization.NumberStyles.HexNumber, null, out var token))
+                    {
+                        var method = state.Analyzer.MethodDefs.FirstOrDefault(m => m.Token == token);
+                        if (method is not null)
+                            state.NavigateToIlMethod(method);
+                    }
                 }
             }).WithInputBindings(bindings =>
             {

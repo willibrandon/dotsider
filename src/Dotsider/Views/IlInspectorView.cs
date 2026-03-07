@@ -132,6 +132,16 @@ public static class IlInspectorView
                 state.IlScrollRestoreFrames = 2;
                 state.App.Invalidate();
             }, "Page Up");
+
+            // x: Jump to method body in Hex Dump
+            var isSearchEditing = search.IsActive && !search.IsConfirmed;
+            if (!isSearchEditing && state.IlSelectedMethod is { Rva: > 0 } selectedMethod)
+            {
+                bindings.Key(Hex1bKey.X).Action(_ =>
+                {
+                    state.NavigateToHexOffset(selectedMethod.Rva);
+                }, "View in hex");
+            }
         })
         .FillWidth().FillHeight();
     }

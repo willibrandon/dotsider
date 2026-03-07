@@ -1,4 +1,5 @@
 using Dotsider.Analysis.Models;
+using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Nodes;
@@ -1648,6 +1649,124 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // App should exit after q key
         var completed = await Task.WhenAny(runTask, Task.Delay(5000, ct));
         Assert.Equal(runTask, completed);
+    }
+
+    [Fact(Timeout = 15_000)]
+    public async Task CrossViewBack_SuppressedDuringSearchEditing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        // Navigate to IL Inspector tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
+            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Programmatically set a cross-view back target (simulating a g/x navigation)
+        _state!.CrossViewBackTarget = (TabId.PeMetadata, PeSubTabId.TypeDef);
+        _hex1bApp!.Invalidate();
+
+        // Wait for "Backspace: Back" hint to appear
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Backspace: Back"), TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Open search — type "test" then press Backspace
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion) // '/' — activate search
+            .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.T).Key(Hex1bKey.E).Key(Hex1bKey.S).Key(Hex1bKey.T) // type "test"
+            .Key(Hex1bKey.Backspace) // should delete 't', NOT navigate back
+            .WaitUntil(_ => _state.Search[TabId.IlInspector].Query == "tes", TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Verify we stayed on IL Inspector — Backspace deleted a character, didn't navigate back
+        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
+        Assert.Equal("tes", _state.Search[TabId.IlInspector].Query);
+        Assert.NotNull(_state.CrossViewBackTarget); // Back target still present
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task Tab8_Enter_OnJitEvent_NavigatesToIlInspector()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var runTask = app.RunAsync(ct);
+
+        // Navigate to Dynamic tab, launch trace, and wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"),
+                TimeSpan.FromSeconds(15))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var tracer = _state!.Tracer!;
+
+        // HelloWorld defines Formatter.Format(int) and Formatter.Format(string).
+        // Both produce JIT events with identical Detail ("Formatter.Format")
+        // but distinct MetadataTokens. Deliberately target the SECOND overload
+        // so that a name-only regression (FirstOrDefault by DeclaringType+Name)
+        // would select the wrong method.
+        var formatEvents = tracer.GetEvents()
+            .Where(e => e.Category == TraceEventCategory.JIT
+                     && e.Detail == "Formatter.Format")
+            .ToList();
+        Assert.True(formatEvents.Count >= 2,
+            $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
+
+        var firstToken = formatEvents[0].MetadataToken;
+        var targetEvent = formatEvents.First(e => e.MetadataToken != firstToken);
+        Assert.True(targetEvent.MetadataToken > 0);
+
+        var expectedMethod = _state.Analyzer.MethodDefs
+            .FirstOrDefault(m => m.Token == targetEvent.MetadataToken);
+        Assert.NotNull(expectedMethod);
+
+        // Verify this IS an overload: name-based FirstOrDefault would return
+        // a different method (the first match), proving token is required.
+        DynamicAnalysisView.TryParseJitDetail(targetEvent.Detail,
+            out var declType, out var methName);
+        var byName = _state.Analyzer.MethodDefs
+            .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
+        Assert.NotNull(byName);
+        Assert.NotEqual(expectedMethod.Token, byName.Token);
+
+        // Set JIT filter + focused key to the second overload's row
+        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}";
+        _state.DynamicCategoryFilter = TraceEventCategory.JIT;
+        _state.DynamicEventsFocusedKey = eventKey;
+        _hex1bApp!.Invalidate();
+
+        // Press Enter — the handler must select by token, not by name
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(3))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(3))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
+        Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
+        Assert.NotNull(_state.CrossViewBackTarget);
+        Assert.Equal(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
+
+        await runTask.ContinueWith(_ => { }, ct);
     }
 
     public void Dispose()

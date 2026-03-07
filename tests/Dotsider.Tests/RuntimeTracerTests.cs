@@ -1,5 +1,6 @@
 using Dotsider.Analysis;
 using Dotsider.Analysis.Models;
+using Dotsider.Views;
 using Hex1b;
 using Hex1b.Widgets;
 
@@ -210,6 +211,60 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         var categories = events.Select(e => e.Category).Distinct().ToHashSet();
         // HelloWorld triggers GC and JIT at minimum
         Assert.True(categories.Count > 0);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task JitEvents_OverloadedMethods_DisambiguatedByToken()
+    {
+        var tracer = CreateTracer(samples.HelloWorldDll);
+        tracer.Start();
+        await TestHelpers.WaitUntilAsync(
+            () => tracer.ProcessState == TraceProcessState.Exited,
+            TimeSpan.FromSeconds(20));
+
+        // HelloWorld defines Formatter.Format(int) and Formatter.Format(string).
+        // Both produce JIT events with identical Detail ("Formatter.Format")
+        // but distinct MetadataTokens.
+        var jitEvents = tracer.GetEvents()
+            .Where(e => e.Category == TraceEventCategory.JIT)
+            .ToList();
+        Assert.NotEmpty(jitEvents);
+
+        var formatEvents = jitEvents
+            .Where(e => e.Detail.EndsWith(".Format"))
+            .ToList();
+        Assert.True(formatEvents.Count >= 2,
+            $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
+
+        // Tokens must be distinct (the whole point of disambiguation)
+        var distinctTokens = formatEvents.Select(e => e.MetadataToken).Distinct().ToList();
+        Assert.True(distinctTokens.Count >= 2,
+            $"Overloaded JIT events should have distinct tokens, got: " +
+            $"{string.Join(", ", formatEvents.Select(e => $"0x{e.MetadataToken:X8}"))}");
+
+        // Verify token-based lookup resolves each to a different MethodDefInfo,
+        // while name-based lookup would collapse them to the same method.
+        using var analyzer = new AssemblyAnalyzer(samples.HelloWorldDll);
+        var evt1 = formatEvents[0];
+        var evt2 = formatEvents.First(e => e.MetadataToken != evt1.MetadataToken);
+
+        var byToken1 = analyzer.MethodDefs.FirstOrDefault(m => m.Token == evt1.MetadataToken);
+        var byToken2 = analyzer.MethodDefs.FirstOrDefault(m => m.Token == evt2.MetadataToken);
+        Assert.NotNull(byToken1);
+        Assert.NotNull(byToken2);
+        Assert.NotEqual(byToken1.Token, byToken2.Token);
+
+        // Name-based lookup returns the same method for both (the disambiguation gap)
+        DynamicAnalysisView.TryParseJitDetail(evt1.Detail, out var declType, out var methName);
+        var byName = analyzer.MethodDefs
+            .Where(m => m.DeclaringType == declType && m.Name == methName)
+            .ToList();
+        Assert.True(byName.Count >= 2,
+            "Analyzer should have >=2 MethodDefs with the same DeclaringType+Name");
+        var firstByName = byName[0];
+        // Without token, FirstOrDefault always returns the same method regardless of which event
+        Assert.Equal(firstByName, analyzer.MethodDefs.FirstOrDefault(
+            m => m.DeclaringType == declType && m.Name == methName));
     }
 
     public void Dispose()

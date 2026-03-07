@@ -2,6 +2,7 @@ using Dotsider.Analysis;
 using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 using TraceProcessState = Dotsider.Analysis.Models.TraceProcessState;
 
@@ -272,6 +273,122 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Focused key in the output table.</summary>
     public object? DynamicOutputFocusedKey { get; set; }
 
+    // --- Cross-View Navigation ---
+
+    /// <summary>
+    /// Saved source tab for cross-view back navigation, or null if no cross-view jump has occurred.
+    /// </summary>
+    public (int Tab, int SubTab)? CrossViewBackTarget { get; set; }
+
+    /// <summary>
+    /// Switches to the specified tab, finalizing any in-progress search on the current tab.
+    /// </summary>
+    public void NavigateToTab(int tabIndex)
+    {
+        if (CurrentTab == tabIndex) return;
+
+        var previousSearch = Search[CurrentTab];
+        if (previousSearch.IsActive && !previousSearch.IsConfirmed)
+        {
+            if (string.IsNullOrEmpty(previousSearch.Query))
+                previousSearch.Dismiss();
+            else
+                previousSearch.Confirm();
+        }
+
+        var previousTab = CurrentTab;
+        CurrentTab = tabIndex;
+        if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
+        {
+            IlScrollRestoreFrames = 2;
+            IlNeedsTreeFocus = true;
+        }
+    }
+
+    /// <summary>
+    /// Navigates to the IL Inspector and selects the specified method,
+    /// expanding the namespace and type tree nodes.
+    /// </summary>
+    public void NavigateToIlMethod(MethodDefInfo method)
+    {
+        CrossViewBackTarget = (CurrentTab, PeSubTab);
+
+        // Expand namespace and type in the IL tree
+        var typeDef = Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
+        var ns = typeDef is not null && !string.IsNullOrEmpty(typeDef.Namespace)
+            ? typeDef.Namespace : "(global)";
+        IlTreeExpansionState[$"ns:{ns}"] = true;
+        IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+
+        IlSelectedMethod = method;
+        IlDisassemblyScrollOffset = 0;
+        IlScrollRestoreFrames = 0;
+
+        NavigateToTab(TabId.IlInspector);
+        var ilSearch = Search[TabId.IlInspector];
+        ilSearch.Reset();
+        App.RequestFocus(node => node is TreeNode);
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Navigates to the Hex Dump tab, jumping to the file offset corresponding to the given RVA.
+    /// </summary>
+    public void NavigateToHexOffset(int rva)
+    {
+        var fileOffset = RvaToFileOffset(rva);
+        if (fileOffset < 0) return;
+
+        CrossViewBackTarget = (CurrentTab, PeSubTab);
+
+        // Set cursor position + scroll target (mirrors HexDumpView.NavigateToOffset)
+        var doc = HexEditorState.Document;
+        if (fileOffset < doc.ByteCount)
+        {
+            var byteMap = doc.GetByteMap();
+            var (charIdx, _) = byteMap.ByteToChar((int)fileOffset);
+            HexEditorState.SetCursorPosition(
+                new Hex1b.Documents.DocumentOffset(charIdx));
+            HexEditorState.ByteCursorOffset = (int)fileOffset;
+            HexScrollTarget = fileOffset;
+        }
+
+        NavigateToTab(TabId.HexDump);
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Returns to the tab saved by the last cross-view navigation.
+    /// </summary>
+    public void NavigateBack()
+    {
+        if (CrossViewBackTarget is not { } back) return;
+
+        CrossViewBackTarget = null;
+        NavigateToTab(back.Tab);
+        if (back.Tab == TabId.PeMetadata)
+            PeSubTab = back.SubTab;
+        App.RequestFocus(node =>
+            node is EditorNode or TreeNode or InteractableNode
+            || node.GetType().Name.StartsWith("TableNode"));
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Converts a relative virtual address (RVA) to a raw file offset using the section table.
+    /// Returns -1 if the RVA does not fall within any section.
+    /// </summary>
+    public long RvaToFileOffset(int rva)
+    {
+        foreach (var section in Analyzer.Sections)
+        {
+            if (rva >= section.VirtualAddress && rva < section.VirtualAddress + section.VirtualSize)
+                return rva - section.VirtualAddress + section.RawDataOffset;
+        }
+        return -1;
+    }
+
     /// <summary>
     /// Pushes a new assembly onto the navigation stack and makes it the active analyzer.
     /// Returns false if the assembly could not be loaded or the depth limit is reached.
@@ -332,6 +449,7 @@ public sealed class DotsiderState : IDisposable
         foreach (var s in Search) s.Reset();
         NavigateNextMatch = null;
         NavigatePrevMatch = null;
+        CrossViewBackTarget = null;
         GeneralFocusedDep = null;
         PeSubTab = 0;
         PeFocusedKey = null;
@@ -439,7 +557,7 @@ public sealed class DotsiderState : IDisposable
             CachedRawStrings = StringExtractor.ExtractRawStrings(StringsMinLength);
             CachedRawStringsMinLength = StringsMinLength;
         }
-        
+
         return CachedRawStrings;
     }
 }
