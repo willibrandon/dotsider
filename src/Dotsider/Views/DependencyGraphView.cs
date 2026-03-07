@@ -120,6 +120,23 @@ public static class DependencyGraphView
                         state.App.Invalidate();
                     }
                 }, "Previous node");
+
+                bindings.Key(Hex1bKey.Enter).Action(_ =>
+                {
+                    if (state.GraphSelectedIndex >= 0 && state.GraphSelectedIndex < nodes.Count)
+                    {
+                        var node = nodes[state.GraphSelectedIndex];
+                        var resolvedPath = Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
+                            state.Analyzer.FilePath, node.Name);
+                        if (resolvedPath is not null && state.PushAssembly(resolvedPath))
+                        {
+                            state.NavigateToTab(TabId.General);
+                            state.App.RequestFocus(n =>
+                                n.GetType().Name.StartsWith("TableNode"));
+                            state.App.Invalidate();
+                        }
+                    }
+                }, "Open assembly");
             }).Fill());
 
             return [.. widgets];

@@ -288,32 +288,26 @@ public sealed class DotsiderApp(DotsiderState state)
 
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
+
+            // Cross-view back navigation — suppressed when any text input is active
+            // (search editing, hex jump dialog, hex insert mode, dynamic args editing)
+            // or when the current tab locally consumes Backspace
+            var tabUsesBackspace = (_state.CurrentTab == TabId.General && _state.NavigationStack.Count > 0)
+                || (_state.CurrentTab == TabId.SizeMap && _state.TreemapBreadcrumb.Count > 0);
+            if (!tabUsesBackspace && !isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode
+                && !_state.DynamicEditingArgs && _state.CrossViewBackTarget is not null)
+            {
+                bindings.Key(Hex1bKey.Backspace).Global().Action(_ =>
+                {
+                    _state.NavigateBack();
+                }, "Back");
+            }
         });
     }
 
     private void SelectTab(int tabIndex)
     {
-        if (_state.CurrentTab == tabIndex) return;
-
-        // If the current tab has an in-progress search edit, finalize it before
-        // switching away. Otherwise the editing state persists without a focused
-        // TextBox, which blocks the Hex1bKey.None "/" binding on return.
-        var previousSearch = _state.Search[_state.CurrentTab];
-        if (previousSearch.IsActive && !previousSearch.IsConfirmed)
-        {
-            if (string.IsNullOrEmpty(previousSearch.Query))
-                previousSearch.Dismiss();
-            else
-                previousSearch.Confirm();
-        }
-
-        var previousTab = _state.CurrentTab;
-        _state.CurrentTab = tabIndex;
-        if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
-        {
-            _state.IlScrollRestoreFrames = 2;
-            _state.IlNeedsTreeFocus = true;
-        }
+        _state.NavigateToTab(tabIndex);
     }
 
     private InfoBarWidget BuildHintsBar(WidgetContext<VStackWidget> ctx) =>
@@ -334,7 +328,18 @@ public sealed class DotsiderApp(DotsiderState state)
             if (_state.NavigationStack.Count > 0)
                 hints.Add(s.Section("Backspace: Back"));
 
-            if (_state.CurrentTab is 1 or 3)
+            if (_state.CurrentTab == 1)
+            {
+                hints.Add(s.Section("Enter: Detail"));
+                if (_state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
+                    hints.Add(s.Section("g: Go to IL"));
+            }
+            else if (_state.CurrentTab == 2)
+            {
+                if (_state.IlSelectedMethod is { Rva: > 0 })
+                    hints.Add(s.Section("x: Hex"));
+            }
+            else if (_state.CurrentTab == 3)
                 hints.Add(s.Section("Enter: Detail"));
             else if (_state.CurrentTab == 4)
             {
@@ -349,7 +354,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 }
             }
             else if (_state.CurrentTab == 5)
-                hints.Add(s.Section("←→: Select"));
+                hints.Add(s.Section("←→: Select | Enter: Open"));
             else if (_state.CurrentTab == 6)
                 hints.Add(s.Section("Enter: Drill | ←→: Select | Backspace: Up"));
             else if (_state.CurrentTab == 7)
@@ -362,6 +367,10 @@ public sealed class DotsiderApp(DotsiderState state)
                 else if (_state.HasEntryPoint)
                     hints.Add(s.Section("Enter: Launch"));
             }
+
+            // Cross-view back hint
+            if (_state.CrossViewBackTarget is not null)
+                hints.Add(s.Section("Backspace: Back"));
 
             // Search hint — always available on all tabs
             var currentSearch = _state.Search[_state.CurrentTab];

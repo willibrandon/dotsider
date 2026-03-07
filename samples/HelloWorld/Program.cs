@@ -19,4 +19,17 @@ for (int i = 0; i < 50; i++)
 try { throw new InvalidOperationException("Test exception for tracing"); }
 catch { /* intentional */ }
 
+// Exercise overloaded methods so they JIT-compile (used by disambiguation tests)
+Console.WriteLine(Formatter.Format(42));
+Console.WriteLine(Formatter.Format("dotsider"));
+
 Console.WriteLine("Done!");
+
+/// <summary>
+/// Provides overloaded Format methods to exercise JIT overload disambiguation.
+/// </summary>
+static class Formatter
+{
+    public static string Format(int value) => $"int:{value}";
+    public static string Format(string value) => $"str:{value}";
+}

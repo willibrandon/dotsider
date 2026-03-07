@@ -7,4 +7,5 @@ public sealed record TraceEventEntry(
     TimeSpan Timestamp,
     TraceEventCategory Category,
     string EventName,
-    string Detail);
+    string Detail,
+    int MetadataToken = 0);

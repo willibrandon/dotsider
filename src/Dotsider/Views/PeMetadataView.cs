@@ -1,4 +1,3 @@
-using Dotsider.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -160,6 +159,34 @@ public static class PeMetadataView
                             state.App.Invalidate();
                         }
                     }, "Next sub-tab");
+
+                    // g: Go to IL Inspector for focused TypeDef or MethodDef
+                    if (state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
+                    {
+                        bindings.Key(Hex1bKey.G).Global().Action(_ =>
+                        {
+                            if (state.PeFocusedKey is int token)
+                            {
+                                if (state.PeSubTab == PeSubTabId.TypeDef)
+                                {
+                                    var typeDef = analyzer.TypeDefs.FirstOrDefault(t => t.Token == token);
+                                    if (typeDef is not null)
+                                    {
+                                        var method = analyzer.MethodDefs.FirstOrDefault(
+                                            m => m.DeclaringType == typeDef.FullName);
+                                        if (method is not null)
+                                            state.NavigateToIlMethod(method);
+                                    }
+                                }
+                                else // MethodDef
+                                {
+                                    var method = analyzer.MethodDefs.FirstOrDefault(m => m.Token == token);
+                                    if (method is not null)
+                                        state.NavigateToIlMethod(method);
+                                }
+                            }
+                        }, "Go to IL");
+                    }
                 }
 
                 bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>

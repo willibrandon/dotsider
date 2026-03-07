@@ -142,6 +142,20 @@ public static class SizeTreemapView
                     state.TreemapHoveredNode = null;
                     state.App.Invalidate();
                 }
+                else if (drillTarget is { Kind: SizeNodeKind.Method, FullPath: var fullPath })
+                {
+                    // Leaf method node — navigate to IL Inspector
+                    // FullPath format: "DeclaringType::MethodName@0xTOKEN"
+                    var atIdx = fullPath.LastIndexOf('@');
+                    if (atIdx > 0 && fullPath.Length > atIdx + 3
+                        && int.TryParse(fullPath[(atIdx + 3)..],
+                            System.Globalization.NumberStyles.HexNumber, null, out var token))
+                    {
+                        var method = state.Analyzer.MethodDefs.FirstOrDefault(m => m.Token == token);
+                        if (method is not null)
+                            state.NavigateToIlMethod(method);
+                    }
+                }
             }).WithInputBindings(bindings =>
             {
                 bindings.Key(Hex1bKey.Backspace).Action(_ =>

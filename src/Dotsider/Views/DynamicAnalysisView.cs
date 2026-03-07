@@ -208,11 +208,17 @@ public static class DynamicAnalysisView
             }, "Stop traced process");
 
             // Enter to re-run after exit (suppressed during search editing to avoid
-            // conflicting with DotsiderApp's global "Confirm search" Enter binding)
+            // conflicting with DotsiderApp's global "Confirm search" Enter binding).
+            // On the Events sub-tab, JIT navigation takes priority: if the focused
+            // row is a JIT event matching a method in the analyzer, Enter navigates
+            // to the IL Inspector instead of re-running.
             if (!isSearchEditing && tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error)
             {
                 bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
                 {
+                    if (TryNavigateJitEvent(state, tracer))
+                        return;
+
                     state.Tracer?.Dispose();
                     state.Tracer = new RuntimeTracer(
                         state.Analyzer.FilePath, state.DynamicArguments, state.App);
@@ -334,6 +340,17 @@ public static class DynamicAnalysisView
             bindings.Key(Hex1bKey.H).Action(_ => SetFilter(state, TraceEventCategory.Http), "Filter HTTP");
             bindings.Key(Hex1bKey.T).Action(_ => SetFilter(state, TraceEventCategory.Threading), "Filter Threading");
             bindings.Key(Hex1bKey.S).Action(_ => SetFilter(state, TraceEventCategory.Socket), "Filter Socket");
+
+            // Enter on JIT event: navigate to IL Inspector for the jitted method.
+            // During Running state, this is the only Enter handler (the .Global()
+            // re-run handler is not registered). After Exit, the .Global() handler
+            // calls TryNavigateJitEvent first, so this local handler is redundant
+            // but harmless (the .Global() handler takes priority).
+            bindings.Key(Hex1bKey.Enter).Action(_ =>
+            {
+                TryNavigateJitEvent(state, tracer);
+            }, "Go to IL");
+
             bindings.Key(Hex1bKey.Escape).Action(_ =>
             {
                 if (search.IsActive)
@@ -533,6 +550,55 @@ public static class DynamicAnalysisView
                 row.Text($"  {label}:")).FixedWidth(22),
             row.Text($" {value}").Fill()
         ]).FixedHeight(1);
+    }
+
+    /// <summary>
+    /// Attempts to navigate from a focused JIT event row to the IL Inspector.
+    /// Looks up the focused event in the tracer's event list by row key, then
+    /// resolves the method by metadata token (preferred) or by name (fallback).
+    /// Returns true if navigation occurred.
+    /// </summary>
+    internal static bool TryNavigateJitEvent(DotsiderState state, RuntimeTracer tracer)
+    {
+        if (state.DynamicSubTab != DynamicSubTabId.Events) return false;
+        if (state.DynamicEventsFocusedKey is not string focusedKey) return false;
+
+        var evt = tracer.GetEvents().FirstOrDefault(e =>
+            e.Category == TraceEventCategory.JIT
+            && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}" == focusedKey);
+        if (evt is null) return false;
+
+        var method = evt.MetadataToken > 0
+            ? state.Analyzer.MethodDefs.FirstOrDefault(m => m.Token == evt.MetadataToken)
+            : null;
+        if (method is null
+            && TryParseJitDetail(evt.Detail, out var declaringType, out var methodName))
+        {
+            method = state.Analyzer.MethodDefs.FirstOrDefault(
+                m => m.DeclaringType == declaringType && m.Name == methodName);
+        }
+
+        if (method is null) return false;
+
+        state.NavigateToIlMethod(method);
+        return true;
+    }
+
+    /// <summary>
+    /// Parses a JIT event detail string (format: "Namespace.Type.MethodName")
+    /// into the declaring type and method name components.
+    /// RuntimeTracer emits "{MethodNamespace}.{MethodName}" where MethodNamespace
+    /// is the fully qualified declaring type.
+    /// </summary>
+    internal static bool TryParseJitDetail(string detail, out string declaringType, out string methodName)
+    {
+        declaringType = "";
+        methodName = "";
+        var lastDot = detail.LastIndexOf('.');
+        if (lastDot <= 0) return false;
+        declaringType = detail[..lastDot];
+        methodName = detail[(lastDot + 1)..];
+        return methodName.Length > 0;
     }
 
     private static void DrawEventDistribution(Surface surface,
