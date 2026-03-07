@@ -439,7 +439,7 @@ public sealed class DotsiderState : IDisposable
             CachedRawStrings = StringExtractor.ExtractRawStrings(StringsMinLength);
             CachedRawStringsMinLength = StringsMinLength;
         }
-        
+
         return CachedRawStrings;
     }
 }

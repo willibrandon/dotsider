@@ -37,7 +37,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 node is EditorNode or TreeNode or InteractableNode
                 || node.GetType().Name.StartsWith("TableNode"));
         }
-        
+
         return ctx.VStack(outer =>
         [
             // Title bar

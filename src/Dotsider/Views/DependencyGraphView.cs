@@ -52,12 +52,14 @@ public static class DependencyGraphView
         state.NavigateNextMatch = matchingNodes.Count > 0 ? () =>
         {
             state.GraphMatchIndex = (state.GraphMatchIndex + 1) % matchingNodes.Count;
-        } : null;
+        }
+        : null;
         state.NavigatePrevMatch = matchingNodes.Count > 0 ? () =>
         {
             state.GraphMatchIndex = state.GraphMatchIndex <= 0
                 ? matchingNodes.Count - 1 : state.GraphMatchIndex - 1;
-        } : null;
+        }
+        : null;
 
         return ctx.VStack(outer =>
         {

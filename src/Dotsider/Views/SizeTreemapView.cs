@@ -59,12 +59,14 @@ public static class SizeTreemapView
         {
             state.TreemapMatchIndex = state.TreemapMatchIndex < 0
                 ? 0 : (state.TreemapMatchIndex + 1) % matchingItems.Count;
-        } : null;
+        }
+        : null;
         state.NavigatePrevMatch = matchingItems.Count > 0 ? () =>
         {
             state.TreemapMatchIndex = state.TreemapMatchIndex <= 0
                 ? matchingItems.Count - 1 : state.TreemapMatchIndex - 1;
-        } : null;
+        }
+        : null;
 
         return ctx.VStack(outer =>
         {

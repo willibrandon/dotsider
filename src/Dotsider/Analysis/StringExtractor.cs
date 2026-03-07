@@ -128,7 +128,7 @@ public sealed class StringExtractor
                 {
                     results.Add(new StringEntry(startOffset, sb.ToString(), StringSource.RawBinary));
                 }
-                
+
                 sb.Clear();
                 startOffset = -1;
             }

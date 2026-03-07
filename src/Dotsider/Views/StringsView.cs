@@ -117,7 +117,7 @@ public static class StringsView
                     StringsSubTabId.Metadata => state.StringExtractor.SkippedMetadataStringCount,
                     _ => 0
                 };
-                
+
                 if (skipped > 0)
                 {
                     statusParts.Add($"{skipped} malformed skipped");
@@ -241,7 +241,7 @@ public static class StringsView
             if (RowKey(entries[i]) == key)
                 return i;
         }
-        
+
         return -1;
     }
 }

@@ -94,7 +94,7 @@ public static class HexDumpView
                 // Data interpretation panel
                 widgets.Add(DataInterpretationPanel.Build(outer, state));
 
-                return widgets.ToArray();
+                return [.. widgets];
             })
             .WithInputBindings(bindings =>
             {
@@ -206,18 +206,18 @@ public static class HexDumpView
         if (state.HexSearchModeHex)
         {
             // Hex byte search: parse raw input as hex bytes
-            var result = ParseHexPattern(query);
-            if (result.Error is not null) return result.Error;
-            state.HexMatchOffsets = FindBytePattern(rawBytes, result.Bytes!);
-            state.HexMatchPatternLength = result.Bytes!.Length;
+            var (Bytes, Error) = ParseHexPattern(query);
+            if (Error is not null) return Error;
+            state.HexMatchOffsets = FindBytePattern(rawBytes, Bytes!);
+            state.HexMatchPatternLength = Bytes!.Length;
         }
         else if (query.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
         {
             // Text mode with 0x prefix: hex byte search
-            var result = ParseHexPattern(query[2..]);
-            if (result.Error is not null) return result.Error;
-            state.HexMatchOffsets = FindBytePattern(rawBytes, result.Bytes!);
-            state.HexMatchPatternLength = result.Bytes!.Length;
+            var (Bytes, Error) = ParseHexPattern(query[2..]);
+            if (Error is not null) return Error;
+            state.HexMatchOffsets = FindBytePattern(rawBytes, Bytes!);
+            state.HexMatchPatternLength = Bytes!.Length;
         }
         else
         {

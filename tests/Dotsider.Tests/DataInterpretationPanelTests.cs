@@ -25,9 +25,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             ctx =>
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath)
-                    {
-                        CurrentTab = 4 // Hex Dump tab
-                    };
+                {
+                    CurrentTab = 4 // Hex Dump tab
+                };
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult(dotsiderApp.Build(ctx));
             },
