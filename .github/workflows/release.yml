@@ -197,7 +197,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          RELEASE_FLAGS=""
+          if [[ "$TAG" == *-* ]]; then
+            RELEASE_FLAGS="--prerelease"
+            PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          else
+            RELEASE_FLAGS="--latest"
+            PREV_TAG=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          fi
           NOTES_FLAG="--generate-notes"
           if [ -n "$PREV_TAG" ]; then
             NOTES_FLAG="--generate-notes --notes-start-tag $PREV_TAG"
@@ -205,7 +212,7 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             $NOTES_FLAG \
-            --latest \
+            $RELEASE_FLAGS \
             artifacts/dotsider-win-x64.zip \
             artifacts/dotsider-win-x64.zip.sha256 \
             artifacts/dotsider-win-x64.msi \
@@ -219,6 +226,7 @@ jobs:
 
   update-homebrew:
     needs: create-release
+    if: "!contains(github.ref_name, '-')"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -276,6 +284,7 @@ jobs:
 
   update-winget:
     needs: create-release
+    if: "!contains(github.ref_name, '-')"
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
