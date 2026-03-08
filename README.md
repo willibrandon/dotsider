@@ -16,6 +16,18 @@ dotsider HelloWorld.dll
 dotnet tool install -g dotsider
 ```
 
+### Homebrew (macOS / Linux)
+
+```
+brew install willibrandon/tap/dotsider
+```
+
+### WinGet (Windows)
+
+```
+winget install willibrandon.dotsider
+```
+
 ### Download binary
 
 Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).

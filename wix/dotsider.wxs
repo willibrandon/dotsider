@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  dotsider Windows Installer (WiX v5)
+
+  IMPORTANT:
+    - UpgradeCode MUST remain constant across all versions (126F50AB-5DE9-4A44-ABF0-3F9B5ADC5173)
+    - ProductCode uses Id="*" to auto-generate per build (MUST change each version)
+    - Version is passed via -d Version=X.Y.Z during build
+    - SourceDir is passed via -d SourceDir=path/to/files during build
+    - Uses WiX v5 Files element for automatic harvesting (no heat required)
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="dotsider"
+           Version="$(var.Version).0"
+           Manufacturer="willibrandon"
+           UpgradeCode="126F50AB-5DE9-4A44-ABF0-3F9B5ADC5173"
+           Scope="perMachine">
+
+    <SummaryInformation Description="A TUI for analyzing .NET assemblies" />
+
+    <!-- Application icon for Add/Remove Programs -->
+    <Icon Id="dotsider.ico" SourceFile="assets\dotsider.ico" />
+    <Property Id="ARPPRODUCTICON" Value="dotsider.ico" />
+
+    <!-- Upgrade handling: removes old versions before installing new -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of dotsider is already installed."
+                  AllowSameVersionUpgrades="yes" />
+
+    <!-- Embed CAB files for single MSI distribution -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Install to Program Files\dotsider -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="dotsider">
+        <!-- Add dotsider to system PATH -->
+        <Component Id="PathEnvComponent" Guid="EF9C76B6-3A9C-4DBA-9C68-E849B0C99C12">
+          <RegistryValue Root="HKLM"
+                         Key="Software\dotsider"
+                         Name="PathConfigured"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+          <Environment Id="PATH"
+                       Name="PATH"
+                       Value="[INSTALLFOLDER]"
+                       Permanent="no"
+                       Part="last"
+                       Action="set"
+                       System="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Main feature containing all components -->
+    <Feature Id="MainFeature" Title="dotsider" Level="1">
+      <!-- Harvest all files from SourceDir using WiX v5 Files element -->
+      <Files Directory="INSTALLFOLDER" Include="$(var.SourceDir)\**" />
+      <ComponentRef Id="PathEnvComponent" />
+    </Feature>
+
+  </Package>
+</Wix>

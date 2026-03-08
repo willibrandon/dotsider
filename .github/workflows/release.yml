@@ -32,9 +32,17 @@ jobs:
           - rid: win-x64
             os: windows-latest
             artifact: dotsider-win-x64
+            arch: x64
+          - rid: win-arm64
+            os: windows-latest
+            artifact: dotsider-win-arm64
+            arch: arm64
           - rid: linux-x64
             os: ubuntu-latest
             artifact: dotsider-linux-x64
+          - rid: linux-arm64
+            os: ubuntu-latest
+            artifact: dotsider-linux-arm64
           - rid: osx-arm64
             os: macos-latest
             artifact: dotsider-osx-arm64
@@ -56,9 +64,102 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ./publish/dotsider*
 
+      - name: Extract version from tag
+        if: startsWith(matrix.rid, 'win-')
+        id: version
+        shell: pwsh
+        run: |
+          $fullVersion = "${{ github.ref_name }}" -replace '^v', ''
+          echo "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+          $msiVersion = $fullVersion -replace '-.*$', ''
+          echo "msi_version=$msiVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "Full version: $fullVersion, MSI version: $msiVersion"
+
+      - name: Install WiX Toolset
+        if: startsWith(matrix.rid, 'win-')
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build MSI with WiX
+        if: startsWith(matrix.rid, 'win-')
+        shell: pwsh
+        run: |
+          wix build wix\dotsider.wxs `
+            -d SourceDir=..\publish `
+            -d Version=${{ steps.version.outputs.msi_version }} `
+            -arch ${{ matrix.arch }} `
+            -out publish\${{ matrix.artifact }}.msi
+
+      - name: Extract ProductCode from MSI
+        if: startsWith(matrix.rid, 'win-')
+        id: msi_info
+        shell: pwsh
+        run: |
+          $msiPath = "publish\${{ matrix.artifact }}.msi"
+          $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
+          $stream = [System.IO.File]::OpenRead($msiPath)
+          $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
+          $productCode = $null
+          while ($null -ne ($line = $reader.ReadLine())) {
+            if ($line -match $pattern) {
+              $productCode = $Matches[1]
+              break
+            }
+          }
+          $reader.Close()
+          $stream.Close()
+
+          if (-not $productCode) {
+            Write-Error "Failed to extract ProductCode from MSI"
+            exit 1
+          }
+
+          echo "product_code=$productCode" >> $env:GITHUB_OUTPUT
+          Write-Host "ProductCode: $productCode"
+
+      - name: Verify MSI installs correctly
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $logFile = "publish\msi-install.log"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\${{ matrix.artifact }}.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "MSI installation failed with exit code: $($proc.ExitCode)"
+            if (Test-Path $logFile) {
+              Get-Content $logFile | Select-Object -Last 50
+            }
+            exit 1
+          }
+
+          $exePath = "${env:ProgramFiles}\dotsider\dotsider.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "dotsider.exe not found at $exePath"
+            exit 1
+          }
+
+          & $exePath --version
+          Write-Host "MSI verification passed"
+
+          Start-Process msiexec.exe -ArgumentList "/x", "publish\${{ matrix.artifact }}.msi", "/qn" -Wait -NoNewWindow
+
+      - name: Upload MSI artifact
+        if: startsWith(matrix.rid, 'win-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-msi
+          path: ./publish/${{ matrix.artifact }}.msi
+
   create-release:
     needs: [pack-and-publish, build-binaries]
     runs-on: ubuntu-latest
+    outputs:
+      sha256_linux_x64: ${{ steps.checksums.outputs.sha256_linux_x64 }}
+      sha256_linux_arm64: ${{ steps.checksums.outputs.sha256_linux_arm64 }}
+      sha256_osx_arm64: ${{ steps.checksums.outputs.sha256_osx_arm64 }}
+      sha256_win_x64: ${{ steps.checksums.outputs.sha256_win_x64 }}
+      sha256_win_arm64: ${{ steps.checksums.outputs.sha256_win_arm64 }}
+      sha256_win_msi: ${{ steps.checksums.outputs.sha256_win_msi }}
+      sha256_win_arm64_msi: ${{ steps.checksums.outputs.sha256_win_arm64_msi }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,17 +172,52 @@ jobs:
         run: |
           cd artifacts
           chmod +x dotsider-linux-x64/dotsider
+          chmod +x dotsider-linux-arm64/dotsider
           chmod +x dotsider-osx-arm64/dotsider
           tar -czf dotsider-linux-x64.tar.gz -C dotsider-linux-x64 .
+          tar -czf dotsider-linux-arm64.tar.gz -C dotsider-linux-arm64 .
           tar -czf dotsider-osx-arm64.tar.gz -C dotsider-osx-arm64 .
           cd dotsider-win-x64 && zip -r ../dotsider-win-x64.zip . && cd ..
+          cd dotsider-win-arm64 && zip -r ../dotsider-win-arm64.zip . && cd ..
+          cp dotsider-win-x64-msi/dotsider-win-x64.msi .
+          cp dotsider-win-arm64-msi/dotsider-win-arm64.msi .
+
+      - name: Calculate SHA256 checksums
+        id: checksums
+        run: |
+          cd artifacts
+          sha256sum dotsider-linux-x64.tar.gz > dotsider-linux-x64.tar.gz.sha256
+          sha256sum dotsider-linux-arm64.tar.gz > dotsider-linux-arm64.tar.gz.sha256
+          sha256sum dotsider-osx-arm64.tar.gz > dotsider-osx-arm64.tar.gz.sha256
+          sha256sum dotsider-win-x64.zip > dotsider-win-x64.zip.sha256
+          sha256sum dotsider-win-x64.msi > dotsider-win-x64.msi.sha256
+          sha256sum dotsider-win-arm64.zip > dotsider-win-arm64.zip.sha256
+          sha256sum dotsider-win-arm64.msi > dotsider-win-arm64.msi.sha256
+
+          echo "sha256_linux_x64=$(cut -d' ' -f1 dotsider-linux-x64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_linux_arm64=$(cut -d' ' -f1 dotsider-linux-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_osx_arm64=$(cut -d' ' -f1 dotsider-osx-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_win_x64=$(cut -d' ' -f1 dotsider-win-x64.zip.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_win_arm64=$(cut -d' ' -f1 dotsider-win-arm64.zip.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_win_msi=$(cut -d' ' -f1 dotsider-win-x64.msi.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_win_arm64_msi=$(cut -d' ' -f1 dotsider-win-arm64.msi.sha256)" >> $GITHUB_OUTPUT
+
+          echo "SHA256 Checksums:"
+          cat *.sha256
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          RELEASE_FLAGS=""
+          if [[ "$TAG" == *-* ]]; then
+            RELEASE_FLAGS="--prerelease"
+            PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          else
+            RELEASE_FLAGS="--latest"
+            PREV_TAG=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          fi
           NOTES_FLAG="--generate-notes"
           if [ -n "$PREV_TAG" ]; then
             NOTES_FLAG="--generate-notes --notes-start-tag $PREV_TAG"
@@ -89,7 +225,248 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             $NOTES_FLAG \
-            --latest \
+            $RELEASE_FLAGS \
             artifacts/dotsider-win-x64.zip \
+            artifacts/dotsider-win-x64.zip.sha256 \
+            artifacts/dotsider-win-x64.msi \
+            artifacts/dotsider-win-x64.msi.sha256 \
+            artifacts/dotsider-win-arm64.zip \
+            artifacts/dotsider-win-arm64.zip.sha256 \
+            artifacts/dotsider-win-arm64.msi \
+            artifacts/dotsider-win-arm64.msi.sha256 \
             artifacts/dotsider-linux-x64.tar.gz \
-            artifacts/dotsider-osx-arm64.tar.gz
+            artifacts/dotsider-linux-x64.tar.gz.sha256 \
+            artifacts/dotsider-linux-arm64.tar.gz \
+            artifacts/dotsider-linux-arm64.tar.gz.sha256 \
+            artifacts/dotsider-osx-arm64.tar.gz \
+            artifacts/dotsider-osx-arm64.tar.gz.sha256
+
+  update-homebrew:
+    needs: create-release
+    if: "!contains(github.ref_name, '-')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Clone homebrew-tap repository
+        run: |
+          git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/willibrandon/homebrew-tap.git
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update formula with new version and checksums
+        run: |
+          cd homebrew-tap
+          VERSION="${{ steps.version.outputs.version }}"
+
+          sed -i "s/version \".*\"/version \"$VERSION\"/" Formula/dotsider.rb
+
+          python3 << 'EOF'
+          import re
+
+          with open('Formula/dotsider.rb', 'r') as f:
+              content = f.read()
+
+          shas = {
+              'osx-arm64': '${{ needs.create-release.outputs.sha256_osx_arm64 }}',
+              'linux-arm64': '${{ needs.create-release.outputs.sha256_linux_arm64 }}',
+              'linux-x64': '${{ needs.create-release.outputs.sha256_linux_x64 }}',
+          }
+
+          for platform, sha in shas.items():
+              pattern = rf'(url "https://github\.com/willibrandon/dotsider/releases/download/v#\{{version\}}/dotsider-{platform}\.tar\.gz"\s+sha256 ")[^"]*(")'
+              content = re.sub(pattern, rf'\g<1>{sha}\2', content)
+
+          with open('Formula/dotsider.rb', 'w') as f:
+              f.write(content)
+          EOF
+
+          echo "Updated Formula/dotsider.rb:"
+          cat Formula/dotsider.rb
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-tap
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git add Formula/dotsider.rb
+          git diff --staged --quiet || git commit -m "Update dotsider to $VERSION"
+          git push origin main
+
+  update-winget:
+    needs: create-release
+    if: "!contains(github.ref_name, '-')"
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Check if package exists in winget-pkgs
+        id: check
+        shell: pwsh
+        run: |
+          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/w/willibrandon/dotsider" -Method Head -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Install wingetcreate
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+      - name: Generate winget manifest (update existing)
+        if: steps.check.outputs.exists == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $urlX64 = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-win-x64.msi"
+          $urlArm64 = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-win-arm64.msi"
+
+          .\wingetcreate.exe update willibrandon.dotsider `
+            --version $version `
+            --urls $urlX64 $urlArm64 `
+            --token $env:GH_TOKEN `
+            --out manifests
+
+      - name: Generate winget manifest (new package)
+        if: steps.check.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+
+          # Use checked-in manifest templates
+          $manifestDir = "manifests/w/willibrandon/dotsider/$version"
+          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
+          Copy-Item winget/willibrandon.dotsider.yaml $manifestDir/
+          Copy-Item winget/willibrandon.dotsider.installer.yaml $manifestDir/
+          Copy-Item winget/willibrandon.dotsider.locale.en-US.yaml $manifestDir/
+
+          # Update version and URL in copied manifests
+          Get-ChildItem $manifestDir -Filter *.yaml | ForEach-Object {
+            (Get-Content $_.FullName) -replace '0\.3\.0', $version | Set-Content $_.FullName
+          }
+          $installerYaml = "$manifestDir/willibrandon.dotsider.installer.yaml"
+          (Get-Content $installerYaml) -replace 'v0\.3\.0', "v$version" | Set-Content $installerYaml
+
+          # Process both architectures
+          $archs = @(
+            @{ Rid = 'x64'; ShaSuffix = 'X64'; PcSuffix = 'X64' },
+            @{ Rid = 'arm64'; ShaSuffix = 'ARM64'; PcSuffix = 'ARM64' }
+          )
+          foreach ($arch in $archs) {
+            $url = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-win-$($arch.Rid).msi"
+            $msiFile = New-TemporaryFile
+            Invoke-WebRequest -Uri $url -OutFile $msiFile.FullName
+
+            $sha256 = (Get-FileHash $msiFile.FullName -Algorithm SHA256).Hash
+            (Get-Content $installerYaml) -replace "PLACEHOLDER_SHA256_$($arch.ShaSuffix)", $sha256 | Set-Content $installerYaml
+
+            $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
+            $stream = [System.IO.File]::OpenRead($msiFile.FullName)
+            $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
+            $productCode = $null
+            while ($null -ne ($line = $reader.ReadLine())) {
+              if ($line -match $pattern) {
+                $productCode = $Matches[1]
+                break
+              }
+            }
+            $reader.Close()
+            $stream.Close()
+            Remove-Item $msiFile.FullName
+
+            if ($productCode) {
+              (Get-Content $installerYaml) -replace "\{PLACEHOLDER_PRODUCT_CODE_$($arch.PcSuffix)\}", $productCode | Set-Content $installerYaml
+            }
+          }
+
+          Write-Host "Generated manifests for new package:"
+          Get-ChildItem $manifestDir | ForEach-Object { Write-Host $_.Name }
+
+      - name: Submit winget PR via GitHub API
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $branch = "dotsider-$version"
+          $manifestDir = "manifests/w/willibrandon/dotsider/$version"
+
+          Write-Host "Syncing fork with upstream..."
+          gh api repos/willibrandon/winget-pkgs/merge-upstream -X POST -f branch="master"
+
+          $forkRef = gh api repos/willibrandon/winget-pkgs/git/ref/heads/master --jq '.object.sha'
+          Write-Host "Fork master SHA: $forkRef"
+
+          $baseTreeSha = gh api "repos/willibrandon/winget-pkgs/git/commits/$forkRef" --jq '.tree.sha'
+          Write-Host "Base tree SHA: $baseTreeSha"
+
+          $treeEntries = [System.Collections.ArrayList]@()
+          Get-ChildItem -Path "manifests" -Recurse -File | ForEach-Object {
+            $content = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($_.FullName))
+            $blobResponse = gh api repos/willibrandon/winget-pkgs/git/blobs -X POST -f content="$content" -f encoding="base64"
+            $blobSha = $blobResponse | ConvertFrom-Json | Select-Object -ExpandProperty sha
+            $path = "$manifestDir/$($_.Name)"
+            Write-Host "Created blob for $path : $blobSha"
+            [void]$treeEntries.Add(@{path=$path; mode="100644"; type="blob"; sha=$blobSha})
+          }
+
+          $treeData = @{base_tree=$baseTreeSha; tree=$treeEntries.ToArray()}
+          $treeJson = $treeData | ConvertTo-Json -Depth 10
+          Write-Host "Tree JSON: $treeJson"
+          $treeJson | Out-File -FilePath tree.json -Encoding utf8NoBOM
+          $newTree = gh api repos/willibrandon/winget-pkgs/git/trees -X POST --input tree.json
+          $newTreeSha = $newTree | ConvertFrom-Json | Select-Object -ExpandProperty sha
+          Write-Host "New tree SHA: $newTreeSha"
+
+          $commitJson = @{
+            message="Update willibrandon.dotsider to $version"
+            tree=$newTreeSha
+            parents=@($forkRef)
+          } | ConvertTo-Json -Compress
+          $commitJson | Out-File -FilePath commit.json -Encoding utf8
+          $newCommit = gh api repos/willibrandon/winget-pkgs/git/commits -X POST --input commit.json
+          $newCommitSha = $newCommit | ConvertFrom-Json | Select-Object -ExpandProperty sha
+          Write-Host "New commit SHA: $newCommitSha"
+
+          $refExists = gh api "repos/willibrandon/winget-pkgs/git/ref/heads/$branch" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh api "repos/willibrandon/winget-pkgs/git/refs/heads/$branch" -X PATCH -f sha="$newCommitSha" -F force=true
+          } else {
+            gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/heads/$branch" -f sha="$newCommitSha"
+          }
+          Write-Host "Branch $branch updated to $newCommitSha"
+
+          $exists = "${{ steps.check.outputs.exists }}"
+          if ($exists -eq "true") {
+            $prTitle = "Update willibrandon.dotsider to $version"
+            $prBody = "## Description`n`nUpdate dotsider to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
+          } else {
+            $prTitle = "New package: willibrandon.dotsider $version"
+            $prBody = "## Description`n`nAdd dotsider version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
+          }
+
+          gh pr create `
+            --repo microsoft/winget-pkgs `
+            --base master `
+            --head willibrandon:$branch `
+            --title $prTitle `
+            --body $prBody
