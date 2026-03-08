@@ -52,32 +52,11 @@
       </Directory>
     </StandardDirectory>
 
-    <!-- Start Menu shortcut -->
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="DotsiderStartMenuFolder" Name="dotsider">
-        <Component Id="StartMenuShortcut" Guid="DE3D342B-38D2-4F1D-882B-CEC8D35F1718">
-          <RegistryValue Root="HKLM"
-                         Key="Software\dotsider"
-                         Name="ShortcutInstalled"
-                         Type="integer"
-                         Value="1"
-                         KeyPath="yes" />
-          <Shortcut Id="DotsiderShortcut"
-                    Name="dotsider"
-                    Target="[INSTALLFOLDER]dotsider.exe"
-                    Description="A TUI for analyzing .NET assemblies"
-                    Icon="dotsider.ico" />
-          <RemoveFolder Id="RemoveDotsiderStartMenuFolder" On="uninstall" />
-        </Component>
-      </Directory>
-    </StandardDirectory>
-
     <!-- Main feature containing all components -->
     <Feature Id="MainFeature" Title="dotsider" Level="1">
       <!-- Harvest all files from SourceDir using WiX v5 Files element -->
       <Files Directory="INSTALLFOLDER" Include="$(var.SourceDir)\**" />
       <ComponentRef Id="PathEnvComponent" />
-      <ComponentRef Id="StartMenuShortcut" />
     </Feature>
 
   </Package>
