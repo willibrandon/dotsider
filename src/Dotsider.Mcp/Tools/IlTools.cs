@@ -95,8 +95,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                 }
                 catch (Exception ex)
                 {
-                    logger.LogDebug(ex, "Skipping method {Type}.{Method} — cannot disassemble",
-                        method.DeclaringType, method.Name);
+                    LogSkipMethod(logger, ex, method.DeclaringType, method.Name);
                 }
             }
 
@@ -111,4 +110,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
 
         return "Error: Either assemblyPath or sessionId is required.";
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Skipping method {Type}.{Method} — cannot disassemble")]
+    private static partial void LogSkipMethod(ILogger logger, Exception exception, string type, string method);
 }

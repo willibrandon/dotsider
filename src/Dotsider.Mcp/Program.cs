@@ -1,9 +1,18 @@
 using System.Diagnostics;
+using System.Reflection;
 using Dotsider.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+
+if (args is ["--version"])
+{
+    Console.WriteLine(typeof(DotsiderSessionManager).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion ?? "unknown");
+    return;
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -27,7 +36,7 @@ builder.Services
             var logger = context.Services?.GetService<ILogger<DotsiderSessionManager>>();
             var toolName = context.Params?.Name ?? "unknown";
 
-            logger?.LogDebug("Invoking tool {ToolName}", toolName);
+            if (logger is not null) Log.ToolInvoking(logger, toolName);
 
             var stopwatch = Stopwatch.StartNew();
             try
@@ -35,15 +44,12 @@ builder.Services
                 var result = await next(context, cancellationToken);
                 stopwatch.Stop();
 
-                if (result.IsError == true)
+                if (logger is not null)
                 {
-                    logger?.LogWarning("Tool {ToolName} returned error after {ElapsedMs}ms",
-                        toolName, stopwatch.ElapsedMilliseconds);
-                }
-                else
-                {
-                    logger?.LogDebug("Tool {ToolName} completed in {ElapsedMs}ms",
-                        toolName, stopwatch.ElapsedMilliseconds);
+                    if (result.IsError == true)
+                        Log.ToolReturnedError(logger, toolName, stopwatch.ElapsedMilliseconds);
+                    else
+                        Log.ToolCompleted(logger, toolName, stopwatch.ElapsedMilliseconds);
                 }
 
                 return result;
@@ -51,8 +57,8 @@ builder.Services
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                logger?.LogError(ex, "Tool {ToolName} threw unhandled exception after {ElapsedMs}ms",
-                    toolName, stopwatch.ElapsedMilliseconds);
+                if (logger is not null)
+                    Log.ToolUnhandledException(logger, ex, toolName, stopwatch.ElapsedMilliseconds);
                 throw;
             }
         });

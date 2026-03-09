@@ -20,7 +20,9 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Pack
-        run: dotnet pack src/Dotsider/Dotsider.csproj -c Release -o ./nupkg
+        run: |
+          dotnet pack src/Dotsider/Dotsider.csproj -c Release -o ./nupkg
+          dotnet pack src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -o ./nupkg
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
@@ -55,14 +57,23 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish
-        run: dotnet publish src/Dotsider/Dotsider.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish
+      - name: Publish dotsider
+        run: dotnet publish src/Dotsider/Dotsider.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish/dotsider
 
-      - name: Upload artifact
+      - name: Publish dotsider-mcp
+        run: dotnet publish src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish/dotsider-mcp
+
+      - name: Upload dotsider artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ./publish/dotsider*
+          path: ./publish/dotsider/dotsider*
+
+      - name: Upload dotsider-mcp artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotsider-mcp-${{ matrix.rid }}
+          path: ./publish/dotsider-mcp/dotsider-mcp*
 
       - name: Extract version from tag
         if: startsWith(matrix.rid, 'win-')
@@ -79,44 +90,27 @@ jobs:
         if: startsWith(matrix.rid, 'win-')
         run: dotnet tool install --global wix --version 5.0.2
 
-      - name: Build MSI with WiX
+      - name: Build dotsider MSI
         if: startsWith(matrix.rid, 'win-')
         shell: pwsh
         run: |
           wix build wix\dotsider.wxs `
-            -d SourceDir=..\publish `
+            -d SourceDir=..\publish\dotsider `
             -d Version=${{ steps.version.outputs.msi_version }} `
             -arch ${{ matrix.arch }} `
             -out publish\${{ matrix.artifact }}.msi
 
-      - name: Extract ProductCode from MSI
+      - name: Build dotsider-mcp MSI
         if: startsWith(matrix.rid, 'win-')
-        id: msi_info
         shell: pwsh
         run: |
-          $msiPath = "publish\${{ matrix.artifact }}.msi"
-          $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
-          $stream = [System.IO.File]::OpenRead($msiPath)
-          $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
-          $productCode = $null
-          while ($null -ne ($line = $reader.ReadLine())) {
-            if ($line -match $pattern) {
-              $productCode = $Matches[1]
-              break
-            }
-          }
-          $reader.Close()
-          $stream.Close()
+          wix build wix\dotsider-mcp.wxs `
+            -d SourceDir=..\publish\dotsider-mcp `
+            -d Version=${{ steps.version.outputs.msi_version }} `
+            -arch ${{ matrix.arch }} `
+            -out publish\dotsider-mcp-${{ matrix.rid }}.msi
 
-          if (-not $productCode) {
-            Write-Error "Failed to extract ProductCode from MSI"
-            exit 1
-          }
-
-          echo "product_code=$productCode" >> $env:GITHUB_OUTPUT
-          Write-Host "ProductCode: $productCode"
-
-      - name: Verify MSI installs correctly
+      - name: Verify dotsider MSI installs correctly
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: |
@@ -138,16 +132,49 @@ jobs:
           }
 
           & $exePath --version
-          Write-Host "MSI verification passed"
+          Write-Host "dotsider MSI verification passed"
 
           Start-Process msiexec.exe -ArgumentList "/x", "publish\${{ matrix.artifact }}.msi", "/qn" -Wait -NoNewWindow
 
-      - name: Upload MSI artifact
+      - name: Verify dotsider-mcp MSI installs correctly
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $logFile = "publish\mcp-msi-install.log"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\dotsider-mcp-win-x64.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "dotsider-mcp MSI installation failed with exit code: $($proc.ExitCode)"
+            if (Test-Path $logFile) {
+              Get-Content $logFile | Select-Object -Last 50
+            }
+            exit 1
+          }
+
+          $exePath = "${env:ProgramFiles}\dotsider-mcp\dotsider-mcp.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "dotsider-mcp.exe not found at $exePath"
+            exit 1
+          }
+
+          & $exePath --version
+          Write-Host "dotsider-mcp MSI verification passed"
+
+          Start-Process msiexec.exe -ArgumentList "/x", "publish\dotsider-mcp-win-x64.msi", "/qn" -Wait -NoNewWindow
+
+      - name: Upload dotsider MSI artifact
         if: startsWith(matrix.rid, 'win-')
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}-msi
           path: ./publish/${{ matrix.artifact }}.msi
+
+      - name: Upload dotsider-mcp MSI artifact
+        if: startsWith(matrix.rid, 'win-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotsider-mcp-${{ matrix.rid }}-msi
+          path: ./publish/dotsider-mcp-${{ matrix.rid }}.msi
 
   create-release:
     needs: [pack-and-publish, build-binaries]
@@ -160,6 +187,13 @@ jobs:
       sha256_win_arm64: ${{ steps.checksums.outputs.sha256_win_arm64 }}
       sha256_win_msi: ${{ steps.checksums.outputs.sha256_win_msi }}
       sha256_win_arm64_msi: ${{ steps.checksums.outputs.sha256_win_arm64_msi }}
+      sha256_mcp_linux_x64: ${{ steps.checksums.outputs.sha256_mcp_linux_x64 }}
+      sha256_mcp_linux_arm64: ${{ steps.checksums.outputs.sha256_mcp_linux_arm64 }}
+      sha256_mcp_osx_arm64: ${{ steps.checksums.outputs.sha256_mcp_osx_arm64 }}
+      sha256_mcp_win_x64: ${{ steps.checksums.outputs.sha256_mcp_win_x64 }}
+      sha256_mcp_win_arm64: ${{ steps.checksums.outputs.sha256_mcp_win_arm64 }}
+      sha256_mcp_win_msi: ${{ steps.checksums.outputs.sha256_mcp_win_msi }}
+      sha256_mcp_win_arm64_msi: ${{ steps.checksums.outputs.sha256_mcp_win_arm64_msi }}
     steps:
       - uses: actions/checkout@v4
 
@@ -171,6 +205,8 @@ jobs:
       - name: Package binaries
         run: |
           cd artifacts
+
+          # dotsider
           chmod +x dotsider-linux-x64/dotsider
           chmod +x dotsider-linux-arm64/dotsider
           chmod +x dotsider-osx-arm64/dotsider
@@ -182,10 +218,24 @@ jobs:
           cp dotsider-win-x64-msi/dotsider-win-x64.msi .
           cp dotsider-win-arm64-msi/dotsider-win-arm64.msi .
 
+          # dotsider-mcp
+          chmod +x dotsider-mcp-linux-x64/dotsider-mcp
+          chmod +x dotsider-mcp-linux-arm64/dotsider-mcp
+          chmod +x dotsider-mcp-osx-arm64/dotsider-mcp
+          tar -czf dotsider-mcp-linux-x64.tar.gz -C dotsider-mcp-linux-x64 .
+          tar -czf dotsider-mcp-linux-arm64.tar.gz -C dotsider-mcp-linux-arm64 .
+          tar -czf dotsider-mcp-osx-arm64.tar.gz -C dotsider-mcp-osx-arm64 .
+          cd dotsider-mcp-win-x64 && zip -r ../dotsider-mcp-win-x64.zip . && cd ..
+          cd dotsider-mcp-win-arm64 && zip -r ../dotsider-mcp-win-arm64.zip . && cd ..
+          cp dotsider-mcp-win-x64-msi/dotsider-mcp-win-x64.msi .
+          cp dotsider-mcp-win-arm64-msi/dotsider-mcp-win-arm64.msi .
+
       - name: Calculate SHA256 checksums
         id: checksums
         run: |
           cd artifacts
+
+          # dotsider checksums
           sha256sum dotsider-linux-x64.tar.gz > dotsider-linux-x64.tar.gz.sha256
           sha256sum dotsider-linux-arm64.tar.gz > dotsider-linux-arm64.tar.gz.sha256
           sha256sum dotsider-osx-arm64.tar.gz > dotsider-osx-arm64.tar.gz.sha256
@@ -201,6 +251,23 @@ jobs:
           echo "sha256_win_arm64=$(cut -d' ' -f1 dotsider-win-arm64.zip.sha256)" >> $GITHUB_OUTPUT
           echo "sha256_win_msi=$(cut -d' ' -f1 dotsider-win-x64.msi.sha256)" >> $GITHUB_OUTPUT
           echo "sha256_win_arm64_msi=$(cut -d' ' -f1 dotsider-win-arm64.msi.sha256)" >> $GITHUB_OUTPUT
+
+          # dotsider-mcp checksums
+          sha256sum dotsider-mcp-linux-x64.tar.gz > dotsider-mcp-linux-x64.tar.gz.sha256
+          sha256sum dotsider-mcp-linux-arm64.tar.gz > dotsider-mcp-linux-arm64.tar.gz.sha256
+          sha256sum dotsider-mcp-osx-arm64.tar.gz > dotsider-mcp-osx-arm64.tar.gz.sha256
+          sha256sum dotsider-mcp-win-x64.zip > dotsider-mcp-win-x64.zip.sha256
+          sha256sum dotsider-mcp-win-x64.msi > dotsider-mcp-win-x64.msi.sha256
+          sha256sum dotsider-mcp-win-arm64.zip > dotsider-mcp-win-arm64.zip.sha256
+          sha256sum dotsider-mcp-win-arm64.msi > dotsider-mcp-win-arm64.msi.sha256
+
+          echo "sha256_mcp_linux_x64=$(cut -d' ' -f1 dotsider-mcp-linux-x64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_linux_arm64=$(cut -d' ' -f1 dotsider-mcp-linux-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_osx_arm64=$(cut -d' ' -f1 dotsider-mcp-osx-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_win_x64=$(cut -d' ' -f1 dotsider-mcp-win-x64.zip.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_win_arm64=$(cut -d' ' -f1 dotsider-mcp-win-arm64.zip.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_win_msi=$(cut -d' ' -f1 dotsider-mcp-win-x64.msi.sha256)" >> $GITHUB_OUTPUT
+          echo "sha256_mcp_win_arm64_msi=$(cut -d' ' -f1 dotsider-mcp-win-arm64.msi.sha256)" >> $GITHUB_OUTPUT
 
           echo "SHA256 Checksums:"
           cat *.sha256
@@ -239,7 +306,21 @@ jobs:
             artifacts/dotsider-linux-arm64.tar.gz \
             artifacts/dotsider-linux-arm64.tar.gz.sha256 \
             artifacts/dotsider-osx-arm64.tar.gz \
-            artifacts/dotsider-osx-arm64.tar.gz.sha256
+            artifacts/dotsider-osx-arm64.tar.gz.sha256 \
+            artifacts/dotsider-mcp-win-x64.zip \
+            artifacts/dotsider-mcp-win-x64.zip.sha256 \
+            artifacts/dotsider-mcp-win-x64.msi \
+            artifacts/dotsider-mcp-win-x64.msi.sha256 \
+            artifacts/dotsider-mcp-win-arm64.zip \
+            artifacts/dotsider-mcp-win-arm64.zip.sha256 \
+            artifacts/dotsider-mcp-win-arm64.msi \
+            artifacts/dotsider-mcp-win-arm64.msi.sha256 \
+            artifacts/dotsider-mcp-linux-x64.tar.gz \
+            artifacts/dotsider-mcp-linux-x64.tar.gz.sha256 \
+            artifacts/dotsider-mcp-linux-arm64.tar.gz \
+            artifacts/dotsider-mcp-linux-arm64.tar.gz.sha256 \
+            artifacts/dotsider-mcp-osx-arm64.tar.gz \
+            artifacts/dotsider-mcp-osx-arm64.tar.gz.sha256
 
   update-homebrew:
     needs: create-release
@@ -260,16 +341,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Update formula with new version and checksums
+      - name: Update formulas with new version and checksums
         run: |
           cd homebrew-tap
           VERSION="${{ steps.version.outputs.version }}"
 
+          # Update dotsider formula
           sed -i "s/version \".*\"/version \"$VERSION\"/" Formula/dotsider.rb
 
           python3 << 'EOF'
           import re
 
+          # Update dotsider checksums
           with open('Formula/dotsider.rb', 'r') as f:
               content = f.read()
 
@@ -285,18 +368,41 @@ jobs:
 
           with open('Formula/dotsider.rb', 'w') as f:
               f.write(content)
+
+          # Update dotsider-mcp checksums
+          with open('Formula/dotsider-mcp.rb', 'r') as f:
+              content = f.read()
+
+          shas_mcp = {
+              'osx-arm64': '${{ needs.create-release.outputs.sha256_mcp_osx_arm64 }}',
+              'linux-arm64': '${{ needs.create-release.outputs.sha256_mcp_linux_arm64 }}',
+              'linux-x64': '${{ needs.create-release.outputs.sha256_mcp_linux_x64 }}',
+          }
+
+          for platform, sha in shas_mcp.items():
+              pattern = rf'(url "https://github\.com/willibrandon/dotsider/releases/download/v#\{{version\}}/dotsider-mcp-{platform}\.tar\.gz"\s+sha256 ")[^"]*(")'
+              content = re.sub(pattern, rf'\g<1>{sha}\2', content)
+
+          with open('Formula/dotsider-mcp.rb', 'w') as f:
+              f.write(content)
           EOF
+
+          # Update dotsider-mcp formula version
+          sed -i "s/version \".*\"/version \"$VERSION\"/" Formula/dotsider-mcp.rb
 
           echo "Updated Formula/dotsider.rb:"
           cat Formula/dotsider.rb
+          echo ""
+          echo "Updated Formula/dotsider-mcp.rb:"
+          cat Formula/dotsider-mcp.rb
 
       - name: Commit and push changes
         run: |
           cd homebrew-tap
           VERSION="${{ steps.version.outputs.version }}"
 
-          git add Formula/dotsider.rb
-          git diff --staged --quiet || git commit -m "Update dotsider to $VERSION"
+          git add Formula/dotsider.rb Formula/dotsider-mcp.rb
+          git diff --staged --quiet || git commit -m "Update dotsider and dotsider-mcp to $VERSION"
           git push origin main
 
   update-winget:
@@ -314,11 +420,22 @@ jobs:
           $version = "${{ github.ref_name }}" -replace '^v', ''
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Check if package exists in winget-pkgs
+      - name: Check if dotsider package exists in winget-pkgs
         id: check
         shell: pwsh
         run: |
           $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/w/willibrandon/dotsider" -Method Head -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Check if dotsider-mcp package exists in winget-pkgs
+        id: check_mcp
+        shell: pwsh
+        run: |
+          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/w/willibrandon/dotsider-mcp" -Method Head -SkipHttpErrorCheck
           if ($response.StatusCode -eq 200) {
             echo "exists=true" >> $env:GITHUB_OUTPUT
           } else {
@@ -330,7 +447,9 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
-      - name: Generate winget manifest (update existing)
+      # --- dotsider winget submission ---
+
+      - name: Generate dotsider winget manifest (update existing)
         if: steps.check.outputs.exists == 'true'
         shell: pwsh
         env:
@@ -346,7 +465,7 @@ jobs:
             --token $env:GH_TOKEN `
             --out manifests
 
-      - name: Generate winget manifest (new package)
+      - name: Generate dotsider winget manifest (new package)
         if: steps.check.outputs.exists == 'false'
         shell: pwsh
         run: |
@@ -398,10 +517,83 @@ jobs:
             }
           }
 
-          Write-Host "Generated manifests for new package:"
+          Write-Host "Generated dotsider manifests:"
           Get-ChildItem $manifestDir | ForEach-Object { Write-Host $_.Name }
 
-      - name: Submit winget PR via GitHub API
+      # --- dotsider-mcp winget submission ---
+
+      - name: Generate dotsider-mcp winget manifest (update existing)
+        if: steps.check_mcp.outputs.exists == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $urlX64 = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-mcp-win-x64.msi"
+          $urlArm64 = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-mcp-win-arm64.msi"
+
+          .\wingetcreate.exe update willibrandon.dotsider-mcp `
+            --version $version `
+            --urls $urlX64 $urlArm64 `
+            --token $env:GH_TOKEN `
+            --out manifests-mcp
+
+      - name: Generate dotsider-mcp winget manifest (new package)
+        if: steps.check_mcp.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+
+          # Use checked-in manifest templates
+          $manifestDir = "manifests-mcp/w/willibrandon/dotsider-mcp/$version"
+          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
+          Copy-Item winget/willibrandon.dotsider-mcp.yaml $manifestDir/
+          Copy-Item winget/willibrandon.dotsider-mcp.installer.yaml $manifestDir/
+          Copy-Item winget/willibrandon.dotsider-mcp.locale.en-US.yaml $manifestDir/
+
+          # Update version and URL in copied manifests
+          Get-ChildItem $manifestDir -Filter *.yaml | ForEach-Object {
+            (Get-Content $_.FullName) -replace '0\.3\.0', $version | Set-Content $_.FullName
+          }
+          $installerYaml = "$manifestDir/willibrandon.dotsider-mcp.installer.yaml"
+          (Get-Content $installerYaml) -replace 'v0\.3\.0', "v$version" | Set-Content $installerYaml
+
+          # Process both architectures
+          $archs = @(
+            @{ Rid = 'x64'; ShaSuffix = 'X64'; PcSuffix = 'X64' },
+            @{ Rid = 'arm64'; ShaSuffix = 'ARM64'; PcSuffix = 'ARM64' }
+          )
+          foreach ($arch in $archs) {
+            $url = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-mcp-win-$($arch.Rid).msi"
+            $msiFile = New-TemporaryFile
+            Invoke-WebRequest -Uri $url -OutFile $msiFile.FullName
+
+            $sha256 = (Get-FileHash $msiFile.FullName -Algorithm SHA256).Hash
+            (Get-Content $installerYaml) -replace "PLACEHOLDER_SHA256_$($arch.ShaSuffix)", $sha256 | Set-Content $installerYaml
+
+            $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
+            $stream = [System.IO.File]::OpenRead($msiFile.FullName)
+            $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
+            $productCode = $null
+            while ($null -ne ($line = $reader.ReadLine())) {
+              if ($line -match $pattern) {
+                $productCode = $Matches[1]
+                break
+              }
+            }
+            $reader.Close()
+            $stream.Close()
+            Remove-Item $msiFile.FullName
+
+            if ($productCode) {
+              (Get-Content $installerYaml) -replace "\{PLACEHOLDER_PRODUCT_CODE_$($arch.PcSuffix)\}", $productCode | Set-Content $installerYaml
+            }
+          }
+
+          Write-Host "Generated dotsider-mcp manifests:"
+          Get-ChildItem $manifestDir | ForEach-Object { Write-Host $_.Name }
+
+      - name: Submit dotsider winget PR via GitHub API
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
@@ -462,6 +654,73 @@ jobs:
           } else {
             $prTitle = "New package: willibrandon.dotsider $version"
             $prBody = "## Description`n`nAdd dotsider version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
+          }
+
+          gh pr create `
+            --repo microsoft/winget-pkgs `
+            --base master `
+            --head willibrandon:$branch `
+            --title $prTitle `
+            --body $prBody
+
+      - name: Submit dotsider-mcp winget PR via GitHub API
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $branch = "dotsider-mcp-$version"
+          $manifestDir = "manifests-mcp/w/willibrandon/dotsider-mcp/$version"
+
+          $forkRef = gh api repos/willibrandon/winget-pkgs/git/ref/heads/master --jq '.object.sha'
+          Write-Host "Fork master SHA: $forkRef"
+
+          $baseTreeSha = gh api "repos/willibrandon/winget-pkgs/git/commits/$forkRef" --jq '.tree.sha'
+          Write-Host "Base tree SHA: $baseTreeSha"
+
+          $treeEntries = [System.Collections.ArrayList]@()
+          Get-ChildItem -Path "manifests-mcp" -Recurse -File | ForEach-Object {
+            $content = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($_.FullName))
+            $blobResponse = gh api repos/willibrandon/winget-pkgs/git/blobs -X POST -f content="$content" -f encoding="base64"
+            $blobSha = $blobResponse | ConvertFrom-Json | Select-Object -ExpandProperty sha
+            $wingetPath = "manifests/w/willibrandon/dotsider-mcp/$version/$($_.Name)"
+            Write-Host "Created blob for $wingetPath : $blobSha"
+            [void]$treeEntries.Add(@{path=$wingetPath; mode="100644"; type="blob"; sha=$blobSha})
+          }
+
+          $treeData = @{base_tree=$baseTreeSha; tree=$treeEntries.ToArray()}
+          $treeJson = $treeData | ConvertTo-Json -Depth 10
+          Write-Host "Tree JSON: $treeJson"
+          $treeJson | Out-File -FilePath tree-mcp.json -Encoding utf8NoBOM
+          $newTree = gh api repos/willibrandon/winget-pkgs/git/trees -X POST --input tree-mcp.json
+          $newTreeSha = $newTree | ConvertFrom-Json | Select-Object -ExpandProperty sha
+          Write-Host "New tree SHA: $newTreeSha"
+
+          $commitJson = @{
+            message="Update willibrandon.dotsider-mcp to $version"
+            tree=$newTreeSha
+            parents=@($forkRef)
+          } | ConvertTo-Json -Compress
+          $commitJson | Out-File -FilePath commit-mcp.json -Encoding utf8
+          $newCommit = gh api repos/willibrandon/winget-pkgs/git/commits -X POST --input commit-mcp.json
+          $newCommitSha = $newCommit | ConvertFrom-Json | Select-Object -ExpandProperty sha
+          Write-Host "New commit SHA: $newCommitSha"
+
+          $refExists = gh api "repos/willibrandon/winget-pkgs/git/ref/heads/$branch" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh api "repos/willibrandon/winget-pkgs/git/refs/heads/$branch" -X PATCH -f sha="$newCommitSha" -F force=true
+          } else {
+            gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/heads/$branch" -f sha="$newCommitSha"
+          }
+          Write-Host "Branch $branch updated to $newCommitSha"
+
+          $exists = "${{ steps.check_mcp.outputs.exists }}"
+          if ($exists -eq "true") {
+            $prTitle = "Update willibrandon.dotsider-mcp to $version"
+            $prBody = "## Description`n`nUpdate dotsider-mcp to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
+          } else {
+            $prTitle = "New package: willibrandon.dotsider-mcp $version"
+            $prBody = "## Description`n`nAdd dotsider-mcp version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
           }
 
           gh pr create `

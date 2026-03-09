@@ -74,8 +74,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
                     }
                     catch (Exception ex)
                     {
-                        logger.LogDebug(ex, "Cannot read IL body for {Type}.{Method}",
-                            m.DeclaringType, m.Name);
+                        LogIlBodyError(logger, ex, m.DeclaringType, m.Name);
                         return new { Method = m, Size = 0 };
                     }
                 })
@@ -94,4 +93,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
 
         return "Error: Either assemblyPath or sessionId is required.";
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Cannot read IL body for {Type}.{Method}")]
+    private static partial void LogIlBodyError(ILogger logger, Exception exception, string type, string method);
 }

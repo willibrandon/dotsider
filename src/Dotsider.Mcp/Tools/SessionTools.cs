@@ -37,7 +37,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
             catch (Exception ex)
             {
                 // Unreachable socket — stale file from a crashed instance. Clean it up.
-                logger.LogWarning(ex, "Stale socket for PID {Pid} at {SocketPath} — removing", pid, socketPath);
+                LogStaleSocket(logger, ex, pid, socketPath);
                 try { File.Delete(socketPath); } catch { }
             }
         }
@@ -68,4 +68,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
         return JsonSerializer.Serialize(new { Assembly = info.Data, View = view.Data },
             DotsiderJsonOptions.Default);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Stale socket for PID {Pid} at {SocketPath} — removing")]
+    private static partial void LogStaleSocket(ILogger logger, Exception exception, int pid, string socketPath);
 }

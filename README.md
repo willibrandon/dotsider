@@ -154,9 +154,27 @@ The TUI is built on [Hex1b](https://github.com/mitchdenny/hex1b), a .NET termina
 
 ### Install
 
+#### dotnet tool (recommended)
+
 ```
 dotnet tool install -g Dotsider.Mcp
 ```
+
+#### Homebrew (macOS / Linux)
+
+```
+brew install willibrandon/tap/dotsider-mcp
+```
+
+#### WinGet (Windows)
+
+```
+winget install willibrandon.dotsider-mcp
+```
+
+#### Download binary
+
+Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
 
 ### Configure
 
