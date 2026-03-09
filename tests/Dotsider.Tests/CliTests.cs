@@ -123,6 +123,27 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Required command was not provided", stderr);
     }
 
+    // --- No-args exit code (WinGet validation) ---
+
+    [Fact]
+    public async Task NoArgs_ShowsHelpAndReturnsZero()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync();
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("dotsider", stdout);
+        Assert.Contains("Commands:", stdout);
+    }
+
+    [Fact]
+    public async Task JsonFlagAlone_ReturnsNonZero()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync("--json");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("Required command was not provided", stderr);
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(

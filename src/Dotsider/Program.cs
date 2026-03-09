@@ -37,6 +37,11 @@ static string? FindFileArg(string[] args, HashSet<string> subcommands)
     return null;
 }
 
+// No args = show help and exit 0 (not 1). Package manager validation (e.g. WinGet)
+// runs the exe bare and treats non-zero exit codes as installation failures.
+if (args.Length == 0)
+    args = ["--help"];
+
 var fileArg = FindFileArg(args, subcommands);
 if (fileArg is not null)
 {
