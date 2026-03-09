@@ -1,5 +1,7 @@
 <Solution>
+  <Project Path="src/Dotsider.Core/Dotsider.Core.csproj" />
   <Project Path="src/Dotsider/Dotsider.csproj" />
+  <Project Path="src/Dotsider.Mcp/Dotsider.Mcp.csproj" />
 
   <Folder Name="/samples/">
     <Project Path="samples/HelloWorld/HelloWorld.csproj" />
@@ -13,6 +15,7 @@
 
   <Folder Name="/tests/">
     <Project Path="tests/Dotsider.Tests/Dotsider.Tests.csproj" />
+    <Project Path="tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj" />
   </Folder>
 
   <Folder Name="/benchmarks/">

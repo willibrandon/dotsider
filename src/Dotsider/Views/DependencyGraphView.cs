@@ -1,5 +1,5 @@
-using Dotsider.Analysis;
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Surfaces;
@@ -126,7 +126,7 @@ public static class DependencyGraphView
                     if (state.GraphSelectedIndex >= 0 && state.GraphSelectedIndex < nodes.Count)
                     {
                         var node = nodes[state.GraphSelectedIndex];
-                        var resolvedPath = Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
+                        var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
                             state.Analyzer.FilePath, node.Name);
                         if (resolvedPath is not null && state.PushAssembly(resolvedPath))
                         {

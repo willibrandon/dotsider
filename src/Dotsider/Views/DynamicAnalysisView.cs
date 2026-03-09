@@ -1,5 +1,5 @@
-using Dotsider.Analysis;
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -113,7 +113,7 @@ public static class DynamicAnalysisView
                 if (!state.DynamicEditingArgs)
                 {
                     state.Tracer = new RuntimeTracer(
-                        state.Analyzer.FilePath, state.DynamicArguments, state.App);
+                        state.Analyzer.FilePath, state.DynamicArguments, () => state.App.Invalidate());
                     state.Tracer.Start();
                     state.App.RequestFocus(node =>
                         node.GetType().Name.StartsWith("TableNode"));
@@ -221,7 +221,7 @@ public static class DynamicAnalysisView
 
                     state.Tracer?.Dispose();
                     state.Tracer = new RuntimeTracer(
-                        state.Analyzer.FilePath, state.DynamicArguments, state.App);
+                        state.Analyzer.FilePath, state.DynamicArguments, () => state.App.Invalidate());
                     state.Tracer.Start();
                     state.DynamicEventsFocusedKey = null;
                     state.DynamicOutputFocusedKey = null;
@@ -449,7 +449,7 @@ public static class DynamicAnalysisView
     private static Hex1bWidget BuildOutputSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
-        var output = (IReadOnlyList<Analysis.Models.OutputLine>)tracer.GetOutput();
+        var output = (IReadOnlyList<OutputLine>)tracer.GetOutput();
         var search = state.Search[TabId.Dynamic];
         var query = search.Query;
 

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  dotsider-mcp Windows Installer (WiX v5)
+
+  IMPORTANT:
+    - UpgradeCode MUST remain constant across all versions (B75D8E63-81F6-4ABE-A719-BADD95A7FEF8)
+    - ProductCode uses Id="*" to auto-generate per build (MUST change each version)
+    - Version is passed via -d Version=X.Y.Z during build
+    - SourceDir is passed via -d SourceDir=path/to/files during build
+    - Uses WiX v5 Files element for automatic harvesting (no heat required)
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="dotsider-mcp"
+           Version="$(var.Version).0"
+           Manufacturer="willibrandon"
+           UpgradeCode="B75D8E63-81F6-4ABE-A719-BADD95A7FEF8"
+           Scope="perMachine">
+
+    <SummaryInformation Description="MCP server for AI-assisted .NET assembly analysis" />
+
+    <!-- Application icon for Add/Remove Programs -->
+    <Icon Id="dotsider.ico" SourceFile="assets\dotsider.ico" />
+    <Property Id="ARPPRODUCTICON" Value="dotsider.ico" />
+
+    <!-- Upgrade handling: removes old versions before installing new -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of dotsider-mcp is already installed."
+                  AllowSameVersionUpgrades="yes" />
+
+    <!-- Embed CAB files for single MSI distribution -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Install to Program Files\dotsider-mcp -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="dotsider-mcp">
+        <!-- Add dotsider-mcp to system PATH -->
+        <Component Id="PathEnvComponent" Guid="7031D2F5-0DF3-4DE5-AD5E-7341D08C15C3">
+          <RegistryValue Root="HKLM"
+                         Key="Software\dotsider-mcp"
+                         Name="PathConfigured"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+          <Environment Id="PATH"
+                       Name="PATH"
+                       Value="[INSTALLFOLDER]"
+                       Permanent="no"
+                       Part="last"
+                       Action="set"
+                       System="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Main feature containing all components -->
+    <Feature Id="MainFeature" Title="dotsider-mcp" Level="1">
+      <!-- Harvest all files from SourceDir using WiX v5 Files element -->
+      <Files Directory="INSTALLFOLDER" Include="$(var.SourceDir)\**" />
+      <ComponentRef Id="PathEnvComponent" />
+    </Feature>
+
+  </Package>
+</Wix>

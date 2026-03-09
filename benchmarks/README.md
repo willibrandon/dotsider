@@ -33,11 +33,16 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | Class | What it measures |
 |---|---|
 | `AssemblyAnalyzerBenchmarks` | Constructor and metadata table enumeration (TypeDefs, MethodDefs) |
+| `AssemblyDifferBenchmarks` | Dictionary-based O(n) diff of two assemblies by type, method, and reference |
+| `DependencyGraphBuilderBenchmarks` | Positioned dependency graph construction from assembly refs and type ref counts |
 | `HexSearchBenchmarks` | `FindBytePattern` with short, long, and no-match patterns against real assemblies |
 | `HexSearchThresholdBenchmarks` | Parameterized sweep (4–16MB) to pinpoint the 8ms adaptive search crossover |
-| `StringExtractorBenchmarks` | UserStrings, MetadataStrings, and RawStrings extraction |
-| `SizeAnalyzerBenchmarks` | `BuildSizeTree` full traversal |
 | `IlDisassemblerBenchmarks` | Disassemble and format all methods |
+| `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from .nupkg |
+| `SizeAnalyzerBenchmarks` | `BuildSizeTree` full traversal |
+| `StringExtractorBenchmarks` | UserStrings, MetadataStrings, and RawStrings extraction |
+| `TreemapLayoutBenchmarks` | Squarified treemap rectangle computation for assembly size trees |
+| `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
 
 ## Test Assemblies
 
@@ -60,6 +65,20 @@ Benchmarks use BCL assemblies from the running .NET runtime directory:
 | Xml TypeDefs | 1.19 ms | 9.25 MB |
 | CoreLib MethodDefs | 23.5 ms | 47.04 MB |
 | Xml MethodDefs | 9.13 ms | 18.14 MB |
+
+#### AssemblyDiffer
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| CoreLib vs Xml (max diff) | 1,513.5 ns | 7.2 KB |
+| CoreLib vs CoreLib (identity) | 463.4 ns | 2.93 KB |
+
+#### DependencyGraphBuilder
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| CoreLib graph | 1,528.9 ns | 7.2 KB |
+| Xml graph | 460.2 ns | 2.93 KB |
 
 #### Hex Search (FindBytePattern)
 
@@ -104,6 +123,21 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | CoreLib BuildSizeTree | 11.1 ms | 28.49 MB |
 | Xml BuildSizeTree | 3.32 ms | 10.03 MB |
 
+#### NuGetPackageAnalyzer
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| Construction (2 DLLs, ~24MB) | 45.32 us | 42.59 KB |
+| OpenDll (CoreLib ~16MB) | 32.51 ms | 16,727 KB |
+
+#### TreemapLayout
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| CoreLib layout (120x30) | 1,506.1 ns | 7.2 KB |
+| Xml layout (120x30) | 453.6 ns | 2.93 KB |
+| CoreLib layout (240x60) | 1,493.7 ns | 7.2 KB |
+
 #### IlDisassembler
 
 | Benchmark | Mean | Allocated |
@@ -112,3 +146,20 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | Xml DisassembleAll | 38.7 ms | 129.75 MB |
 | CoreLib FormatAll | 79.4 ms | 285.24 MB |
 | Xml FormatAll | 69.3 ms | 254.36 MB |
+
+### MCP Server
+
+Full tool call round-trip through the in-process pipe transport — includes JSON-RPC framing, DI resolution, filter execution, tool dispatch, analysis, JSON serialization, and response framing.
+
+#### McpToolBenchmarks
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| GetAssemblyInfo (CoreLib) | 26.04 ms | 49,237 KB |
+| ListTypes (CoreLib) | 10.67 ms | 25,186 KB |
+| GetSizeBreakdown (CoreLib) | 192.36 ms | 205,760 KB |
+| DisassembleMethod (single) | 25.23 ms | 48,204 KB |
+| ExtractStrings (CoreLib) | 135.46 ms | 117,025 KB |
+| DiscoverSessions (5 sockets) | 0.20 ms | 143 KB |
+
+Session discovery exercises the full path: directory scan, UDS connect to each socket, assembly-info round-trip, stale socket cleanup, and JSON serialization. Benchmarks use an isolated temp directory for reproducibility.

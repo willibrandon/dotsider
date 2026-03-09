@@ -7,7 +7,7 @@ using Hex1b.Widgets;
 namespace Dotsider.Views;
 
 /// <summary>
-/// Builds the PE/Metadata tab (Tab 2), showing PE headers, CLR header,
+/// Builds the PE/Metadata tab (Tab 1), showing PE headers, CLR header,
 /// and sub-tabbed metadata tables for sections, types, methods, and more.
 /// </summary>
 public static class PeMetadataView

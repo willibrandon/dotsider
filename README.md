@@ -67,16 +67,67 @@ The binary lands at `src/Dotsider/bin/Debug/net10.0/dotsider`.
 ## Usage
 
 ```
-dotsider <assembly.dll|.exe>    # analyze a .NET assembly
-dotsider diff <left> <right>    # compare two assemblies
-dotsider <package.nupkg>        # browse a NuGet package
+dotsider <assembly.dll|.exe>    # TUI mode — interactive assembly explorer
+dotsider <package.nupkg>        # TUI mode — browse NuGet package contents
+dotsider diff <left> <right>    # TUI mode — side-by-side assembly comparison
 
-Options:
+dotsider analyze <file> [opts]  # CLI mode — headless analysis to stdout or file
+dotsider sessions <command>     # CLI mode — interact with running dotsider instances
+dotsider agent init [opts]      # CLI mode — generate AI skill file for a provider
+dotsider agent mcp              # CLI mode — launch the dotsider MCP server
+
+TUI options:
   -t, --tab <1-8>               start on a specific tab
   -n, --min-len <n>             minimum raw string length (default: 4)
   -v, --version                 show version
   -h, --help                    show help
 ```
+
+### CLI: `dotsider analyze`
+
+Run analysis without the TUI — pipe to other tools, write to files, or output JSON for scripting.
+
+```
+dotsider analyze MyLib.dll                  # assembly info (default)
+dotsider analyze MyLib.dll --types          # list type definitions
+dotsider analyze MyLib.dll --methods        # list method definitions
+dotsider analyze MyLib.dll --il Type.Method # disassemble a method
+dotsider analyze MyLib.dll --deps           # assembly references
+dotsider analyze MyLib.dll --strings        # extract strings
+dotsider analyze MyLib.dll --size           # size breakdown
+dotsider analyze MyLib.dll --json           # any of the above as JSON
+dotsider analyze MyLib.dll --types -o out.txt  # write to file
+```
+
+### CLI: `dotsider sessions`
+
+Interact with running dotsider TUI instances. Each instance exposes a Unix domain socket for programmatic access.
+
+```
+dotsider sessions list                          # list running instances
+dotsider sessions info <pid>                    # assembly info + current view
+dotsider sessions view <pid>                    # current tab and view state
+dotsider sessions navigate <pid> <tab>          # switch to tab (0-7)
+dotsider sessions capture <pid> --format svg    # capture screen (text/ansi/html/svg)
+dotsider sessions trace start <pid>             # start tracing the loaded assembly
+dotsider sessions trace events <pid>            # get JIT, GC, exception events
+dotsider sessions trace counters <pid>          # get performance counters
+dotsider sessions trace output <pid>            # get stdout/stderr from traced process
+dotsider sessions trace stop <pid>              # stop the active trace
+```
+
+### CLI: `dotsider agent`
+
+MCP server management and AI skill file generation.
+
+```
+dotsider agent mcp                              # launch the dotsider MCP server
+dotsider agent init --ai claude                 # generate skill file for a provider
+dotsider agent init --path ./SKILL.md           # write to an explicit path
+dotsider agent init --stdout                    # print skill content to stdout
+```
+
+Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, codex, windsurf, kilocode, amp, qwen. Each resolves to the provider's conventional skill path relative to the current directory.
 
 ### Keyboard
 
@@ -120,18 +171,81 @@ The dynamic analysis tab uses `Microsoft.Diagnostics.NETCore.Client` to connect 
 
 The TUI is built on [Hex1b](https://github.com/mitchdenny/hex1b), a .NET terminal UI library with a React-inspired declarative API, constraint-based layout, theming, and efficient widget reconciliation.
 
+## MCP server
+
+`dotsider-mcp` is a standalone [Model Context Protocol](https://modelcontextprotocol.io) server that exposes dotsider's analysis engine to AI coding assistants like Claude Code, VS Code Copilot, and others.
+
+### Install
+
+#### dotnet tool (recommended)
+
+```
+dotnet tool install -g Dotsider.Mcp
+```
+
+#### Homebrew (macOS / Linux)
+
+```
+brew install willibrandon/tap/dotsider-mcp
+```
+
+#### WinGet (Windows)
+
+```
+winget install willibrandon.dotsider-mcp
+```
+
+#### Download binary
+
+Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
+
+### Configure
+
+Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
+
+```json
+{
+  "mcpServers": {
+    "dotsider": {
+      "command": "dotsider-mcp"
+    }
+  }
+}
+```
+
+### What it provides
+
+**28 tools** across assembly analysis, IL disassembly, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, and runtime tracing. Tools work in two modes:
+
+- **Direct mode** — pass an assembly path, get results (no TUI needed)
+- **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
+
+**4 guided prompts** for common workflows: security audit, API surface review, breaking change detection, and dependency health analysis.
+
 ## Project structure
 
 ```
-src/Dotsider/
+src/Dotsider.Core/
   Analysis/           PE reading, metadata extraction, IL disassembly,
                       diffing, dependency graphs, size analysis, runtime tracing
+  Analysis/Models/    Data types for analysis results
+  Protocol/           Request/response types and JSON options for the UDS protocol
+
+src/Dotsider/
+  Commands/           CLI subcommands (analyze, sessions, agent)
+  Diagnostics/        Unix domain socket listener for TUI state access
+  Infrastructure/     Output formatting, session discovery
   Views/              One file per tab — widget trees built each frame
   DotsiderApp.cs      Main app shell (tab panel, key bindings, hints bar)
   DotsiderState.cs    All mutable UI state in one place
   DiffApp.cs          Diff mode shell
   NuGetApp.cs         NuGet mode shell
   Program.cs          CLI entry point and mode routing
+
+src/Dotsider.Mcp/
+  Tools/              MCP tool classes (assembly, IL, metadata, deps, size, etc.)
+  Prompts/            Guided analysis prompts (security, API review, breaking changes)
+  Program.cs          MCP server entry point (stdio transport)
 
 samples/
   HelloWorld/         Minimal console app
@@ -145,6 +259,10 @@ samples/
 tests/Dotsider.Tests/
   SampleAssemblyFixture.cs   Builds all 7 samples once, shared across tests
   *Tests.cs                  Integration tests against real assemblies
+
+tests/Dotsider.Mcp.Tests/
+  McpServerTestBase.cs       In-memory MCP server setup for testing
+  *Tests.cs                  MCP tool and prompt integration tests
 ```
 
 ## Testing

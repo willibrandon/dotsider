@@ -10,10 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.*" />
+    <PackageReference Include="ModelContextProtocol" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/Dotsider/Dotsider.csproj" />
+    <ProjectReference Include="../../src/Dotsider.Core/Dotsider.Core.csproj" />
+    <ProjectReference Include="../../src/Dotsider.Mcp/Dotsider.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

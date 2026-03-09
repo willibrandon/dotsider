@@ -19,5 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Dotsider/Dotsider.csproj" />
+    <ProjectReference Include="../../src/Dotsider.Core/Dotsider.Core.csproj" />
   </ItemGroup>
 </Project>

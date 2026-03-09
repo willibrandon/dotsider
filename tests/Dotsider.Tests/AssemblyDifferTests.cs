@@ -1,5 +1,5 @@
-using Dotsider.Analysis;
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
