@@ -1,94 +1,149 @@
-using System.Reflection;
+using System.Collections.Concurrent;
+using System.CommandLine;
 using System.Text;
 using Dotsider;
+using Dotsider.Commands;
 using Dotsider.Diagnostics;
 using Hex1b;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-// Parse CLI arguments
-string? filePath = null;
-string? diffLeftPath = null;
-string? diffRightPath = null;
-int initialTab = 0;
-int minStringLength = 4;
-var isDiffMode = false;
+// --- Global options ---
 
-for (var i = 0; i < args.Length; i++)
+var jsonOption = new Option<bool>("--json")
 {
-    switch (args[i])
-    {
-        case "diff" when !isDiffMode && filePath is null:
-            isDiffMode = true;
-            break;
-        case "--min-len" or "-n":
-            if (i + 1 < args.Length && int.TryParse(args[++i], out var len) && len >= 1)
-                minStringLength = len;
-            else
-            {
-                Console.Error.WriteLine("Error: --min-len requires a positive integer");
-                return 1;
-            }
-            break;
-        case "--tab" or "-t":
-            if (i + 1 < args.Length && int.TryParse(args[++i], out var tab) && tab >= 1 && tab <= 8)
-                initialTab = tab - 1;
-            else
-            {
-                Console.Error.WriteLine("Error: --tab requires a value from 1 to 8");
-                return 1;
-            }
-            break;
-        case "--version" or "-v":
-            var version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
-            Console.WriteLine(version);
-            return 0;
-        case "--help" or "-h":
-            PrintUsage();
-            return 0;
-        default:
-            if (args[i].StartsWith('-'))
-            {
-                Console.Error.WriteLine($"Error: Unknown option: {args[i]}");
-                PrintUsage();
-                return 1;
-            }
-            if (isDiffMode)
-            {
-                if (diffLeftPath is null) diffLeftPath = args[i];
-                else if (diffRightPath is null) diffRightPath = args[i];
-            }
-            else
-            {
-                filePath = args[i];
-            }
-            break;
-    }
-}
+    Description = "Output results as JSON",
+    Recursive = true
+};
 
-// Determine mode
-if (isDiffMode)
+// --- Root command: TUI mode ---
+
+var fileArg = new Argument<FileInfo?>("file")
 {
-    if (diffLeftPath is null || diffRightPath is null)
+    Description = "Assembly file (.dll, .exe, or .nupkg)",
+    Arity = ArgumentArity.ZeroOrOne
+};
+
+var tabOption = new Option<int?>("--tab", "-t")
+{
+    Description = "Initial tab (1=General .. 7=SizeMap, 8=Dynamic)"
+};
+
+var minLenOption = new Option<int?>("--min-len", "-n")
+{
+    Description = "Minimum raw string length (default: 4)"
+};
+
+var rootCommand = new RootCommand("Analyze .NET assemblies like a boss.")
+{
+    fileArg,
+    tabOption,
+    minLenOption
+};
+rootCommand.Options.Add(jsonOption);
+
+rootCommand.SetAction(async (parseResult, ct) =>
+{
+    var file = parseResult.GetValue(fileArg);
+    if (file is null)
     {
-        Console.Error.WriteLine("Error: diff mode requires two assembly paths");
-        Console.Error.WriteLine("Usage: dotsider diff <assembly1> <assembly2>");
-        return 1;
-    }
-    if (!File.Exists(diffLeftPath))
-    {
-        Console.Error.WriteLine($"Error: File not found: {diffLeftPath}");
-        return 1;
-    }
-    if (!File.Exists(diffRightPath))
-    {
-        Console.Error.WriteLine($"Error: File not found: {diffRightPath}");
+        // No file provided — show help
         return 1;
     }
 
-    diffLeftPath = Path.GetFullPath(diffLeftPath);
-    diffRightPath = Path.GetFullPath(diffRightPath);
+    if (!file.Exists)
+    {
+        Console.Error.WriteLine($"Error: File not found: {file.FullName}");
+        return 1;
+    }
+
+    var filePath = file.FullName;
+    var initialTab = (parseResult.GetValue(tabOption) ?? 1) - 1;
+    if (initialTab < 0) initialTab = 0;
+    if (initialTab > 7) initialTab = 7;
+    var minStringLength = parseResult.GetValue(minLenOption) ?? 4;
+
+    // NuGet package mode
+    if (filePath.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
+    {
+        await using var nugetTerminal = Hex1bTerminal.CreateBuilder()
+            .WithHex1bApp((app, options) =>
+            {
+                options.Theme = DotsiderTheme.Create();
+                options.EnableMouse = true;
+
+                var nugetState = new NuGetState(app, filePath);
+                var nugetApp = new NuGetApp(nugetState);
+                return ctx => nugetApp.Build(ctx);
+            })
+            .WithMouse()
+            .WithDiagnostics(appName: "dotsider-nuget", forceEnable: true)
+            .Build();
+
+        await nugetTerminal.RunAsync();
+        return 0;
+    }
+
+    // Standard single-assembly TUI mode
+    DotsiderState? capturedState = null;
+    var pendingMutations = new ConcurrentQueue<Action<DotsiderState>>();
+
+    await using var diagnosticsListener = new DotsiderDiagnosticsListener(
+        () => capturedState, pendingMutations);
+
+    await using var terminal = Hex1bTerminal.CreateBuilder()
+        .WithHex1bApp((app, options) =>
+        {
+            options.Theme = DotsiderTheme.Create();
+            options.EnableMouse = true;
+
+            var state = new DotsiderState(app, filePath, pendingMutations)
+            {
+                CurrentTab = initialTab,
+                StringsMinLength = minStringLength
+            };
+            capturedState = state;
+
+            var dotsiderApp = new DotsiderApp(state);
+            return ctx => dotsiderApp.Build(ctx);
+        })
+        .WithMouse()
+        .WithDiagnostics(appName: "dotsider", forceEnable: true)
+        .Build();
+
+    diagnosticsListener.StartListening();
+
+    await terminal.RunAsync();
+    return 0;
+});
+
+// --- Diff subcommand ---
+
+var diffLeftArg = new Argument<FileInfo>("left") { Description = "First assembly" };
+var diffRightArg = new Argument<FileInfo>("right") { Description = "Second assembly" };
+
+var diffCommand = new Command("diff", "Compare two assemblies side-by-side")
+{
+    diffLeftArg,
+    diffRightArg
+};
+
+diffCommand.SetAction(async (parseResult, ct) =>
+{
+    var left = parseResult.GetValue(diffLeftArg)!;
+    var right = parseResult.GetValue(diffRightArg)!;
+
+    if (!left.Exists)
+    {
+        Console.Error.WriteLine($"Error: File not found: {left.FullName}");
+        return 1;
+    }
+
+    if (!right.Exists)
+    {
+        Console.Error.WriteLine($"Error: File not found: {right.FullName}");
+        return 1;
+    }
 
     await using var diffTerminal = Hex1bTerminal.CreateBuilder()
         .WithHex1bApp((app, options) =>
@@ -96,7 +151,7 @@ if (isDiffMode)
             options.Theme = DotsiderTheme.Create();
             options.EnableMouse = true;
 
-            var diffState = new DiffState(app, diffLeftPath, diffRightPath);
+            var diffState = new DiffState(app, left.FullName, right.FullName);
             var diffApp = new DiffApp(diffState);
             return ctx => diffApp.Build(ctx);
         })
@@ -106,85 +161,18 @@ if (isDiffMode)
 
     await diffTerminal.RunAsync();
     return 0;
-}
+});
 
-if (filePath is null)
-{
-    PrintUsage();
-    return 1;
-}
+rootCommand.Subcommands.Add(diffCommand);
 
-if (!File.Exists(filePath))
-{
-    Console.Error.WriteLine($"Error: File not found: {filePath}");
-    return 1;
-}
+// --- Sessions subcommand ---
 
-filePath = Path.GetFullPath(filePath);
+rootCommand.Subcommands.Add(SessionsCommand.Create(jsonOption));
 
-// Check for NuGet package mode
-if (filePath.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
-{
-    await using var nugetTerminal = Hex1bTerminal.CreateBuilder()
-        .WithHex1bApp((app, options) =>
-        {
-            options.Theme = DotsiderTheme.Create();
-            options.EnableMouse = true;
+// --- Analyze subcommand ---
 
-            var nugetState = new NuGetState(app, filePath);
-            var nugetApp = new NuGetApp(nugetState);
-            return ctx => nugetApp.Build(ctx);
-        })
-        .WithMouse()
-        .WithDiagnostics(appName: "dotsider-nuget", forceEnable: true)
-        .Build();
+rootCommand.Subcommands.Add(AnalyzeCommand.Create(jsonOption));
 
-    await nugetTerminal.RunAsync();
-    return 0;
-}
+// --- Parse and invoke ---
 
-// Standard single-assembly mode
-DotsiderState? capturedState = null;
-var pendingMutations = new System.Collections.Concurrent.ConcurrentQueue<Action<DotsiderState>>();
-
-await using var diagnosticsListener = new DotsiderDiagnosticsListener(
-    () => capturedState, pendingMutations);
-
-await using var terminal = Hex1bTerminal.CreateBuilder()
-    .WithHex1bApp((app, options) =>
-    {
-        options.Theme = DotsiderTheme.Create();
-        options.EnableMouse = true;
-
-        var state = new DotsiderState(app, filePath, pendingMutations)
-        {
-            CurrentTab = initialTab,
-            StringsMinLength = minStringLength
-        };
-        capturedState = state;
-
-        var dotsiderApp = new DotsiderApp(state);
-        return ctx => dotsiderApp.Build(ctx);
-    })
-    .WithMouse()
-    .WithDiagnostics(appName: "dotsider", forceEnable: true)
-    .Build();
-
-diagnosticsListener.StartListening();
-
-await terminal.RunAsync();
-return 0;
-
-static void PrintUsage()
-{
-    Console.Error.WriteLine("Usage: dotsider [options] <assembly.dll|exe|nupkg>");
-    Console.Error.WriteLine("       dotsider diff <assembly1> <assembly2>");
-    Console.Error.WriteLine();
-    Console.Error.WriteLine("Analyze .NET assemblies like a boss.");
-    Console.Error.WriteLine();
-    Console.Error.WriteLine("Options:");
-    Console.Error.WriteLine("  -t, --tab <1-8>       Initial tab (1=General .. 7=SizeMap, 8=Dynamic)");
-    Console.Error.WriteLine("  -n, --min-len <n>     Minimum raw string length (default: 4)");
-    Console.Error.WriteLine("  -v, --version         Show version");
-    Console.Error.WriteLine("  -h, --help            Show this help");
-}
+return await rootCommand.Parse(args).InvokeAsync();

@@ -1,0 +1,297 @@
+using System.CommandLine;
+using System.Text.Json;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Protocol;
+using Dotsider.Infrastructure;
+
+namespace Dotsider.Commands;
+
+/// <summary>
+/// Headless assembly analysis command: types, methods, IL, deps, strings, size.
+/// </summary>
+internal static class AnalyzeCommand
+{
+    private static readonly Argument<FileInfo> s_fileArg = new("file")
+    {
+        Description = "Assembly file to analyze (.dll or .exe)"
+    };
+
+    private static readonly Option<bool> s_typesOption = new("--types")
+    {
+        Description = "List type definitions"
+    };
+
+    private static readonly Option<bool> s_methodsOption = new("--methods")
+    {
+        Description = "List method definitions"
+    };
+
+    private static readonly Option<string?> s_ilOption = new("--il")
+    {
+        Description = "Disassemble a method (format: Type.Method)"
+    };
+
+    private static readonly Option<bool> s_depsOption = new("--deps")
+    {
+        Description = "Show assembly references and dependency graph"
+    };
+
+    private static readonly Option<bool> s_stringsOption = new("--strings")
+    {
+        Description = "Extract strings from the assembly"
+    };
+
+    private static readonly Option<bool> s_sizeOption = new("--size")
+    {
+        Description = "Show size breakdown"
+    };
+
+    public static Command Create(Option<bool> jsonOption)
+    {
+        var command = new Command("analyze", "Headless assembly analysis")
+        {
+            s_fileArg,
+            s_typesOption,
+            s_methodsOption,
+            s_ilOption,
+            s_depsOption,
+            s_stringsOption,
+            s_sizeOption
+        };
+
+        command.SetAction((parseResult, _) =>
+        {
+            var file = parseResult.GetValue(s_fileArg)!;
+            var json = parseResult.GetValue(jsonOption);
+            var formatter = new OutputFormatter { JsonMode = json };
+
+            if (!file.Exists)
+            {
+                formatter.WriteError($"Error: File not found: {file.FullName}");
+                return Task.FromResult(1);
+            }
+
+            try
+            {
+                using var analyzer = new AssemblyAnalyzer(file.FullName);
+                var disassembler = new IlDisassembler(analyzer);
+
+                if (parseResult.GetValue(s_typesOption))
+                    return Task.FromResult(PrintTypes(analyzer, formatter));
+
+                if (parseResult.GetValue(s_methodsOption))
+                    return Task.FromResult(PrintMethods(analyzer, formatter));
+
+                if (parseResult.GetValue(s_ilOption) is { } ilTarget)
+                    return Task.FromResult(PrintIl(analyzer, disassembler, ilTarget, formatter));
+
+                if (parseResult.GetValue(s_depsOption))
+                    return Task.FromResult(PrintDeps(analyzer, formatter));
+
+                if (parseResult.GetValue(s_stringsOption))
+                    return Task.FromResult(PrintStrings(analyzer, formatter));
+
+                if (parseResult.GetValue(s_sizeOption))
+                    return Task.FromResult(PrintSize(analyzer, disassembler, formatter));
+
+                // Default: show assembly info
+                return Task.FromResult(PrintAssemblyInfo(analyzer, formatter));
+            }
+            catch (Exception ex) when (ex is BadImageFormatException or IOException)
+            {
+                formatter.WriteError($"Error: {ex.Message}");
+                return Task.FromResult(1);
+            }
+        });
+
+        return command;
+    }
+
+    private static int PrintAssemblyInfo(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new
+            {
+                a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
+                a.TargetFramework, a.Architecture, a.HasMetadata,
+                TypeCount = a.TypeDefs.Count, MethodCount = a.MethodDefs.Count,
+                AssemblyRefCount = a.AssemblyRefs.Count
+            });
+        }
+        else
+        {
+            fmt.WriteLine($"File:       {a.FileName}");
+            fmt.WriteLine($"Size:       {DotsiderState.FormatSize(a.FileSize)}");
+            fmt.WriteLine($"Assembly:   {a.AssemblyName ?? "(none)"}");
+            fmt.WriteLine($"Version:    {a.AssemblyVersion ?? "(none)"}");
+            fmt.WriteLine($"Framework:  {a.TargetFramework ?? "(none)"}");
+            fmt.WriteLine($"Arch:       {a.Architecture}");
+            fmt.WriteLine($"Types:      {a.TypeDefs.Count}");
+            fmt.WriteLine($"Methods:    {a.MethodDefs.Count}");
+            fmt.WriteLine($"References: {a.AssemblyRefs.Count}");
+        }
+
+        return 0;
+    }
+
+    private static int PrintTypes(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(a.TypeDefs);
+            return 0;
+        }
+
+        fmt.WriteTable(
+            ["Namespace", "Name", "Base Type", "Methods"],
+            a.TypeDefs.Select(t => new[]
+            {
+                t.Namespace ?? "",
+                t.Name,
+                t.BaseType ?? "",
+                t.MethodCount.ToString()
+            }));
+
+        return 0;
+    }
+
+    private static int PrintMethods(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(a.MethodDefs);
+            return 0;
+        }
+
+        fmt.WriteTable(
+            ["Type", "Name", "Signature"],
+            a.MethodDefs.Select(m => new[]
+            {
+                m.DeclaringType,
+                m.Name,
+                m.Signature
+            }));
+
+        return 0;
+    }
+
+    private static int PrintIl(
+        AssemblyAnalyzer a, IlDisassembler dis, string target, OutputFormatter fmt)
+    {
+        // Parse "Type.Method" or "Type::Method"
+        var sep = target.Contains("::") ? "::" : ".";
+        var lastDot = target.LastIndexOf(sep, StringComparison.Ordinal);
+        if (lastDot < 0)
+        {
+            fmt.WriteError($"Error: Invalid method format '{target}'. Use Type.Method or Type::Method");
+            return 1;
+        }
+
+        var typeName = target[..lastDot];
+        var methodName = target[(lastDot + sep.Length)..];
+
+        var method = a.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType.EndsWith(typeName, StringComparison.OrdinalIgnoreCase)
+            && m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase));
+
+        if (method is null)
+        {
+            fmt.WriteError($"Error: Method not found: {target}");
+            return 1;
+        }
+
+        var instructions = dis.Disassemble(method);
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new { Method = method, Instructions = instructions });
+            return 0;
+        }
+
+        fmt.WriteLine($"// {method.DeclaringType}.{method.Name}{method.Signature}");
+        fmt.WriteLine($"// IL size: {instructions.Count} instructions");
+        fmt.WriteLine("");
+
+        foreach (var il in instructions)
+            fmt.WriteLine($"  IL_{il.Offset:X4}: {il.OpCode,-12} {il.Operand}");
+
+        return 0;
+    }
+
+    private static int PrintDeps(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            var (nodes, edges) = DependencyGraphBuilder.Build(a);
+            fmt.WriteJson(new { AssemblyRefs = a.AssemblyRefs, Graph = new { Nodes = nodes, Edges = edges } });
+            return 0;
+        }
+
+        fmt.WriteTable(
+            ["Name", "Version", "Culture", "PublicKeyToken"],
+            a.AssemblyRefs.Select(r => new[]
+            {
+                r.Name,
+                r.Version,
+                r.Culture ?? "",
+                r.PublicKeyToken ?? ""
+            }));
+
+        return 0;
+    }
+
+    private static int PrintStrings(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        var extractor = new StringExtractor(a);
+        var user = extractor.ExtractUserStrings();
+        var metadata = extractor.ExtractMetadataStrings();
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new { UserStrings = user, MetadataStrings = metadata });
+            return 0;
+        }
+
+        if (user.Count > 0)
+        {
+            fmt.WriteLine($"User Strings ({user.Count}):");
+            foreach (var s in user)
+                fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
+            fmt.WriteLine("");
+        }
+
+        if (metadata.Count > 0)
+        {
+            fmt.WriteLine($"Metadata Strings ({metadata.Count}):");
+            foreach (var s in metadata)
+                fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
+        }
+
+        return 0;
+    }
+
+    private static int PrintSize(AssemblyAnalyzer a, IlDisassembler dis, OutputFormatter fmt)
+    {
+        var tree = SizeAnalyzer.BuildSizeTree(a, dis);
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(tree);
+            return 0;
+        }
+
+        PrintSizeNode(tree, fmt, indent: 0);
+        return 0;
+    }
+
+    private static void PrintSizeNode(SizeNode node, OutputFormatter fmt, int indent)
+    {
+        var prefix = new string(' ', indent * 2);
+        fmt.WriteLine($"{prefix}{node.Name}  ({DotsiderState.FormatSize(node.Size)})");
+
+        foreach (var child in node.Children.OrderByDescending(c => c.Size).Take(20))
+            PrintSizeNode(child, fmt, indent + 1);
+    }
+}
