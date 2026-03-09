@@ -487,6 +487,7 @@ $RECYCLE.BIN/
 # Claude AI files
 .claude/settings.local.json
 .claude/commands/
+.claude/docs/
 
 # MCP server config (developer-specific)
 .mcp.json
