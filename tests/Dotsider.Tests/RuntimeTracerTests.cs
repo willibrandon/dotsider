@@ -1,5 +1,5 @@
-using Dotsider.Analysis;
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Widgets;
@@ -25,7 +25,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         _app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = _workload });
-        _tracer = new RuntimeTracer(assemblyPath, args, _app);
+        _tracer = new RuntimeTracer(assemblyPath, args, () => _app.Invalidate());
         return _tracer;
     }
 

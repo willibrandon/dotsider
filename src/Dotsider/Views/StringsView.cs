@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -80,7 +81,7 @@ public static class StringsView
                 SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
                 // Strings table
-                widgets.Add(outer.Table((IReadOnlyList<Analysis.Models.StringEntry>)activeStrings)
+                widgets.Add(outer.Table((IReadOnlyList<StringEntry>)activeStrings)
                     .RowKey(RowKey)
                     .Header(h =>
                     [
@@ -230,10 +231,10 @@ public static class StringsView
         ]).Fill();
     }
 
-    private static string RowKey(Analysis.Models.StringEntry e) =>
+    private static string RowKey(StringEntry e) =>
         $"{e.Offset}:{e.Source}";
 
-    private static int FindFocusedIndex(IReadOnlyList<Analysis.Models.StringEntry> entries, object? focusedKey)
+    private static int FindFocusedIndex(IReadOnlyList<StringEntry> entries, object? focusedKey)
     {
         if (focusedKey is not string key) return -1;
         for (var i = 0; i < entries.Count; i++)

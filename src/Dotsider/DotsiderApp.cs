@@ -1,4 +1,5 @@
-using Dotsider.Analysis;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Documents;
@@ -359,10 +360,10 @@ public sealed class DotsiderApp(DotsiderState state)
                 hints.Add(s.Section("Enter: Drill | ←→: Select | Backspace: Up"));
             else if (_state.CurrentTab == 7)
             {
-                if (_state.Tracer?.ProcessState == Analysis.Models.TraceProcessState.Running)
+                if (_state.Tracer?.ProcessState == TraceProcessState.Running)
                     hints.Add(s.Section("Ctrl+K: Stop"));
-                else if (_state.Tracer?.ProcessState is Analysis.Models.TraceProcessState.Exited
-                    or Analysis.Models.TraceProcessState.Error)
+                else if (_state.Tracer?.ProcessState is TraceProcessState.Exited
+                    or TraceProcessState.Error)
                     hints.Add(s.Section("Enter: Re-run"));
                 else if (_state.HasEntryPoint)
                     hints.Add(s.Section("Enter: Launch"));

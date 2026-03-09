@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
@@ -117,7 +118,7 @@ public sealed class NuGetApp(NuGetState state)
                 bindings.Key(Hex1bKey.Enter).Action(_ =>
                 {
                     // Filter against search query so Enter cannot open a hidden DLL
-                    var visibleDlls = (IReadOnlyList<Analysis.Models.NuGetFileEntry>)_state.Package.DllFiles;
+                    var visibleDlls = (IReadOnlyList<NuGetFileEntry>)_state.Package.DllFiles;
                     var q = browserSearch.Query;
                     if (!string.IsNullOrEmpty(q))
                     {

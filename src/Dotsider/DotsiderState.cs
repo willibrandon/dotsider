@@ -1,10 +1,10 @@
-using Dotsider.Analysis;
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Nodes;
 using Hex1b.Widgets;
-using TraceProcessState = Dotsider.Analysis.Models.TraceProcessState;
+using TraceProcessState = Dotsider.Core.Analysis.Models.TraceProcessState;
 
 namespace Dotsider;
 

@@ -1,4 +1,4 @@
-using Dotsider.Analysis.Models;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;

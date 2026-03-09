@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
-using Dotsider.Analysis;
+using Dotsider.Core.Analysis;
 
 namespace Dotsider.Benchmarks;
 
