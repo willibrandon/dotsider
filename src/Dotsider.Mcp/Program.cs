@@ -6,6 +6,17 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
+if (args is ["--help" or "-h"])
+{
+    Console.WriteLine("dotsider-mcp — MCP server for .NET assembly analysis");
+    Console.WriteLine("This server communicates via stdin/stdout using the MCP protocol.");
+    Console.WriteLine("Configure it in your AI assistant's MCP settings.");
+    Console.WriteLine();
+    Console.WriteLine("  -h, --help       Show this help");
+    Console.WriteLine("  --version        Show version");
+    return;
+}
+
 if (args is ["--version"])
 {
     Console.WriteLine(typeof(DotsiderSessionManager).Assembly

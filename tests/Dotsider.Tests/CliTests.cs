@@ -12,6 +12,20 @@ public class CliTests(SampleAssemblyFixture fixture)
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
+    private static readonly string s_buildConfig = DetectBuildConfig();
+
+    private static string DetectBuildConfig()
+    {
+        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
+                return parts[i + 1];
+        }
+
+        return "Debug";
+    }
+
     // --- Default analyze output ---
 
     [Fact]
@@ -152,7 +166,7 @@ public class CliTests(SampleAssemblyFixture fixture)
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build --project \"{s_projectPath}\" -- {string.Join(' ', arguments.Select(QuoteArg))}",
+            Arguments = $"run --no-build -c {s_buildConfig} --project \"{s_projectPath}\" -- {string.Join(' ', arguments.Select(QuoteArg))}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
