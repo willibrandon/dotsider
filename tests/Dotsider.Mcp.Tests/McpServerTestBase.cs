@@ -1,0 +1,116 @@
+using System.IO.Pipelines;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+
+namespace Dotsider.Mcp.Tests;
+
+using MCP = ModelContextProtocol.Server.McpServer;
+
+/// <summary>
+/// Base class for MCP server integration tests using in-memory pipe transport.
+/// Sets up a full MCP server with the dotsider session manager and tools.
+/// </summary>
+public abstract class McpServerTestBase : IAsyncDisposable
+{
+    private readonly Pipe _clientToServerPipe = new();
+    private readonly Pipe _serverToClientPipe = new();
+    private readonly CancellationTokenSource _cts = new();
+    private Task _serverTask = Task.CompletedTask;
+    private MCP? _server;
+    private ServiceProvider? _serviceProvider;
+    private ILoggerFactory? _loggerFactory;
+
+    protected McpServerTestBase()
+    {
+        ServiceCollection = new ServiceCollection();
+
+        ServiceCollection.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Debug);
+        });
+
+        ServiceCollection.AddSingleton<DotsiderSessionManager>();
+
+        var mcpServerAssembly = typeof(DotsiderSessionManager).Assembly;
+        McpServerBuilder = ServiceCollection
+            .AddMcpServer()
+            .WithStreamServerTransport(
+                _clientToServerPipe.Reader.AsStream(),
+                _serverToClientPipe.Writer.AsStream())
+            .WithToolsFromAssembly(mcpServerAssembly)
+            .WithPromptsFromAssembly(mcpServerAssembly);
+    }
+
+    protected ServiceCollection ServiceCollection { get; }
+    protected IMcpServerBuilder McpServerBuilder { get; }
+
+    protected MCP Server => _server
+        ?? throw new InvalidOperationException("Server not started. Call StartServerAsync first.");
+
+    protected ServiceProvider ServiceProvider => _serviceProvider
+        ?? throw new InvalidOperationException("Server not started. Call StartServerAsync first.");
+
+    protected DotsiderSessionManager SessionManager =>
+        ServiceProvider.GetRequiredService<DotsiderSessionManager>();
+
+    protected async Task StartServerAsync()
+    {
+        _serviceProvider = ServiceCollection.BuildServiceProvider(validateScopes: true);
+        _loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
+        _server = _serviceProvider.GetRequiredService<MCP>();
+        _serverTask = _server.RunAsync(_cts.Token);
+
+        await Task.Delay(50);
+    }
+
+    protected async Task<McpClient> CreateClientAsync(McpClientOptions? clientOptions = null)
+    {
+        return await McpClient.CreateAsync(
+            new StreamClientTransport(
+                serverInput: _clientToServerPipe.Writer.AsStream(),
+                serverOutput: _serverToClientPipe.Reader.AsStream(),
+                _loggerFactory),
+            clientOptions: clientOptions,
+            loggerFactory: _loggerFactory,
+            cancellationToken: _cts.Token);
+    }
+
+    protected CancellationToken TestCancellationToken => _cts.Token;
+
+    protected static string? GetTextContent(CallToolResult result)
+    {
+        var textBlock = result.Content.OfType<TextContentBlock>().FirstOrDefault();
+        return textBlock?.Text;
+    }
+
+    public virtual async ValueTask DisposeAsync()
+    {
+        await _cts.CancelAsync();
+
+        _clientToServerPipe.Writer.Complete();
+        _serverToClientPipe.Writer.Complete();
+
+        try
+        {
+            await _serverTask.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (TimeoutException)
+        {
+        }
+
+        if (_serviceProvider is not null)
+        {
+            await _serviceProvider.DisposeAsync();
+        }
+
+        _cts.Dispose();
+
+        GC.SuppressFinalize(this);
+    }
+}

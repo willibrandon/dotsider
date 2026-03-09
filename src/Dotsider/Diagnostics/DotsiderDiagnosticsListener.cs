@@ -261,18 +261,18 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         var matchingTypes = analyzer.TypeDefs
             .Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(max)
-            .Select(t => new { Kind = "type", t.FullName, t.Namespace });
+            .ToList();
 
         var matchingMethods = analyzer.MethodDefs
             .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(max)
-            .Select(m => new { Kind = "method", m.Name, m.DeclaringType, m.Signature });
+            .ToList();
 
         var matchingMemberRefs = analyzer.MemberRefs
             .Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(max)
-            .Select(r => new { Kind = "memberRef", r.Name, r.DeclaringType, r.Signature });
+            .ToList();
 
         return DotsiderResponse.Ok(new
         {
@@ -291,7 +291,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
 
         var state = RequireState();
         var method = state.Analyzer.MethodDefs.FirstOrDefault(m =>
-            m.DeclaringType.Equals(request.TypeName, StringComparison.OrdinalIgnoreCase)
+            m.DeclaringType.EndsWith(request.TypeName, StringComparison.OrdinalIgnoreCase)
             && m.Name.Equals(request.MethodName, StringComparison.OrdinalIgnoreCase));
 
         if (method is null)
