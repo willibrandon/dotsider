@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -9,7 +11,7 @@ namespace Dotsider.Mcp.Tools;
 /// MCP tools for IL disassembly and opcode searching.
 /// </summary>
 [McpServerToolType]
-public sealed partial class IlTools(DotsiderSessionManager sessionManager)
+public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogger<IlTools> logger)
 {
     /// <summary>
     /// Disassembles a method's IL bytecode into human-readable instructions.
@@ -20,7 +22,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with method metadata and IL instruction listing.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> DisassembleMethod(
         string typeName,
         string methodName,
@@ -30,6 +32,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var disassembler = new IlDisassembler(analyzer);
 
@@ -63,7 +66,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager)
     /// <param name="maxResults">Maximum number of results.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of methods with matching IL instructions.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> SearchIlOpcodes(
         string query,
         string? assemblyPath = null,
@@ -73,6 +76,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var disassembler = new IlDisassembler(analyzer);
             var max = maxResults ?? 50;
@@ -89,7 +93,11 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager)
                     if (matches.Count > 0)
                         results.Add(new { Method = $"{method.DeclaringType}.{method.Name}", Matches = matches });
                 }
-                catch { /* skip methods that can't be disassembled */ }
+                catch (Exception ex)
+                {
+                    logger.LogDebug(ex, "Skipping method {Type}.{Method} — cannot disassemble",
+                        method.DeclaringType, method.Name);
+                }
             }
 
             return JsonSerializer.Serialize(results, DotsiderJsonOptions.Default);

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -18,7 +19,7 @@ public sealed partial class NuGetTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with package identity, authors, description, and DLL file listing.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> AnalyzeNupkg(
         string nupkgPath,
         int? sessionId = null,
@@ -31,6 +32,7 @@ public sealed partial class NuGetTools(DotsiderSessionManager sessionManager)
         }
 
         // Direct mode
+        ToolHelpers.ValidateFilePath(nupkgPath, "nupkgPath");
         using var package = new NuGetPackageAnalyzer(nupkgPath);
         return JsonSerializer.Serialize(new
         {

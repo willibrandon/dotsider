@@ -72,6 +72,58 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     }
 
     [Fact]
+    public async Task GetCustomAttributes_DefaultFiltering_ExcludesCompilerGenerated()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "get_custom_attributes",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        Assert.DoesNotContain("CompilerGeneratedAttribute", text);
+        Assert.DoesNotContain("NullableContextAttribute", text);
+        Assert.DoesNotContain("NullableAttribute", text);
+        Assert.DoesNotContain("DebuggerBrowsableAttribute", text);
+    }
+
+    [Fact]
+    public async Task GetCustomAttributes_IncludeCompilerGenerated_ReturnsAll()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "get_custom_attributes",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = samples.RichLibraryDll,
+                ["includeCompilerGenerated"] = true
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        // With includeCompilerGenerated=true, these should be present
+        Assert.Contains("CompilerGeneratedAttribute", text);
+    }
+
+    [Fact]
+    public async Task GetCustomAttributes_ToolSchema_IncludesFilterParameter()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var tools = await client.ListToolsAsync(cancellationToken: TestCancellationToken);
+        var customAttrTool = tools.First(t => t.Name == "get_custom_attributes");
+        var schema = customAttrTool.JsonSchema.ToString();
+        Assert.Contains("includeCompilerGenerated", schema);
+    }
+
+    [Fact]
     public async Task GetResources_ValidAssembly_ReturnsResourceList()
     {
         await StartServerAsync();

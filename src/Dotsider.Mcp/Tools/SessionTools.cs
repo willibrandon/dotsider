@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dotsider.Core.Protocol;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -8,14 +9,14 @@ namespace Dotsider.Mcp.Tools;
 /// MCP tools for discovering and querying running dotsider TUI instances.
 /// </summary>
 [McpServerToolType]
-public sealed partial class SessionTools(DotsiderSessionManager sessionManager)
+public sealed partial class SessionTools(DotsiderSessionManager sessionManager, ILogger<SessionTools> logger)
 {
     /// <summary>
     /// Discovers running dotsider TUI instances by scanning for active Unix domain sockets.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of active sessions, or a message if none are found.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> DiscoverDotsiderSessions(CancellationToken ct = default)
     {
         var sessions = sessionManager.DiscoverSessions();
@@ -33,9 +34,10 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager)
                 if (response.Success)
                     results.Add(new { Pid = pid, SocketPath = socketPath, Info = response.Data });
             }
-            catch
+            catch (Exception ex)
             {
                 // Unreachable socket — stale file from a crashed instance. Clean it up.
+                logger.LogWarning(ex, "Stale socket for PID {Pid} at {SocketPath} — removing", pid, socketPath);
                 try { File.Delete(socketPath); } catch { }
             }
         }
@@ -52,7 +54,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of the running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with assembly info and current view state.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetSessionInfo(
         int sessionId,
         CancellationToken ct = default)

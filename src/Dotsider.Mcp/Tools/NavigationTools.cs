@@ -16,7 +16,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// <param name="sessionId">PID of the running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with tab, sub-tab, assembly path, and tracer state.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetCurrentView(
         int sessionId,
         CancellationToken ct = default)
@@ -32,7 +32,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// <param name="tabId">Tab ID (0=General, 1=PE/Metadata, 2=IL, 3=Strings, 4=Deps, 5=Hex, 6=Size, 7=Dynamic).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON confirmation that navigation was queued.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
     public async partial Task<string> NavigateTo(
         int sessionId,
         int tabId,
@@ -49,7 +49,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// <param name="format">Output format: text, ansi, html, or svg (default: text).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Screen capture content in the requested format.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> CaptureScreen(
         int sessionId,
         string format = "text",

@@ -17,7 +17,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     /// <param name="maxResults">Maximum number of events to return.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of trace events.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetTraceEvents(
         int sessionId,
         string? categoryFilter = null,
@@ -34,7 +34,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of the running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with counter values.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetTraceCounters(
         int sessionId,
         CancellationToken ct = default)
@@ -49,7 +49,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of the running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with process output lines.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetProcessOutput(
         int sessionId,
         CancellationToken ct = default)
@@ -65,7 +65,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     /// <param name="arguments">Command-line arguments to pass to the traced process.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON confirmation that trace start was queued.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
     public async partial Task<string> StartTrace(
         int sessionId,
         string? arguments = null,
@@ -81,7 +81,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of the running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON confirmation that the trace was stopped.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
     public async partial Task<string> StopTrace(
         int sessionId,
         CancellationToken ct = default)

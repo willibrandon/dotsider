@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -18,7 +19,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with assembly identity and statistics.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetAssemblyInfo(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -26,6 +27,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(new
             {
@@ -57,7 +59,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     /// <param name="maxResults">Maximum number of results.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of type definitions.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> ListTypes(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -67,6 +69,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var types = analyzer.TypeDefs.AsEnumerable();
             if (!string.IsNullOrEmpty(query))
@@ -95,7 +98,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     /// <param name="maxResults">Maximum number of results.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of method definitions.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> ListMethods(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -106,6 +109,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var methods = analyzer.MethodDefs.AsEnumerable();
             if (!string.IsNullOrEmpty(typeName))
@@ -133,25 +137,40 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     /// <param name="assemblyPath">Path to assembly file.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="maxResults">Maximum number of results per category.</param>
+    /// <param name="includeCompilerGenerated">Include compiler-generated members (default: false).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with Types, Methods, and MemberRefs arrays.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> FindMembers(
         string query,
         string? assemblyPath = null,
         int? sessionId = null,
         int? maxResults = null,
+        bool includeCompilerGenerated = false,
         CancellationToken ct = default)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var max = maxResults ?? 100;
+
+            var types = analyzer.TypeDefs
+                .Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
+            var methods = analyzer.MethodDefs
+                .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+            if (!includeCompilerGenerated)
+            {
+                types = types.Where(t => !t.Name.StartsWith("<>") && !t.Name.Contains("__"));
+                methods = methods.Where(m => !m.DeclaringType.StartsWith("<>"));
+            }
+
             return JsonSerializer.Serialize(new
             {
-                Types = analyzer.TypeDefs.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(max).ToList(),
-                Methods = analyzer.MethodDefs.Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(max).ToList(),
+                Types = types.Take(max).ToList(),
+                Methods = methods.Take(max).ToList(),
                 MemberRefs = analyzer.MemberRefs.Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(max).ToList()
             }, DotsiderJsonOptions.Default);
         }

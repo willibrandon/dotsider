@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -18,7 +19,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with PE header fields.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetPeHeaders(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -26,6 +27,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.PeHeaders, DotsiderJsonOptions.Default);
         }
@@ -46,7 +48,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with CLR header fields.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetClrHeader(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -54,6 +56,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.ClrHeader, DotsiderJsonOptions.Default);
         }
@@ -74,7 +77,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of PE sections.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetSections(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -82,6 +85,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.Sections, DotsiderJsonOptions.Default);
         }
@@ -95,23 +99,45 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
         return "Error: Either assemblyPath or sessionId is required.";
     }
 
+    private static readonly string[] CompilerGeneratedAttributeNames =
+    [
+        "CompilerGeneratedAttribute",
+        "NullableContextAttribute",
+        "NullableAttribute",
+        "DebuggerBrowsableAttribute",
+        "CompilerFeatureRequiredAttribute",
+        "IsExternalInit",
+    ];
+
     /// <summary>
     /// Gets custom attributes applied to assembly metadata entities.
     /// </summary>
     /// <param name="assemblyPath">Path to assembly file.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>
+    /// <param name="includeCompilerGenerated">Include compiler-generated attributes (default: false).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of custom attributes.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetCustomAttributes(
         string? assemblyPath = null,
         int? sessionId = null,
+        bool includeCompilerGenerated = false,
         CancellationToken ct = default)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.CustomAttributes, DotsiderJsonOptions.Default);
+            var attributes = analyzer.CustomAttributes.AsEnumerable();
+
+            if (!includeCompilerGenerated)
+            {
+                attributes = attributes.Where(a =>
+                    !CompilerGeneratedAttributeNames.Any(name =>
+                        a.Constructor.Contains(name, StringComparison.Ordinal)));
+            }
+
+            return JsonSerializer.Serialize(attributes.ToList(), DotsiderJsonOptions.Default);
         }
 
         if (sessionId is not null)
@@ -130,7 +156,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of manifest resources.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetResources(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -138,6 +164,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.Resources, DotsiderJsonOptions.Default);
         }
@@ -159,7 +186,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with the token value and its resolved name.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> ResolveToken(
         int token,
         string? assemblyPath = null,
@@ -168,6 +195,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var resolved = analyzer.ResolveToken(token);
             return JsonSerializer.Serialize(new { Token = token, Resolved = resolved },

@@ -4,22 +4,42 @@ using Dotsider.Core.Protocol;
 namespace Dotsider.Infrastructure;
 
 /// <summary>
-/// Dual-mode output formatter supporting JSON and human-readable text.
+/// Dual-mode output formatter supporting JSON and human-readable text,
+/// with optional file output via -o/--output.
 /// </summary>
-internal sealed class OutputFormatter
+internal sealed class OutputFormatter : IDisposable
 {
+    private readonly TextWriter _writer;
+    private readonly bool _ownsWriter;
+
     public bool JsonMode { get; set; }
+
+    public OutputFormatter() : this(null) { }
+
+    public OutputFormatter(string? outputPath)
+    {
+        if (outputPath is not null)
+        {
+            _writer = new StreamWriter(outputPath, append: false);
+            _ownsWriter = true;
+        }
+        else
+        {
+            _writer = Console.Out;
+            _ownsWriter = false;
+        }
+    }
 
     public void WriteJson<T>(T value)
     {
         var json = JsonSerializer.Serialize(value, DotsiderJsonOptions.Default);
-        Console.WriteLine(json);
+        _writer.WriteLine(json);
     }
 
     public void WriteLine(string message)
     {
         if (!JsonMode)
-            Console.WriteLine(message);
+            _writer.WriteLine(message);
     }
 
     public void WriteError(string message)
@@ -43,13 +63,19 @@ internal sealed class OutputFormatter
                 widths[i] = Math.Max(widths[i], row[i].Length);
         }
 
-        Console.WriteLine(string.Join("  ", headers.Select((h, i) => h.PadRight(widths[i]))));
-        Console.WriteLine(string.Join("  ", widths.Select(w => new string('-', w))));
+        _writer.WriteLine(string.Join("  ", headers.Select((h, i) => h.PadRight(widths[i]))));
+        _writer.WriteLine(string.Join("  ", widths.Select(w => new string('-', w))));
 
         foreach (var row in allRows)
         {
-            Console.WriteLine(string.Join("  ", row.Select((c, i) =>
+            _writer.WriteLine(string.Join("  ", row.Select((c, i) =>
                 i < widths.Length ? c.PadRight(widths[i]) : c)));
         }
+    }
+
+    public void Dispose()
+    {
+        if (_ownsWriter)
+            _writer.Dispose();
     }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -18,7 +19,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of assembly references.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetAssemblyRefs(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -26,6 +27,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.AssemblyRefs, DotsiderJsonOptions.Default);
         }
@@ -46,7 +48,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with Nodes and Edges arrays.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetDependencyGraph(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -54,6 +56,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var (nodes, edges) = DependencyGraphBuilder.Build(analyzer);
             return JsonSerializer.Serialize(new { Nodes = nodes, Edges = edges },
@@ -76,7 +79,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON array of type references.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> GetTypeRefs(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -84,6 +87,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.TypeRefs, DotsiderJsonOptions.Default);
         }

@@ -187,6 +187,24 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     }
 
     [Fact]
+    public async Task GetAssemblyInfo_NonexistentFile_ReturnsFileNotFoundError()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = "/nonexistent/path.dll" },
+            cancellationToken: TestCancellationToken);
+
+        Assert.True(result.IsError);
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        Assert.Contains("File not found", text);
+        Assert.Contains("/nonexistent/path.dll", text);
+    }
+
+    [Fact]
     public async Task ListTypes_EmptyLib_ReturnsMinimalTypes()
     {
         await StartServerAsync();

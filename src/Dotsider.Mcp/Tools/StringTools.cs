@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -21,7 +22,7 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
     /// <param name="maxResults">Maximum number of results per category.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with UserStrings, MetadataStrings, and RawStrings arrays.</returns>
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> ExtractStrings(
         string? assemblyPath = null,
         int? sessionId = null,
@@ -32,6 +33,7 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
     {
         if (assemblyPath is not null)
         {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
             var extractor = new StringExtractor(analyzer);
             var user = extractor.ExtractUserStrings();

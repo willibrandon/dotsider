@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -17,13 +19,19 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
     /// <param name="leftPath">Path to the first (left/old) assembly.</param>
     /// <param name="rightPath">Path to the second (right/new) assembly.</param>
     /// <param name="sessionId">PID of a running dotsider instance (uses the session's diff if available).</param>
+    /// <param name="includeCompilerGenerated">Include compiler-generated types and methods (default: false).</param>
+    /// <param name="maxTypeDiffs">Maximum number of type diffs to return (default: all). The summary always reflects full counts.</param>
+    /// <param name="maxMethodDiffs">Maximum number of method diffs to return (default: all). The summary always reflects full counts.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>JSON diff result with categorized changes.</returns>
-    [McpServerTool]
+    /// <returns>JSON diff result with categorized changes and a summary with full counts.</returns>
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public async partial Task<string> DiffAssemblies(
         string leftPath,
         string rightPath,
         int? sessionId = null,
+        bool includeCompilerGenerated = false,
+        int? maxTypeDiffs = null,
+        int? maxMethodDiffs = null,
         CancellationToken ct = default)
     {
         if (sessionId is not null)
@@ -33,9 +41,47 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
         }
 
         // Direct mode
+        ToolHelpers.ValidateAssemblyPath(leftPath);
+        ToolHelpers.ValidateAssemblyPath(rightPath);
         using var left = new AssemblyAnalyzer(leftPath);
         using var right = new AssemblyAnalyzer(rightPath);
         var result = AssemblyDiffer.Compare(left, right);
+
+        if (!includeCompilerGenerated)
+        {
+            static bool IsCompilerGeneratedType(string? name) =>
+                name is not null && (name.StartsWith("<>") || (name.StartsWith('<') && name.Contains('>')));
+
+            var filteredTypeDiffs = result.TypeDiffs
+                .Where(d =>
+                {
+                    var name = (d.Left ?? d.Right)?.Name;
+                    return !IsCompilerGeneratedType(name);
+                })
+                .ToList();
+
+            var filteredMethodDiffs = result.MethodDiffs
+                .Where(d =>
+                {
+                    var declaringType = (d.Left ?? d.Right)?.DeclaringType;
+                    return declaringType is null || !declaringType.StartsWith("<>");
+                })
+                .ToList();
+
+            result = new AssemblyDiffResult(filteredTypeDiffs, filteredMethodDiffs, result.AssemblyRefDiffs, result.MetadataSummary);
+        }
+
+        // Apply limits after filtering so the summary (computed from the full diff) stays accurate
+        if (maxTypeDiffs is > 0 && result.TypeDiffs.Count > maxTypeDiffs.Value)
+        {
+            result = result with { TypeDiffs = result.TypeDiffs.Take(maxTypeDiffs.Value).ToList() };
+        }
+
+        if (maxMethodDiffs is > 0 && result.MethodDiffs.Count > maxMethodDiffs.Value)
+        {
+            result = result with { MethodDiffs = result.MethodDiffs.Take(maxMethodDiffs.Value).ToList() };
+        }
+
         return JsonSerializer.Serialize(result, DotsiderJsonOptions.Default);
     }
 }

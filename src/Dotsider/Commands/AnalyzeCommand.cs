@@ -47,6 +47,11 @@ internal static class AnalyzeCommand
         Description = "Show size breakdown"
     };
 
+    private static readonly Option<string?> s_outputOption = new("--output", "-o")
+    {
+        Description = "Write output to a file instead of stdout"
+    };
+
     public static Command Create(Option<bool> jsonOption)
     {
         var command = new Command("analyze", "Headless assembly analysis")
@@ -57,25 +62,40 @@ internal static class AnalyzeCommand
             s_ilOption,
             s_depsOption,
             s_stringsOption,
-            s_sizeOption
+            s_sizeOption,
+            s_outputOption
         };
 
         command.SetAction((parseResult, _) =>
         {
             var file = parseResult.GetValue(s_fileArg)!;
             var json = parseResult.GetValue(jsonOption);
-            var formatter = new OutputFormatter { JsonMode = json };
+            var outputPath = parseResult.GetValue(s_outputOption);
 
             if (!file.Exists)
             {
-                formatter.WriteError($"Error: File not found: {file.FullName}");
+                Console.Error.WriteLine($"Error: File not found: {file.FullName}");
                 return Task.FromResult(1);
             }
 
             try
             {
+                // Validate output path before opening any files
+                if (outputPath is not null &&
+                    string.Equals(
+                        Path.GetFullPath(file.FullName),
+                        Path.GetFullPath(outputPath),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                    return Task.FromResult(1);
+                }
+
                 using var analyzer = new AssemblyAnalyzer(file.FullName);
                 var disassembler = new IlDisassembler(analyzer);
+
+                // Defer opening the output file until we know the input is valid
+                using var formatter = new OutputFormatter(outputPath) { JsonMode = json };
 
                 if (parseResult.GetValue(s_typesOption))
                     return Task.FromResult(PrintTypes(analyzer, formatter));
@@ -98,9 +118,12 @@ internal static class AnalyzeCommand
                 // Default: show assembly info
                 return Task.FromResult(PrintAssemblyInfo(analyzer, formatter));
             }
-            catch (Exception ex) when (ex is BadImageFormatException or IOException)
+            catch (Exception ex) when (
+                ex is BadImageFormatException or IOException
+                    or UnauthorizedAccessException or ArgumentException
+                    or PathTooLongException or NotSupportedException)
             {
-                formatter.WriteError($"Error: {ex.Message}");
+                Console.Error.WriteLine($"Error: {ex.Message}");
                 return Task.FromResult(1);
             }
         });
@@ -116,8 +139,7 @@ internal static class AnalyzeCommand
             {
                 a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
                 a.TargetFramework, a.Architecture, a.HasMetadata,
-                TypeCount = a.TypeDefs.Count, MethodCount = a.MethodDefs.Count,
-                AssemblyRefCount = a.AssemblyRefs.Count
+                Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
         else
@@ -128,9 +150,21 @@ internal static class AnalyzeCommand
             fmt.WriteLine($"Version:    {a.AssemblyVersion ?? "(none)"}");
             fmt.WriteLine($"Framework:  {a.TargetFramework ?? "(none)"}");
             fmt.WriteLine($"Arch:       {a.Architecture}");
-            fmt.WriteLine($"Types:      {a.TypeDefs.Count}");
-            fmt.WriteLine($"Methods:    {a.MethodDefs.Count}");
-            fmt.WriteLine($"References: {a.AssemblyRefs.Count}");
+            fmt.WriteLine("");
+
+            fmt.WriteLine($"Types ({a.TypeDefs.Count}):");
+            foreach (var t in a.TypeDefs)
+                fmt.WriteLine($"  {t.FullName}");
+            fmt.WriteLine("");
+
+            fmt.WriteLine($"Methods ({a.MethodDefs.Count}):");
+            foreach (var m in a.MethodDefs)
+                fmt.WriteLine($"  {m.DeclaringType}.{m.Name}{m.Signature}");
+            fmt.WriteLine("");
+
+            fmt.WriteLine($"References ({a.AssemblyRefs.Count}):");
+            foreach (var r in a.AssemblyRefs)
+                fmt.WriteLine($"  {r.Name} {r.Version}");
         }
 
         return 0;
