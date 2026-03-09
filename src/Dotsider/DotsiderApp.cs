@@ -30,6 +30,10 @@ public sealed class DotsiderApp(DotsiderState state)
     /// <returns>The root widget of the application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
+        // Drain pending mutations from the diagnostics socket listener
+        while (_state.PendingMutations.TryDequeue(out var mutation))
+            mutation(_state);
+
         // On first render, move focus from the tab bar into the content area
         if (!_initialFocusRequested)
         {

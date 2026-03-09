@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
@@ -17,9 +18,11 @@ public sealed class DotsiderState : IDisposable
     /// <summary>
     /// Creates a new application state for the specified assembly file.
     /// </summary>
-    public DotsiderState(Hex1bApp app, string filePath)
+    public DotsiderState(Hex1bApp app, string filePath,
+        ConcurrentQueue<Action<DotsiderState>>? pendingMutations = null)
     {
         App = app;
+        PendingMutations = pendingMutations ?? new();
         Analyzer = new AssemblyAnalyzer(filePath);
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
@@ -35,6 +38,7 @@ public sealed class DotsiderState : IDisposable
     public DotsiderState(Hex1bApp app, AssemblyAnalyzer analyzer)
     {
         App = app;
+        PendingMutations = new();
         Analyzer = analyzer;
         IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
@@ -46,6 +50,12 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The Hex1b application instance.</summary>
     public Hex1bApp App { get; }
+
+    /// <summary>
+    /// Queue of mutations to apply on the UI thread, drained at the top of each render frame.
+    /// Used by the diagnostics socket listener for thread-safe state changes.
+    /// </summary>
+    public ConcurrentQueue<Action<DotsiderState>> PendingMutations { get; }
 
     /// <summary>The core assembly analyzer (current top of navigation stack).</summary>
     public AssemblyAnalyzer Analyzer { get; internal set; }

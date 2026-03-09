@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using Dotsider;
+using Dotsider.Diagnostics;
 using Hex1b;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -143,23 +144,33 @@ if (filePath.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
 }
 
 // Standard single-assembly mode
+DotsiderState? capturedState = null;
+var pendingMutations = new System.Collections.Concurrent.ConcurrentQueue<Action<DotsiderState>>();
+
+await using var diagnosticsListener = new DotsiderDiagnosticsListener(
+    () => capturedState, pendingMutations);
+
 await using var terminal = Hex1bTerminal.CreateBuilder()
     .WithHex1bApp((app, options) =>
     {
         options.Theme = DotsiderTheme.Create();
         options.EnableMouse = true;
 
-        var state = new DotsiderState(app, filePath)
+        var state = new DotsiderState(app, filePath, pendingMutations)
         {
             CurrentTab = initialTab,
             StringsMinLength = minStringLength
         };
+        capturedState = state;
+
         var dotsiderApp = new DotsiderApp(state);
         return ctx => dotsiderApp.Build(ctx);
     })
     .WithMouse()
     .WithDiagnostics(appName: "dotsider", forceEnable: true)
     .Build();
+
+diagnosticsListener.StartListening();
 
 await terminal.RunAsync();
 return 0;
