@@ -10,13 +10,76 @@ namespace Dotsider.Commands;
 /// </summary>
 internal static class SessionsCommand
 {
+    /// <summary>Tab index → display name mapping (matches TabId constants).</summary>
+    private static readonly string[] s_tabNames =
+        ["General", "PE/Metadata", "IL Inspector", "Strings", "Hex Dump", "Dep Graph", "Size Map", "Dynamic"];
+
+    /// <summary>Returns a human-readable tab name for a numeric tab index.</summary>
+    private static string FormatTabName(JsonElement? element)
+    {
+        if (element is null) return "unknown";
+        if (element.Value.ValueKind == JsonValueKind.Number)
+        {
+            var idx = element.Value.GetInt32();
+            return idx >= 0 && idx < s_tabNames.Length ? $"{s_tabNames[idx]} ({idx})" : idx.ToString();
+        }
+
+        return element.Value.GetDisplayString("unknown");
+    }
+
+    private static readonly Argument<int> s_pidArg = new("pid")
+    {
+        Description = "Process ID of the dotsider instance"
+    };
+
+    /// <summary>
+    /// Creates the "sessions" command with all subcommands (list, info, view, navigate, capture, trace).
+    /// </summary>
     public static Command Create(Option<bool> jsonOption)
     {
         var command = new Command("sessions", "Manage running dotsider instances");
 
         command.Subcommands.Add(CreateListCommand(jsonOption));
+        command.Subcommands.Add(CreateInfoCommand(jsonOption));
+        command.Subcommands.Add(CreateViewCommand(jsonOption));
+        command.Subcommands.Add(CreateNavigateCommand(jsonOption));
+        command.Subcommands.Add(CreateCaptureCommand(jsonOption));
+        command.Subcommands.Add(CreateTraceCommand(jsonOption));
 
         return command;
+    }
+
+    /// <summary>
+    /// Sends a DotsiderRequest to a session identified by PID.
+    /// Returns the response or writes an error and returns null.
+    /// </summary>
+    private static async Task<DotsiderResponse?> SendToSession(
+        int pid, DotsiderRequest request, OutputFormatter formatter, CancellationToken ct)
+    {
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(pid);
+        if (!File.Exists(socketPath))
+        {
+            formatter.WriteError($"Error: No dotsider instance found for PID {pid}");
+            return null;
+        }
+
+        var client = new DotsiderClient();
+        try
+        {
+            var response = await client.SendAsync(socketPath, request, ct);
+            if (!response.Success)
+            {
+                formatter.WriteError($"Error: {response.Error}");
+                return null;
+            }
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            formatter.WriteError($"Error: Could not connect to PID {pid}: {ex.Message}");
+            return null;
+        }
     }
 
     private static Command CreateListCommand(Option<bool> jsonOption)
@@ -77,4 +140,442 @@ internal static class SessionsCommand
         return command;
     }
 
+    private static Command CreateInfoCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("info", "Show assembly info and current view for a running instance")
+        {
+            s_pidArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var infoResponse = await SendToSession(pid,
+                new DotsiderRequest { Method = "assembly-info" }, formatter, ct);
+            if (infoResponse is null) return 1;
+
+            var viewResponse = await SendToSession(pid,
+                new DotsiderRequest { Method = "get-current-view" }, formatter, ct);
+            if (viewResponse is null) return 1;
+
+            if (json)
+            {
+                formatter.WriteJson(new
+                {
+                    AssemblyInfo = infoResponse.Data,
+                    CurrentView = viewResponse.Data
+                });
+            }
+            else
+            {
+                var info = infoResponse.Data as JsonElement?;
+                var view = viewResponse.Data as JsonElement?;
+
+                formatter.WriteLine($"PID:        {pid}");
+                formatter.WriteLine($"File:       {info?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
+                formatter.WriteLine($"Assembly:   {info?.GetPropertyOrNull("assemblyName")?.GetString() ?? ""}");
+                formatter.WriteLine($"Version:    {info?.GetPropertyOrNull("assemblyVersion")?.GetString() ?? ""}");
+                formatter.WriteLine($"Framework:  {info?.GetPropertyOrNull("targetFramework")?.GetString() ?? ""}");
+                formatter.WriteLine($"Arch:       {info?.GetPropertyOrNull("architecture")?.GetString() ?? ""}");
+                formatter.WriteLine($"Types:      {info?.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine($"Methods:    {info?.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine("");
+                formatter.WriteLine($"Tab:        {FormatTabName(view?.GetPropertyOrNull("tab"))}");
+                formatter.WriteLine($"Tracer:     {view?.GetPropertyOrNull("tracerState")?.GetDisplayString("none") ?? "none"}");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateViewCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("view", "Show current view state of a running instance")
+        {
+            s_pidArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "get-current-view" }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+            {
+                formatter.WriteJson(response.Data);
+            }
+            else
+            {
+                var data = response.Data as JsonElement?;
+                formatter.WriteLine($"Tab:           {FormatTabName(data?.GetPropertyOrNull("tab"))}");
+                formatter.WriteLine($"PE Sub-tab:    {data?.GetPropertyOrNull("peSubTab")?.GetDisplayString() ?? ""}");
+                formatter.WriteLine($"Dynamic Sub:   {data?.GetPropertyOrNull("dynamicSubTab")?.GetDisplayString() ?? ""}");
+                formatter.WriteLine($"Assembly:      {data?.GetPropertyOrNull("assemblyPath")?.GetDisplayString() ?? ""}");
+                formatter.WriteLine($"Nav Depth:     {data?.GetPropertyOrNull("navigationDepth")?.GetDisplayString("0") ?? "0"}");
+                formatter.WriteLine($"Tracer:        {data?.GetPropertyOrNull("tracerState")?.GetDisplayString("none") ?? "none"}");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateNavigateCommand(Option<bool> jsonOption)
+    {
+        var tabArg = new Argument<int>("tab")
+        {
+            Description = "Tab index to navigate to (0=General, 1=PE/Metadata, 2=IL Inspector, 3=Strings, 4=Hex Dump, 5=Dep Graph, 6=Size Map, 7=Dynamic)"
+        };
+
+        var command = new Command("navigate", "Switch to a specific tab in a running instance")
+        {
+            s_pidArg,
+            tabArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var tabId = parseResult.GetValue(tabArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            if (tabId is < 0 or > 7)
+            {
+                formatter.WriteError($"Error: Tab index must be 0-7, got {tabId}");
+                return 1;
+            }
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "navigate", TabId = tabId }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+                formatter.WriteJson(response.Data);
+            else
+            {
+                var data = response.Data as JsonElement?;
+                formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
+                    ?? $"Navigated to tab {tabId}");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateCaptureCommand(Option<bool> jsonOption)
+    {
+        var formatOption = new Option<string>("--format")
+        {
+            Description = "Capture format: text, ansi, html, or svg",
+            DefaultValueFactory = _ => "text"
+        };
+
+        var command = new Command("capture", "Capture the TUI screen")
+        {
+            s_pidArg,
+            formatOption
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var format = parseResult.GetValue(formatOption) ?? "text";
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var hex1bSocket = SessionDiscovery.GetHex1bSocketPath(pid);
+            if (!File.Exists(hex1bSocket))
+            {
+                formatter.WriteError($"Error: No hex1b diagnostics socket found for PID {pid}");
+                return 1;
+            }
+
+            try
+            {
+                var requestJson = JsonSerializer.Serialize(
+                    new { method = "capture", format }, DotsiderJsonOptions.Default);
+
+                var client = new DotsiderClient();
+                var responseJson = await client.SendRawAsync(hex1bSocket, requestJson, ct);
+
+                var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                if (response.TryGetProperty("success", out var success) && success.GetBoolean()
+                    && response.TryGetProperty("data", out var data))
+                {
+                    var content = data.GetString() ?? "";
+                    if (json)
+                        formatter.WriteJson(new { Format = format, Content = content });
+                    else
+                        Console.Write(content);
+                }
+                else
+                {
+                    var error = response.TryGetProperty("error", out var errProp)
+                        ? errProp.GetString() : "Unknown error";
+                    formatter.WriteError($"Error: {error}");
+                    return 1;
+                }
+            }
+            catch (Exception ex)
+            {
+                formatter.WriteError($"Error: Could not capture from PID {pid}: {ex.Message}");
+                return 1;
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateTraceCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("trace", "Trace commands for a running instance");
+
+        command.Subcommands.Add(CreateTraceEventsCommand(jsonOption));
+        command.Subcommands.Add(CreateTraceCountersCommand(jsonOption));
+        command.Subcommands.Add(CreateTraceOutputCommand(jsonOption));
+        command.Subcommands.Add(CreateTraceStartCommand(jsonOption));
+        command.Subcommands.Add(CreateTraceStopCommand(jsonOption));
+
+        return command;
+    }
+
+    private static Command CreateTraceEventsCommand(Option<bool> jsonOption)
+    {
+        var categoryOption = new Option<string?>("--category")
+        {
+            Description = "Filter by event category (jit, gc, exception, loader, contention)"
+        };
+        var maxOption = new Option<int?>("--max")
+        {
+            Description = "Maximum number of events to return"
+        };
+
+        var command = new Command("events", "Get trace events from a running instance")
+        {
+            s_pidArg,
+            categoryOption,
+            maxOption
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            var category = parseResult.GetValue(categoryOption);
+            var max = parseResult.GetValue(maxOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest
+                {
+                    Method = "get-trace-events",
+                    CategoryFilter = category,
+                    MaxResults = max
+                }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+            {
+                formatter.WriteJson(response.Data);
+            }
+            else
+            {
+                var data = response.Data as JsonElement?;
+                if (data?.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var evt in data.Value.EnumerateArray())
+                    {
+                        var cat = evt.GetPropertyOrNull("category")?.GetString() ?? "";
+                        var name = evt.GetPropertyOrNull("name")?.GetString() ?? "";
+                        var detail = evt.GetPropertyOrNull("detail")?.GetString() ?? "";
+                        formatter.WriteLine($"[{cat}] {name}: {detail}");
+                    }
+                }
+                else
+                {
+                    formatter.WriteLine("No trace events available.");
+                }
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateTraceCountersCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("counters", "Get performance counters from a running instance")
+        {
+            s_pidArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "get-trace-counters" }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+            {
+                formatter.WriteJson(response.Data);
+            }
+            else
+            {
+                var data = response.Data as JsonElement?;
+                if (data?.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in data.Value.EnumerateObject())
+                        formatter.WriteLine($"{prop.Name}: {prop.Value}");
+                }
+                else
+                {
+                    formatter.WriteLine("No counter data available.");
+                }
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateTraceOutputCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("output", "Get process output from a running instance")
+        {
+            s_pidArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "get-process-output" }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+            {
+                formatter.WriteJson(response.Data);
+            }
+            else
+            {
+                var data = response.Data as JsonElement?;
+                if (data?.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var line in data.Value.EnumerateArray())
+                    {
+                        var stream = line.GetPropertyOrNull("stream")?.GetString() ?? "out";
+                        var text = line.GetPropertyOrNull("text")?.GetString() ?? "";
+                        var prefix = stream == "stderr" ? "[err] " : "";
+                        formatter.WriteLine($"{prefix}{text}");
+                    }
+                }
+                else
+                {
+                    formatter.WriteLine("No process output available.");
+                }
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateTraceStartCommand(Option<bool> jsonOption)
+    {
+        var argsOption = new Option<string?>("--args")
+        {
+            Description = "Command-line arguments for the traced process"
+        };
+
+        var command = new Command("start", "Start tracing in a running instance")
+        {
+            s_pidArg,
+            argsOption
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            var arguments = parseResult.GetValue(argsOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "start-trace", Arguments = arguments },
+                formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+                formatter.WriteJson(response.Data);
+            else
+            {
+                var data = response.Data as JsonElement?;
+                formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
+                    ?? "Trace started");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateTraceStopCommand(Option<bool> jsonOption)
+    {
+        var command = new Command("stop", "Stop tracing in a running instance")
+        {
+            s_pidArg
+        };
+
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var pid = parseResult.GetValue(s_pidArg);
+            var json = parseResult.GetValue(jsonOption);
+            using var formatter = new OutputFormatter { JsonMode = json };
+
+            var response = await SendToSession(pid,
+                new DotsiderRequest { Method = "stop-trace" }, formatter, ct);
+            if (response is null) return 1;
+
+            if (json)
+                formatter.WriteJson(response.Data);
+            else
+            {
+                var data = response.Data as JsonElement?;
+                formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
+                    ?? "Trace stopped");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
 }
+

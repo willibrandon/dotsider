@@ -488,6 +488,7 @@ $RECYCLE.BIN/
 .claude/settings.local.json
 .claude/commands/
 .claude/docs/
+.claude/skills/
 
 # MCP server config (developer-specific)
 .mcp.json

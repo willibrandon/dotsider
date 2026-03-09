@@ -71,7 +71,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
-            .Type("2") // Tab 2 — PE/Metadata
+            .Type("2") // Key 2 → PE/Metadata (TabId 1)
             .WaitUntil(s => s.ContainsText("Sections") || s.ContainsText("TypeDef"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
@@ -128,7 +128,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
-            .Key(Hex1bKey.D5) // Tab 5 — Hex Dump
+            .Key(Hex1bKey.D5) // Key 5 → Hex Dump (TabId 4)
             .WaitUntil(s => s.ContainsText("4D 5A") || s.ContainsText("00000"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()

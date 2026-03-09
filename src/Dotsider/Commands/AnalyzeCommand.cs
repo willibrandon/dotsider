@@ -52,6 +52,9 @@ internal static class AnalyzeCommand
         Description = "Write output to a file instead of stdout"
     };
 
+    /// <summary>
+    /// Creates the "analyze" command with options for types, methods, IL, deps, strings, and size.
+    /// </summary>
     public static Command Create(Option<bool> jsonOption)
     {
         var command = new Command("analyze", "Headless assembly analysis")

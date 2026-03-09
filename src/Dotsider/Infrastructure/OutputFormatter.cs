@@ -12,10 +12,15 @@ internal sealed class OutputFormatter : IDisposable
     private readonly TextWriter _writer;
     private readonly bool _ownsWriter;
 
+    /// <summary>Whether to emit JSON output instead of human-readable text.</summary>
     public bool JsonMode { get; set; }
 
+    /// <summary>Creates a formatter that writes to stdout.</summary>
     public OutputFormatter() : this(null) { }
 
+    /// <summary>
+    /// Creates a formatter that writes to the specified file, or stdout if null.
+    /// </summary>
     public OutputFormatter(string? outputPath)
     {
         if (outputPath is not null)
@@ -30,23 +35,27 @@ internal sealed class OutputFormatter : IDisposable
         }
     }
 
+    /// <summary>Serializes the value as JSON and writes it as a line.</summary>
     public void WriteJson<T>(T value)
     {
         var json = JsonSerializer.Serialize(value, DotsiderJsonOptions.Default);
         _writer.WriteLine(json);
     }
 
+    /// <summary>Writes a line of text (suppressed in JSON mode).</summary>
     public void WriteLine(string message)
     {
         if (!JsonMode)
             _writer.WriteLine(message);
     }
 
+    /// <summary>Writes an error message to stderr (always, regardless of mode).</summary>
     public void WriteError(string message)
     {
         Console.Error.WriteLine(message);
     }
 
+    /// <summary>Writes a column-aligned table with headers (suppressed in JSON mode).</summary>
     public void WriteTable(string[] headers, IEnumerable<string[]> rows)
     {
         if (JsonMode) return;
@@ -73,6 +82,7 @@ internal sealed class OutputFormatter : IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_ownsWriter)

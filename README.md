@@ -72,7 +72,9 @@ dotsider <package.nupkg>        # TUI mode — browse NuGet package contents
 dotsider diff <left> <right>    # TUI mode — side-by-side assembly comparison
 
 dotsider analyze <file> [opts]  # CLI mode — headless analysis to stdout or file
-dotsider sessions list          # CLI mode — list running dotsider instances
+dotsider sessions <command>     # CLI mode — interact with running dotsider instances
+dotsider agent init [opts]      # CLI mode — generate AI skill file for a provider
+dotsider agent mcp              # CLI mode — launch the dotsider MCP server
 
 TUI options:
   -t, --tab <1-8>               start on a specific tab
@@ -99,12 +101,33 @@ dotsider analyze MyLib.dll --types -o out.txt  # write to file
 
 ### CLI: `dotsider sessions`
 
-Discover running dotsider TUI instances. Each instance exposes a Unix domain socket for programmatic access.
+Interact with running dotsider TUI instances. Each instance exposes a Unix domain socket for programmatic access.
 
 ```
-dotsider sessions list           # list running instances
-dotsider sessions list --json    # as JSON
+dotsider sessions list                          # list running instances
+dotsider sessions info <pid>                    # assembly info + current view
+dotsider sessions view <pid>                    # current tab and view state
+dotsider sessions navigate <pid> <tab>          # switch to tab (0-7)
+dotsider sessions capture <pid> --format svg    # capture screen (text/ansi/html/svg)
+dotsider sessions trace start <pid>             # start tracing the loaded assembly
+dotsider sessions trace events <pid>            # get JIT, GC, exception events
+dotsider sessions trace counters <pid>          # get performance counters
+dotsider sessions trace output <pid>            # get stdout/stderr from traced process
+dotsider sessions trace stop <pid>              # stop the active trace
 ```
+
+### CLI: `dotsider agent`
+
+MCP server management and AI skill file generation.
+
+```
+dotsider agent mcp                              # launch the dotsider MCP server
+dotsider agent init --ai claude                 # generate skill file for a provider
+dotsider agent init --path ./SKILL.md           # write to an explicit path
+dotsider agent init --stdout                    # print skill content to stdout
+```
+
+Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, codex, windsurf, kilocode, amp, qwen. Each resolves to the provider's conventional skill path relative to the current directory.
 
 ### Keyboard
 
@@ -209,7 +232,7 @@ src/Dotsider.Core/
   Protocol/           Request/response types and JSON options for the UDS protocol
 
 src/Dotsider/
-  Commands/           CLI subcommands (analyze, sessions)
+  Commands/           CLI subcommands (analyze, sessions, agent)
   Diagnostics/        Unix domain socket listener for TUI state access
   Infrastructure/     Output formatting, session discovery
   Views/              One file per tab — widget trees built each frame

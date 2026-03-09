@@ -295,7 +295,7 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public void NavigateToTab(int tabIndex)
     {
-        if (CurrentTab == tabIndex) return;
+        if (tabIndex is < 0 or > 7 || CurrentTab == tabIndex) return;
 
         var previousSearch = Search[CurrentTab];
         if (previousSearch.IsActive && !previousSearch.IsConfirmed)

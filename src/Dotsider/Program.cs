@@ -11,7 +11,7 @@ Console.OutputEncoding = Encoding.UTF8;
 
 // --- Detect TUI mode (file arg anywhere, not a subcommand) ---
 
-var subcommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "diff", "sessions", "analyze" };
+var subcommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "diff", "sessions", "analyze", "agent" };
 
 // Find the first positional argument (not an option and not a known subcommand).
 // This handles both "dotsider file.dll --tab 2" and "dotsider --tab 2 file.dll".
@@ -107,6 +107,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
 rootCommand.Subcommands.Add(diffCommand);
 rootCommand.Subcommands.Add(SessionsCommand.Create(jsonOption));
 rootCommand.Subcommands.Add(AnalyzeCommand.Create(jsonOption));
+rootCommand.Subcommands.Add(AgentCommand.Create(jsonOption));
 
 return await rootCommand.Parse(args).InvokeAsync();
 

@@ -6,8 +6,13 @@ namespace Dotsider.Infrastructure;
 /// </summary>
 internal sealed class TuiArgParser
 {
+    /// <summary>The resolved assembly file path.</summary>
     public string FilePath { get; private set; } = "";
+
+    /// <summary>The initial tab index (0-based, from --tab which is 1-based).</summary>
     public int InitialTab { get; private set; }
+
+    /// <summary>The minimum string length for raw string extraction.</summary>
     public int MinStringLength { get; private set; } = 4;
 
     /// <summary>

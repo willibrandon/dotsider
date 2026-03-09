@@ -568,6 +568,9 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
             s.Tracer.Start();
         });
 
+        // Trigger a render frame so the mutation queue gets drained
+        _getState()?.App.Invalidate();
+
         return DotsiderResponse.Ok(new { Message = "Trace start queued" });
     }
 
@@ -606,11 +609,16 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
             return DotsiderResponse.Fail("TabId is required for navigate");
 
         var tabId = request.TabId.Value;
+        if (tabId is < 0 or > 7)
+            return DotsiderResponse.Fail($"TabId must be 0-7, got {tabId}");
+
         _pendingMutations.Enqueue(s =>
         {
             s.NavigateToTab(tabId);
-            s.App.Invalidate();
         });
+
+        // Trigger a render frame so the mutation queue gets drained
+        _getState()?.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Navigation to tab {tabId} queued" });
     }
@@ -630,8 +638,10 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
                 search.ActivateOrCycle();
             search.UpdateQuery(request.Query);
             search.Confirm();
-            s.App.Invalidate();
         });
+
+        // Trigger a render frame so the mutation queue gets drained
+        _getState()?.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
     }

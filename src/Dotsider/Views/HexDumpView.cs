@@ -8,7 +8,7 @@ using Hex1b.Widgets;
 namespace Dotsider.Views;
 
 /// <summary>
-/// Builds the Hex Dump tab (Tab 5), displaying the raw assembly bytes
+/// Builds the Hex Dump tab (Tab 4), displaying the raw assembly bytes
 /// in a full-size hex editor with byte category coloring, search match highlighting,
 /// data interpretation panel, jump-to-byte dialog, and vim navigation.
 /// Supports explicit text/hex search mode toggle via Ctrl+T.
