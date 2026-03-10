@@ -1,16 +1,23 @@
 [*.cs]
+dotnet_diagnostic.IDE0028.severity = warning
+dotnet_diagnostic.IDE0074.severity = warning
+dotnet_diagnostic.IDE0180.severity = warning
 dotnet_diagnostic.IDE0290.severity = warning
 dotnet_diagnostic.IDE0037.severity = warning
 dotnet_diagnostic.IDE0039.severity = warning
 dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.IDE0060.severity = warning
 dotnet_diagnostic.IDE0270.severity = warning
+dotnet_diagnostic.IDE0301.severity = warning
 dotnet_diagnostic.IDE0305.severity = warning
+dotnet_diagnostic.IDE0330.severity = warning
 dotnet_diagnostic.ASP0015.severity = warning
 dotnet_diagnostic.CA1050.severity = warning
 dotnet_diagnostic.CA1806.severity = warning
 dotnet_diagnostic.CA1401.severity = warning
+dotnet_diagnostic.CA1816.severity = warning
 dotnet_diagnostic.CA1822.severity = warning
 dotnet_diagnostic.CA1826.severity = warning
+dotnet_diagnostic.CA1859.severity = warning
 dotnet_diagnostic.CA2016.severity = warning
-dotnet_diagnostic.SYSLIB10.severity = warning
+dotnet_diagnostic.SYSLIB1054.severity = warning
