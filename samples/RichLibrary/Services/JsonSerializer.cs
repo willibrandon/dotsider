@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Newtonsoft.Json;
 using RichLibrary.Models;
 
@@ -9,6 +10,12 @@ namespace RichLibrary.Services;
 /// </summary>
 public static class JsonSerializer
 {
+    private static readonly JsonSerializerOptions s_options = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     public static string SerializeWithNewtonsoft(User user)
     {
         var settings = new JsonSerializerSettings
@@ -26,12 +33,7 @@ public static class JsonSerializer
 
     public static string SerializeWithSystemTextJson(User user)
     {
-        var options = new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-        };
-        return System.Text.Json.JsonSerializer.Serialize(user, options);
+        return System.Text.Json.JsonSerializer.Serialize(user, s_options);
     }
 
     public static User? DeserializeWithSystemTextJson(string json)

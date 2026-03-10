@@ -1,3 +1,5 @@
+root = true
+
 [*.cs]
 
 # ASP.NET
@@ -15,6 +17,7 @@ dotnet_diagnostic.CA1869.severity = warning
 dotnet_diagnostic.CA2016.severity = warning
 
 # IDE style rules
+dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0028.severity = warning
 dotnet_diagnostic.IDE0037.severity = warning
 dotnet_diagnostic.IDE0039.severity = warning

@@ -11,6 +11,8 @@
     <Description>V2 of RichLibrary with API changes for diff testing.</Description>
     <Authors>Dotsider Test Suite</Authors>
     <Company>Dotsider</Company>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
