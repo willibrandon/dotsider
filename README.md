@@ -196,6 +196,12 @@ dotnet tool install -g Dotsider.Mcp
 brew install willibrandon/tap/dotsider-mcp
 ```
 
+#### Scoop (Windows)
+
+```
+scoop install dotsider-mcp
+```
+
 #### WinGet (Windows)
 
 ```
