@@ -66,14 +66,14 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         var body = analyzer.GetMethodBody(method);
         if (body is null) return "// No IL body (abstract, extern, or native method)";
 
-        var lines = new List<string>();
-
-        // Method header info
-        lines.Add($"// Method: {method.DeclaringType}::{method.Name}");
-        lines.Add($"// Signature: {method.Signature}");
-        lines.Add($"// RVA: 0x{method.Rva:X8}");
-        lines.Add($"// Code size: {body.GetILBytes()?.Length ?? 0} bytes");
-        lines.Add($"// Max stack: {body.MaxStack}");
+        var lines = new List<string>
+        {
+            $"// Method: {method.DeclaringType}::{method.Name}",
+            $"// Signature: {method.Signature}",
+            $"// RVA: 0x{method.Rva:X8}",
+            $"// Code size: {body.GetILBytes()?.Length ?? 0} bytes",
+            $"// Max stack: {body.MaxStack}",
+        };
         if (body.LocalSignature.IsNil is false)
         {
             lines.Add($"// Locals init: {!body.LocalVariablesInitialized}");

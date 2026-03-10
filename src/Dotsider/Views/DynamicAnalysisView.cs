@@ -71,7 +71,7 @@ public static class DynamicAnalysisView
         return BuildActiveView(ctx, state, tracer);
     }
 
-    private static Hex1bWidget BuildMessageView(WidgetContext<VStackWidget> ctx,
+    private static VStackWidget BuildMessageView(WidgetContext<VStackWidget> ctx,
         string line1, string line2, string line3)
     {
         return ctx.VStack(outer =>
@@ -84,7 +84,7 @@ public static class DynamicAnalysisView
         ]).Fill();
     }
 
-    private static Hex1bWidget BuildIdleView(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static VStackWidget BuildIdleView(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var argsDisplay = string.IsNullOrEmpty(state.DynamicArguments)
             ? "(none — press 'a' to set)"
@@ -130,7 +130,7 @@ public static class DynamicAnalysisView
         .Fill();
     }
 
-    private static Hex1bWidget BuildActiveView(
+    private static VStackWidget BuildActiveView(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var search = state.Search[TabId.Dynamic];
@@ -143,10 +143,11 @@ public static class DynamicAnalysisView
 
         return ctx.VStack(outer =>
         {
-            var widgets = new List<Hex1bWidget>();
-
-            // Status bar
-            widgets.Add(BuildStatusBar(outer, tracer));
+            var widgets = new List<Hex1bWidget>
+            {
+                // Status bar
+                BuildStatusBar(outer, tracer)
+            };
 
             // Search bar (only on Events and Output sub-tabs)
             if (showSearch)
@@ -244,7 +245,7 @@ public static class DynamicAnalysisView
         .Fill();
     }
 
-    private static Hex1bWidget BuildStatusBar(WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
+    private static HStackWidget BuildStatusBar(WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
     {
         var (statusText, stateColor) = tracer.ProcessState switch
         {
@@ -272,7 +273,7 @@ public static class DynamicAnalysisView
         ]).FixedHeight(1);
     }
 
-    private static Hex1bWidget BuildEventsSubTab(
+    private static VStackWidget BuildEventsSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var events = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
@@ -445,7 +446,7 @@ public static class DynamicAnalysisView
         }
     }
 
-    private static Hex1bWidget BuildOutputSubTab(
+    private static TableWidget<OutputLine> BuildOutputSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var output = (IReadOnlyList<OutputLine>)tracer.GetOutput();
@@ -487,7 +488,7 @@ public static class DynamicAnalysisView
             .FillHeight();
     }
 
-    private static Hex1bWidget BuildSummarySubTab(
+    private static VStackWidget BuildSummarySubTab(
         WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
     {
         var summary = tracer.GetSummary();
@@ -517,7 +518,7 @@ public static class DynamicAnalysisView
         ]).Fill();
     }
 
-    private static Hex1bWidget IdleLine<T>(WidgetContext<T> ctx, string label, string value)
+    private static HStackWidget IdleLine<T>(WidgetContext<T> ctx, string label, string value)
         where T : Hex1bWidget
     {
         return ctx.HStack(row =>
@@ -528,7 +529,7 @@ public static class DynamicAnalysisView
         ]).FixedHeight(1);
     }
 
-    private static Hex1bWidget CounterLine<T>(WidgetContext<T> ctx, string label, string value)
+    private static HStackWidget CounterLine<T>(WidgetContext<T> ctx, string label, string value)
         where T : Hex1bWidget
     {
         return ctx.HStack(row =>
@@ -539,7 +540,7 @@ public static class DynamicAnalysisView
         ]);
     }
 
-    private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value)
+    private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value)
         where T : Hex1bWidget
     {
         return ctx.HStack(row =>

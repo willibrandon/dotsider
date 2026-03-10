@@ -118,6 +118,7 @@ public class SessionCliTests : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         await _dotsiderSocket.DisposeAsync();
         await _hex1bSocket.DisposeAsync();
     }

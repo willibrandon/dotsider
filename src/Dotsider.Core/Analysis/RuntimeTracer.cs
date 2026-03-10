@@ -37,14 +37,14 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
     private int _eventHead;
     private int _eventCount;
-    private readonly object _eventLock = new();
+    private readonly Lock _eventLock = new();
 
     // Counter snapshot — atomic via Interlocked.Exchange
     private CounterSnapshot? _latestCounters;
     private readonly Dictionary<string, double> _counterAccumulators = new(StringComparer.OrdinalIgnoreCase);
 
     // Summary accumulators (written under _eventLock for simplicity)
-    private readonly Dictionary<TraceEventCategory, int> _eventCounts = new();
+    private readonly Dictionary<TraceEventCategory, int> _eventCounts = [];
     private int _jittedMethodCount;
     private double _peakWorkingSetMb;
     private double _peakGcHeapMb;

@@ -27,7 +27,7 @@ public static class DataInterpretationPanel
         }
 
         var available = Math.Min(8, doc.ByteCount - byteOffset);
-        var bytes = available > 0 ? doc.GetBytes(byteOffset, available).Span : ReadOnlySpan<byte>.Empty;
+        ReadOnlySpan<byte> bytes = available > 0 ? doc.GetBytes(byteOffset, available).Span : [];
         var le = state.HexEndianness == HexEndianness.Little;
         var endianLabel = le ? "LE" : "BE";
 

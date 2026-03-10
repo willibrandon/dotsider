@@ -44,10 +44,10 @@ public static class GeneralView
 
         return ctx.VStack(outer =>
         {
-            var widgets = new List<Hex1bWidget>();
-
-            // Assembly Info section
-            widgets.Add(outer.Border(
+            var widgets = new List<Hex1bWidget>
+            {
+                // Assembly Info section
+                outer.Border(
                 outer.VStack(info =>
                 [
                     InfoLine(info, "Assembly Name", analyzer.AssemblyName ?? "(none)"),
@@ -63,7 +63,8 @@ public static class GeneralView
                     InfoLine(info, "Read-Only", analyzer.IsReadOnly ? "Yes" : "No"),
                     InfoLine(info, "Has Metadata", analyzer.HasMetadata ? "Yes" : "No")
                 ])
-            ).Title(" Assembly Info "));
+            ).Title(" Assembly Info ")
+            };
 
             // Search bar
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
@@ -146,7 +147,7 @@ public static class GeneralView
         .Fill();
     }
 
-    private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
+    private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [

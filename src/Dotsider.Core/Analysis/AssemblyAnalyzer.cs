@@ -328,7 +328,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             StrongNameSignatureSize: corHeader.StrongNameSignatureDirectory.Size);
     }
 
-    private IReadOnlyList<SectionInfo> ReadSections()
+    private List<SectionInfo> ReadSections()
     {
         return [.. _peReader.PEHeaders.SectionHeaders
             .Select(s => new SectionInfo(
@@ -340,7 +340,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 Characteristics: s.SectionCharacteristics))];
     }
 
-    private IReadOnlyList<TypeDefInfo> ReadTypeDefs()
+    private List<TypeDefInfo> ReadTypeDefs()
     {
         if (_metadataReader is null) return [];
 
@@ -376,7 +376,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<MethodDefInfo> ReadMethodDefs()
+    private List<MethodDefInfo> ReadMethodDefs()
     {
         if (_metadataReader is null) return [];
 
@@ -403,7 +403,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<AssemblyRefInfo> ReadAssemblyRefs()
+    private List<AssemblyRefInfo> ReadAssemblyRefs()
     {
         if (_metadataReader is null) return [];
 
@@ -428,7 +428,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<TypeRefInfo> ReadTypeRefs()
+    private List<TypeRefInfo> ReadTypeRefs()
     {
         if (_metadataReader is null) return [];
 
@@ -454,7 +454,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<MemberRefInfo> ReadMemberRefs()
+    private List<MemberRefInfo> ReadMemberRefs()
     {
         if (_metadataReader is null) return [];
 
@@ -477,7 +477,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<CustomAttributeInfo> ReadCustomAttributes()
+    private List<CustomAttributeInfo> ReadCustomAttributes()
     {
         if (_metadataReader is null) return [];
 
@@ -494,7 +494,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return result;
     }
 
-    private IReadOnlyList<ResourceInfo> ReadResources()
+    private List<ResourceInfo> ReadResources()
     {
         if (_metadataReader is null) return [];
 

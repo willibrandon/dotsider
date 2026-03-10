@@ -41,10 +41,7 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
         _app = new Hex1bApp(
             ctx =>
             {
-                if (_state is null)
-                {
-                    _state = new DotsiderState(_app!, dllPath, pendingMutations);
-                }
+                _state ??= new DotsiderState(_app!, dllPath, pendingMutations);
 
                 var dotsiderApp = new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
@@ -99,6 +96,7 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         if (_listener is not null)
             await _listener.DisposeAsync();
         _state?.Dispose();

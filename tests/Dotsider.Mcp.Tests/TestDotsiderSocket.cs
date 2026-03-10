@@ -13,7 +13,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
     private readonly Socket _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _acceptLoop;
-    private readonly Dictionary<string, Func<DotsiderRequest, DotsiderResponse>> _handlers = new();
+    private readonly Dictionary<string, Func<DotsiderRequest, DotsiderResponse>> _handlers = [];
 
     /// <summary>The PID this socket pretends to be.</summary>
     public int Pid { get; }

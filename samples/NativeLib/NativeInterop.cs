@@ -11,9 +11,9 @@ internal static partial class NativeInterop
     [LibraryImport("kernel32", EntryPoint = "GetCurrentProcessId")]
     internal static partial uint GetCurrentProcessId();
 
-    [DllImport("libc", EntryPoint = "getpid")]
-    internal static extern int GetPid();
+    [LibraryImport("libc", EntryPoint = "getpid")]
+    internal static partial int GetPid();
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    internal static extern int MessageBox(nint hWnd, string text, string caption, uint type);
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int MessageBox(nint hWnd, string text, string caption, uint type);
 }

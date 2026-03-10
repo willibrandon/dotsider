@@ -44,7 +44,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
         Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        GC.SuppressFinalize(this);
+        return ValueTask.CompletedTask;
+    }
 
     private string SamplePath(string project, string config, string tfm, string file)
         => Path.Combine(_repoRoot, "samples", project, "bin", config, tfm, file);

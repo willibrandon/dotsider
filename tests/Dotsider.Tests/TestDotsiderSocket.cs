@@ -14,7 +14,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
     private readonly Socket _listener;
     private readonly string _socketPath;
     private readonly CancellationTokenSource _cts = new();
-    private readonly Dictionary<string, Func<DotsiderRequest, object?>> _handlers = new();
+    private readonly Dictionary<string, Func<DotsiderRequest, object?>> _handlers = [];
     private Task? _acceptTask;
 
     /// <summary>Gets the Unix domain socket path this server is listening on.</summary>

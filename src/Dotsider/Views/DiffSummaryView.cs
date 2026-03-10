@@ -116,7 +116,7 @@ public static class DiffSummaryView
         .Fill();
     }
 
-    private static Hex1bWidget DiffInfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
+    private static HStackWidget DiffInfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [

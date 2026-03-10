@@ -35,10 +35,10 @@ public static class NuGetBrowserView
 
         return ctx.VStack(outer =>
         {
-            var widgets = new List<Hex1bWidget>();
-
-            // Package metadata
-            widgets.Add(outer.Border(
+            var widgets = new List<Hex1bWidget>
+            {
+                // Package metadata
+                outer.Border(
                 outer.VStack(info =>
                 [
                     InfoLine(info, "Package ID", pkg.PackageId ?? "(unknown)", query),
@@ -50,7 +50,8 @@ public static class NuGetBrowserView
                     InfoLine(info, "DLL Files", pkg.DllFiles.Count.ToString(), query),
                     InfoLine(info, "Total Size", DotsiderState.FormatSize(pkg.Files.Sum(f => f.UncompressedSize)), query)
                 ])
-            ).Title(" Package Info "));
+            ).Title(" Package Info ")
+            };
 
             // Search bar
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
@@ -98,7 +99,7 @@ public static class NuGetBrowserView
         }).Fill();
     }
 
-    private static Hex1bWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
+    private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [

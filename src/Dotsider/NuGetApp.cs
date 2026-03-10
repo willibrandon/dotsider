@@ -51,9 +51,11 @@ public sealed class NuGetApp(NuGetState state)
             // Hints bar
             outer.InfoBar(s =>
             {
-                var hints = new List<IInfoBarChild>();
-                hints.Add(s.Section(_state.IsBrowsingPackage ? "Enter: Open DLL" : "1-5: Tabs"));
-                hints.Add(s.Section("Backspace: Back"));
+                var hints = new List<IInfoBarChild>
+                {
+                    s.Section(_state.IsBrowsingPackage ? "Enter: Open DLL" : "1-5: Tabs"),
+                    s.Section("Backspace: Back")
+                };
                 if (_state.IsBrowsingPackage)
                 {
                     if (_state.BrowserSearch.IsActive)

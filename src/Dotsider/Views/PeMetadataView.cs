@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -35,10 +36,10 @@ public static class PeMetadataView
             // Layer 0: Main content
             z.VStack(outer =>
             {
-                var widgets = new List<Hex1bWidget>();
-
-                // Top section: PE Headers | CLR Header (side by side)
-                widgets.Add(outer.HSplitter(
+                var widgets = new List<Hex1bWidget>
+                {
+                    // Top section: PE Headers | CLR Header (side by side)
+                    outer.HSplitter(
                     left =>
                     [
                         left.Border(
@@ -97,7 +98,8 @@ public static class PeMetadataView
                             })
                         ).Title(" CLR Header ").Fill()
                     ],
-                    leftWidth: 50).FixedHeight(12));
+                    leftWidth: 50).FixedHeight(12)
+                };
 
                 // Search bar (shared helper)
                 SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
@@ -224,7 +226,7 @@ public static class PeMetadataView
         ]).Fill();
     }
 
-    private static Hex1bWidget BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<SectionInfo> BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.Sections, query,
@@ -266,7 +268,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<TypeDefInfo> BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.TypeDefs, query,
@@ -308,7 +310,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<MethodDefInfo> BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.MethodDefs, query,
@@ -350,7 +352,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<TypeRefInfo> BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.TypeRefs, query,
@@ -385,7 +387,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<MemberRefInfo> BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.MemberRefs, query,
@@ -417,7 +419,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<CustomAttributeInfo> BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.CustomAttributes, query,
@@ -451,7 +453,7 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static Hex1bWidget BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static TableWidget<ResourceInfo> BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.Resources, query,
@@ -501,10 +503,10 @@ public static class PeMetadataView
             .Where(i => toSearchable(i).Contains(query, StringComparison.OrdinalIgnoreCase))];
     }
 
-    private static Hex1bWidget HexCell<T>(WidgetContext<T> c, string text) where T : Hex1bWidget =>
+    private static ThemePanelWidget HexCell<T>(WidgetContext<T> c, string text) where T : Hex1bWidget =>
         c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor), c.Text(text));
 
-    private static Hex1bWidget PeLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
+    private static HStackWidget PeLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
         [

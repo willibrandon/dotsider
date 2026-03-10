@@ -74,12 +74,10 @@ public static class SizeTreemapView
             {
                 // Breadcrumb
                 outer.HStack(row =>
-                {
-                    var parts = new List<Hex1bWidget>();
-                    parts.Add(row.Text($" {BuildBreadcrumb(state)} "));
-                    parts.Add(row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill());
-                    return [.. parts];
-                }).FixedHeight(1)
+                [
+                    row.Text($" {BuildBreadcrumb(state)} "),
+                    row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill()
+                ]).FixedHeight(1)
             };
 
             // Search bar

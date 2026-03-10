@@ -28,9 +28,7 @@ public static class UnsafeOperations
     /// </summary>
     public static unsafe void Swap(int* a, int* b)
     {
-        var temp = *a;
-        *a = *b;
-        *b = temp;
+        (*a, *b) = (*b, *a);
     }
 
     /// <summary>

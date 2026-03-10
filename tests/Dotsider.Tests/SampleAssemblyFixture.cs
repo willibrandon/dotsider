@@ -70,6 +70,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
     public ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         if (File.Exists(NonDotNetBinaryPath))
         {
             try { File.Delete(NonDotNetBinaryPath); }
