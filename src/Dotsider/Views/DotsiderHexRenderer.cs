@@ -12,7 +12,7 @@ namespace Dotsider.Views;
 /// search match highlighting via binary search, and dim address column.
 /// Delegates all non-Render methods to the built-in HexEditorViewRenderer.
 /// </summary>
-public sealed class DotsiderHexRenderer : IEditorViewRenderer
+public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRenderer
 {
     private const int AddressWidth = 8;
     private const int SeparatorWidth = 2;
@@ -44,12 +44,7 @@ public sealed class DotsiderHexRenderer : IEditorViewRenderer
         MaxBytesPerRow = MaxBytesPerRow,
         SnapPoints = Snaps
     };
-    private readonly DotsiderState _state;
-
-    public DotsiderHexRenderer(DotsiderState state)
-    {
-        _state = state;
-    }
+    private readonly DotsiderState _state = state;
 
     public bool HandlesCharInput => true;
 

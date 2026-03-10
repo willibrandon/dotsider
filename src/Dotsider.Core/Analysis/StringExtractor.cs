@@ -10,18 +10,8 @@ namespace Dotsider.Core.Analysis;
 /// the #US heap (user string literals), the #Strings heap (metadata identifiers),
 /// and raw printable character sequences from the binary.
 /// </summary>
-public sealed class StringExtractor
+public sealed class StringExtractor(AssemblyAnalyzer analyzer)
 {
-    private readonly AssemblyAnalyzer _analyzer;
-
-    /// <summary>
-    /// Creates a new string extractor for the specified analyzer.
-    /// </summary>
-    /// <param name="analyzer">The assembly analyzer providing metadata and raw bytes.</param>
-    public StringExtractor(AssemblyAnalyzer analyzer)
-    {
-        _analyzer = analyzer;
-    }
 
     /// <summary>Number of malformed entries skipped during the last <see cref="ExtractUserStrings"/> call.</summary>
     public int SkippedUserStringCount { get; private set; }
@@ -36,7 +26,7 @@ public sealed class StringExtractor
     /// <returns>A list of string entries from the user strings heap.</returns>
     public IReadOnlyList<StringEntry> ExtractUserStrings()
     {
-        var reader = _analyzer.GetMetadataReader();
+        var reader = analyzer.GetMetadataReader();
         if (reader is null) return [];
 
         SkippedUserStringCount = 0;
@@ -72,7 +62,7 @@ public sealed class StringExtractor
     /// <returns>A list of string entries from the metadata strings heap.</returns>
     public IReadOnlyList<StringEntry> ExtractMetadataStrings()
     {
-        var reader = _analyzer.GetMetadataReader();
+        var reader = analyzer.GetMetadataReader();
         if (reader is null) return [];
 
         SkippedMetadataStringCount = 0;
@@ -109,7 +99,7 @@ public sealed class StringExtractor
     /// <returns>A list of string entries extracted from the raw binary.</returns>
     public IReadOnlyList<StringEntry> ExtractRawStrings(int minLength = 4)
     {
-        var bytes = _analyzer.RawBytes.Span;
+        var bytes = analyzer.RawBytes.Span;
         var results = new List<StringEntry>();
         var sb = new StringBuilder();
         var startOffset = -1;

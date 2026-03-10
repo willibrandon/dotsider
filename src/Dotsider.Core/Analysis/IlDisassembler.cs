@@ -7,22 +7,10 @@ namespace Dotsider.Core.Analysis;
 /// <summary>
 /// Decodes IL (Intermediate Language) method bodies into human-readable instruction sequences.
 /// </summary>
-public sealed class IlDisassembler
+public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 {
-    private readonly AssemblyAnalyzer _analyzer;
-    private readonly MetadataReader _reader;
-
-    /// <summary>
-    /// Creates a new IL disassembler for the specified analyzer.
-    /// </summary>
-    /// <param name="analyzer">The assembly analyzer that provides method bodies and token resolution.</param>
-    /// <exception cref="InvalidOperationException">The assembly has no .NET metadata.</exception>
-    public IlDisassembler(AssemblyAnalyzer analyzer)
-    {
-        _analyzer = analyzer;
-        _reader = analyzer.GetMetadataReader()
-            ?? throw new InvalidOperationException("Assembly has no .NET metadata.");
-    }
+    private readonly MetadataReader _reader = analyzer.GetMetadataReader()
+        ?? throw new InvalidOperationException("Assembly has no .NET metadata.");
 
     /// <summary>
     /// Disassembles a method's IL body into a sequence of instructions.
@@ -32,7 +20,7 @@ public sealed class IlDisassembler
     /// <returns>The list of decoded IL instructions.</returns>
     public IReadOnlyList<IlInstruction> Disassemble(MethodDefInfo method)
     {
-        var body = _analyzer.GetMethodBody(method);
+        var body = analyzer.GetMethodBody(method);
         if (body is null) return [];
 
         var instructions = new List<IlInstruction>();
@@ -75,7 +63,7 @@ public sealed class IlDisassembler
     /// <returns>A multi-line string with the full disassembly listing.</returns>
     public string FormatDisassembly(MethodDefInfo method)
     {
-        var body = _analyzer.GetMethodBody(method);
+        var body = analyzer.GetMethodBody(method);
         if (body is null) return "// No IL body (abstract, extern, or native method)";
 
         var lines = new List<string>();
@@ -118,7 +106,7 @@ public sealed class IlDisassembler
             OperandKind.InlineVar => ReadUInt16(ilBytes, ref offset).ToString(),
             OperandKind.InlineString => ResolveStringToken(ReadInt32(ilBytes, ref offset)),
             OperandKind.InlineMethod or OperandKind.InlineField or OperandKind.InlineType or OperandKind.InlineTok
-                => _analyzer.ResolveToken(ReadInt32(ilBytes, ref offset)),
+                => analyzer.ResolveToken(ReadInt32(ilBytes, ref offset)),
             OperandKind.InlineSig => $"StandaloneSig(0x{ReadInt32(ilBytes, ref offset):X8})",
             OperandKind.InlineSwitch => DecodeSwitch(ilBytes, ref offset),
             _ => ""

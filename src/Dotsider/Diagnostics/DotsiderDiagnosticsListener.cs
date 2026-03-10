@@ -11,22 +11,14 @@ namespace Dotsider.Diagnostics;
 /// Listens on a Unix domain socket at ~/.dotsider/sockets/{pid}.dotsider.socket
 /// and serves analysis state from the running TUI.
 /// </summary>
-internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
+internal sealed class DotsiderDiagnosticsListener(
+    Func<DotsiderState?> getState,
+    ConcurrentQueue<Action<DotsiderState>> pendingMutations) : IAsyncDisposable
 {
-    private readonly Func<DotsiderState?> _getState;
-    private readonly ConcurrentQueue<Action<DotsiderState>> _pendingMutations;
     private readonly CancellationTokenSource _cts = new();
     private Socket? _listener;
     private Task? _acceptLoop;
     private string? _socketPath;
-
-    public DotsiderDiagnosticsListener(
-        Func<DotsiderState?> getState,
-        ConcurrentQueue<Action<DotsiderState>> pendingMutations)
-    {
-        _getState = getState;
-        _pendingMutations = pendingMutations;
-    }
 
     /// <summary>The path to the Unix domain socket file.</summary>
     public string? SocketPath => _socketPath;
@@ -186,7 +178,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
     // --- Helpers ---
 
     private DotsiderState RequireState() =>
-        _getState() ?? throw new InvalidOperationException("No assembly is loaded");
+        getState() ?? throw new InvalidOperationException("No assembly is loaded");
 
     private AssemblyAnalyzer RequireAnalyzer() => RequireState().Analyzer;
 
@@ -559,7 +551,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         if (state.Tracer?.ProcessState == TraceProcessState.Running)
             return DotsiderResponse.Fail("A trace is already running");
 
-        _pendingMutations.Enqueue(s =>
+        pendingMutations.Enqueue(s =>
         {
             var args = request.Arguments ?? "";
             s.Tracer?.Dispose();
@@ -569,7 +561,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        _getState()?.App.Invalidate();
+        getState()?.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = "Trace start queued" });
     }
@@ -612,13 +604,13 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         if (tabId is < 0 or > 7)
             return DotsiderResponse.Fail($"TabId must be 0-7, got {tabId}");
 
-        _pendingMutations.Enqueue(s =>
+        pendingMutations.Enqueue(s =>
         {
             s.NavigateToTab(tabId);
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        _getState()?.App.Invalidate();
+        getState()?.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Navigation to tab {tabId} queued" });
     }
@@ -631,7 +623,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         var state = RequireState();
         var tabId = request.TabId ?? state.CurrentTab;
 
-        _pendingMutations.Enqueue(s =>
+        pendingMutations.Enqueue(s =>
         {
             var search = s.Search[tabId];
             if (!search.IsActive)
@@ -641,7 +633,7 @@ internal sealed class DotsiderDiagnosticsListener : IAsyncDisposable
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        _getState()?.App.Invalidate();
+        getState()?.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
     }

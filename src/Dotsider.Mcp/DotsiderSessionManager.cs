@@ -4,13 +4,11 @@ namespace Dotsider.Mcp;
 /// Discovers and manages connections to running dotsider TUI instances.
 /// Registered as a singleton in the MCP server's DI container.
 /// </summary>
-public sealed class DotsiderSessionManager
+public sealed class DotsiderSessionManager(string socketDir)
 {
     private static readonly string s_defaultSocketDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".dotsider", "sockets");
-
-    private readonly string _socketDir;
 
     /// <summary>
     /// Creates a session manager using the default socket directory (~/.dotsider/sockets).
@@ -18,21 +16,15 @@ public sealed class DotsiderSessionManager
     public DotsiderSessionManager() : this(s_defaultSocketDir) { }
 
     /// <summary>
-    /// Creates a session manager using a custom socket directory.
-    /// </summary>
-    /// <param name="socketDir">Directory to scan for dotsider sockets.</param>
-    public DotsiderSessionManager(string socketDir) => _socketDir = socketDir;
-
-    /// <summary>
     /// Scans for all running dotsider instances and returns their PIDs and socket paths.
     /// </summary>
     public IReadOnlyList<(int Pid, string SocketPath)> DiscoverSessions()
     {
-        if (!Directory.Exists(_socketDir))
+        if (!Directory.Exists(socketDir))
             return [];
 
         var sessions = new List<(int, string)>();
-        foreach (var file in Directory.GetFiles(_socketDir, "*.dotsider.socket"))
+        foreach (var file in Directory.GetFiles(socketDir, "*.dotsider.socket"))
         {
             var name = Path.GetFileNameWithoutExtension(file);
             var pidStr = name.Replace(".dotsider", "");
@@ -48,7 +40,7 @@ public sealed class DotsiderSessionManager
     /// </summary>
     public RemoteDotsiderTarget GetTarget(int pid)
     {
-        var socketPath = Path.Combine(_socketDir, $"{pid}.dotsider.socket");
+        var socketPath = Path.Combine(socketDir, $"{pid}.dotsider.socket");
         return new RemoteDotsiderTarget(socketPath);
     }
 

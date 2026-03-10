@@ -17,17 +17,14 @@ namespace Dotsider.Core.Analysis;
 /// Manages launching a .NET assembly as a child process and collecting
 /// runtime events via EventPipe diagnostics (PID-based connect with retry).
 /// </summary>
-public sealed class RuntimeTracer : IDisposable
+public sealed class RuntimeTracer(string assemblyPath, string arguments, Action invalidate) : IDisposable
 {
     private const int MaxEvents = 10_000;
     private const int MaxOutputLines = 5_000;
     private const int MaxConnectRetries = 25;        // 25 × 200ms = 5s max wait
     private const int ConnectRetryDelayMs = 200;
 
-    private readonly string _assemblyPath;
-    private readonly string _arguments;
-    private readonly Action _invalidate;
-    private readonly bool _isExe;
+    private readonly bool _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
     private Process? _process;
     private EventPipeSession? _session;
@@ -57,20 +54,6 @@ public sealed class RuntimeTracer : IDisposable
 
     // Process output
     private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
-
-    /// <summary>
-    /// Creates a new runtime tracer for the specified assembly.
-    /// </summary>
-    /// <param name="assemblyPath">Path to the .NET assembly to trace.</param>
-    /// <param name="arguments">Command-line arguments to pass to the traced process.</param>
-    /// <param name="invalidate">Callback to signal that the UI should repaint.</param>
-    public RuntimeTracer(string assemblyPath, string arguments, Action invalidate)
-    {
-        _assemblyPath = assemblyPath;
-        _arguments = arguments;
-        _invalidate = invalidate;
-        _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
-    }
 
     // --- Public state ---
 
@@ -144,8 +127,8 @@ public sealed class RuntimeTracer : IDisposable
         // before Main() runs — this captures events even for short-lived processes
         var psi = new ProcessStartInfo
         {
-            FileName = _isExe ? _assemblyPath : "dotnet",
-            Arguments = _isExe ? _arguments : $"exec \"{_assemblyPath}\" {_arguments}",
+            FileName = _isExe ? assemblyPath : "dotnet",
+            Arguments = _isExe ? arguments : $"exec \"{assemblyPath}\" {arguments}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -178,7 +161,7 @@ public sealed class RuntimeTracer : IDisposable
                 // Stop the EventPipe session to unblock source.Process()
                 try { _session?.Stop(); } catch { }
                 // Direct invalidate — don't rely on timer (it may be disposed by Stop())
-                _invalidate();
+                invalidate();
             }
         };
 
@@ -192,7 +175,7 @@ public sealed class RuntimeTracer : IDisposable
         {
             if (Interlocked.Exchange(ref _dirty, 0) == 1
                 || ProcessState == TraceProcessState.Running)
-                _invalidate();
+                invalidate();
         }, null, 0, 100);
 
         // Connection + event processing on background task.
