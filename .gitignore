@@ -485,10 +485,7 @@ $RECYCLE.BIN/
 *.cast
 
 # Claude AI files
-.claude/settings.local.json
-.claude/commands/
-.claude/docs/
-.claude/skills/
+.claude/
 
 # MCP server config (developer-specific)
 .mcp.json
