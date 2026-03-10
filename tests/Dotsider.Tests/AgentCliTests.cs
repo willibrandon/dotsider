@@ -55,7 +55,7 @@ public class AgentCliTests
         finally
         {
             if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
+                CleanupTempDir(tempDir);
         }
     }
 
@@ -80,7 +80,7 @@ public class AgentCliTests
         finally
         {
             if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
+                CleanupTempDir(tempDir);
         }
     }
 
@@ -106,7 +106,7 @@ public class AgentCliTests
         finally
         {
             if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
+                CleanupTempDir(tempDir);
         }
     }
 
@@ -131,7 +131,7 @@ public class AgentCliTests
         finally
         {
             if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
+                CleanupTempDir(tempDir);
         }
     }
 
@@ -203,4 +203,27 @@ public class AgentCliTests
 
     private static string QuoteArg(string arg)
         => arg.Contains(' ') ? $"\"{arg}\"" : arg;
+
+    /// <summary>
+    /// Deletes a temp directory with retries. On Windows, a process that used the
+    /// directory as its CWD may still hold a handle briefly after exit.
+    /// </summary>
+    private static void CleanupTempDir(string path)
+    {
+        if (!Directory.Exists(path))
+            return;
+
+        for (var i = 0; i < 5; i++)
+        {
+            try
+            {
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (IOException) when (i < 4)
+            {
+                Thread.Sleep(200);
+            }
+        }
+    }
 }
