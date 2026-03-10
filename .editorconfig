@@ -11,6 +11,7 @@ dotnet_diagnostic.CA1816.severity = warning
 dotnet_diagnostic.CA1822.severity = warning
 dotnet_diagnostic.CA1826.severity = warning
 dotnet_diagnostic.CA1859.severity = warning
+dotnet_diagnostic.CA1869.severity = warning
 dotnet_diagnostic.CA2016.severity = warning
 
 # IDE style rules
