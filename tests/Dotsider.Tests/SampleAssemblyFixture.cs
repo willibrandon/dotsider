@@ -84,24 +84,51 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
     private async Task BuildProject(string relativePath)
     {
-        var projectDir = Path.Combine(_repoRoot, relativePath);
-        var psi = new ProcessStartInfo
+        // Use a file lock to prevent concurrent builds of the same project
+        // across test assemblies (e.g. Dotsider.Tests and Dotsider.Mcp.Tests).
+        // File locks are cross-platform, unlike named Mutex/Semaphore.
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
         {
-            FileName = "dotnet",
-            Arguments = "build --no-restore -c Debug -v q",
-            WorkingDirectory = projectDir,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
 
-        var process = Process.Start(psi)!;
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
+        try
+        {
+            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "build --no-restore -c Debug -v q",
+                WorkingDirectory = projectDir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
 
-        if (process.ExitCode != 0)
-            throw new InvalidOperationException(
-                $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+            var process = Process.Start(psi)!;
+            var stdout = await process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
     }
 }

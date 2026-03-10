@@ -489,3 +489,6 @@ $RECYCLE.BIN/
 
 # MCP server config (developer-specific)
 .mcp.json
+
+# Dotnet CLI supporting files
+.dotnet_cli/
