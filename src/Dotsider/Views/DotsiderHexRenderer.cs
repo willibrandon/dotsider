@@ -46,10 +46,12 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
     };
     private readonly DotsiderState _state = state;
 
+    /// <inheritdoc />
     public bool HandlesCharInput => true;
 
     // --- Delegation to inner renderer (safe: all 5 methods independently compute layout) ---
 
+    /// <inheritdoc />
     public bool HandleCharInput(char c, EditorState state, ref char? pendingNibble, int viewportColumns)
     {
         var handled = _inner.HandleCharInput(c, state, ref pendingNibble, viewportColumns);
@@ -57,6 +59,7 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
         return handled;
     }
 
+    /// <inheritdoc />
     public bool HandleNavigation(CursorDirection direction, EditorState state, bool extend, int viewportColumns)
     {
         var handled = _inner.HandleNavigation(direction, state, extend, viewportColumns);
@@ -81,6 +84,7 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
         state.Cursor.Position = new DocumentOffset(charIdx);
     }
 
+    /// <inheritdoc />
     public DocumentOffset? HitTest(int localX, int localY, EditorState state,
         int viewportColumns, int viewportLines, int scrollOffset, int horizontalScrollOffset)
     {
@@ -89,6 +93,7 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
             scrollOffset, horizontalScrollOffset);
     }
 
+    /// <inheritdoc />
     public int GetTotalLines(IHex1bDocument document, int viewportColumns)
     {
         // Sync BytesPerRow BEFORE EnsureCursorVisible runs (GetTotalLines is called
@@ -98,6 +103,7 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
         return _inner.GetTotalLines(document, viewportColumns);
     }
 
+    /// <inheritdoc />
     public int GetMaxLineWidth(IHex1bDocument document, int scrollOffset, int viewportLines, int viewportColumns)
         => _inner.GetMaxLineWidth(document, scrollOffset, viewportLines, viewportColumns);
 
@@ -173,6 +179,7 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
 
     // --- Custom Render ---
 
+    /// <inheritdoc />
     public void Render(Hex1bRenderContext context, EditorState state, Rect viewport,
         int scrollOffset, int horizontalScrollOffset, bool isFocused, char? pendingNibble = null)
     {

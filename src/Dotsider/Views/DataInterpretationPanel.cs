@@ -11,6 +11,10 @@ namespace Dotsider.Views;
 /// </summary>
 public static class DataInterpretationPanel
 {
+    /// <summary>
+    /// Builds the data interpretation grid widget showing numeric conversions
+    /// of the bytes at the current hex cursor position.
+    /// </summary>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var doc = state.HexEditorState.Document;

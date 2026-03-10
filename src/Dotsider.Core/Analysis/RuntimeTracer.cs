@@ -5,9 +5,7 @@ using System.Globalization;
 using Dotsider.Core.Analysis.Models;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.EventPipe;
 using Microsoft.Diagnostics.Tracing.Parsers;
-using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using TraceEventCategory = Dotsider.Core.Analysis.Models.TraceEventCategory;
 using TraceEventEntry = Dotsider.Core.Analysis.Models.TraceEventEntry;
 

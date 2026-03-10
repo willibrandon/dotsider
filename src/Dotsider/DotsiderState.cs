@@ -5,7 +5,6 @@ using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Nodes;
 using Hex1b.Widgets;
-using TraceProcessState = Dotsider.Core.Analysis.Models.TraceProcessState;
 
 namespace Dotsider;
 

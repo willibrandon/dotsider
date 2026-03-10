@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace NativeLib;
 
 /// <summary>
@@ -53,6 +51,13 @@ public static class UnsafeOperations
 /// </summary>
 public unsafe struct FixedBuffer
 {
+    /// <summary>
+    /// Fixed-size byte buffer of 256 bytes.
+    /// </summary>
     public fixed byte Data[256];
+
+    /// <summary>
+    /// The number of valid bytes in the buffer.
+    /// </summary>
     public int Length;
 }

@@ -2,7 +2,6 @@ using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using Microsoft.Extensions.Logging;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;

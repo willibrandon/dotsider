@@ -1,8 +1,6 @@
 using System.CommandLine;
-using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
-using Dotsider.Core.Protocol;
 using Dotsider.Infrastructure;
 
 namespace Dotsider.Commands;

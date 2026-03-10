@@ -4,7 +4,6 @@ using Dotsider.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Server;
 
 if (args is ["--help" or "-h"])
 {

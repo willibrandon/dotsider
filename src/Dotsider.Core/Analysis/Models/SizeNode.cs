@@ -9,5 +9,3 @@ public sealed record SizeNode(
     long Size,
     SizeNodeKind Kind,
     IReadOnlyList<SizeNode> Children);
-
-public enum SizeNodeKind { Assembly, Namespace, Type, Method }

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;

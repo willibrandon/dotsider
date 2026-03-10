@@ -2,6 +2,9 @@ root = true
 
 [*.cs]
 
+# XML documentation
+dotnet_diagnostic.CS1591.severity = warning
+
 # ASP.NET
 dotnet_diagnostic.ASP0015.severity = warning
 

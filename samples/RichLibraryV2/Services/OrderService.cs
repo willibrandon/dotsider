@@ -10,6 +10,7 @@ public sealed class OrderService
     private readonly List<Order> _orders = [];
     private int _nextId;
 
+    /// <summary>Creates a new order for the specified user.</summary>
     public Order CreateOrder(int userId, IEnumerable<OrderLine> lines)
     {
         var lineList = lines.ToList();
@@ -19,8 +20,10 @@ public sealed class OrderService
         return order;
     }
 
+    /// <summary>Gets all orders placed by the specified user.</summary>
     public IEnumerable<Order> GetOrdersByUser(int userId) =>
         _orders.Where(o => o.UserId == userId);
 
+    /// <summary>Gets the total revenue across all orders.</summary>
     public decimal GetTotalRevenue() => _orders.Sum(o => o.Total);
 }
