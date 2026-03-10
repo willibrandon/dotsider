@@ -1,47 +1,58 @@
-@import 'https://esm.sh/@xterm/xterm@5.5.0/css/xterm.css';
-
+/* Terminal container */
 #demo-container {
-  max-width: 960px;
-  margin: 1.5rem auto;
+  max-width: 100%;
+  margin: 1.5rem 0;
   border-radius: 0.75rem;
   overflow: hidden;
   border: 1px solid var(--sl-color-gray-5);
-  background: #0e0e1a;
+  background: #121218;
 }
 
+/* Toolbar with macOS-style chrome */
 #demo-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  background: #18182b;
-  border-bottom: 1px solid var(--sl-color-gray-5);
-  font-size: 0.85rem;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(180deg, #2a2a36 0%, #1e1e28 100%);
+  border-bottom: 1px solid #2a2a36;
+  font-size: 0.8rem;
+  gap: 0.75rem;
+}
+
+.demo-toolbar-left {
+  display: flex;
+  gap: 6px;
+}
+
+.demo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.demo-dot.red { background: linear-gradient(180deg, #ff6058 0%, #e74c3c 100%); }
+.demo-dot.yellow { background: linear-gradient(180deg, #ffbd2e 0%, #f39c12 100%); }
+.demo-dot.green { background: linear-gradient(180deg, #28ca42 0%, #27ae60 100%); }
+
+.demo-title {
+  flex: 1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
 }
 
 .demo-status {
   font-family: var(--sl-font-mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  color: #8c8ca0;
 }
 
-.demo-btn {
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid var(--sl-color-gray-4);
-  background: var(--sl-color-gray-5);
-  color: var(--sl-color-white);
-  font-size: 0.8rem;
-  cursor: pointer;
-  font-family: var(--sl-font);
-}
-
-.demo-btn:hover {
-  background: var(--sl-color-gray-4);
-}
-
+/* Terminal viewport — no padding so mouse coords align */
 #terminal {
-  padding: 0.75rem;
-  min-height: 420px;
+  padding: 0;
+  background: #121218;
+  overflow: hidden;
 }
 
 #terminal .xterm-viewport {
@@ -53,8 +64,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 420px;
+  min-height: 360px;
   padding: 2rem;
+  cursor: pointer;
 }
 
 .offline-content {
@@ -65,13 +77,13 @@
 .offline-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #9898a8;
+  color: #8c8ca0;
   margin: 0 0 0.75rem;
 }
 
 .offline-desc {
   font-size: 0.9rem;
-  color: #6a6a7a;
+  color: #5a5a6e;
   margin: 0 0 0.5rem;
   line-height: 1.5;
 }
@@ -79,13 +91,15 @@
 #demo-offline pre {
   display: inline-block;
   text-align: left;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
   padding: 0.75rem 1.25rem;
-  background: #18182b;
-  border: 1px solid #24243a;
+  background: #1a1a26;
+  border: 1px solid #2a2a36;
   border-radius: 0.5rem;
   font-size: 0.85rem;
-  color: #c4c1ff;
+  color: #00c8b4;
+  cursor: text;
 }
 
 #demo-offline code {

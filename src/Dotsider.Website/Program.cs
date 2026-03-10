@@ -36,6 +36,8 @@ app.MapGet("/health", () => Results.Ok(new
     maxSessions
 }));
 
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+
 app.Map("/ws", async context =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
@@ -58,11 +60,11 @@ app.Map("/ws", async context =>
 
     try
     {
-        await RunDotsiderSession(ws, context.RequestAborted);
+        await RunDotsiderSession(ws, context.RequestAborted, lifetime.ApplicationStopping);
     }
     catch (OperationCanceledException)
     {
-        // Client disconnected
+        // Client disconnected or host shutting down
     }
     catch (WebSocketException)
     {
@@ -81,14 +83,14 @@ app.Map("/ws", async context =>
 
 app.Run();
 
-async Task RunDotsiderSession(WebSocket ws, CancellationToken ct)
+async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, CancellationToken appStopping)
 {
-    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted, appStopping);
     cts.CancelAfter(sessionTimeout);
 
     var filePath = Path.GetFullPath(sampleAssembly);
 
-    await using var presentation = new WebSocketPresentationAdapter(ws, 80, 24, enableMouse: true);
+    await using var presentation = new WebSocketPresentationAdapter(ws, 120, 36, enableMouse: true);
 
     var workload = new Hex1bAppWorkloadAdapter(presentation.Capabilities);
 
@@ -119,5 +121,12 @@ async Task RunDotsiderSession(WebSocket ws, CancellationToken ct)
         return dotsiderApp.Build(ctx);
     }, appOptions);
 
-    await hex1bApp.RunAsync(cts.Token);
+    try
+    {
+        await hex1bApp.RunAsync(cts.Token);
+    }
+    finally
+    {
+        hex1bApp.Dispose();
+    }
 }

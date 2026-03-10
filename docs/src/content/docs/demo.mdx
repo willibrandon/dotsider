@@ -1,139 +1,145 @@
 ---
 title: Live Demo
 description: Try dotsider in your browser — a real instance connected via WebSocket.
+template: splash
 ---
 
-import './demo.css';
-
-<div id="demo-container">
-  <div id="demo-toolbar">
-    <span class="demo-status" id="demo-status">Connecting...</span>
-    <button id="demo-reconnect" class="demo-btn" style="display:none">Reconnect</button>
+<div id="demo-root">
+  <div id="demo-header">
+    <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <span class="title">dotsider — RichLibrary.dll</span>
+    <span id="status">Connecting...</span>
   </div>
-  <div id="terminal"></div>
-  <div id="demo-offline" style="display:none">
-    <div class="offline-content">
-      <p class="offline-title">Demo server is offline</p>
-      <p class="offline-desc">The live demo connects to a real dotsider instance via WebSocket. The server may be down for maintenance.</p>
-      <p class="offline-desc">To try dotsider locally:</p>
-      <pre><code>dotnet tool install -g dotsider{'\n'}dotsider MyApp.dll</code></pre>
-    </div>
-  </div>
+  <div id="tv"></div>
 </div>
+
+<style>{`
+  /* Kill all Starlight page chrome */
+  [data-has-hero] .page { min-height: 100vh !important; padding: 0 !important; }
+  [data-has-hero] .content-panel { padding: 0 !important; max-width: 100% !important; }
+  [data-has-hero] main { padding: 0 !important; }
+  [data-has-hero] .sl-markdown-content { padding: 0 !important; max-width: 100% !important; }
+  [data-has-hero] footer { display: none; }
+  .hero { display: none !important; }
+
+  #demo-root {
+    background: #121218;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 10px 40px rgba(0,0,0,0.4);
+    width: fit-content;
+    margin: 1rem auto;
+    overflow: hidden;
+  }
+  #demo-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, #2a2a36, #1e1e28);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .title { flex: 1; text-align: center; color: rgba(255,255,255,0.5); font-family: var(--sl-font-mono); font-size: 13px; }
+  #status { font-family: var(--sl-font-mono); font-size: 12px; color: #8c8ca0; }
+  #tv { width: fit-content; height: fit-content; }
+
+  /* Reset Starlight markdown styles leaking into xterm.js internals */
+  #tv * { margin: 0 !important; }
+  #tv .xterm-viewport { scrollbar-width: none; }
+  #tv .xterm-viewport::-webkit-scrollbar { display: none; }
+`}</style>
 
 <script>
 {`
 (async () => {
-  const { Terminal } = await import('https://esm.sh/@xterm/xterm@5.5.0');
-  const { FitAddon } = await import('https://esm.sh/@xterm/addon-fit@0.10.0');
-  const { WebLinksAddon } = await import('https://esm.sh/@xterm/addon-web-links@0.11.0');
+  if (!document.querySelector('link[href*="xterm"]')) {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://esm.sh/@xterm/xterm@5.5.0/css/xterm.css';
+    document.head.appendChild(l);
+    await new Promise(r => { l.onload = r; l.onerror = r; });
+  }
 
-  const container = document.getElementById('terminal');
-  const statusEl = document.getElementById('demo-status');
-  const reconnectBtn = document.getElementById('demo-reconnect');
-  const offlineEl = document.getElementById('demo-offline');
+  const { Terminal } = await import('https://esm.sh/@xterm/xterm@5.5.0');
+  const { Unicode11Addon } = await import('https://esm.sh/@xterm/addon-unicode11@0.8.0');
+  const { WebglAddon } = await import('https://esm.sh/@xterm/addon-webgl@0.18.0');
+
+  const tv = document.getElementById('tv');
+  const statusEl = document.getElementById('status');
 
   const term = new Terminal({
+    cols: 120,
+    rows: 36,
     cursorBlink: true,
+    cursorStyle: 'block',
     fontSize: 14,
-    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
+    lineHeight: 1.05,
+    fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, monospace',
     theme: {
-      background: '#0e0e1a',
-      foreground: '#f0f0f5',
-      cursor: '#6c63ff',
-      selectionBackground: '#6c63ff44',
-      black: '#0e0e1a',
+      background: '#121218',
+      foreground: '#e0e0e0',
+      cursor: '#00c8b4',
+      selectionBackground: '#00644080',
+      black: '#121218',
       red: '#ff5555',
-      green: '#50fa7b',
+      green: '#00c8b4',
       yellow: '#f1fa8c',
-      blue: '#6c63ff',
+      blue: '#6c8fff',
       magenta: '#ff79c6',
-      cyan: '#8be9fd',
-      white: '#f0f0f5',
+      cyan: '#00ffc8',
+      white: '#e0e0e0',
+      brightBlack: '#3c3c50',
+      brightGreen: '#00ffc8',
+      brightCyan: '#00ffc8',
+      brightWhite: '#ffffff',
     },
     allowProposedApi: true,
   });
 
-  const fitAddon = new FitAddon();
-  term.loadAddon(fitAddon);
-  term.loadAddon(new WebLinksAddon());
-  term.open(container);
-  fitAddon.fit();
+  const u11 = new Unicode11Addon();
+  term.loadAddon(u11);
+  term.unicode.activeVersion = '11';
 
-  const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//demo.dotsider.dev/ws';
+  term.open(tv);
+  try { term.loadAddon(new WebglAddon()); } catch (e) { /* fallback to DOM renderer */ }
+
+  const wsUrl = 'ws://localhost:64219/ws';
   let ws;
-
-  function setStatus(text, color) {
-    statusEl.textContent = text;
-    statusEl.style.color = color || '#9898a8';
-  }
-
-  function showOffline() {
-    container.style.display = 'none';
-    offlineEl.style.display = 'flex';
-    reconnectBtn.style.display = 'inline-block';
-  }
-
-  function hideOffline() {
-    container.style.display = 'block';
-    offlineEl.style.display = 'none';
-  }
+  let wasConnected = false;
 
   function connect() {
-    setStatus('Connecting...', '#f1fa8c');
-    reconnectBtn.style.display = 'none';
-    hideOffline();
-
+    wasConnected = false;
+    statusEl.textContent = 'Connecting...';
+    statusEl.style.color = '#f1fa8c';
     ws = new WebSocket(wsUrl);
 
-    const timeout = setTimeout(() => {
-      ws.close();
-      setStatus('Connection timed out', '#ff5555');
-      showOffline();
-    }, 5000);
+    const timeout = setTimeout(() => { ws.close(); }, 5000);
 
-    ws.onopen = () => {
-      clearTimeout(timeout);
-      setStatus('Connected', '#50fa7b');
-      const { cols, rows } = term;
-      ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-    };
-
+    ws.onopen = () => { clearTimeout(timeout); wasConnected = true; statusEl.textContent = 'Connected'; statusEl.style.color = '#00c8b4'; };
     ws.onmessage = (e) => {
+      if (e.data.includes('\\x1b[c') && ws.readyState === WebSocket.OPEN) ws.send('\\x1b[?62;4c');
       term.write(e.data);
     };
-
     ws.onclose = () => {
       clearTimeout(timeout);
-      setStatus('Disconnected', '#ff5555');
-      showOffline();
+      if (wasConnected) {
+        statusEl.textContent = 'Restarting...';
+        statusEl.style.color = '#f1fa8c';
+        term.reset();
+        setTimeout(connect, 1500);
+      } else {
+        statusEl.textContent = 'Offline';
+        statusEl.style.color = '#ff5555';
+      }
     };
-
-    ws.onerror = () => {
-      clearTimeout(timeout);
-      setStatus('Connection failed', '#ff5555');
-      showOffline();
-    };
+    ws.onerror = () => { clearTimeout(timeout); };
   }
 
-  term.onData((data) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(data);
-    }
-  });
-
-  term.onResize(({ cols, rows }) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-    }
-  });
-
-  window.addEventListener('resize', () => fitAddon.fit());
-
-  reconnectBtn.addEventListener('click', () => {
-    term.clear();
-    connect();
-  });
+  term.onData((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
+  term.onBinary((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
 
   connect();
 })();
