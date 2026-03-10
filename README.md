@@ -22,6 +22,13 @@ dotnet tool install -g dotsider
 brew install willibrandon/tap/dotsider
 ```
 
+### Scoop (Windows)
+
+```
+scoop bucket add dotsider https://github.com/willibrandon/scoop-bucket
+scoop install dotsider
+```
+
 ### WinGet (Windows)
 
 ```
