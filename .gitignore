@@ -484,11 +484,5 @@ $RECYCLE.BIN/
 # Asciinema recordings
 *.cast
 
-# Claude AI files
-.claude/
-
-# Other AI providers
-.agents/
-
 # MCP server config (developer-specific)
 .mcp.json
