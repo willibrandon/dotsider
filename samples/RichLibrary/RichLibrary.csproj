@@ -11,6 +11,7 @@
     <Company>Dotsider</Company>
     <PackageId>RichLibrary</PackageId>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageReadme>README.md</PackageReadme>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
