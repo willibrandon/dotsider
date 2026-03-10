@@ -1,4 +1,4 @@
-# dotsider
+# Dotsider
 
 A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, dependencies, and more. Inspired by [binsider](https://github.com/orhun/binsider) for ELF binaries, built for the .NET ecosystem.
 
