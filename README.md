@@ -22,17 +22,17 @@ dotnet tool install -g dotsider
 brew install willibrandon/tap/dotsider
 ```
 
+### WinGet (Windows)
+
+```
+winget install willibrandon.dotsider
+```
+
 ### Scoop (Windows)
 
 ```
 scoop bucket add dotsider https://github.com/willibrandon/scoop-bucket
 scoop install dotsider
-```
-
-### WinGet (Windows)
-
-```
-winget install willibrandon.dotsider
 ```
 
 ### Download binary
@@ -196,16 +196,16 @@ dotnet tool install -g Dotsider.Mcp
 brew install willibrandon/tap/dotsider-mcp
 ```
 
-#### Scoop (Windows)
-
-```
-scoop install dotsider-mcp
-```
-
 #### WinGet (Windows)
 
 ```
 winget install willibrandon.dotsider-mcp
+```
+
+#### Scoop (Windows)
+
+```
+scoop install dotsider-mcp
 ```
 
 #### Download binary
