@@ -12,9 +12,8 @@ public static class SizeAnalyzer
     /// Builds a hierarchical size tree from the assembly's methods grouped by type and namespace.
     /// </summary>
     /// <param name="analyzer">The assembly analyzer to read method metadata from.</param>
-    /// <param name="disassembler">The IL disassembler (used for method body access).</param>
     /// <returns>The root <see cref="SizeNode"/> representing the entire assembly.</returns>
-    public static SizeNode BuildSizeTree(AssemblyAnalyzer analyzer, IlDisassembler disassembler)
+    public static SizeNode BuildSizeTree(AssemblyAnalyzer analyzer)
     {
         // Get method sizes
         var methodSizes = new List<(MethodDefInfo Method, long Size)>();
@@ -85,7 +84,7 @@ public static class SizeAnalyzer
                     nsGroup.Key,
                     typeNodes.Sum(t => t.Size),
                     SizeNodeKind.Namespace,
-                    typeNodes.OrderByDescending(t => t.Size).ToList()));
+                    [.. typeNodes.OrderByDescending(t => t.Size)]));
             }
         }
 
@@ -94,6 +93,6 @@ public static class SizeAnalyzer
             analyzer.FileName,
             namespaceNodes.Sum(n => n.Size),
             SizeNodeKind.Assembly,
-            namespaceNodes.OrderByDescending(n => n.Size).ToList());
+            [.. namespaceNodes.OrderByDescending(n => n.Size)]);
     }
 }

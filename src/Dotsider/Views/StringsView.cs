@@ -62,10 +62,10 @@ public static class StringsView
                 var widgets = new List<Hex1bWidget> {
                     // Sub-tab selector for string sources
                 outer.TabPanel(tp =>
-                    SourceTabs.Select((name, i) =>
+                    [.. SourceTabs.Select((name, i) =>
                         tp.Tab(name, t => [t.Text("")])
                             .Selected(state.StringsSourceTab == i)
-                    ).ToArray()
+                    )]
                 )
                 .Compact()
                 .OnSelectionChanged(e =>

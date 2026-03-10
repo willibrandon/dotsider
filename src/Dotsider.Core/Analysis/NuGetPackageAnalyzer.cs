@@ -60,9 +60,8 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         var dir = Path.GetDirectoryName(tempPath)!;
         Directory.CreateDirectory(dir);
 
-        var zipEntry = _archive.GetEntry(entry.FullPath);
-        if (zipEntry is null)
-            throw new FileNotFoundException($"Entry not found in package: {entry.FullPath}");
+        var zipEntry = _archive.GetEntry(entry.FullPath)
+            ?? throw new FileNotFoundException($"Entry not found in package: {entry.FullPath}");
 
         using (var source = zipEntry.Open())
         using (var target = File.Create(tempPath))
@@ -111,8 +110,8 @@ public sealed class NuGetPackageAnalyzer : IDisposable
             if (isDll) dlls.Add(fileEntry);
         }
 
-        Files = files.OrderBy(f => f.FullPath).ToList();
-        DllFiles = dlls.OrderBy(f => f.FullPath).ToList();
+        Files = [.. files.OrderBy(f => f.FullPath)];
+        DllFiles = [.. dlls.OrderBy(f => f.FullPath)];
     }
 
     /// <inheritdoc/>

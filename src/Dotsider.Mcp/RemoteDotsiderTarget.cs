@@ -61,7 +61,7 @@ public sealed class RemoteDotsiderTarget(string socketPath)
     /// <summary>
     /// Sends a raw JSON string (for hex1b protocol interaction).
     /// </summary>
-    public async Task<string> SendRawAsync(
+    public static async Task<string> SendRawAsync(
         string socketPath, string json, CancellationToken ct = default)
     {
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);

@@ -100,7 +100,7 @@ public static class DiffSummaryView
                 ])
             ).Title(" Change Summary ").Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

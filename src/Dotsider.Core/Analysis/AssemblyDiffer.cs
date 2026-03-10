@@ -70,7 +70,7 @@ public static class AssemblyDiffer
                 result.Add(new DiffEntry<TypeDefInfo>(DiffKind.Added, null, rt, "added"));
         }
 
-        return result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.FullName).ToList();
+        return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.FullName)];
     }
 
     private static IReadOnlyList<DiffEntry<MethodDefInfo>> CompareMethods(
@@ -118,7 +118,7 @@ public static class AssemblyDiffer
                 result.Add(new DiffEntry<MethodDefInfo>(DiffKind.Added, null, rm, "added"));
         }
 
-        return result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.DeclaringType).ToList();
+        return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.DeclaringType)];
     }
 
     private static IReadOnlyList<DiffEntry<AssemblyRefInfo>> CompareRefs(
@@ -154,6 +154,6 @@ public static class AssemblyDiffer
                 result.Add(new DiffEntry<AssemblyRefInfo>(DiffKind.Added, null, rr, "added"));
         }
 
-        return result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.Name).ToList();
+        return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.Name)];
     }
 }

@@ -50,7 +50,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Screen capture content in the requested format.</returns>
     [McpServerTool(ReadOnly = true, OpenWorld = false)]
-    public async partial Task<string> CaptureScreen(
+    public static async partial Task<string> CaptureScreen(
         int sessionId,
         string format = "text",
         CancellationToken ct = default)
@@ -59,11 +59,10 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
         if (!File.Exists(hex1bSocket))
             return $"Error: No hex1b socket found for PID {sessionId}";
 
-        var target = sessionManager.GetTarget(sessionId);
         var requestJson = JsonSerializer.Serialize(
             new { method = "capture", format }, DotsiderJsonOptions.Default);
 
-        var responseJson = await target.SendRawAsync(hex1bSocket, requestJson, ct);
+        var responseJson = await RemoteDotsiderTarget.SendRawAsync(hex1bSocket, requestJson, ct);
         var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
 
         if (response.TryGetProperty("success", out var success) && success.GetBoolean()

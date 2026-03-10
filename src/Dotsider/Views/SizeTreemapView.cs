@@ -33,7 +33,7 @@ public static class SizeTreemapView
     /// <returns>The root widget for the Size Map tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var sizeTree = state.CachedSizeTree ??= SizeAnalyzer.BuildSizeTree(state.Analyzer, state.IlDisassembler);
+        var sizeTree = state.CachedSizeTree ??= SizeAnalyzer.BuildSizeTree(state.Analyzer);
         var currentLevel = state.TreemapCurrentLevel ?? sizeTree;
         var search = state.Search[TabId.SizeMap];
         var query = search.Query;
@@ -78,7 +78,7 @@ public static class SizeTreemapView
                     var parts = new List<Hex1bWidget>();
                     parts.Add(row.Text($" {BuildBreadcrumb(state)} "));
                     parts.Add(row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill());
-                    return parts.ToArray();
+                    return [.. parts];
                 }).FixedHeight(1)
             };
 
@@ -215,7 +215,7 @@ public static class SizeTreemapView
             }
             widgets.Add(outer.Text(detailText ?? "").FixedHeight(1));
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

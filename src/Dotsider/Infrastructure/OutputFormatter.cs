@@ -50,7 +50,7 @@ internal sealed class OutputFormatter : IDisposable
     }
 
     /// <summary>Writes an error message to stderr (always, regardless of mode).</summary>
-    public void WriteError(string message)
+    public static void WriteError(string message)
     {
         Console.Error.WriteLine(message);
     }

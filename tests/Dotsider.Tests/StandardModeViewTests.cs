@@ -1739,8 +1739,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Verify this IS an overload: name-based FirstOrDefault would return
         // a different method (the first match), proving token is required.
-        DynamicAnalysisView.TryParseJitDetail(targetEvent.Detail,
-            out var declType, out var methName);
+        Assert.True(DynamicAnalysisView.TryParseJitDetail(targetEvent.Detail,
+            out var declType, out var methName));
         var byName = _state.Analyzer.MethodDefs
             .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
         Assert.NotNull(byName);

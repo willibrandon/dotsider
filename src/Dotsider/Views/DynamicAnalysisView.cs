@@ -157,11 +157,11 @@ public static class DynamicAnalysisView
             [
                 tp.Tab("Events", t => [BuildEventsSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Events),
-                tp.Tab("Counters", t => [BuildCountersSubTab(t, state, tracer)])
+                tp.Tab("Counters", t => [BuildCountersSubTab(t, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Counters),
                 tp.Tab("Output", t => [BuildOutputSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Output),
-                tp.Tab("Summary", t => [BuildSummarySubTab(t, state, tracer)])
+                tp.Tab("Summary", t => [BuildSummarySubTab(t, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Summary)
             ])
             .OnSelectionChanged(e =>
@@ -172,7 +172,7 @@ public static class DynamicAnalysisView
             .Compact()
             .Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {
@@ -280,15 +280,14 @@ public static class DynamicAnalysisView
         var query = search.Query;
 
         if (state.DynamicCategoryFilter is { } filter)
-            events = events.Where(e => e.Category == filter).ToList();
+            events = [.. events.Where(e => e.Category == filter)];
 
         // Apply search filter
         if (!string.IsNullOrEmpty(query))
         {
-            events = events.Where(e =>
+            events = [.. events.Where(e =>
                 e.EventName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                e.Detail.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                e.Detail.Contains(query, StringComparison.OrdinalIgnoreCase))];
             search.SetMatchCount(events.Count);
         }
 
@@ -375,7 +374,7 @@ public static class DynamicAnalysisView
     }
 
     private static Hex1bWidget BuildCountersSubTab(
-        WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
+        WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
     {
         var counters = tracer.GetLatestCounters();
 
@@ -456,9 +455,8 @@ public static class DynamicAnalysisView
         // Apply search filter
         if (!string.IsNullOrEmpty(query))
         {
-            output = output.Where(o =>
-                o.Text.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            output = [.. output.Where(o =>
+                o.Text.Contains(query, StringComparison.OrdinalIgnoreCase))];
             search.SetMatchCount(output.Count);
         }
 
@@ -490,7 +488,7 @@ public static class DynamicAnalysisView
     }
 
     private static Hex1bWidget BuildSummarySubTab(
-        WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
+        WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
     {
         var summary = tracer.GetSummary();
 

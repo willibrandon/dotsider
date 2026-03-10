@@ -146,20 +146,20 @@ public sealed class DotsiderApp(DotsiderState state)
             // In real terminals, '/' maps to Hex1bKey.None because the terminal driver doesn't
             // map punctuation to specific key codes. We register a Hex1bKey.None binding as fallback,
             // but only when search is not in editing state to avoid intercepting TextBox input.
-            Action searchToggle = () =>
+            void SearchToggle()
             {
                 _state.Search[_state.CurrentTab].ActivateOrCycle();
                 var s = _state.Search[_state.CurrentTab];
                 if (s.IsActive && !s.IsConfirmed)
                     _state.App.RequestFocus(node => node is TextBoxNode);
                 _state.App.Invalidate();
-            };
+            }
             if (!_state.HexJumpDialogOpen)
             {
-                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
                 }
             }
             if (isSearchEditing)

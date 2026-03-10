@@ -295,7 +295,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
     public void ResolveToken_ReturnsString()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var method = a.MethodDefs.First();
+        var method = a.MethodDefs[0];
         var result = a.ResolveToken(method.Token);
         Assert.NotNull(result);
         Assert.NotEmpty(result);
@@ -415,7 +415,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
     public void ResolveToken_TypeRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var typeRef = a.TypeRefs.First();
+        var typeRef = a.TypeRefs[0];
         var resolved = a.ResolveToken(typeRef.Token);
         Assert.NotEmpty(resolved);
     }
@@ -424,7 +424,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
     public void ResolveToken_MemberRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var memberRef = a.MemberRefs.First();
+        var memberRef = a.MemberRefs[0];
         var resolved = a.ResolveToken(memberRef.Token);
         Assert.NotEmpty(resolved);
     }

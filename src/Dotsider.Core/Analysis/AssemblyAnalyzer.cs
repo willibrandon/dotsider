@@ -330,15 +330,14 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private IReadOnlyList<SectionInfo> ReadSections()
     {
-        return _peReader.PEHeaders.SectionHeaders
+        return [.. _peReader.PEHeaders.SectionHeaders
             .Select(s => new SectionInfo(
                 Name: s.Name,
                 VirtualAddress: s.VirtualAddress,
                 VirtualSize: s.VirtualSize,
                 RawDataOffset: s.PointerToRawData,
                 RawDataSize: s.SizeOfRawData,
-                Characteristics: s.SectionCharacteristics))
-            .ToList();
+                Characteristics: s.SectionCharacteristics))];
     }
 
     private IReadOnlyList<TypeDefInfo> ReadTypeDefs()
@@ -593,7 +592,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return s.Length > 50 ? $"\"{s[..50]}...\"" : $"\"{s}\"";
     }
 
-    private string DecodeMethodSignature(MethodDefinition md)
+    private static string DecodeMethodSignature(MethodDefinition md)
     {
         try
         {

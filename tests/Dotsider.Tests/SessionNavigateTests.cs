@@ -73,18 +73,16 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
     {
         var ct = TestContext.Current.CancellationToken;
 
-        var (app, socketPath) = await StartTuiWithDiagnosticsAsync(samples.HelloWorldDll, ct);
-        var client = new DotsiderClient();
-
+        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(samples.HelloWorldDll, ct);
         // Verify we start on tab 0 (General)
-        var viewBefore = await client.SendAsync(socketPath,
+        var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.True(viewBefore.Success);
         var tabBefore = (viewBefore.Data as JsonElement?)?.GetProperty("tab").GetInt32();
         Assert.Equal(TabId.General, tabBefore);
 
         // Navigate to Strings tab (3) via the socket
-        var navResponse = await client.SendAsync(socketPath,
+        var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.Strings }, ct);
         Assert.True(navResponse.Success);
 
@@ -92,7 +90,7 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
         await Task.Delay(500, ct);
 
         // Verify the tab actually changed
-        var viewAfter = await client.SendAsync(socketPath,
+        var viewAfter = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.True(viewAfter.Success);
         var tabAfter = (viewAfter.Data as JsonElement?)?.GetProperty("tab").GetInt32();

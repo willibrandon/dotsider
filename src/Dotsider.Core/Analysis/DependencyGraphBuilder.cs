@@ -32,7 +32,6 @@ public static class DependencyGraphBuilder
         }
 
         var refs = analyzer.AssemblyRefs;
-        var totalNodes = refs.Count + 1;
 
         // Root node at top center
         nodes.Add(new GraphNode(
@@ -47,7 +46,7 @@ public static class DependencyGraphBuilder
         for (var i = 0; i < refs.Count; i++)
         {
             var asmRef = refs[i];
-            var x = refs.Count == 1 ? 0.5 : (double)i / (refs.Count - 1);
+            double x;
             // Multiple rows if many refs
             var row = i / 8;
             var col = i % 8;

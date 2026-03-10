@@ -82,17 +82,17 @@ public sealed class NuGetApp(NuGetState state)
             if (_state.IsBrowsingPackage)
             {
                 // Search toggle (same dual-binding strategy as DotsiderApp/DiffApp)
-                Action searchToggle = () =>
+                void SearchToggle()
                 {
                     browserSearch.ActivateOrCycle();
                     if (browserSearch.IsActive && !browserSearch.IsConfirmed)
                         _state.App.RequestFocus(node => node is TextBoxNode);
                     _state.App.Invalidate();
-                };
-                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                }
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
                 }
                 if (isSearchEditing)
                 {
@@ -122,16 +122,15 @@ public sealed class NuGetApp(NuGetState state)
                     var q = browserSearch.Query;
                     if (!string.IsNullOrEmpty(q))
                     {
-                        visibleDlls = visibleDlls.Where(d =>
+                        visibleDlls = [.. visibleDlls.Where(d =>
                             d.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                            d.Directory.Contains(q, StringComparison.OrdinalIgnoreCase))
-                            .ToList();
+                            d.Directory.Contains(q, StringComparison.OrdinalIgnoreCase))];
                     }
 
                     var focusedKey = _state.FileTreeFocusedKey as string;
                     var entry = focusedKey is not null
                         ? visibleDlls.FirstOrDefault(d => d.FullPath == focusedKey)
-                        : visibleDlls.FirstOrDefault();
+                        : visibleDlls.Count > 0 ? visibleDlls[0] : null;
 
                     if (entry is null) return;
 

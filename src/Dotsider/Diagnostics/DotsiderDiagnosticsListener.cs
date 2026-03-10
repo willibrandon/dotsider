@@ -433,7 +433,7 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleGetSizeTree()
     {
         var state = RequireState();
-        var tree = SizeAnalyzer.BuildSizeTree(state.Analyzer, state.IlDisassembler);
+        var tree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
         return DotsiderResponse.Ok(tree);
     }
 
@@ -462,7 +462,7 @@ internal sealed class DotsiderDiagnosticsListener(
 
     // --- Diff Handler ---
 
-    private DotsiderResponse HandleDiff(DotsiderRequest request)
+    private static DotsiderResponse HandleDiff(DotsiderRequest request)
     {
         if (string.IsNullOrEmpty(request.LeftPath) || string.IsNullOrEmpty(request.RightPath))
             return DotsiderResponse.Fail("LeftPath and RightPath are required for diff");
@@ -475,7 +475,7 @@ internal sealed class DotsiderDiagnosticsListener(
 
     // --- NuGet Handler ---
 
-    private DotsiderResponse HandleAnalyzeNupkg(DotsiderRequest request)
+    private static DotsiderResponse HandleAnalyzeNupkg(DotsiderRequest request)
     {
         var path = request.AssemblyPath;
         if (string.IsNullOrEmpty(path))

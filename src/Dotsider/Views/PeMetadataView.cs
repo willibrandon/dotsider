@@ -67,7 +67,7 @@ public static class PeMetadataView
                                 {
                                     lines.Add(scroll.Text("  No PE headers available"));
                                 }
-                                return lines.ToArray();
+                                return [.. lines];
                             })
                         ).Title(" PE Headers ").Fill()
                     ],
@@ -93,7 +93,7 @@ public static class PeMetadataView
                                 {
                                     lines.Add(scroll.Text("  No CLR header (not a .NET assembly)"));
                                 }
-                                return lines.ToArray();
+                                return [.. lines];
                             })
                         ).Title(" CLR Header ").Fill()
                     ],
@@ -130,7 +130,7 @@ public static class PeMetadataView
                 .Compact()
                 .Fill());
 
-                return widgets.ToArray();
+                return [.. widgets];
             })
             .WithInputBindings(bindings =>
             {
@@ -211,9 +211,8 @@ public static class PeMetadataView
                 ? z.Backdrop(
                     z.Border(
                         z.VScrollPanel(scroll =>
-                            state.PeDetailContent.Split('\n')
-                                .Select(line => scroll.Text($"  {line}"))
-                                .ToArray()
+                            [.. state.PeDetailContent.Split('\n')
+                                .Select(line => scroll.Text($"  {line}"))]
                         )
                     ).Title(" Detail ").FixedWidth(60).FixedHeight(12)
                 ).OnClickAway(() =>
@@ -498,9 +497,8 @@ public static class PeMetadataView
         IReadOnlyList<T> items, string? query, Func<T, string> toSearchable)
     {
         if (string.IsNullOrEmpty(query)) return items;
-        return items
-            .Where(i => toSearchable(i).Contains(query, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        return [.. items
+            .Where(i => toSearchable(i).Contains(query, StringComparison.OrdinalIgnoreCase))];
     }
 
     private static Hex1bWidget HexCell<T>(WidgetContext<T> c, string text) where T : Hex1bWidget =>

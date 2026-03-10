@@ -90,7 +90,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     public CounterSnapshot? GetLatestCounters() => Volatile.Read(ref _latestCounters);
 
     /// <summary>Returns process output lines.</summary>
-    public IReadOnlyList<OutputLine> GetOutput() => _outputQueue.ToArray();
+    public IReadOnlyList<OutputLine> GetOutput() => [.. _outputQueue];
 
     /// <summary>Returns aggregated summary statistics.</summary>
     public TraceSummary GetSummary()

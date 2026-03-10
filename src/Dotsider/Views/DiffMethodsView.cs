@@ -32,13 +32,13 @@ public static class DiffMethodsView
         // Apply search filter by method name/signature
         if (!string.IsNullOrEmpty(query))
         {
-            filtered = filtered.Where(e =>
+            filtered = [.. filtered.Where(e =>
             {
                 var method = e.Right ?? e.Left!;
                 return method.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                        method.Signature.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                        method.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase);
-            }).ToList();
+            })];
             search.SetMatchCount(filtered.Count);
         }
 
@@ -87,7 +87,7 @@ public static class DiffMethodsView
                 .Empty(e => e.Text("  No method differences with current filter"))
                 .Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

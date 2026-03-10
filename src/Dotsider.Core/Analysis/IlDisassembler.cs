@@ -127,7 +127,7 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         }
     }
 
-    private string DecodeSwitch(byte[] ilBytes, ref int offset)
+    private static string DecodeSwitch(byte[] ilBytes, ref int offset)
     {
         var count = ReadInt32(ilBytes, ref offset);
         if (count <= 0 || count > 1000) return $"({count} targets)";

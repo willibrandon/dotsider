@@ -32,11 +32,11 @@ public static class DiffTypesView
         // Apply search filter
         if (!string.IsNullOrEmpty(query))
         {
-            filtered = filtered.Where(e =>
+            filtered = [.. filtered.Where(e =>
             {
                 var type = e.Right ?? e.Left!;
                 return type.FullName.Contains(query, StringComparison.OrdinalIgnoreCase);
-            }).ToList();
+            })];
             search.SetMatchCount(filtered.Count);
         }
 
@@ -84,7 +84,7 @@ public static class DiffTypesView
                 .Empty(e => e.Text("  No type differences with current filter"))
                 .Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

@@ -54,22 +54,21 @@ internal static class SessionsCommand
     /// Returns the response or writes an error and returns null.
     /// </summary>
     private static async Task<DotsiderResponse?> SendToSession(
-        int pid, DotsiderRequest request, OutputFormatter formatter, CancellationToken ct)
+        int pid, DotsiderRequest request, CancellationToken ct)
     {
         var socketPath = SessionDiscovery.GetDotsiderSocketPath(pid);
         if (!File.Exists(socketPath))
         {
-            formatter.WriteError($"Error: No dotsider instance found for PID {pid}");
+            OutputFormatter.WriteError($"Error: No dotsider instance found for PID {pid}");
             return null;
         }
 
-        var client = new DotsiderClient();
         try
         {
-            var response = await client.SendAsync(socketPath, request, ct);
+            var response = await DotsiderClient.SendAsync(socketPath, request, ct);
             if (!response.Success)
             {
-                formatter.WriteError($"Error: {response.Error}");
+                OutputFormatter.WriteError($"Error: {response.Error}");
                 return null;
             }
 
@@ -77,7 +76,7 @@ internal static class SessionsCommand
         }
         catch (Exception ex)
         {
-            formatter.WriteError($"Error: Could not connect to PID {pid}: {ex.Message}");
+            OutputFormatter.WriteError($"Error: Could not connect to PID {pid}: {ex.Message}");
             return null;
         }
     }
@@ -90,10 +89,7 @@ internal static class SessionsCommand
         {
             var json = parseResult.GetValue(jsonOption);
             using var formatter = new OutputFormatter { JsonMode = json };
-            var discovery = new SessionDiscovery();
-            var client = new DotsiderClient();
-
-            var sessions = discovery.Scan();
+            var sessions = SessionDiscovery.Scan();
             if (sessions.Count == 0)
             {
                 formatter.WriteLine("No running dotsider instances found.");
@@ -105,7 +101,7 @@ internal static class SessionsCommand
 
             foreach (var session in sessions)
             {
-                var info = await client.TryProbeAsync(session.SocketPath, ct);
+                var info = await DotsiderClient.TryProbeAsync(session.SocketPath, ct);
                 if (info?.Success == true)
                 {
                     var data = info.Data as JsonElement?;
@@ -154,11 +150,11 @@ internal static class SessionsCommand
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var infoResponse = await SendToSession(pid,
-                new DotsiderRequest { Method = "assembly-info" }, formatter, ct);
+                new DotsiderRequest { Method = "assembly-info" }, ct);
             if (infoResponse is null) return 1;
 
             var viewResponse = await SendToSession(pid,
-                new DotsiderRequest { Method = "get-current-view" }, formatter, ct);
+                new DotsiderRequest { Method = "get-current-view" }, ct);
             if (viewResponse is null) return 1;
 
             if (json)
@@ -207,7 +203,7 @@ internal static class SessionsCommand
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var response = await SendToSession(pid,
-                new DotsiderRequest { Method = "get-current-view" }, formatter, ct);
+                new DotsiderRequest { Method = "get-current-view" }, ct);
             if (response is null) return 1;
 
             if (json)
@@ -253,12 +249,12 @@ internal static class SessionsCommand
 
             if (tabId is < 0 or > 7)
             {
-                formatter.WriteError($"Error: Tab index must be 0-7, got {tabId}");
+                OutputFormatter.WriteError($"Error: Tab index must be 0-7, got {tabId}");
                 return 1;
             }
 
             var response = await SendToSession(pid,
-                new DotsiderRequest { Method = "navigate", TabId = tabId }, formatter, ct);
+                new DotsiderRequest { Method = "navigate", TabId = tabId }, ct);
             if (response is null) return 1;
 
             if (json)
@@ -300,7 +296,7 @@ internal static class SessionsCommand
             var hex1bSocket = SessionDiscovery.GetHex1bSocketPath(pid);
             if (!File.Exists(hex1bSocket))
             {
-                formatter.WriteError($"Error: No hex1b diagnostics socket found for PID {pid}");
+                OutputFormatter.WriteError($"Error: No hex1b diagnostics socket found for PID {pid}");
                 return 1;
             }
 
@@ -309,8 +305,7 @@ internal static class SessionsCommand
                 var requestJson = JsonSerializer.Serialize(
                     new { method = "capture", format }, DotsiderJsonOptions.Default);
 
-                var client = new DotsiderClient();
-                var responseJson = await client.SendRawAsync(hex1bSocket, requestJson, ct);
+                var responseJson = await DotsiderClient.SendRawAsync(hex1bSocket, requestJson, ct);
 
                 var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
                 if (response.TryGetProperty("success", out var success) && success.GetBoolean()
@@ -326,13 +321,13 @@ internal static class SessionsCommand
                 {
                     var error = response.TryGetProperty("error", out var errProp)
                         ? errProp.GetString() : "Unknown error";
-                    formatter.WriteError($"Error: {error}");
+                    OutputFormatter.WriteError($"Error: {error}");
                     return 1;
                 }
             }
             catch (Exception ex)
             {
-                formatter.WriteError($"Error: Could not capture from PID {pid}: {ex.Message}");
+                OutputFormatter.WriteError($"Error: Could not capture from PID {pid}: {ex.Message}");
                 return 1;
             }
 
@@ -387,7 +382,7 @@ internal static class SessionsCommand
                     Method = "get-trace-events",
                     CategoryFilter = category,
                     MaxResults = max
-                }, formatter, ct);
+                }, ct);
             if (response is null) return 1;
 
             if (json)
@@ -433,7 +428,7 @@ internal static class SessionsCommand
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var response = await SendToSession(pid,
-                new DotsiderRequest { Method = "get-trace-counters" }, formatter, ct);
+                new DotsiderRequest { Method = "get-trace-counters" }, ct);
             if (response is null) return 1;
 
             if (json)
@@ -474,7 +469,7 @@ internal static class SessionsCommand
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var response = await SendToSession(pid,
-                new DotsiderRequest { Method = "get-process-output" }, formatter, ct);
+                new DotsiderRequest { Method = "get-process-output" }, ct);
             if (response is null) return 1;
 
             if (json)
@@ -528,7 +523,7 @@ internal static class SessionsCommand
 
             var response = await SendToSession(pid,
                 new DotsiderRequest { Method = "start-trace", Arguments = arguments },
-                formatter, ct);
+                ct);
             if (response is null) return 1;
 
             if (json)
@@ -560,7 +555,7 @@ internal static class SessionsCommand
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var response = await SendToSession(pid,
-                new DotsiderRequest { Method = "stop-trace" }, formatter, ct);
+                new DotsiderRequest { Method = "stop-trace" }, ct);
             if (response is null) return 1;
 
             if (json)

@@ -255,7 +255,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEqual(byToken1.Token, byToken2.Token);
 
         // Name-based lookup returns the same method for both (the disambiguation gap)
-        DynamicAnalysisView.TryParseJitDetail(evt1.Detail, out var declType, out var methName);
+        Assert.True(DynamicAnalysisView.TryParseJitDetail(evt1.Detail, out var declType, out var methName));
         var byName = analyzer.MethodDefs
             .Where(m => m.DeclaringType == declType && m.Name == methName)
             .ToList();

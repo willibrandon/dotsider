@@ -32,10 +32,9 @@ public static class GeneralView
         var refs = (IReadOnlyList<AssemblyRefInfo>)analyzer.AssemblyRefs;
         if (!string.IsNullOrEmpty(query))
         {
-            refs = refs
+            refs = [.. refs
                 .Where(r => $"{r.Name} {r.Version} {r.Culture} {r.PublicKeyToken}"
-                    .Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                    .Contains(query, StringComparison.OrdinalIgnoreCase))];
             search.SetMatchCount(refs.Count);
         }
 
@@ -108,7 +107,7 @@ public static class GeneralView
                         bindings.Key(Hex1bKey.Enter).Action(_ =>
                         {
                             var focusedName = state.GeneralFocusedDep as string
-                                ?? analyzer.AssemblyRefs.FirstOrDefault()?.Name;
+                                ?? (analyzer.AssemblyRefs.Count > 0 ? analyzer.AssemblyRefs[0].Name : null);
                             if (focusedName is not null)
                             {
                                 var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
@@ -123,7 +122,7 @@ public static class GeneralView
                     })
             ).Title($" Assembly References ({refs.Count}) ").Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

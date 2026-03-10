@@ -26,7 +26,7 @@ internal sealed class SessionDiscovery
     /// <summary>
     /// Scans for all dotsider socket files and returns discovered sessions.
     /// </summary>
-    public IReadOnlyList<DiscoveredSession> Scan()
+    public static IReadOnlyList<DiscoveredSession> Scan()
     {
         var dir = SocketDir;
         if (!Directory.Exists(dir))

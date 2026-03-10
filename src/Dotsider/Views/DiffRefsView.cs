@@ -32,14 +32,14 @@ public static class DiffRefsView
         // Apply search filter by ref name/version
         if (!string.IsNullOrEmpty(query))
         {
-            filtered = filtered.Where(e =>
+            filtered = [.. filtered.Where(e =>
             {
                 var name = e.Right?.Name ?? e.Left?.Name ?? "";
                 var leftVer = e.Left?.Version ?? "";
                 var rightVer = e.Right?.Version ?? "";
                 return $"{name} {leftVer} {rightVer}"
                     .Contains(query, StringComparison.OrdinalIgnoreCase);
-            }).ToList();
+            })];
             search.SetMatchCount(filtered.Count);
         }
 
@@ -87,7 +87,7 @@ public static class DiffRefsView
                 .Empty(e => e.Text("  No reference differences with current filter"))
                 .Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {

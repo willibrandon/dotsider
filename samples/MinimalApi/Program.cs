@@ -1,9 +1,11 @@
+using MinimalApi;
+
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-Powered-By"] = "MinimalApi-Sample";
+    context.Response.Headers.XPoweredBy = "MinimalApi-Sample";
     await next();
 });
 
@@ -17,6 +19,9 @@ app.MapPost("/echo", (EchoRequest request) =>
 
 app.Run();
 
-public record GreetingResponse(string Message);
-public record EchoRequest(string Message);
-public record EchoResponse(string Echo, DateTime ProcessedAt);
+namespace MinimalApi
+{
+    public record GreetingResponse(string Message);
+    public record EchoRequest(string Message);
+    public record EchoResponse(string Echo, DateTime ProcessedAt);
+}

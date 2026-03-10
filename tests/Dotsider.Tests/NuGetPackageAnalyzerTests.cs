@@ -45,7 +45,7 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
     public void OpenDll_ReturnsWorkingAnalyzer()
     {
         using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        var dll = pkg.DllFiles.First();
+        var dll = pkg.DllFiles[0];
         using var analyzer = pkg.OpenDll(dll);
         Assert.NotNull(analyzer);
         Assert.True(analyzer.HasMetadata);
@@ -56,7 +56,7 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
     public void OpenDll_MatchesStandaloneAssembly()
     {
         using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        var dll = pkg.DllFiles.First();
+        var dll = pkg.DllFiles[0];
         using var fromPkg = pkg.OpenDll(dll);
         using var standalone = new AssemblyAnalyzer(samples.RichLibraryDll);
         // Both should have the same types

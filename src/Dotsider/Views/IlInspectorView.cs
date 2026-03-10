@@ -104,7 +104,7 @@ public static class IlInspectorView
                 ],
                 leftWidth: 35).FillWidth().FillHeight());
 
-            return widgets.ToArray();
+            return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {
@@ -160,9 +160,8 @@ public static class IlInspectorView
         // When not restoring scroll, just build plain text widgets
         if (scrollRestorePhase <= 0)
         {
-            return lines
-                .Select(line => MakeLineWidget(ctx, line, searchQuery))
-                .ToArray();
+            return [.. lines
+                .Select(line => MakeLineWidget(ctx, line, searchQuery))];
         }
 
         // Calculate the anchor span: a viewport-sized range starting at the target offset.
@@ -176,9 +175,8 @@ public static class IlInspectorView
 
         if (anchorEnd <= anchorStart)
         {
-            return lines
-                .Select(line => MakeLineWidget(ctx, line, searchQuery))
-                .ToArray();
+            return [.. lines
+                .Select(line => MakeLineWidget(ctx, line, searchQuery))];
         }
 
         var widgets = new Hex1bWidget[lines.Length - (anchorEnd - anchorStart) + 1];
@@ -233,11 +231,10 @@ public static class IlInspectorView
             // Apply search filter
             if (!string.IsNullOrEmpty(searchQuery))
             {
-                nsTypes = nsTypes.Where(td =>
+                nsTypes = [.. nsTypes.Where(td =>
                     td.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
                     (methodsByType.TryGetValue(td.FullName, out var methods) &&
-                     methods.Any(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))))
-                    .ToList();
+                     methods.Any(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))))];
 
                 if (nsTypes.Count == 0) continue;
             }
@@ -268,10 +265,9 @@ public static class IlInspectorView
             var filteredMethods = methods;
             if (!string.IsNullOrEmpty(searchQuery))
             {
-                filteredMethods = methods
+                filteredMethods = [.. methods
                     .Where(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
-                                typeDef.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                                typeDef.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))];
 
                 if (filteredMethods.Count == 0) continue;
             }

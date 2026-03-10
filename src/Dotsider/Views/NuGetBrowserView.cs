@@ -27,10 +27,9 @@ public static class NuGetBrowserView
         var dlls = (IReadOnlyList<NuGetFileEntry>)pkg.DllFiles;
         if (!string.IsNullOrEmpty(query))
         {
-            dlls = dlls.Where(d =>
+            dlls = [.. dlls.Where(d =>
                 d.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                d.Directory.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                d.Directory.Contains(query, StringComparison.OrdinalIgnoreCase))];
             search.SetMatchCount(dlls.Count);
         }
 
@@ -95,7 +94,7 @@ public static class NuGetBrowserView
                     .FillHeight()
             ).Title($" DLL Files ({pkg.DllFiles.Count}) — Enter to inspect ").Fill());
 
-            return widgets.ToArray();
+            return [.. widgets];
         }).Fill();
     }
 

@@ -14,8 +14,6 @@ public class SizeAnalyzerBenchmarks
 {
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
-    private IlDisassembler _coreLibDisasm = null!;
-    private IlDisassembler _xmlDisasm = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -23,8 +21,6 @@ public class SizeAnalyzerBenchmarks
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
         _coreLibAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
-        _coreLibDisasm = new IlDisassembler(_coreLibAnalyzer);
-        _xmlDisasm = new IlDisassembler(_xmlAnalyzer);
     }
 
     [GlobalCleanup]
@@ -36,9 +32,9 @@ public class SizeAnalyzerBenchmarks
 
     [Benchmark(Description = "CoreLib BuildSizeTree")]
     public SizeNode CoreLib_BuildSizeTree()
-        => SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer, _coreLibDisasm);
+        => SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer);
 
     [Benchmark(Description = "Xml BuildSizeTree")]
     public SizeNode Xml_BuildSizeTree()
-        => SizeAnalyzer.BuildSizeTree(_xmlAnalyzer, _xmlDisasm);
+        => SizeAnalyzer.BuildSizeTree(_xmlAnalyzer);
 }

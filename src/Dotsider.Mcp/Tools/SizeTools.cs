@@ -30,8 +30,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = new AssemblyAnalyzer(assemblyPath);
-            var disassembler = new IlDisassembler(analyzer);
-            var tree = SizeAnalyzer.BuildSizeTree(analyzer, disassembler);
+            var tree = SizeAnalyzer.BuildSizeTree(analyzer);
             return JsonSerializer.Serialize(tree, DotsiderJsonOptions.Default);
         }
 

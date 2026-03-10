@@ -116,7 +116,7 @@ internal static class AnalyzeCommand
                     return Task.FromResult(PrintStrings(analyzer, formatter));
 
                 if (parseResult.GetValue(s_sizeOption))
-                    return Task.FromResult(PrintSize(analyzer, disassembler, formatter));
+                    return Task.FromResult(PrintSize(analyzer, formatter));
 
                 // Default: show assembly info
                 return Task.FromResult(PrintAssemblyInfo(analyzer, formatter));
@@ -222,7 +222,7 @@ internal static class AnalyzeCommand
         var lastDot = target.LastIndexOf(sep, StringComparison.Ordinal);
         if (lastDot < 0)
         {
-            fmt.WriteError($"Error: Invalid method format '{target}'. Use Type.Method or Type::Method");
+            OutputFormatter.WriteError($"Error: Invalid method format '{target}'. Use Type.Method or Type::Method");
             return 1;
         }
 
@@ -235,7 +235,7 @@ internal static class AnalyzeCommand
 
         if (method is null)
         {
-            fmt.WriteError($"Error: Method not found: {target}");
+            OutputFormatter.WriteError($"Error: Method not found: {target}");
             return 1;
         }
 
@@ -262,7 +262,7 @@ internal static class AnalyzeCommand
         if (fmt.JsonMode)
         {
             var (nodes, edges) = DependencyGraphBuilder.Build(a);
-            fmt.WriteJson(new { AssemblyRefs = a.AssemblyRefs, Graph = new { Nodes = nodes, Edges = edges } });
+            fmt.WriteJson(new { a.AssemblyRefs, Graph = new { nodes, edges } });
             return 0;
         }
 
@@ -309,9 +309,9 @@ internal static class AnalyzeCommand
         return 0;
     }
 
-    private static int PrintSize(AssemblyAnalyzer a, IlDisassembler dis, OutputFormatter fmt)
+    private static int PrintSize(AssemblyAnalyzer a, OutputFormatter fmt)
     {
-        var tree = SizeAnalyzer.BuildSizeTree(a, dis);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
 
         if (fmt.JsonMode)
         {

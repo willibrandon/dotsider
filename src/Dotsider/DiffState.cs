@@ -45,7 +45,7 @@ public sealed class DiffState : IDisposable
     public DiffFilterMode FilterMode { get; set; } = DiffFilterMode.All;
 
     /// <summary>Per-tab search state for diff views (Summary=0, Types=1, Methods=2, References=3).</summary>
-    public SearchState[] Search { get; } = Enumerable.Range(0, 4).Select(_ => new SearchState()).ToArray();
+    public SearchState[] Search { get; } = [.. Enumerable.Range(0, 4).Select(_ => new SearchState())];
 
     /// <summary>Delegate to navigate to the next search match in the current diff view.</summary>
     public Action? NavigateNextMatch { get; set; }

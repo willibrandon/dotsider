@@ -14,8 +14,6 @@ public class TreemapLayoutBenchmarks
 {
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
-    private IlDisassembler _coreLibDisasm = null!;
-    private IlDisassembler _xmlDisasm = null!;
     private IReadOnlyList<SizeNode> _coreLibChildren = null!;
     private IReadOnlyList<SizeNode> _xmlChildren = null!;
 
@@ -25,11 +23,9 @@ public class TreemapLayoutBenchmarks
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
         _coreLibAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
-        _coreLibDisasm = new IlDisassembler(_coreLibAnalyzer);
-        _xmlDisasm = new IlDisassembler(_xmlAnalyzer);
 
-        _coreLibChildren = SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer, _coreLibDisasm).Children;
-        _xmlChildren = SizeAnalyzer.BuildSizeTree(_xmlAnalyzer, _xmlDisasm).Children;
+        _coreLibChildren = SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer).Children;
+        _xmlChildren = SizeAnalyzer.BuildSizeTree(_xmlAnalyzer).Children;
     }
 
     [GlobalCleanup]

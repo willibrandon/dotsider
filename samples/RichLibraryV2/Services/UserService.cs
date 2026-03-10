@@ -13,7 +13,7 @@ public sealed class UserService
 
     public User? GetById(int id) => _users.GetValueOrDefault(id);
 
-    public IReadOnlyList<User> GetAll() => _users.Values.ToList();
+    public IReadOnlyList<User> GetAll() => [.. _users.Values];
 
     public int Add(User entity)
     {

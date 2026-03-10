@@ -100,7 +100,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
         .WithDiagnostics(appName: "dotsider-diff", forceEnable: true)
         .Build();
 
-    await diffTerminal.RunAsync();
+    await diffTerminal.RunAsync(ct);
     return 0;
 });
 

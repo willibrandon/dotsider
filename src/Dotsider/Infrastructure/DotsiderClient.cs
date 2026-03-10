@@ -13,7 +13,7 @@ internal sealed class DotsiderClient
     /// <summary>
     /// Sends a DotsiderRequest to the specified socket and returns the response.
     /// </summary>
-    public async Task<DotsiderResponse> SendAsync(
+    public static async Task<DotsiderResponse> SendAsync(
         string socketPath, DotsiderRequest request, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
@@ -26,7 +26,7 @@ internal sealed class DotsiderClient
     /// Sends a raw JSON string to the specified socket and returns the raw response.
     /// Used for both dotsider and hex1b protocol interactions.
     /// </summary>
-    public async Task<string> SendRawAsync(
+    public static async Task<string> SendRawAsync(
         string socketPath, string json, CancellationToken ct = default)
     {
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
@@ -44,7 +44,7 @@ internal sealed class DotsiderClient
     /// Probes a dotsider socket to check if the instance is reachable.
     /// Returns the assembly-info response, or null if unreachable.
     /// </summary>
-    public async Task<DotsiderResponse?> TryProbeAsync(
+    public static async Task<DotsiderResponse?> TryProbeAsync(
         string socketPath, CancellationToken ct = default)
     {
         try

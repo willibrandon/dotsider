@@ -55,7 +55,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
     {
         var app = CreateApp();
         using var state = new NuGetState(app, samples.RichLibraryNupkg);
-        var dll = state.Package.DllFiles.First();
+        var dll = state.Package.DllFiles[0];
         var analyzer = state.Package.OpenDll(dll);
         state.SelectedDllState = new DotsiderState(app, analyzer);
         state.SelectedDllEntry = dll;

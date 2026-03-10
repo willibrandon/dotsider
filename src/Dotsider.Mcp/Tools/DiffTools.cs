@@ -57,29 +57,27 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
                 {
                     var name = (d.Left ?? d.Right)?.Name;
                     return !IsCompilerGeneratedType(name);
-                })
-                .ToList();
+                });
 
             var filteredMethodDiffs = result.MethodDiffs
                 .Where(d =>
                 {
                     var declaringType = (d.Left ?? d.Right)?.DeclaringType;
                     return declaringType is null || !declaringType.StartsWith("<>");
-                })
-                .ToList();
+                });
 
-            result = new AssemblyDiffResult(filteredTypeDiffs, filteredMethodDiffs, result.AssemblyRefDiffs, result.MetadataSummary);
+            result = new AssemblyDiffResult([.. filteredTypeDiffs], [.. filteredMethodDiffs], result.AssemblyRefDiffs, result.MetadataSummary);
         }
 
         // Apply limits after filtering so the summary (computed from the full diff) stays accurate
         if (maxTypeDiffs is > 0 && result.TypeDiffs.Count > maxTypeDiffs.Value)
         {
-            result = result with { TypeDiffs = result.TypeDiffs.Take(maxTypeDiffs.Value).ToList() };
+            result = result with { TypeDiffs = [.. result.TypeDiffs.Take(maxTypeDiffs.Value)] };
         }
 
         if (maxMethodDiffs is > 0 && result.MethodDiffs.Count > maxMethodDiffs.Value)
         {
-            result = result with { MethodDiffs = result.MethodDiffs.Take(maxMethodDiffs.Value).ToList() };
+            result = result with { MethodDiffs = [.. result.MethodDiffs.Take(maxMethodDiffs.Value)] };
         }
 
         return JsonSerializer.Serialize(result, DotsiderJsonOptions.Default);

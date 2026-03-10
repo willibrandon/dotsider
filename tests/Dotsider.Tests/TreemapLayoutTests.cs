@@ -75,8 +75,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
     public void Layout_RealSizeTree_ProducesValidRects()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var disasm = new IlDisassembler(a);
-        var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
         var rects = TreemapLayout.Layout(tree.Children, 0, 0, 800, 600);
         Assert.NotEmpty(rects);
         Assert.All(rects, r =>
@@ -105,8 +104,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
     public void Layout_NoOverlappingRects_RealAssembly()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var disasm = new IlDisassembler(a);
-        var tree = SizeAnalyzer.BuildSizeTree(a, disasm);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
         var rects = TreemapLayout.Layout(tree.Children, 0, 0, 800, 600);
         Assert.NotEmpty(rects);
         AssertNoOverlaps(rects);
