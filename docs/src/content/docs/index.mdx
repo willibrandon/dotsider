@@ -1,0 +1,43 @@
+---
+title: dotsider
+description: A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, dependencies, and more.
+template: splash
+hero:
+  tagline: Analyze .NET assemblies like a boss.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: Try It Live
+      link: /demo/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<div class="hero-prompt">
+  <span class="prompt-char">$</span> dotsider MyApp.dll
+</div>
+
+<div class="feature-strip">
+  <div class="feature-item">
+    <span class="feature-key">1-8</span>
+    <span class="feature-label">8 analysis tabs — general, PE/metadata, IL, strings, hex, dep graph, size map, runtime tracing</span>
+  </div>
+  <div class="feature-item">
+    <span class="feature-key">diff</span>
+    <span class="feature-label">Side-by-side assembly comparison. See what changed between two versions.</span>
+  </div>
+  <div class="feature-item">
+    <span class="feature-key">.nupkg</span>
+    <span class="feature-label">Open NuGet packages directly. Browse contents, drill into any DLL inside.</span>
+  </div>
+  <div class="feature-item">
+    <span class="feature-key">mcp</span>
+    <span class="feature-label">28 tools exposed via Model Context Protocol for AI assistants.</span>
+  </div>
+</div>
+
+<div class="install-hint">
+  <code>dotnet tool install -g dotsider</code>
+</div>

@@ -2,6 +2,8 @@
   <Project Path="src/Dotsider.Core/Dotsider.Core.csproj" />
   <Project Path="src/Dotsider/Dotsider.csproj" />
   <Project Path="src/Dotsider.Mcp/Dotsider.Mcp.csproj" />
+  <Project Path="src/Dotsider.Website/Dotsider.Website.csproj" />
+  <Project Path="src/Dotsider.DocGenerator/Dotsider.DocGenerator.csproj" />
 
   <Folder Name="/samples/">
     <Project Path="samples/HelloWorld/HelloWorld.csproj" />

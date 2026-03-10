@@ -1,0 +1,141 @@
+---
+title: Live Demo
+description: Try dotsider in your browser — a real instance connected via WebSocket.
+---
+
+import './demo.css';
+
+<div id="demo-container">
+  <div id="demo-toolbar">
+    <span class="demo-status" id="demo-status">Connecting...</span>
+    <button id="demo-reconnect" class="demo-btn" style="display:none">Reconnect</button>
+  </div>
+  <div id="terminal"></div>
+  <div id="demo-offline" style="display:none">
+    <div class="offline-content">
+      <p class="offline-title">Demo server is offline</p>
+      <p class="offline-desc">The live demo connects to a real dotsider instance via WebSocket. The server may be down for maintenance.</p>
+      <p class="offline-desc">To try dotsider locally:</p>
+      <pre><code>dotnet tool install -g dotsider{'\n'}dotsider MyApp.dll</code></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+{`
+(async () => {
+  const { Terminal } = await import('https://esm.sh/@xterm/xterm@5.5.0');
+  const { FitAddon } = await import('https://esm.sh/@xterm/addon-fit@0.10.0');
+  const { WebLinksAddon } = await import('https://esm.sh/@xterm/addon-web-links@0.11.0');
+
+  const container = document.getElementById('terminal');
+  const statusEl = document.getElementById('demo-status');
+  const reconnectBtn = document.getElementById('demo-reconnect');
+  const offlineEl = document.getElementById('demo-offline');
+
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
+    theme: {
+      background: '#0e0e1a',
+      foreground: '#f0f0f5',
+      cursor: '#6c63ff',
+      selectionBackground: '#6c63ff44',
+      black: '#0e0e1a',
+      red: '#ff5555',
+      green: '#50fa7b',
+      yellow: '#f1fa8c',
+      blue: '#6c63ff',
+      magenta: '#ff79c6',
+      cyan: '#8be9fd',
+      white: '#f0f0f5',
+    },
+    allowProposedApi: true,
+  });
+
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(new WebLinksAddon());
+  term.open(container);
+  fitAddon.fit();
+
+  const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//demo.dotsider.dev/ws';
+  let ws;
+
+  function setStatus(text, color) {
+    statusEl.textContent = text;
+    statusEl.style.color = color || '#9898a8';
+  }
+
+  function showOffline() {
+    container.style.display = 'none';
+    offlineEl.style.display = 'flex';
+    reconnectBtn.style.display = 'inline-block';
+  }
+
+  function hideOffline() {
+    container.style.display = 'block';
+    offlineEl.style.display = 'none';
+  }
+
+  function connect() {
+    setStatus('Connecting...', '#f1fa8c');
+    reconnectBtn.style.display = 'none';
+    hideOffline();
+
+    ws = new WebSocket(wsUrl);
+
+    const timeout = setTimeout(() => {
+      ws.close();
+      setStatus('Connection timed out', '#ff5555');
+      showOffline();
+    }, 5000);
+
+    ws.onopen = () => {
+      clearTimeout(timeout);
+      setStatus('Connected', '#50fa7b');
+      const { cols, rows } = term;
+      ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+    };
+
+    ws.onmessage = (e) => {
+      term.write(e.data);
+    };
+
+    ws.onclose = () => {
+      clearTimeout(timeout);
+      setStatus('Disconnected', '#ff5555');
+      showOffline();
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timeout);
+      setStatus('Connection failed', '#ff5555');
+      showOffline();
+    };
+  }
+
+  term.onData((data) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(data);
+    }
+  });
+
+  term.onResize(({ cols, rows }) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+    }
+  });
+
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  reconnectBtn.addEventListener('click', () => {
+    term.clear();
+    connect();
+  });
+
+  connect();
+})();
+`}
+</script>
