@@ -405,6 +405,85 @@ jobs:
           git diff --staged --quiet || git commit -m "Update dotsider and dotsider-mcp to $VERSION"
           git push origin main
 
+  update-scoop:
+    needs: create-release
+    if: "!contains(github.ref_name, '-')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Clone scoop-bucket repository
+        run: |
+          git clone https://x-access-token:${{ secrets.SCOOP_BUCKET_TOKEN }}@github.com/willibrandon/scoop-bucket.git
+          cd scoop-bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update manifests with new version and checksums
+        run: |
+          cd scoop-bucket
+          VERSION="${{ steps.version.outputs.version }}"
+
+          python3 << 'EOF'
+          import json
+
+          version = "${{ steps.version.outputs.version }}"
+
+          # Update dotsider manifest
+          sha_win_x64 = "${{ needs.create-release.outputs.sha256_win_x64 }}"
+          sha_win_arm64 = "${{ needs.create-release.outputs.sha256_win_arm64 }}"
+
+          with open('bucket/dotsider.json', 'r') as f:
+              manifest = json.load(f)
+
+          manifest['version'] = version
+          manifest['architecture']['64bit']['url'] = f'https://github.com/willibrandon/dotsider/releases/download/v{version}/dotsider-win-x64.zip'
+          manifest['architecture']['64bit']['hash'] = sha_win_x64
+          manifest['architecture']['arm64']['url'] = f'https://github.com/willibrandon/dotsider/releases/download/v{version}/dotsider-win-arm64.zip'
+          manifest['architecture']['arm64']['hash'] = sha_win_arm64
+
+          with open('bucket/dotsider.json', 'w') as f:
+              json.dump(manifest, f, indent=4)
+              f.write('\n')
+
+          # Update dotsider-mcp manifest
+          sha_mcp_win_x64 = "${{ needs.create-release.outputs.sha256_mcp_win_x64 }}"
+          sha_mcp_win_arm64 = "${{ needs.create-release.outputs.sha256_mcp_win_arm64 }}"
+
+          with open('bucket/dotsider-mcp.json', 'r') as f:
+              manifest = json.load(f)
+
+          manifest['version'] = version
+          manifest['architecture']['64bit']['url'] = f'https://github.com/willibrandon/dotsider/releases/download/v{version}/dotsider-mcp-win-x64.zip'
+          manifest['architecture']['64bit']['hash'] = sha_mcp_win_x64
+          manifest['architecture']['arm64']['url'] = f'https://github.com/willibrandon/dotsider/releases/download/v{version}/dotsider-mcp-win-arm64.zip'
+          manifest['architecture']['arm64']['hash'] = sha_mcp_win_arm64
+
+          with open('bucket/dotsider-mcp.json', 'w') as f:
+              json.dump(manifest, f, indent=4)
+              f.write('\n')
+          EOF
+
+          echo "Updated bucket/dotsider.json:"
+          cat bucket/dotsider.json
+          echo ""
+          echo "Updated bucket/dotsider-mcp.json:"
+          cat bucket/dotsider-mcp.json
+
+      - name: Commit and push changes
+        run: |
+          cd scoop-bucket
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git add bucket/dotsider.json bucket/dotsider-mcp.json
+          git diff --staged --quiet || git commit -m "Update dotsider and dotsider-mcp to $VERSION"
+          git push origin main
+
   update-winget:
     needs: create-release
     if: "!contains(github.ref_name, '-')"
