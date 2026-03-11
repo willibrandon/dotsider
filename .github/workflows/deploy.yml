@@ -21,11 +21,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Build docs site ──────────────────────────────────────────
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -37,13 +37,13 @@ jobs:
       - run: pnpm build
         working-directory: docs
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: docs-site
           path: docs/dist/
 
       # ── Build WebSocket server + sample assembly ─────────────────
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -62,7 +62,7 @@ jobs:
       - name: Copy sample assembly
         run: cp samples/RichLibrary/bin/Release/net10.0/RichLibrary.dll ./publish/website/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: website-server
           path: publish/website/
@@ -71,7 +71,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run preflight checks
         env:
@@ -90,12 +90,12 @@ jobs:
     needs: [build, preflight]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: docs-site
           path: docs-site/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: website-server
           path: website-server/
