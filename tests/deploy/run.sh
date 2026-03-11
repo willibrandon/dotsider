@@ -43,6 +43,16 @@ done
 echo "── Running setup.sh ──"
 docker exec "$CONTAINER_NAME" bash /opt/deploy/setup.sh
 
+# Install a stub binary so dotsider-website.service can start.
+# In production the real binary arrives via rsync; here we just need
+# something that stays running so systemctl restart works in tests.
+echo "── Installing stub binary ──"
+docker exec "$CONTAINER_NAME" bash -c '
+    printf "#!/bin/bash\nexec sleep infinity\n" > /opt/dotsider-website/Dotsider.Website
+    chmod 755 /opt/dotsider-website/Dotsider.Website
+    systemctl start dotsider-website
+'
+
 # Give services time to start
 echo "── Waiting for services ──"
 sleep 5
@@ -61,6 +71,7 @@ if [[ "$SUITE" == "all" ]]; then
     run_suite setup
     run_suite preflight
     run_suite caddy-report
+    run_suite integrity-check
 else
     run_suite "$SUITE"
 fi

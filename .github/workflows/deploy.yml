@@ -119,15 +119,28 @@ jobs:
           docs-site/
           brandon@"$HOST":/var/www/dotsider-docs/
 
-      - name: Deploy website server
+      - name: Pause integrity checker and deploy website server
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
-        run: >
-          rsync -avz --delete --chmod=F755
-          --exclude='caddy-report.sh'
-          -e "ssh -i ~/.ssh/deploy_key"
-          website-server/
-          brandon@"$HOST":/opt/dotsider-website/
+        run: |
+          ssh -i ~/.ssh/deploy_key brandon@"$HOST" \
+            'sudo systemctl stop integrity-check.timer integrity-check.service 2>/dev/null || true'
+
+          rsync -avz --delete --chmod=F755 \
+            --exclude='caddy-report.sh' \
+            --exclude='integrity-check.sh' \
+            --exclude='.RichLibrary.dll.bak' \
+            --exclude='.RichLibrary.dll.sha256' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            website-server/ \
+            brandon@"$HOST":/opt/dotsider-website/
+
+          ssh -i ~/.ssh/deploy_key brandon@"$HOST" bash -s << 'REMOTE'
+            cd /opt/dotsider-website
+            cp RichLibrary.dll .RichLibrary.dll.bak
+            sha256sum RichLibrary.dll | cut -d' ' -f1 > .RichLibrary.dll.sha256
+            sudo systemctl start integrity-check.timer
+          REMOTE
 
       - name: Restart and verify
         env:

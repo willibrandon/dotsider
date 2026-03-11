@@ -15,6 +15,9 @@ Infrastructure for deploying dotsider.dev to a Hetzner VM running Debian behind 
 | `caddy-report.service` | systemd oneshot unit for the metrics report |
 | `caddy-report.timer` | Runs `caddy-report.service` every 5 minutes |
 | `caddy-metrics-logrotate` | Weekly log rotation for `/var/log/caddy-metrics.log` (4 compressed archives) |
+| `integrity-check.sh` | SHA256-checks `RichLibrary.dll` against a known-good hash, restores from backup and restarts the service if corrupted |
+| `integrity-check.service` | systemd oneshot unit for the integrity check |
+| `integrity-check.timer` | Runs `integrity-check.service` every minute |
 
 ## First-Time Setup
 

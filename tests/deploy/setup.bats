@@ -184,6 +184,25 @@ load 'helpers/common'
     systemctl is-active --quiet caddy-report.timer
 }
 
+# ── Integrity checker ─────────────────────────────────────────────
+
+@test "integrity-check.sh is installed and executable" {
+    assert_file_exists /opt/dotsider-website/integrity-check.sh
+    [[ -x /opt/dotsider-website/integrity-check.sh ]]
+}
+
+@test "integrity-check.service is installed" {
+    assert_file_exists /etc/systemd/system/integrity-check.service
+    assert_file_contains /etc/systemd/system/integrity-check.service \
+        "ExecStart=/opt/dotsider-website/integrity-check.sh"
+}
+
+@test "integrity-check.timer is installed and active" {
+    assert_file_exists /etc/systemd/system/integrity-check.timer
+    assert_file_contains /etc/systemd/system/integrity-check.timer "OnUnitActiveSec=1min"
+    systemctl is-active --quiet integrity-check.timer
+}
+
 # ── Logrotate ─────────────────────────────────────────────────────
 
 @test "caddy-metrics logrotate is configured" {

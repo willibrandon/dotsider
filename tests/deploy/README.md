@@ -1,6 +1,6 @@
 # Deploy Tests
 
-Integration tests for `deploy/setup.sh`, `deploy/preflight.sh`, and `deploy/caddy-report.sh`. Runs in a Debian 13 Docker container with real systemd, Caddy, and Prometheus.
+Integration tests for `deploy/setup.sh`, `deploy/preflight.sh`, `deploy/caddy-report.sh`, and `deploy/integrity-check.sh`. Runs in a Debian 13 Docker container with real systemd, Caddy, and Prometheus.
 
 ## Requirements
 
@@ -16,15 +16,17 @@ bash tests/deploy/run.sh
 bash tests/deploy/run.sh setup
 bash tests/deploy/run.sh preflight
 bash tests/deploy/run.sh caddy-report
+bash tests/deploy/run.sh integrity-check
 ```
 
 ## Test Suites
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| `setup.bats` | 39 | .NET 10 installed, Caddy installed and running with metrics, Prometheus installed and healthy, brandon user with sudo, deploy directories, systemd units enabled, Caddyfile content (X-Forwarded-For, cache headers), prometheus.yml scrape targets, caddy-report timer active, logrotate config, ufw firewall rules |
+| `setup.bats` | 42 | .NET 10 installed, Caddy installed and running with metrics, Prometheus installed and healthy, brandon user with sudo, deploy directories, systemd units enabled, Caddyfile content (X-Forwarded-For, cache headers), prometheus.yml scrape targets, caddy-report timer active, integrity-check timer active, logrotate config, ufw firewall rules |
 | `preflight.bats` | 18 | All preflight checks pass on a configured system, zero failures reported, each service and directory detected, failure detection when dotnet is missing or a directory is removed |
 | `caddy-report.bats` | 10 | Script exits successfully, writes to log file, log line format (ISO 8601 timestamp, req/s, err/s, p95, inflight, upstream_healthy), multiple runs append, graceful N/A output when Prometheus is down |
+| `integrity-check.bats` | 10 | Clean exit when DLL matches hash, corruption detection and auto-restore from backup, log format with expected/actual hashes, graceful handling of missing files, recovery from repeated corruption |
 
 ## How It Works
 
@@ -55,6 +57,7 @@ sleep 5
 docker exec dotsider-deploy-tests bats --tap /opt/tests/deploy/setup.bats
 docker exec dotsider-deploy-tests bats --tap /opt/tests/deploy/preflight.bats
 docker exec dotsider-deploy-tests bats --tap /opt/tests/deploy/caddy-report.bats
+docker exec dotsider-deploy-tests bats --tap /opt/tests/deploy/integrity-check.bats
 
 # Clean up
 docker rm -f dotsider-deploy-tests
