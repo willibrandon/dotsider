@@ -1,26 +1,23 @@
 ---
 title: Live Demo
 description: Try dotsider in your browser — a real instance connected via WebSocket.
-template: splash
+tableOfContents: false
 ---
+
+You're looking at a live dotsider session connected over WebSocket. Navigate with 1–8 for tabs, / for search, and Enter to go deeper. q exits, but it auto-restarts so feel free to experiment.
 
 <div id="demo-root">
   <div id="demo-header">
     <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
     <span class="title">dotsider — RichLibrary.dll</span>
     <span id="status">Connecting...</span>
+    <button id="reconnect-btn" title="Reconnect">&#x21bb;</button>
   </div>
   <div id="tv"></div>
 </div>
 
 <style>{`
-  /* Kill all Starlight page chrome */
-  [data-has-hero] .page { min-height: 100vh !important; padding: 0 !important; }
-  [data-has-hero] .content-panel { padding: 0 !important; max-width: 100% !important; }
-  [data-has-hero] main { padding: 0 !important; }
-  [data-has-hero] .sl-markdown-content { padding: 0 !important; max-width: 100% !important; }
-  [data-has-hero] footer { display: none; }
-  .hero { display: none !important; }
+  :root { --sl-content-width: 70rem; }
 
   #demo-root {
     background: #121218;
@@ -37,13 +34,19 @@ template: splash
     background: linear-gradient(180deg, #2a2a36, #1e1e28);
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
-  .dots { display: flex; gap: 6px; }
+  .dots { display: flex; gap: 6px; min-width: 160px; }
   .dot { width: 12px; height: 12px; border-radius: 50%; }
   .dot.r { background: #ff5f56; }
   .dot.y { background: #ffbd2e; }
   .dot.g { background: #27c93f; }
   .title { flex: 1; text-align: center; color: rgba(255,255,255,0.5); font-family: var(--sl-font-mono); font-size: 13px; }
-  #status { font-family: var(--sl-font-mono); font-size: 12px; color: #8c8ca0; }
+  #status { font-family: var(--sl-font-mono); font-size: 12px; color: #8c8ca0; min-width: 120px; text-align: right; }
+  #reconnect-btn {
+    background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
+    color: #8c8ca0; font-size: 14px; cursor: pointer; padding: 2px 8px; line-height: 1;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  #reconnect-btn:hover { color: #00c8b4; border-color: #00c8b4; }
   #tv { width: fit-content; height: fit-content; }
 
   /* Reset Starlight markdown styles leaking into xterm.js internals */
@@ -109,9 +112,11 @@ template: splash
   const wsUrl = 'ws://localhost:64219/ws';
   let ws;
   let wasConnected = false;
+  let lastConnectTime = 0;
 
   function connect() {
     wasConnected = false;
+    lastConnectTime = Date.now();
     statusEl.textContent = 'Connecting...';
     statusEl.style.color = '#f1fa8c';
     ws = new WebSocket(wsUrl);
@@ -125,11 +130,15 @@ template: splash
     };
     ws.onclose = () => {
       clearTimeout(timeout);
-      if (wasConnected) {
+      // Only auto-restart if session lasted more than 3s (not a rapid cycle)
+      if (wasConnected && Date.now() - lastConnectTime > 3000) {
         statusEl.textContent = 'Restarting...';
         statusEl.style.color = '#f1fa8c';
         term.reset();
         setTimeout(connect, 1500);
+      } else if (!wasConnected) {
+        statusEl.textContent = 'Offline';
+        statusEl.style.color = '#ff5555';
       } else {
         statusEl.textContent = 'Offline';
         statusEl.style.color = '#ff5555';
@@ -140,6 +149,13 @@ template: splash
 
   term.onData((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
   term.onBinary((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
+
+  document.getElementById('reconnect-btn').addEventListener('click', () => {
+    if (ws) { ws.onclose = null; ws.close(); }
+    statusEl.textContent = 'Reconnecting...';
+    statusEl.style.color = '#f1fa8c';
+    setTimeout(connect, 1500);
+  });
 
   connect();
 })();
