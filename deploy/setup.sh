@@ -9,7 +9,7 @@ set -euo pipefail
 
 echo "── Installing packages ──"
 apt-get update
-apt-get install -y rsync ufw curl
+apt-get install -y rsync ufw curl sudo gnupg python3
 
 echo "── Installing .NET 10 ASP.NET Core runtime ──"
 DISTRO=$(. /etc/os-release && echo "$ID")
@@ -107,7 +107,7 @@ dotsider.dev {
 	}
 }
 CADDY
-systemctl reload caddy
+systemctl restart caddy
 
 echo "── Installing Prometheus ──"
 apt-get install -y prometheus
