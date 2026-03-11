@@ -21,7 +21,7 @@ dotsider.dev {
 		header @astro Cache-Control "public, max-age=31536000, immutable"
 
 		# Other static assets — cache 1 hour, revalidate
-		@static path *.js *.css *.png *.webp *.avif *.gif *.svg *.woff2
+		@static path *.js *.css *.png *.webp *.avif *.gif *.ico *.jpg *.svg *.woff2
 		header @static Cache-Control "public, max-age=3600, must-revalidate"
 
 		file_server
