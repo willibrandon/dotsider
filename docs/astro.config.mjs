@@ -29,6 +29,7 @@ function contentCacheReload() {
 }
 
 export default defineConfig({
+	prefetch: { defaultStrategy: 'hover', prefetchAll: true },
 	vite: { plugins: [contentCacheReload()] },
 	integrations: [
 		starlight({

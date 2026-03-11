@@ -18,6 +18,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Dotsider.Tests/Dotsider.Tests.csproj" />
     <Project Path="tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj" />
+    <Project Path="tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj" />
   </Folder>
 
   <Folder Name="/benchmarks/">

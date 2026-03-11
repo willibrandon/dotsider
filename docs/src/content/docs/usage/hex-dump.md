@@ -3,7 +3,7 @@ title: Hex Dump
 description: Hex editor with vi-style modal editing and byte category coloring.
 ---
 
-![Hex Dump tab](/screenshots/hex-dump.png)
+![Hex Dump tab](../../../assets/screenshots/hex-dump.png)
 
 The **Hex Dump** tab (`5`) is a full hex editor with:
 

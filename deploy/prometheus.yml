@@ -1,0 +1,15 @@
+# prometheus.yml — Prometheus config for dotsider.dev
+# Scrapes Caddy metrics from the admin API and Prometheus self-metrics.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: caddy
+    static_configs:
+      - targets: ['localhost:2019']
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

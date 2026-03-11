@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Dotsider.Website.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Dotsider/Dotsider.csproj" />
   </ItemGroup>
 

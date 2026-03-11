@@ -48,6 +48,11 @@ starlight-toc {
 	letter-spacing: -0.03em;
 }
 
+/* Show theme toggle + social icons on mobile (Starlight hides them below md) */
+.right-group {
+	display: flex !important;
+}
+
 /* ═══════════════════════════════════════
    Splash / hero page
    ═══════════════════════════════════════ */

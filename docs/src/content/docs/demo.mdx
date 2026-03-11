@@ -109,7 +109,10 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
   term.open(tv);
   try { term.loadAddon(new WebglAddon()); } catch (e) { /* fallback to DOM renderer */ }
 
-  const wsUrl = 'ws://localhost:64219/ws';
+  const isProduction = window.location.hostname === 'dotsider.dev';
+  const wsProto = isProduction ? 'wss' : 'ws';
+  const wsHost = isProduction ? 'dotsider.dev' : 'localhost:64219';
+  const wsUrl = wsProto + '://' + wsHost + '/ws';
   let ws;
   let wasConnected = false;
   let lastConnectTime = 0;

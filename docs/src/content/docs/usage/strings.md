@@ -3,7 +3,7 @@ title: Strings
 description: User strings, metadata strings, and raw binary string scanning.
 ---
 
-![Strings tab](/screenshots/strings.png)
+![Strings tab](../../../assets/screenshots/strings.png)
 
 The **Strings** tab (`4`) extracts text from three sources:
 

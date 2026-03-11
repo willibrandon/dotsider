@@ -3,7 +3,7 @@ title: NuGet Mode
 description: Browse NuGet package contents and inspect any DLL inside.
 ---
 
-![NuGet Mode](/screenshots/nuget-mode.png)
+![NuGet Mode](../../../assets/screenshots/nuget-mode.png)
 
 Open any `.nupkg` file directly:
 

@@ -1,0 +1,22 @@
+[Unit]
+Description=Dotsider.Website — docs site WebSocket server
+After=network.target
+
+[Service]
+Type=simple
+User=brandon
+Group=brandon
+WorkingDirectory=/opt/dotsider-website
+ExecStart=/opt/dotsider-website/Dotsider.Website
+Restart=always
+RestartSec=5
+
+Environment=ASPNETCORE_URLS=http://localhost:5100
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=Demo__SampleAssembly=/opt/dotsider-website/RichLibrary.dll
+Environment=Demo__MaxSessions=10
+Environment=Demo__SessionTimeoutMinutes=10
+Environment=Demo__AllowedOrigins__0=https://dotsider.dev
+
+[Install]
+WantedBy=multi-user.target

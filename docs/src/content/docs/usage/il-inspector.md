@@ -3,7 +3,7 @@ title: IL Inspector
 description: Namespace/type/method tree with IL disassembly.
 ---
 
-![IL Inspector tab](/screenshots/il-inspector.png)
+![IL Inspector tab](../../../assets/screenshots/il-inspector.png)
 
 The **IL Inspector** tab (`3`) shows a tree of all namespaces, types, and methods. Select a method to see its IL bytecode in the right pane.
 
