@@ -13,7 +13,9 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
     <span id="status">Connecting...</span>
     <button id="reconnect-btn" title="Reconnect">&#x21bb;</button>
   </div>
-  <div id="tv"></div>
+  <div id="demo-stage">
+    <div id="tv"></div>
+  </div>
 </div>
 
 <style>{`
@@ -24,35 +26,126 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 10px 40px rgba(0,0,0,0.4);
-    width: fit-content;
+    width: 100%;
+    max-width: 100%;
     margin: 1rem auto;
     overflow: hidden;
   }
   #demo-header {
-    display: flex; align-items: center; gap: 10px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
     padding: 10px 16px;
     background: linear-gradient(180deg, #2a2a36, #1e1e28);
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
-  .dots { display: flex; gap: 6px; min-width: 160px; }
+  .dots { display: flex; gap: 6px; min-width: 0; }
   .dot { width: 12px; height: 12px; border-radius: 50%; }
   .dot.r { background: #ff5f56; }
   .dot.y { background: #ffbd2e; }
   .dot.g { background: #27c93f; }
-  .title { flex: 1; text-align: center; color: rgba(255,255,255,0.5); font-family: var(--sl-font-mono); font-size: 13px; }
-  #status { font-family: var(--sl-font-mono); font-size: 12px; color: #8c8ca0; min-width: 120px; text-align: right; }
+  .title {
+    min-width: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.5);
+    font-family: var(--sl-font-mono);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #status {
+    font-family: var(--sl-font-mono);
+    font-size: 12px;
+    color: #8c8ca0;
+    min-width: 0;
+    text-align: right;
+    white-space: nowrap;
+  }
   #reconnect-btn {
     background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
     color: #8c8ca0; font-size: 14px; cursor: pointer; padding: 2px 8px; line-height: 1;
     transition: color 0.15s, border-color 0.15s;
   }
   #reconnect-btn:hover { color: #00c8b4; border-color: #00c8b4; }
-  #tv { width: fit-content; height: fit-content; }
+  #demo-stage {
+    width: 100%;
+    height: clamp(22rem, 68vh, 40rem);
+    min-height: 22rem;
+    background: #121218;
+    padding: 12px;
+    overflow: hidden;
+  }
+  #tv {
+    width: 100%;
+    height: 100%;
+  }
 
   /* Reset Starlight markdown styles leaking into xterm.js internals */
   #tv * { margin: 0 !important; }
   #tv .xterm-viewport { scrollbar-width: none; }
   #tv .xterm-viewport::-webkit-scrollbar { display: none; }
+  #tv .xterm { padding-bottom: 0; }
+  #tv .xterm,
+  #tv .xterm-screen,
+  #tv .xterm-viewport {
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 720px) {
+    #demo-root {
+      border-radius: 10px;
+      width: 100%;
+      margin: 0.75rem auto;
+    }
+
+    #demo-header {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title action"
+        "status action";
+      gap: 6px 10px;
+      padding: 10px 12px;
+    }
+
+    .dots {
+      display: none;
+    }
+
+    .title {
+      grid-area: title;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    #status {
+      grid-area: status;
+      text-align: left;
+      font-size: 11px;
+    }
+
+    #reconnect-btn {
+      grid-area: action;
+      align-self: center;
+      padding: 4px 8px;
+    }
+
+    #demo-stage {
+      height: clamp(18rem, 54vh, 30rem);
+      min-height: 18rem;
+      padding: 10px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    :root { --sl-content-width: 100%; }
+
+    #demo-root {
+      border-radius: 0.9rem;
+    }
+  }
 `}</style>
 
 <script>
@@ -61,21 +154,23 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
   if (!document.querySelector('link[href*="xterm"]')) {
     const l = document.createElement('link');
     l.rel = 'stylesheet';
-    l.href = 'https://esm.sh/@xterm/xterm@5.5.0/css/xterm.css';
+    l.href = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css';
     document.head.appendChild(l);
     await new Promise(r => { l.onload = r; l.onerror = r; });
   }
 
-  const { Terminal } = await import('https://esm.sh/@xterm/xterm@5.5.0');
-  const { Unicode11Addon } = await import('https://esm.sh/@xterm/addon-unicode11@0.8.0');
-  const { WebglAddon } = await import('https://esm.sh/@xterm/addon-webgl@0.18.0');
+  const { Terminal } = await import('https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm');
+  const { FitAddon } = await import('https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm');
+  const { Unicode11Addon } = await import('https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8.0/+esm');
 
   const tv = document.getElementById('tv');
+  const demoRoot = document.getElementById('demo-root');
+  const demoStage = document.getElementById('demo-stage');
   const statusEl = document.getElementById('status');
 
   const term = new Terminal({
-    cols: 120,
-    rows: 36,
+    cols: 80,
+    rows: 24,
     cursorBlink: true,
     cursorStyle: 'block',
     fontSize: 14,
@@ -102,12 +197,53 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
     allowProposedApi: true,
   });
 
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+
   const u11 = new Unicode11Addon();
   term.loadAddon(u11);
   term.unicode.activeVersion = '11';
 
+  function syncTerminalMetrics() {
+    const hostWidth = demoStage.clientWidth || demoRoot.clientWidth || window.innerWidth;
+    const nextFontSize =
+      hostWidth <= 420 ? 11 :
+      hostWidth <= 720 ? 12 :
+      hostWidth <= 960 ? 13 :
+      14;
+    const nextLineHeight = hostWidth <= 720 ? 1.05 : 1.10;
+    let changed = false;
+
+    if (term.options.fontSize !== nextFontSize) {
+      term.options.fontSize = nextFontSize;
+      changed = true;
+    }
+
+    if (term.options.lineHeight !== nextLineHeight) {
+      term.options.lineHeight = nextLineHeight;
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  let fitRaf = 0;
+  const scheduleFit = () => {
+    if (fitRaf) cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(() => {
+      fitRaf = 0;
+      const metricsChanged = syncTerminalMetrics();
+      fitAddon.fit();
+      if (metricsChanged && term.rows > 0) {
+        term.refresh(0, term.rows - 1);
+      }
+    });
+  };
+
   term.open(tv);
-  try { term.loadAddon(new WebglAddon()); } catch (e) { /* fallback to DOM renderer */ }
+  scheduleFit();
+  setTimeout(scheduleFit, 50);
+  setTimeout(scheduleFit, 200);
 
   const isProduction = window.location.hostname === 'dotsider.dev';
   const wsProto = isProduction ? 'wss' : 'ws';
@@ -116,6 +252,15 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
   let ws;
   let wasConnected = false;
   let lastConnectTime = 0;
+
+  function sendResize() {
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: 'resize',
+      cols: term.cols,
+      rows: term.rows
+    }));
+  }
 
   function connect() {
     wasConnected = false;
@@ -126,7 +271,14 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
 
     const timeout = setTimeout(() => { ws.close(); }, 5000);
 
-    ws.onopen = () => { clearTimeout(timeout); wasConnected = true; statusEl.textContent = 'Connected'; statusEl.style.color = '#00c8b4'; };
+    ws.onopen = () => {
+      clearTimeout(timeout);
+      wasConnected = true;
+      statusEl.textContent = 'Connected';
+      statusEl.style.color = '#00c8b4';
+      scheduleFit();
+      setTimeout(sendResize, 0);
+    };
     ws.onmessage = (e) => {
       if (e.data.includes('\\x1b[c') && ws.readyState === WebSocket.OPEN) ws.send('\\x1b[?62;4c');
       term.write(e.data);
@@ -152,6 +304,10 @@ You're looking at a live dotsider session connected over WebSocket. Navigate wit
 
   term.onData((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
   term.onBinary((d) => { if (ws?.readyState === WebSocket.OPEN) ws.send(d); });
+  term.onResize(sendResize);
+  window.addEventListener('resize', scheduleFit);
+  window.visualViewport?.addEventListener('resize', scheduleFit);
+  new ResizeObserver(scheduleFit).observe(demoRoot);
 
   document.getElementById('reconnect-btn').addEventListener('click', () => {
     if (ws) { ws.onclose = null; ws.close(); }
