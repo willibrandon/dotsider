@@ -12,10 +12,10 @@ jobs:
   pack-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -50,10 +50,10 @@ jobs:
             artifact: dotsider-osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -64,13 +64,13 @@ jobs:
         run: dotnet publish src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish/dotsider-mcp
 
       - name: Upload dotsider artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ./publish/dotsider/dotsider*
 
       - name: Upload dotsider-mcp artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}
           path: ./publish/dotsider-mcp/dotsider-mcp*
@@ -164,14 +164,14 @@ jobs:
 
       - name: Upload dotsider MSI artifact
         if: startsWith(matrix.rid, 'win-')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}-msi
           path: ./publish/${{ matrix.artifact }}.msi
 
       - name: Upload dotsider-mcp MSI artifact
         if: startsWith(matrix.rid, 'win-')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}-msi
           path: ./publish/dotsider-mcp-${{ matrix.rid }}.msi
@@ -195,10 +195,10 @@ jobs:
       sha256_mcp_win_msi: ${{ steps.checksums.outputs.sha256_mcp_win_msi }}
       sha256_mcp_win_arm64_msi: ${{ steps.checksums.outputs.sha256_mcp_win_arm64_msi }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts
 
@@ -490,7 +490,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Extract version from tag
         id: version

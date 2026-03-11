@@ -1,0 +1,39 @@
+---
+title: "SizeAnalyzer"
+description: "Computes IL code size per method and builds a hierarchical size tree for treemap visualization."
+slug: api/dotsider.core.analysis.sizeanalyzer
+---
+
+**Namespace:** `Dotsider.Core.Analysis`
+
+**Assembly:** Dotsider.Core.dll
+
+Computes IL code size per method and builds a hierarchical size tree
+for treemap visualization.
+
+```csharp
+public static class SizeAnalyzer
+```
+
+## Inheritance
+
+[Object](https://learn.microsoft.com/dotnet/api/system.object) → **SizeAnalyzer**
+
+## Methods
+
+### BuildSizeTree(AssemblyAnalyzer)
+
+Builds a hierarchical size tree from the assembly's methods grouped by type and namespace.
+
+**Parameters:**
+
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The assembly analyzer to read method metadata from.
+
+**Returns:** [SizeNode](/api/dotsider.core.analysis.models.sizenode/)
+
+The root [SizeNode](/api/dotsider.core.analysis.models.sizenode/) representing the entire assembly.
+
+```csharp
+public static SizeNode BuildSizeTree(AssemblyAnalyzer analyzer)
+```
+

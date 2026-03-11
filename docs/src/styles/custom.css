@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+/* ═══════════════════════════════════════
+   Base theme tokens
+   ═══════════════════════════════════════ */
+:root {
+	--sl-font: 'DM Sans', system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+	--sl-color-accent-low: #0f1d2e;
+	--sl-color-accent: #38bdf8;
+	--sl-color-accent-high: #bae6fd;
+
+	--sl-color-white: #e8edf3;
+	--sl-color-gray-1: #bac4d0;
+	--sl-color-gray-2: #7e8d9e;
+	--sl-color-gray-3: #556575;
+	--sl-color-gray-4: #2d3a47;
+	--sl-color-gray-5: #1a2332;
+	--sl-color-gray-6: #111926;
+	--sl-color-black: #0a1018;
+}
+
+[data-theme='light'] {
+	--sl-color-accent-low: #dbeef9;
+	--sl-color-accent: #0273ad;
+	--sl-color-accent-high: #064e77;
+
+	--sl-color-white: #111a24;
+	--sl-color-gray-1: #283545;
+	--sl-color-gray-2: #4a5b6d;
+	--sl-color-gray-3: #6e7f90;
+	--sl-color-gray-4: #b3bdc8;
+	--sl-color-gray-5: #d0d8e0;
+	--sl-color-gray-6: #e4eaf0;
+	--sl-color-black: #eef2f6;
+}
+
+starlight-toc {
+	--sl-color-gray-7: var(--sl-color-gray-6);
+}
+
+/* ═══════════════════════════════════════
+   Header
+   ═══════════════════════════════════════ */
+.site-title {
+	font-weight: 600;
+	letter-spacing: -0.03em;
+}
+
+/* Show theme toggle + social icons on mobile (Starlight hides them below md) */
+.right-group {
+	display: flex !important;
+}
+
+/* ═══════════════════════════════════════
+   Splash / hero page
+   ═══════════════════════════════════════ */
+[data-has-hero] .page {
+	min-height: auto !important;
+	padding-block: 0 !important;
+	background:
+		radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 189, 248, 0.06), transparent),
+		var(--sl-color-black);
+}
+
+[data-theme='light'] [data-has-hero] .page {
+	background:
+		radial-gradient(ellipse 80% 50% at 50% -10%, rgba(2, 115, 173, 0.08), transparent),
+		var(--sl-color-black);
+}
+
+[data-has-hero] .content-panel {
+	padding-block: 0 !important;
+}
+
+[data-has-hero] main {
+	padding-block-end: 0 !important;
+}
+
+/* Hero section */
+.hero {
+	padding-block: 2.5rem 0.75rem !important;
+	gap: 0.5rem !important;
+}
+
+.hero h1 {
+	font-family: 'JetBrains Mono', monospace !important;
+	font-size: 2.75rem !important;
+	font-weight: 700 !important;
+	line-height: 1 !important;
+	letter-spacing: -0.04em !important;
+	margin: 0 !important;
+}
+
+.hero .tagline {
+	font-size: 1.05rem !important;
+	color: var(--sl-color-gray-2) !important;
+	max-width: 36ch;
+	margin-top: 0.125rem !important;
+}
+
+.hero .actions {
+	margin-top: 0.5rem !important;
+	gap: 0.75rem !important;
+}
+
+/* Primary button — slightly muted so it sits with the slate palette */
+.hero .sl-link-button.primary {
+	background: #1a8fbf !important;
+	border-color: #1a8fbf !important;
+	color: #fff !important;
+	font-weight: 600 !important;
+	font-size: 0.9rem !important;
+	padding: 0.5rem 1.25rem !important;
+	border-radius: 0.375rem !important;
+	transition: opacity 0.15s;
+}
+
+[data-theme='light'] .hero .sl-link-button.primary {
+	color: #fff !important;
+}
+
+.hero .sl-link-button.primary:hover {
+	opacity: 0.85;
+}
+
+.hero .sl-link-button.minimal {
+	font-size: 0.9rem !important;
+	color: var(--sl-color-gray-2) !important;
+}
+
+.hero .sl-link-button.minimal:hover {
+	color: var(--sl-color-white) !important;
+}
+
+/* Prompt line */
+.hero-prompt {
+	font-family: var(--sl-font-mono);
+	font-size: 0.95rem;
+	color: var(--sl-color-gray-2);
+	background: var(--sl-color-gray-6);
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.375rem;
+	padding: 0.5rem 1rem;
+	display: inline-block;
+	margin-top: 0.25rem;
+	margin-bottom: 1.75rem;
+}
+
+.prompt-char {
+	color: var(--sl-color-accent);
+	margin-right: 0.5em;
+	user-select: none;
+}
+
+/* ═══════════════════════════════════════
+   Feature strip — compact list, not cards
+   ═══════════════════════════════════════ */
+.feature-strip {
+	display: grid;
+	gap: 0;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.5rem;
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+}
+
+.feature-item {
+	display: flex;
+	align-items: baseline;
+	gap: 0.75rem;
+	padding: 0.625rem 1rem;
+	border-bottom: 1px solid var(--sl-color-gray-5);
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
+.feature-item:last-child {
+	border-bottom: none;
+}
+
+.feature-key {
+	font-family: var(--sl-font-mono);
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: var(--sl-color-accent);
+	background: var(--sl-color-accent-low);
+	padding: 0.1em 0.5em;
+	border-radius: 0.25rem;
+	white-space: nowrap;
+	flex-shrink: 0;
+	min-width: 3.5rem;
+	text-align: center;
+}
+
+.feature-label {
+	color: var(--sl-color-gray-2);
+}
+
+/* Install hint at bottom */
+.install-hint {
+	text-align: center;
+	padding-bottom: 2rem;
+}
+
+.install-hint code {
+	font-family: var(--sl-font-mono);
+	font-size: 0.8rem;
+	color: var(--sl-color-gray-3);
+	background: none;
+	padding: 0;
+	letter-spacing: 0.01em;
+}
+
+/* Markdown content on splash */
+[data-has-hero] .sl-markdown-content {
+	padding-block-start: 0 !important;
+}
+
+/* Hide empty footer on splash */
+[data-has-hero] footer {
+	display: none;
+}
+
+/* ═══════════════════════════════════════
+   Lightbox
+   ═══════════════════════════════════════ */
+.sl-markdown-content img {
+	cursor: zoom-in;
+	border-radius: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	transition: opacity 0.15s;
+}
+
+.sl-markdown-content img:hover {
+	opacity: 0.9;
+}
+
+#lightbox-overlay {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 99999;
+	background: rgba(0, 0, 0, 0.9);
+	cursor: zoom-out;
+	justify-content: center;
+	align-items: center;
+}
+
+#lightbox-overlay img {
+	max-width: 95vw;
+	max-height: 95vh;
+	border-radius: 8px;
+}
+
+/* ═══════════════════════════════════════
+   Content pages
+   ═══════════════════════════════════════ */
+pre {
+	border: 1px solid var(--sl-color-gray-5) !important;
+	border-radius: 0.5rem !important;
+}
+
+table {
+	font-size: 0.9rem;
+}
+
+th {
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}

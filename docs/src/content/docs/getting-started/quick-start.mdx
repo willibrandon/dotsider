@@ -1,0 +1,59 @@
+---
+title: Quick Start
+description: Start analyzing assemblies in under a minute.
+---
+
+## Open an assembly
+
+Point dotsider at any .NET DLL or EXE:
+
+```
+dotsider HelloWorld.dll
+```
+
+You land on the **General** tab showing assembly identity, target framework, architecture, and the dependency table.
+
+![dotsider General tab](/demo.gif)
+
+## Navigate tabs
+
+Press `1` through `8` to switch between tabs:
+
+| Key | Tab |
+|-----|-----|
+| `1` | General |
+| `2` | PE / Metadata |
+| `3` | IL Inspector |
+| `4` | Strings |
+| `5` | Hex Dump |
+| `6` | Dep Graph |
+| `7` | Size Map |
+| `8` | Dynamic |
+
+## Drill in
+
+Press `Enter` on any highlighted item to drill deeper — an assembly reference, a method in the IL tree, or a dependency node in the graph. Press `Backspace` to go back.
+
+## Search
+
+Press `/` to search. Matches are highlighted inline. Use `n` and `N` to jump between matches.
+
+## Compare two assemblies
+
+```
+dotsider diff v1.dll v2.dll
+```
+
+Opens a side-by-side view. Press `f` to cycle filters: All, Added, Removed, Changed.
+
+## Browse a NuGet package
+
+```
+dotsider package.nupkg
+```
+
+Lists the package contents. Press `Enter` on any DLL to open it in the full analyzer.
+
+## Quit
+
+Press `q`.

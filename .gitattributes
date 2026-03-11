@@ -1,0 +1,5 @@
+# Force LF line endings for shell scripts, bats tests, and bash helpers
+# so they work correctly when checked out on Windows and copied into Docker
+*.sh    text eol=lf
+*.bats  text eol=lf
+*.bash  text eol=lf

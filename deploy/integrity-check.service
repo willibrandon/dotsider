@@ -1,0 +1,8 @@
+[Unit]
+Description=Verify RichLibrary.dll integrity
+After=dotsider-website.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/dotsider-website/integrity-check.sh
+User=root

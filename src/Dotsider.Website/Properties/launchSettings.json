@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Dotsider.Website": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64218;http://localhost:64219"
+    }
+  }
+}

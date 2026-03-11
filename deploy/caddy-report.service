@@ -1,0 +1,8 @@
+[Unit]
+Description=Caddy metrics report
+After=prometheus.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/dotsider-website/caddy-report.sh
+User=root

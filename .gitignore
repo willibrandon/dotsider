@@ -492,3 +492,9 @@ $RECYCLE.BIN/
 
 # Dotnet CLI supporting files
 .dotnet_cli/
+
+# Playwright CLI files
+.playwright-cli/
+
+# DocFX intermediate metadata
+_metadata/
