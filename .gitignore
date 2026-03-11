@@ -498,3 +498,6 @@ $RECYCLE.BIN/
 
 # DocFX intermediate metadata
 _metadata/
+
+# PNPM store directory
+.pnpm-store/

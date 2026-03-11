@@ -29,6 +29,7 @@ function contentCacheReload() {
 }
 
 export default defineConfig({
+	site: 'https://dotsider.dev',
 	prefetch: { defaultStrategy: 'hover', prefetchAll: true },
 	vite: { plugins: [contentCacheReload()] },
 	integrations: [
