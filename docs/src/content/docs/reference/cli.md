@@ -60,17 +60,13 @@ dotsider sessions list                            # list running instances
 dotsider sessions info <pid>                      # assembly info + current view
 dotsider sessions view <pid>                      # current tab and view state
 dotsider sessions navigate <pid> <tab>            # switch to tab (0-7)
-dotsider sessions capture <pid> --format svg      # capture screen
+dotsider sessions capture <pid>                    # capture screen as text
 dotsider sessions trace start <pid>               # start tracing
 dotsider sessions trace events <pid>              # get JIT, GC, exception events
 dotsider sessions trace counters <pid>            # get performance counters
 dotsider sessions trace output <pid>              # get stdout/stderr
 dotsider sessions trace stop <pid>                # stop tracing
 ```
-
-### Capture formats
-
-The `capture` command supports: `text`, `ansi`, `html`, `svg`.
 
 ## `dotsider agent`
 

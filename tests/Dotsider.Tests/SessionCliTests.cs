@@ -182,13 +182,13 @@ public class SessionCliTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Sessions_Capture_WithFormat_UsesSvg()
+    public async Task Sessions_Capture_FormatOptionRemoved()
     {
-        var (exitCode, stdout, _) = await RunDotsiderAsync(
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
             "sessions", "capture", TestPid.ToString(), "--format", "svg");
 
-        Assert.Equal(0, exitCode);
-        Assert.Contains("[captured-svg]", stdout);
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("--format", stderr);
     }
 
     [Fact]

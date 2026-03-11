@@ -274,22 +274,14 @@ internal static class SessionsCommand
 
     private static Command CreateCaptureCommand(Option<bool> jsonOption)
     {
-        var formatOption = new Option<string>("--format")
+        var command = new Command("capture", "Capture the TUI screen as plain text")
         {
-            Description = "Capture format: text, ansi, html, or svg",
-            DefaultValueFactory = _ => "text"
-        };
-
-        var command = new Command("capture", "Capture the TUI screen")
-        {
-            s_pidArg,
-            formatOption
+            s_pidArg
         };
 
         command.SetAction(async (parseResult, ct) =>
         {
             var pid = parseResult.GetValue(s_pidArg);
-            var format = parseResult.GetValue(formatOption) ?? "text";
             var json = parseResult.GetValue(jsonOption);
             using var formatter = new OutputFormatter { JsonMode = json };
 
@@ -303,7 +295,7 @@ internal static class SessionsCommand
             try
             {
                 var requestJson = JsonSerializer.Serialize(
-                    new { method = "capture", format }, DotsiderJsonOptions.Default);
+                    new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
 
                 var responseJson = await DotsiderClient.SendRawAsync(hex1bSocket, requestJson, ct);
 
@@ -313,7 +305,7 @@ internal static class SessionsCommand
                 {
                     var content = data.GetString() ?? "";
                     if (json)
-                        formatter.WriteJson(new { Format = format, Content = content });
+                        formatter.WriteJson(new { Content = content });
                     else
                         Console.Write(content);
                 }
