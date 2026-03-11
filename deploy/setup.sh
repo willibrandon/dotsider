@@ -12,7 +12,9 @@ apt-get update
 apt-get install -y rsync ufw curl
 
 echo "── Installing .NET 10 ASP.NET Core runtime ──"
-curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb
+DISTRO=$(. /etc/os-release && echo "$ID")
+DISTRO_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
+curl -fsSL "https://packages.microsoft.com/config/${DISTRO}/${DISTRO_VERSION}/packages-microsoft-prod.deb" -o /tmp/packages-microsoft-prod.deb
 dpkg -i /tmp/packages-microsoft-prod.deb
 apt-get update
 apt-get install -y aspnetcore-runtime-10.0
