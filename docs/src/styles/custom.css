@@ -105,10 +105,10 @@ starlight-toc {
 	gap: 0.75rem !important;
 }
 
-/* Primary button */
+/* Primary button — slightly muted so it sits with the slate palette */
 .hero .sl-link-button.primary {
-	background: var(--sl-color-accent) !important;
-	border-color: var(--sl-color-accent) !important;
+	background: #1a8fbf !important;
+	border-color: #1a8fbf !important;
 	color: #fff !important;
 	font-weight: 600 !important;
 	font-size: 0.9rem !important;
