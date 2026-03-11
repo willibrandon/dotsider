@@ -3,6 +3,8 @@ title: Size Map
 description: Treemap of code size — assembly, namespace, type, method.
 ---
 
+![Size Map tab](/screenshots/size-map.png)
+
 The **Size Map** tab (`7`) shows a treemap of IL code size:
 
 - **Assembly** at the top level

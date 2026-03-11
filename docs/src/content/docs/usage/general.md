@@ -3,6 +3,8 @@ title: General Tab
 description: Assembly identity, framework, architecture, and dependencies.
 ---
 
+![General tab](/screenshots/general.png)
+
 The **General** tab (`1`) is the first thing you see when opening an assembly. It shows:
 
 - **Assembly identity** — name, version, culture, public key token

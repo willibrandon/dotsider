@@ -3,6 +3,8 @@ title: Strings
 description: User strings, metadata strings, and raw binary string scanning.
 ---
 
+![Strings tab](/screenshots/strings.png)
+
 The **Strings** tab (`4`) extracts text from three sources:
 
 - **User strings** — string literals from the `#US` metadata heap (the strings your code uses directly)

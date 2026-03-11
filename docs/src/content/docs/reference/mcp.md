@@ -7,11 +7,33 @@ description: Model Context Protocol server for AI coding assistants.
 
 ## Install
 
+### dotnet tool (recommended)
+
 ```
 dotnet tool install -g Dotsider.Mcp
 ```
 
-Also available via [Homebrew](/getting-started/installation/#homebrew-macos--linux), [WinGet](/getting-started/installation/#winget-windows), [Scoop](/getting-started/installation/#scoop-windows), or as a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
+### Homebrew (macOS / Linux)
+
+```
+brew install willibrandon/tap/dotsider-mcp
+```
+
+### WinGet (Windows)
+
+```
+winget install willibrandon.dotsider-mcp
+```
+
+### Scoop (Windows)
+
+```
+scoop install dotsider-mcp
+```
+
+### Download binary
+
+Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases). Binaries are self-contained — no .NET SDK needed.
 
 ## Configure
 

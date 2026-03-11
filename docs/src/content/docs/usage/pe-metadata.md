@@ -3,6 +3,8 @@ title: PE / Metadata
 description: COFF headers, CLR header, sections, and metadata tables.
 ---
 
+![PE / Metadata tab](/screenshots/pe-metadata.png)
+
 The **PE / Metadata** tab (`2`) exposes the raw structure of the Portable Executable:
 
 - **COFF header** — machine type, number of sections, timestamp

@@ -3,6 +3,8 @@ title: Dep Graph
 description: Visual dependency graph with edge weights by TypeRef count.
 ---
 
+![Dep Graph tab](/screenshots/dep-graph.png)
+
 The **Dep Graph** tab (`6`) renders a visual dependency graph:
 
 - Your assembly sits at the root

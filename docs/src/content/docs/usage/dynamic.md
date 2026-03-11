@@ -3,6 +3,8 @@ title: Dynamic
 description: Launch and trace assemblies live with EventPipe diagnostics.
 ---
 
+![Dynamic tab](/screenshots/dynamic.png)
+
 The **Dynamic** tab (`8`) launches the assembly and traces it in real time using EventPipe — the same diagnostic infrastructure behind `dotnet-trace` and `dotnet-counters`.
 
 ## What it captures

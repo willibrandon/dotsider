@@ -3,6 +3,8 @@ title: Diff Mode
 description: Side-by-side assembly comparison.
 ---
 
+![Diff Mode](/screenshots/diff-mode.png)
+
 Diff mode compares two assemblies side by side:
 
 ```

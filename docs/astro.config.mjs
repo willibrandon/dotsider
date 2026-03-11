@@ -1,14 +1,44 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { resolve, join } from 'node:path';
+import { existsSync, unlinkSync } from 'node:fs';
+
+// Workaround for https://github.com/withastro/astro/issues/13464
+// Astro's content collection cache (data-store.json) gets stale on
+// Windows when content files are renamed or change extension. This
+// plugin deletes only the data store — not the whole .astro/ dir,
+// which the running server needs.
+function contentCacheReload() {
+	const dataStore = join(resolve('.astro'), 'data-store.json');
+	return {
+		name: 'content-cache-reload',
+		configureServer(/** @type {any} */ server) {
+			for (const event of ['add', 'unlink']) {
+				server.watcher.on(event, (/** @type {string} */ path) => {
+					if (!path.includes('src/content') && !path.includes('src\\content')) return;
+					if (existsSync(dataStore)) {
+						unlinkSync(dataStore);
+						console.log(`[content-cache-reload] deleted data-store.json (${event}: ${path.split(/[/\\]/).pop()})`);
+					}
+					server.ws.send({ type: 'full-reload' });
+				});
+			}
+		},
+	};
+}
 
 export default defineConfig({
+	vite: { plugins: [contentCacheReload()] },
 	integrations: [
 		starlight({
 			title: 'dotsider',
 			favicon: '/favicon.ico',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/willibrandon/dotsider' },
+			],
+			head: [
+				{ tag: 'script', attrs: { src: '/lightbox.js', defer: true } },
 			],
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
@@ -35,6 +65,12 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Try It',
+					items: [
+						{ label: 'Live Demo', slug: 'demo' },
+					],
+				},
+				{
 					label: 'Reference',
 					items: [
 						{ label: 'CLI Reference', slug: 'reference/cli' },
@@ -45,12 +81,6 @@ export default defineConfig({
 				{
 					label: 'API Reference',
 					autogenerate: { directory: 'api' },
-				},
-				{
-					label: 'Try It',
-					items: [
-						{ label: 'Live Demo', slug: 'demo' },
-					],
 				},
 			],
 		}),
