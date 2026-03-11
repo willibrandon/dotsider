@@ -43,16 +43,14 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     }
 
     /// <summary>
-    /// Captures the current TUI screen via the hex1b diagnostics socket.
+    /// Captures the current TUI screen as plain text via the hex1b diagnostics socket.
     /// </summary>
     /// <param name="sessionId">PID of the running dotsider instance.</param>
-    /// <param name="format">Output format: text, ansi, html, or svg (default: text).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Screen capture content in the requested format.</returns>
+    /// <returns>Plain text screen capture of the current TUI view.</returns>
     [McpServerTool(ReadOnly = true, OpenWorld = false)]
     public static async partial Task<string> CaptureScreen(
         int sessionId,
-        string format = "text",
         CancellationToken ct = default)
     {
         var hex1bSocket = DotsiderSessionManager.GetHex1bSocketPath(sessionId);
@@ -60,7 +58,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
             return $"Error: No hex1b socket found for PID {sessionId}";
 
         var requestJson = JsonSerializer.Serialize(
-            new { method = "capture", format }, DotsiderJsonOptions.Default);
+            new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
 
         var responseJson = await RemoteDotsiderTarget.SendRawAsync(hex1bSocket, requestJson, ct);
         var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
