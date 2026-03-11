@@ -42,6 +42,10 @@ export default defineConfig({
 			head: [
 				{ tag: 'script', attrs: { src: '/lightbox.js', defer: true } },
 			],
+			components: {
+				ThemeProvider: './src/components/ThemeProvider.astro',
+				ThemeSelect: './src/components/ThemeSelect.astro',
+			},
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
 				{

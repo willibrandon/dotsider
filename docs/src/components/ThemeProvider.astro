@@ -1,0 +1,83 @@
+{/* Inline to avoid FOUC and to replace Starlight's persisted theme behavior. */}
+<script is:inline>
+	window.StarlightThemeProvider = window.StarlightThemeProvider || (() => {
+		const legacyKey = 'starlight-theme';
+		const sessionKey = 'dotsider-theme-override';
+		const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+		const readOverride = () => {
+			try {
+				const theme = sessionStorage.getItem(sessionKey);
+				return theme === 'dark' || theme === 'light' ? theme : null;
+			} catch {
+				return null;
+			}
+		};
+
+		const writeOverride = (theme) => {
+			try {
+				if (theme === 'dark' || theme === 'light') {
+					sessionStorage.setItem(sessionKey, theme);
+				} else {
+					sessionStorage.removeItem(sessionKey);
+				}
+			} catch {}
+		};
+
+		const getPreferredTheme = () => (darkQuery.matches ? 'dark' : 'light');
+
+		const getTheme = () => readOverride() || getPreferredTheme();
+
+		const updatePickers = () => {
+			const theme = getTheme();
+			document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+				if (!(picker instanceof HTMLElement)) return;
+				picker.dataset.theme = theme;
+				const button = picker.querySelector('button');
+				if (!(button instanceof HTMLButtonElement)) return;
+				const isDark = theme === 'dark';
+				button.setAttribute('aria-checked', String(isDark));
+				button.setAttribute('title', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+				button.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+			});
+		};
+
+		const applyTheme = () => {
+			document.documentElement.dataset.theme = getTheme();
+			updatePickers();
+		};
+
+		const setTheme = (theme) => {
+			writeOverride(theme);
+			applyTheme();
+		};
+
+		const toggleTheme = () => {
+			setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+		};
+
+		try {
+			localStorage.removeItem(legacyKey);
+		} catch {}
+
+		const handleSystemThemeChange = () => {
+			if (!readOverride()) applyTheme();
+		};
+
+		if (typeof darkQuery.addEventListener === 'function') {
+			darkQuery.addEventListener('change', handleSystemThemeChange);
+		} else if (typeof darkQuery.addListener === 'function') {
+			darkQuery.addListener(handleSystemThemeChange);
+		}
+
+		applyTheme();
+
+		return {
+			applyTheme,
+			getTheme,
+			setTheme,
+			toggleTheme,
+			updatePickers,
+		};
+	})();
+</script>
