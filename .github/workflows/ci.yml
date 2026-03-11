@@ -37,3 +37,11 @@ jobs:
         with:
           name: coverage-${{ matrix.os }}
           path: '**/TestResults/**/coverage.cobertura.xml'
+
+  deploy-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run deploy tests
+        run: bash tests/deploy/run.sh
