@@ -27,6 +27,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+      - run: corepack enable && corepack install
+        working-directory: docs
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
 
