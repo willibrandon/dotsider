@@ -200,7 +200,10 @@ starlight-toc {
 
 /* Install hint at bottom */
 .install-hint {
-	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
 	padding-bottom: 2rem;
 }
 
@@ -212,6 +215,26 @@ starlight-toc {
 	padding: 0;
 	letter-spacing: 0.01em;
 }
+
+.copy-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: none;
+	border: none;
+	padding: 0.2rem;
+	color: var(--sl-color-gray-4);
+	cursor: pointer;
+}
+
+.copy-btn:hover {
+	color: var(--sl-color-gray-2);
+}
+
+.copy-btn.copied {
+	opacity: 0.3;
+}
+
 
 /* Markdown content on splash */
 [data-has-hero] .sl-markdown-content {
@@ -255,6 +278,11 @@ starlight-toc {
 	max-width: 95vw;
 	max-height: 95vh;
 	border-radius: 8px;
+}
+
+/* Hide Expressive Code "Copied!" tooltip on code block copy buttons */
+.expressive-code .copy .feedback {
+	display: none !important;
 }
 
 /* ═══════════════════════════════════════
