@@ -39,7 +39,11 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
     // Counter snapshot — atomic via Interlocked.Exchange
     private CounterSnapshot? _latestCounters;
+    
+    // Workaround the analyzer's unsupported preview feature recommendation
+    #pragma warning disable IDE0028
     private readonly Dictionary<string, double> _counterAccumulators = new(StringComparer.OrdinalIgnoreCase);
+    #pragma warning restore IDE0028
 
     // Summary accumulators (written under _eventLock for simplicity)
     private readonly Dictionary<TraceEventCategory, int> _eventCounts = [];
@@ -97,7 +101,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         int totalEvents, jitted;
         lock (_eventLock)
         {
+            // Workaround the analyzer's unsupported preview feature recommendation
+            #pragma warning disable IDE0028
             counts = new Dictionary<TraceEventCategory, int>(_eventCounts);
+            #pragma warning restore IDE0028
             totalEvents = counts.Values.Sum();
             jitted = _jittedMethodCount;
         }

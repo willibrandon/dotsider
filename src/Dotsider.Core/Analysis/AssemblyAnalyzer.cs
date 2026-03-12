@@ -74,7 +74,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Creates an analyzer from raw bytes in memory. Used as a last-resort
     /// fallback when disk I/O is unavailable after a save operation.
     /// </summary>
-    internal AssemblyAnalyzer(byte[] bytes, string filePath)
+    public AssemblyAnalyzer(byte[] bytes, string filePath)
     {
         FilePath = filePath;
         FileName = Path.GetFileName(filePath);

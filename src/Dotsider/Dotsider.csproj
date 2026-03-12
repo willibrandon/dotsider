@@ -28,11 +28,14 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
-    <InternalsVisibleTo Include="Dotsider.Tests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Dotsider.Core/Dotsider.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dotsider.Tests" />
   </ItemGroup>
 
   <ItemGroup>
