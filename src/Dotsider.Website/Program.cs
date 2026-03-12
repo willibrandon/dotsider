@@ -171,16 +171,18 @@ async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, Ca
     {
         WorkloadAdapter = workload,
         Theme = DotsiderTheme.Create(),
-        EnableMouse = true
+        EnableMouse = true,
+        EnableInputCoalescing = false
     };
 
     DotsiderState? capturedState = null;
+    DotsiderApp? dotsiderApp = null;
     Hex1bApp? hex1bApp = null;
 
     hex1bApp = new Hex1bApp(ctx =>
     {
         capturedState ??= new DotsiderState(hex1bApp!, filePath, pendingMutations);
-        var dotsiderApp = new DotsiderApp(capturedState);
+        dotsiderApp ??= new DotsiderApp(capturedState);
         return dotsiderApp.Build(ctx);
     }, appOptions);
 

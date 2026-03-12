@@ -52,10 +52,9 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     }
 
     /// <summary>
-    /// When '/' is pressed, SearchToggle() calls RequestFocus(TextBoxNode) which is
-    /// deferred to the next render cycle. Characters arriving via WebSocket before
-    /// that render are dispatched to the wrong widget and silently swallowed.
-    /// This test proves the race condition exists.
+    /// Validates that search input works via WebSocket. Pressing '/' activates the
+    /// search bar and the subsequent characters reach the TextBox. This requires
+    /// DotsiderApp to be reused across renders so _initialFocusRequested isn't reset.
     /// </summary>
     [Fact(Timeout = 15_000)]
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
@@ -76,18 +75,20 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             WorkloadAdapter = workload
         });
 
+        DotsiderApp? dotsiderApp = null;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
                 _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll);
-                var dotsiderApp = new DotsiderApp(_state);
+                dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
             {
                 WorkloadAdapter = workload,
                 Theme = DotsiderTheme.Create(),
-                EnableMouse = true
+                EnableMouse = true,
+                EnableInputCoalescing = false
             });
 
         var runTask = _hex1bApp.RunAsync(ct);
@@ -109,8 +110,9 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             endOfMessage: true,
             ct);
 
-        // No delay - this reproduces the browser behavior where characters
-        // arrive before the render cycle has moved focus to the TextBox
+        // Send "test" immediately after '/' with no delay — exercises the back-to-back
+        // scenario where characters arrive before the render cycle applies focus.
+        // With input coalescing disabled, each event gets its own render cycle.
         await clientWs.SendAsync(
             Encoding.UTF8.GetBytes("test"),
             WebSocketMessageType.Text,
@@ -125,7 +127,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             await Task.Delay(100, ct);
         }
 
-        // 7. Assert - this should FAIL, proving the WebSocket input race condition
+        // 7. Assert — characters should reach the TextBox
         Assert.NotNull(_state);
         Assert.True(_state.Search[0].IsActive, "Search should be active after pressing '/'");
         Assert.Equal("test", _state.Search[0].Query);
