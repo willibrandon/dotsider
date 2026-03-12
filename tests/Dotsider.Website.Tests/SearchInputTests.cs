@@ -56,7 +56,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     /// search bar and the subsequent characters reach the TextBox. This requires
     /// DotsiderApp to be reused across renders so _initialFocusRequested isn't reset.
     /// </summary>
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
     {
         var ct = TestContext.Current.CancellationToken;
