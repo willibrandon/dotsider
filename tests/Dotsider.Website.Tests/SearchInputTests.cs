@@ -60,9 +60,14 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
     {
         var ct = TestContext.Current.CancellationToken;
+        var diag = Stopwatch.StartNew();
+        void Log(string msg) => Console.Error.WriteLine($"[SearchInputTest {diag.ElapsedMilliseconds,5}ms] {msg}");
+
+        Log("START");
 
         // 1. Create WebSocket pair
         var (clientWs, serverWs) = await CreateWebSocketPairAsync();
+        Log("WebSocket pair created");
 
         // 2. Wire up DotsiderApp through WebSocketPresentationAdapter
         //    (mirrors src/Dotsider.Website/Program.cs:149-195)
@@ -74,6 +79,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             PresentationAdapter = _presentation,
             WorkloadAdapter = workload
         });
+        Log("Terminal created");
 
         DotsiderApp? dotsiderApp = null;
         _hex1bApp = new Hex1bApp(
@@ -81,6 +87,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll);
                 dotsiderApp ??= new DotsiderApp(_state);
+                Log("Build() called");
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -90,8 +97,10 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
                 EnableMouse = true,
                 EnableInputCoalescing = false
             });
+        Log("Hex1bApp created");
 
         var runTask = _hex1bApp.RunAsync(ct);
+        Log("RunAsync started");
 
         // 3. Drain output in background to prevent server-side send buffer
         //    from blocking the render loop
@@ -100,7 +109,10 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         var drainTask = DrainOutputAsync(clientWs, output, drainCts.Token);
 
         // 4. Wait for app to render (General tab shows "Assembly Name")
-        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(10), ct);
+        //    Also race against runTask to surface early failures instead of hanging.
+        Log("Waiting for 'Assembly Name' in output...");
+        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(10), ct, runTask, Log);
+        Log("Got 'Assembly Name'");
 
         // 5. Send '/' to trigger search via WebSocket
         //    (same as xterm.js: term.onData("/") → ws.send("/"))
@@ -109,6 +121,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             WebSocketMessageType.Text,
             endOfMessage: true,
             ct);
+        Log("Sent '/'");
 
         // Send "test" immediately after '/' with no delay — exercises the back-to-back
         // scenario where characters arrive before the render cycle applies focus.
@@ -118,6 +131,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             WebSocketMessageType.Text,
             endOfMessage: true,
             ct);
+        Log("Sent 'test'");
 
         // 6. Wait for processing
         var sw = Stopwatch.StartNew();
@@ -126,11 +140,14 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             if (_state?.Search[0].Query == "test") break;
             await Task.Delay(100, ct);
         }
+        Log($"Query={_state?.Search[0].Query ?? "(null)"} IsActive={_state?.Search[0].IsActive}");
 
         // 7. Assert — characters should reach the TextBox
         Assert.NotNull(_state);
         Assert.True(_state.Search[0].IsActive, "Search should be active after pressing '/'");
         Assert.Equal("test", _state.Search[0].Query);
+
+        Log("PASS");
 
         // Cleanup
         drainCts.Cancel();
@@ -157,17 +174,48 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     }
 
     private static async Task WaitForOutputAsync(
-        StringBuilder output, string text, TimeSpan timeout, CancellationToken ct)
+        StringBuilder output, string text, TimeSpan timeout, CancellationToken ct,
+        Task? runTask = null, Action<string>? log = null)
     {
         var sw = Stopwatch.StartNew();
+        var lastLen = 0;
         while (sw.Elapsed < timeout)
         {
+            // Surface app crashes immediately instead of hanging until timeout
+            if (runTask is { IsCompleted: true })
+            {
+                log?.Invoke($"runTask completed: Status={runTask.Status} IsFaulted={runTask.IsFaulted}");
+                await runTask;
+            }
+
+            int currentLen;
             lock (output)
             {
+                currentLen = output.Length;
                 if (output.ToString().Contains(text)) return;
             }
+
+            if (currentLen != lastLen)
+            {
+                log?.Invoke($"Output: {currentLen} chars (+{currentLen - lastLen})");
+                lastLen = currentLen;
+            }
+
             await Task.Delay(100, ct);
         }
+
+        // Dump what we got for diagnosis
+        string captured;
+        lock (output)
+        {
+            captured = output.ToString();
+        }
+        log?.Invoke($"TIMEOUT — output length={captured.Length}, runTask.Status={runTask?.Status}");
+        if (captured.Length > 0)
+            log?.Invoke($"Output starts with: {captured[..Math.Min(200, captured.Length)]}");
+        else
+            log?.Invoke("Output is EMPTY — app likely never rendered");
+
         Assert.Fail($"Timed out after {timeout.TotalSeconds:F0}s waiting for output containing \"{text}\"");
     }
 
