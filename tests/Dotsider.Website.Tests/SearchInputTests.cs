@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -24,6 +23,8 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private CancellationTokenSource? _appCts;
+    private Task? _runTask;
 
     /// <summary>
     /// Creates a connected WebSocket pair using TCP loopback sockets.
@@ -60,18 +61,13 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
     {
         var ct = TestContext.Current.CancellationToken;
-        var diag = Stopwatch.StartNew();
-        void Log(string msg) => Console.Error.WriteLine($"[SearchInputTest {diag.ElapsedMilliseconds,5}ms] {msg}");
-
-        Log("START");
 
         // 1. Create WebSocket pair
-        var (clientWs, serverWs) = await CreateWebSocketPairAsync();
-        Log("WebSocket pair created");
+        var (clientWs, _) = await CreateWebSocketPairAsync();
 
         // 2. Wire up DotsiderApp through WebSocketPresentationAdapter
         //    (mirrors src/Dotsider.Website/Program.cs:149-195)
-        _presentation = new WebSocketPresentationAdapter(serverWs, 120, 36, enableMouse: true);
+        _presentation = new WebSocketPresentationAdapter(_serverWs!, 120, 36, enableMouse: true);
         var workload = new Hex1bAppWorkloadAdapter(_presentation.Capabilities);
 
         _terminal = new Hex1bTerminal(new Hex1bTerminalOptions
@@ -79,7 +75,6 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             PresentationAdapter = _presentation,
             WorkloadAdapter = workload
         });
-        Log("Terminal created");
 
         DotsiderApp? dotsiderApp = null;
         _hex1bApp = new Hex1bApp(
@@ -87,7 +82,6 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll);
                 dotsiderApp ??= new DotsiderApp(_state);
-                Log("Build() called");
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -97,10 +91,9 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
                 EnableMouse = true,
                 EnableInputCoalescing = false
             });
-        Log("Hex1bApp created");
 
-        var runTask = _hex1bApp.RunAsync(ct);
-        Log("RunAsync started");
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _runTask = _hex1bApp.RunAsync(_appCts.Token);
 
         // 3. Drain output in background to prevent server-side send buffer
         //    from blocking the render loop
@@ -109,10 +102,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         var drainTask = DrainOutputAsync(clientWs, output, drainCts.Token);
 
         // 4. Wait for app to render (General tab shows "Assembly Name")
-        //    Also race against runTask to surface early failures instead of hanging.
-        Log("Waiting for 'Assembly Name' in output...");
-        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(10), ct, runTask, Log);
-        Log("Got 'Assembly Name'");
+        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(10), ct, _runTask);
 
         // 5. Send '/' to trigger search via WebSocket
         //    (same as xterm.js: term.onData("/") → ws.send("/"))
@@ -121,7 +111,6 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             WebSocketMessageType.Text,
             endOfMessage: true,
             ct);
-        Log("Sent '/'");
 
         // Send "test" immediately after '/' with no delay — exercises the back-to-back
         // scenario where characters arrive before the render cycle applies focus.
@@ -131,25 +120,23 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             WebSocketMessageType.Text,
             endOfMessage: true,
             ct);
-        Log("Sent 'test'");
 
         // 6. Wait for processing
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < TimeSpan.FromSeconds(3))
-        {
-            if (_state?.Search[0].Query == "test") break;
-            await Task.Delay(100, ct);
-        }
-        Log($"Query={_state?.Search[0].Query ?? "(null)"} IsActive={_state?.Search[0].IsActive}");
+        await WaitForConditionAsync(() => _state?.Search[0].Query == "test",
+            TimeSpan.FromSeconds(3), ct);
 
         // 7. Assert — characters should reach the TextBox
         Assert.NotNull(_state);
         Assert.True(_state.Search[0].IsActive, "Search should be active after pressing '/'");
         Assert.Equal("test", _state.Search[0].Query);
 
-        Log("PASS");
+        // Cleanup: cancel the app loop first so the server-side WebSocket stops,
+        // then the client-side close handshake in DisposeAsync won't deadlock.
+        _appCts.Cancel();
+        try { await _runTask; }
+        catch (OperationCanceledException) { }
+        catch (WebSocketException) { }
 
-        // Cleanup
         drainCts.Cancel();
         try { await drainTask; } catch (OperationCanceledException) { }
     }
@@ -175,53 +162,49 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
 
     private static async Task WaitForOutputAsync(
         StringBuilder output, string text, TimeSpan timeout, CancellationToken ct,
-        Task? runTask = null, Action<string>? log = null)
+        Task? runTask = null)
     {
-        var sw = Stopwatch.StartNew();
-        var lastLen = 0;
-        while (sw.Elapsed < timeout)
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
         {
             // Surface app crashes immediately instead of hanging until timeout
             if (runTask is { IsCompleted: true })
-            {
-                log?.Invoke($"runTask completed: Status={runTask.Status} IsFaulted={runTask.IsFaulted}");
                 await runTask;
-            }
 
-            int currentLen;
             lock (output)
             {
-                currentLen = output.Length;
                 if (output.ToString().Contains(text)) return;
-            }
-
-            if (currentLen != lastLen)
-            {
-                log?.Invoke($"Output: {currentLen} chars (+{currentLen - lastLen})");
-                lastLen = currentLen;
             }
 
             await Task.Delay(100, ct);
         }
 
-        // Dump what we got for diagnosis
-        string captured;
-        lock (output)
-        {
-            captured = output.ToString();
-        }
-        log?.Invoke($"TIMEOUT — output length={captured.Length}, runTask.Status={runTask?.Status}");
-        if (captured.Length > 0)
-            log?.Invoke($"Output starts with: {captured[..Math.Min(200, captured.Length)]}");
-        else
-            log?.Invoke("Output is EMPTY — app likely never rendered");
-
         Assert.Fail($"Timed out after {timeout.TotalSeconds:F0}s waiting for output containing \"{text}\"");
+    }
+
+    private static async Task WaitForConditionAsync(
+        Func<bool> condition, TimeSpan timeout, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return;
+            await Task.Delay(100, ct);
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+
+        // Stop the app loop first so the server-side WebSocket is no longer reading
+        _appCts?.Cancel();
+        if (_runTask != null)
+        {
+            try { await _runTask; }
+            catch (OperationCanceledException) { }
+            catch (WebSocketException) { }
+        }
 
         _state?.Dispose();
         _hex1bApp?.Dispose();
@@ -235,7 +218,10 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             try
             {
                 if (_clientWs.State == WebSocketState.Open)
-                    await _clientWs.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                {
+                    using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await _clientWs.CloseAsync(WebSocketCloseStatus.NormalClosure, null, closeCts.Token);
+                }
             }
             catch { }
             _clientWs.Dispose();
@@ -244,5 +230,6 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         _serverWs?.Dispose();
         _clientSocket?.Dispose();
         _serverSocket?.Dispose();
+        _appCts?.Dispose();
     }
 }
