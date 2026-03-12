@@ -57,7 +57,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     /// search bar and the subsequent characters reach the TextBox. This requires
     /// DotsiderApp to be reused across renders so _initialFocusRequested isn't reset.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 15_000)]
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -130,15 +130,11 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         Assert.True(_state.Search[0].IsActive, "Search should be active after pressing '/'");
         Assert.Equal("test", _state.Search[0].Query);
 
-        // Cleanup: cancel the app loop first so the server-side WebSocket stops,
-        // then the client-side close handshake in DisposeAsync won't deadlock.
+        // Cleanup: cancel app, stop drain, then tear down in DisposeAsync
         _appCts.Cancel();
-        try { await _runTask; }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
-
         drainCts.Cancel();
-        try { await drainTask; } catch (OperationCanceledException) { }
+        await StopRunTaskAsync();
+        try { await drainTask; } catch { }
     }
 
     private static async Task DrainOutputAsync(WebSocket ws, StringBuilder output, CancellationToken ct)
@@ -193,43 +189,44 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Cancels the app loop and kills underlying sockets to force-break any
+    /// blocked I/O, then awaits with a hard 2s timeout.
+    /// </summary>
+    private async Task StopRunTaskAsync()
+    {
+        if (_runTask == null) return;
+
+        _appCts?.Cancel();
+
+        // Kill the underlying TCP sockets to break any non-cancellable WebSocket reads
+        _clientSocket?.Dispose();
+        _serverSocket?.Dispose();
+
+        try { await _runTask.WaitAsync(TimeSpan.FromSeconds(2)); }
+        catch { }
+    }
+
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
 
-        // Stop the app loop first so the server-side WebSocket is no longer reading
         _appCts?.Cancel();
-        if (_runTask != null)
-        {
-            try { await _runTask; }
-            catch (OperationCanceledException) { }
-            catch (WebSocketException) { }
-        }
+        await StopRunTaskAsync();
 
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
 
         if (_presentation != null)
-            await _presentation.DisposeAsync();
-
-        if (_clientWs != null)
         {
-            try
-            {
-                if (_clientWs.State == WebSocketState.Open)
-                {
-                    using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    await _clientWs.CloseAsync(WebSocketCloseStatus.NormalClosure, null, closeCts.Token);
-                }
-            }
+            try { await _presentation.DisposeAsync(); }
             catch { }
-            _clientWs.Dispose();
         }
 
+        _clientWs?.Dispose();
         _serverWs?.Dispose();
-        _clientSocket?.Dispose();
-        _serverSocket?.Dispose();
+        // Sockets already disposed in StopRunTaskAsync
         _appCts?.Dispose();
     }
 }
