@@ -14,6 +14,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
     private readonly string _yamlDir = yamlDir;
     private readonly string _outputDir = outputDir;
     private readonly Dictionary<string, ApiItem> _items = [];
+    private readonly Dictionary<string, int> _namespaceOrder = [];
 
     /// <summary>
     /// Parses all YAML files and generates Starlight-compatible markdown for each type and namespace.
@@ -30,6 +31,16 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         }
 
         Console.WriteLine($"Loaded {_items.Count} API items");
+
+        // Build namespace ordering so types stay grouped with their namespace
+        // in Starlight's alphabetically-sorted autogenerate sidebar.
+        var namespaces = _items.Values
+            .Where(i => i.Type == "Namespace")
+            .Select(i => i.Uid)
+            .Order()
+            .ToList();
+        for (var i = 0; i < namespaces.Count; i++)
+            _namespaceOrder[namespaces[i]] = i;
 
         var generatedCount = 0;
         foreach (var item in _items.Values)
@@ -221,6 +232,14 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         if (!string.IsNullOrEmpty(item.Summary))
             sb.AppendLine($"description: \"{EscapeYaml(CleanSummary(item.Summary) ?? "")}\"");
         sb.AppendLine($"slug: api/{SlugifyUid(item.Uid)}");
+
+        var nsKey = item.Type == "Namespace" ? item.Uid : item.Namespace ?? "";
+        if (_namespaceOrder.TryGetValue(nsKey, out var sidebarOrder))
+        {
+            sb.AppendLine("sidebar:");
+            sb.AppendLine($"  order: {sidebarOrder}");
+        }
+
         sb.AppendLine("---");
         sb.AppendLine();
 
@@ -466,7 +485,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
     };
 
     private static string SanitizeFileName(string uid) =>
-        uid.Replace('`', '-').Replace('<', '-').Replace('>', '-')
+        uid.Replace('.', '-').Replace('`', '-').Replace('<', '-').Replace('>', '-')
            .Replace(',', '-').Replace('{', '-').Replace('}', '-');
 
     private static string SlugifyUid(string uid) =>

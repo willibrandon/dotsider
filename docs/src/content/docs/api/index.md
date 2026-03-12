@@ -1,6 +1,8 @@
 ---
 title: API Reference
 description: Dotsider.Core API documentation.
+sidebar:
+  order: -1
 ---
 
 This section contains auto-generated API documentation for the `Dotsider.Core` library.

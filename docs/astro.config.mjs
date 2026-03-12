@@ -36,6 +36,7 @@ export default defineConfig({
 		starlight({
 			title: 'dotsider',
 			favicon: '/favicon.ico',
+			disable404Route: true,
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/willibrandon/dotsider' },
 			],

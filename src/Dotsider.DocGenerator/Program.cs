@@ -10,6 +10,9 @@ var docfxJsonPath = Path.Combine(docGeneratorDir, "docfx.json");
 Console.WriteLine($"Project root: {projectRoot}");
 Console.WriteLine($"Output directory: {outputDir}");
 
+// Clean stale metadata before regenerating
+if (Directory.Exists(yamlOutputDir))
+    Directory.Delete(yamlOutputDir, recursive: true);
 Directory.CreateDirectory(yamlOutputDir);
 
 Console.WriteLine("Generating API metadata with DocFX...");
