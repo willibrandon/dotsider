@@ -25,6 +25,20 @@ public sealed class AssemblyAnalyzer : IDisposable
 
 ## Constructors
 
+### AssemblyAnalyzer(byte[], string)
+
+Creates an analyzer from raw bytes in memory. Used as a last-resort
+fallback when disk I/O is unavailable after a save operation.
+
+**Parameters:**
+
+- `bytes` ([Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])): 
+- `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+
+```csharp
+public AssemblyAnalyzer(byte[] bytes, string filePath)
+```
+
 ### AssemblyAnalyzer(string)
 
 Opens and analyzes the specified .NET assembly file.
