@@ -30,11 +30,11 @@ A node in the size treemap hierarchy. Can be assembly, namespace, type, or metho
 
 **Parameters:**
 
-- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): 
-- `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)): 
-- `Children` ([IReadOnlyList\<SizeNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): 
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Display name for this node.
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Fully qualified path from root (e.g., `Assembly/Namespace/Type`).
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Size in bytes attributed to this node.
+- `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)): The granularity level of this node.
+- `Children` ([IReadOnlyList\<SizeNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Child nodes in the hierarchy.
 
 ```csharp
 public SizeNode(string Name, string FullPath, long Size, SizeNodeKind Kind, IReadOnlyList<SizeNode> Children)
@@ -44,6 +44,8 @@ public SizeNode(string Name, string FullPath, long Size, SizeNodeKind Kind, IRea
 
 ### Children
 
+Child nodes in the hierarchy.
+
 **Returns:** [IReadOnlyList\<SizeNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 ```csharp
@@ -51,6 +53,8 @@ public IReadOnlyList<SizeNode> Children { get; init; }
 ```
 
 ### FullPath
+
+Fully qualified path from root (e.g., `Assembly/Namespace/Type`).
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -60,6 +64,8 @@ public string FullPath { get; init; }
 
 ### Kind
 
+The granularity level of this node.
+
 **Returns:** [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)
 
 ```csharp
@@ -68,6 +74,8 @@ public SizeNodeKind Kind { get; init; }
 
 ### Name
 
+Display name for this node.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -75,6 +83,8 @@ public string Name { get; init; }
 ```
 
 ### Size
+
+Size in bytes attributed to this node.
 
 **Returns:** [Int64](https://learn.microsoft.com/dotnet/api/system.int64)
 

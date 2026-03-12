@@ -30,12 +30,12 @@ Represents a file entry within a NuGet package (.nupkg).
 
 **Parameters:**
 
-- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `Directory` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `CompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): 
-- `UncompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): 
-- `IsDll` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): 
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): File name without directory path.
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Full path of the entry within the package archive.
+- `Directory` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Directory portion of the entry path.
+- `CompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Compressed size in bytes inside the .nupkg.
+- `UncompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Uncompressed size in bytes.
+- `IsDll` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the entry is a .NET assembly (.dll).
 
 ```csharp
 public NuGetFileEntry(string Name, string FullPath, string Directory, long CompressedSize, long UncompressedSize, bool IsDll)
@@ -45,6 +45,8 @@ public NuGetFileEntry(string Name, string FullPath, string Directory, long Compr
 
 ### CompressedSize
 
+Compressed size in bytes inside the .nupkg.
+
 **Returns:** [Int64](https://learn.microsoft.com/dotnet/api/system.int64)
 
 ```csharp
@@ -52,6 +54,8 @@ public long CompressedSize { get; init; }
 ```
 
 ### Directory
+
+Directory portion of the entry path.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -61,6 +65,8 @@ public string Directory { get; init; }
 
 ### FullPath
 
+Full path of the entry within the package archive.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -68,6 +74,8 @@ public string FullPath { get; init; }
 ```
 
 ### IsDll
+
+Whether the entry is a .NET assembly (.dll).
 
 **Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
 
@@ -77,6 +85,8 @@ public bool IsDll { get; init; }
 
 ### Name
 
+File name without directory path.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -84,6 +94,8 @@ public string Name { get; init; }
 ```
 
 ### UncompressedSize
+
+Uncompressed size in bytes.
 
 **Returns:** [Int64](https://learn.microsoft.com/dotnet/api/system.int64)
 

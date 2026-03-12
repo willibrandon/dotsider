@@ -30,12 +30,12 @@ A node in the assembly dependency graph.
 
 **Parameters:**
 
-- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `Version` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `IsRoot` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): 
-- `X` ([Double](https://learn.microsoft.com/dotnet/api/system.double)): 
-- `Y` ([Double](https://learn.microsoft.com/dotnet/api/system.double)): 
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Assembly name.
+- `Version` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Assembly version string, or null if unavailable.
+- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Public key token hex string, or null.
+- `IsRoot` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether this is the root (analyzed) assembly.
+- `X` ([Double](https://learn.microsoft.com/dotnet/api/system.double)): X coordinate for graph layout rendering.
+- `Y` ([Double](https://learn.microsoft.com/dotnet/api/system.double)): Y coordinate for graph layout rendering.
 
 ```csharp
 public GraphNode(string Name, string? Version, string? PublicKeyToken, bool IsRoot, double X, double Y)
@@ -45,6 +45,8 @@ public GraphNode(string Name, string? Version, string? PublicKeyToken, bool IsRo
 
 ### IsRoot
 
+Whether this is the root (analyzed) assembly.
+
 **Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 ```csharp
@@ -52,6 +54,8 @@ public bool IsRoot { get; init; }
 ```
 
 ### Name
+
+Assembly name.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -61,6 +65,8 @@ public string Name { get; init; }
 
 ### PublicKeyToken
 
+Public key token hex string, or null.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -68,6 +74,8 @@ public string? PublicKeyToken { get; init; }
 ```
 
 ### Version
+
+Assembly version string, or null if unavailable.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -77,6 +85,8 @@ public string? Version { get; init; }
 
 ### X
 
+X coordinate for graph layout rendering.
+
 **Returns:** [Double](https://learn.microsoft.com/dotnet/api/system.double)
 
 ```csharp
@@ -84,6 +94,8 @@ public double X { get; init; }
 ```
 
 ### Y
+
+Y coordinate for graph layout rendering.
 
 **Returns:** [Double](https://learn.microsoft.com/dotnet/api/system.double)
 

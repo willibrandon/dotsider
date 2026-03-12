@@ -30,10 +30,10 @@ A single diff entry wrapping an item from either side.
 
 **Parameters:**
 
-- `Kind` ([DiffKind](/api/dotsider.core.analysis.models.diffkind/)): 
-- `Left` (\<T\>): 
-- `Right` (\<T\>): 
-- `ChangeDescription` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+- `Kind` ([DiffKind](/api/dotsider.core.analysis.models.diffkind/)): Whether the item was added, removed, or changed.
+- `Left` (\<T\>): The item from the left (baseline) assembly, or null if added.
+- `Right` (\<T\>): The item from the right (updated) assembly, or null if removed.
+- `ChangeDescription` ([String](https://learn.microsoft.com/dotnet/api/system.string)): A human-readable description of what changed, or null.
 
 ```csharp
 public DiffEntry(DiffKind Kind, T? Left, T? Right, string? ChangeDescription)
@@ -43,6 +43,8 @@ public DiffEntry(DiffKind Kind, T? Left, T? Right, string? ChangeDescription)
 
 ### ChangeDescription
 
+A human-readable description of what changed, or null.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -50,6 +52,8 @@ public string? ChangeDescription { get; init; }
 ```
 
 ### Kind
+
+Whether the item was added, removed, or changed.
 
 **Returns:** [DiffKind](/api/dotsider.core.analysis.models.diffkind/)
 
@@ -59,6 +63,8 @@ public DiffKind Kind { get; init; }
 
 ### Left
 
+The item from the left (baseline) assembly, or null if added.
+
 **Returns:** \<T\>
 
 ```csharp
@@ -66,6 +72,8 @@ public T? Left { get; init; }
 ```
 
 ### Right
+
+The item from the right (updated) assembly, or null if removed.
 
 **Returns:** \<T\>
 

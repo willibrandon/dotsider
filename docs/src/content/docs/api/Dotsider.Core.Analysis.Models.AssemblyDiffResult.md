@@ -30,10 +30,10 @@ The complete diff result between two assemblies.
 
 **Parameters:**
 
-- `TypeDiffs` ([IReadOnlyList\<TypeDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): 
-- `MethodDiffs` ([IReadOnlyList\<MethodDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): 
-- `AssemblyRefDiffs` ([IReadOnlyList\<AssemblyRefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): 
-- `MetadataSummary` ([DiffSummary](/api/dotsider.core.analysis.models.diffsummary/)): 
+- `TypeDiffs` ([IReadOnlyList\<TypeDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Diff entries for type definitions.
+- `MethodDiffs` ([IReadOnlyList\<MethodDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Diff entries for method definitions.
+- `AssemblyRefDiffs` ([IReadOnlyList\<AssemblyRefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Diff entries for assembly references.
+- `MetadataSummary` ([DiffSummary](/api/dotsider.core.analysis.models.diffsummary/)): Aggregate counts of added, removed, and changed items.
 
 ```csharp
 public AssemblyDiffResult(IReadOnlyList<DiffEntry<TypeDefInfo>> TypeDiffs, IReadOnlyList<DiffEntry<MethodDefInfo>> MethodDiffs, IReadOnlyList<DiffEntry<AssemblyRefInfo>> AssemblyRefDiffs, DiffSummary MetadataSummary)
@@ -43,6 +43,8 @@ public AssemblyDiffResult(IReadOnlyList<DiffEntry<TypeDefInfo>> TypeDiffs, IRead
 
 ### AssemblyRefDiffs
 
+Diff entries for assembly references.
+
 **Returns:** [IReadOnlyList\<AssemblyRefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 ```csharp
@@ -50,6 +52,8 @@ public IReadOnlyList<DiffEntry<AssemblyRefInfo>> AssemblyRefDiffs { get; init; }
 ```
 
 ### MetadataSummary
+
+Aggregate counts of added, removed, and changed items.
 
 **Returns:** [DiffSummary](/api/dotsider.core.analysis.models.diffsummary/)
 
@@ -59,6 +63,8 @@ public DiffSummary MetadataSummary { get; init; }
 
 ### MethodDiffs
 
+Diff entries for method definitions.
+
 **Returns:** [IReadOnlyList\<MethodDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 ```csharp
@@ -66,6 +72,8 @@ public IReadOnlyList<DiffEntry<MethodDefInfo>> MethodDiffs { get; init; }
 ```
 
 ### TypeDiffs
+
+Diff entries for type definitions.
 
 **Returns:** [IReadOnlyList\<TypeDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

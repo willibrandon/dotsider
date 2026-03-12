@@ -30,9 +30,9 @@ An edge connecting two nodes in the dependency graph.
 
 **Parameters:**
 
-- `SourceName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `TargetName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `TypeRefCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `SourceName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Name of the assembly that holds the reference.
+- `TargetName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Name of the referenced assembly.
+- `TypeRefCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): Number of type references from source to target.
 
 ```csharp
 public GraphEdge(string SourceName, string TargetName, int TypeRefCount)
@@ -42,6 +42,8 @@ public GraphEdge(string SourceName, string TargetName, int TypeRefCount)
 
 ### SourceName
 
+Name of the assembly that holds the reference.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -50,6 +52,8 @@ public string SourceName { get; init; }
 
 ### TargetName
 
+Name of the referenced assembly.
+
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
@@ -57,6 +61,8 @@ public string TargetName { get; init; }
 ```
 
 ### TypeRefCount
+
+Number of type references from source to target.
 
 **Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
 
