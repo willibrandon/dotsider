@@ -1,0 +1,58 @@
+:root { --sl-content-width: 70rem; }
+
+#demo-root {
+  background: #121218;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.3),
+    0 10px 40px rgba(0,0,0,0.4);
+  width: fit-content;
+  margin: 1rem auto;
+  overflow: hidden;
+}
+#demo-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #2a2a36, #1e1e28);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.dots { display: flex; gap: 6px; min-width: 160px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot.r { background: #ff5f56; }
+.dot.y { background: #ffbd2e; }
+.dot.g { background: #27c93f; }
+.title {
+  flex: 1;
+  text-align: center;
+  color: rgba(255,255,255,0.5);
+  font-family: var(--sl-font-mono);
+  font-size: 13px;
+}
+#status {
+  font-family: var(--sl-font-mono);
+  font-size: 12px;
+  color: #8c8ca0;
+  min-width: 120px;
+  text-align: right;
+}
+#reconnect-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: #8c8ca0;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 8px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+}
+#reconnect-btn:hover { color: #00c8b4; border-color: #00c8b4; }
+#tv { width: fit-content; height: fit-content; }
+
+/* Reset Starlight markdown styles leaking into xterm.js internals */
+#tv * { margin: 0 !important; }
+#tv .xterm-viewport { scrollbar-width: none; }
+#tv .xterm-viewport::-webkit-scrollbar { display: none; }
