@@ -217,7 +217,7 @@ starlight-toc {
 }
 
 .copy-btn {
-	display: inline-flex;
+	display: none;
 	align-items: center;
 	justify-content: center;
 	background: none;
@@ -225,6 +225,12 @@ starlight-toc {
 	padding: 0.2rem;
 	color: var(--sl-color-gray-4);
 	cursor: pointer;
+}
+
+@media (hover: hover) {
+	.copy-btn {
+		display: inline-flex;
+	}
 }
 
 .copy-btn:hover {
