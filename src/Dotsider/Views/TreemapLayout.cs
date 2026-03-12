@@ -1,11 +1,6 @@
 using Dotsider.Core.Analysis.Models;
 
-namespace Dotsider.Core.Analysis;
-
-/// <summary>
-/// A positioned rectangle in the treemap layout.
-/// </summary>
-public sealed record TreemapRect(double X, double Y, double Width, double Height, SizeNode Node);
+namespace Dotsider.Views;
 
 /// <summary>
 /// Squarified treemap layout algorithm.

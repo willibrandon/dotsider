@@ -77,20 +77,3 @@ and raw printable character sequences from the binary.
 public sealed class StringExtractor
 ```
 
-### [TreemapLayout](/api/dotsider.core.analysis.treemaplayout/)
-
-Squarified treemap layout algorithm.
-Produces rectangles with aspect ratios close to 1:1 for better readability.
-
-```csharp
-public static class TreemapLayout
-```
-
-### [TreemapRect](/api/dotsider.core.analysis.treemaprect/)
-
-A positioned rectangle in the treemap layout.
-
-```csharp
-public sealed record TreemapRect : IEquatable<TreemapRect>
-```
-
