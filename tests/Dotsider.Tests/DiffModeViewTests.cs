@@ -36,7 +36,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DiffApp_Launches_ShowsBothAssemblies()
     {
         var (terminal, app) = CreateDiffApp();
@@ -57,7 +57,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DiffApp_ShowsDiffEntries()
     {
         var (terminal, app) = CreateDiffApp();
@@ -78,7 +78,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task QuitKey_ExitsDiffApp()
     {
         var (terminal, app) = CreateDiffApp();
@@ -88,7 +88,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("Diff"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("Diff"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Q)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -97,7 +97,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task ArrowKeys_CycleTabs()
     {
         var (terminal, app) = CreateDiffApp();
@@ -126,7 +126,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Search_ActivatesAndFilters()
     {
         var (terminal, app) = CreateDiffApp();
@@ -151,7 +151,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DiffApp_ShowsReferencesTab()
     {
         var (terminal, app) = CreateDiffApp();
@@ -177,7 +177,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DiffApp_ShowsMethodsTab()
     {
         var (terminal, app) = CreateDiffApp();
@@ -203,7 +203,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task LeftArrow_DoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDiffApp();

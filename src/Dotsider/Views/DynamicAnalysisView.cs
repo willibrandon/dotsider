@@ -304,7 +304,7 @@ public static class DynamicAnalysisView
             ]).FixedHeight(1),
 
             inner.Table(events)
-                .RowKey(e => $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}")
+                .RowKey(e => $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}")
                 .Header(h =>
                 [
                     h.Cell("Time").Width(SizeHint.Fixed(12)),
@@ -564,7 +564,7 @@ public static class DynamicAnalysisView
 
         var evt = tracer.GetEvents().FirstOrDefault(e =>
             e.Category == TraceEventCategory.JIT
-            && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}" == focusedKey);
+            && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}" == focusedKey);
         if (evt is null) return false;
 
         var method = evt.MetadataToken > 0

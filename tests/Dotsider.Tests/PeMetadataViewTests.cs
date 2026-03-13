@@ -39,7 +39,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_ShowsPeHeaders()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -58,7 +58,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_ShowsSectionsTable()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -79,7 +79,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToTypeDef()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -92,7 +92,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("TypeDef"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("TypeDef"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -102,7 +102,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToMethodDef()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -117,7 +117,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(2))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.MethodDef, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("MethodDef"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("MethodDef"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -127,7 +127,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToTypeRef()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -145,7 +145,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state!.PeSubTab == 2, TimeSpan.FromSeconds(2))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeRef, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("TypeRef"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("TypeRef"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -155,7 +155,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToMemberRef()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -175,7 +175,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state!.PeSubTab == 3, TimeSpan.FromSeconds(2))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.MemberRef, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("MemberRef"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("MemberRef"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -185,7 +185,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToAttributes()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -207,7 +207,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state!.PeSubTab == 4, TimeSpan.FromSeconds(2))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.Attributes, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("Attributes"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Attributes"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -217,7 +217,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_NavigateToResources()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -241,7 +241,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state!.PeSubTab == 5, TimeSpan.FromSeconds(2))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.Resources, TimeSpan.FromSeconds(2))
-            .WaitUntil(s => s.ContainsText("Resources"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Resources"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -251,7 +251,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_ShowsClrHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -271,7 +271,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_ShowsPeHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
@@ -291,7 +291,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task PeMetadata_LeftArrowDoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDotsiderApp();

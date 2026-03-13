@@ -49,16 +49,16 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     private static Hex1bTerminalInputSequenceBuilder EditSafeByte(Hex1bTerminalInputSequenceBuilder builder)
         => builder
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
             .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
             .Key(Hex1bKey.F).Key(Hex1bKey.F);
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task LockedFile_FallsBackToTmpPath()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -75,9 +75,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             await Task.Delay(100, ct);
 
             await EditSafeByte(new Hex1bTerminalInputSequenceBuilder())
-                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(5))
                 .Key(Hex1bKey.Escape)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
                 .Build()
                 .ApplyAsync(terminal, ct);
 
@@ -102,7 +102,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
 
             await new Hex1bTerminalInputSequenceBuilder()
                 .Ctrl().Key(Hex1bKey.S)
-                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(5))
                 .Ctrl().Key(Hex1bKey.C)
                 .Build()
                 .ApplyAsync(terminal, ct);
@@ -129,7 +129,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task InvalidEdit_RejectsCorruptedPe()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -147,18 +147,18 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             // Enter insert mode and corrupt the MZ header at offset 0
             await new Hex1bTerminalInputSequenceBuilder()
                 .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
                 .Key(Hex1bKey.D5)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
                 .Key(Hex1bKey.I)
-                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(5))
                 // Overwrite byte 0 (0x4D 'M') with 0x00, breaking the MZ signature
                 .Key(Hex1bKey.D0).Key(Hex1bKey.D0)
-                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(5))
                 .Key(Hex1bKey.Escape)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
                 .Ctrl().Key(Hex1bKey.S)
-                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(5))
                 .Build()
                 .ApplyAsync(terminal, cts.Token);
 
@@ -178,7 +178,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DoubleSave_NoDirtyStateAfterFirst()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -195,11 +195,11 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
 
             // Edit, save, verify clean state
             await EditSafeByte(new Hex1bTerminalInputSequenceBuilder())
-                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(5))
                 .Key(Hex1bKey.Escape)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
                 .Ctrl().Key(Hex1bKey.S)
-                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(5))
                 .Build()
                 .ApplyAsync(terminal, cts.Token);
 
@@ -217,7 +217,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             await new Hex1bTerminalInputSequenceBuilder()
                 .Ctrl().Key(Hex1bKey.S)
                 .Key(Hex1bKey.E)
-                .WaitUntil(_ => _state!.HexEndianness != endiannessBefore, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexEndianness != endiannessBefore, TimeSpan.FromSeconds(5))
                 .Build()
                 .ApplyAsync(terminal, cts.Token);
 

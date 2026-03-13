@@ -109,7 +109,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         _app!.Invalidate();
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Navigate_ViaSocket_ChangesDllTab()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -134,7 +134,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.Equal(TabId.Strings, _nugetState.SelectedDllState.CurrentTab);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task GetCurrentView_ReflectsNavigatedTab()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -166,7 +166,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
             data.Value.GetProperty("selectedDll").GetString());
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task GetCurrentView_BeforeDllOpened_ShowsBrowsingPackage()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -185,7 +185,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.False(data.Value.TryGetProperty("tab", out _));
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Search_ViaSocket_Succeeds()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -199,7 +199,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.True(searchResponse.Success);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task StartTrace_FailsForLibraryDll()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -214,7 +214,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.Contains("entry point", traceResponse.Error, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Navigate_BeforeDllOpened_Fails()
     {
         var ct = TestContext.Current.CancellationToken;

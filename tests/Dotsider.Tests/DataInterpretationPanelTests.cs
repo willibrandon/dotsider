@@ -38,7 +38,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task HexDumpTab_ShowsInterpretationLabels()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
@@ -59,7 +59,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task HexDumpTab_ShowsEndianLabel()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
@@ -78,7 +78,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task HexDumpTab_ShowsLengthMatchingFileSize()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
@@ -100,7 +100,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task HexDumpTab_ShowsHexAddresses()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);

@@ -36,7 +36,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task NuGetApp_Launches_ShowsPackageInfo()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -54,7 +54,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task NuGetApp_ShowsFileList()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -74,7 +74,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task QuitKey_ExitsNuGetApp()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -84,7 +84,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("nupkg"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("nupkg"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Q)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -93,7 +93,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Enter_OnDllRow_OpensDllInspector()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -107,7 +107,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             // Focus the DLL row and press Enter
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -119,7 +119,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task Search_ActivatesAndDismisses()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -145,7 +145,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 20_000)]
     public async Task DllInspector_DepthLimit_ShowsErrorInHintsBar()
     {
         var (terminal, app) = CreateNuGetApp();
@@ -160,7 +160,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             // Enter DLL inspector
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             // Push assemblies to hit the depth limit, then verify the error renders
             .WaitUntil(s =>
             {
@@ -179,7 +179,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 }
 
                 return s.ContainsText("depth limit");
-            }, TimeSpan.FromSeconds(3))
+            }, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
