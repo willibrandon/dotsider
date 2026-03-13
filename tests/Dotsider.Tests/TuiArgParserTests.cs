@@ -89,4 +89,44 @@ public class TuiArgParserTests
 
         Assert.Equal(0, result.InitialTab);
     }
+
+    [Fact]
+    public void Parse_EscapeTimeout_Parses()
+    {
+        var result = TuiArgParser.Parse(["--escape-timeout", "200", "app.dll"], "app.dll");
+
+        Assert.Equal(200, result.EscapeTimeoutMs);
+    }
+
+    [Fact]
+    public void Parse_ShortEscapeTimeout_Parses()
+    {
+        var result = TuiArgParser.Parse(["-e", "75", "app.dll"], "app.dll");
+
+        Assert.Equal(75, result.EscapeTimeoutMs);
+    }
+
+    [Fact]
+    public void Parse_EscapeTimeoutBelowMin_Clamps()
+    {
+        var result = TuiArgParser.Parse(["-e", "5", "app.dll"], "app.dll");
+
+        Assert.Equal(10, result.EscapeTimeoutMs);
+    }
+
+    [Fact]
+    public void Parse_EscapeTimeoutInvalid_IgnoresNonNumeric()
+    {
+        var result = TuiArgParser.Parse(["--escape-timeout", "abc", "app.dll"], "app.dll");
+
+        Assert.Equal(100, result.EscapeTimeoutMs);
+    }
+
+    [Fact]
+    public void Parse_FileOnly_EscapeTimeoutDefault()
+    {
+        var result = TuiArgParser.Parse(["app.dll"], "app.dll");
+
+        Assert.Equal(100, result.EscapeTimeoutMs);
+    }
 }

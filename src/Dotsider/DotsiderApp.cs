@@ -269,26 +269,51 @@ public sealed class DotsiderApp(DotsiderState state)
                     _state.NavigatePrevMatch?.Invoke();
                     _state.App.Invalidate();
                 }, "Prev match");
+            }
 
-                // Global Escape to dismiss confirmed search — after confirmation the
-                // TextBox is removed and EnsureFocus() moves focus to the main TabPanel,
-                // which is outside each tab's VStack, so local Escape bindings won't fire.
-                if (!_state.HexJumpDialogOpen)
+            // Global Escape to dismiss search (editing or confirmed) — must be
+            // Global so it fires before built-in widget Escape bindings
+            // (ScrollPanel FocusFirst, EditorNode HandleEscape, etc.) that
+            // would otherwise consume the key in the focus-based routing walk.
+            if (currentSearch.IsActive && !_state.HexJumpDialogOpen)
+            {
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                 {
-                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                    // In hex insert mode, Esc exits insert first — search stays active
+                    if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert)
                     {
-                        // In hex insert mode, Esc exits insert first — search stays active
-                        if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert)
-                        {
-                            _state.HexMode = HexEditMode.Normal;
-                            _state.HexEditorState.IsReadOnly = true;
-                            _state.App.Invalidate();
-                            return;
-                        }
-                        currentSearch.Dismiss();
+                        _state.HexMode = HexEditMode.Normal;
+                        _state.HexEditorState.IsReadOnly = true;
                         _state.App.Invalidate();
-                    }, "Clear search");
-                }
+                        return;
+                    }
+                    currentSearch.Dismiss();
+                    // Hex tab has additional match state to clear
+                    if (_state.CurrentTab == TabId.HexDump)
+                    {
+                        _state.HexMatchOffsets = [];
+                        _state.HexCurrentMatchIndex = -1;
+                        _state.HexMatchPatternLength = 0;
+                        _state.HexLastSearchQuery = null;
+                        _state.HexLiveSearchTooSlow = false;
+                    }
+                    _state.App.Invalidate();
+                }, "Clear search");
+            }
+
+            // Hex insert mode without search: Global Escape to exit insert mode —
+            // preempts EditorNode's built-in Escape binding.
+            if (!currentSearch.IsActive
+                && _state.CurrentTab == TabId.HexDump
+                && _state.HexMode == HexEditMode.Insert
+                && !_state.HexJumpDialogOpen)
+            {
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                {
+                    _state.HexMode = HexEditMode.Normal;
+                    _state.HexEditorState.IsReadOnly = true;
+                    _state.App.Invalidate();
+                }, "Exit insert mode");
             }
 
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()

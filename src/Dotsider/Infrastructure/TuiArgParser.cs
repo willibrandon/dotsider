@@ -15,6 +15,9 @@ internal sealed class TuiArgParser
     /// <summary>The minimum string length for raw string extraction.</summary>
     public int MinStringLength { get; private set; } = 4;
 
+    /// <summary>The escape key timeout in milliseconds.</summary>
+    public int EscapeTimeoutMs { get; private set; } = 100;
+
     /// <summary>
     /// Parses TUI arguments given the already-resolved file path.
     /// Options can appear before or after the file path.
@@ -38,6 +41,12 @@ internal sealed class TuiArgParser
                 && int.TryParse(args[i + 1], out var minLen))
             {
                 result.MinStringLength = minLen;
+                i++;
+            }
+            else if (args[i] is "--escape-timeout" or "-e" && i + 1 < args.Length
+                && int.TryParse(args[i + 1], out var escTimeout))
+            {
+                result.EscapeTimeoutMs = Math.Max(10, escTimeout);
                 i++;
             }
         }

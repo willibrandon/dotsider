@@ -22,7 +22,7 @@ static string? FindFileArg(string[] args, HashSet<string> subcommands)
         if (args[i].StartsWith('-'))
         {
             // Skip options that take a value (--tab N, -t N, --min-len N, -n N)
-            if (args[i] is "--tab" or "-t" or "--min-len" or "-n")
+            if (args[i] is "--tab" or "-t" or "--min-len" or "-n" or "--escape-timeout" or "-e")
                 i++;
             continue;
         }
@@ -63,11 +63,18 @@ rootCommand.Options.Add(jsonOption);
 var diffLeftArg = new Argument<FileInfo>("left") { Description = "First assembly" };
 var diffRightArg = new Argument<FileInfo>("right") { Description = "Second assembly" };
 
+var escapeTimeoutOption = new Option<int>("--escape-timeout", "-e")
+{
+    Description = "Escape key timeout in milliseconds (default 100)",
+    DefaultValueFactory = _ => 100
+};
+
 var diffCommand = new Command("diff", "Compare two assemblies side-by-side")
 {
     diffLeftArg,
     diffRightArg
 };
+diffCommand.Options.Add(escapeTimeoutOption);
 
 diffCommand.SetAction(async (parseResult, ct) =>
 {
@@ -130,20 +137,27 @@ diffCommand.SetAction(async (parseResult, ct) =>
             };
         });
 
+    var escTimeoutMs = Math.Max(10, parseResult.GetValue(escapeTimeoutOption));
+    var diffEscAdapter = new EscapeTimeoutPresentationAdapter(
+        new ConsolePresentationAdapter(enableMouse: true),
+        TimeSpan.FromMilliseconds(escTimeoutMs));
+
     await using var diffTerminal = Hex1bTerminal.CreateBuilder()
+        .WithPresentation(diffEscAdapter)
+        .WithMouse()
         .WithHex1bApp((app, options) =>
         {
             options.Theme = DotsiderTheme.Create();
-            options.EnableMouse = true;
 
             var diffState = new DiffState(app, left.FullName, right.FullName);
             capturedDiffState = diffState;
             var diffApp = new DiffApp(diffState);
             return ctx => diffApp.Build(ctx);
         })
-        .WithMouse()
         .WithDiagnostics(appName: "dotsider-diff", forceEnable: true)
         .Build();
+
+    diffEscAdapter.Terminal = diffTerminal;
 
     diagnosticsListener.StartListening();
     await diffTerminal.RunAsync(ct);
@@ -208,20 +222,26 @@ static async Task<int> RunTui(string[] args, string filePath)
                 };
             });
 
+        var nugetEscAdapter = new EscapeTimeoutPresentationAdapter(
+            new ConsolePresentationAdapter(enableMouse: true),
+            TimeSpan.FromMilliseconds(parsed.EscapeTimeoutMs));
+
         await using var nugetTerminal = Hex1bTerminal.CreateBuilder()
+            .WithPresentation(nugetEscAdapter)
+            .WithMouse()
             .WithHex1bApp((app, options) =>
             {
                 options.Theme = DotsiderTheme.Create();
-                options.EnableMouse = true;
 
                 var nugetState = new NuGetState(app, filePath);
                 capturedNugetState = nugetState;
                 var nugetApp = new NuGetApp(nugetState);
                 return ctx => nugetApp.Build(ctx);
             })
-            .WithMouse()
             .WithDiagnostics(appName: "dotsider-nuget", forceEnable: true)
             .Build();
+
+        nugetEscAdapter.Terminal = nugetTerminal;
 
         nugetListener.StartListening();
         await nugetTerminal.RunAsync();
@@ -235,11 +255,16 @@ static async Task<int> RunTui(string[] args, string filePath)
     await using var diagnosticsListener = new DotsiderDiagnosticsListener(
         () => capturedState);
 
+    var escAdapter = new EscapeTimeoutPresentationAdapter(
+        new ConsolePresentationAdapter(enableMouse: true),
+        TimeSpan.FromMilliseconds(parsed.EscapeTimeoutMs));
+
     await using var terminal = Hex1bTerminal.CreateBuilder()
+        .WithPresentation(escAdapter)
+        .WithMouse()
         .WithHex1bApp((app, options) =>
         {
             options.Theme = DotsiderTheme.Create();
-            options.EnableMouse = true;
 
             var state = new DotsiderState(app, filePath, pendingMutations)
             {
@@ -251,9 +276,10 @@ static async Task<int> RunTui(string[] args, string filePath)
             var dotsiderApp = new DotsiderApp(state);
             return ctx => dotsiderApp.Build(ctx);
         })
-        .WithMouse()
         .WithDiagnostics(appName: "dotsider", forceEnable: true)
         .Build();
+
+    escAdapter.Terminal = terminal;
 
     diagnosticsListener.StartListening();
 
