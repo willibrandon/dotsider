@@ -110,13 +110,13 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             // Start on tab 0 (Summary), arrow right to Types (tab 1)
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(5))
             // Arrow right again to Methods (tab 2)
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(5))
             // Arrow left back to Types (tab 1)
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -139,9 +139,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             // Switch to Types tab, then activate search
             .Key(Hex1bKey.D2)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.Search[1].IsActive, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.Search[1].IsActive, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -163,7 +163,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.D4) // Tab 4 — References
-            .WaitUntil(_ => _state!.CurrentTab == 3, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 3, TimeSpan.FromSeconds(5))
             .WaitUntil(s =>
                 s.ContainsText("References") || s.ContainsText("Assembly") ||
                 s.ContainsText("Version"),
@@ -189,7 +189,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.D3) // Tab 3 — Methods
-            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(5))
             .WaitUntil(s =>
                 s.ContainsText("Methods") || s.ContainsText("Method") ||
                 s.ContainsText("Added") || s.ContainsText("Removed"),

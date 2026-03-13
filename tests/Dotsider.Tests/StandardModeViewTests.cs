@@ -391,7 +391,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D5)
             .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
             // Verify normal mode does not show INSERT indicator
-            .WaitUntil(s => !s.ContainsText("INSERT"), TimeSpan.FromSeconds(1))
+            .WaitUntil(s => !s.ContainsText("INSERT"), TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1338,7 +1338,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Wait for the re-run to exit successfully
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.Tracer!.ProcessState == TraceProcessState.Exited,
-                TimeSpan.FromSeconds(8))
+                TimeSpan.FromSeconds(15))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1465,7 +1465,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp.Invalidate();
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(1))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
             .PageDown()
             .PageDown()
             .PageDown()

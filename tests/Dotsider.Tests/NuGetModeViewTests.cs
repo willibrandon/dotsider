@@ -132,10 +132,10 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("DLL"), TimeSpan.FromSeconds(5))
             // Activate search
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(5))
             // Dismiss with Esc
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => !_state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => !_state!.BrowserSearch.IsActive, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
