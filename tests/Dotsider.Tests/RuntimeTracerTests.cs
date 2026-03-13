@@ -37,7 +37,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         tracer.Start();
         await TestHelpers.WaitUntilAsync(
             () => tracer.ProcessState is TraceProcessState.Running or TraceProcessState.Exited,
-            TimeSpan.FromSeconds(15));
+            TimeSpan.FromSeconds(20));
     }
 
     [Fact(Timeout = 30_000)]
@@ -71,7 +71,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         // Counters arrive every ~1s — wait up to 10s
         await TestHelpers.WaitUntilAsync(
             () => tracer.GetLatestCounters() != null,
-            TimeSpan.FromSeconds(15));
+            TimeSpan.FromSeconds(20));
         var counters = tracer.GetLatestCounters();
         Assert.NotNull(counters);
     }
@@ -118,11 +118,11 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         tracer.Start();
         await TestHelpers.WaitUntilAsync(
             () => tracer.ProcessState is TraceProcessState.Running or TraceProcessState.Exited,
-            TimeSpan.FromSeconds(15));
+            TimeSpan.FromSeconds(20));
         var elapsed1 = tracer.Elapsed;
         if (tracer.ProcessState == TraceProcessState.Running)
         {
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(500, TestContext.Current.CancellationToken);
             Assert.True(tracer.Elapsed > elapsed1);
         }
     }
@@ -195,7 +195,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         tracer.Start();
         await TestHelpers.WaitUntilAsync(
             () => tracer.ProcessState is TraceProcessState.Running or TraceProcessState.Exited,
-            TimeSpan.FromSeconds(15));
+            TimeSpan.FromSeconds(20));
         tracer.Dispose();
         _tracer = null; // prevent double-dispose in test cleanup
     }

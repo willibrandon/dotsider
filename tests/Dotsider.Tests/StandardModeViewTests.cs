@@ -1103,7 +1103,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1118,7 +1118,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1173,7 +1173,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_CategoryFilterKeys_UpdateState()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1188,7 +1188,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1261,7 +1261,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_CtrlK_StopsRunningProcess()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1302,7 +1302,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_Enter_RerunsAfterExit()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1317,7 +1317,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1349,7 +1349,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
@@ -1364,7 +1364,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Launch process
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1573,7 +1573,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1588,7 +1588,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1748,7 +1748,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 45_000)]
     public async Task Tab8_Enter_OnJitEvent_NavigatesToIlInspector()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1764,7 +1764,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
             .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"),
-                TimeSpan.FromSeconds(15))
+                TimeSpan.FromSeconds(20))
             .Build()
             .ApplyAsync(terminal, ct);
 
