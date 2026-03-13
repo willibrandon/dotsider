@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text.Json;
 using Dotsider.Core.Analysis;
@@ -13,7 +12,8 @@ namespace Dotsider.Diagnostics;
 /// </summary>
 internal sealed class DotsiderDiagnosticsListener(
     Func<DotsiderState?> getState,
-    ConcurrentQueue<Action<DotsiderState>> pendingMutations) : IAsyncDisposable
+    Func<object?>? assemblyInfoProvider = null,
+    Func<object?>? currentViewProvider = null) : IAsyncDisposable
 {
     private readonly CancellationTokenSource _cts = new();
     private Socket? _listener;
@@ -24,14 +24,20 @@ internal sealed class DotsiderDiagnosticsListener(
     public string? SocketPath => _socketPath;
 
     /// <summary>Creates the socket and starts accepting connections.</summary>
-    public void StartListening()
+    /// <param name="overridePid">
+    /// Optional PID override for the socket filename. When <see langword="null"/>,
+    /// uses the current process ID. Exposed for testing scenarios where multiple
+    /// listeners must coexist in the same process.
+    /// </param>
+    public void StartListening(int? overridePid = null)
     {
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".dotsider", "sockets");
         Directory.CreateDirectory(dir);
 
-        _socketPath = Path.Combine(dir, $"{Environment.ProcessId}.dotsider.socket");
+        var pid = overridePid ?? Environment.ProcessId;
+        _socketPath = Path.Combine(dir, $"{pid}.dotsider.socket");
 
         // Clean up stale socket from a previous crash
         if (File.Exists(_socketPath))
@@ -186,9 +192,18 @@ internal sealed class DotsiderDiagnosticsListener(
 
     private DotsiderResponse HandleAssemblyInfo()
     {
+        if (assemblyInfoProvider is not null)
+        {
+            var info = assemblyInfoProvider();
+            return info is not null
+                ? DotsiderResponse.Ok(info)
+                : DotsiderResponse.Fail("No assembly is loaded");
+        }
+
         var a = RequireAnalyzer();
         return DotsiderResponse.Ok(new
         {
+            Mode = "standard",
             a.FilePath,
             a.FileName,
             a.FileSize,
@@ -551,7 +566,7 @@ internal sealed class DotsiderDiagnosticsListener(
         if (state.Tracer?.ProcessState == TraceProcessState.Running)
             return DotsiderResponse.Fail("A trace is already running");
 
-        pendingMutations.Enqueue(s =>
+        state.PendingMutations.Enqueue(s =>
         {
             var args = request.Arguments ?? "";
             s.Tracer?.Dispose();
@@ -561,7 +576,7 @@ internal sealed class DotsiderDiagnosticsListener(
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        getState()?.App.Invalidate();
+        state.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = "Trace start queued" });
     }
@@ -583,6 +598,14 @@ internal sealed class DotsiderDiagnosticsListener(
 
     private DotsiderResponse HandleGetCurrentView()
     {
+        if (currentViewProvider is not null)
+        {
+            var view = currentViewProvider();
+            return view is not null
+                ? DotsiderResponse.Ok(view)
+                : DotsiderResponse.Fail("No view state available");
+        }
+
         var state = RequireState();
         return DotsiderResponse.Ok(new
         {
@@ -604,13 +627,14 @@ internal sealed class DotsiderDiagnosticsListener(
         if (tabId is < 0 or > 7)
             return DotsiderResponse.Fail($"TabId must be 0-7, got {tabId}");
 
-        pendingMutations.Enqueue(s =>
+        var state = RequireState();
+        state.PendingMutations.Enqueue(s =>
         {
             s.NavigateToTab(tabId);
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        getState()?.App.Invalidate();
+        state.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Navigation to tab {tabId} queued" });
     }
@@ -623,7 +647,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var state = RequireState();
         var tabId = request.TabId ?? state.CurrentTab;
 
-        pendingMutations.Enqueue(s =>
+        state.PendingMutations.Enqueue(s =>
         {
             var search = s.Search[tabId];
             if (!search.IsActive)
@@ -633,7 +657,7 @@ internal sealed class DotsiderDiagnosticsListener(
         });
 
         // Trigger a render frame so the mutation queue gets drained
-        getState()?.App.Invalidate();
+        state.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
     }

@@ -23,8 +23,16 @@ public sealed class NuGetApp(NuGetState state)
     /// </summary>
     /// <param name="ctx">The Hex1b root context for widget construction.</param>
     /// <returns>The root widget of the NuGet application.</returns>
-    public Hex1bWidget Build(RootContext ctx) =>
-        ctx.VStack(outer =>
+    public Hex1bWidget Build(RootContext ctx)
+    {
+        // Drain pending mutations from the diagnostics socket listener
+        if (_state.SelectedDllState is { } dllState)
+        {
+            while (dllState.PendingMutations.TryDequeue(out var mutation))
+                mutation(dllState);
+        }
+
+        return ctx.VStack(outer =>
         [
             // Title bar
             outer.InfoBar(bar =>
@@ -183,6 +191,7 @@ public sealed class NuGetApp(NuGetState state)
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
         });
+    }
 
     private Hex1bWidget BuildDllInspector(WidgetContext<VStackWidget> outer)
     {

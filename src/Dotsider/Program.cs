@@ -86,6 +86,50 @@ diffCommand.SetAction(async (parseResult, ct) =>
         return 1;
     }
 
+    DiffState? capturedDiffState = null;
+
+    await using var diagnosticsListener = new DotsiderDiagnosticsListener(
+        () => null,
+        assemblyInfoProvider: () =>
+        {
+            var s = capturedDiffState;
+            if (s is null) return null;
+            return new
+            {
+                Mode = "diff",
+                FileName = $"{s.Left.FileName} \u2194 {s.Right.FileName}",
+                Left = new
+                {
+                    s.Left.FilePath,
+                    s.Left.FileName,
+                    s.Left.FileSize,
+                    s.Left.AssemblyName,
+                    s.Left.AssemblyVersion,
+                    s.Left.TargetFramework,
+                },
+                Right = new
+                {
+                    s.Right.FilePath,
+                    s.Right.FileName,
+                    s.Right.FileSize,
+                    s.Right.AssemblyName,
+                    s.Right.AssemblyVersion,
+                    s.Right.TargetFramework,
+                },
+            };
+        },
+        currentViewProvider: () =>
+        {
+            var s = capturedDiffState;
+            if (s is null) return null;
+            return new
+            {
+                Mode = "diff",
+                Tab = s.CurrentTab,
+                s.FilterMode,
+            };
+        });
+
     await using var diffTerminal = Hex1bTerminal.CreateBuilder()
         .WithHex1bApp((app, options) =>
         {
@@ -93,6 +137,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
             options.EnableMouse = true;
 
             var diffState = new DiffState(app, left.FullName, right.FullName);
+            capturedDiffState = diffState;
             var diffApp = new DiffApp(diffState);
             return ctx => diffApp.Build(ctx);
         })
@@ -100,6 +145,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
         .WithDiagnostics(appName: "dotsider-diff", forceEnable: true)
         .Build();
 
+    diagnosticsListener.StartListening();
     await diffTerminal.RunAsync(ct);
     return 0;
 });
@@ -128,6 +174,40 @@ static async Task<int> RunTui(string[] args, string filePath)
     // NuGet package mode
     if (filePath.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
     {
+        NuGetState? capturedNugetState = null;
+
+        await using var nugetListener = new DotsiderDiagnosticsListener(
+            () => capturedNugetState?.SelectedDllState,
+            assemblyInfoProvider: () =>
+            {
+                var s = capturedNugetState;
+                if (s is null) return null;
+                return new
+                {
+                    Mode = "nuget",
+                    s.Package.FilePath,
+                    s.Package.FileName,
+                    s.Package.PackageId,
+                    s.Package.PackageVersion,
+                    s.Package.Authors,
+                    s.Package.Description,
+                    DllCount = s.Package.DllFiles.Count,
+                    SelectedDll = s.SelectedDllState?.Analyzer.FileName,
+                };
+            },
+            currentViewProvider: () =>
+            {
+                var s = capturedNugetState;
+                if (s is null) return null;
+                return new
+                {
+                    Mode = "nuget",
+                    s.IsBrowsingPackage,
+                    Tab = s.SelectedDllState?.CurrentTab,
+                    SelectedDll = s.SelectedDllEntry?.Name,
+                };
+            });
+
         await using var nugetTerminal = Hex1bTerminal.CreateBuilder()
             .WithHex1bApp((app, options) =>
             {
@@ -135,6 +215,7 @@ static async Task<int> RunTui(string[] args, string filePath)
                 options.EnableMouse = true;
 
                 var nugetState = new NuGetState(app, filePath);
+                capturedNugetState = nugetState;
                 var nugetApp = new NuGetApp(nugetState);
                 return ctx => nugetApp.Build(ctx);
             })
@@ -142,6 +223,7 @@ static async Task<int> RunTui(string[] args, string filePath)
             .WithDiagnostics(appName: "dotsider-nuget", forceEnable: true)
             .Build();
 
+        nugetListener.StartListening();
         await nugetTerminal.RunAsync();
         return 0;
     }
@@ -151,7 +233,7 @@ static async Task<int> RunTui(string[] args, string filePath)
     var pendingMutations = new ConcurrentQueue<Action<DotsiderState>>();
 
     await using var diagnosticsListener = new DotsiderDiagnosticsListener(
-        () => capturedState, pendingMutations);
+        () => capturedState);
 
     await using var terminal = Hex1bTerminal.CreateBuilder()
         .WithHex1bApp((app, options) =>

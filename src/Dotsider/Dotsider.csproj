@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Dotsider.Tests" />
+    <InternalsVisibleTo Include="Dotsider.Mcp.Tests" />
   </ItemGroup>
 
   <ItemGroup>

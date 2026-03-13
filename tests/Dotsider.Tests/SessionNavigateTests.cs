@@ -52,7 +52,7 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
                 EnableInputCoalescing = false
             });
 
-        _listener = new DotsiderDiagnosticsListener(() => _state, pendingMutations);
+        _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening();
 
         // Start the TUI and wait for first render

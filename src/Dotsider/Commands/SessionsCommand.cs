@@ -105,14 +105,16 @@ internal static class SessionsCommand
                 if (info?.Success == true)
                 {
                     var data = info.Data as JsonElement?;
-                    var fileName = data?.GetProperty("fileName").GetString() ?? "unknown";
-                    var assemblyName = data?.GetProperty("assemblyName").GetString() ?? "";
+                    var mode = data?.GetPropertyOrNull("mode")?.GetString() ?? "standard";
+                    var fileName = data?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown";
+                    var assemblyName = data?.GetPropertyOrNull("assemblyName")?.GetString() ?? "";
 
-                    rows.Add([session.Pid.ToString(), fileName, assemblyName]);
+                    rows.Add([session.Pid.ToString(), mode, fileName, assemblyName]);
                     reachable.Add(new
                     {
                         session.Pid,
                         session.SocketPath,
+                        Mode = mode,
                         FileName = fileName,
                         AssemblyName = assemblyName
                     });
@@ -128,7 +130,7 @@ internal static class SessionsCommand
             if (json)
                 formatter.WriteJson(reachable);
             else
-                formatter.WriteTable(["PID", "File", "Assembly"], rows);
+                formatter.WriteTable(["PID", "Mode", "File", "Assembly"], rows);
 
             return 0;
         });
