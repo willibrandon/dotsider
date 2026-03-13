@@ -59,7 +59,7 @@ export default defineConfig({
 				{
 					label: 'Usage',
 					items: [
-						{ label: 'General Tab', slug: 'usage/general' },
+						{ label: 'General', slug: 'usage/general' },
 						{ label: 'PE / Metadata', slug: 'usage/pe-metadata' },
 						{ label: 'IL Inspector', slug: 'usage/il-inspector' },
 						{ label: 'Strings', slug: 'usage/strings' },

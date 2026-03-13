@@ -115,7 +115,7 @@ internal sealed class DemoGuard(ILogger<DemoGuard> logger, DemoGuardOptions opti
     /// </summary>
     public void SessionStarted(IPAddress ip, string sessionId, string? userAgent)
     {
-        Log.AuditConnect(logger, sessionId, ip.ToString(), userAgent);
+        Log.AuditConnect(logger, sessionId, ip, userAgent);
     }
 
     /// <summary>
@@ -165,7 +165,7 @@ internal sealed class DemoGuard(ILogger<DemoGuard> logger, DemoGuardOptions opti
             }
         }
 
-        Log.AuditDisconnect(logger, sessionId, ip.ToString(), duration.TotalSeconds);
+        Log.AuditDisconnect(logger, sessionId, ip, duration.TotalSeconds);
     }
 
     /// <summary>

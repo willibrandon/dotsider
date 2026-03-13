@@ -181,7 +181,10 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
 
     /// <inheritdoc />
     public void Render(Hex1bRenderContext context, EditorState state, Rect viewport,
-        int scrollOffset, int horizontalScrollOffset, bool isFocused, char? pendingNibble = null)
+        int scrollOffset, int horizontalScrollOffset, bool isFocused, char? pendingNibble = null,
+        IReadOnlyList<ITextDecorationProvider>? decorationProviders = null,
+        IReadOnlyList<InlineHint>? inlineHints = null, bool wordWrap = false,
+        IReadOnlyList<FoldingRegion>? foldingRegions = null)
     {
         var editorScroll = scrollOffset;
         scrollOffset = ApplyScrollOverride(scrollOffset, viewport.Width, viewport.Height);

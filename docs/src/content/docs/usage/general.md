@@ -1,5 +1,5 @@
 ---
-title: General Tab
+title: General
 description: Assembly identity, framework, architecture, and dependencies.
 ---
 
