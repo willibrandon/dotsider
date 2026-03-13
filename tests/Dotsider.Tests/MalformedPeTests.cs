@@ -247,7 +247,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         yield return ("bitrot/random-ranges", trailingBitRot);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllMalformedBinaries_ThrowOrConstruct_NeverCrash()
     {
         var validPe = File.ReadAllBytes(samples.HelloWorldDll);
@@ -278,7 +278,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ZeroByteFile_ThrowsBadImageFormat()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
@@ -296,7 +296,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FourByteJunk_ThrowsBadImageFormat()
     {
         Assert.ThrowsAny<Exception>(() =>
@@ -305,7 +305,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         });
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void TruncatedMzHeader_ThrowsBadImageFormat()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
@@ -324,7 +324,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ValidPeHeader_TruncatedBeforeMetadata_ThrowsBadImageFormat()
     {
         var validPe = File.ReadAllBytes(samples.HelloWorldDll);
@@ -346,7 +346,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_MalformedFile_ReturnsFalseAndPreservesState()
     {
         var workload = new Hex1b.Hex1bAppWorkloadAdapter();

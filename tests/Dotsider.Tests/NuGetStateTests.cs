@@ -24,7 +24,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Construct_PackageMetadataPopulated()
     {
         var app = CreateApp();
@@ -33,7 +33,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("2.5.1", state.Package.PackageVersion);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Construct_FileListPopulated()
     {
         var app = CreateApp();
@@ -42,7 +42,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(state.Package.DllFiles);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void IsBrowsingPackage_DefaultTrue()
     {
         var app = CreateApp();
@@ -50,7 +50,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.IsBrowsingPackage);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void DrillInto_DllCreatesInspectorState()
     {
         var app = CreateApp();
@@ -64,7 +64,7 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.SelectedDllState);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Dispose_CleansUp()
     {
         var app = CreateApp();

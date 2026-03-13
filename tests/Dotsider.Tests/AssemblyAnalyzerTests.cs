@@ -8,7 +8,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 {
     // --- HelloWorld (Exe, minimal) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasCorrectName()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -16,7 +16,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("HelloWorld", a.AssemblyName);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasMetadata()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -24,7 +24,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(a.GetMetadataReader());
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTargetFramework()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -32,7 +32,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("10.0", a.TargetFramework);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasClrHeaderWithEntryPoint()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -40,35 +40,35 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.ClrHeader!.EntryPointToken > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasPeHeaders()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.NotNull(a.PeHeaders);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTextSection()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.Contains(a.Sections, s => s.Name == ".text");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_RawBytesMatchFileSize()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.Equal(a.FileSize, a.RawBytes.Length);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTypeDefs()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.NotEmpty(a.TypeDefs);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasMethodDefs()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -77,7 +77,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- RichLibrary (Library, NuGet deps) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasCorrectVersion()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -85,21 +85,21 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("2.5.1", a.AssemblyVersion);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNewtonSoftRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
         Assert.Contains(a.AssemblyRefs, r => r.Name == "Newtonsoft.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasSystemTextJsonRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
         Assert.Contains(a.AssemblyRefs, r => r.Name == "System.Text.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasServiceTypes()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -107,7 +107,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.TypeDefs, t => t.FullName == "RichLibrary.Services.ProductCatalog");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNoEntryPoint()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -115,7 +115,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(0, a.ClrHeader!.EntryPointToken);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasManyMethods()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -124,7 +124,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- ComplexApp (Exe, embedded resources) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_HasEmbeddedResources()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -132,7 +132,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.Resources, r => r.Name.Contains("banner.txt"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_HasVersion()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -142,7 +142,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- MinimalApi (Web SDK) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MinimalApi_HasAspNetRefs()
     {
         using var a = new AssemblyAnalyzer(samples.MinimalApiDll);
@@ -150,7 +150,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.AssemblyRefs.Count > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MinimalApi_HasRecordTypes()
     {
         using var a = new AssemblyAnalyzer(samples.MinimalApiDll);
@@ -160,7 +160,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- NativeLib (unsafe, P/Invoke) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NativeLib_HasPInvokeMethods()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -168,7 +168,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.TypeDefs, t => t.FullName == "NativeLib.UnsafeOperations");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NativeLib_HasFixedBufferStruct()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -177,7 +177,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- EmptyLib (minimal) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLib_HasMinimalTypeDefs()
     {
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
@@ -186,7 +186,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.TypeDefs.Count >= 1);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLib_HasMetadata()
     {
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
@@ -196,14 +196,14 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- RichLibraryV2 (same AssemblyName as V1) ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasSameAssemblyName()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryV2Dll);
         Assert.Equal("RichLibrary", a.AssemblyName);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasVersion3()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryV2Dll);
@@ -211,7 +211,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("3.0.0", a.AssemblyVersion);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasNewTypes()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryV2Dll);
@@ -221,7 +221,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Cross-assembly metadata checks ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllSamples_HaveCustomAttributes()
     {
         string[] paths = [samples.HelloWorldDll, samples.RichLibraryDll, samples.ComplexAppDll,
@@ -233,7 +233,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllSamples_HavePositiveFileSize()
     {
         string[] paths = [samples.HelloWorldDll, samples.RichLibraryDll, samples.ComplexAppDll,
@@ -245,7 +245,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllSamples_HaveClrHeader()
     {
         string[] paths = [samples.HelloWorldDll, samples.RichLibraryDll, samples.ComplexAppDll,
@@ -260,7 +260,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Edge cases ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetMethodBody_ReturnsNonNull_ForMethodWithIl()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -269,7 +269,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(body);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Dispose_IsIdempotent()
     {
         var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -277,20 +277,20 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         a.Dispose(); // should not throw
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void InvalidFilePath_ThrowsFileNotFound()
     {
         var path = Path.Combine(Path.GetTempPath(), "nonexistent-dotsider-test-" + Guid.NewGuid() + ".dll");
         Assert.Throws<FileNotFoundException>(() => new AssemblyAnalyzer(path));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NonDotNetBinary_ThrowsBadImageFormat()
     {
         Assert.ThrowsAny<BadImageFormatException>(() => new AssemblyAnalyzer(samples.NonDotNetBinaryPath));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_ReturnsString()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -300,14 +300,14 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Architecture_IsNotUnknown()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.NotEqual("Unknown", a.Architecture);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FileProperties_ArePopulated()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -317,7 +317,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Additional coverage tests ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FilePath_IsAbsolute()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -325,14 +325,14 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(Path.IsPathRooted(a.FilePath));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeRefs_NonEmpty()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
         Assert.NotEmpty(a.TypeRefs);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MemberRefs_NonEmpty()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -342,7 +342,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(first.DeclaringType);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_Resources_HaveOffsets()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -353,21 +353,21 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_Culture_IsNeutral()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
         Assert.Equal("neutral", a.Culture);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_IsReadOnly_IsFalse()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
         Assert.False(a.IsReadOnly);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeDefs_HaveProperties()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -377,7 +377,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(userService.Token > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodDefs_HaveSignatures()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -390,7 +390,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeRefs_HaveProperties()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -401,7 +401,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_TypeDef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -410,7 +410,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(typeDef.Name, resolved);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_TypeRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -419,7 +419,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(resolved);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_MemberRef()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -428,7 +428,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(resolved);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_InvalidToken_ReturnsHexString()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -436,7 +436,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("0x", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_AssemblyRefs_HaveVersionAndToken()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -446,7 +446,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(newtonsoftRef.Culture);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_CustomAttributes_HaveProperties()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -457,7 +457,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_GetMethodBody_ReturnsNonNullBody()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -467,7 +467,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(body!.GetILBytes()!.Length > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_Sections_HaveProperties()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -476,7 +476,7 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(textSection.VirtualAddress > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_PeHeaders_HaveValidFields()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);

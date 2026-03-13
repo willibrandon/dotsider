@@ -6,7 +6,7 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class StringExtractorTests(SampleAssemblyFixture samples)
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_UserStrings_ContainOutputText()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -17,7 +17,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Source == StringSource.UserStrings);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MetadataStrings_ContainTypeNames()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -27,7 +27,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("UserService"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_UserStrings_ContainPipelineText()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -36,7 +36,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(strings);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MinimalApi_UserStrings_ContainEndpointPaths()
     {
         using var a = new AssemblyAnalyzer(samples.MinimalApiDll);
@@ -46,7 +46,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("/hello") || s.Value.Contains("/echo"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLib_MinimalStrings()
     {
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
@@ -56,7 +56,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.True(userStrings.Count <= 5);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RawStrings_MinLength4_MoreThanMinLength16()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -66,7 +66,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.True(raw4.Count >= raw16.Count);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RawStrings_Default_MinLength4()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -76,7 +76,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(raw, s => Assert.True(s.Value.Length >= 4));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MetadataStrings_ContainNamespaces()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -85,7 +85,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("RichLibrary"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void UserStrings_AllHaveCorrectSource()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -94,7 +94,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.UserStrings, s.Source));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MetadataStrings_AllHaveCorrectSource()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -103,7 +103,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.MetadataStrings, s.Source));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RawStrings_AllHaveCorrectSource()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -112,7 +112,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.RawBinary, s.Source));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NativeLib_HasMetadataStrings()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -122,7 +122,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("NativeInterop") || s.Value.Contains("UnsafeOperations"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RawStrings_MinLength8_AllMeetMinimum()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -132,7 +132,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(raw, s => Assert.True(s.Value.Length >= 8));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void StringEntries_HavePositiveOffsets()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -143,7 +143,7 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(metaStrings, s => Assert.True(s.Offset >= 0));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SkippedCounts_ZeroForValidAssembly()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);

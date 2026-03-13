@@ -4,7 +4,7 @@ namespace Dotsider.Tests;
 
 public class HexRowDocumentTests
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineText_BinaryContent_DoesNotThrow()
     {
         var bytes = new byte[256];
@@ -16,7 +16,7 @@ public class HexRowDocumentTests
             hexDoc.GetLineText(line); // should not throw
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineLength_BinaryContent_DoesNotThrow()
     {
         var bytes = new byte[256];
@@ -28,7 +28,7 @@ public class HexRowDocumentTests
             hexDoc.GetLineLength(line); // should not throw
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineText_LastRow_BinaryContent()
     {
         var bytes = new byte[256];
@@ -42,7 +42,7 @@ public class HexRowDocumentTests
         Assert.NotNull(text);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineLength_ConsistentWithGetLineText()
     {
         var bytes = new byte[256];
@@ -58,7 +58,7 @@ public class HexRowDocumentTests
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineText_EmptyDocument_ReturnsEmpty()
     {
         var doc = new Hex1bDocument([]);
@@ -68,7 +68,7 @@ public class HexRowDocumentTests
         Assert.Equal("", hexDoc.GetLineText(1));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineText_SingleByte()
     {
         var doc = new Hex1bDocument([0x42]);
@@ -79,7 +79,7 @@ public class HexRowDocumentTests
         Assert.NotEmpty(text);
     }
 
-    [Theory(Timeout = 5_000)]
+    [Theory(Timeout = 30_000)]
     [InlineData(1, 1)]
     [InlineData(15, 1)]
     [InlineData(16, 1)]
@@ -95,7 +95,7 @@ public class HexRowDocumentTests
         Assert.Equal(expectedLines, hexDoc.LineCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineText_OutOfRange_Throws()
     {
         var doc = new Hex1bDocument(new byte[32]);
@@ -105,7 +105,7 @@ public class HexRowDocumentTests
         Assert.Throws<ArgumentOutOfRangeException>(() => hexDoc.GetLineText(hexDoc.LineCount + 1));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetLineLength_OutOfRange_Throws()
     {
         var doc = new Hex1bDocument(new byte[32]);

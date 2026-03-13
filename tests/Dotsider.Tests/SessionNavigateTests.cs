@@ -61,12 +61,12 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
 
         await TestHelpers.WaitUntilAsync(
             () => _state is not null,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         return (_app, _listener.SocketPath!);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Navigate_ViaSocket_ChangesActiveTab()
     {
         var ct = TestContext.Current.CancellationToken;

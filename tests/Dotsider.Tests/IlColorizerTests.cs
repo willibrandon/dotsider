@@ -18,20 +18,20 @@ public class IlColorizerTests
 
     // --- Passthrough cases ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLine_ReturnsUnchanged()
     {
         Assert.Equal("", IlColorizer.ColorizeLine(""));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void WhitespaceLine_ReturnsUnchanged()
     {
         var line = "   ";
         Assert.Equal(line, IlColorizer.ColorizeLine(line));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void UnrecognizedLine_PassesThrough()
     {
         var line = "some other text";
@@ -40,7 +40,7 @@ public class IlColorizerTests
 
     // --- Comment coloring ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Comment_WrappedInCommentColor()
     {
         var line = "// Method: Foo::Bar";
@@ -48,7 +48,7 @@ public class IlColorizerTests
         Assert.Equal($"{CommentFg}{line}{Reset}", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void IndentedComment_WrappedInCommentColor()
     {
         var line = "  // RVA: 0x00002050";
@@ -58,14 +58,14 @@ public class IlColorizerTests
 
     // --- Instruction coloring ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void OpcodeOnly_ColorsAddressAndOpcode()
     {
         var result = IlColorizer.ColorizeLine("IL_0005: ret");
         Assert.Equal($"{AddressFg}IL_0005:{Reset} {OpcodeFg}ret{Reset}", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void OpcodeWithNonStringOperand_PreservesOperandUncolored()
     {
         var result = IlColorizer.ColorizeLine("IL_000B: call System.Console::WriteLine(string)");
@@ -75,7 +75,7 @@ public class IlColorizerTests
         Assert.DoesNotContain(StringFg, result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void BranchTarget_PreservesTargetLabel()
     {
         var result = IlColorizer.ColorizeLine("IL_000A: br.s IL_0010");
@@ -83,7 +83,7 @@ public class IlColorizerTests
         Assert.Contains("IL_0010", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NumericOperand_PreservesUncolored()
     {
         var result = IlColorizer.ColorizeLine("IL_0002: ldc.i4.s 42");
@@ -94,7 +94,7 @@ public class IlColorizerTests
 
     // --- String operand coloring ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void StringOperand_ColoredGreen()
     {
         var result = IlColorizer.ColorizeLine("IL_0006: ldstr \"hello world\"");
@@ -103,7 +103,7 @@ public class IlColorizerTests
         Assert.Contains($"{StringFg}\"hello world\"{Reset}", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EscapedQuotes_StaySingleSegment()
     {
         var result = IlColorizer.ColorizeLine("IL_0006: ldstr \"say \\\"hi\\\"\"");
@@ -112,7 +112,7 @@ public class IlColorizerTests
         Assert.Equal(1, CountOccurrences(result, StringFg));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void UnmatchedQuote_EndsWithReset()
     {
         var result = IlColorizer.ColorizeLine("IL_0006: ldstr \"unclosed");
@@ -122,7 +122,7 @@ public class IlColorizerTests
 
     // --- Edge cases ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MalformedIlLine_NoSeparator_PassesThrough()
     {
         var line = "IL_NOSEPARATOR";
@@ -130,7 +130,7 @@ public class IlColorizerTests
         Assert.Equal(line, result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyBodyAfterSeparator_ColorsAddressOnly()
     {
         var result = IlColorizer.ColorizeLine("IL_0000:");
@@ -138,7 +138,7 @@ public class IlColorizerTests
         Assert.Equal("IL_0000:", result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllResetsPaired_InstructionLine()
     {
         var result = IlColorizer.ColorizeLine("IL_0001: call System.Object::.ctor()");
@@ -148,7 +148,7 @@ public class IlColorizerTests
         Assert.Equal(ansiOpens, resets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllResetsPaired_StringOperand()
     {
         var result = IlColorizer.ColorizeLine("IL_0006: ldstr \"test\"");

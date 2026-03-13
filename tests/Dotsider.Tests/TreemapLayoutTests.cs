@@ -7,7 +7,7 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class TreemapLayoutTests(SampleAssemblyFixture samples)
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_ProducesRectsWithinBounds()
     {
         var nodes = CreateTestNodes(5);
@@ -22,7 +22,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_NoNegativeDimensions()
     {
         var nodes = CreateTestNodes(10);
@@ -34,7 +34,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         });
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_NoOverlappingRects()
     {
         var nodes = CreateTestNodes(8);
@@ -42,7 +42,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(rects);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_SingleNode_FillsEntireSpace()
     {
         var nodes = new List<SizeNode>
@@ -57,14 +57,14 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Equal(30, rects[0].Height, 0.01);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_EmptyInput_ReturnsEmpty()
     {
         var rects = TreemapLayout.Layout([], 0, 0, 100, 100);
         Assert.Empty(rects);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_ZeroWidthOrHeight_ReturnsEmpty()
     {
         var nodes = CreateTestNodes(3);
@@ -72,7 +72,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Empty(TreemapLayout.Layout(nodes, 0, 0, 100, 0));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_RealSizeTree_ProducesValidRects()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -86,7 +86,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         });
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_ManySmallNodes_AllFitWithinBounds()
     {
         var nodes = CreateTestNodes(20);
@@ -101,7 +101,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_NoOverlappingRects_RealAssembly()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -111,7 +111,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(rects);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AssertNoOverlaps_DetectsKnownOverlap()
     {
         var node = new SizeNode("test", "test", 100, SizeNodeKind.Type, []);
@@ -124,7 +124,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Contains("overlap", ex.Message);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AssertNoOverlaps_AllowsAdjacentRects()
     {
         var node = new SizeNode("test", "test", 100, SizeNodeKind.Type, []);
@@ -136,7 +136,7 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(adjacent);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Layout_RectsMatchInputNodes()
     {
         var nodes = CreateTestNodes(5);

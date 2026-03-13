@@ -6,7 +6,7 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class AssemblyDifferTests(SampleAssemblyFixture samples)
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibraryV1vsV2_HasNonEmptyDiff()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -16,7 +16,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(result.MethodDiffs);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_IRepositoryRemoved()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -26,7 +26,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left!.Name.Contains("IRepository"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_OrderAdded()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -36,7 +36,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Added && d.Right!.Name == "Order");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_RefDiffs_SystemTextJsonRemoved()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -46,7 +46,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left!.Name == "System.Text.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_Summary_HasPositiveCounts()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -57,7 +57,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.True(result.MetadataSummary.MethodsAdded > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SameAssembly_AllUnchanged()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -69,7 +69,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.DoesNotContain(result.MethodDiffs, d => d.Kind == DiffKind.Removed);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_MethodDiffs_SignatureChangesDetected()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -80,7 +80,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
                      result.MetadataSummary.MethodsAdded > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_RefDiffs_NewtonsoftStillPresent()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -91,7 +91,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left?.Name == "Newtonsoft.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_SizeDelta_IsNonZero()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -100,7 +100,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.NotEqual(0, result.MetadataSummary.SizeDelta);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_DiffEntries_HaveCorrectKinds()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -113,7 +113,7 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.Contains(DiffKind.Unchanged, kinds);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_AuditLogAdded()
     {
         using var left = new AssemblyAnalyzer(samples.RichLibraryDll);

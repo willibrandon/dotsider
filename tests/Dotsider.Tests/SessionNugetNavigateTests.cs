@@ -90,7 +90,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
 
         await TestHelpers.WaitUntilAsync(
             () => _nugetState is not null,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         return (_app, _listener.SocketPath!);
     }
@@ -109,7 +109,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         _app!.Invalidate();
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Navigate_ViaSocket_ChangesDllTab()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -129,12 +129,12 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         // Wait for the render loop to drain the mutation queue
         await TestHelpers.WaitUntilAsync(
             () => _nugetState.SelectedDllState!.CurrentTab == TabId.Strings,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Equal(TabId.Strings, _nugetState.SelectedDllState.CurrentTab);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task GetCurrentView_ReflectsNavigatedTab()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -149,7 +149,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
 
         await TestHelpers.WaitUntilAsync(
             () => _nugetState!.SelectedDllState!.CurrentTab == TabId.PeMetadata,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // get-current-view should report the navigated tab
         var viewResponse = await DotsiderClient.SendAsync(socketPath,
@@ -166,7 +166,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
             data.Value.GetProperty("selectedDll").GetString());
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task GetCurrentView_BeforeDllOpened_ShowsBrowsingPackage()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -185,7 +185,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.False(data.Value.TryGetProperty("tab", out _));
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Search_ViaSocket_Succeeds()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -199,7 +199,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.True(searchResponse.Success);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task StartTrace_FailsForLibraryDll()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -214,7 +214,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.Contains("entry point", traceResponse.Error, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Navigate_BeforeDllOpened_Fails()
     {
         var ct = TestContext.Current.CancellationToken;

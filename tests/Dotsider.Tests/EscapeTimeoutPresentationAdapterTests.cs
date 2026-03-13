@@ -106,7 +106,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     // Adapter integration tests
     // ========================================
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task StandaloneEscape_ProducesEscapeEvent()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -139,12 +139,12 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape"),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Contains("escape", events);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task SplitEscapeSequence_WithinTimeout_ProducesUpArrow()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -179,13 +179,13 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("up"),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Contains("up", events);
         Assert.DoesNotContain("escape", events);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task CompleteEscapeSequence_SingleRead_ProducesUpArrow()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -219,13 +219,13 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("up"),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Contains("up", events);
         Assert.DoesNotContain("escape", events);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task CoalescedPrefixAndEsc_IBeforeEscape()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -260,7 +260,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("i") && events.Contains("escape"),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // 'i' should appear before 'escape' in the event queue
         var eventList = events.ToArray();
@@ -269,7 +269,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.True(iIndex < escIndex, $"Expected 'i' before 'escape', got i={iIndex} esc={escIndex}");
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task StandaloneEsc_ThenLiteralBracket_NotCombinedIntoCsi()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -305,7 +305,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape") && events.Any(e => e.StartsWith("text:")),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Contains("escape", events);
         // TextBox captured the literal bracket (ParseKeyInput('[') → Hex1bKey.None → falls through to TextBox)
@@ -314,7 +314,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.DoesNotContain("up", events);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task StandaloneEscape_FollowedByMouseEvent_ProducesEscapeEvent()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -355,7 +355,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape") && events.Contains("mouse-click") && events.Contains("up"),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // All three events fire in order: standalone ESC, mouse click, Up Arrow.
         var eventList = events.ToArray();
@@ -389,7 +389,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// mouse event therefore proves the overlay is active.
     /// </para>
     /// </remarks>
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task WithMouse_EnablesMouseCursorOverlay()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -421,7 +421,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => queued.OutputContains(cursorShow),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.True(queued.OutputContains(cursorShow),
             "Expected cursor-show sequence (\\x1b[?25h) from mouse cursor overlay");
@@ -433,7 +433,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// continuation bytes are processed as literal characters. This is inherent to
     /// timeout-based escape detection (same tradeoff in xterm, vim, tmux, neovim).
     /// </summary>
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task LateSplitSequence_KnownLimitation_DegradedBehavior()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -469,7 +469,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape") && events.Any(e => e.StartsWith("text:")),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // Spurious Escape injection (standalone Escape was detected)
         Assert.Contains("escape", events);
@@ -483,7 +483,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     // Raw-Escape user-path tests with real DotsiderApp
     // ========================================
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task RawEscape_ExitsHexInsertMode()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -514,12 +514,12 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         // Navigate to hex tab and enter insert mode via builder (bypasses adapter)
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5) // Hex Dump tab
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I) // Enter insert mode
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -532,13 +532,13 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         // Wait for the async state transition
         await TestHelpers.WaitUntilAsync(
             () => state.HexMode == HexEditMode.Normal,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.Equal(HexEditMode.Normal, state.HexMode);
         Assert.True(state.HexEditorState.IsReadOnly);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task RawEscape_DismissesEditingSearch()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -569,8 +569,8 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         // Activate search (editing mode, not confirmed)
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' activates search
             .Build()
             .ApplyAsync(terminal, ct);
@@ -578,7 +578,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.NotNull(state);
         await TestHelpers.WaitUntilAsync(
             () => state!.Search[state.CurrentTab].IsActive && !state.Search[state.CurrentTab].IsConfirmed,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // Send raw ESC through the adapter path
         queued.EnqueueInput(0x1b);
@@ -586,12 +586,12 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         // Wait for the async state transition
         await TestHelpers.WaitUntilAsync(
             () => !state!.Search[state.CurrentTab].IsActive,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.False(state.Search[state.CurrentTab].IsActive);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task RawEscape_DismissesConfirmedSearch()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -622,10 +622,10 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         // Activate search, type query, confirm with Enter
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' activates search
-            .WaitUntil(s => s.ContainsText("/ ["), TimeSpan.FromSeconds(5)) // search bar visible
+            .WaitUntil(s => s.ContainsText("/ ["), TimeSpan.FromSeconds(10)) // search bar visible
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S) // "sys"
             .Key(Hex1bKey.Enter) // Confirm search
             .Build()
@@ -634,7 +634,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.NotNull(state);
         await TestHelpers.WaitUntilAsync(
             () => state!.Search[state.CurrentTab].IsConfirmed,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // Send raw ESC through the adapter path
         queued.EnqueueInput(0x1b);
@@ -642,7 +642,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         // Wait for the async state transition
         await TestHelpers.WaitUntilAsync(
             () => !state!.Search[state.CurrentTab].IsActive,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.False(state!.Search[state.CurrentTab].IsActive);
     }

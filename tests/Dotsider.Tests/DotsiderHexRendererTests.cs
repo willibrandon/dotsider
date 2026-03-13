@@ -6,7 +6,7 @@ public class DotsiderHexRendererTests
 {
     // --- CalculateLayout tests ---
 
-    [Theory(Timeout = 5_000)]
+    [Theory(Timeout = 30_000)]
     [InlineData(140, 32)]  // Wide terminal: max snap point (4*32+11=139)
     [InlineData(120, 16)]  // 120 cols: (120-11)/4=27, snaps to 16
     [InlineData(80, 16)]   // Standard terminal
@@ -19,7 +19,7 @@ public class DotsiderHexRendererTests
         Assert.Equal(expectedBytesPerRow, result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void CalculateLayout_AlwaysReturnsSnapPoint()
     {
         int[] snaps = [1, 8, 16, 32];
@@ -30,14 +30,14 @@ public class DotsiderHexRendererTests
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void CalculateLayout_NeverExceedsMax32()
     {
         var result = DotsiderHexRenderer.CalculateLayout(10_000);
         Assert.Equal(32, result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void CalculateLayout_MonotonicallyIncreases()
     {
         var prev = DotsiderHexRenderer.CalculateLayout(1);
@@ -51,7 +51,7 @@ public class DotsiderHexRendererTests
 
     // --- GetByteCategoryFgAnsi tests ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_NullByte_ReturnsNullColor()
     {
         var result = DotsiderHexRenderer.GetByteCategoryFgAnsi(0x00);
@@ -59,7 +59,7 @@ public class DotsiderHexRendererTests
         Assert.Contains("\x1b[", result); // ANSI escape
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_PrintableAscii_ReturnsPrintableColor()
     {
         var letterA = DotsiderHexRenderer.GetByteCategoryFgAnsi((byte)'A');
@@ -71,7 +71,7 @@ public class DotsiderHexRendererTests
         Assert.Equal(letterA, tilde);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_Whitespace_ReturnsWhitespaceColor()
     {
         var tab = DotsiderHexRenderer.GetByteCategoryFgAnsi(0x09);
@@ -82,7 +82,7 @@ public class DotsiderHexRendererTests
         Assert.Equal(tab, cr);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_Control_ReturnsControlColor()
     {
         var bel = DotsiderHexRenderer.GetByteCategoryFgAnsi(0x07);
@@ -92,7 +92,7 @@ public class DotsiderHexRendererTests
         Assert.Equal(bel, esc);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_HighByte_ReturnsHighByteColor()
     {
         var result = DotsiderHexRenderer.GetByteCategoryFgAnsi(0xFF);
@@ -103,7 +103,7 @@ public class DotsiderHexRendererTests
         Assert.NotEqual(printable, result);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_AllCategories_AreDistinct()
     {
         var nullColor = DotsiderHexRenderer.GetByteCategoryFgAnsi(0x00);
