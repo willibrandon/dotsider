@@ -15,8 +15,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null, [System.Runtime.CompilerServices.CallerMemberName] string? testName = null)
     {
+        TestHelpers.Diag($"Creating app for {Path.GetFileName(dllPath)}", testName);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -24,9 +25,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WithDimensions(120, 30)
             .Build();
         DotsiderApp? dotsiderApp = null;
+        var renderCount = 0;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
+                renderCount++;
+                if (renderCount <= 3)
+                    TestHelpers.Diag($"Render #{renderCount}", testName);
                 if (_state is null)
                 {
                     _state = new DotsiderState(_hex1bApp!, dllPath);
@@ -50,6 +55,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -67,6 +73,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -86,6 +93,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -105,6 +113,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -124,6 +133,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -143,6 +153,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -163,9 +174,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 10_000)]
     public async Task Tab5_IKey_EntersInsertMode()
     {
-        var ct = TestContext.Current.CancellationToken;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -174,14 +186,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
             .Key(Hex1bKey.I)
             .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         Assert.Equal(HexEditMode.Insert, _state!.HexMode);
         Assert.False(_state.HexEditorState.IsReadOnly);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 10_000)]
@@ -190,6 +203,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -216,6 +230,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -254,6 +269,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -286,6 +302,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -316,6 +333,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -340,6 +358,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -364,6 +383,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -395,6 +415,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
             var runTask = app.RunAsync(ct);
+            await Task.Delay(100, ct);
 
             await new Hex1bTerminalInputSequenceBuilder()
                 .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -441,6 +462,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -460,6 +482,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -479,6 +502,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -502,6 +526,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -529,8 +554,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph and search for "sys"
+        //Navigate to dep graph and search for "sys"
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -576,8 +602,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph, search for "sys", confirm
+        //Navigate to dep graph, search for "sys", confirm
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -612,8 +639,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Size Map, search for "rich", confirm
+        //Navigate to Size Map, search for "rich", confirm
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -649,6 +677,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Start directly on Dep Graph tab — tests the initial focus predicate
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.DepGraph);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -678,6 +707,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Start directly on Size Map tab — tests the initial focus predicate
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.SizeMap);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -706,8 +736,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph tab
+        //Navigate to dep graph tab
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -755,8 +786,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Size Map tab
+        //Navigate to Size Map tab
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -804,6 +836,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -827,8 +860,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to tab 7, let treemap render
+        //Navigate to tab 7, let treemap render
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -873,8 +907,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to tab 7 and search for a namespace
+        //Navigate to tab 7 and search for a namespace
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -907,9 +942,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 15_000)]
     public async Task Tab7_Enter_PrefersSearchMatchOverStaleSelection()
     {
-        var ct = TestContext.Current.CancellationToken;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         // Navigate to Size Map, select first item with arrow key
         await new Hex1bTerminalInputSequenceBuilder()
@@ -920,8 +956,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         var currentLevel = _state!.TreemapCurrentLevel ?? _state.CachedSizeTree!;
         Assert.Equal(0, _state.TreemapSelectedIndex);
 
@@ -943,12 +980,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         if (searchTerm is null)
         {
-            // No suitable child found — skip
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Ctrl().Key(Hex1bKey.C)
-                .Build()
-                .ApplyAsync(terminal, ct);
-            await runTask.ContinueWith(_ => { }, ct);
+            cts.Cancel();
+            await runTask;
             return;
         }
 
@@ -960,15 +993,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         if (_state.Search[TabId.SizeMap].MatchCount == 0)
         {
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Ctrl().Key(Hex1bKey.C)
-                .Build()
-                .ApplyAsync(terminal, ct);
-            await runTask.ContinueWith(_ => { }, ct);
+            cts.Cancel();
+            await runTask;
             return;
         }
 
@@ -976,7 +1006,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.N)
             .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(3))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
+
+        await Task.Delay(100, cts.Token);
 
         // Stale selection is still 0, but search match points elsewhere
         Assert.Equal(0, _state.TreemapSelectedIndex);
@@ -988,9 +1020,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state.TreemapCurrentLevel != previousLevel
                             || _state.TreemapBreadcrumb.Count > 0, TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
+
+        await Task.Delay(100, cts.Token);
 
         // Verify we drilled into the search match (name contains query), not child 0
         if (_state.TreemapCurrentLevel != previousLevel)
@@ -999,7 +1032,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 StringComparison.OrdinalIgnoreCase);
         }
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 10_000)]
@@ -1008,6 +1042,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1027,6 +1062,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1046,8 +1082,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Verify idle view shows assembly info and provider list
+        //Verify idle view shows assembly info and provider list
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1072,8 +1109,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch process and wait for exit so sub-tabs are visible
+        //Launch process and wait for exit so sub-tabs are visible
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1141,8 +1179,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch, wait for exit, stay on Events sub-tab
+        //Launch, wait for exit, stay on Events sub-tab
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1230,8 +1269,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // so Ctrl+K is the only way to reach Exited within the timeout.
         var (terminal, app) = CreateDotsiderApp(samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab and launch
+        //Navigate to Dynamic tab and launch
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1268,8 +1308,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch and wait for exit
+        //Launch and wait for exit
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1311,9 +1352,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
-        var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         // Navigate to Dynamic tab and launch the process
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1324,20 +1366,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter) // Launch process
             .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         // Process has exited — activating search must not crash with
         // "Global binding conflict: Enter is already registered"
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
             .WaitUntil(_ => _state!.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         Assert.True(_state!.Search[TabId.Dynamic].IsActive);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 10_000)]
@@ -1346,6 +1389,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1367,6 +1411,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1390,8 +1435,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to StringHelpers.ToTitleCase (139 bytes of IL, overflows viewport)
+        //Navigate to StringHelpers.ToTitleCase (139 bytes of IL, overflows viewport)
         var builder = new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1437,6 +1483,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1486,6 +1533,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1531,8 +1579,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab, launch the process, wait for exit
+        //Navigate to Dynamic tab, launch the process, wait for exit
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1566,8 +1615,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to IL Inspector and select ToTitleCase (139 bytes of IL, overflows viewport)
+        //Navigate to IL Inspector and select ToTitleCase (139 bytes of IL, overflows viewport)
         var builder = new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1638,6 +1688,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -1657,8 +1708,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to IL Inspector tab
+        //Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1702,8 +1754,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab, launch trace, and wait for exit
+        //Navigate to Dynamic tab, launch trace, and wait for exit
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
@@ -1726,6 +1779,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Where(e => e.Category == TraceEventCategory.JIT
                      && e.Detail == "Formatter.Format")
             .ToList();
+
+        // Diagnostic: log all Formatter.Format JIT events and their tokens
+        Console.WriteLine($"[DIAG] Formatter.Format JIT events: {formatEvents.Count}");
+        for (var idx = 0; idx < formatEvents.Count; idx++)
+            Console.WriteLine($"[DIAG]   [{idx}] Token=0x{formatEvents[idx].MetadataToken:X8} Detail={formatEvents[idx].Detail}");
+
         Assert.True(formatEvents.Count >= 2,
             $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
 
@@ -1744,6 +1803,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var byName = _state.Analyzer.MethodDefs
             .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
         Assert.NotNull(byName);
+
+        // Diagnostic: log token comparison
+        Console.WriteLine($"[DIAG] expectedMethod.Token=0x{expectedMethod.Token:X8} byName.Token=0x{byName.Token:X8} targetEvent.Token=0x{targetEvent.MetadataToken:X8}");
+
         Assert.NotEqual(expectedMethod.Token, byName.Token);
 
         // Set JIT filter + focused key to the second overload's row
@@ -1760,6 +1823,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
+
+        // Diagnostic: log what was selected
+        Console.WriteLine($"[DIAG] IlSelectedMethod.Token=0x{_state.IlSelectedMethod?.Token:X8} expected=0x{expectedMethod.Token:X8}");
 
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
         Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);

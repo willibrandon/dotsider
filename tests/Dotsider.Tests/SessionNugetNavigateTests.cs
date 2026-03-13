@@ -86,6 +86,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         _listener.StartListening();
 
         _ = _app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
             () => _nugetState is not null,

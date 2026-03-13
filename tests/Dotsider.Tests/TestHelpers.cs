@@ -6,6 +6,12 @@ namespace Dotsider.Tests;
 internal static class TestHelpers
 {
     /// <summary>
+    /// Logs a diagnostic message with timestamp to stderr (captured by xUnit).
+    /// </summary>
+    internal static void Diag(string message, [CallerMemberName] string? caller = null)
+        => Console.Error.WriteLine($"[DIAG {DateTime.UtcNow:HH:mm:ss.fff}] [{caller}] {message}");
+
+    /// <summary>
     /// Polls <paramref name="condition"/> at <paramref name="interval"/> until true or <paramref name="timeout"/>.
     /// Calls Assert.Fail with the condition expression on timeout.
     /// </summary>

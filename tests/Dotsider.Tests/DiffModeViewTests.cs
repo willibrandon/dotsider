@@ -42,6 +42,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -62,6 +63,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -82,6 +84,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -100,6 +103,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -128,6 +132,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -152,6 +157,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -177,6 +183,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -202,6 +209,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))

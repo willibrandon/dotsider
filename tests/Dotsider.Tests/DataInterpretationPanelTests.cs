@@ -44,6 +44,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -64,6 +65,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -82,6 +84,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -103,6 +106,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))

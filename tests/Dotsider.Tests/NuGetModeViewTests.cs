@@ -42,6 +42,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -59,6 +60,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -78,6 +80,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -96,6 +99,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -121,6 +125,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
@@ -146,6 +151,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateNuGetApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
         var depthLimitHit = false;
 
         await new Hex1bTerminalInputSequenceBuilder()

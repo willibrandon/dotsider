@@ -57,6 +57,7 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
 
         // Start the TUI and wait for first render
         _ = _app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
             () => _state is not null,

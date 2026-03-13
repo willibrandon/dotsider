@@ -22,8 +22,8 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         private readonly Channel<ReadOnlyMemory<byte>> _input = Channel.CreateUnbounded<ReadOnlyMemory<byte>>();
         private readonly ConcurrentQueue<byte[]> _outputChunks = new();
 
-        public int Width => 80;
-        public int Height => 24;
+        public int Width { get; set; } = 120;
+        public int Height { get; set; } = 30;
         public TerminalCapabilities Capabilities => new()
         {
             SupportsMouse = true,
@@ -133,6 +133,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         queued.EnqueueInput(0x1b);
 
@@ -170,8 +171,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Send ESC then immediately the CSI continuation
+        //Send ESC then immediately the CSI continuation
         queued.EnqueueInput(0x1b);
         queued.EnqueueInput((byte)'[', (byte)'A');
 
@@ -210,8 +212,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Complete CSI Up Arrow in one chunk
+        //Complete CSI Up Arrow in one chunk
         queued.EnqueueInput(0x1b, (byte)'[', (byte)'A');
 
         await TestHelpers.WaitUntilAsync(
@@ -250,8 +253,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // 'i' coalesced with trailing ESC in one read
+        //'i' coalesced with trailing ESC in one read
         queued.EnqueueInput((byte)'i', 0x1b);
 
         await TestHelpers.WaitUntilAsync(
@@ -292,8 +296,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Send ESC, wait for timeout, then send literal '['
+        //Send ESC, wait for timeout, then send literal '['
         queued.EnqueueInput(0x1b);
         await Task.Delay(500, ct);
         queued.EnqueueInput((byte)'[');
@@ -338,8 +343,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Send standalone ESC, then immediately a complete SGR mouse event,
+        //Send standalone ESC, then immediately a complete SGR mouse event,
         // then an Up Arrow.  Without the fix, the adapter concatenates
         // \x1b + \x1b[<0;10;5M, swallowing the standalone Escape.
         queued.EnqueueInput(0x1b);
@@ -401,8 +407,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Send SGR mouse left-click at column 10, row 5.
+        //Send SGR mouse left-click at column 10, row 5.
         // This sets _mouseX/_mouseY in Hex1bApp, triggering cursor overlay
         // rendering on the next render cycle when _mouseEnabled is true.
         queued.EnqueueInput(0x1b, (byte)'[', (byte)'<', (byte)'0', (byte)';',
@@ -453,8 +460,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Send ESC, wait well past timeout, then send what would have been a CSI Up Arrow
+        //Send ESC, wait well past timeout, then send what would have been a CSI Up Arrow
         queued.EnqueueInput(0x1b);
         await Task.Delay(500, ct);
         queued.EnqueueInput((byte)'[', (byte)'A');
@@ -502,6 +510,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         // Navigate to hex tab and enter insert mode via builder (bypasses adapter)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -556,6 +565,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         // Activate search (editing mode, not confirmed)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -608,6 +618,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         // Activate search, type query, confirm with Enter
         await new Hex1bTerminalInputSequenceBuilder()
