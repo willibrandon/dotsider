@@ -2,7 +2,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
-using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -1394,7 +1393,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            // Focus starts on the dependency table; Enter to drill into the first ref
+            // Focus starts on the dependency table; DownArrow ensures a row is selected, Enter drills
+            .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
             // After drill-down, the title bar should no longer show "HelloWorld.dll"
             .WaitUntil(s => !s.ContainsText("HelloWorld.dll"), TimeSpan.FromSeconds(10))
@@ -1417,11 +1417,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(10))
-            // Arrow keys should work immediately without clicking first
-            .Key(Hex1bKey.DownArrow) // Move to Program
-            .Key(Hex1bKey.RightArrow) // Expand Program
-            .WaitUntil(s => s.ContainsText(".ctor"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
+            // Arrow keys should work immediately without clicking first —
+            // DownArrow moves table focus, which toggles expansion on namespace/type rows
+            .Key(Hex1bKey.DownArrow)
+            .WaitUntil(s => s.ContainsText(".ctor") || s.ContainsText("Main"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1437,35 +1437,29 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
-        //Navigate to StringHelpers.ToTitleCase (139 bytes of IL, overflows viewport)
-        var builder = new Hex1bTerminalInputSequenceBuilder()
+        // Navigate to IL tab
+        await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(10));
-
-        for (var i = 0; i < 15; i++)
-            builder = builder.Key(Hex1bKey.DownArrow);
-
-        await builder
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Focus the scroll panel and scroll down.
-        // RequestFocus is async — send multiple PageDowns so at least one
-        // lands after focus has been applied to the scroll panel.
-        _hex1bApp!.RequestFocus(node => node is ScrollPanelNode);
-        _hex1bApp.Invalidate();
+        // Select ToTitleCase programmatically (139 bytes of IL, overflows viewport)
+        var toTitleCase = _state!.Analyzer.MethodDefs.First(m => m.Name == "ToTitleCase");
+        var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == toTitleCase.DeclaringType);
+        var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
+        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
+        _state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
+        _state.IlSelectedMethod = toTitleCase;
+        _state.IlFocusedTreeKey = $"method:{toTitleCase.Token}";
+        _state.App.Invalidate();
 
+        // Click in the editor to focus it, then PageDown scrolls natively
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .ClickAt(50, 15) // Click in editor pane (right of splitter)
             .PageDown()
             .PageDown()
             .PageDown()
@@ -1617,41 +1611,36 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
-        //Navigate to IL Inspector and select ToTitleCase (139 bytes of IL, overflows viewport)
-        var builder = new Hex1bTerminalInputSequenceBuilder()
+        // Navigate to IL tab
+        await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(10));
-
-        // Navigate tree to StringHelpers > ToTitleCase
-        for (var i = 0; i < 15; i++)
-            builder = builder.Key(Hex1bKey.DownArrow);
-
-        await builder
-            .Key(Hex1bKey.RightArrow) // Expand StringHelpers
-            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.Enter) // Select ToTitleCase
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Scroll down via PageDown — exercises the full keyboard scroll path
-        // without seeding IlDisassemblyViewportSize.
-        // Verify rendered output actually scrolled past IL_0000.
+        // Select ToTitleCase programmatically (139 bytes of IL, overflows viewport)
+        var toTitleCase = _state!.Analyzer.MethodDefs.First(m => m.Name == "ToTitleCase");
+        var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == toTitleCase.DeclaringType);
+        var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
+        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
+        _state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
+        _state.IlSelectedMethod = toTitleCase;
+        _state.IlFocusedTreeKey = $"method:{toTitleCase.Token}";
+        _state.App.Invalidate();
+
+        // Click in editor to focus it, then scroll down natively via PageDown
         await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.PageDown)
-            .WaitUntil(_ => _state!.IlDisassemblyScrollOffset > 0, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .ClickAt(50, 15) // Click in editor pane
+            .PageDown()
+            .PageDown()
             .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        var savedOffset = _state!.IlDisassemblyScrollOffset;
-        var savedMethod = _state.IlSelectedMethod;
-        Assert.True(savedOffset > 0, "Scroll offset should be non-zero after PageDown");
+        var savedMethod = _state!.IlSelectedMethod;
 
         // Switch to tab 1 (General)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1660,23 +1649,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // State must survive while on another tab
-        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
         Assert.Equal(savedMethod, _state.IlSelectedMethod);
 
-        // Switch back to tab 3 — triggers scroll restore state machine.
-        // Verify the rendered disassembly is restored past IL_0000 (not reset to top).
+        // Switch back to tab 3 — EditorNode preserved by Responsive, scroll intact
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D3)
             .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(10))
-            .WaitUntil(_ => _state.IlScrollRestoreFrames == 0, TimeSpan.FromSeconds(10))
             .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Scroll offset must be preserved after restore completes
-        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
         Assert.Equal(savedMethod, _state.IlSelectedMethod);
 
         await runTask.ContinueWith(_ => { }, ct);

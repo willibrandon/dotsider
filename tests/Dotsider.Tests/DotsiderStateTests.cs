@@ -275,14 +275,57 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 30_000)]
-    public void NavigateToTab_ToIlInspector_SetsScrollRestore()
+    public void NavigateToTab_ToIlInspector_SwitchesTab()
     {
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.RichLibraryDll);
         state.CurrentTab = TabId.PeMetadata;
         state.NavigateToTab(TabId.IlInspector);
-        Assert.Equal(2, state.IlScrollRestoreFrames);
-        Assert.True(state.IlNeedsTreeFocus);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void NavigateToTab_IlRoundTrip_PreservesEditorState()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CurrentTab = TabId.General;
+        state.NavigateToTab(TabId.IlInspector);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument("test")) { IsReadOnly = true };
+
+        // Leave IL, go to Strings, return
+        state.NavigateToTab(TabId.Strings);
+        state.NavigateToTab(TabId.IlInspector);
+
+        // Editor state survives round-trip (Responsive preserves nodes)
+        Assert.NotNull(state.IlEditorState);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    /// <summary>
+    /// Verifies that NavigateToIlMethod sets the IlFocusedTreeKey to the
+    /// jumped-to method's row key. This is the regression target for the
+    /// IL tab-entry focus behavior — the table uses this key to deterministically
+    /// focus the correct row.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToIlMethod_SetsIlFocusedTreeKey()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // Initially null
+        Assert.Null(state.IlFocusedTreeKey);
+
+        state.CurrentTab = TabId.PeMetadata;
+        var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        state.NavigateToIlMethod(method);
+
+        // Focused key must point to the jumped-to method row
+        Assert.Equal($"method:{method.Token}", state.IlFocusedTreeKey);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
     [Fact(Timeout = 30_000)]
@@ -298,10 +341,11 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
         Assert.Equal(method, state.IlSelectedMethod);
-        Assert.Equal(0, state.IlDisassemblyScrollOffset);
         Assert.NotNull(state.CrossViewBackTarget);
         Assert.Equal(TabId.PeMetadata, state.CrossViewBackTarget!.Value.Tab);
         Assert.Equal(PeSubTabId.MethodDef, state.CrossViewBackTarget!.Value.SubTab);
+        // Focused tree key must point to the jumped-to method row
+        Assert.Equal($"method:{method.Token}", state.IlFocusedTreeKey);
     }
 
     [Fact(Timeout = 30_000)]

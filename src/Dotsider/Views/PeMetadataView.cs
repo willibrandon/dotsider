@@ -28,26 +28,29 @@ public static class PeMetadataView
         var search = state.Search[TabId.PeMetadata];
 
         // Set up match navigation — cycle through active sub-tab's filtered rows
-        var rowKeys = GetActiveRowKeys(state);
-        if (rowKeys.Count > 0)
+        if (state.CurrentTab == TabId.PeMetadata)
         {
-            state.NavigateNextMatch = () =>
+            var rowKeys = GetActiveRowKeys(state);
+            if (rowKeys.Count > 0)
             {
-                var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
-                idx = (idx + 1) % rowKeys.Count;
-                state.PeFocusedKey = rowKeys[idx];
-            };
-            state.NavigatePrevMatch = () =>
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
+                    idx = (idx + 1) % rowKeys.Count;
+                    state.PeFocusedKey = rowKeys[idx];
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
+                    idx = idx <= 0 ? rowKeys.Count - 1 : idx - 1;
+                    state.PeFocusedKey = rowKeys[idx];
+                };
+            }
+            else
             {
-                var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
-                idx = idx <= 0 ? rowKeys.Count - 1 : idx - 1;
-                state.PeFocusedKey = rowKeys[idx];
-            };
-        }
-        else
-        {
-            state.NavigateNextMatch = null;
-            state.NavigatePrevMatch = null;
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+            }
         }
 
         return ctx.ZStack(z =>

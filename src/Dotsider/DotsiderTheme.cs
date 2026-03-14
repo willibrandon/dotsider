@@ -44,6 +44,10 @@ public static class DotsiderTheme
             .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.FromRgb(0, 200, 180))
             .Set(TabBarTheme.ForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
 
+            // Editor selection
+            .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+            .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88))
+
             // Splitter
             .Set(SplitterTheme.DividerColor, Hex1bColor.FromRgb(60, 60, 80))
             .Set(SplitterTheme.ThumbColor, Hex1bColor.FromRgb(80, 80, 100));

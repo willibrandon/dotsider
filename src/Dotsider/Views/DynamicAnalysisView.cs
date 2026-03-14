@@ -138,7 +138,8 @@ public static class DynamicAnalysisView
         var showSearch = state.DynamicSubTab is DynamicSubTabId.Events or DynamicSubTabId.Output;
 
         // Set up match navigation — cycle through filtered rows on Events/Output sub-tabs
-        SetupMatchNavigation(state, tracer, search, showSearch);
+        if (state.CurrentTab == TabId.Dynamic)
+            SetupMatchNavigation(state, tracer, search, showSearch);
 
         return ctx.VStack(outer =>
         {

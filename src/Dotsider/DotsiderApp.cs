@@ -38,10 +38,10 @@ public sealed class DotsiderApp(DotsiderState state)
         if (!_initialFocusRequested)
         {
             _initialFocusRequested = true;
-            _state.App.RequestFocus(node =>
-                node is EditorNode or TreeNode or InteractableNode
-                || node.GetType().Name.StartsWith("TableNode"));
+            SeedFocusedRowIfNeeded();
+            RequestContentFocus();
         }
+
 
         return ctx.VStack(outer =>
         [
@@ -64,36 +64,39 @@ public sealed class DotsiderApp(DotsiderState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40)))
             ]),
 
-            // Main content: Tab panel with 7 tabs (controlled via CurrentTab)
+            // Tab bar — uses TabPanel with empty content and fixed height so
+            // TabPanelNode (which is focusable) handles mouse clicks on tab headers.
             outer.TabPanel(tp =>
             [
-                tp.Tab("General", t => [GeneralView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.General),
-                tp.Tab("PE/Metadata", t => [PeMetadataView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.PeMetadata),
-                tp.Tab("IL Inspector", t => [IlInspectorView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.IlInspector),
-                tp.Tab("Strings", t => [StringsView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.Strings),
-                tp.Tab("Hex Dump", t => [HexDumpView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.HexDump),
-                tp.Tab("Dep Graph", t => [DependencyGraphView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.DepGraph),
-                tp.Tab("Size Map", t => [SizeTreemapView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.SizeMap),
-                tp.Tab("Dynamic", t => [DynamicAnalysisView.Build(t, _state)])
-                    .Selected(_state.CurrentTab == TabId.Dynamic)
+                tp.Tab("General", _ => []).Selected(_state.CurrentTab == TabId.General),
+                tp.Tab("PE/Metadata", _ => []).Selected(_state.CurrentTab == TabId.PeMetadata),
+                tp.Tab("IL Inspector", _ => []).Selected(_state.CurrentTab == TabId.IlInspector),
+                tp.Tab("Strings", _ => []).Selected(_state.CurrentTab == TabId.Strings),
+                tp.Tab("Hex Dump", _ => []).Selected(_state.CurrentTab == TabId.HexDump),
+                tp.Tab("Dep Graph", _ => []).Selected(_state.CurrentTab == TabId.DepGraph),
+                tp.Tab("Size Map", _ => []).Selected(_state.CurrentTab == TabId.SizeMap),
+                tp.Tab("Dynamic", _ => []).Selected(_state.CurrentTab == TabId.Dynamic)
             ])
             .OnSelectionChanged(e =>
             {
                 SelectTab(e.SelectedIndex);
-                _state.App.RequestFocus(node =>
-                    node is EditorNode or TreeNode or InteractableNode
-                    || node.GetType().Name.StartsWith("TableNode"));
+                SeedFocusedRowIfNeeded();
+                RequestContentFocus();
                 _state.App.Invalidate();
             })
             .Full()
-            .Fill(),
+            .FixedHeight(3),
+
+            // Tab content — Responsive preserves the IL EditorNode across tab switches.
+            // Non-IL tabs use Otherwise so only the active tab builds its full widget tree.
+            outer.Responsive(r =>
+            [
+                // IL Inspector always reconciles to preserve EditorNode scroll state
+                r.When((_, _) => _state.CurrentTab == TabId.IlInspector,
+                    x => x.VStack(v => [IlInspectorView.Build(v, _state)]).Fill()),
+                // All other tabs share a single branch — only the active one builds
+                r.Otherwise(x => x.VStack(v => [BuildActiveNonIlTab(v, _state)]).Fill())
+            ]).Fill(),
 
             // Keybinding hints bar
             BuildHintsBar(outer)
@@ -115,10 +118,8 @@ public sealed class DotsiderApp(DotsiderState state)
                     bindings.Key(key).Global().Action(_ =>
                     {
                         SelectTab(tabIndex);
-                        // Move focus from tab bar into content so arrow keys work immediately
-                        _state.App.RequestFocus(node =>
-                            node is EditorNode or TreeNode or InteractableNode
-                            || node.GetType().Name.StartsWith("TableNode"));
+                        SeedFocusedRowIfNeeded();
+                        RequestContentFocus();
                         _state.App.Invalidate();
                     }, $"Tab {tabIndex + 1}");
                 }
@@ -172,10 +173,9 @@ public sealed class DotsiderApp(DotsiderState state)
                         if (_state.CurrentTab == TabId.HexDump)
                             Views.HexDumpView.ExecuteSearch(_state);
                         currentSearch.Confirm();
+                        // Restore focus from the search TextBox back to the content area.
                         // Restore focus from the search TextBox back to the content area
-                        _state.App.RequestFocus(node =>
-                            node is EditorNode or TreeNode or InteractableNode
-                            || node.GetType().Name.StartsWith("TableNode"));
+                        RequestContentFocus();
                         _state.App.Invalidate();
                     }
                 }, "Confirm search");
@@ -254,6 +254,66 @@ public sealed class DotsiderApp(DotsiderState state)
                     _state.App.Invalidate();
                     ScheduleNotificationClear(_state);
                 }, "Save hex changes");
+            }
+
+            // IL Inspector tab keybindings — Global because EditorNode's AnyCharacter() consumes letters
+            if (!isSearchEditing && _state.CurrentTab == TabId.IlInspector)
+            {
+                // Escape clears editor selection — only when no search is active
+                // to avoid conflicting with the global search Escape binding
+                if (!currentSearch.IsActive && _state.IlEditorState?.Cursor.HasSelection == true)
+                {
+                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                    {
+                        _state.IlEditorState.Cursor.SelectionAnchor = null;
+                        _state.App.Invalidate();
+                    }, "Clear selection");
+                }
+                if (_state.IlSelectedMethod is { Rva: > 0 } ilMethod)
+                {
+                    bindings.Key(Hex1bKey.X).Global().Action(_ =>
+                    {
+                        _state.NavigateToHexOffset(ilMethod.Rva);
+                    }, "View in hex");
+                }
+
+                bindings.Key(Hex1bKey.L).Global().Action(_ =>
+                {
+                    _state.App.RequestFocus(node => node is EditorNode);
+                    _state.App.Invalidate();
+                }, "Focus IL");
+
+                bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
+                {
+                    if (_state.IlEditorState?.Cursor.HasSelection == true)
+                    {
+                        var range = _state.IlEditorState.Cursor.SelectionRange;
+                        // Include the cursor character — after word-boundary adjustment
+                        // the cursor sits on the last word char outside the selection range
+                        var doc = _state.IlEditorState.Document;
+                        var yankEnd = new DocumentOffset(Math.Min(
+                            Math.Max(range.End.Value, _state.IlEditorState.Cursor.Position.Value + 1),
+                            doc.Length));
+                        var yankRange = new DocumentRange(range.Start, yankEnd);
+                        var text = doc.GetText(yankRange);
+                        ctx.CopyToClipboard(text);
+
+                        // Collapse cursor to last character of yanked range (neovim behavior)
+                        var lastChar = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+                        _state.IlEditorState.SetCursorPosition(lastChar);
+
+                        // Flash the yanked range (neovim IncSearch style, 150ms)
+                        var startPos = doc.OffsetToPosition(yankRange.Start);
+                        var endPos = doc.OffsetToPosition(yankRange.End);
+                        _state.IlYankProvider.HighlightRange = (startPos, endPos);
+                        _state.App.Invalidate();
+                        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                        {
+                            _state.IlYankProvider.HighlightRange = null;
+                            _state.App.Invalidate();
+                        }, TaskScheduler.Default);
+                    }
+                }, "Yank");
             }
 
             // n/N only registered when search is confirmed
@@ -340,6 +400,60 @@ public sealed class DotsiderApp(DotsiderState state)
         _state.NavigateToTab(tabIndex);
     }
 
+    /// <summary>
+    /// Requests focus on the appropriate content node for the current tab.
+    /// IL tab targets the ListNode tree; all other tabs target any content node including TableNode.
+    /// </summary>
+    private void RequestContentFocus()
+    {
+        if (_state.CurrentTab == TabId.IlInspector)
+            _state.App.RequestFocus(node => node is ListNode);
+        else
+            _state.App.RequestFocus(node =>
+                node is EditorNode or TreeNode or ListNode or InteractableNode
+                || node.GetType().Name.StartsWith("TableNode"));
+    }
+
+    /// <summary>
+    /// Seeds the focused row key for table-backed tabs so Enter works immediately
+    /// without requiring DownArrow first.
+    /// </summary>
+    private void SeedFocusedRowIfNeeded()
+    {
+        switch (_state.CurrentTab)
+        {
+            case TabId.General when _state.GeneralFocusedDep is null && _state.Analyzer.AssemblyRefs.Count > 0:
+                _state.GeneralFocusedDep = _state.Analyzer.AssemblyRefs[0].Name;
+                break;
+            case TabId.PeMetadata when _state.PeFocusedKey is null:
+                _state.PeFocusedKey = _state.Analyzer.Sections.Count > 0
+                    ? _state.Analyzer.Sections[0].Name
+                    : null;
+                break;
+            case TabId.Strings when _state.StringsFocusedKey is null:
+                var strings = _state.GetActiveStrings();
+                if (strings.Count > 0)
+                    _state.StringsFocusedKey = strings[0].Offset;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Builds the active non-IL tab content. Only one tab builds per frame.
+    /// </summary>
+    private static Hex1bWidget BuildActiveNonIlTab(WidgetContext<VStackWidget> ctx, DotsiderState state) =>
+        state.CurrentTab switch
+        {
+            TabId.General => GeneralView.Build(ctx, state),
+            TabId.PeMetadata => PeMetadataView.Build(ctx, state),
+            TabId.Strings => StringsView.Build(ctx, state),
+            TabId.HexDump => HexDumpView.Build(ctx, state),
+            TabId.DepGraph => DependencyGraphView.Build(ctx, state),
+            TabId.SizeMap => SizeTreemapView.Build(ctx, state),
+            TabId.Dynamic => DynamicAnalysisView.Build(ctx, state),
+            _ => ctx.Text("").Fill()
+        };
+
     private InfoBarWidget BuildHintsBar(WidgetContext<VStackWidget> ctx) =>
         ctx.InfoBar(s =>
         {
@@ -366,8 +480,11 @@ public sealed class DotsiderApp(DotsiderState state)
             }
             else if (_state.CurrentTab == 2)
             {
+                hints.Add(s.Section("l: Focus IL"));
                 if (_state.IlSelectedMethod is { Rva: > 0 })
                     hints.Add(s.Section("x: Hex"));
+                if (_state.IlEditorState?.Cursor.HasSelection == true)
+                    hints.Add(s.Section("y: Yank"));
             }
             else if (_state.CurrentTab == 3)
                 hints.Add(s.Section("Enter: Detail"));
@@ -531,6 +648,14 @@ public sealed class DotsiderApp(DotsiderState state)
         state.TreemapCurrentLevel = null;
         state.TreemapBreadcrumb.Clear();
         state.IlSelectedMethod = null;
+        state.IlEditorMethod = null;
+        state.IlEditorAnalyzer = null;
+        state.IlEditorState = null;
+        state.IlLastSearchQuery = null;
+        state.IlSearchMatches = [];
+        state.IlCurrentMatchIndex = -1;
+        state.IlTextMatchMethodTokens = null;
+        state.IlFocusedTreeKey = null;
     }
 
     private static void ScheduleNotificationClear(DotsiderState state)

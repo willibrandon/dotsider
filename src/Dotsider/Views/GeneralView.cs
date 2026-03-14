@@ -35,29 +35,34 @@ public static class GeneralView
             refs = [.. refs
                 .Where(r => $"{r.Name} {r.Version} {r.Culture} {r.PublicKeyToken}"
                     .Contains(query, StringComparison.OrdinalIgnoreCase))];
-            search.SetMatchCount(refs.Count);
         }
 
-        // Set up match navigation — cycle through filtered assembly refs
-        if (refs.Count > 0 && !string.IsNullOrEmpty(query))
+        if (state.CurrentTab == TabId.General)
         {
-            state.NavigateNextMatch = () =>
+            if (!string.IsNullOrEmpty(query))
+                search.SetMatchCount(refs.Count);
+
+            // Set up match navigation — cycle through filtered assembly refs
+            if (refs.Count > 0 && !string.IsNullOrEmpty(query))
             {
-                var idx = FindRefIndex(refs, state.GeneralFocusedDep);
-                idx = (idx + 1) % refs.Count;
-                state.GeneralFocusedDep = refs[idx].Name;
-            };
-            state.NavigatePrevMatch = () =>
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindRefIndex(refs, state.GeneralFocusedDep);
+                    idx = (idx + 1) % refs.Count;
+                    state.GeneralFocusedDep = refs[idx].Name;
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindRefIndex(refs, state.GeneralFocusedDep);
+                    idx = idx <= 0 ? refs.Count - 1 : idx - 1;
+                    state.GeneralFocusedDep = refs[idx].Name;
+                };
+            }
+            else
             {
-                var idx = FindRefIndex(refs, state.GeneralFocusedDep);
-                idx = idx <= 0 ? refs.Count - 1 : idx - 1;
-                state.GeneralFocusedDep = refs[idx].Name;
-            };
-        }
-        else
-        {
-            state.NavigateNextMatch = null;
-            state.NavigatePrevMatch = null;
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+            }
         }
 
         return ctx.VStack(outer =>

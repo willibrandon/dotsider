@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Views;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Nodes;
@@ -111,6 +112,9 @@ public sealed class DotsiderState : IDisposable
 
     // --- IL Inspector Tab State ---
 
+    /// <summary>The row key of the focused item in the IL tree table, or null.</summary>
+    public object? IlFocusedTreeKey { get; set; }
+
     /// <summary>The currently selected method for disassembly, or null.</summary>
     public MethodDefInfo? IlSelectedMethod { get; set; }
 
@@ -119,20 +123,38 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public Dictionary<string, bool> IlTreeExpansionState { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>The current vertical scroll offset in the IL disassembly pane.</summary>
-    public int IlDisassemblyScrollOffset { get; set; }
+    /// <summary>The editor state for the IL disassembly pane, or null if no method is selected.</summary>
+    public EditorState? IlEditorState { get; set; }
 
-    /// <summary>The viewport height of the IL disassembly scroll panel (saved from OnScroll).</summary>
-    public int IlDisassemblyViewportSize { get; set; }
+    /// <summary>The method currently loaded in the IL editor, used to detect method changes.</summary>
+    public MethodDefInfo? IlEditorMethod { get; set; }
 
-    /// <summary>
-    /// Scroll restore frame counter. 2 = focus the interactable anchor,
-    /// 1 = let EnsureFocusedVisible adjust offset during layout, 0 = done.
-    /// </summary>
-    public int IlScrollRestoreFrames { get; set; }
+    /// <summary>The analyzer instance that built the current IL editor content, used to detect analyzer reloads.</summary>
+    public AssemblyAnalyzer? IlEditorAnalyzer { get; set; }
 
-    /// <summary>Whether the IL Inspector tree needs focus after a tab switch.</summary>
-    public bool IlNeedsTreeFocus { get; set; }
+    /// <summary>Syntax highlighting decoration provider for the IL editor.</summary>
+    public IlSyntaxDecorationProvider IlSyntaxProvider { get; } = new();
+
+    /// <summary>Search match highlighting decoration provider for the IL editor.</summary>
+    public IlSearchDecorationProvider IlSearchProvider { get; } = new();
+
+    /// <summary>Yank flash decoration provider for the IL editor.</summary>
+    public IlYankDecorationProvider IlYankProvider { get; } = new();
+
+    /// <summary>All text-level search matches across method disassemblies, computed on search confirm.</summary>
+    public List<IlMatch> IlSearchMatches { get; set; } = [];
+
+    /// <summary>Index into <see cref="IlSearchMatches"/> for the currently highlighted match, or -1.</summary>
+    public int IlCurrentMatchIndex { get; set; } = -1;
+
+    /// <summary>Last confirmed search query, used to avoid recomputing matches.</summary>
+    public string? IlLastSearchQuery { get; set; }
+
+    /// <summary>Pending cursor match to apply on next frame (set by NavigateToMatch, consumed by BuildEditorPane).</summary>
+    public IlMatch? IlPendingCursorMatch { get; set; }
+
+    /// <summary>Method tokens whose IL text matches the confirmed search query. Used to broaden tree filtering.</summary>
+    public HashSet<int>? IlTextMatchMethodTokens { get; set; }
 
     // --- Strings Tab State ---
 
@@ -305,13 +327,7 @@ public sealed class DotsiderState : IDisposable
                 previousSearch.Confirm();
         }
 
-        var previousTab = CurrentTab;
         CurrentTab = tabIndex;
-        if (previousTab != TabId.IlInspector && tabIndex == TabId.IlInspector)
-        {
-            IlScrollRestoreFrames = 2;
-            IlNeedsTreeFocus = true;
-        }
     }
 
     /// <summary>
@@ -330,13 +346,12 @@ public sealed class DotsiderState : IDisposable
         IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
 
         IlSelectedMethod = method;
-        IlDisassemblyScrollOffset = 0;
-        IlScrollRestoreFrames = 0;
+        IlFocusedTreeKey = $"method:{method.Token}";
 
         NavigateToTab(TabId.IlInspector);
         var ilSearch = Search[TabId.IlInspector];
         ilSearch.Reset();
-        App.RequestFocus(node => node is TreeNode);
+        App.RequestFocus(node => node is ListNode);
         App.Invalidate();
     }
 
@@ -379,7 +394,7 @@ public sealed class DotsiderState : IDisposable
         if (back.Tab == TabId.PeMetadata)
             PeSubTab = back.SubTab;
         App.RequestFocus(node =>
-            node is EditorNode or TreeNode or InteractableNode
+            node is EditorNode or ListNode or TreeNode or InteractableNode
             || node.GetType().Name.StartsWith("TableNode"));
         App.Invalidate();
     }
@@ -463,11 +478,18 @@ public sealed class DotsiderState : IDisposable
         PeSubTab = 0;
         PeFocusedKey = null;
         PeDetailContent = null;
+        IlFocusedTreeKey = null;
         IlSelectedMethod = null;
         IlTreeExpansionState.Clear();
-        IlDisassemblyScrollOffset = 0;
-        IlDisassemblyViewportSize = 0;
-        IlScrollRestoreFrames = 0;
+        IlEditorState = null;
+        IlEditorMethod = null;
+        IlEditorAnalyzer = null;
+        IlSearchMatches = [];
+        IlCurrentMatchIndex = -1;
+        IlLastSearchQuery = null;
+        IlPendingCursorMatch = null;
+        IlTextMatchMethodTokens = null;
+        IlYankProvider.HighlightRange = null;
         StringsSourceTab = 0;
         StringsFocusedKey = null;
         StringsDetailContent = null;

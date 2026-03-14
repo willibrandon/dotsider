@@ -55,18 +55,21 @@ public static class SizeTreemapView
             state.TreemapMatchIndex = matchingItems.Count > 0 ? 0 : -1;
 
         // Set up match navigation using stable index
-        state.NavigateNextMatch = matchingItems.Count > 0 ? () =>
+        if (state.CurrentTab == TabId.SizeMap)
         {
-            state.TreemapMatchIndex = state.TreemapMatchIndex < 0
-                ? 0 : (state.TreemapMatchIndex + 1) % matchingItems.Count;
+            state.NavigateNextMatch = matchingItems.Count > 0 ? () =>
+            {
+                state.TreemapMatchIndex = state.TreemapMatchIndex < 0
+                    ? 0 : (state.TreemapMatchIndex + 1) % matchingItems.Count;
+            }
+            : null;
+            state.NavigatePrevMatch = matchingItems.Count > 0 ? () =>
+            {
+                state.TreemapMatchIndex = state.TreemapMatchIndex <= 0
+                    ? matchingItems.Count - 1 : state.TreemapMatchIndex - 1;
+            }
+            : null;
         }
-        : null;
-        state.NavigatePrevMatch = matchingItems.Count > 0 ? () =>
-        {
-            state.TreemapMatchIndex = state.TreemapMatchIndex <= 0
-                ? matchingItems.Count - 1 : state.TreemapMatchIndex - 1;
-        }
-        : null;
 
         return ctx.VStack(outer =>
         {

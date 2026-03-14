@@ -21,46 +21,49 @@ public static class HexDumpView
     {
         var search = state.Search[TabId.HexDump];
 
-        // Clean up hex match state when search was dismissed externally (global Escape)
-        if (!search.IsActive && state.HexMatchOffsets.Count > 0)
+        if (state.CurrentTab == TabId.HexDump)
         {
-            state.HexMatchOffsets = [];
-            state.HexCurrentMatchIndex = -1;
-            state.HexMatchPatternLength = 0;
-            state.HexLastSearchQuery = null;
-            state.HexLiveSearchTooSlow = false;
-        }
-
-        // --- Live search: adaptive throttle ---
-        if (!string.IsNullOrEmpty(search.Query) && search.Query != state.HexLastSearchQuery
-            && search.IsActive && !search.IsConfirmed)
-        {
-            if (!state.HexLiveSearchTooSlow)
+            // Clean up hex match state when search was dismissed externally (global Escape)
+            if (!search.IsActive && state.HexMatchOffsets.Count > 0)
             {
-                var sw = Stopwatch.StartNew();
-                ExecuteSearch(state);
-                sw.Stop();
-                if (sw.ElapsedMilliseconds > 8)
-                    state.HexLiveSearchTooSlow = true;
+                state.HexMatchOffsets = [];
+                state.HexCurrentMatchIndex = -1;
+                state.HexMatchPatternLength = 0;
+                state.HexLastSearchQuery = null;
+                state.HexLiveSearchTooSlow = false;
             }
-            state.HexLastSearchQuery = search.Query;
-        }
 
-        // Set up match navigation
-        state.NavigateNextMatch = () =>
-        {
-            if (state.HexMatchOffsets.Count == 0) return;
-            state.HexCurrentMatchIndex = (state.HexCurrentMatchIndex + 1) % state.HexMatchOffsets.Count;
-            NavigateToOffset(state, state.HexMatchOffsets[state.HexCurrentMatchIndex]);
-        };
-        state.NavigatePrevMatch = () =>
-        {
-            if (state.HexMatchOffsets.Count == 0) return;
-            state.HexCurrentMatchIndex = state.HexCurrentMatchIndex <= 0
-                ? state.HexMatchOffsets.Count - 1
-                : state.HexCurrentMatchIndex - 1;
-            NavigateToOffset(state, state.HexMatchOffsets[state.HexCurrentMatchIndex]);
-        };
+            // --- Live search: adaptive throttle ---
+            if (!string.IsNullOrEmpty(search.Query) && search.Query != state.HexLastSearchQuery
+                && search.IsActive && !search.IsConfirmed)
+            {
+                if (!state.HexLiveSearchTooSlow)
+                {
+                    var sw = Stopwatch.StartNew();
+                    ExecuteSearch(state);
+                    sw.Stop();
+                    if (sw.ElapsedMilliseconds > 8)
+                        state.HexLiveSearchTooSlow = true;
+                }
+                state.HexLastSearchQuery = search.Query;
+            }
+
+            // Set up match navigation
+            state.NavigateNextMatch = () =>
+            {
+                if (state.HexMatchOffsets.Count == 0) return;
+                state.HexCurrentMatchIndex = (state.HexCurrentMatchIndex + 1) % state.HexMatchOffsets.Count;
+                NavigateToOffset(state, state.HexMatchOffsets[state.HexCurrentMatchIndex]);
+            };
+            state.NavigatePrevMatch = () =>
+            {
+                if (state.HexMatchOffsets.Count == 0) return;
+                state.HexCurrentMatchIndex = state.HexCurrentMatchIndex <= 0
+                    ? state.HexMatchOffsets.Count - 1
+                    : state.HexCurrentMatchIndex - 1;
+                NavigateToOffset(state, state.HexMatchOffsets[state.HexCurrentMatchIndex]);
+            };
+        }
 
         var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
