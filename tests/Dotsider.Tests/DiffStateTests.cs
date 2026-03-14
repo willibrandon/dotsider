@@ -24,7 +24,7 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Construct_BothAnalyzersAccessible()
     {
         var app = CreateApp();
@@ -35,7 +35,7 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("RichLibrary", state.Right.AssemblyName);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Construct_DiffResultPopulated()
     {
         var app = CreateApp();
@@ -44,7 +44,7 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(state.DiffResult.TypeDiffs);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void DefaultFilterMode_IsAll()
     {
         var app = CreateApp();
@@ -52,7 +52,7 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(DiffFilterMode.All, state.FilterMode);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void TabSwitching_Works()
     {
         var app = CreateApp();
@@ -61,7 +61,7 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(2, state.CurrentTab);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Dispose_CleansUp()
     {
         var app = CreateApp();

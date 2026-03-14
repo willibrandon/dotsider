@@ -26,6 +26,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
     private Process? _process;
     private EventPipeSession? _session;
+    private EventPipeEventSource? _eventSource;
     private Task? _processingTask;
     private CancellationTokenSource? _cts;
     private Stopwatch? _stopwatch;
@@ -163,8 +164,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 ProcessState = TraceProcessState.Exited;
                 ExitCode = _process.HasExited ? _process.ExitCode : null;
                 _stopwatch?.Stop();
-                // Stop the EventPipe session to unblock source.Process()
-                try { _session?.Stop(); } catch { }
+                // StopProcessing unblocks source.Process() synchronously.
+                // session.Stop() can deadlock on Windows when the pipe is
+                // already broken, so we only use the TraceEventSource path.
+                _eventSource?.StopProcessing();
                 // Direct invalidate — don't rely on timer (it may be disposed by Stop())
                 invalidate();
             }
@@ -264,6 +267,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     public void Stop()
     {
         _cts?.Cancel();
+        _eventSource?.StopProcessing();
         try { _session?.Stop(); } catch { }
 
         if (_process is { HasExited: false } p)
@@ -328,6 +332,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     private void ProcessEventsLoop(EventPipeSession session)
     {
         using var source = new EventPipeEventSource(session.EventStream);
+        _eventSource = source;
 
         // CLR events
         source.Clr.GCStart += data =>
@@ -366,6 +371,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
         {
             // Expected: process exited, pipe broke
+        }
+        finally
+        {
+            _eventSource = null;
         }
     }
 

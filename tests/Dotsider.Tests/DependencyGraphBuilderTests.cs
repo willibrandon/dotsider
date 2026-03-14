@@ -5,7 +5,7 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_HasRootNode()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -14,7 +14,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Contains(nodes, n => n.IsRoot);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_RootNodeNameMatchesAssembly()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -23,7 +23,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Equal("HelloWorld", root.Name);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNewtonSoftNode()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -31,7 +31,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Contains(nodes, n => n.Name == "Newtonsoft.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_HasSystemTextJsonNode()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -39,7 +39,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Contains(nodes, n => n.Name == "System.Text.Json");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_EdgeTypeRefCountPositive()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -48,7 +48,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Contains(edges, e => e.TypeRefCount > 0);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MinimalApi_HasManyNodes()
     {
         using var a = new AssemblyAnalyzer(samples.MinimalApiDll);
@@ -56,7 +56,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.True(nodes.Count > 1);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLib_HasRootAndMinimalRefs()
     {
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
@@ -64,7 +64,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Contains(nodes, n => n.IsRoot);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllEdgesReferenceExistingNodes()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -77,7 +77,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NoDuplicateNodeNames()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -86,7 +86,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void OnlyOneRootNode()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);

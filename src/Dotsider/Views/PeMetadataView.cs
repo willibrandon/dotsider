@@ -27,9 +27,31 @@ public static class PeMetadataView
         var analyzer = state.Analyzer;
         var search = state.Search[TabId.PeMetadata];
 
-        // Set up match navigation
-        state.NavigateNextMatch = null;
-        state.NavigatePrevMatch = null;
+        // Set up match navigation — cycle through active sub-tab's filtered rows
+        if (state.CurrentTab == TabId.PeMetadata)
+        {
+            var rowKeys = GetActiveRowKeys(state);
+            if (rowKeys.Count > 0)
+            {
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
+                    idx = (idx + 1) % rowKeys.Count;
+                    state.PeFocusedKey = rowKeys[idx];
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindKeyIndex(rowKeys, state.PeFocusedKey);
+                    idx = idx <= 0 ? rowKeys.Count - 1 : idx - 1;
+                    state.PeFocusedKey = rowKeys[idx];
+                };
+            }
+            else
+            {
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+            }
+        }
 
         return ctx.ZStack(z =>
         [
@@ -514,5 +536,41 @@ public static class PeMetadataView
                 row.Text($"  {label}: ")).FixedWidth(22),
             row.Text(value)
         ]).FixedHeight(1);
+    }
+
+    private static IReadOnlyList<object> GetActiveRowKeys(DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        if (string.IsNullOrEmpty(query)) return [];
+        var analyzer = state.Analyzer;
+        return state.PeSubTab switch
+        {
+            PeSubTabId.Sections => [.. ApplySearch(analyzer.Sections, query,
+                s => $"{s.Name} {s.Characteristics}").Select(s => (object)s.Name)],
+            PeSubTabId.TypeDef => [.. ApplySearch(analyzer.TypeDefs, query,
+                t => $"{t.FullName} {t.BaseType} {t.Attributes}").Select(t => (object)t.Token)],
+            PeSubTabId.MethodDef => [.. ApplySearch(analyzer.MethodDefs, query,
+                m => $"{m.DeclaringType} {m.Name} {m.Signature}").Select(m => (object)m.Token)],
+            PeSubTabId.TypeRef => [.. ApplySearch(analyzer.TypeRefs, query,
+                t => $"{t.FullName} {t.ResolutionScope}").Select(t => (object)t.Token)],
+            PeSubTabId.MemberRef => [.. ApplySearch(analyzer.MemberRefs, query,
+                m => $"{m.DeclaringType} {m.Name}").Select(m => (object)m.Token)],
+            PeSubTabId.Attributes => [.. ApplySearch(analyzer.CustomAttributes, query,
+                a => $"{a.Parent} {a.Constructor} {a.Value}").Select(a => (object)$"{a.Parent}|{a.Constructor}")],
+            PeSubTabId.Resources => [.. ApplySearch(analyzer.Resources, query,
+                r => $"{r.Name} {r.Visibility}").Select(r => (object)r.Name)],
+            _ => []
+        };
+    }
+
+    private static int FindKeyIndex(IReadOnlyList<object> keys, object? focusedKey)
+    {
+        if (focusedKey is null) return -1;
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (keys[i].Equals(focusedKey))
+                return i;
+        }
+        return -1;
     }
 }

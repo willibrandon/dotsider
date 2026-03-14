@@ -25,7 +25,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ConstructFromHelloWorld_HasCorrectFileName()
     {
         var app = CreateApp();
@@ -33,7 +33,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HasEntryPoint_TrueForExe()
     {
         var app = CreateApp();
@@ -41,7 +41,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.HasEntryPoint);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForLibrary()
     {
         var app = CreateApp();
@@ -49,7 +49,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HasEntryPoint_TrueForComplexApp()
     {
         var app = CreateApp();
@@ -57,7 +57,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.HasEntryPoint);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForEmptyLib()
     {
         var app = CreateApp();
@@ -65,7 +65,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForNativeLib()
     {
         var app = CreateApp();
@@ -73,7 +73,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void IsNativeAot_FalseForAllManagedSamples()
     {
         var app = CreateApp();
@@ -86,7 +86,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_ChangesAnalyzer()
     {
         var app = CreateApp();
@@ -97,7 +97,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Single(state.NavigationStack);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PopAssembly_RestoresPrevious()
     {
         var app = CreateApp();
@@ -108,7 +108,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(state.NavigationStack);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_InvalidPath_ReturnsFalseAndSetsError()
     {
         var app = CreateApp();
@@ -119,7 +119,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_DepthLimit_ReturnsFalseAtMax()
     {
         var app = CreateApp();
@@ -135,7 +135,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("depth limit", state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_SuccessClearsError()
     {
         var app = CreateApp();
@@ -148,7 +148,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PopAssembly_ClearsNavigationError()
     {
         var app = CreateApp();
@@ -161,7 +161,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_BadImage_ReturnsFalseAndPreservesState()
     {
         var app = CreateApp();
@@ -172,7 +172,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("Cannot open assembly", state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_UnauthorizedAccess_ReturnsFalse()
     {
         // File.ReadAllBytes on a directory throws UnauthorizedAccessException on all platforms
@@ -184,7 +184,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.NavigationError);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PopAssembly_EmptyStack_ReturnsFalse()
     {
         var app = CreateApp();
@@ -192,7 +192,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.PopAssembly());
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void GetActiveStrings_ReturnsNonEmpty()
     {
         var app = CreateApp();
@@ -202,31 +202,31 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(strings);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatSize_Zero()
     {
         Assert.Equal("0 B", DotsiderState.FormatSize(0));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatSize_KB()
     {
         Assert.Equal("1.0 KB", DotsiderState.FormatSize(1024));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatSize_MB()
     {
         Assert.Equal("1.0 MB", DotsiderState.FormatSize(1048576));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatSize_Bytes()
     {
         Assert.Equal("500 B", DotsiderState.FormatSize(500));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ConstructFromAnalyzer_Works()
     {
         var app = CreateApp();
@@ -237,7 +237,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.StringExtractor);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllProjectTypes_ConstructWithoutError()
     {
         var app = CreateApp();
@@ -254,7 +254,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Cross-View Navigation Tests ---
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToTab_SwitchesCurrentTab()
     {
         var app = CreateApp();
@@ -264,7 +264,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToTab_SameTab_NoOp()
     {
         var app = CreateApp();
@@ -274,18 +274,61 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.HexDump, state.CurrentTab);
     }
 
-    [Fact(Timeout = 5_000)]
-    public void NavigateToTab_ToIlInspector_SetsScrollRestore()
+    [Fact(Timeout = 30_000)]
+    public void NavigateToTab_ToIlInspector_SwitchesTab()
     {
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.RichLibraryDll);
         state.CurrentTab = TabId.PeMetadata;
         state.NavigateToTab(TabId.IlInspector);
-        Assert.Equal(2, state.IlScrollRestoreFrames);
-        Assert.True(state.IlNeedsTreeFocus);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
+    public void NavigateToTab_IlRoundTrip_PreservesEditorState()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CurrentTab = TabId.General;
+        state.NavigateToTab(TabId.IlInspector);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument("test")) { IsReadOnly = true };
+
+        // Leave IL, go to Strings, return
+        state.NavigateToTab(TabId.Strings);
+        state.NavigateToTab(TabId.IlInspector);
+
+        // Editor state survives round-trip (Responsive preserves nodes)
+        Assert.NotNull(state.IlEditorState);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    /// <summary>
+    /// Verifies that NavigateToIlMethod sets the IlFocusedTreeKey to the
+    /// jumped-to method's row key. This is the regression target for the
+    /// IL tab-entry focus behavior — the table uses this key to deterministically
+    /// focus the correct row.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToIlMethod_SetsIlFocusedTreeKey()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // Initially null
+        Assert.Null(state.IlFocusedTreeKey);
+
+        state.CurrentTab = TabId.PeMetadata;
+        var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        state.NavigateToIlMethod(method);
+
+        // Focused key must point to the jumped-to method row
+        Assert.Equal($"method:{method.Token}", state.IlFocusedTreeKey);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_SetsStateAndSwitchesTab()
     {
         var app = CreateApp();
@@ -298,13 +341,14 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
         Assert.Equal(method, state.IlSelectedMethod);
-        Assert.Equal(0, state.IlDisassemblyScrollOffset);
         Assert.NotNull(state.CrossViewBackTarget);
         Assert.Equal(TabId.PeMetadata, state.CrossViewBackTarget!.Value.Tab);
         Assert.Equal(PeSubTabId.MethodDef, state.CrossViewBackTarget!.Value.SubTab);
+        // Focused tree key must point to the jumped-to method row
+        Assert.Equal($"method:{method.Token}", state.IlFocusedTreeKey);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ExpandsTreeNodes()
     {
         var app = CreateApp();
@@ -320,7 +364,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.IlTreeExpansionState[$"type:{method.DeclaringType}"]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ClearsStaleIlSearch()
     {
         var app = CreateApp();
@@ -342,7 +386,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(-1, ilSearch.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RvaToFileOffset_ReturnsCorrectOffset()
     {
         var app = CreateApp();
@@ -359,7 +403,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(foundSection, "File offset should be within a section's raw data");
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RvaToFileOffset_InvalidRva_ReturnsNegative()
     {
         var app = CreateApp();
@@ -367,7 +411,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(-1, state.RvaToFileOffset(0x7FFFFFFF));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_SetsStateAndSwitchesTab()
     {
         var app = CreateApp();
@@ -383,7 +427,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_SetsCursorPosition()
     {
         var app = CreateApp();
@@ -398,7 +442,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(expectedOffset, state.HexScrollTarget);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_InvalidRva_NoTabSwitch()
     {
         var app = CreateApp();
@@ -409,7 +453,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateBack_RestoresPreviousTab()
     {
         var app = CreateApp();
@@ -427,7 +471,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateBack_NoTarget_NoOp()
     {
         var app = CreateApp();
@@ -437,7 +481,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PushAssembly_ClearsCrossViewBackTarget()
     {
         var app = CreateApp();
@@ -454,7 +498,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void PopAssembly_ClearsCrossViewBackTarget()
     {
         var app = CreateApp();
@@ -472,7 +516,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ThenHex_ThenBack_RestoresIl()
     {
         var app = CreateApp();

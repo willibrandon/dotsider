@@ -137,6 +137,52 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Required command was not provided", stderr);
     }
 
+    // --- P2: --escape-timeout option routing ---
+
+    [Fact]
+    public async Task TuiMode_EscapeTimeoutOption_RoutesToTuiMode()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "--escape-timeout", "200", "nonexistent-assembly.dll");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("File not found", stderr);
+        Assert.DoesNotContain("Required command was not provided", stderr);
+    }
+
+    [Fact]
+    public async Task TuiMode_ShortEscapeTimeoutAlias_RoutesToTuiMode()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "-e", "200", "nonexistent-assembly.dll");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("File not found", stderr);
+        Assert.DoesNotContain("Required command was not provided", stderr);
+    }
+
+    [Fact]
+    public async Task DiffMode_EscapeTimeoutOption_Accepted()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "diff", "--escape-timeout", "200", "nonexistent-left.dll", "nonexistent-right.dll");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("File not found", stderr);
+        Assert.DoesNotContain("Unrecognized", stderr);
+    }
+
+    [Fact]
+    public async Task DiffMode_ShortEscapeTimeoutAlias_Accepted()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "diff", "-e", "200", "nonexistent-left.dll", "nonexistent-right.dll");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("File not found", stderr);
+        Assert.DoesNotContain("Unrecognized", stderr);
+    }
+
     // --- No-args exit code (WinGet validation) ---
 
     [Fact]

@@ -137,9 +137,9 @@ public static class DynamicAnalysisView
         // Search bar hidden on Counters (1) and Summary (3) sub-tabs
         var showSearch = state.DynamicSubTab is DynamicSubTabId.Events or DynamicSubTabId.Output;
 
-        // Set up match navigation
-        state.NavigateNextMatch = null;
-        state.NavigatePrevMatch = null;
+        // Set up match navigation — cycle through filtered rows on Events/Output sub-tabs
+        if (state.CurrentTab == TabId.Dynamic)
+            SetupMatchNavigation(state, tracer, search, showSearch);
 
         return ctx.VStack(outer =>
         {
@@ -304,7 +304,7 @@ public static class DynamicAnalysisView
             ]).FixedHeight(1),
 
             inner.Table(events)
-                .RowKey(e => $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}")
+                .RowKey(e => $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}")
                 .Header(h =>
                 [
                     h.Cell("Time").Width(SizeHint.Fixed(12)),
@@ -564,7 +564,7 @@ public static class DynamicAnalysisView
 
         var evt = tracer.GetEvents().FirstOrDefault(e =>
             e.Category == TraceEventCategory.JIT
-            && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}" == focusedKey);
+            && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}" == focusedKey);
         if (evt is null) return false;
 
         var method = evt.MetadataToken > 0
@@ -598,6 +598,84 @@ public static class DynamicAnalysisView
         declaringType = detail[..lastDot];
         methodName = detail[(lastDot + 1)..];
         return methodName.Length > 0;
+    }
+
+    private static void SetupMatchNavigation(
+        DotsiderState state, RuntimeTracer tracer, SearchState search, bool showSearch)
+    {
+        if (!showSearch || string.IsNullOrEmpty(search.Query))
+        {
+            state.NavigateNextMatch = null;
+            state.NavigatePrevMatch = null;
+            return;
+        }
+
+        if (state.DynamicSubTab == DynamicSubTabId.Events)
+        {
+            var events = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+            if (state.DynamicCategoryFilter is { } catFilter)
+                events = [.. events.Where(e => e.Category == catFilter)];
+            events = [.. events.Where(e =>
+                e.EventName.Contains(search.Query, StringComparison.OrdinalIgnoreCase) ||
+                e.Detail.Contains(search.Query, StringComparison.OrdinalIgnoreCase))];
+
+            if (events.Count > 0)
+            {
+                var keys = events.Select(e =>
+                    (object)$"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}").ToList();
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindKeyIndex(keys, state.DynamicEventsFocusedKey);
+                    idx = (idx + 1) % keys.Count;
+                    state.DynamicEventsFocusedKey = keys[idx];
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindKeyIndex(keys, state.DynamicEventsFocusedKey);
+                    idx = idx <= 0 ? keys.Count - 1 : idx - 1;
+                    state.DynamicEventsFocusedKey = keys[idx];
+                };
+                return;
+            }
+        }
+        else if (state.DynamicSubTab == DynamicSubTabId.Output)
+        {
+            var output = (IReadOnlyList<OutputLine>)tracer.GetOutput();
+            output = [.. output.Where(o =>
+                o.Text.Contains(search.Query, StringComparison.OrdinalIgnoreCase))];
+
+            if (output.Count > 0)
+            {
+                var keys = output.Select(o => (object)$"{o.Timestamp.Ticks}:{o.Text}").ToList();
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindKeyIndex(keys, state.DynamicOutputFocusedKey);
+                    idx = (idx + 1) % keys.Count;
+                    state.DynamicOutputFocusedKey = keys[idx];
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindKeyIndex(keys, state.DynamicOutputFocusedKey);
+                    idx = idx <= 0 ? keys.Count - 1 : idx - 1;
+                    state.DynamicOutputFocusedKey = keys[idx];
+                };
+                return;
+            }
+        }
+
+        state.NavigateNextMatch = null;
+        state.NavigatePrevMatch = null;
+    }
+
+    private static int FindKeyIndex(List<object> keys, object? focusedKey)
+    {
+        if (focusedKey is null) return -1;
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (keys[i].Equals(focusedKey))
+                return i;
+        }
+        return -1;
     }
 
     private static void DrawEventDistribution(Surface surface,

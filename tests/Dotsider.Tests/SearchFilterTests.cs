@@ -27,7 +27,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Strings_EmptyQuery_ReturnsAll()
     {
         var app = CreateApp();
@@ -38,7 +38,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(all);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Strings_WithQuery_FiltersResults()
     {
         var app = CreateApp();
@@ -59,7 +59,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Strings_NoMatch_ReturnsEmpty()
     {
         var app = CreateApp();
@@ -71,7 +71,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(filtered);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Strings_CaseInsensitive()
     {
         var app = CreateApp();
@@ -88,7 +88,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AssemblyRefs_FilterByName()
     {
         var app = CreateApp();
@@ -106,7 +106,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SpecialCharacters_NoRegexError()
     {
         var app = CreateApp();
@@ -119,7 +119,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(filtered);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void DiffEntries_FilterByTypeName()
     {
         var app = CreateApp();

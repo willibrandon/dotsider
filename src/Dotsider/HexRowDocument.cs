@@ -145,12 +145,18 @@ public sealed class HexRowDocument(IHex1bDocument inner) : IHex1bDocument
 
         var endByte = Math.Min(line * _bytesPerRow, ByteCount);
         var byteMap = _inner.GetByteMap();
+        var text = _inner.GetText();
         var startChar = startByte == 0 ? 0 : byteMap.ByteToChar(startByte).charIndex;
         var endChar = endByte < byteMap.TotalBytes
             ? byteMap.ByteToChar(endByte).charIndex
-            : Length;
+            : text.Length;
 
-        return startChar < endChar ? _inner.GetText()[startChar..endChar] : "";
+        // Clamp to text bounds — byte-to-char mapping may not perfectly align
+        // with the text representation for binary documents.
+        startChar = Math.Clamp(startChar, 0, text.Length);
+        endChar = Math.Clamp(endChar, startChar, text.Length);
+
+        return startChar < endChar ? text[startChar..endChar] : "";
     }
 
     /// <summary>
@@ -171,12 +177,16 @@ public sealed class HexRowDocument(IHex1bDocument inner) : IHex1bDocument
 
         var endByte = Math.Min(line * _bytesPerRow, ByteCount);
         var byteMap = _inner.GetByteMap();
+        var textLength = _inner.GetText().Length;
         var startChar = startByte == 0 ? 0 : byteMap.ByteToChar(startByte).charIndex;
         var endChar = endByte < byteMap.TotalBytes
             ? byteMap.ByteToChar(endByte).charIndex
-            : Length;
+            : textLength;
 
-        return Math.Max(0, endChar - startChar);
+        startChar = Math.Clamp(startChar, 0, textLength);
+        endChar = Math.Clamp(endChar, startChar, textLength);
+
+        return endChar - startChar;
     }
 
     /// <summary>

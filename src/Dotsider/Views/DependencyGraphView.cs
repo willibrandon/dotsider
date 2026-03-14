@@ -49,17 +49,20 @@ public static class DependencyGraphView
             state.GraphMatchIndex = matchingNodes.Count > 0 ? 0 : -1;
 
         // Set up match navigation using stable index
-        state.NavigateNextMatch = matchingNodes.Count > 0 ? () =>
+        if (state.CurrentTab == TabId.DepGraph)
         {
-            state.GraphMatchIndex = (state.GraphMatchIndex + 1) % matchingNodes.Count;
+            state.NavigateNextMatch = matchingNodes.Count > 0 ? () =>
+            {
+                state.GraphMatchIndex = (state.GraphMatchIndex + 1) % matchingNodes.Count;
+            }
+            : null;
+            state.NavigatePrevMatch = matchingNodes.Count > 0 ? () =>
+            {
+                state.GraphMatchIndex = state.GraphMatchIndex <= 0
+                    ? matchingNodes.Count - 1 : state.GraphMatchIndex - 1;
+            }
+            : null;
         }
-        : null;
-        state.NavigatePrevMatch = matchingNodes.Count > 0 ? () =>
-        {
-            state.GraphMatchIndex = state.GraphMatchIndex <= 0
-                ? matchingNodes.Count - 1 : state.GraphMatchIndex - 1;
-        }
-        : null;
 
         return ctx.VStack(outer =>
         {

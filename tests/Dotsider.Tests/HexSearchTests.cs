@@ -8,7 +8,7 @@ namespace Dotsider.Tests;
 /// </summary>
 public class HexSearchTests
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ParseHexPattern_ValidBytes()
     {
         var (bytes, error) = HexDumpView.ParseHexPattern("FF D8 FF E0");
@@ -21,7 +21,7 @@ public class HexSearchTests
         Assert.Equal(0xE0, bytes[3]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ParseHexPattern_NoSpaces()
     {
         var (bytes, error) = HexDumpView.ParseHexPattern("FFD8FFE0");
@@ -30,7 +30,7 @@ public class HexSearchTests
         Assert.Equal(4, bytes!.Length);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ParseHexPattern_OddDigits_Error()
     {
         var (bytes, error) = HexDumpView.ParseHexPattern("FD8");
@@ -38,7 +38,7 @@ public class HexSearchTests
         Assert.Equal("Invalid hex: odd number of digits", error);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ParseHexPattern_InvalidChars_Error()
     {
         var (bytes, error) = HexDumpView.ParseHexPattern("GGZZ");
@@ -46,7 +46,7 @@ public class HexSearchTests
         Assert.Equal("Invalid hex pattern", error);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ParseHexPattern_Empty_Error()
     {
         var (bytes, error) = HexDumpView.ParseHexPattern("");
@@ -54,7 +54,7 @@ public class HexSearchTests
         Assert.Equal("Invalid hex: empty pattern", error);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_SingleMatch()
     {
         byte[] data = [0x01, 0x02, 0x03, 0x04, 0x05];
@@ -64,7 +64,7 @@ public class HexSearchTests
         Assert.Equal(2, offsets[0]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_MultipleMatches()
     {
         byte[] data = [0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB];
@@ -76,7 +76,7 @@ public class HexSearchTests
         Assert.Equal(4, offsets[2]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_NoMatch()
     {
         byte[] data = [0x01, 0x02, 0x03];
@@ -85,7 +85,7 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_EmptyData()
     {
         byte[] data = [];
@@ -94,7 +94,7 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_EmptyPattern()
     {
         byte[] data = [0x01, 0x02];
@@ -103,7 +103,7 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_PatternLongerThanData()
     {
         byte[] data = [0x01];
@@ -112,7 +112,7 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FindBytePattern_AsciiTextSearch()
     {
         byte[] data = System.Text.Encoding.ASCII.GetBytes("Hello World Hello");

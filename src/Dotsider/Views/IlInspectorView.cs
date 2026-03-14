@@ -1,7 +1,8 @@
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
-using Hex1b.Nodes;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -21,43 +22,79 @@ public static class IlInspectorView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var search = state.Search[TabId.IlInspector];
+        var query = search.Query;
 
-        // Scroll restore state machine:
-        //   2 → focus the interactable anchor and capture viewport size, decrement to 1
-        //   1 → EnsureFocusedVisible adjusts Offset during layout, decrement to 0
-        //   0 → done
-        var scrollRestorePhase = state.IlScrollRestoreFrames;
-        if (state.IlScrollRestoreFrames > 0)
-            state.IlScrollRestoreFrames--;
-
-        if (scrollRestorePhase == 2)
+        if (state.CurrentTab == TabId.IlInspector)
         {
-            // The predicate visits ScrollPanelNode before its children (InteractableNode),
-            // so we capture ViewportSize as a side effect. OnScroll never fires for this
-            // panel because EnsureFocusedVisible bypasses SetOffset/ScrollAction.
-            state.App.RequestFocus(node =>
+            // Two-phase search:
+            //   During typing (not confirmed): tree filters by name/type only (cheap).
+            //   After confirm: compute text-level matches once, set up n/N navigation.
+            if (!string.IsNullOrEmpty(query) && search.IsConfirmed)
             {
-                if (node is ScrollPanelNode sp)
-                    state.IlDisassemblyViewportSize = sp.ViewportSize;
-                return node is InteractableNode;
-            });
-        }
-        else if (scrollRestorePhase == 1)
-        {
-            // Force another frame so tree focus runs after scroll is restored
-            state.App.Invalidate();
+                if (query != state.IlLastSearchQuery)
+                {
+                    state.IlSearchMatches = CollectTextMatches(state, query);
+                    state.IlTextMatchMethodTokens = [.. state.IlSearchMatches.Select(m => m.Method.Token)];
+                    state.IlLastSearchQuery = query;
+                    state.IlCurrentMatchIndex = -1;
+                }
+
+                search.SetMatchCount(state.IlSearchMatches.Count);
+
+                if (state.IlSearchMatches.Count > 0)
+                {
+                    state.NavigateNextMatch = () =>
+                    {
+                        state.IlCurrentMatchIndex = (state.IlCurrentMatchIndex + 1) % state.IlSearchMatches.Count;
+                        NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
+                    };
+                    state.NavigatePrevMatch = () =>
+                    {
+                        state.IlCurrentMatchIndex = state.IlCurrentMatchIndex <= 0
+                            ? state.IlSearchMatches.Count - 1
+                            : state.IlCurrentMatchIndex - 1;
+                        NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
+                    };
+                }
+                else
+                {
+                    state.NavigateNextMatch = null;
+                    state.NavigatePrevMatch = null;
+                }
+            }
+            else
+            {
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+
+                // Clear confirmed search state when query changes during typing
+                if (state.IlLastSearchQuery is not null && (!search.IsActive || !search.IsConfirmed))
+                {
+                    state.IlLastSearchQuery = null;
+                    state.IlSearchMatches = [];
+                    state.IlCurrentMatchIndex = -1;
+                    state.IlTextMatchMethodTokens = null;
+                }
+            }
+
+            // Update search decoration provider
+            state.IlSearchProvider.Query = search.IsActive ? query : null;
+            if (state.IlCurrentMatchIndex >= 0 && state.IlCurrentMatchIndex < state.IlSearchMatches.Count)
+            {
+                var currentMatch = state.IlSearchMatches[state.IlCurrentMatchIndex];
+                state.IlSearchProvider.CurrentMatchStart = new DocumentPosition(currentMatch.Line, currentMatch.Column);
+                state.IlSearchProvider.CurrentMatchLength = currentMatch.Length;
+            }
+            else
+            {
+                state.IlSearchProvider.CurrentMatchStart = null;
+                state.IlSearchProvider.CurrentMatchLength = 0;
+            }
         }
 
-        // Focus the tree after scroll restore completes
-        if (state.IlNeedsTreeFocus && scrollRestorePhase == 0)
-        {
-            state.IlNeedsTreeFocus = false;
-            state.App.RequestFocus(node => node is TreeNode);
-        }
-
-        // Set up match navigation
-        state.NavigateNextMatch = null;
-        state.NavigatePrevMatch = null;
+        // Build the flattened tree rows for the left pane list
+        var treeRows = BuildTreeRows(state);
+        var formattedRows = treeRows.Select(r => FormatTreeRow(r, state)).ToList();
 
         return ctx.VStack(outer =>
         {
@@ -66,160 +103,102 @@ public static class IlInspectorView
             // Search bar (shared helper)
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
-            // Main content: HSplitter with tree on left, disassembly on right
+            // Main content: HSplitter with tree list on left, disassembly editor on right
             widgets.Add(outer.HSplitter(
-                // Left pane: Namespace > Type > Method tree
+                // Left pane: flattened tree via IlTreeListWidget (composite over ListWidget)
                 left =>
                 [
-                    left.Tree(t => BuildMethodTree(t, state))
-                        .FillHeight()
-                ],
-                // Right pane: IL disassembly in a vertical scroll panel
-                right =>
-                [
-                    right.VScrollPanel(scroll =>
+                    left.ThemePanel(
+                        t => t
+                            .Set(ListTheme.SelectedIndicator, "")
+                            .Set(ListTheme.UnselectedIndicator, ""),
+                    new IlTreeListWidget
                     {
-                        if (state.IlSelectedMethod is { } method)
+                        Rows = treeRows,
+                        FormattedRows = formattedRows,
+                        FocusedKey = state.IlFocusedTreeKey as string,
+                        SelectionChanged = index =>
                         {
-                            var searchQuery = state.Search[TabId.IlInspector].Query;
-                            var disassembly = state.IlDisassembler.FormatDisassembly(method);
-                            var lines = disassembly.Split('\n');
-
-                            return BuildDisassemblyWidgets(
-                                scroll, lines, searchQuery, scrollRestorePhase, state);
+                            if (index >= 0 && index < treeRows.Count)
+                            {
+                                var row = treeRows[index];
+                                state.IlFocusedTreeKey = row.Key;
+                                if (row is { Kind: IlTreeRowKind.Method, Method: not null })
+                                    state.IlSelectedMethod = row.Method;
+                            }
+                            state.App.Invalidate();
+                        },
+                        ItemActivated = index =>
+                        {
+                            if (index >= 0 && index < treeRows.Count)
+                                ActivateTreeRow(treeRows[index], state);
+                            state.App.Invalidate();
+                        },
+                        ExpandRow = index =>
+                        {
+                            if (index >= 0 && index < treeRows.Count)
+                            {
+                                var row = treeRows[index];
+                                if (row is { CanExpand: true, IsExpanded: false })
+                                {
+                                    state.IlTreeExpansionState[row.ExpansionKey] = true;
+                                    state.App.Invalidate();
+                                }
+                            }
+                        },
+                        CollapseRow = index =>
+                        {
+                            if (index >= 0 && index < treeRows.Count)
+                            {
+                                var row = treeRows[index];
+                                if (row is { CanExpand: true, IsExpanded: true })
+                                {
+                                    state.IlTreeExpansionState[row.ExpansionKey] = false;
+                                    state.App.Invalidate();
+                                }
+                            }
                         }
-
-                        return [scroll.Text("  Select a method to view IL disassembly")];
-                    })
-                    .OnScroll(e =>
-                    {
-                        // Don't overwrite the saved offset during scroll restore —
-                        // the scroll panel starts at 0 when recreated after a tab switch,
-                        // and clobbering the saved value would defeat the anchor mechanism.
-                        if (state.IlScrollRestoreFrames <= 0)
-                            state.IlDisassemblyScrollOffset = e.Offset;
-                        state.IlDisassemblyViewportSize = e.ViewportSize;
-                    })
-                    .FillHeight()
+                    }.FillWidth().FillHeight()
+                    ).FillWidth().FillHeight()
                 ],
+                // Right pane: IL disassembly via EditorWidget
+                right => BuildEditorPane(right, state),
                 leftWidth: 35).FillWidth().FillHeight());
 
             return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {
+            // Escape dismisses search (kept here — not moved to global because
+            // global Escape already handles confirmed search dismiss)
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
                 {
                     search.Dismiss();
+                    state.IlSearchProvider.Query = null;
+                    state.IlSearchProvider.CurrentMatchStart = null;
                     state.App.Invalidate();
                 }
             }, "Esc");
-
-            bindings.Key(Hex1bKey.PageDown).Action(_ =>
-            {
-                if (state.IlSelectedMethod is null) return;
-                state.IlDisassemblyScrollOffset += 20;
-                state.IlScrollRestoreFrames = 2;
-                state.App.Invalidate();
-            }, "Page Down");
-
-            bindings.Key(Hex1bKey.PageUp).Action(_ =>
-            {
-                if (state.IlSelectedMethod is null) return;
-                state.IlDisassemblyScrollOffset = Math.Max(0, state.IlDisassemblyScrollOffset - 20);
-                state.IlScrollRestoreFrames = 2;
-                state.App.Invalidate();
-            }, "Page Up");
-
-            // x: Jump to method body in Hex Dump
-            var isSearchEditing = search.IsActive && !search.IsConfirmed;
-            if (!isSearchEditing && state.IlSelectedMethod is { Rva: > 0 } selectedMethod)
-            {
-                bindings.Key(Hex1bKey.X).Action(_ =>
-                {
-                    state.NavigateToHexOffset(selectedMethod.Rva);
-                }, "View in hex");
-            }
         })
         .FillWidth().FillHeight();
     }
 
     /// <summary>
-    /// Builds the disassembly line widgets, optionally wrapping a viewport-sized
-    /// span in an Interactable anchor for scroll position restoration.
+    /// Builds a flattened list of tree rows from the namespace → type → method hierarchy,
+    /// respecting expansion state and search filtering.
     /// </summary>
-    private static Hex1bWidget[] BuildDisassemblyWidgets<T>(
-        WidgetContext<T> ctx,
-        string[] lines,
-        string? searchQuery,
-        int scrollRestorePhase,
-        DotsiderState state) where T : Hex1bWidget
+    internal static List<IlTreeRow> BuildTreeRows(DotsiderState state)
     {
-        // When not restoring scroll, just build plain text widgets
-        if (scrollRestorePhase <= 0)
-        {
-            return [.. lines
-                .Select(line => MakeLineWidget(ctx, line, searchQuery))];
-        }
+        var rows = new List<IlTreeRow>();
+        var search = state.Search[TabId.IlInspector];
+        var searchQuery = search.Query;
 
-        // Calculate the anchor span: a viewport-sized range starting at the target offset.
-        // When EnsureFocusedVisible sees a focused child spanning [target..target+viewport],
-        // it adjusts Offset to exactly `target` regardless of scroll direction.
-        // Use a minimum of 1 so the anchor is still created even if OnScroll hasn't
-        // fired yet to populate the viewport size (e.g. first PageDown after selecting a method).
-        var viewportSize = Math.Max(state.IlDisassemblyViewportSize, 1);
-        var anchorStart = Math.Clamp(state.IlDisassemblyScrollOffset, 0, Math.Max(0, lines.Length - 1));
-        var anchorEnd = Math.Min(anchorStart + viewportSize, lines.Length);
-
-        if (anchorEnd <= anchorStart)
-        {
-            return [.. lines
-                .Select(line => MakeLineWidget(ctx, line, searchQuery))];
-        }
-
-        var widgets = new Hex1bWidget[lines.Length - (anchorEnd - anchorStart) + 1];
-        var wi = 0;
-
-        // Lines before anchor
-        for (var i = 0; i < anchorStart; i++)
-            widgets[wi++] = MakeLineWidget(ctx, lines[i], searchQuery);
-
-        // Anchor: wrap viewport-sized span in Interactable for EnsureFocusedVisible
-        widgets[wi++] = ctx.Interactable(ic =>
-        {
-            var anchorWidgets = new Hex1bWidget[anchorEnd - anchorStart];
-            for (var j = 0; j < anchorWidgets.Length; j++)
-                anchorWidgets[j] = MakeLineWidget(ic, lines[anchorStart + j], searchQuery);
-            return anchorWidgets;
-        });
-
-        // Lines after anchor
-        for (var i = anchorEnd; i < lines.Length; i++)
-            widgets[wi++] = MakeLineWidget(ctx, lines[i], searchQuery);
-
-        return widgets;
-    }
-
-    private static Hex1bWidget MakeLineWidget<T>(
-        WidgetContext<T> ctx, string line, string? searchQuery) where T : Hex1bWidget
-    {
-        return string.IsNullOrEmpty(searchQuery)
-            ? ctx.Text(IlColorizer.ColorizeLine(line))
-            : HighlightHelper.HighlightText(ctx, line, searchQuery);
-    }
-
-    private static IEnumerable<TreeItemWidget> BuildMethodTree(TreeContext t, DotsiderState state)
-    {
-        var searchQuery = state.Search[TabId.IlInspector].Query;
-
-        // Group methods by declaring type
         var methodsByType = state.Analyzer.MethodDefs
             .GroupBy(m => m.DeclaringType)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Group types by namespace
         var typesByNamespace = state.Analyzer.TypeDefs
             .GroupBy(td => string.IsNullOrEmpty(td.Namespace) ? "(global)" : td.Namespace)
             .OrderBy(g => g.Key);
@@ -234,69 +213,257 @@ public static class IlInspectorView
                 nsTypes = [.. nsTypes.Where(td =>
                     td.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
                     (methodsByType.TryGetValue(td.FullName, out var methods) &&
-                     methods.Any(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))))];
+                     methods.Any(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                         (search.IsConfirmed && state.IlTextMatchMethodTokens?.Contains(m.Token) == true))))];
 
                 if (nsTypes.Count == 0) continue;
             }
 
             var nsKey = $"ns:{nsGroup.Key}";
-            yield return t.Item(
-                HighlightHelper.HighlightSubstring(nsGroup.Key, searchQuery), ns =>
-                BuildTypeItems(ns, nsTypes, methodsByType, searchQuery, state)
-            )
-            .Expanded(GetTreeExpansionState(state, nsKey, defaultExpanded: true))
-            .OnExpanded(_ => state.IlTreeExpansionState[nsKey] = true)
-            .OnCollapsed(_ => state.IlTreeExpansionState[nsKey] = false);
-        }
-    }
+            var nsExpanded = GetExpansionState(state, nsKey, defaultExpanded: true);
+            var nsLabel = HighlightHelper.HighlightSubstring(nsGroup.Key, searchQuery);
 
-    private static IEnumerable<TreeItemWidget> BuildTypeItems(
-        TreeContext t,
-        List<TypeDefInfo> types,
-        Dictionary<string, List<MethodDefInfo>> methodsByType,
-        string? searchQuery,
-        DotsiderState state)
-    {
-        foreach (var typeDef in types)
-        {
-            if (!methodsByType.TryGetValue(typeDef.FullName, out var methods))
-                continue;
+            rows.Add(new IlTreeRow(nsKey, 0, IlTreeRowKind.Namespace, nsLabel,
+                null, CanExpand: true, IsExpanded: nsExpanded, ExpansionKey: nsKey));
 
-            var filteredMethods = methods;
-            if (!string.IsNullOrEmpty(searchQuery))
+            if (!nsExpanded) continue;
+
+            foreach (var typeDef in nsTypes)
             {
-                filteredMethods = [.. methods
-                    .Where(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
-                                typeDef.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))];
+                if (!methodsByType.TryGetValue(typeDef.FullName, out var methods))
+                    continue;
 
-                if (filteredMethods.Count == 0) continue;
-            }
-
-            var typeKey = $"type:{typeDef.FullName}";
-            yield return t.Item(
-                HighlightHelper.HighlightSubstring(typeDef.Name, searchQuery), type =>
-                filteredMethods.Select(m =>
+                var filteredMethods = methods;
+                if (!string.IsNullOrEmpty(searchQuery))
                 {
-                    void SelectMethod()
-                    {
-                        state.IlSelectedMethod = m;
-                        state.IlDisassemblyScrollOffset = 0;
-                        state.IlScrollRestoreFrames = 0;
-                        state.App.Invalidate();
-                    }
+                    filteredMethods = [.. methods
+                        .Where(m => m.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                                    typeDef.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                                    (search.IsConfirmed && state.IlTextMatchMethodTokens?.Contains(m.Token) == true))];
 
-                    return type.Item(
-                            HighlightHelper.HighlightSubstring($"{m.Name}{m.Signature}", searchQuery))
-                        .OnClicked(_ => SelectMethod())
-                        .OnActivated(_ => SelectMethod());
-                })
-            )
-            .Expanded(GetTreeExpansionState(state, typeKey, defaultExpanded: false))
-            .OnExpanded(_ => state.IlTreeExpansionState[typeKey] = true)
-            .OnCollapsed(_ => state.IlTreeExpansionState[typeKey] = false);
+                    if (filteredMethods.Count == 0) continue;
+                }
+
+                var typeKey = $"type:{typeDef.FullName}";
+                var typeExpanded = GetExpansionState(state, typeKey, defaultExpanded: false);
+                var typeLabel = HighlightHelper.HighlightSubstring(typeDef.Name, searchQuery);
+
+                rows.Add(new IlTreeRow(typeKey, 1, IlTreeRowKind.Type, typeLabel,
+                    null, CanExpand: true, IsExpanded: typeExpanded, ExpansionKey: typeKey));
+
+                if (!typeExpanded) continue;
+
+                foreach (var m in filteredMethods)
+                {
+                    var methodKey = $"method:{m.Token}";
+                    var methodText = $"{m.Name}{m.Signature}";
+                    var methodLabel = HighlightHelper.HighlightSubstring(methodText, searchQuery);
+
+                    rows.Add(new IlTreeRow(methodKey, 2, IlTreeRowKind.Method, methodLabel,
+                        m, CanExpand: false, IsExpanded: false, ExpansionKey: ""));
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Formats a tree row for display in the table cell, adding indentation,
+    /// expand/collapse glyphs, and the selection marker.
+    /// </summary>
+    private static string FormatTreeRow(IlTreeRow row, DotsiderState state)
+    {
+        var indent = new string(' ', row.Depth * 2);
+        var glyph = row.CanExpand
+            ? (row.IsExpanded ? "▼ " : "▶ ")
+            : "  ";
+        var marker = row.Kind switch
+        {
+            IlTreeRowKind.Method when row.Method?.Token == state.IlSelectedMethod?.Token => "● ",
+            IlTreeRowKind.Type when row.Method is null
+                && state.IlSelectedMethod?.DeclaringType is { } dt
+                && row.Key == $"type:{dt}" => "● ",
+            IlTreeRowKind.Namespace when state.IlSelectedMethod is { } sm
+                && IsMethodInNamespace(sm, row.Label, state) => "● ",
+            _ => ""
+        };
+        return $"{indent}{glyph}{marker}{row.Label}";
+    }
+
+    /// <summary>
+    /// Checks whether the given method belongs to the namespace identified by label.
+    /// </summary>
+    private static bool IsMethodInNamespace(MethodDefInfo method, string nsLabel, DotsiderState state)
+    {
+        var td = state.Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
+        if (td is null) return false;
+        var ns = !string.IsNullOrEmpty(td.Namespace) ? td.Namespace : "(global)";
+        // nsLabel may have search highlight markup — compare against the raw namespace
+        return nsLabel.Contains(ns, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Handles activation (Enter key or click) on a tree row.
+    /// Methods get selected; namespaces/types toggle expansion.
+    /// </summary>
+    private static void ActivateTreeRow(IlTreeRow row, DotsiderState state)
+    {
+        switch (row.Kind)
+        {
+            case IlTreeRowKind.Method when row.Method is not null:
+                state.IlSelectedMethod = row.Method;
+                state.IlFocusedTreeKey = row.Key;
+                break;
+            case IlTreeRowKind.Namespace:
+            case IlTreeRowKind.Type:
+                // Toggle expansion
+                var current = GetExpansionState(state, row.ExpansionKey,
+                    defaultExpanded: row.Kind == IlTreeRowKind.Namespace);
+                state.IlTreeExpansionState[row.ExpansionKey] = !current;
+                break;
         }
     }
 
-    private static bool GetTreeExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
+    /// <summary>
+    /// Builds the right pane with an EditorWidget for IL disassembly.
+    /// Creates or reuses EditorState based on the selected method.
+    /// </summary>
+    private static Hex1bWidget[] BuildEditorPane<T>(
+        WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
+    {
+        if (state.IlSelectedMethod is not { } method)
+            return [ctx.Text("  Select a method to view IL disassembly").FillHeight()];
+
+        // Create new editor state when the method changes or when the analyzer
+        // was replaced (e.g. after SaveHexChanges swaps in a new image).
+        if (state.IlEditorMethod?.Token != method.Token
+            || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
+        {
+            var disassembly = state.IlDisassembler.FormatDisassembly(method);
+            var doc = new Hex1bDocument(disassembly);
+            state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
+            state.IlEditorMethod = method;
+            state.IlEditorAnalyzer = state.Analyzer;
+        }
+
+        // After word selection (double-click), cursor lands past the word on punctuation.
+        // Move cursor back to the last character of the word (neovim behavior).
+        if (state.CurrentTab == TabId.IlInspector)
+            AdjustWordSelectionCursor(state.IlEditorState);
+
+        // The host composite forces a fresh EditorNode when the key changes
+        // (different method or analyzer reload), resetting native scroll to line 1.
+        // Same key across tab switches preserves the existing EditorNode and its scroll.
+        var editorKey = (state.Analyzer, method.Token);
+
+        return
+        [
+            new IlEditorHostWidget
+            {
+                EditorKey = editorKey,
+                State = state.IlEditorState!,
+                AppState = state
+            }.FillWidth().FillHeight()
+        ];
+    }
+
+    internal static bool GetExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
         state.IlTreeExpansionState.TryGetValue(key, out var expanded) ? expanded : defaultExpanded;
+
+    /// <summary>
+    /// After word selection (double-click), the cursor lands one past the word on punctuation.
+    /// Moves the cursor back to the last character of the word to match neovim behavior.
+    /// </summary>
+    internal static void AdjustWordSelectionCursor(EditorState? editorState)
+    {
+        if (editorState is not { } es
+            || es.Cursor is not { HasSelection: true, SelectionAnchor: { } anchor }
+            || es.Cursor.Position.Value <= anchor.Value)
+            return;
+
+        var text = es.Document.GetText();
+        var cursorVal = es.Cursor.Position.Value;
+        if (cursorVal >= text.Length || char.IsLetterOrDigit(text[cursorVal]))
+            return;
+
+        var sel = es.Document.GetText(es.Cursor.SelectionRange);
+        if (sel.Length > 0 && sel.All(char.IsLetterOrDigit))
+            es.Cursor.Position = new DocumentOffset(cursorVal - 1);
+    }
+
+    /// <summary>
+    /// Collects all text-level search matches across ALL methods' IL disassembly,
+    /// ordered to mirror the actual tree traversal order:
+    /// namespaces alphabetical, types in TypeDefs order, methods in MethodDefs order,
+    /// then line → column within each method's disassembly.
+    /// </summary>
+    private static List<IlMatch> CollectTextMatches(DotsiderState state, string query)
+    {
+        var result = new List<IlMatch>();
+        var methodsByType = state.Analyzer.MethodDefs
+            .GroupBy(m => m.DeclaringType)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var typesByNamespace = state.Analyzer.TypeDefs
+            .GroupBy(td => string.IsNullOrEmpty(td.Namespace) ? "(global)" : td.Namespace)
+            .OrderBy(g => g.Key);
+
+        foreach (var nsGroup in typesByNamespace)
+        {
+            foreach (var typeDef in nsGroup)
+            {
+                if (!methodsByType.TryGetValue(typeDef.FullName, out var methods)) continue;
+
+                foreach (var method in methods)
+                {
+                    var disassembly = state.IlDisassembler.FormatDisassembly(method);
+                    var lines = disassembly.Split('\n');
+
+                    for (var lineIdx = 0; lineIdx < lines.Length; lineIdx++)
+                    {
+                        var line = lines[lineIdx];
+                        var pos = 0;
+                        while (pos < line.Length)
+                        {
+                            var idx = line.IndexOf(query, pos, StringComparison.OrdinalIgnoreCase);
+                            if (idx < 0) break;
+
+                            result.Add(new IlMatch(method, lineIdx + 1, idx + 1, query.Length));
+                            pos = idx + query.Length;
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Navigates to a specific text match, switching methods and expanding tree nodes as needed.
+    /// </summary>
+    private static void NavigateToMatch(DotsiderState state, IlMatch match)
+    {
+        // Switch method if needed
+        if (state.IlSelectedMethod?.Token != match.Method.Token)
+        {
+            state.IlSelectedMethod = match.Method;
+
+            // Expand namespace and type in the tree
+            var typeDef = state.Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == match.Method.DeclaringType);
+            var ns = typeDef is not null && !string.IsNullOrEmpty(typeDef.Namespace)
+                ? typeDef.Namespace : "(global)";
+            state.IlTreeExpansionState[$"ns:{ns}"] = true;
+            state.IlTreeExpansionState[$"type:{match.Method.DeclaringType}"] = true;
+        }
+
+        // Focus the method row in the tree table
+        state.IlFocusedTreeKey = $"method:{match.Method.Token}";
+
+        // Set pending cursor match — consumed by BuildEditorPane on next frame
+        state.IlPendingCursorMatch = match;
+
+        state.App.Invalidate();
+    }
 }

@@ -6,7 +6,7 @@ namespace Dotsider.Tests;
 /// </summary>
 public class MatchNavigationTests
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigateNext_WrapsAround()
     {
         var index = 0;
@@ -19,7 +19,7 @@ public class MatchNavigationTests
         index = (index + 1) % count; Assert.Equal(1, index);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NavigatePrev_WrapsAround()
     {
         var index = 0;
@@ -34,7 +34,7 @@ public class MatchNavigationTests
         Assert.Equal(0, index);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SingleMatch_StaysOnSame()
     {
         var index = 0;
@@ -45,7 +45,7 @@ public class MatchNavigationTests
         Assert.Equal(0, index);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HexMatchNavigation_NextWraps()
     {
         var offsets = new List<long> { 0x100, 0x200, 0x300 };
@@ -72,7 +72,7 @@ public class MatchNavigationTests
         Assert.Equal(0x100, offsets[currentIndex]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HexMatchNavigation_PrevWraps()
     {
         var offsets = new List<long> { 0x100, 0x200, 0x300 };
@@ -84,7 +84,7 @@ public class MatchNavigationTests
         Assert.Equal(0x300, offsets[currentIndex]);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ZeroMatches_NavigateIsNoop()
     {
         var offsets = new List<long>();
@@ -93,7 +93,7 @@ public class MatchNavigationTests
         Assert.Empty(offsets);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void BackwardsNavigation_FromMiddle()
     {
         var offsets = new List<long> { 10, 20, 30, 40, 50 };

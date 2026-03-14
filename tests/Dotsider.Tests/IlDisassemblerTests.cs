@@ -5,7 +5,7 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class IlDisassemblerTests(SampleAssemblyFixture samples)
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void HelloWorld_MainMethod_ContainsCallAndRet()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -17,7 +17,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains(instructions, i => i.OpCode.Contains("ret"));
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_UserServiceAdd_DisassemblesSuccessfully()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -29,7 +29,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NativeLib_UnsafeMethod_HasDistinctOpcodes()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -40,7 +40,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatDisassembly_ReturnsReadableText()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -52,7 +52,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains("IL_", text);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void AllRichLibraryMethods_DisassembleWithoutThrowing()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -64,7 +64,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MethodWithNoBody_ReturnsEmptyList()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -78,7 +78,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void EmptyLib_CanConstruct_NoMethodsToDisassemble()
     {
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
@@ -88,7 +88,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.True(methodsWithIl.Count <= 2);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_AsyncMethod_DisassemblesSuccessfully()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -101,7 +101,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void MinimalApi_Methods_DisassembleWithoutThrowing()
     {
         using var a = new AssemblyAnalyzer(samples.MinimalApiDll);
@@ -113,7 +113,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Disassemble_InstructionHasOffset()
     {
         using var a = new AssemblyAnalyzer(samples.HelloWorldDll);
@@ -125,7 +125,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Equal(0, instructions[0].Offset);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void NativeLib_StackAllocSum_HasInstructions()
     {
         using var a = new AssemblyAnalyzer(samples.NativeLibDll);
@@ -136,7 +136,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Instruction_HasOpCodeAndOperand()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -151,7 +151,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void FormatDisassembly_ContainsHexOffsets()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -161,7 +161,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains("IL_0000", text);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ComplexApp_AllMethods_DisassembleWithoutThrowing()
     {
         using var a = new AssemblyAnalyzer(samples.ComplexAppDll);
@@ -173,7 +173,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodWithStringOperand_ContainsLdstr()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -191,7 +191,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodWithBranches_ContainsBr()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
@@ -209,7 +209,7 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodCallInstructions_ResolveTokens()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);

@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace Dotsider.Website;
 
 /// <summary>
@@ -20,11 +22,11 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "CONNECT session={SessionId} ip={Ip} ua={UserAgent}")]
-    public static partial void AuditConnect(ILogger logger, string sessionId, string ip, string? userAgent);
+    public static partial void AuditConnect(ILogger logger, string sessionId, IPAddress ip, string? userAgent);
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "DISCONNECT session={SessionId} ip={Ip} duration={DurationSec:F1}s")]
-    public static partial void AuditDisconnect(ILogger logger, string sessionId, string ip, double durationSec);
+    public static partial void AuditDisconnect(ILogger logger, string sessionId, IPAddress ip, double durationSec);
 
     // ── Guard actions ────────────────────────────────────────────────
 

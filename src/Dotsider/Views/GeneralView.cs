@@ -35,12 +35,35 @@ public static class GeneralView
             refs = [.. refs
                 .Where(r => $"{r.Name} {r.Version} {r.Culture} {r.PublicKeyToken}"
                     .Contains(query, StringComparison.OrdinalIgnoreCase))];
-            search.SetMatchCount(refs.Count);
         }
 
-        // Set up match navigation
-        state.NavigateNextMatch = null;
-        state.NavigatePrevMatch = null;
+        if (state.CurrentTab == TabId.General)
+        {
+            if (!string.IsNullOrEmpty(query))
+                search.SetMatchCount(refs.Count);
+
+            // Set up match navigation — cycle through filtered assembly refs
+            if (refs.Count > 0 && !string.IsNullOrEmpty(query))
+            {
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindRefIndex(refs, state.GeneralFocusedDep);
+                    idx = (idx + 1) % refs.Count;
+                    state.GeneralFocusedDep = refs[idx].Name;
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindRefIndex(refs, state.GeneralFocusedDep);
+                    idx = idx <= 0 ? refs.Count - 1 : idx - 1;
+                    state.GeneralFocusedDep = refs[idx].Name;
+                };
+            }
+            else
+            {
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+            }
+        }
 
         return ctx.VStack(outer =>
         {
@@ -145,6 +168,17 @@ public static class GeneralView
             }, "Esc");
         })
         .Fill();
+    }
+
+    private static int FindRefIndex(IReadOnlyList<AssemblyRefInfo> refs, object? focusedKey)
+    {
+        if (focusedKey is not string key) return -1;
+        for (var i = 0; i < refs.Count; i++)
+        {
+            if (refs[i].Name == key)
+                return i;
+        }
+        return -1;
     }
 
     private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget

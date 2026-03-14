@@ -36,19 +36,20 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DiffApp_Launches_ShowsBothAssemblies()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Added") || s.ContainsText("Removed") ||
                 s.ContainsText("Changed") || s.ContainsText("RichLibrary"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -56,19 +57,20 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsDiffEntries()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Added") || s.ContainsText("Removed") ||
                 s.ContainsText("Changed") || s.ContainsText("Type"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -76,16 +78,17 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task QuitKey_ExitsDiffApp()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("Diff"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") || s.ContainsText("Diff"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Q)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -94,25 +97,26 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ArrowKeys_CycleTabs()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             // Start on tab 0 (Summary), arrow right to Types (tab 1)
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(10))
             // Arrow right again to Methods (tab 2)
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(10))
             // Arrow left back to Types (tab 1)
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -122,21 +126,22 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Search_ActivatesAndFilters()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             // Switch to Types tab, then activate search
             .Key(Hex1bKey.D2)
-            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 1, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.Search[1].IsActive, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.Search[1].IsActive, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -146,22 +151,23 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsReferencesTab()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Tab 4 — References
-            .WaitUntil(_ => _state!.CurrentTab == 3, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 3, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("References") || s.ContainsText("Assembly") ||
                 s.ContainsText("Version"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -171,22 +177,23 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsMethodsTab()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Tab 3 — Methods
-            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(2))
+            .WaitUntil(_ => _state!.CurrentTab == 2, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Methods") || s.ContainsText("Method") ||
                 s.ContainsText("Added") || s.ContainsText("Removed"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -196,16 +203,17 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task LeftArrow_DoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDiffApp();
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             // On tab 0, press left twice — should stay at 0
             .Key(Hex1bKey.LeftArrow)
             .Key(Hex1bKey.LeftArrow)

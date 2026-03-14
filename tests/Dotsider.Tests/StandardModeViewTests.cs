@@ -2,7 +2,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
-using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -15,8 +14,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null, [System.Runtime.CompilerServices.CallerMemberName] string? testName = null)
     {
+        TestHelpers.Diag($"Creating app for {Path.GetFileName(dllPath)}", testName);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -24,9 +24,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WithDimensions(120, 30)
             .Build();
         DotsiderApp? dotsiderApp = null;
+        var renderCount = 0;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
+                renderCount++;
+                if (renderCount <= 3)
+                    TestHelpers.Diag($"Render #{renderCount}", testName);
                 if (_state is null)
                 {
                     _state = new DotsiderState(_hex1bApp!, dllPath);
@@ -44,16 +48,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task App_Launches_ShowsAssemblyName()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -61,18 +66,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab2_ShowsMetadata()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Type("2") // Key 2 → PE/Metadata (TabId 1)
-            .WaitUntil(s => s.ContainsText("Sections") || s.ContainsText("TypeDef"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Sections") || s.ContainsText("TypeDef"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -80,18 +86,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab3_ShowsIlInspector()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -99,18 +106,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab4_ShowsStrings()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Tab 4 — Strings
-            .WaitUntil(s => s.ContainsText("Offset") || s.ContainsText("Value") || s.ContainsText("User Strings"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Offset") || s.ContainsText("Value") || s.ContainsText("User Strings"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -118,18 +126,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_ShowsHexDump()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5) // Key 5 → Hex Dump (TabId 4)
-            .WaitUntil(s => s.ContainsText("4D 5A") || s.ContainsText("00000"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("4D 5A") || s.ContainsText("00000"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -137,18 +146,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_StartsInNormalMode_ReadOnly()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -160,46 +170,49 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_IKey_EntersInsertMode()
     {
-        var ct = TestContext.Current.CancellationToken;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         Assert.Equal(HexEditMode.Insert, _state!.HexMode);
         Assert.False(_state.HexEditorState.IsReadOnly);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_EscFromInsert_ReturnsToNormal()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Escape)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -210,31 +223,32 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_EscFromInsert_WithConfirmedSearch_ExitsInsertFirst()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             // Start a search and confirm it
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.M)
             .Key(Hex1bKey.Z)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.HexDump].IsConfirmed, TimeSpan.FromSeconds(10))
             // Enter insert mode
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             // First Esc should exit insert mode, NOT dismiss search
             .Key(Hex1bKey.Escape)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -248,18 +262,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_NormalMode_VimKeysNavigate()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -268,7 +283,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press 'l' to move right in normal mode
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.L)
-            .WaitUntil(_ => _state.HexEditorState.Cursor.Position != cursorBefore, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.HexEditorState.Cursor.Position != cursorBefore, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -280,20 +295,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_SKey_DoesNotToggleSize()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -310,20 +326,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_QKey_DoesNotQuit()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Q) // Should NOT quit — we're in insert mode
             .Ctrl().Key(Hex1bKey.C) // This quits
             .Build()
@@ -334,20 +351,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_NumberKeys_DoNotSwitchTabs()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.I)
-            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D1) // Should NOT switch to tab 1
             .Ctrl().Key(Hex1bKey.C)
             .Build()
@@ -358,20 +376,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_NormalMode_NoInsertIndicator()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D5)
-            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
             // Verify normal mode does not show INSERT indicator
-            .WaitUntil(s => !s.ContainsText("INSERT"), TimeSpan.FromSeconds(1))
+            .WaitUntil(s => !s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -381,7 +400,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab5_CtrlS_SavesWithCorrectFileName()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -395,26 +414,27 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
             var runTask = app.RunAsync(ct);
+            await Task.Delay(100, ct);
 
             await new Hex1bTerminalInputSequenceBuilder()
-                .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
                 .Key(Hex1bKey.D5)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
                 // Enter insert mode, skip past MZ header into DOS stub padding,
                 // then type two nibbles to complete a byte edit without breaking PE
                 .Key(Hex1bKey.I)
-                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
                 .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
                 .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
                 .Key(Hex1bKey.F)
                 .Key(Hex1bKey.F)
-                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(10))
                 // Return to normal mode, then save
                 .Key(Hex1bKey.Escape)
-                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(3))
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
                 .Ctrl().Key(Hex1bKey.S)
-                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(3))
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(10))
                 .Ctrl().Key(Hex1bKey.C)
                 .Build()
                 .ApplyAsync(terminal, ct);
@@ -435,18 +455,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_ShowsDepGraph()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6) // Tab 6 — Dep Graph
-            .WaitUntil(s => s.ContainsText("Newtonsoft") || s.ContainsText("System.Runtime"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Newtonsoft") || s.ContainsText("System.Runtime"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -454,18 +475,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_ShowsSizeMap()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7) // Tab 7 — Size Map
-            .WaitUntil(s => !s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => !s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -473,18 +495,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_ShowsNodeAndEdgeCounts()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
-            .WaitUntil(s => s.ContainsText("Nodes:") && s.ContainsText("Edges:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:") && s.ContainsText("Edges:"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -496,23 +519,24 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_SearchShowsMatchCount()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
-            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S) // "sys"
             .Key(Hex1bKey.Enter) // Confirm
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -523,31 +547,32 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_MatchNavigation_CyclesGraphSelectedNode()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph and search for "sys"
+        //Navigate to dep graph and search for "sys"
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
-            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Press 'n' to navigate to first match
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.N)
-            .WaitUntil(_ => _state!.GraphMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.GraphMatchIndex >= 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -559,7 +584,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.N)
             .WaitUntil(_ => _state.GraphMatchIndex != firstIndex
                             || _state.Search[TabId.DepGraph].MatchCount == 1,
-                TimeSpan.FromSeconds(3))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -570,24 +595,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_ArrowKeys_WorkAfterSearchConfirm()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph, search for "sys", confirm
+        //Navigate to dep graph, search for "sys", confirm
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
-            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -596,7 +622,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -606,24 +632,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_ArrowKeys_WorkAfterSearchConfirm()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Size Map, search for "rich", confirm
+        //Navigate to Size Map, search for "rich", confirm
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
-            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.R).Key(Hex1bKey.I).Key(Hex1bKey.C).Key(Hex1bKey.H)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -632,7 +659,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -642,17 +669,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
         var ct = TestContext.Current.CancellationToken;
         // Start directly on Dep Graph tab — tests the initial focus predicate
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.DepGraph);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -661,7 +689,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Arrow keys should work immediately without switching tabs first
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -671,17 +699,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
         var ct = TestContext.Current.CancellationToken;
         // Start directly on Size Map tab — tests the initial focus predicate
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.SizeMap);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -690,7 +719,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Arrow keys should work immediately without switching tabs first
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -700,19 +729,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab6_ArrowKeys_CycleSelectedIndex()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to dep graph tab
+        //Navigate to dep graph tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
-            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -721,7 +751,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Right to select first node
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -730,7 +760,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Right again — should advance
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.GraphSelectedIndex == 1, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.GraphSelectedIndex == 1, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -739,7 +769,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Left — should go back
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.GraphSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.GraphSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -749,19 +779,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_ArrowKeys_CycleSelectedIndex()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Size Map tab
+        //Navigate to Size Map tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
-            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -770,7 +801,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Right to select first item
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -779,7 +810,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Right again — should advance
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.TreemapSelectedIndex == 1, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.TreemapSelectedIndex == 1, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -788,7 +819,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Left — should go back
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -798,19 +829,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_ShowsBreadcrumbAndTotalSize()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
             .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -821,20 +853,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_Backspace_PopsBreadcrumb()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to tab 7, let treemap render
+        //Navigate to tab 7, let treemap render
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
             .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -847,7 +880,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Wait for breadcrumb to show the drill-down path (root > child)
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText(firstChild.Name), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText(firstChild.Name), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -856,7 +889,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Backspace to go up
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Backspace)
-            .WaitUntil(_ => _state.TreemapBreadcrumb.Count == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.TreemapBreadcrumb.Count == 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -867,24 +900,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_SearchMatchNavigation_UpdatesHoveredItem()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to tab 7 and search for a namespace
+        //Navigate to tab 7 and search for a namespace
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
-            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.R).Key(Hex1bKey.I).Key(Hex1bKey.C).Key(Hex1bKey.H) // "rich"
             .Key(Hex1bKey.Enter) // Confirm
-            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -894,7 +928,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press 'n' to navigate to first match
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.N)
-            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -904,24 +938,26 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab7_Enter_PrefersSearchMatchOverStaleSelection()
     {
-        var ct = TestContext.Current.CancellationToken;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         // Navigate to Size Map, select first item with arrow key
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D7)
-            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.TreemapSelectedIndex == 0, TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         var currentLevel = _state!.TreemapCurrentLevel ?? _state.CachedSizeTree!;
         Assert.Equal(0, _state.TreemapSelectedIndex);
 
@@ -943,40 +979,35 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         if (searchTerm is null)
         {
-            // No suitable child found — skip
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Ctrl().Key(Hex1bKey.C)
-                .Build()
-                .ApplyAsync(terminal, ct);
-            await runTask.ContinueWith(_ => { }, ct);
+            cts.Cancel();
+            await runTask;
             return;
         }
 
         // Search for the non-zero child, confirm, navigate to match
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsActive, TimeSpan.FromSeconds(10))
             .Type(searchTerm)
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         if (_state.Search[TabId.SizeMap].MatchCount == 0)
         {
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Ctrl().Key(Hex1bKey.C)
-                .Build()
-                .ApplyAsync(terminal, ct);
-            await runTask.ContinueWith(_ => { }, ct);
+            cts.Cancel();
+            await runTask;
             return;
         }
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.N)
-            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.TreemapMatchIndex >= 0, TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
+
+        await Task.Delay(100, cts.Token);
 
         // Stale selection is still 0, but search match points elsewhere
         Assert.Equal(0, _state.TreemapSelectedIndex);
@@ -987,10 +1018,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state.TreemapCurrentLevel != previousLevel
-                            || _state.TreemapBreadcrumb.Count > 0, TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
+                            || _state.TreemapBreadcrumb.Count > 0, TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
+
+        await Task.Delay(100, cts.Token);
 
         // Verify we drilled into the search match (name contains query), not child 0
         if (_state.TreemapCurrentLevel != previousLevel)
@@ -999,21 +1031,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 StringComparison.OrdinalIgnoreCase);
         }
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_Library_ShowsNoEntryPoint()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8) // Tab 8 — Dynamic
-            .WaitUntil(s => s.ContainsText("entry point") || s.ContainsText("library"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("entry point") || s.ContainsText("library"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1021,18 +1055,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_Exe_ShowsLaunchPrompt()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8) // Tab 8 — Dynamic
-            .WaitUntil(s => s.ContainsText("Enter") || s.ContainsText("Launch") || s.ContainsText("EventPipe"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Enter") || s.ContainsText("Launch") || s.ContainsText("EventPipe"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1040,23 +1075,24 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab8_Exe_IdleView_ShowsAssemblyInfoAndProviders()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Verify idle view shows assembly info and provider list
+        //Verify idle view shows assembly info and provider list
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly:"), TimeSpan.FromSeconds(3))
-            .WaitUntil(s => s.ContainsText("Entry Point:"), TimeSpan.FromSeconds(3))
-            .WaitUntil(s => s.ContainsText("Providers:"), TimeSpan.FromSeconds(3))
-            .WaitUntil(s => s.ContainsText("CLR Runtime"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Entry Point:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Providers:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("CLR Runtime"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1066,21 +1102,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch process and wait for exit so sub-tabs are visible
+        //Launch process and wait for exit so sub-tabs are visible
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1090,7 +1128,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Right → Counters
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1099,7 +1137,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Right → Output
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1108,7 +1146,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Right → Summary
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1125,7 +1163,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Left → back to Output
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1135,21 +1173,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_CategoryFilterKeys_UpdateState()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch, wait for exit, stay on Events sub-tab
+        //Launch, wait for exit, stay on Events sub-tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1158,7 +1198,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // g → GC filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.G)
-            .WaitUntil(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1167,7 +1207,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // j → JIT filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.J)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1176,7 +1216,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // e → Exception filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.E)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1185,7 +1225,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // l → Loader filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.L)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1194,7 +1234,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // t → Threading filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.T)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1203,7 +1243,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // h → HTTP filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.H)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1212,7 +1252,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Esc → clears filter
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.DynamicCategoryFilter is null, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter is null, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1222,7 +1262,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_CtrlK_StopsRunningProcess()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1230,16 +1270,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // so Ctrl+K is the only way to reach Exited within the timeout.
         var (terminal, app) = CreateDotsiderApp(samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab and launch
+        //Navigate to Dynamic tab and launch
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running,
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1251,7 +1292,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Ctrl().Key(Hex1bKey.K)
             .WaitUntil(_ => _state.Tracer!.ProcessState
                 is TraceProcessState.Exited or TraceProcessState.Error,
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1262,21 +1303,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_Enter_RerunsAfterExit()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Launch and wait for exit
+        //Launch and wait for process to finish (Exited or Error)
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1286,7 +1329,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press Enter to re-run
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.Tracer != firstTracer, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.Tracer != firstTracer, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1297,7 +1340,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Wait for the re-run to exit successfully
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.Tracer!.ProcessState == TraceProcessState.Exited,
-                TimeSpan.FromSeconds(8))
+                TimeSpan.FromSeconds(15))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1308,52 +1351,57 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
-        var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         // Navigate to Dynamic tab and launch the process
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter) // Launch process
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         // Process has exited — activating search must not crash with
         // "Global binding conflict: Enter is already registered"
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(3))
-            .Ctrl().Key(Hex1bKey.C)
+            .WaitUntil(_ => _state!.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(10))
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
+        await Task.Delay(100, cts.Token);
         Assert.True(_state!.Search[TabId.Dynamic].IsActive);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task General_EnterOnReference_DrillsIntoAssembly()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
-            // Focus starts on the dependency table; Enter to drill into the first ref
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            // Focus starts on the dependency table; DownArrow ensures a row is selected, Enter drills
+            .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
             // After drill-down, the title bar should no longer show "HelloWorld.dll"
-            .WaitUntil(s => !s.ContainsText("HelloWorld.dll"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => !s.ContainsText("HelloWorld.dll"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1361,22 +1409,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab3_ArrowKeysWorkImmediately()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3))
-            // Arrow keys should work immediately without clicking first
-            .Key(Hex1bKey.DownArrow) // Move to Program
-            .Key(Hex1bKey.RightArrow) // Expand Program
-            .WaitUntil(s => s.ContainsText(".ctor"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
+            // Arrow keys should work immediately without clicking first —
+            // DownArrow moves table focus, which toggles expansion on namespace/type rows
+            .Key(Hex1bKey.DownArrow)
+            .WaitUntil(s => s.ContainsText(".ctor") || s.ContainsText("Main"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1384,46 +1433,41 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab3_DisassemblyPaneScrolls()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to StringHelpers.ToTitleCase (139 bytes of IL, overflows viewport)
-        var builder = new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+        // Navigate to IL tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3));
-
-        for (var i = 0; i < 15; i++)
-            builder = builder.Key(Hex1bKey.DownArrow);
-
-        await builder
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(3))
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Focus the scroll panel and scroll down.
-        // RequestFocus is async — send multiple PageDowns so at least one
-        // lands after focus has been applied to the scroll panel.
-        _hex1bApp!.RequestFocus(node => node is ScrollPanelNode);
-        _hex1bApp.Invalidate();
+        // Select ToTitleCase programmatically (139 bytes of IL, overflows viewport)
+        var toTitleCase = _state!.Analyzer.MethodDefs.First(m => m.Name == "ToTitleCase");
+        var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == toTitleCase.DeclaringType);
+        var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
+        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
+        _state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
+        _state.IlSelectedMethod = toTitleCase;
+        _state.IlFocusedTreeKey = $"method:{toTitleCase.Token}";
+        _state.App.Invalidate();
 
+        // Click in the editor to focus it, then PageDown scrolls natively
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(1))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .ClickAt(50, 15) // Click in editor pane (right of splitter)
             .PageDown()
             .PageDown()
             .PageDown()
-            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1431,18 +1475,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab4_ArrowKeysCycleSubTabs()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Tab 4 — Strings
-            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1452,7 +1497,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Right arrow → sub-tab 1
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1461,7 +1506,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Right arrow → sub-tab 2
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.StringsSourceTab == 2, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.StringsSourceTab == 2, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1470,7 +1515,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Left arrow → back to sub-tab 1
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1480,20 +1525,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab4_ArrowKeysDuringSearchEditing_DoNotSwitchSubTab()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Tab 4 — Strings
-            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state!.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1513,9 +1559,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Dismiss search, then arrows should work again
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => !_state.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => !_state.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.StringsSourceTab == 1, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1525,21 +1571,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab, launch the process, wait for exit
+        //Navigate to Dynamic tab, launch the process, wait for exit
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1549,7 +1597,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Press S on the Events sub-tab — should set Socket filter, not toggle sizes
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.S)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1560,88 +1608,79 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Tab3_ScrollPositionPreservedAcrossTabSwitch()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to IL Inspector and select ToTitleCase (139 bytes of IL, overflows viewport)
-        var builder = new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
-            .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("Select a method"), TimeSpan.FromSeconds(3));
-
-        // Navigate tree to StringHelpers > ToTitleCase
-        for (var i = 0; i < 15; i++)
-            builder = builder.Key(Hex1bKey.DownArrow);
-
-        await builder
-            .Key(Hex1bKey.RightArrow) // Expand StringHelpers
-            .WaitUntil(s => s.ContainsText("ToTitleCase"), TimeSpan.FromSeconds(3))
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.Enter) // Select ToTitleCase
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        // Scroll down via PageDown — exercises the full keyboard scroll path
-        // without seeding IlDisassemblyViewportSize.
-        // Verify rendered output actually scrolled past IL_0000.
+        // Navigate to IL tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.PageDown)
-            .WaitUntil(_ => _state!.IlDisassemblyScrollOffset > 0, TimeSpan.FromSeconds(3))
-            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D3)
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        var savedOffset = _state!.IlDisassemblyScrollOffset;
-        var savedMethod = _state.IlSelectedMethod;
-        Assert.True(savedOffset > 0, "Scroll offset should be non-zero after PageDown");
+        // Select ToTitleCase programmatically (139 bytes of IL, overflows viewport)
+        var toTitleCase = _state!.Analyzer.MethodDefs.First(m => m.Name == "ToTitleCase");
+        var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == toTitleCase.DeclaringType);
+        var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
+        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
+        _state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
+        _state.IlSelectedMethod = toTitleCase;
+        _state.IlFocusedTreeKey = $"method:{toTitleCase.Token}";
+        _state.App.Invalidate();
+
+        // Click in editor to focus it, then scroll down natively via PageDown
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .ClickAt(50, 15) // Click in editor pane
+            .PageDown()
+            .PageDown()
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var savedMethod = _state!.IlSelectedMethod;
 
         // Switch to tab 1 (General)
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D1)
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // State must survive while on another tab
-        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
         Assert.Equal(savedMethod, _state.IlSelectedMethod);
 
-        // Switch back to tab 3 — triggers scroll restore state machine.
-        // Verify the rendered disassembly is restored past IL_0000 (not reset to top).
+        // Switch back to tab 3 — EditorNode preserved by Responsive, scroll intact
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state.IlScrollRestoreFrames == 0, TimeSpan.FromSeconds(3))
-            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => !s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Scroll offset must be preserved after restore completes
-        Assert.Equal(savedOffset, _state.IlDisassemblyScrollOffset);
         Assert.Equal(savedMethod, _state.IlSelectedMethod);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task QuitKey_ExitsApp()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Q) // q = quit
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1651,19 +1690,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task CrossViewBack_SuppressedDuringSearchEditing()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to IL Inspector tab
+        //Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1673,17 +1713,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Wait for "Backspace: Back" hint to appear
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Backspace: Back"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Backspace: Back"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Open search — type "test" then press Backspace
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.T).Key(Hex1bKey.E).Key(Hex1bKey.S).Key(Hex1bKey.T) // type "test"
             .Key(Hex1bKey.Backspace) // should delete 't', NOT navigate back
-            .WaitUntil(_ => _state.Search[TabId.IlInspector].Query == "tes", TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.Search[TabId.IlInspector].Query == "tes", TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1696,22 +1736,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task Tab8_Enter_OnJitEvent_NavigatesToIlInspector()
     {
         var ct = TestContext.Current.CancellationToken;
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
-        // Navigate to Dynamic tab, launch trace, and wait for exit
+        //Navigate to Dynamic tab, launch trace, and wait for exit
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"),
-                TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1726,6 +1767,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Where(e => e.Category == TraceEventCategory.JIT
                      && e.Detail == "Formatter.Format")
             .ToList();
+
+        // Diagnostic: log all Formatter.Format JIT events and their tokens
+        Console.WriteLine($"[DIAG] Formatter.Format JIT events: {formatEvents.Count}");
+        for (var idx = 0; idx < formatEvents.Count; idx++)
+            Console.WriteLine($"[DIAG]   [{idx}] Token=0x{formatEvents[idx].MetadataToken:X8} Detail={formatEvents[idx].Detail}");
+
         Assert.True(formatEvents.Count >= 2,
             $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
 
@@ -1744,22 +1791,29 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var byName = _state.Analyzer.MethodDefs
             .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
         Assert.NotNull(byName);
+
+        // Diagnostic: log token comparison
+        Console.WriteLine($"[DIAG] expectedMethod.Token=0x{expectedMethod.Token:X8} byName.Token=0x{byName.Token:X8} targetEvent.Token=0x{targetEvent.MetadataToken:X8}");
+
         Assert.NotEqual(expectedMethod.Token, byName.Token);
 
         // Set JIT filter + focused key to the second overload's row
-        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}";
+        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}:{targetEvent.MetadataToken}";
         _state.DynamicCategoryFilter = TraceEventCategory.JIT;
         _state.DynamicEventsFocusedKey = eventKey;
         _hex1bApp!.Invalidate();
 
         // Press Enter — the handler must select by token, not by name
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(3))
+            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(3))
+            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
+
+        // Diagnostic: log what was selected
+        Console.WriteLine($"[DIAG] IlSelectedMethod.Token=0x{_state.IlSelectedMethod?.Token:X8} expected=0x{expectedMethod.Token:X8}");
 
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
         Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);

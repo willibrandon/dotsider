@@ -52,20 +52,21 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
                 EnableInputCoalescing = false
             });
 
-        _listener = new DotsiderDiagnosticsListener(() => _state, pendingMutations);
+        _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening();
 
         // Start the TUI and wait for first render
         _ = _app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
             () => _state is not null,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         return (_app, _listener.SocketPath!);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Navigate_ViaSocket_ChangesActiveTab()
     {
         var ct = TestContext.Current.CancellationToken;

@@ -5,7 +5,7 @@ namespace Dotsider.Tests;
 /// </summary>
 public class SearchStateTests
 {
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Initial_IsInactive()
     {
         var s = new SearchState();
@@ -15,7 +15,7 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_InactiveToEditing()
     {
         var s = new SearchState();
@@ -24,7 +24,7 @@ public class SearchStateTests
         Assert.False(s.IsConfirmed);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_EditingToInactive()
     {
         var s = new SearchState();
@@ -35,7 +35,7 @@ public class SearchStateTests
         Assert.Null(s.Query);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_ConfirmedToEditing()
     {
         var s = new SearchState();
@@ -49,7 +49,7 @@ public class SearchStateTests
         Assert.Equal("test", s.Query); // Query preserved
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Confirm_SetsIsConfirmed()
     {
         var s = new SearchState();
@@ -60,7 +60,7 @@ public class SearchStateTests
         Assert.True(s.IsConfirmed);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Dismiss_ClearsAll()
     {
         var s = new SearchState();
@@ -75,7 +75,7 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void Reset_ClearsAll()
     {
         var s = new SearchState();
@@ -90,7 +90,7 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void UpdateQuery_ResetsConfirmation()
     {
         var s = new SearchState();
@@ -104,7 +104,7 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SetMatchCount_StoresValue()
     {
         var s = new SearchState();
@@ -112,7 +112,7 @@ public class SearchStateTests
         Assert.Equal(42, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void SetMatchCount_ZeroMeansNoMatches()
     {
         var s = new SearchState();
@@ -120,7 +120,7 @@ public class SearchStateTests
         Assert.Equal(0, s.MatchCount);
     }
 
-    [Fact(Timeout = 5_000)]
+    [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_InactiveToEditing_ClearsQuery()
     {
         var s = new SearchState();

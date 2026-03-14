@@ -28,30 +28,33 @@ public static class StringsView
         var activeStrings = state.GetActiveStrings();
         var query = search.Query;
 
-        // Set match count when search is active
-        if (!string.IsNullOrEmpty(query))
-            search.SetMatchCount(activeStrings.Count);
+        if (state.CurrentTab == TabId.Strings)
+        {
+            // Set match count when search is active
+            if (!string.IsNullOrEmpty(query))
+                search.SetMatchCount(activeStrings.Count);
 
-        // Set up match navigation — cycle through filtered table rows
-        if (activeStrings.Count > 0 && !string.IsNullOrEmpty(query))
-        {
-            state.NavigateNextMatch = () =>
+            // Set up match navigation — cycle through filtered table rows
+            if (activeStrings.Count > 0 && !string.IsNullOrEmpty(query))
             {
-                var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
-                idx = (idx + 1) % activeStrings.Count;
-                state.StringsFocusedKey = RowKey(activeStrings[idx]);
-            };
-            state.NavigatePrevMatch = () =>
+                state.NavigateNextMatch = () =>
+                {
+                    var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
+                    idx = (idx + 1) % activeStrings.Count;
+                    state.StringsFocusedKey = RowKey(activeStrings[idx]);
+                };
+                state.NavigatePrevMatch = () =>
+                {
+                    var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
+                    idx = idx <= 0 ? activeStrings.Count - 1 : idx - 1;
+                    state.StringsFocusedKey = RowKey(activeStrings[idx]);
+                };
+            }
+            else
             {
-                var idx = FindFocusedIndex(activeStrings, state.StringsFocusedKey);
-                idx = idx <= 0 ? activeStrings.Count - 1 : idx - 1;
-                state.StringsFocusedKey = RowKey(activeStrings[idx]);
-            };
-        }
-        else
-        {
-            state.NavigateNextMatch = null;
-            state.NavigatePrevMatch = null;
+                state.NavigateNextMatch = null;
+                state.NavigatePrevMatch = null;
+            }
         }
 
         return ctx.ZStack(z =>

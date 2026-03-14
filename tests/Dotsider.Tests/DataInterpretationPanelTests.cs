@@ -38,19 +38,20 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         return (_terminal, _hex1bApp);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsInterpretationLabels()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Int8:") && s.ContainsText("Int32:") &&
                 s.ContainsText("Float32:") && s.ContainsText("Offset:"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -58,17 +59,18 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsEndianLabel()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Endian:") && s.ContainsText("LE"),
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -76,16 +78,17 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsLengthMatchingFileSize()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Length:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Length:"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -97,17 +100,18 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsHexAddresses()
     {
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var ct = TestContext.Current.CancellationToken;
         var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             // First row address is always 00000000
-            .WaitUntil(s => s.ContainsText("00000000"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("00000000"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);

@@ -9,14 +9,22 @@ namespace Dotsider.Views;
 /// </summary>
 public static class IlColorizer
 {
-    // IL offset labels (IL_XXXX:) — dim structural color, matches hex view addresses
-    private static readonly string AddressFg = Hex1bColor.FromRgb(100, 100, 130).ToForegroundAnsi();
-    // Comments (// ...) — dim gray
-    private static readonly string CommentFg = Hex1bColor.FromRgb(90, 90, 110).ToForegroundAnsi();
-    // Opcodes — muted teal, slightly softer than the primary theme accent
-    private static readonly string OpcodeFg = Hex1bColor.FromRgb(0, 170, 160).ToForegroundAnsi();
-    // String operands ("...") — muted green
-    private static readonly string StringFg = Hex1bColor.FromRgb(100, 180, 100).ToForegroundAnsi();
+    /// <summary>IL offset labels (IL_XXXX:) — dim structural color, matches hex view addresses.</summary>
+    public static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
+
+    /// <summary>Comments (// ...) — dim gray.</summary>
+    public static readonly Hex1bColor CommentColor = Hex1bColor.FromRgb(90, 90, 110);
+
+    /// <summary>Opcodes — muted teal, slightly softer than the primary theme accent.</summary>
+    public static readonly Hex1bColor OpcodeColor = Hex1bColor.FromRgb(0, 170, 160);
+
+    /// <summary>String operands ("...") — muted green.</summary>
+    public static readonly Hex1bColor StringColor = Hex1bColor.FromRgb(100, 180, 100);
+
+    private static readonly string AddressFg = AddressColor.ToForegroundAnsi();
+    private static readonly string CommentFg = CommentColor.ToForegroundAnsi();
+    private static readonly string OpcodeFg = OpcodeColor.ToForegroundAnsi();
+    private static readonly string StringFg = StringColor.ToForegroundAnsi();
     // Reset to default terminal color
     private const string Reset = "\x1b[0m";
 
