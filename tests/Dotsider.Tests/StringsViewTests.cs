@@ -43,9 +43,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     public async Task Strings_EnterOpensDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -54,22 +54,22 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("String Detail"), TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.StringsDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Strings_EscapeClosesDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -81,22 +81,22 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             // Dismiss with Escape
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.StringsDetailContent is null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Null(_state!.StringsDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Strings_DetailPopupShowsLength()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -105,22 +105,22 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Length:"), TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.StringsDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Strings_ArrowAndEnterWorkAfterDetailDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -134,22 +134,22 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.StringsDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Strings_EnterWorksAfterSearchDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -162,13 +162,13 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             // Enter should activate the focused row
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.StringsDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
@@ -199,9 +199,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             });
         var terminal = _terminal;
         var app = _hex1bApp;
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -213,24 +213,24 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             // The popup must render both the title AND actual content text
             .WaitUntil(s => s.ContainsText("String Detail") && s.ContainsText("Length:"),
                 TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.StringsDetailContent);
         Assert.Contains("Length:", _state.StringsDetailContent is not null
             ? $"Length: {_state.StringsDetailContent.Length}" : "");
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Strings_EscapeDuringSearchDoesNotCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -241,13 +241,13 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             // Press Escape to dismiss search — must not crash
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => !_state!.Search[TabId.Strings].IsActive, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.False(_state!.Search[TabId.Strings].IsActive);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     public void Dispose()

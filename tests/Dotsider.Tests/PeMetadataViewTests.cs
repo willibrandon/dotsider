@@ -43,28 +43,28 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     public async Task PeMetadata_ShowsPeHeaders()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("PE Headers") && s.ContainsText("CLR Header"),
                 TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsSectionsTable()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -72,20 +72,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
                 TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.Sections, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToTypeDef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -95,20 +96,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("TypeDef"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.TypeDef, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToMethodDef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -120,20 +122,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("MethodDef"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.MethodDef, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToTypeRef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -148,20 +151,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("TypeRef"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.TypeRef, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToMemberRef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -178,20 +182,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("MemberRef"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.MemberRef, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToAttributes()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -210,20 +215,21 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Attributes"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.Attributes, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToResources()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -244,60 +250,61 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Resources"), TimeSpan.FromSeconds(10))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.Resources, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsClrHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Runtime Version") && s.ContainsText("Metadata RVA"),
                 TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsPeHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s =>
                 s.ContainsText("Machine") && s.ContainsText("Entry Point RVA"),
                 TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterOpensDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -307,23 +314,23 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.PeDetailContent);
         Assert.Contains("Section:", _state.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EscapeClosesDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -336,22 +343,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Dismiss with Escape
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Null(_state!.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_TypeDefDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -367,22 +374,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Dismiss with Escape
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Null(_state!.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EscapeDuringSearchDoesNotCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -393,22 +400,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Press Escape to dismiss search — must not crash
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => !_state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.False(_state!.Search[TabId.PeMetadata].IsActive);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ArrowAndEnterWorkAfterDetailDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -423,22 +430,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterWorksAfterSearchDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -452,22 +459,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Enter should activate the focused row
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterWorksAfterSearchWithResults()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -484,22 +491,22 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Enter should activate the focused row
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.NotNull(_state!.PeDetailContent);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_LeftArrowDoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDotsiderApp();
-        var ct = TestContext.Current.CancellationToken;
-        var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -507,13 +514,13 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             // Already on sub-tab 0 (Sections), press left — should stay at 0
             .Key(Hex1bKey.LeftArrow)
             .Key(Hex1bKey.LeftArrow)
-            .Ctrl().Key(Hex1bKey.C)
             .Build()
-            .ApplyAsync(terminal, ct);
+            .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.Sections, _state!.PeSubTab);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        cts.Cancel();
+        await runTask;
     }
 
     public void Dispose()
