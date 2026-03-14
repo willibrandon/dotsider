@@ -55,6 +55,12 @@ public static class StringsView
                 state.NavigateNextMatch = null;
                 state.NavigatePrevMatch = null;
             }
+
+            // Ensure the first row is focused when arriving at the tab
+            if (state.StringsFocusedKey is null && activeStrings.Count > 0)
+            {
+                state.StringsFocusedKey = RowKey(activeStrings[0]);
+            }
         }
 
         return ctx.ZStack(z =>
@@ -62,51 +68,28 @@ public static class StringsView
             // Layer 0: Main content
             z.VStack(outer =>
             {
-                var widgets = new List<Hex1bWidget> {
-                    // Sub-tab selector for string sources
-                outer.TabPanel(tp =>
+                var widgets = new List<Hex1bWidget>();
+
+                // Search bar (shared helper)
+                SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
+
+                // Sub-tab selector with strings table as content
+                widgets.Add(outer.TabPanel(tp =>
                     [.. SourceTabs.Select((name, i) =>
-                        tp.Tab(name, t => [t.Text("")])
+                        tp.Tab(name, t => [BuildStringsTable(t, state, activeStrings, query)])
                             .Selected(state.StringsSourceTab == i)
                     )]
                 )
-                .Compact()
                 .OnSelectionChanged(e =>
                 {
                     state.StringsSourceTab = e.SelectedIndex;
                     search.Reset();
                     state.StringsFocusedKey = null;
+                    state.RequestContentFocus();
                     state.App.Invalidate();
                 })
-                .FixedHeight(1) };
-
-                // Search bar (shared helper)
-                SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
-
-                // Strings table
-                widgets.Add(outer.Table((IReadOnlyList<StringEntry>)activeStrings)
-                    .RowKey(RowKey)
-                    .Header(h =>
-                    [
-                        h.Cell("Offset").Width(SizeHint.Fixed(12)),
-                        h.Cell("Value").Width(SizeHint.Fill)
-                    ])
-                    .Row((r, entry, rowState) =>
-                    [
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor),
-                            c.Text($"0x{entry.Offset:X8}"))),
-                        r.Cell(c => HighlightHelper.HighlightCell(c,
-                            entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
-                            query, !string.IsNullOrEmpty(query)))
-                    ])
-                    .Focus(state.StringsFocusedKey)
-                    .OnFocusChanged(key => state.StringsFocusedKey = key)
-                    .OnRowActivated((key, entry) =>
-                    {
-                        state.StringsDetailContent = entry.Value;
-                        state.App.Invalidate();
-                    })
-                    .Fill());
+                .Compact()
+                .Fill());
 
                 // Status line
                 var statusParts = new List<string> { $"{activeStrings.Count} strings" };
@@ -145,6 +128,7 @@ public static class StringsView
                             state.StringsSourceTab--;
                             search.Reset();
                             state.StringsFocusedKey = null;
+                            state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Previous sub-tab");
@@ -156,6 +140,7 @@ public static class StringsView
                             state.StringsSourceTab++;
                             search.Reset();
                             state.StringsFocusedKey = null;
+                            state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Next sub-tab");
@@ -195,43 +180,77 @@ public static class StringsView
                     }
                 }, "Decrease min length");
 
-                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                // Detail popup dismiss — only register when search is not active
+                // to avoid conflicting with DotsiderApp's global "Clear search" binding
+                if (!search.IsActive && state.StringsDetailContent is not null)
                 {
-                    if (search.IsActive)
-                    {
-                        search.Dismiss();
-                        state.App.Invalidate();
-                        return;
-                    }
-                    if (state.StringsDetailContent is not null)
+                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
                         state.StringsDetailContent = null;
+                        state.RequestContentFocus();
                         state.App.Invalidate();
-                    }
-                }, "Esc");
+                    }, "Dismiss detail");
+                }
             })
             .Fill(),
 
             // Layer 1: String detail popup (conditional)
             state.StringsDetailContent is not null
                 ? z.Backdrop(
-                    z.Border(
-                        z.VScrollPanel(scroll =>
+                    z.Align(Alignment.Center,
+                        z.VStack(outer =>
                         [
-                            scroll.Text($"  Length: {state.StringsDetailContent.Length}"),
-                            scroll.Text(""),
-                            scroll.Text($"  {(state.StringsDetailContent.Length > 500
-                                ? state.StringsDetailContent[..500] + "..."
-                                : state.StringsDetailContent)}")
-                        ])
-                    ).Title(" String Detail ").FixedWidth(70).FixedHeight(15)
+                            outer.Border(
+                                outer.VScrollPanel(scroll =>
+                                [
+                                    scroll.Text($"  Length: {state.StringsDetailContent.Length}"),
+                                    scroll.Text(""),
+                                    .. state.StringsDetailContent
+                                        .Split('\n')
+                                        .Select(line => scroll.Text($"  {line}"))
+                                ])
+                            ).Title(" String Detail ").FixedWidth(70).FillHeight()
+                        ]).FixedWidth(70).FixedHeight(15)
+                    )
                 ).OnClickAway(() =>
                 {
                     state.StringsDetailContent = null;
+                    state.RequestContentFocus();
                     state.App.Invalidate();
                 })
                 : null
         ]).Fill();
+    }
+
+    private static TableWidget<StringEntry> BuildStringsTable(
+        WidgetContext<VStackWidget> ctx,
+        DotsiderState state,
+        IReadOnlyList<StringEntry> activeStrings,
+        string? query)
+    {
+        return ctx.Table(activeStrings)
+            .RowKey(RowKey)
+            .Header(h =>
+            [
+                h.Cell("Offset").Width(SizeHint.Fixed(12)),
+                h.Cell("Value").Width(SizeHint.Fill)
+            ])
+            .Row((r, entry, rowState) =>
+            [
+                r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor),
+                    c.Text($"0x{entry.Offset:X8}"))),
+                r.Cell(c => HighlightHelper.HighlightCell(c,
+                    entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
+                    query, !string.IsNullOrEmpty(query)))
+            ])
+            .Focus(state.StringsDetailContent is not null ? null : state.StringsFocusedKey)
+            .OnFocusChanged(key => state.StringsFocusedKey = key)
+            .OnRowActivated((key, entry) =>
+            {
+                state.StringsDetailContent = entry.Value;
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
     }
 
     private static string RowKey(StringEntry e) =>

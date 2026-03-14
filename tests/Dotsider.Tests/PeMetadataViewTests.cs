@@ -292,6 +292,208 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_EnterOpensDetailPopup()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            // Activate the focused row to open the detail popup
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.PeDetailContent);
+        Assert.Contains("Section:", _state.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_EscapeClosesDetailPopup()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            // Open detail popup
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            // Dismiss with Escape
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Null(_state!.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_TypeDefDetailPopup()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            // Navigate to TypeDef sub-tab
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("TypeDef"), TimeSpan.FromSeconds(10))
+            // Open detail popup
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            // Dismiss with Escape
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Null(_state!.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_EscapeDuringSearchDoesNotCrash()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            // Activate search
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            // Press Escape to dismiss search — must not crash
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.False(_state!.Search[TabId.PeMetadata].IsActive);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_ArrowAndEnterWorkAfterDetailDismissed()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            // Open detail popup then dismiss it
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(10))
+            // Arrow down then Enter should open detail again
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_EnterWorksAfterSearchDismissed()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            // Activate search, then dismiss without typing
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            // Enter should activate the focused row
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_EnterWorksAfterSearchWithResults()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            // Search for ".text", cycle with n, then dismiss
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            .Type(".text")
+            .Key(Hex1bKey.Enter)
+            .Key(Hex1bKey.N)
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state!.Search[TabId.PeMetadata].IsActive, TimeSpan.FromSeconds(10))
+            // Enter should activate the focused row
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.PeDetailContent);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
     public async Task PeMetadata_LeftArrowDoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDotsiderApp();

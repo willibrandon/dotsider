@@ -27,7 +27,6 @@
     cursorBlink: true,
     cursorStyle: 'block',
     fontSize: 14,
-    lineHeight: 1.20, // Increase line height to prevent Tab headers being cut off
     fontFamily:
       '"JetBrains Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, monospace',
     theme: {
