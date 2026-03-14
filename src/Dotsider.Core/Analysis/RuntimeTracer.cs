@@ -158,7 +158,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
-            if (ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+            if (ProcessState == TraceProcessState.Running)
             {
                 ProcessState = TraceProcessState.Exited;
                 ExitCode = _process.HasExited ? _process.ExitCode : null;
