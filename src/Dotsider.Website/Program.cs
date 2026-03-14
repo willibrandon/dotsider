@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using Dotsider;
+using Dotsider.Infrastructure;
 using Dotsider.Website;
 using Hex1b;
 
@@ -153,7 +154,8 @@ async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, Ca
 
     var filePath = Path.GetFullPath(sampleAssembly);
 
-    await using var presentation = new WebSocketPresentationAdapter(ws, 120, 36, enableMouse: true);
+    await using var wsAdapter = new WebSocketPresentationAdapter(ws, 120, 36, enableMouse: true);
+    await using var presentation = new EscapeTimeoutPresentationAdapter(wsAdapter);
 
     var workload = new Hex1bAppWorkloadAdapter(presentation.Capabilities);
 
@@ -166,6 +168,7 @@ async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, Ca
     };
 
     using var terminal = new Hex1bTerminal(terminalOptions);
+    presentation.Terminal = terminal;
 
     var appOptions = new Hex1bAppOptions
     {

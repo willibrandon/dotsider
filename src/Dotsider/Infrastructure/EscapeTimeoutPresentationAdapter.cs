@@ -43,10 +43,22 @@ namespace Dotsider.Infrastructure;
 /// engine processes the prefix before seeing the Escape event.
 /// </para>
 /// </remarks>
-internal sealed class EscapeTimeoutPresentationAdapter : IHex1bTerminalPresentationAdapter
+/// <remarks>
+/// Creates a new escape-timeout presentation adapter.
+/// </remarks>
+/// <param name="inner">The real presentation adapter to wrap.</param>
+/// <param name="escapeTimeout">
+/// How long to wait for follow-up bytes after a trailing <c>\x1b</c>.
+/// Defaults to 100 ms — long enough for most SSH round-trips, short
+/// enough to feel near-instantaneous on a local keypress.
+/// Configurable via <c>--escape-timeout</c>.
+/// </param>
+public sealed class EscapeTimeoutPresentationAdapter(
+    IHex1bTerminalPresentationAdapter inner,
+    TimeSpan? escapeTimeout = null) : IHex1bTerminalPresentationAdapter
 {
-    private readonly IHex1bTerminalPresentationAdapter _inner;
-    private readonly TimeSpan _escapeTimeout;
+    private readonly IHex1bTerminalPresentationAdapter _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+    private readonly TimeSpan _escapeTimeout = escapeTimeout ?? TimeSpan.FromMilliseconds(100);
 
     /// <summary>
     /// When true, the next <see cref="ReadInputAsync"/> call injects a
@@ -65,25 +77,11 @@ internal sealed class EscapeTimeoutPresentationAdapter : IHex1bTerminalPresentat
     /// The terminal instance used to inject Escape key events.
     /// Must be set after <see cref="Hex1bTerminal.CreateBuilder"/> returns.
     /// </summary>
-    internal Hex1bTerminal? Terminal { get; set; }
-
     /// <summary>
-    /// Creates a new escape-timeout presentation adapter.
+    /// The terminal instance used to inject standalone Escape events.
+    /// Must be set after the terminal is created.
     /// </summary>
-    /// <param name="inner">The real presentation adapter to wrap.</param>
-    /// <param name="escapeTimeout">
-    /// How long to wait for follow-up bytes after a trailing <c>\x1b</c>.
-    /// Defaults to 100 ms — long enough for most SSH round-trips, short
-    /// enough to feel near-instantaneous on a local keypress.
-    /// Configurable via <c>--escape-timeout</c>.
-    /// </param>
-    internal EscapeTimeoutPresentationAdapter(
-        IHex1bTerminalPresentationAdapter inner,
-        TimeSpan? escapeTimeout = null)
-    {
-        _inner = inner ?? throw new ArgumentNullException(nameof(inner));
-        _escapeTimeout = escapeTimeout ?? TimeSpan.FromMilliseconds(100);
-    }
+    public Hex1bTerminal? Terminal { get; set; }
 
     /// <inheritdoc />
     public int Width => _inner.Width;
