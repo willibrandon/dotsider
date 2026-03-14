@@ -1799,15 +1799,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.NotEqual(expectedMethod.Token, byName.Token);
 
-        // Set JIT filter + focused key to the second overload's row
+        // Use J key to set JIT filter (runs on the render thread, not a direct state mutation)
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}:{targetEvent.MetadataToken}";
-        _state.DynamicCategoryFilter = TraceEventCategory.JIT;
-        _state.DynamicEventsFocusedKey = eventKey;
-        _hex1bApp!.Invalidate();
-
-        // Press Enter — the handler must select by token, not by name
         await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.J)
             .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Set focused key to the second overload's row, then press Enter
+        _state.DynamicEventsFocusedKey = eventKey;
+        await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
             .Build()
