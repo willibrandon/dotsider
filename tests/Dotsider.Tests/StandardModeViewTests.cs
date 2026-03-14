@@ -1117,7 +1117,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1187,7 +1188,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1309,14 +1311,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
-        //Launch and wait for exit
+        //Launch and wait for process to finish (Exited or Error)
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1363,7 +1366,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter) // Launch process
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1582,7 +1586,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"), TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1746,8 +1751,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Exited") || s.ContainsText("Exit code"),
-                TimeSpan.FromSeconds(30))
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, ct);
 
