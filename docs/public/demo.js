@@ -61,13 +61,20 @@
   // WebSocket connection — wss in production, ws for local dev
   const isProduction = window.location.hostname === 'dotsider.dev';
   const wsProto = isProduction ? 'wss' : 'ws';
-  const wsHost = isProduction ? 'dotsider.dev' : 'localhost:64219';
+  const wsHost = isProduction ? 'dotsider.dev' : 'localhost:5174';
   const wsUrl = wsProto + '://' + wsHost + '/ws';
   let ws;
   let wasConnected = false;
   let lastConnectTime = 0;
+  let reconnectTimer = 0;
+
+  function scheduleReconnect(delayMs) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, delayMs);
+  }
 
   function connect() {
+    clearTimeout(reconnectTimer);
     wasConnected = false;
     lastConnectTime = Date.now();
     statusEl.textContent = 'Connecting...';
@@ -97,7 +104,7 @@
         statusEl.textContent = 'Restarting...';
         statusEl.style.color = '#f1fa8c';
         term.reset();
-        setTimeout(connect, 1500);
+        scheduleReconnect(1500);
       } else {
         statusEl.textContent = 'Offline';
         statusEl.style.color = '#ff5555';
@@ -116,7 +123,19 @@
     if (ws) { ws.onclose = null; ws.close(); }
     statusEl.textContent = 'Reconnecting...';
     statusEl.style.color = '#f1fa8c';
-    setTimeout(connect, 1500);
+    scheduleReconnect(1500);
+  });
+
+  // Reconnect when the tab becomes visible again — browsers throttle
+  // backgrounded tabs and may kill the WebSocket, leaving the demo
+  // stuck on "Offline" with no further retries. scheduleReconnect
+  // cancels any pending timer so this never creates a duplicate session.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible'
+        && (!ws || ws.readyState === WebSocket.CLOSED)) {
+      term.reset();
+      connect();
+    }
   });
 
   connect();
