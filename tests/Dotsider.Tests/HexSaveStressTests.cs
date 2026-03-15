@@ -13,9 +13,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, [System.Runtime.CompilerServices.CallerMemberName] string? testName = null)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath)
     {
-        TestHelpers.Diag($"Creating app for {Path.GetFileName(dllPath)}", testName);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -23,13 +22,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             .WithDimensions(120, 30)
             .Build();
         DotsiderApp? dotsiderApp = null;
-        var renderCount = 0;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                renderCount++;
-                if (renderCount <= 3)
-                    TestHelpers.Diag($"Render #{renderCount}", testName);
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));

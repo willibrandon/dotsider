@@ -14,9 +14,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null, [System.Runtime.CompilerServices.CallerMemberName] string? testName = null)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
     {
-        TestHelpers.Diag($"Creating app for {Path.GetFileName(dllPath)}", testName);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -24,13 +23,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WithDimensions(120, 30)
             .Build();
         DotsiderApp? dotsiderApp = null;
-        var renderCount = 0;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                renderCount++;
-                if (renderCount <= 3)
-                    TestHelpers.Diag($"Render #{renderCount}", testName);
                 if (_state is null)
                 {
                     _state = new DotsiderState(_hex1bApp!, dllPath);
@@ -1770,11 +1765,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                      && e.Detail == "Formatter.Format")
             .ToList();
 
-        // Diagnostic: log all Formatter.Format JIT events and their tokens
-        Console.WriteLine($"[DIAG] Formatter.Format JIT events: {formatEvents.Count}");
-        for (var idx = 0; idx < formatEvents.Count; idx++)
-            Console.WriteLine($"[DIAG]   [{idx}] Token=0x{formatEvents[idx].MetadataToken:X8} Detail={formatEvents[idx].Detail}");
-
         Assert.True(formatEvents.Count >= 2,
             $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
 
@@ -1794,9 +1784,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
         Assert.NotNull(byName);
 
-        // Diagnostic: log token comparison
-        Console.WriteLine($"[DIAG] expectedMethod.Token=0x{expectedMethod.Token:X8} byName.Token=0x{byName.Token:X8} targetEvent.Token=0x{targetEvent.MetadataToken:X8}");
-
         Assert.NotEqual(expectedMethod.Token, byName.Token);
 
         // Use J key to set JIT filter (runs on the render thread, not a direct state mutation)
@@ -1814,9 +1801,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
-
-        // Diagnostic: log what was selected
-        Console.WriteLine($"[DIAG] IlSelectedMethod.Token=0x{_state.IlSelectedMethod?.Token:X8} expected=0x{expectedMethod.Token:X8}");
 
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
         Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);

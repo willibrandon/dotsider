@@ -161,15 +161,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
             () => tracer.ProcessState == TraceProcessState.Exited,
             TimeSpan.FromSeconds(45));
 
-        // Diagnostic: log process state and event count
-        Console.WriteLine($"[DIAG] ProcessState={tracer.ProcessState} ExitCode={tracer.ExitCode} ProcessId={tracer.ProcessId}");
-        Console.WriteLine($"[DIAG] ErrorMessage={tracer.ErrorMessage ?? "(null)"}");
         var events = tracer.GetEvents();
-        Console.WriteLine($"[DIAG] Events.Count={events.Count}");
-        if (events.Count > 0)
-            Console.WriteLine($"[DIAG] First event: {events[0].Category} {events[0].EventName} {events[0].Detail}");
-        else
-            Console.WriteLine("[DIAG] No events captured — EventPipe may not have attached before process exited");
 
         Assert.Equal(0, tracer.ExitCode);
         Assert.NotEmpty(events);
