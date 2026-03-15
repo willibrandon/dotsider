@@ -18,6 +18,10 @@ Each instruction shows:
 - Press `x` on a selected method to jump to its body in the **Hex Dump** tab. The hex view scrolls to the method's RVA.
 - Press `Backspace` to return to where you came from.
 
+## Copy
+
+Select text in the disassembly pane with `Shift` + arrow keys, then press `y` to copy it to the clipboard. A brief flash confirms the copied range.
+
 ## Search
 
 Press `/` to search method names or IL content. Matches are highlighted in both the tree and disassembly panes.
