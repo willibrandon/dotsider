@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
+using Hex1b.Automation;
 using Hex1b.Input;
 using Hex1b.Widgets;
 

@@ -287,8 +287,9 @@ public sealed class DotsiderApp(DotsiderState state)
                     if (_state.IlEditorState?.Cursor.HasSelection == true)
                     {
                         var range = _state.IlEditorState.Cursor.SelectionRange;
-                        // Include the cursor character — after word-boundary adjustment
-                        // the cursor sits on the last word char outside the selection range
+                        // Include the cursor character — after one-shot word-boundary
+                        // adjustment the cursor sits on the last word char, one before
+                        // the exclusive selection end.
                         var doc = _state.IlEditorState.Document;
                         var yankEnd = new DocumentOffset(Math.Min(
                             Math.Max(range.End.Value, _state.IlEditorState.Cursor.Position.Value + 1),

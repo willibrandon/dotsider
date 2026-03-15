@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Automation;
 using Hex1b.Input;
 
 namespace Dotsider.Tests;

@@ -347,10 +347,12 @@ public static class IlInspectorView
             state.IlEditorAnalyzer = state.Analyzer;
         }
 
-        // After word selection (double-click), cursor lands past the word on punctuation.
-        // Move cursor back to the last character of the word (neovim behavior).
+        // After double-click word selection, the cursor lands one past the word
+        // on punctuation. Detect this as a one-shot (both anchor and position changed
+        // since last frame) and adjust once — Shift+Arrow only moves position, so it
+        // is never affected.
         if (state.CurrentTab == TabId.IlInspector)
-            AdjustWordSelectionCursor(state.IlEditorState);
+            AdjustWordSelectionCursorOneShot(state);
 
         // The host composite forces a fresh EditorNode when the key changes
         // (different method or analyzer reload), resetting native scroll to line 1.
@@ -368,29 +370,61 @@ public static class IlInspectorView
         ];
     }
 
-    internal static bool GetExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
-        state.IlTreeExpansionState.TryGetValue(key, out var expanded) ? expanded : defaultExpanded;
+    /// <summary>
+    /// Detects double-click word selection (both anchor and position changed since last
+    /// frame) and adjusts the cursor once so it sits on the last character of the word
+    /// instead of the trailing punctuation. Shift+Arrow only changes position, so this
+    /// never fires during keyboard selection.
+    /// </summary>
+    internal static void AdjustWordSelectionCursorOneShot(DotsiderState state)
+    {
+        if (state.IlEditorState is null)
+            return;
+
+        AdjustWordSelectionCursorOneShot(
+            state.IlEditorState,
+            ref state.IlPrevSelectionAnchor,
+            ref state.IlPrevCursorPosition);
+    }
 
     /// <summary>
-    /// After word selection (double-click), the cursor lands one past the word on punctuation.
-    /// Moves the cursor back to the last character of the word to match neovim behavior.
+    /// Core one-shot logic: if both anchor and position changed since last call
+    /// (double-click pattern) and the selection is a single word ending on punctuation,
+    /// pull the cursor back onto the last word character.
     /// </summary>
-    internal static void AdjustWordSelectionCursor(EditorState? editorState)
+    internal static void AdjustWordSelectionCursorOneShot(
+        EditorState es,
+        ref DocumentOffset? prevAnchor,
+        ref DocumentOffset? prevPosition)
     {
-        if (editorState is not { } es
-            || es.Cursor is not { HasSelection: true, SelectionAnchor: { } anchor }
-            || es.Cursor.Position.Value <= anchor.Value)
-            return;
+        var anchor = es.Cursor.SelectionAnchor;
+        var position = es.Cursor.Position;
 
-        var text = es.Document.GetText();
-        var cursorVal = es.Cursor.Position.Value;
-        if (cursorVal >= text.Length || char.IsLetterOrDigit(text[cursorVal]))
-            return;
+        // Detect: both anchor and position changed since last frame (double-click pattern).
+        var anchorChanged = anchor != prevAnchor;
+        var positionChanged = position != prevPosition;
 
-        var sel = es.Document.GetText(es.Cursor.SelectionRange);
-        if (sel.Length > 0 && sel.All(char.IsLetterOrDigit))
-            es.Cursor.Position = new DocumentOffset(cursorVal - 1);
+        if (anchorChanged && positionChanged
+            && es.Cursor is { HasSelection: true, SelectionAnchor: { } a }
+            && position.Value > a.Value)
+        {
+            var text = es.Document.GetText();
+            var cursorVal = position.Value;
+            if (cursorVal < text.Length && !char.IsLetterOrDigit(text[cursorVal]))
+            {
+                var sel = es.Document.GetText(es.Cursor.SelectionRange);
+                if (sel.Length > 0 && sel.All(char.IsLetterOrDigit))
+                    es.Cursor.Position = new DocumentOffset(cursorVal - 1);
+            }
+        }
+
+        // Record current state for next frame comparison.
+        prevAnchor = es.Cursor.SelectionAnchor;
+        prevPosition = es.Cursor.Position;
     }
+
+    internal static bool GetExpansionState(DotsiderState state, string key, bool defaultExpanded) =>
+        state.IlTreeExpansionState.TryGetValue(key, out var expanded) ? expanded : defaultExpanded;
 
     /// <summary>
     /// Collects all text-level search matches across ALL methods' IL disassembly,

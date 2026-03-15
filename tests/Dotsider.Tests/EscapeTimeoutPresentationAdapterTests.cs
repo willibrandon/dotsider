@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Dotsider.Infrastructure;
 using Hex1b;
+using Hex1b.Automation;
 using Hex1b.Input;
 
 namespace Dotsider.Tests;
@@ -175,7 +176,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         //Send ESC then immediately the CSI continuation
         queued.EnqueueInput(0x1b);
-        queued.EnqueueInput((byte)'[', (byte)'A');
+        queued.EnqueueInput("[A"u8.ToArray());
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("up"),
@@ -301,7 +302,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         //Send ESC, wait for timeout, then send literal '['
         queued.EnqueueInput(0x1b);
         await Task.Delay(500, ct);
-        queued.EnqueueInput((byte)'[');
+        queued.EnqueueInput("["u8.ToArray());
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape") && events.Any(e => e.StartsWith("text:")),
@@ -465,7 +466,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         //Send ESC, wait well past timeout, then send what would have been a CSI Up Arrow
         queued.EnqueueInput(0x1b);
         await Task.Delay(500, ct);
-        queued.EnqueueInput((byte)'[', (byte)'A');
+        queued.EnqueueInput("[A"u8.ToArray());
 
         await TestHelpers.WaitUntilAsync(
             () => events.Contains("escape") && events.Any(e => e.StartsWith("text:")),
