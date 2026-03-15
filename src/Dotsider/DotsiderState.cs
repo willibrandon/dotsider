@@ -400,6 +400,21 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
+    /// Requests that the primary content widget (table, editor, tree, etc.) receives focus
+    /// after the next render. IL tab targets the ListNode tree; all other tabs target any
+    /// content node including TableNode.
+    /// </summary>
+    public void RequestContentFocus()
+    {
+        if (CurrentTab == TabId.IlInspector)
+            App.RequestFocus(node => node is ListNode);
+        else
+            App.RequestFocus(node =>
+                node is EditorNode or TreeNode or ListNode or InteractableNode
+                || node.GetType().Name.StartsWith("TableNode"));
+    }
+
+    /// <summary>
     /// Converts a relative virtual address (RVA) to a raw file offset using the section table.
     /// Returns -1 if the RVA does not fall within any section.
     /// </summary>

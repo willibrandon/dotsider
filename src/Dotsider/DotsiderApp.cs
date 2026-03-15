@@ -5,7 +5,6 @@ using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Theming;
-using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider;
@@ -154,7 +153,8 @@ public sealed class DotsiderApp(DotsiderState state)
                     _state.App.RequestFocus(node => node is TextBoxNode);
                 _state.App.Invalidate();
             }
-            if (!_state.HexJumpDialogOpen)
+            var detailPopupOpen = _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
+            if (!_state.HexJumpDialogOpen && !detailPopupOpen)
             {
                 bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
                 if (!isSearchEditing)
@@ -356,6 +356,7 @@ public sealed class DotsiderApp(DotsiderState state)
                         _state.HexLastSearchQuery = null;
                         _state.HexLiveSearchTooSlow = false;
                     }
+                    RequestContentFocus();
                     _state.App.Invalidate();
                 }, "Clear search");
             }
@@ -403,15 +404,7 @@ public sealed class DotsiderApp(DotsiderState state)
     /// Requests focus on the appropriate content node for the current tab.
     /// IL tab targets the ListNode tree; all other tabs target any content node including TableNode.
     /// </summary>
-    private void RequestContentFocus()
-    {
-        if (_state.CurrentTab == TabId.IlInspector)
-            _state.App.RequestFocus(node => node is ListNode);
-        else
-            _state.App.RequestFocus(node =>
-                node is EditorNode or TreeNode or ListNode or InteractableNode
-                || node.GetType().Name.StartsWith("TableNode"));
-    }
+    private void RequestContentFocus() => _state.RequestContentFocus();
 
     /// <summary>
     /// Seeds the focused row key for table-backed tabs so Enter works immediately
@@ -432,7 +425,7 @@ public sealed class DotsiderApp(DotsiderState state)
             case TabId.Strings when _state.StringsFocusedKey is null:
                 var strings = _state.GetActiveStrings();
                 if (strings.Count > 0)
-                    _state.StringsFocusedKey = strings[0].Offset;
+                    _state.StringsFocusedKey = $"{strings[0].Offset}:{strings[0].Source}";
                 break;
         }
     }

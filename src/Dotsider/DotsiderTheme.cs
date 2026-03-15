@@ -16,7 +16,6 @@ public static class DotsiderTheme
     {
         var theme = new Hex1bTheme("Dotsider")
             .Set(GlobalTheme.ForegroundColor, Hex1bColor.White)
-            .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(18, 18, 24))
 
             // Buttons
             .Set(ButtonTheme.FocusedForegroundColor, Hex1bColor.Black)

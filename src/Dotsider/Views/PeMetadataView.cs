@@ -51,6 +51,20 @@ public static class PeMetadataView
                 state.NavigateNextMatch = null;
                 state.NavigatePrevMatch = null;
             }
+
+            // Ensure the first row is focused when arriving at a sub-tab
+            state.PeFocusedKey ??= state.PeSubTab switch
+                {
+                    PeSubTabId.Sections when analyzer.Sections.Count > 0 => analyzer.Sections[0].Name,
+                    PeSubTabId.TypeDef when analyzer.TypeDefs.Count > 0 => analyzer.TypeDefs[0].Token,
+                    PeSubTabId.MethodDef when analyzer.MethodDefs.Count > 0 => analyzer.MethodDefs[0].Token,
+                    PeSubTabId.TypeRef when analyzer.TypeRefs.Count > 0 => analyzer.TypeRefs[0].Token,
+                    PeSubTabId.MemberRef when analyzer.MemberRefs.Count > 0 => analyzer.MemberRefs[0].Token,
+                    PeSubTabId.Attributes when analyzer.CustomAttributes.Count > 0 =>
+                        $"{analyzer.CustomAttributes[0].Parent}|{analyzer.CustomAttributes[0].Constructor}",
+                    PeSubTabId.Resources when analyzer.Resources.Count > 0 => analyzer.Resources[0].Name,
+                    _ => null
+                };
         }
 
         return ctx.ZStack(z =>
@@ -149,6 +163,7 @@ public static class PeMetadataView
                     state.PeSubTab = e.SelectedIndex;
                     search.Reset();
                     state.PeFocusedKey = null;
+                    state.RequestContentFocus();
                     state.App.Invalidate();
                 })
                 .Compact()
@@ -169,6 +184,7 @@ public static class PeMetadataView
                             state.PeSubTab--;
                             search.Reset();
                             state.PeFocusedKey = null;
+                            state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Previous sub-tab");
@@ -180,6 +196,7 @@ public static class PeMetadataView
                             state.PeSubTab++;
                             search.Reset();
                             state.PeFocusedKey = null;
+                            state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Next sub-tab");
@@ -213,20 +230,17 @@ public static class PeMetadataView
                     }
                 }
 
-                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                // Detail popup dismiss — only register when search is not active
+                // to avoid conflicting with DotsiderApp's global "Clear search" binding
+                if (!search.IsActive && state.PeDetailContent is not null)
                 {
-                    if (search.IsActive)
-                    {
-                        search.Dismiss();
-                        state.App.Invalidate();
-                        return;
-                    }
-                    if (state.PeDetailContent is not null)
+                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
                         state.PeDetailContent = null;
+                        state.RequestContentFocus();
                         state.App.Invalidate();
-                    }
-                }, "Esc");
+                    }, "Dismiss detail");
+                }
             })
             .Fill(),
 
@@ -234,14 +248,15 @@ public static class PeMetadataView
             state.PeDetailContent is not null
                 ? z.Backdrop(
                     z.Border(
-                        z.VScrollPanel(scroll =>
+                        z.VStack(dlg =>
                             [.. state.PeDetailContent.Split('\n')
-                                .Select(line => scroll.Text($"  {line}"))]
+                                .Select(line => dlg.Text($"  {line}"))]
                         )
                     ).Title(" Detail ").FixedWidth(60).FixedHeight(12)
                 ).OnClickAway(() =>
                 {
                     state.PeDetailContent = null;
+                    state.RequestContentFocus();
                     state.App.Invalidate();
                 })
                 : null
@@ -275,7 +290,7 @@ public static class PeMetadataView
                 r.Cell(FormatSize(s.RawDataSize, state)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, s.Characteristics.ToString(), query, true))
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, s) =>
             {
@@ -286,6 +301,7 @@ public static class PeMetadataView
                     $"Raw Offset: 0x{s.RawDataOffset:X8}",
                     $"Raw Size: {s.RawDataSize} (0x{s.RawDataSize:X})",
                     $"Characteristics: {s.Characteristics}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -317,7 +333,7 @@ public static class PeMetadataView
                 r.Cell(t.MethodCount.ToString()),
                 r.Cell(t.FieldCount.ToString())
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, t) =>
             {
@@ -328,6 +344,7 @@ public static class PeMetadataView
                     $"Attributes: {t.Attributes}",
                     $"Methods: {t.MethodCount}",
                     $"Fields: {t.FieldCount}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -359,7 +376,7 @@ public static class PeMetadataView
                 r.Cell(m.Attributes.ToString()),
                 r.Cell(c => m.Rva == 0 ? c.Text("") : HexCell(c, $"0x{m.Rva:X8}"))
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, m) =>
             {
@@ -370,6 +387,7 @@ public static class PeMetadataView
                     $"Attributes: {m.Attributes}",
                     $"Impl: {m.ImplAttributes}",
                     $"RVA: 0x{m.Rva:X8}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -395,7 +413,7 @@ public static class PeMetadataView
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, t.ResolutionScope, query, true))
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, t) =>
             {
@@ -405,6 +423,7 @@ public static class PeMetadataView
                     $"Namespace: {t.Namespace}",
                     $"Name: {t.Name}",
                     $"Resolution Scope: {t.ResolutionScope}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -430,13 +449,14 @@ public static class PeMetadataView
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true))
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, m) =>
             {
                 state.PeDetailContent = string.Join("\n",
                     $"MemberRef: {m.DeclaringType}::{m.Name}",
                     $"Token: 0x{m.Token:X8}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -462,7 +482,7 @@ public static class PeMetadataView
                 r.Cell(c => HighlightHelper.HighlightCell(c, a.Constructor, query, true)),
                 r.Cell(c => HighlightHelper.HighlightCell(c, a.Value ?? "", query, true))
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, a) =>
             {
@@ -471,6 +491,7 @@ public static class PeMetadataView
                     $"Parent: {a.Parent}",
                     $"Constructor: {a.Constructor}",
                     $"Value: {a.Value ?? "null"}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
@@ -500,7 +521,7 @@ public static class PeMetadataView
                 r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
                 r.Cell(res.IsLinked ? "Yes" : "No")
             ])
-            .Focus(state.PeFocusedKey)
+            .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
             .OnRowActivated((_, res) =>
             {
@@ -510,6 +531,7 @@ public static class PeMetadataView
                     $"Offset: 0x{res.Offset:X8}",
                     $"Size: {(res.Size >= 0 ? res.Size.ToString() : "unknown")}",
                     $"Linked: {res.IsLinked}");
+                state.App.Invalidate();
             })
             .Compact().Fill();
     }
