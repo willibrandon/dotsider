@@ -114,12 +114,12 @@ public sealed class EscapeTimeoutPresentationAdapter(
             // Deliver deferred standalone Escape from a previous read.
             // The preceding bytes have already been returned and processed
             // by the terminal engine, so ordering is preserved.
+            // Return the escape byte directly instead of using SendInputAsync
+            // to guarantee it is processed after the prefix bytes.
             if (_pendingEscapeInjection)
             {
                 _pendingEscapeInjection = false;
-                var terminal = Terminal;
-                if (terminal != null)
-                    await terminal.SendInputAsync([0x1b], ct);
+                return new byte[] { 0x1b };
             }
 
             // Resume a still-running inner read saved from a previous timeout,
