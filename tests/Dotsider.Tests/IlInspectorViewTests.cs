@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Automation;
 using Hex1b.Input;
 using Hex1b.Widgets;
 
@@ -14,9 +15,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private CancellationTokenSource? _cts;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath)
+    private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
     {
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -36,7 +39,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
             });
-        return (_terminal, _hex1bApp);
+        return (_terminal, _hex1bApp, _cts.Token);
     }
 
     /// <summary>
@@ -46,10 +49,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 60_000)]
     public async Task Tab3_TreeFocusedOnReturn_AfterEditorHadFocus()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        await Task.Delay(50, ct);
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
@@ -98,17 +100,19 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // Capture editor cursor before DownArrow
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
 
-        // Press DownArrow — should move table focus, not editor cursor
+        // Press DownArrow — should move table focus, not editor cursor.
+        // WaitUntil ensures the key has been processed before we assert.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.DownArrow)
-            .Ctrl().Key(Hex1bKey.C)
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Editor cursor must not have moved (table consumed the key, not editor)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        _cts!.Cancel();
+        await runTask;
     }
 
     /// <summary>
@@ -118,10 +122,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 60_000)]
     public async Task Tab3_CrossViewJump_FocusesTree()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        await Task.Delay(50, ct);
 
         // Go to IL tab, select a method programmatically, click in editor
         await new Hex1bTerminalInputSequenceBuilder()
@@ -177,18 +180,20 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(_state.IlTreeExpansionState[$"type:{method.DeclaringType}"],
             "Jumped-to method's type must be expanded");
 
-        // DownArrow should be consumed by the table, not the editor
+        // DownArrow should be consumed by the table, not the editor.
+        // WaitUntil ensures the key has been processed before we assert.
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.DownArrow)
-            .Ctrl().Key(Hex1bKey.C)
+            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Editor cursor must not have moved (table consumed the key)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
 
-        await runTask.ContinueWith(_ => { }, ct);
+        _cts!.Cancel();
+        await runTask;
     }
 
     /// <summary>
@@ -198,10 +203,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 60_000)]
     public async Task Tab3_CrossViewJump_SyncsListNodeSelectedIndex()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        await Task.Delay(50, ct);
 
         // Start on IL tab — list selection defaults to row 0
         await new Hex1bTerminalInputSequenceBuilder()
@@ -240,11 +244,8 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // The actual ListNode.SelectedIndex must match
         Assert.Equal(expectedKey, _state.IlFocusedTreeKey);
 
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Ctrl().Key(Hex1bKey.C)
-            .Build()
-            .ApplyAsync(terminal, ct);
-        await runTask.ContinueWith(_ => { }, ct);
+        _cts!.Cancel();
+        await runTask;
     }
 
     /// <summary>
@@ -253,10 +254,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 60_000)]
     public async Task Tab3_LeftRightArrow_ExpandCollapseTreeRows()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(100, ct);
+        await Task.Delay(50, ct);
 
         // Go to IL tab
         await new Hex1bTerminalInputSequenceBuilder()
@@ -305,19 +305,18 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(_state.IlTreeExpansionState.TryGetValue(typeKey, out var collapsed) && !collapsed,
             "LeftArrow must collapse the focused type row");
 
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Ctrl().Key(Hex1bKey.C)
-            .Build()
-            .ApplyAsync(terminal, ct);
-        await runTask.ContinueWith(_ => { }, ct);
+        _cts!.Cancel();
+        await runTask;
     }
 
     public void Dispose()
     {
+        _cts?.Cancel();
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+        _cts?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

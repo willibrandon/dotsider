@@ -126,6 +126,12 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The editor state for the IL disassembly pane, or null if no method is selected.</summary>
     public EditorState? IlEditorState { get; set; }
 
+    /// <summary>Tracks the previous frame's selection anchor to detect double-click word selection (both anchor and position change in one frame).</summary>
+    internal DocumentOffset? IlPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position to detect double-click word selection.</summary>
+    internal DocumentOffset? IlPrevCursorPosition;
+
     /// <summary>The method currently loaded in the IL editor, used to detect method changes.</summary>
     public MethodDefInfo? IlEditorMethod { get; set; }
 
@@ -499,6 +505,8 @@ public sealed class DotsiderState : IDisposable
         IlEditorState = null;
         IlEditorMethod = null;
         IlEditorAnalyzer = null;
+        IlPrevSelectionAnchor = null;
+        IlPrevCursorPosition = null;
         IlSearchMatches = [];
         IlCurrentMatchIndex = -1;
         IlLastSearchQuery = null;
