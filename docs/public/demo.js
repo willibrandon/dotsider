@@ -128,14 +128,19 @@
 
   // Reconnect when the tab becomes visible again — browsers throttle
   // backgrounded tabs and may kill the WebSocket, leaving the demo
-  // stuck on "Offline" with no further retries. scheduleReconnect
-  // cancels any pending timer so this never creates a duplicate session.
+  // stuck on "Offline" with no further retries. Close the old socket
+  // first so the server releases the per-IP session slot before
+  // the new connection arrives.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible'
-        && (!ws || ws.readyState === WebSocket.CLOSED)) {
-      term.reset();
-      connect();
+    if (document.visibilityState !== 'visible') return;
+    if (ws && ws.readyState <= WebSocket.OPEN) {
+      // Socket looks alive but may be stale — close it cleanly
+      // so the server frees the slot, then reconnect.
+      ws.onclose = null;
+      ws.close();
     }
+    term.reset();
+    connect();
   });
 
   connect();
