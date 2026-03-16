@@ -58,6 +58,24 @@
   term.open(tv);
   try { term.loadAddon(new WebglAddon()); } catch (e) { /* fallback to DOM renderer */ }
 
+  // Handle OSC 52 clipboard write sequences from the TUI.
+  // Native terminals handle OSC 52 natively; xterm.js in the browser
+  // needs an explicit handler to bridge to the Clipboard API.
+  term.parser.registerOscHandler(52, (data) => {
+    const idx = data.indexOf(';');
+    if (idx >= 0) {
+      const b64 = data.substring(idx + 1);
+      if (b64) {
+        try {
+          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+          const text = new TextDecoder().decode(bytes);
+          navigator.clipboard.writeText(text).catch(() => {});
+        } catch (_) { /* invalid base64 */ }
+      }
+    }
+    return true;
+  });
+
   // WebSocket connection — wss in production, ws for local dev
   const isProduction = window.location.hostname === 'dotsider.dev';
   const wsProto = isProduction ? 'wss' : 'ws';
