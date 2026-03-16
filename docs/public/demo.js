@@ -129,8 +129,7 @@
   // Reconnect when the tab becomes visible again — browsers throttle
   // backgrounded tabs and may kill the WebSocket, leaving the demo
   // stuck on "Offline" with no further retries. Only reconnect when
-  // the socket is actually dead to avoid churning healthy connections
-  // (which trips the server's rapid-disconnect ban).
+  // the socket is actually dead to avoid churning healthy connections.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (!ws || ws.readyState >= WebSocket.CLOSING) {
