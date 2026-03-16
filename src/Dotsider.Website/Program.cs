@@ -60,11 +60,11 @@ app.MapGet("/health", () => Results.Ok(new
 
 var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
 
-// Per-IP session tracking and serialization. The semaphore ensures that
-// only one reconnect from a given IP performs the admission + replacement
-// handoff at a time, preventing two concurrent refreshes from both
-// classifying themselves as replacements and both getting admitted.
-var ipSessions = new ConcurrentDictionary<IPAddress, (string Id, CancellationTokenSource Cts, Task Task)>();
+// Per-IP session tracking. Each IP may have up to MaxConcurrentPerIp
+// sessions running simultaneously (e.g. multiple devices behind one NAT).
+// The semaphore serializes admission so two concurrent handshakes from
+// the same IP don't race the count check.
+var ipSessions = new ConcurrentDictionary<IPAddress, ConcurrentDictionary<string, (CancellationTokenSource Cts, Task Task)>>();
 var ipGates = new ConcurrentDictionary<IPAddress, SemaphoreSlim>();
 
 app.Map("/ws", async context =>
@@ -94,8 +94,11 @@ app.Map("/ws", async context =>
     Task? fullTask = null;
     try
     {
-        // 1. Determine if this is a replacement.
-        var isReplacement = ipSessions.ContainsKey(ip);
+        var sessions = ipSessions.GetOrAdd(ip, _ => new());
+
+        // 1. Only treat as replacement when the IP already has the
+        //    maximum allowed concurrent sessions and we must evict one.
+        var isReplacement = sessions.Count >= guardOptions.MaxConcurrentPerIp;
 
         // 2. Guard checks — before cancelling anything so a rejected
         //    replacement never tears down a healthy session.
@@ -117,13 +120,16 @@ app.Map("/ws", async context =>
             return;
         }
 
-        // 4. Admission passed — cancel the previous session and wait
-        //    for its full lifecycle (including ReleaseSlot) to complete.
-        if (ipSessions.TryRemove(ip, out var prev))
+        // 4. Only evict when actually at the concurrent limit.
+        if (isReplacement)
         {
-            try { await prev.Cts.CancelAsync(); } catch { }
-            try { await prev.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-            prev.Cts.Dispose();
+            var victim = sessions.FirstOrDefault();
+            if (victim.Key is not null && sessions.TryRemove(victim.Key, out var prev))
+            {
+                try { await prev.Cts.CancelAsync(); } catch { }
+                try { await prev.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+                prev.Cts.Dispose();
+            }
         }
 
         // 5. Create and publish the new session entry.
@@ -156,11 +162,8 @@ app.Map("/ws", async context =>
                 guard.ReleaseSlot(ip);
                 Interlocked.Decrement(ref activeSessions);
 
-                // Only remove our own entry — a newer session may have
-                // already replaced it during a refresh handoff.
-                if (ipSessions.TryGetValue(ip, out var current) && current.Id == sessionId)
-                    ((ICollection<KeyValuePair<IPAddress, (string Id, CancellationTokenSource Cts, Task Task)>>)ipSessions)
-                        .Remove(KeyValuePair.Create(ip, current));
+                if (ipSessions.TryGetValue(ip, out var s))
+                    s.TryRemove(sessionId, out _);
 
                 sessionCts.Dispose();
                 Log.SessionEnded(logger, activeSessions, maxSessions);
@@ -168,7 +171,7 @@ app.Map("/ws", async context =>
         }
 
         fullTask = FullSessionLifecycle();
-        ipSessions[ip] = (sessionId, sessionCts, fullTask);
+        sessions[sessionId] = (sessionCts, fullTask);
     }
     finally
     {
