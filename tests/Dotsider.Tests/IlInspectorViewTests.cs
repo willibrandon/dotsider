@@ -101,12 +101,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
 
         // Press DownArrow — should move table focus, not editor cursor.
-        // WaitUntil ensures the key has been processed before we assert.
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.DownArrow)
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        // Use the automator to ensure the key is fully processed before asserting.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key, not editor)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
@@ -181,13 +178,10 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             "Jumped-to method's type must be expanded");
 
         // DownArrow should be consumed by the table, not the editor.
-        // WaitUntil ensures the key has been processed before we assert.
+        // Use the automator to ensure the key is fully processed before asserting.
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.DownArrow)
-            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
