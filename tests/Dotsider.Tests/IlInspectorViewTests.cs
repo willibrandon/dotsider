@@ -83,12 +83,15 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Switch to Strings tab then back to IL
+        // Switch to Strings tab then back to IL.
+        // Wait after returning to IL so the tab switch's RequestContentFocus
+        // is applied before we send DownArrow.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D4)
             .WaitUntil(s => s.ContainsText("User Strings") || s.ContainsText("Metadata"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .Wait(200)
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -160,8 +163,10 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         var method = _state.Analyzer.MethodDefs.First(m => m.Rva > 0);
         _state.NavigateToIlMethod(method);
 
+        // Wait for IL content and for the jump's RequestFocus to be applied
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(10))
+            .Wait(200)
             .Build()
             .ApplyAsync(terminal, ct);
 
