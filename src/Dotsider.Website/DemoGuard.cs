@@ -31,7 +31,15 @@ internal sealed class DemoGuard(ILogger<DemoGuard> logger, DemoGuardOptions opti
     /// Check whether a connection from this IP should be allowed.
     /// Returns a rejection reason, or null if allowed.
     /// </summary>
-    public string? TryAllow(IPAddress ip, string? userAgent)
+    /// <param name="ip">The client IP address.</param>
+    /// <param name="userAgent">The client's User-Agent header.</param>
+    /// <param name="isReplacement">
+    /// True when the caller knows this IP has an existing session that
+    /// will be evicted after admission. Skips the max-concurrent check
+    /// because the old session's slot will be freed before the new one
+    /// starts running.
+    /// </param>
+    public string? TryAllow(IPAddress ip, string? userAgent, bool isReplacement = false)
     {
         var now = timeProvider.GetUtcNow();
 
@@ -82,8 +90,10 @@ internal sealed class DemoGuard(ILogger<DemoGuard> logger, DemoGuardOptions opti
                 return "rate-limit";
             }
 
-            // Check per-IP concurrent sessions
-            if (record.ActiveSessions >= options.MaxConcurrentPerIp)
+            // Check per-IP concurrent sessions — skip when replacing an
+            // existing session from the same IP (the old slot will be freed
+            // after admission, before the new session starts running).
+            if (!isReplacement && record.ActiveSessions >= options.MaxConcurrentPerIp)
             {
                 Log.ConnectionBlocked(logger, ip.ToString(), "max-concurrent", userAgent);
                 return "max-concurrent";

@@ -426,4 +426,46 @@ public class DemoGuardTests
         // Should NOT be banned — ReleaseSlot alone doesn't count as rapid disconnect
         Assert.Null(guard.TryAllow(TestIp, null));
     }
+
+    // ── Replacement admission ────────────────────────────────────
+
+    [Fact]
+    public void TryAllow_Replacement_SkipsMaxConcurrent()
+    {
+        var (guard, _) = CreateGuard(o => o.MaxConcurrentPerIp = 1);
+
+        // First connection takes the only slot
+        Assert.Null(guard.TryAllow(TestIp, null));
+        guard.SessionStarted(TestIp, "s1", null);
+
+        // Normal connection is blocked
+        Assert.Equal("max-concurrent", guard.TryAllow(TestIp, null));
+
+        // Replacement is allowed despite the slot being occupied
+        Assert.Null(guard.TryAllow(TestIp, null, isReplacement: true));
+    }
+
+    [Fact]
+    public void TwoReplacements_BothAdmittedWithoutSerialization()
+    {
+        // This test proves that guard-level replacement admission alone
+        // is not sufficient — two concurrent replacements both pass because
+        // the guard has no serialization. The per-IP semaphore in Program.cs
+        // is what prevents this in production.
+        var (guard, _) = CreateGuard(o =>
+        {
+            o.MaxConcurrentPerIp = 1;
+            o.MaxConnectionsPerIpPerWindow = 100;
+        });
+
+        // First connection takes the only slot
+        Assert.Null(guard.TryAllow(TestIp, null));
+        guard.SessionStarted(TestIp, "s1", null);
+
+        // Two concurrent replacements — both pass at the guard level
+        Assert.Null(guard.TryAllow(TestIp, null, isReplacement: true));
+        Assert.Null(guard.TryAllow(TestIp, null, isReplacement: true));
+
+        // This is why the handler needs a per-IP gate to serialize handoffs
+    }
 }

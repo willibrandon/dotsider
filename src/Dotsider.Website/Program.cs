@@ -60,6 +60,13 @@ app.MapGet("/health", () => Results.Ok(new
 
 var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
 
+// Per-IP session tracking and serialization. The semaphore ensures that
+// only one reconnect from a given IP performs the admission + replacement
+// handoff at a time, preventing two concurrent refreshes from both
+// classifying themselves as replacements and both getting admitted.
+var ipSessions = new ConcurrentDictionary<IPAddress, (string Id, CancellationTokenSource Cts, Task Task)>();
+var ipGates = new ConcurrentDictionary<IPAddress, SemaphoreSlim>();
+
 app.Map("/ws", async context =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
@@ -81,28 +88,50 @@ app.Map("/ws", async context =>
     var userAgent = context.Request.Headers.UserAgent.ToString();
     var sessionId = Guid.NewGuid().ToString("N")[..12];
 
-    // Gate: demo guard checks
-    var rejection = guard.TryAllow(ip, userAgent);
-    if (rejection is not null)
-    {
-        context.Response.StatusCode = 429;
-        await context.Response.WriteAsync($"Rate limited: {rejection}");
-        return;
-    }
-
-    // TryAllow reserved a per-IP slot — ensure release on all exit paths
+    // Serialize the admission + replacement handoff per IP.
+    var gate = ipGates.GetOrAdd(ip, _ => new SemaphoreSlim(1, 1));
+    await gate.WaitAsync(context.RequestAborted);
+    Task? fullTask = null;
     try
     {
+        // 1. Determine if this is a replacement.
+        var isReplacement = ipSessions.ContainsKey(ip);
+
+        // 2. Guard checks — before cancelling anything so a rejected
+        //    replacement never tears down a healthy session.
+        var rejection = guard.TryAllow(ip, userAgent, isReplacement);
+        if (rejection is not null)
+        {
+            context.Response.StatusCode = 429;
+            await context.Response.WriteAsync($"Rate limited: {rejection}");
+            return;
+        }
+
+        // 3. Global session cap.
         if (Interlocked.Increment(ref activeSessions) > maxSessions)
         {
             Interlocked.Decrement(ref activeSessions);
+            guard.ReleaseSlot(ip);
             context.Response.StatusCode = 503;
             await context.Response.WriteAsync("Too many active sessions");
             return;
         }
 
-        // Global slot acquired — ensure decrement on all paths from here
-        try
+        // 4. Admission passed — cancel the previous session and wait
+        //    for its full lifecycle (including ReleaseSlot) to complete.
+        if (ipSessions.TryRemove(ip, out var prev))
+        {
+            try { await prev.Cts.CancelAsync(); } catch { }
+            try { await prev.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+            prev.Cts.Dispose();
+        }
+
+        // 5. Create and publish the new session entry.
+        var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(
+            context.RequestAborted, lifetime.ApplicationStopping);
+        sessionCts.CancelAfter(sessionTimeout);
+
+        async Task FullSessionLifecycle()
         {
             using var ws = await context.WebSockets.AcceptWebSocketAsync();
 
@@ -113,45 +142,50 @@ app.Map("/ws", async context =>
 
             try
             {
-                await RunDotsiderSession(ws, context.RequestAborted, lifetime.ApplicationStopping);
+                await RunDotsiderSession(ws, sessionCts.Token);
             }
-            catch (OperationCanceledException)
-            {
-                // Client disconnected or host shutting down
-            }
-            catch (WebSocketException)
-            {
-                // Connection dropped
-            }
-            catch (Exception ex)
-            {
-                Log.SessionError(logger, ex);
-            }
+            catch (OperationCanceledException) { }
+            catch (WebSocketException) { }
+            catch (Exception ex) { Log.SessionError(logger, ex); }
             finally
             {
+                // Release guard and global slots first so a reconnect
+                // can pass TryAllow even during ipSessions cleanup.
                 var duration = DateTimeOffset.UtcNow - sessionStart;
                 guard.SessionEnded(ip, sessionId, duration);
+                guard.ReleaseSlot(ip);
+                Interlocked.Decrement(ref activeSessions);
+
+                // Only remove our own entry — a newer session may have
+                // already replaced it during a refresh handoff.
+                if (ipSessions.TryGetValue(ip, out var current) && current.Id == sessionId)
+                    ((ICollection<KeyValuePair<IPAddress, (string Id, CancellationTokenSource Cts, Task Task)>>)ipSessions)
+                        .Remove(KeyValuePair.Create(ip, current));
+
+                sessionCts.Dispose();
                 Log.SessionEnded(logger, activeSessions, maxSessions);
             }
         }
-        finally
-        {
-            Interlocked.Decrement(ref activeSessions);
-        }
+
+        fullTask = FullSessionLifecycle();
+        ipSessions[ip] = (sessionId, sessionCts, fullTask);
     }
     finally
     {
-        guard.ReleaseSlot(ip);
+        // 6. Release the gate so the next reconnect can proceed.
+        gate.Release();
     }
+
+    // 7. Await the session outside the gate so the gate is not held
+    //    for the entire session lifetime.
+    if (fullTask is not null)
+        await fullTask;
 });
 
 app.Run();
 
-async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, CancellationToken appStopping)
+async Task RunDotsiderSession(WebSocket ws, CancellationToken ct)
 {
-    using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted, appStopping);
-    cts.CancelAfter(sessionTimeout);
-
     var filePath = Path.GetFullPath(sampleAssembly);
 
     await using var wsAdapter = new WebSocketPresentationAdapter(ws, 120, 36, enableMouse: true);
@@ -191,7 +225,7 @@ async Task RunDotsiderSession(WebSocket ws, CancellationToken requestAborted, Ca
 
     try
     {
-        await hex1bApp.RunAsync(cts.Token);
+        await hex1bApp.RunAsync(ct);
     }
     finally
     {
