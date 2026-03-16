@@ -33,7 +33,7 @@ var guardOptions = new DemoGuardOptions
     CircuitWindow = TimeSpan.FromSeconds(config.GetValue("Demo:Guard:CircuitWindowSeconds", 60)),
     CircuitCooldown = TimeSpan.FromMinutes(config.GetValue("Demo:Guard:CircuitCooldownMinutes", 5)),
     SuspiciousSessionDuration = TimeSpan.FromSeconds(config.GetValue("Demo:Guard:SuspiciousSessionSeconds", 2)),
-    MaxRapidDisconnects = config.GetValue("Demo:Guard:MaxRapidDisconnects", 5),
+    MaxRapidDisconnects = config.GetValue("Demo:Guard:MaxRapidDisconnects", 10),
 };
 var guard = new DemoGuard(
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<DemoGuard>(),
