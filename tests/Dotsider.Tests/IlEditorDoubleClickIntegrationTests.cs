@@ -109,11 +109,19 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         _state.IlEditorState!.SelectWordAt(new DocumentOffset(systemIdx));
         _state.App.Invalidate();
 
-        // Let the render cycle process — triggers AdjustWordSelectionCursorOneShot
+        // Wait for the render cycle to process AdjustWordSelectionCursorOneShot —
+        // the one-shot pulls the cursor from the trailing '.' back onto the last
+        // word character, so poll until the cursor lands on a letter/digit.
         await TestHelpers.WaitUntilAsync(
-            () => _state.IlEditorState!.Cursor.HasSelection,
+            () =>
+            {
+                var es = _state.IlEditorState!;
+                if (!es.Cursor.HasSelection) return false;
+                var pos = es.Cursor.Position.Value;
+                var text = es.Document.GetText();
+                return pos < text.Length && char.IsLetterOrDigit(text[pos]);
+            },
             TimeSpan.FromSeconds(5));
-        await Task.Delay(50, ct);
 
         var fullText = doc.GetText();
         var cursorOffset = _state.IlEditorState!.Cursor.Position.Value;

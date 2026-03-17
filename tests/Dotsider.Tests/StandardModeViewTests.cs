@@ -1812,6 +1812,218 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    [Fact(Timeout = 60_000)]
+    public async Task Tab8_JitNavigation_HintUpdatesAndEnterNavigatesWithoutRerun()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        // Navigate to Dynamic tab, launch trace, wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var tracer = _state!.Tracer!;
+
+        // Status bar should show "Re-run" when no navigable JIT event is focused
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Filter to JIT events
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.J)
+            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Find a navigable JIT event from the analyzed assembly
+        var targetEvent = tracer.GetEvents()
+            .First(e => e.Category == TraceEventCategory.JIT
+                     && e.Detail == "Formatter.Format"
+                     && e.MetadataToken > 0);
+        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
+                       $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
+        var expectedMethod = _state.Analyzer.MethodDefs
+            .First(m => m.Token == targetEvent.MetadataToken);
+
+        // Focus the navigable event — this triggers OnFocusChanged → Invalidate → re-render
+        _state.DynamicEventsFocusedKey = eventKey;
+        _state.App.Invalidate();
+
+        // Status bar should now show "Go to IL" instead of "Re-run"
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Press Enter — should navigate to IL Inspector, NOT re-run the trace
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
+        Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
+        Assert.NotNull(_state.CrossViewBackTarget);
+        Assert.Equal(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
+
+        // The tracer must NOT have been replaced — Enter navigated, not re-ran
+        Assert.Same(tracer, _state.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task Tab8_SearchEditing_HintShowsRerunNotGoToIl()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        // Navigate to Dynamic tab, launch trace, wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var tracer = _state!.Tracer!;
+
+        // Filter to JIT and focus a navigable event so CanNavigateJitEvent is true
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.J)
+            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var targetEvent = tracer.GetEvents()
+            .First(e => e.Category == TraceEventCategory.JIT
+                     && e.Detail == "Formatter.Format"
+                     && e.MetadataToken > 0);
+        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
+                       $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
+
+        _state.DynamicEventsFocusedKey = eventKey;
+        _state.App.Invalidate();
+
+        // Confirm hint shows "Go to IL" before opening search
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Open search — Enter now confirms search, not navigates
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _state.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Hint must revert to "Re-run" while search is editing
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Tab must still be Dynamic — Enter did not navigate
+        Assert.Equal(TabId.Dynamic, _state.CurrentTab);
+        Assert.Same(tracer, _state.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task Tab8_EnterDuringSearchEditing_ConfirmsSearchNotNavigates()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        // Navigate to Dynamic tab, launch trace, wait for exit
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Tracer?.ProcessState
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var tracer = _state!.Tracer!;
+
+        // Filter to JIT and focus a navigable event
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.J)
+            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var targetEvent = tracer.GetEvents()
+            .First(e => e.Category == TraceEventCategory.JIT
+                     && e.Detail == "Formatter.Format"
+                     && e.MetadataToken > 0);
+        var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
+                       $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
+        _state.DynamicEventsFocusedKey = eventKey;
+        _state.App.Invalidate();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Open search and type a query
+        var search = _state.Search[TabId.Dynamic];
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => search.IsActive, TimeSpan.FromSeconds(10))
+            .Type("Format")
+            .WaitUntil(_ => search.Query == "Format", TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(search.IsActive);
+        Assert.False(search.IsConfirmed);
+
+        // Press Enter — should confirm search, NOT navigate to IL
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => search.IsConfirmed, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(search.IsConfirmed);
+        Assert.Equal("Format", search.Query);
+        Assert.Equal(TabId.Dynamic, _state.CurrentTab);
+        Assert.Same(tracer, _state.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

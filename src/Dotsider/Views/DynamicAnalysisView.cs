@@ -168,6 +168,8 @@ public static class DynamicAnalysisView
             .OnSelectionChanged(e =>
             {
                 state.DynamicSubTab = e.SelectedIndex;
+                if (e.SelectedIndex != DynamicSubTabId.Events)
+                    state.CanNavigateJitEvent = false;
                 state.App.Invalidate();
             })
             .Compact()
@@ -227,6 +229,7 @@ public static class DynamicAnalysisView
                     state.DynamicEventsFocusedKey = null;
                     state.DynamicOutputFocusedKey = null;
                     state.DynamicCategoryFilter = null;
+                    state.CanNavigateJitEvent = false;
                     state.App.RequestFocus(node =>
                         node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
@@ -276,10 +279,12 @@ public static class DynamicAnalysisView
     private static VStackWidget BuildEventsSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
-        var events = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+        var allEvents = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+        state.CanNavigateJitEvent = ResolveJitEventMethod(state, allEvents) is not null;
         var search = state.Search[TabId.Dynamic];
         var query = search.Query;
 
+        var events = (IReadOnlyList<TraceEventEntry>)allEvents;
         if (state.DynamicCategoryFilter is { } filter)
             events = [.. events.Where(e => e.Category == filter)];
 
@@ -325,7 +330,13 @@ public static class DynamicAnalysisView
                         !string.IsNullOrEmpty(query)))
                 ])
                 .Focus(state.DynamicEventsFocusedKey)
-                .OnFocusChanged(key => state.DynamicEventsFocusedKey = key)
+                .OnFocusChanged(key =>
+                {
+                    state.DynamicEventsFocusedKey = key;
+                    state.CanNavigateJitEvent =
+                        ResolveJitEventMethod(state, allEvents) is not null;
+                    state.App.Invalidate();
+                })
                 .Compact()
                 .Empty(e => e.Text("  Waiting for events..."))
                 .FillWidth()
@@ -552,20 +563,20 @@ public static class DynamicAnalysisView
     }
 
     /// <summary>
-    /// Attempts to navigate from a focused JIT event row to the IL Inspector.
-    /// Looks up the focused event in the tracer's event list by row key, then
-    /// resolves the method by metadata token (preferred) or by name (fallback).
-    /// Returns true if navigation occurred.
+    /// Resolves the focused JIT event row to a <see cref="MethodDefInfo"/> in the
+    /// analyzer, or returns <c>null</c> if the focused row is not a JIT event or
+    /// the method cannot be found. Looks up by metadata token first, then by name.
     /// </summary>
-    internal static bool TryNavigateJitEvent(DotsiderState state, RuntimeTracer tracer)
+    internal static MethodDefInfo? ResolveJitEventMethod(
+        DotsiderState state, IReadOnlyList<TraceEventEntry> events)
     {
-        if (state.DynamicSubTab != DynamicSubTabId.Events) return false;
-        if (state.DynamicEventsFocusedKey is not string focusedKey) return false;
+        if (state.DynamicSubTab != DynamicSubTabId.Events) return null;
+        if (state.DynamicEventsFocusedKey is not string focusedKey) return null;
 
-        var evt = tracer.GetEvents().FirstOrDefault(e =>
+        var evt = events.FirstOrDefault(e =>
             e.Category == TraceEventCategory.JIT
             && $"{e.Timestamp.Ticks}:{e.EventName}:{e.Detail}:{e.MetadataToken}" == focusedKey);
-        if (evt is null) return false;
+        if (evt is null) return null;
 
         var method = evt.MetadataToken > 0
             ? state.Analyzer.MethodDefs.FirstOrDefault(m => m.Token == evt.MetadataToken)
@@ -577,6 +588,16 @@ public static class DynamicAnalysisView
                 m => m.DeclaringType == declaringType && m.Name == methodName);
         }
 
+        return method;
+    }
+
+    /// <summary>
+    /// Attempts to navigate from a focused JIT event row to the IL Inspector.
+    /// Returns true if navigation occurred.
+    /// </summary>
+    internal static bool TryNavigateJitEvent(DotsiderState state, RuntimeTracer tracer)
+    {
+        var method = ResolveJitEventMethod(state, tracer.GetEvents());
         if (method is null) return false;
 
         state.NavigateToIlMethod(method);

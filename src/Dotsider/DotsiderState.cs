@@ -298,6 +298,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Whether the events table auto-scrolls to the bottom.</summary>
     public bool DynamicAutoScroll { get; set; } = true;
 
+    /// <summary>Whether the focused JIT event can be navigated to the IL Inspector.</summary>
+    public bool CanNavigateJitEvent { get; set; }
+
     /// <summary>Event category filter, or null for all.</summary>
     public TraceEventCategory? DynamicCategoryFilter { get; set; }
 
