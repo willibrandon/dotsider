@@ -503,7 +503,16 @@ public sealed class DotsiderApp(DotsiderState state)
                     hints.Add(s.Section("Ctrl+K: Stop"));
                 else if (_state.Tracer?.ProcessState is TraceProcessState.Exited
                     or TraceProcessState.Error)
-                    hints.Add(s.Section("Enter: Re-run"));
+                {
+                    var dynamicSearch = _state.Search[TabId.Dynamic];
+                    var isSearchEditing = dynamicSearch.IsActive && !dynamicSearch.IsConfirmed;
+                    var hint = !isSearchEditing
+                        && _state.DynamicSubTab == DynamicSubTabId.Events
+                        && _state.CanNavigateJitEvent
+                        ? "Enter: Go to IL"
+                        : "Enter: Re-run";
+                    hints.Add(s.Section(hint));
+                }
                 else if (_state.HasEntryPoint)
                     hints.Add(s.Section("Enter: Launch"));
             }
