@@ -113,7 +113,7 @@ dotsider sessions list                          # list running instances
 dotsider sessions info <pid>                    # assembly info + current view
 dotsider sessions view <pid>                    # current tab and view state
 dotsider sessions navigate <pid> <tab>          # switch to tab (0-7)
-dotsider sessions capture <pid> --format svg    # capture screen (text/ansi/html/svg)
+dotsider sessions capture <pid>                    # capture screen as plain text
 dotsider sessions trace start <pid>             # start tracing the loaded assembly
 dotsider sessions trace events <pid>            # get JIT, GC, exception events
 dotsider sessions trace counters <pid>          # get performance counters
