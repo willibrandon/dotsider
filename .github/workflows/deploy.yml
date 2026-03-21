@@ -93,6 +93,9 @@ jobs:
   deploy:
     needs: [build, preflight]
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://dotsider.dev
     steps:
       - uses: actions/download-artifact@v8
         with:
