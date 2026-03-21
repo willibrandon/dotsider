@@ -340,7 +340,7 @@ public static class IlInspectorView
         if (state.IlEditorMethod?.Token != method.Token
             || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
         {
-            var disassembly = state.IlDisassembler.FormatDisassembly(method);
+            var disassembly = state.IlDisassembler!.FormatDisassembly(method);
             var doc = new Hex1bDocument(disassembly);
             state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlEditorMethod = method;
@@ -451,7 +451,7 @@ public static class IlInspectorView
 
                 foreach (var method in methods)
                 {
-                    var disassembly = state.IlDisassembler.FormatDisassembly(method);
+                    var disassembly = state.IlDisassembler!.FormatDisassembly(method);
                     var lines = disassembly.Split('\n');
 
                     for (var lineIdx = 0; lineIdx < lines.Length; lineIdx++)
