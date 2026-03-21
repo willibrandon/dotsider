@@ -317,7 +317,7 @@ public static class DynamicAnalysisView
                     h.Cell("Event").Width(SizeHint.Fixed(22)),
                     h.Cell("Detail").Width(SizeHint.Fill)
                 ])
-                .Row((r, evt, _) =>
+                .Row((r, evt, rs) =>
                 [
                     r.Cell(evt.Timestamp.ToString(@"mm\:ss\.fff")),
                     r.Cell(c => c.ThemePanel(
@@ -325,9 +325,11 @@ public static class DynamicAnalysisView
                             CategoryColors.GetValueOrDefault(evt.Category, Hex1bColor.White)),
                         c.Text(evt.Category.ToString()))),
                     r.Cell(c => HighlightHelper.HighlightCell(c, evt.EventName, query,
-                        !string.IsNullOrEmpty(query))),
+                        !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null)),
                     r.Cell(c => HighlightHelper.HighlightCell(c, evt.Detail, query,
-                        !string.IsNullOrEmpty(query)))
+                        !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null))
                 ])
                 .Focus(state.DynamicEventsFocusedKey)
                 .OnFocusChanged(key =>
@@ -480,7 +482,7 @@ public static class DynamicAnalysisView
                 h.Cell("Src").Width(SizeHint.Fixed(6)),
                 h.Cell("Output").Width(SizeHint.Fill)
             ])
-            .Row((r, line, _) =>
+            .Row((r, line, rs) =>
             [
                 r.Cell(line.Timestamp.ToString(@"mm\:ss\.fff")),
                 r.Cell(c => line.IsStdErr
@@ -489,7 +491,8 @@ public static class DynamicAnalysisView
                 r.Cell(c => line.IsStdErr
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text))
                     : HighlightHelper.HighlightCell(c, line.Text, query,
-                        !string.IsNullOrEmpty(query)))
+                        !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null))
             ])
             .Focus(state.DynamicOutputFocusedKey)
             .OnFocusChanged(key => state.DynamicOutputFocusedKey = key)

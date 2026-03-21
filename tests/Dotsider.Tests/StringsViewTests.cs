@@ -251,6 +251,32 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task Strings_DetailPopupShowsStringContent()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("String Detail") && s.ContainsText("Length:"),
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // The detail popup should show both the Length label and the string value
+        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.True(_state.StringsDetailContent.Length > 0);
+
+        cts.Cancel();
+        await runTask;
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

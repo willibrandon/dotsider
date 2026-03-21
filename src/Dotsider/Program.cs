@@ -6,6 +6,7 @@ using Dotsider.Commands;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
+using Hex1b.Diagnostics;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -142,25 +143,51 @@ diffCommand.SetAction(async (parseResult, ct) =>
         new ConsolePresentationAdapter(enableMouse: true),
         TimeSpan.FromMilliseconds(escTimeoutMs));
 
-    await using var diffTerminal = Hex1bTerminal.CreateBuilder()
-        .WithPresentation(diffEscAdapter)
-        .WithMouse()
-        .WithHex1bApp((app, options) =>
-        {
-            options.Theme = DotsiderTheme.Create();
-
-            var diffState = new DiffState(app, left.FullName, right.FullName);
-            capturedDiffState = diffState;
-            var diffApp = new DiffApp(diffState);
-            return ctx => diffApp.Build(ctx);
-        })
-        .WithDiagnostics(appName: "dotsider-diff", forceEnable: true)
-        .Build();
-
+    var diffWorkload = new Hex1bAppWorkloadAdapter(diffEscAdapter.Capabilities);
+    var diffTerminalOptions = new Hex1bTerminalOptions
+    {
+        PresentationAdapter = diffEscAdapter,
+        WorkloadAdapter = diffWorkload
+    };
+    diffTerminalOptions.PresentationFilters.Add(new McpDiagnosticsPresentationFilter("dotsider-diff"));
+    await using var diffTerminal = new Hex1bTerminal(diffTerminalOptions);
     diffEscAdapter.Terminal = diffTerminal;
 
+    var diffAppOptions = new Hex1bAppOptions
+    {
+        WorkloadAdapter = diffWorkload,
+        Theme = DotsiderTheme.Create(),
+        EnableMouse = true
+    };
+
+    DiffApp? diffApp = null;
+    Hex1bApp? diffHex1bApp = null;
+
+    diffHex1bApp = new Hex1bApp(ctx =>
+    {
+        if (capturedDiffState is null)
+        {
+            var diffState = new DiffState(diffHex1bApp!, left.FullName, right.FullName);
+            capturedDiffState = diffState;
+            diffApp = new DiffApp(diffState);
+        }
+        return diffApp!.Build(ctx);
+    }, diffAppOptions);
+
     diagnosticsListener.StartListening();
-    await diffTerminal.RunAsync(ct);
+
+    // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
+    Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+
+    try
+    {
+        await diffHex1bApp.RunAsync(ct);
+    }
+    finally
+    {
+        diffHex1bApp.Dispose();
+    }
+
     return 0;
 });
 
@@ -226,25 +253,47 @@ static async Task<int> RunTui(string[] args, string filePath)
             new ConsolePresentationAdapter(enableMouse: true),
             TimeSpan.FromMilliseconds(parsed.EscapeTimeoutMs));
 
-        await using var nugetTerminal = Hex1bTerminal.CreateBuilder()
-            .WithPresentation(nugetEscAdapter)
-            .WithMouse()
-            .WithHex1bApp((app, options) =>
-            {
-                options.Theme = DotsiderTheme.Create();
-
-                var nugetState = new NuGetState(app, filePath);
-                capturedNugetState = nugetState;
-                var nugetApp = new NuGetApp(nugetState);
-                return ctx => nugetApp.Build(ctx);
-            })
-            .WithDiagnostics(appName: "dotsider-nuget", forceEnable: true)
-            .Build();
-
+        var nugetWorkload = new Hex1bAppWorkloadAdapter(nugetEscAdapter.Capabilities);
+        var nugetTerminalOptions = new Hex1bTerminalOptions
+        {
+            PresentationAdapter = nugetEscAdapter,
+            WorkloadAdapter = nugetWorkload
+        };
+        nugetTerminalOptions.PresentationFilters.Add(new McpDiagnosticsPresentationFilter("dotsider-nuget"));
+        await using var nugetTerminal = new Hex1bTerminal(nugetTerminalOptions);
         nugetEscAdapter.Terminal = nugetTerminal;
 
+        var nugetAppOptions = new Hex1bAppOptions
+        {
+            WorkloadAdapter = nugetWorkload,
+            Theme = DotsiderTheme.Create(),
+            EnableMouse = true
+        };
+
+        NuGetApp? nugetApp = null;
+        Hex1bApp? nugetHex1bApp = null;
+
+        nugetHex1bApp = new Hex1bApp(ctx =>
+        {
+            capturedNugetState ??= new NuGetState(nugetHex1bApp!, filePath);
+            nugetApp ??= new NuGetApp(capturedNugetState);
+            return nugetApp.Build(ctx);
+        }, nugetAppOptions);
+
         nugetListener.StartListening();
-        await nugetTerminal.RunAsync();
+
+        // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
+        Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+
+        try
+        {
+            await nugetHex1bApp.RunAsync();
+        }
+        finally
+        {
+            nugetHex1bApp.Dispose();
+        }
+
         return 0;
     }
 
@@ -259,30 +308,52 @@ static async Task<int> RunTui(string[] args, string filePath)
         new ConsolePresentationAdapter(enableMouse: true),
         TimeSpan.FromMilliseconds(parsed.EscapeTimeoutMs));
 
-    await using var terminal = Hex1bTerminal.CreateBuilder()
-        .WithPresentation(escAdapter)
-        .WithMouse()
-        .WithHex1bApp((app, options) =>
-        {
-            options.Theme = DotsiderTheme.Create();
+    var workload = new Hex1bAppWorkloadAdapter(escAdapter.Capabilities);
 
-            var state = new DotsiderState(app, filePath, pendingMutations)
-            {
-                CurrentTab = initialTab,
-                StringsMinLength = minStringLength
-            };
-            capturedState = state;
 
-            var dotsiderApp = new DotsiderApp(state);
-            return ctx => dotsiderApp.Build(ctx);
-        })
-        .WithDiagnostics(appName: "dotsider", forceEnable: true)
-        .Build();
-
+    var terminalOptions = new Hex1bTerminalOptions
+    {
+        PresentationAdapter = escAdapter,
+        WorkloadAdapter = workload
+    };
+    terminalOptions.PresentationFilters.Add(new McpDiagnosticsPresentationFilter("dotsider"));
+    await using var terminal = new Hex1bTerminal(terminalOptions);
     escAdapter.Terminal = terminal;
 
-    diagnosticsListener.StartListening();
+    var appOptions = new Hex1bAppOptions
+    {
+        WorkloadAdapter = workload,
+        Theme = DotsiderTheme.Create(),
+        EnableMouse = true
+    };
 
-    await terminal.RunAsync();
+    DotsiderApp? dotsiderApp = null;
+    Hex1bApp? hex1bApp = null;
+
+    hex1bApp = new Hex1bApp(ctx =>
+    {
+        capturedState ??= new DotsiderState(hex1bApp!, filePath, pendingMutations)
+        {
+            CurrentTab = initialTab,
+            StringsMinLength = minStringLength
+        };
+        dotsiderApp ??= new DotsiderApp(capturedState);
+        return dotsiderApp.Build(ctx);
+    }, appOptions);
+
+    diagnosticsListener.StartListening();
+    
+    // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
+    Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+
+    try
+    {
+        await hex1bApp.RunAsync();
+    }
+    finally
+    {
+        hex1bApp.Dispose();
+    }
+
     return 0;
 }

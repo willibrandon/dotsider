@@ -71,7 +71,7 @@ public static class DiffTypesView
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, type.FullName, query, !string.IsNullOrEmpty(query)))),
+                            HighlightHelper.HighlightCell(c, type.FullName, query, !string.IsNullOrEmpty(query), color))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.BaseType ?? ""))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.MethodCount.ToString()))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(type.FieldCount.ToString()))),

@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Layout;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -67,8 +68,10 @@ public static class NuGetBrowserView
                     ])
                     .Row((r, entry, rowState) =>
                     [
-                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Name, query, !string.IsNullOrEmpty(query))),
-                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Directory, query, !string.IsNullOrEmpty(query))),
+                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Name, query, !string.IsNullOrEmpty(query),
+                            rowState.IsFocused ? Hex1bColor.Black : null, rowState.IsFocused ? Hex1bColor.FromRgb(0, 200, 180) : null)),
+                        r.Cell(c => HighlightHelper.HighlightCell(c, entry.Directory, query, !string.IsNullOrEmpty(query),
+                            rowState.IsFocused ? Hex1bColor.Black : null, rowState.IsFocused ? Hex1bColor.FromRgb(0, 200, 180) : null)),
                         r.Cell(DotsiderState.FormatSize(entry.UncompressedSize))
                     ])
                     .Focus(state.FileTreeFocusedKey)

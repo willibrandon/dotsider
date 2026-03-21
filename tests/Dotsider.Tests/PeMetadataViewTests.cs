@@ -524,6 +524,93 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_SectionDetailPopup_ShowsColoredLabelsAndHexValues()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections") && s.ContainsText(".text"),
+                TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Verify the detail content has the expected label:value structure
+        var content = _state!.PeDetailContent!;
+        Assert.Contains("Section:", content);
+        Assert.Contains("Virtual Address:", content);
+        Assert.Contains("0x", content); // Hex values present
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_TypeDefDetailPopup_ShowsTokenAndAttributes()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var content = _state!.PeDetailContent!;
+        Assert.Contains("TypeDef:", content);
+        Assert.Contains("Token: 0x", content);
+        Assert.Contains("Attributes:", content);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_MethodDefDetailPopup_ShowsSignatureAndRva()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.MethodDef, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Detail"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var content = _state!.PeDetailContent!;
+        Assert.Contains("MethodDef:", content);
+        Assert.Contains("Token: 0x", content);
+        Assert.Contains("Signature:", content);
+        Assert.Contains("RVA: 0x", content);
+
+        cts.Cancel();
+        await runTask;
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

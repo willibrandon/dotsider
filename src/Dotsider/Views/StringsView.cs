@@ -14,6 +14,7 @@ namespace Dotsider.Views;
 public static class StringsView
 {
     private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
+    private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
     private static readonly string[] SourceTabs = ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary"];
 
     /// <summary>
@@ -74,7 +75,7 @@ public static class StringsView
                 SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
                 // Sub-tab selector with strings table as content
-                widgets.Add(outer.TabPanel(tp =>
+                Hex1bWidget stringsTabs = outer.TabPanel(tp =>
                     [.. SourceTabs.Select((name, i) =>
                         tp.Tab(name, t => [BuildStringsTable(t, state, activeStrings, query)])
                             .Selected(state.StringsSourceTab == i)
@@ -89,7 +90,19 @@ public static class StringsView
                     state.App.Invalidate();
                 })
                 .Compact()
-                .Fill());
+                .Fill();
+
+                // Suppress the teal selected-tab highlight when the detail popup
+                // is open so it doesn't bleed through the transparent backdrop.
+                if (state.StringsDetailContent is not null)
+                {
+                    stringsTabs = outer.ThemePanel(t => t
+                        .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
+                        .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
+                        stringsTabs);
+                }
+
+                widgets.Add(stringsTabs);
 
                 // Status line
                 var statusParts = new List<string> { $"{activeStrings.Count} strings" };
@@ -203,7 +216,12 @@ public static class StringsView
                             outer.Border(
                                 outer.VScrollPanel(scroll =>
                                 [
-                                    scroll.Text($"  Length: {state.StringsDetailContent.Length}"),
+                                    scroll.HStack(row =>
+                                    [
+                                        row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                                            row.Text("  Length: ")),
+                                        row.Text(state.StringsDetailContent.Length.ToString())
+                                    ]).FixedHeight(1),
                                     scroll.Text(""),
                                     .. state.StringsDetailContent
                                         .Split('\n')
@@ -235,13 +253,18 @@ public static class StringsView
                 h.Cell("Offset").Width(SizeHint.Fixed(12)),
                 h.Cell("Value").Width(SizeHint.Fill)
             ])
-            .Row((r, entry, rowState) =>
+            .Row((r, entry, rs) =>
             [
-                r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor),
-                    c.Text($"0x{entry.Offset:X8}"))),
-                r.Cell(c => HighlightHelper.HighlightCell(c,
-                    entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
-                    query, !string.IsNullOrEmpty(query)))
+                r.Cell(c => FocusStyle(c,
+                    c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor),
+                        c.Text($"0x{entry.Offset:X8}")),
+                    rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,
+                    HighlightHelper.HighlightCell(c,
+                        entry.Value.Length > 200 ? entry.Value[..200] + "..." : entry.Value,
+                        query, !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
+                    rs.IsFocused))
             ])
             .Focus(state.StringsDetailContent is not null ? null : state.StringsFocusedKey)
             .OnFocusChanged(key => state.StringsFocusedKey = key)
@@ -252,6 +275,15 @@ public static class StringsView
             })
             .Compact().Fill();
     }
+
+    private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
+    private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+
+    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
+        where T : Hex1bWidget =>
+        isFocused ? c.ThemePanel(t => t
+            .Set(GlobalTheme.ForegroundColor, FocusFg)
+            .Set(GlobalTheme.BackgroundColor, FocusBg), child) : child;
 
     private static string RowKey(StringEntry e) =>
         $"{e.Offset}:{e.Source}";
