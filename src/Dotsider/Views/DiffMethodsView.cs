@@ -73,11 +73,11 @@ public static class DiffMethodsView
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.DeclaringType, query, !string.IsNullOrEmpty(query)))),
+                            HighlightHelper.HighlightCell(c, method.DeclaringType, query, !string.IsNullOrEmpty(query), color))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.Name, query, !string.IsNullOrEmpty(query)))),
+                            HighlightHelper.HighlightCell(c, method.Name, query, !string.IsNullOrEmpty(query), color))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.Signature, query, !string.IsNullOrEmpty(query)))),
+                            HighlightHelper.HighlightCell(c, method.Signature, query, !string.IsNullOrEmpty(query), color))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
                     ];
                 })

@@ -37,6 +37,7 @@ public sealed class DotsiderApp(DotsiderState state)
         if (!_initialFocusRequested)
         {
             _initialFocusRequested = true;
+            SeedFocusedRowIfNeeded();
             RequestContentFocus();
         }
 

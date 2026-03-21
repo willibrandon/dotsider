@@ -75,7 +75,7 @@ public static class DiffRefsView
                     [
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, name, query, !string.IsNullOrEmpty(query)))),
+                            HighlightHelper.HighlightCell(c, name, query, !string.IsNullOrEmpty(query), color))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(leftVer))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(rightVer))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))

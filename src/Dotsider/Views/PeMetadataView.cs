@@ -1,3 +1,4 @@
+using System.Text;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
@@ -15,6 +16,8 @@ public static class PeMetadataView
 {
     private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
     private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
+    private static readonly string AddressAnsi = AddressColor.ToForegroundAnsi();
+    private const string AnsiReset = "\x1b[0m";
 
     /// <summary>
     /// Builds the PE/Metadata view widget tree.
@@ -141,7 +144,7 @@ public static class PeMetadataView
                 SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
                 // Bottom section: Metadata tables in sub-tabs
-                widgets.Add(outer.TabPanel(tp =>
+                Hex1bWidget metadataTabs = outer.TabPanel(tp =>
                 [
                     tp.Tab("Sections", t => [BuildSectionsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Sections),
@@ -167,7 +170,19 @@ public static class PeMetadataView
                     state.App.Invalidate();
                 })
                 .Compact()
-                .Fill());
+                .Fill();
+
+                // Suppress the teal selected-tab highlight when the detail popup
+                // is open so it doesn't bleed through the transparent backdrop.
+                if (state.PeDetailContent is not null)
+                {
+                    metadataTabs = outer.ThemePanel(t => t
+                        .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
+                        .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
+                        metadataTabs);
+                }
+
+                widgets.Add(metadataTabs);
 
                 return [.. widgets];
             })
@@ -250,7 +265,7 @@ public static class PeMetadataView
                     z.Border(
                         z.VStack(dlg =>
                             [.. state.PeDetailContent.Split('\n')
-                                .Select(line => dlg.Text($"  {line}"))]
+                                .Select(line => DetailLine(dlg, line))]
                         )
                     ).Title(" Detail ").FixedWidth(60).FixedHeight(12)
                 ).OnClickAway(() =>
@@ -281,14 +296,14 @@ public static class PeMetadataView
                 h.Cell("Raw Size").Width(SizeHint.Fixed(14)),
                 h.Cell("Characteristics").Width(SizeHint.Fill)
             ])
-            .Row((r, s, _) =>
+            .Row((r, s, rs) =>
             [
-                r.Cell(c => HighlightHelper.HighlightCell(c, s.Name, query, true)),
-                r.Cell(c => HexCell(c, $"0x{s.VirtualAddress:X8}")),
-                r.Cell(FormatSize(s.VirtualSize, state)),
-                r.Cell(c => HexCell(c, $"0x{s.RawDataOffset:X8}")),
-                r.Cell(FormatSize(s.RawDataSize, state)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, s.Characteristics.ToString(), query, true))
+                r.Cell(c => FocusHighlightCell(c,s.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.VirtualAddress:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize(s.VirtualSize, state)), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.RawDataOffset:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize(s.RawDataSize, state)), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,s.Characteristics.ToString(), query, true, rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -324,14 +339,14 @@ public static class PeMetadataView
                 h.Cell("Methods").Width(SizeHint.Fixed(8)),
                 h.Cell("Fields").Width(SizeHint.Fixed(8))
             ])
-            .Row((r, t, _) =>
+            .Row((r, t, rs) =>
             [
-                r.Cell(c => HexCell(c, $"0x{t.Token:X8}")),
-                r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, t.BaseType ?? "", query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, t.Attributes.ToString(), query, true)),
-                r.Cell(t.MethodCount.ToString()),
-                r.Cell(t.FieldCount.ToString())
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{t.Token:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,t.FullName, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,t.BaseType ?? "", query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,t.Attributes.ToString(), query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.MethodCount.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.FieldCount.ToString()), rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -367,14 +382,14 @@ public static class PeMetadataView
                 h.Cell("Attributes").Width(SizeHint.Fixed(20)),
                 h.Cell("RVA").Width(SizeHint.Fixed(12))
             ])
-            .Row((r, m, _) =>
+            .Row((r, m, rs) =>
             [
-                r.Cell(c => HexCell(c, $"0x{m.Token:X8}")),
-                r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, m.Signature, query, true)),
-                r.Cell(m.Attributes.ToString()),
-                r.Cell(c => m.Rva == 0 ? c.Text("") : HexCell(c, $"0x{m.Rva:X8}"))
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{m.Token:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,m.DeclaringType, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,m.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,m.Signature, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(m.Attributes.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, m.Rva == 0 ? c.Text("") : HexCell(c, $"0x{m.Rva:X8}"), rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -407,11 +422,11 @@ public static class PeMetadataView
                 h.Cell("Full Name").Width(SizeHint.Fill),
                 h.Cell("Resolution Scope").Width(SizeHint.Fixed(30))
             ])
-            .Row((r, t, _) =>
+            .Row((r, t, rs) =>
             [
-                r.Cell(c => HexCell(c, $"0x{t.Token:X8}")),
-                r.Cell(c => HighlightHelper.HighlightCell(c, t.FullName, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, t.ResolutionScope, query, true))
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{t.Token:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,t.FullName, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,t.ResolutionScope, query, true, rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -443,11 +458,11 @@ public static class PeMetadataView
                 h.Cell("Declaring Type").Width(SizeHint.Fill),
                 h.Cell("Name").Width(SizeHint.Fixed(25))
             ])
-            .Row((r, m, _) =>
+            .Row((r, m, rs) =>
             [
-                r.Cell(c => HexCell(c, $"0x{m.Token:X8}")),
-                r.Cell(c => HighlightHelper.HighlightCell(c, m.DeclaringType, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, m.Name, query, true))
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{m.Token:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,m.DeclaringType, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,m.Name, query, true, rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -476,11 +491,11 @@ public static class PeMetadataView
                 h.Cell("Constructor").Width(SizeHint.Fill),
                 h.Cell("Value").Width(SizeHint.Fixed(40))
             ])
-            .Row((r, a, _) =>
+            .Row((r, a, rs) =>
             [
-                r.Cell(c => HighlightHelper.HighlightCell(c, a.Parent, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, a.Constructor, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, a.Value ?? "", query, true))
+                r.Cell(c => FocusHighlightCell(c,a.Parent, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,a.Constructor, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,a.Value ?? "", query, true, rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -513,13 +528,13 @@ public static class PeMetadataView
                 h.Cell("Size").Width(SizeHint.Fixed(12)),
                 h.Cell("Linked").Width(SizeHint.Fixed(8))
             ])
-            .Row((r, res, _) =>
+            .Row((r, res, rs) =>
             [
-                r.Cell(c => HighlightHelper.HighlightCell(c, res.Name, query, true)),
-                r.Cell(c => HighlightHelper.HighlightCell(c, res.Visibility, query, true)),
-                r.Cell(c => HexCell(c, $"0x{res.Offset:X8}")),
-                r.Cell(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"),
-                r.Cell(res.IsLinked ? "Yes" : "No")
+                r.Cell(c => FocusHighlightCell(c,res.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,res.Visibility, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{res.Offset:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(res.Size >= 0 ? FormatSize((int)res.Size, state) : "?"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(res.IsLinked ? "Yes" : "No"), rs.IsFocused))
             ])
             .Focus(state.PeDetailContent is not null ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
@@ -550,6 +565,21 @@ public static class PeMetadataView
     private static ThemePanelWidget HexCell<T>(WidgetContext<T> c, string text) where T : Hex1bWidget =>
         c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, AddressColor), c.Text(text));
 
+    private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
+    private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+
+    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
+        where T : Hex1bWidget =>
+        isFocused ? c.ThemePanel(t => t
+            .Set(GlobalTheme.ForegroundColor, FocusFg)
+            .Set(GlobalTheme.BackgroundColor, FocusBg), child) : child;
+
+    private static Hex1bWidget FocusHighlightCell<T>(
+        WidgetContext<T> c, string text, string? query, bool isMatch, bool isFocused)
+        where T : Hex1bWidget =>
+        FocusStyle(c, HighlightHelper.HighlightCell(c, text, query, isMatch,
+            isFocused ? FocusFg : null, isFocused ? FocusBg : null), isFocused);
+
     private static HStackWidget PeLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {
         return ctx.HStack(row =>
@@ -559,6 +589,59 @@ public static class PeMetadataView
             row.Text(value)
         ]).FixedHeight(1);
     }
+
+    private static Hex1bWidget DetailLine<T>(WidgetContext<T> ctx, string line) where T : Hex1bWidget
+    {
+        var colonIdx = line.IndexOf(": ", StringComparison.Ordinal);
+        if (colonIdx < 0)
+            return ctx.Text($"  {line}");
+
+        var label = line[..colonIdx];
+        var value = line[(colonIdx + 2)..];
+
+        return ctx.HStack(row =>
+        [
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text($"  {label}: ")).FixedWidth(22),
+            row.Text(ColorizeHexValues(value))
+        ]).FixedHeight(1);
+    }
+
+    private static string ColorizeHexValues(string text)
+    {
+        var sb = new StringBuilder(text.Length + 32);
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (i + 2 < text.Length && text[i] == '0' && text[i + 1] is 'x' or 'X')
+            {
+                var start = i;
+                i += 2;
+                while (i < text.Length && IsHexDigit(text[i]))
+                    i++;
+                if (i > start + 2)
+                {
+                    sb.Append(AddressAnsi);
+                    sb.Append(text, start, i - start);
+                    sb.Append(AnsiReset);
+                }
+                else
+                {
+                    sb.Append(text, start, i - start);
+                }
+            }
+            else
+            {
+                sb.Append(text[i]);
+                i++;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool IsHexDigit(char c) =>
+        c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
 
     private static IReadOnlyList<object> GetActiveRowKeys(DotsiderState state)
     {

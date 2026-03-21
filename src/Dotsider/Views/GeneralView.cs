@@ -103,13 +103,14 @@ public static class GeneralView
                         h.Cell("Culture").Width(SizeHint.Fixed(10)),
                         h.Cell("Public Key Token").Width(SizeHint.Fixed(20))
                     ])
-                    .Row((r, asmRef, rowState) =>
+                    .Row((r, asmRef, rs) =>
                     [
-                        r.Cell(c => HighlightHelper.HighlightCell(c, asmRef.Name, query,
-                            !string.IsNullOrEmpty(query))),
-                        r.Cell(asmRef.Version),
-                        r.Cell(asmRef.Culture),
-                        r.Cell(asmRef.PublicKeyToken ?? "")
+                        r.Cell(c => FocusStyle(c, HighlightHelper.HighlightCell(c, asmRef.Name, query,
+                            !string.IsNullOrEmpty(query),
+                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null), rs.IsFocused)),
+                        r.Cell(c => FocusStyle(c, c.Text(asmRef.Version), rs.IsFocused)),
+                        r.Cell(c => FocusStyle(c, c.Text(asmRef.Culture), rs.IsFocused)),
+                        r.Cell(c => FocusStyle(c, c.Text(asmRef.PublicKeyToken ?? ""), rs.IsFocused))
                     ])
                     .Focus(state.GeneralFocusedDep)
                     .OnFocusChanged(key => state.GeneralFocusedDep = key)
@@ -180,6 +181,15 @@ public static class GeneralView
         }
         return -1;
     }
+
+    private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
+    private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+
+    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
+        where T : Hex1bWidget =>
+        isFocused ? c.ThemePanel(t => t
+            .Set(GlobalTheme.ForegroundColor, FocusFg)
+            .Set(GlobalTheme.BackgroundColor, FocusBg), child) : child;
 
     private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {

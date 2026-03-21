@@ -79,6 +79,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Navigation stack of assembly paths for drill-down.</summary>
     public Stack<AssemblyAnalyzer> NavigationStack { get; } = new();
 
+    /// <summary>Saved focused dep keys matching the navigation stack for restore on back.</summary>
+    private readonly Stack<object?> _focusedDepStack = new();
+
     /// <summary>Maximum navigation depth for assembly drill-down.</summary>
     public const int MaxNavigationDepth = 10;
 
@@ -461,6 +464,7 @@ public sealed class DotsiderState : IDisposable
         }
 
         NavigationError = null;
+        _focusedDepStack.Push(GeneralFocusedDep);
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
         IlDisassembler = new IlDisassembler(Analyzer);
@@ -488,7 +492,9 @@ public sealed class DotsiderState : IDisposable
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
+        var savedFocus = _focusedDepStack.Count > 0 ? _focusedDepStack.Pop() : null;
         ResetViewState();
+        GeneralFocusedDep = savedFocus;
         return true;
     }
 
@@ -498,7 +504,7 @@ public sealed class DotsiderState : IDisposable
         NavigateNextMatch = null;
         NavigatePrevMatch = null;
         CrossViewBackTarget = null;
-        GeneralFocusedDep = null;
+        GeneralFocusedDep = Analyzer.AssemblyRefs.Count > 0 ? Analyzer.AssemblyRefs[0].Name : null;
         PeSubTab = 0;
         PeFocusedKey = null;
         PeDetailContent = null;
