@@ -266,9 +266,11 @@ samples/
   MinimalApi/         ASP.NET Core minimal API (web SDK, hosted entry point)
   NativeLib/          Unsafe code, P/Invoke, pointer operations
   EmptyLib/           Minimal library (edge case testing)
+  NetFxConsole/       .NET Framework 4.8 console app (Dynamic tab guard testing)
+  NativeAotConsole/   NativeAOT-published console app (Dynamic tab tracing tests)
 
 tests/Dotsider.Tests/
-  SampleAssemblyFixture.cs   Builds all 7 samples once, shared across tests
+  SampleAssemblyFixture.cs   Builds all 9 samples once, shared across tests
   *Tests.cs                  Integration tests against real assemblies
 
 tests/Dotsider.Mcp.Tests/

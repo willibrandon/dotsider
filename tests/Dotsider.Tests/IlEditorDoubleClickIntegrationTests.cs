@@ -87,7 +87,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         // Find a method whose IL contains a dotted name
         var method = _state!.Analyzer.MethodDefs
             .Where(m => m.Rva > 0)
-            .First(m => _state.IlDisassembler.FormatDisassembly(m).Contains("System."));
+            .First(m => _state.IlDisassembler!.FormatDisassembly(m).Contains("System."));
         SelectMethodInTree(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -96,7 +96,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
             .ApplyAsync(terminal, ct);
 
         // Find first "System." in the disassembly
-        var disassembly = _state.IlDisassembler.FormatDisassembly(method);
+        var disassembly = _state.IlDisassembler!.FormatDisassembly(method);
         var systemIdx = disassembly.IndexOf("System.", StringComparison.Ordinal);
         Assert.True(systemIdx >= 0, "Expected 'System.' in disassembly");
 
@@ -172,7 +172,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         // Find a method with dotted IL names
         var method = _state!.Analyzer.MethodDefs
             .Where(m => m.Rva > 0)
-            .First(m => _state.IlDisassembler.FormatDisassembly(m).Contains("System."));
+            .First(m => _state.IlDisassembler!.FormatDisassembly(m).Contains("System."));
         SelectMethodInTree(method);
 
         // Wait for the IL editor to fully render

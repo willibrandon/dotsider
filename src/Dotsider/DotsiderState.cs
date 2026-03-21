@@ -24,8 +24,10 @@ public sealed class DotsiderState : IDisposable
         App = app;
         PendingMutations = pendingMutations ?? new();
         Analyzer = new AssemblyAnalyzer(filePath);
-        IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
+        if (Analyzer.HasMetadata)
+            IlDisassembler = new IlDisassembler(Analyzer);
+        
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
@@ -40,8 +42,9 @@ public sealed class DotsiderState : IDisposable
         App = app;
         PendingMutations = new();
         Analyzer = analyzer;
-        IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
+        if (Analyzer.HasMetadata)
+            IlDisassembler = new IlDisassembler(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
@@ -60,8 +63,8 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The core assembly analyzer (current top of navigation stack).</summary>
     public AssemblyAnalyzer Analyzer { get; internal set; }
 
-    /// <summary>The IL disassembler for method body inspection.</summary>
-    public IlDisassembler IlDisassembler { get; internal set; }
+    /// <summary>The IL disassembler for method body inspection. Null for NativeAOT binaries.</summary>
+    public IlDisassembler? IlDisassembler { get; internal set; }
 
     /// <summary>The string extractor for all string sources.</summary>
     public StringExtractor StringExtractor { get; internal set; }
@@ -124,7 +127,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>
     /// Expansion state map for IL Inspector tree nodes (keyed by stable namespace/type keys).
     /// </summary>
+    #pragma warning disable IDE0028
     public Dictionary<string, bool> IlTreeExpansionState { get; } = new(StringComparer.Ordinal);
+    #pragma warning restore IDE0028
 
     /// <summary>The editor state for the IL disassembly pane, or null if no method is selected.</summary>
     public EditorState? IlEditorState { get; set; }
@@ -288,6 +293,9 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Whether the assembly appears to be NativeAOT (no CLR metadata).</summary>
     public bool IsNativeAot => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
+
+    /// <summary>Whether the assembly targets .NET Framework (not .NET Core / .NET 5+).</summary>
+    public bool IsNetFramework => Analyzer.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true;
 
     /// <summary>The runtime tracer instance, created on first launch.</summary>
     public RuntimeTracer? Tracer { get; set; }
@@ -467,8 +475,8 @@ public sealed class DotsiderState : IDisposable
         _focusedDepStack.Push(GeneralFocusedDep);
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
-        IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
+        IlDisassembler = Analyzer.HasMetadata ? new IlDisassembler(Analyzer) : null;
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
@@ -486,8 +494,8 @@ public sealed class DotsiderState : IDisposable
         NavigationError = null;
         Analyzer.Dispose();
         Analyzer = NavigationStack.Pop();
-        IlDisassembler = new IlDisassembler(Analyzer);
         StringExtractor = new StringExtractor(Analyzer);
+        IlDisassembler = Analyzer.HasMetadata ? new IlDisassembler(Analyzer) : null;
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };

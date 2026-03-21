@@ -514,7 +514,7 @@ public sealed class DotsiderApp(DotsiderState state)
                         : "Enter: Re-run";
                     hints.Add(s.Section(hint));
                 }
-                else if (_state.HasEntryPoint)
+                else if ((_state.HasEntryPoint || _state.IsNativeAot) && !_state.IsNetFramework)
                     hints.Add(s.Section("Enter: Launch"));
             }
 
@@ -636,8 +636,8 @@ public sealed class DotsiderApp(DotsiderState state)
     private static void CommitAnalyzer(DotsiderState state, AssemblyAnalyzer analyzer)
     {
         state.Analyzer = analyzer;
-        state.IlDisassembler = new IlDisassembler(analyzer);
         state.StringExtractor = new StringExtractor(analyzer);
+        state.IlDisassembler = analyzer.HasMetadata ? new IlDisassembler(analyzer) : null;
         var hexDoc = new HexRowDocument(new Hex1bDocument(analyzer.RawBytes.ToArray()));
         state.HexRowDoc = hexDoc;
         state.HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };

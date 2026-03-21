@@ -47,15 +47,15 @@ public static class DynamicAnalysisView
     /// <returns>The root widget for the Dynamic tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        // NativeAOT — no CLR metadata
-        if (state.IsNativeAot)
+        // .NET Framework — EventPipe is not available
+        if (state.IsNetFramework)
             return BuildMessageView(ctx,
-                "This assembly does not contain CLR metadata.",
-                "EventPipe requires the CoreCLR runtime.",
-                "NativeAOT binaries cannot be traced with this tool.");
+                "This assembly targets .NET Framework.",
+                "EventPipe tracing requires .NET Core 3.0 or later.",
+                $"Detected target: {state.Analyzer.TargetFramework}");
 
-        // Library DLL — no entry point
-        if (!state.HasEntryPoint)
+        // Library DLL — no entry point (but allow NativeAOT executables through)
+        if (!state.HasEntryPoint && !state.IsNativeAot)
             return BuildMessageView(ctx,
                 "This assembly is a library (no entry point).",
                 "Dynamic analysis requires an executable assembly.",
@@ -94,7 +94,8 @@ public static class DynamicAnalysisView
         [
             outer.Text(""),
             IdleLine(outer, "Assembly:   ", state.Analyzer.FileName),
-            IdleLine(outer, "Entry Point:", $"0x{state.Analyzer.ClrHeader!.EntryPointToken:X8}"),
+            IdleLine(outer, "Entry Point:", state.Analyzer.ClrHeader is { } clr
+                ? $"0x{clr.EntryPointToken:X8}" : "(native)"),
             IdleLine(outer, "Args:       ", argsDisplay),
             outer.Text(""),
             outer.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Teal),

@@ -304,7 +304,7 @@ internal sealed class DotsiderDiagnosticsListener(
         if (method is null)
             return DotsiderResponse.Fail($"Method not found: {request.TypeName}.{request.MethodName}");
 
-        var instructions = state.IlDisassembler.Disassemble(method);
+        var instructions = state.IlDisassembler!.Disassemble(method);
         return DotsiderResponse.Ok(new { Method = method, Instructions = instructions });
     }
 
@@ -325,7 +325,7 @@ internal sealed class DotsiderDiagnosticsListener(
             IReadOnlyList<IlInstruction> instructions;
             try
             {
-                instructions = state.IlDisassembler.Disassemble(method);
+                instructions = state.IlDisassembler!.Disassemble(method);
             }
             catch
             {
@@ -560,7 +560,11 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleStartTrace(DotsiderRequest request)
     {
         var state = RequireState();
-        if (!state.HasEntryPoint)
+        
+        if (state.IsNetFramework)
+            return DotsiderResponse.Fail("Assembly targets .NET Framework; EventPipe requires .NET Core 3.0+");
+
+        if (!state.HasEntryPoint && !state.IsNativeAot)
             return DotsiderResponse.Fail("Assembly has no entry point");
 
         if (state.Tracer?.ProcessState == TraceProcessState.Running)

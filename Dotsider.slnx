@@ -15,6 +15,8 @@
     <Project Path="samples/MinimalApi/MinimalApi.csproj" />
     <Project Path="samples/NativeLib/NativeLib.csproj" />
     <Project Path="samples/EmptyLib/EmptyLib.csproj" />
+    <Project Path="samples/NetFxConsole/NetFxConsole.csproj" />
+    <Project Path="samples/NativeAotConsole/NativeAotConsole.csproj" />
   </Folder>
 
   <Folder Name="/tests/">
