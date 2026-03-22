@@ -140,7 +140,7 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 |-----|--------|
 | `1`-`8` | Switch tabs |
 | `Enter` | Drill into selected item (assembly ref, method, DLL in package) |
-| `Backspace` | Go back (assembly stack, breadcrumb, or cross-view jump) |
+| `Esc` | Go back (assembly stack, breadcrumb, or cross-view jump) |
 | `y` | Yank (copy) — selected text in editors, or focused row in tables |
 | `Tab` | Cycle focus between info panels and tables |
 | `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |

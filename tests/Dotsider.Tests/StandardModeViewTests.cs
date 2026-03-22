@@ -852,7 +852,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 30_000)]
-    public async Task Tab7_Backspace_PopsBreadcrumb()
+    public async Task Tab7_Escape_PopsBreadcrumb()
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
@@ -884,9 +884,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.Single(_state.TreemapBreadcrumb);
 
-        // Press Backspace to go up
+        // Press Escape to go up
         await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Backspace)
+            .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state.TreemapBreadcrumb.Count == 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
@@ -1709,25 +1709,24 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _state!.CrossViewBackTarget = (TabId.PeMetadata, PeSubTabId.TypeDef);
         _hex1bApp!.Invalidate();
 
-        // Wait for "Backspace: Back" hint to appear
+        // Wait for "Esc: Back" hint to appear
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Backspace: Back"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Esc: Back"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        // Open search — type "test" then press Backspace
+        // Open search — type "test" then press Escape
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
             .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.T).Key(Hex1bKey.E).Key(Hex1bKey.S).Key(Hex1bKey.T) // type "test"
-            .Key(Hex1bKey.Backspace) // should delete 't', NOT navigate back
-            .WaitUntil(_ => _state.Search[TabId.IlInspector].Query == "tes", TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape) // should dismiss search, NOT navigate back
+            .WaitUntil(_ => !_state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        // Verify we stayed on IL Inspector — Backspace deleted a character, didn't navigate back
+        // Verify we stayed on IL Inspector — Escape dismissed search, didn't navigate back
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
-        Assert.Equal("tes", _state.Search[TabId.IlInspector].Query);
         Assert.NotNull(_state.CrossViewBackTarget); // Back target still present
 
         cts.Cancel();

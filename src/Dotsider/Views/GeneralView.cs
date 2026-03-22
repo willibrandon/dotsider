@@ -181,12 +181,6 @@ public static class GeneralView
         })
         .WithInputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.Backspace).Action(_ =>
-            {
-                if (state.PopAssembly())
-                    state.App.Invalidate();
-            }, "Back");
-
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
             {
                 if (state.App.FocusedNode is EditorNode)

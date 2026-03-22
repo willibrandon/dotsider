@@ -86,7 +86,7 @@ public static class SizeTreemapView
             // Search bar
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
-            // Treemap surface wrapped in Interactable for click/Enter/arrow/Backspace support
+            // Treemap surface wrapped in Interactable for click/Enter/arrow/Esc support
             widgets.Add(outer.Interactable(ic =>
                 ic.Surface(s =>
                 [
@@ -127,7 +127,7 @@ public static class SizeTreemapView
                 }
                 else
                 {
-                    // Keyboard (Enter/Space): prefer search match over stale selection
+                    // Keyboard (Enter/Space): prefer search match, then selection
                     if (state.TreemapMatchIndex >= 0 && state.TreemapMatchIndex < matchingItems.Count)
                         drillTarget = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
                     else if (state.TreemapSelectedIndex >= 0 && state.TreemapSelectedIndex < currentLevel.Children.Count)
@@ -159,15 +159,17 @@ public static class SizeTreemapView
                 }
             }).WithInputBindings(bindings =>
             {
-                bindings.Key(Hex1bKey.Backspace).Action(_ =>
+                // Esc pops the treemap breadcrumb (when no search is active)
+                var treemapSearch = state.Search[TabId.SizeMap];
+                if (!treemapSearch.IsActive && state.TreemapBreadcrumb.Count > 0)
                 {
-                    if (state.TreemapBreadcrumb.Count > 0)
+                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
                         state.TreemapCurrentLevel = state.TreemapBreadcrumb.Pop();
                         state.TreemapSelectedIndex = -1;
                         state.App.Invalidate();
-                    }
-                }, "Go up");
+                    }, "Go up");
+                }
 
                 bindings.Mouse(MouseButton.Right).Action(_ =>
                 {

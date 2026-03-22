@@ -247,7 +247,7 @@ public static class DllInspectorBindings
 
         // Cross-view back hint
         if (state.CrossViewBackTarget is not null)
-            hints.Add(s.Section("Backspace: Back"));
+            hints.Add(s.Section("Esc: Back"));
 
         // Search hint
         var currentSearch = state.Search[state.CurrentTab];

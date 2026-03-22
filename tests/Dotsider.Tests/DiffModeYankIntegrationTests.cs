@@ -574,10 +574,11 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Flash should clear
+        // Flash should clear after 150ms
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => !_state!.YankFlashRow, TimeSpan.FromSeconds(3))
             .Build()

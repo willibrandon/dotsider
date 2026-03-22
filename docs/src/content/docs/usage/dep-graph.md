@@ -13,6 +13,6 @@ The **Dep Graph** tab (`6`) renders a visual dependency graph:
 
 ## Navigation
 
-Press `Enter` on any dependency node to open that assembly in a new analysis context (if the file is found on disk). Press `Backspace` to return.
+Press `Enter` on any dependency node to open that assembly in a new analysis context (if the file is found on disk). Press `Esc` to return.
 
 This gives you a quick sense of which dependencies are most heavily used and lets you drill into any of them.
