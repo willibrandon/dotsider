@@ -38,7 +38,7 @@ public sealed class InfoLabelDecorationProvider : ITextDecorationProvider
             var isLabel = true;
             for (var i = 0; i < colonIdx; i++)
             {
-                if (!char.IsLetterOrDigit(text[i]) && text[i] != ' ')
+                if (!char.IsLetterOrDigit(text[i]) && text[i] is not ' ' and not '-')
                 {
                     isLabel = false;
                     break;

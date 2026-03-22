@@ -62,6 +62,19 @@ public class InfoDecorationProviderTests
     }
 
     [Fact]
+    public void InfoLabel_ColorsHyphenatedLabels()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Read-Only:        No\n  Has Metadata:     Yes");
+
+        var spans = provider.GetDecorations(1, 2, doc);
+
+        Assert.Equal(2, spans.Count);
+        Assert.Equal(1, spans[0].Start.Line);
+        Assert.Equal(2, spans[1].Start.Line);
+    }
+
+    [Fact]
     public void StringsDetail_OnlyColorsFirstLine()
     {
         var provider = new StringsDetailDecorationProvider();
