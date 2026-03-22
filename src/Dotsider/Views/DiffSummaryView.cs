@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -10,10 +11,6 @@ namespace Dotsider.Views;
 /// </summary>
 public static class DiffSummaryView
 {
-    private static readonly Hex1bColor Green = Hex1bColor.FromRgb(80, 200, 120);
-    private static readonly Hex1bColor Red = Hex1bColor.FromRgb(200, 80, 80);
-    private static readonly Hex1bColor Yellow = Hex1bColor.FromRgb(200, 200, 80);
-
     /// <summary>
     /// Builds the diff summary view widget tree.
     /// </summary>
@@ -30,6 +27,53 @@ public static class DiffSummaryView
         state.NavigateNextMatch = null;
         state.NavigatePrevMatch = null;
 
+        // Build left/right info text for read-only editors
+        var leftText = string.Join("\n",
+            $"  Name:       {state.Left.AssemblyName ?? ""}",
+            $"  Version:    {state.Left.AssemblyVersion ?? ""}",
+            $"  Size:       {DotsiderState.FormatSize(state.Left.FileSize)}",
+            $"  Types:      {state.Left.TypeDefs.Count}",
+            $"  Methods:    {state.Left.MethodDefs.Count}",
+            $"  References: {state.Left.AssemblyRefs.Count}");
+
+        if (state.LeftInfoEditorText != leftText)
+        {
+            state.LeftInfoEditorText = leftText;
+            state.LeftInfoEditorState = new EditorState(new Hex1bDocument(leftText)) { IsReadOnly = true };
+        }
+
+        var rightText = string.Join("\n",
+            $"  Name:       {state.Right.AssemblyName ?? ""}",
+            $"  Version:    {state.Right.AssemblyVersion ?? ""}",
+            $"  Size:       {DotsiderState.FormatSize(state.Right.FileSize)}",
+            $"  Types:      {state.Right.TypeDefs.Count}",
+            $"  Methods:    {state.Right.MethodDefs.Count}",
+            $"  References: {state.Right.AssemblyRefs.Count}");
+
+        if (state.RightInfoEditorText != rightText)
+        {
+            state.RightInfoEditorText = rightText;
+            state.RightInfoEditorState = new EditorState(new Hex1bDocument(rightText)) { IsReadOnly = true };
+        }
+
+        // Build change stats text for read-only editor (fixed-width columns for alignment)
+        var statsText = string.Join("\n",
+            $"  Types:      {$"+{summary.TypesAdded}",-6}{$"-{summary.TypesRemoved}",-6}~{summary.TypesChanged}",
+            $"  Methods:    {$"+{summary.MethodsAdded}",-6}{$"-{summary.MethodsRemoved}",-6}~{summary.MethodsChanged}",
+            $"  References: {$"+{summary.RefsAdded}",-6}{$"-{summary.RefsRemoved}",-6}~{summary.RefsChanged}",
+            "",
+            $"  Size delta: {(summary.SizeDelta >= 0 ? "+" : "")}{DotsiderState.FormatSize(Math.Abs(summary.SizeDelta))}");
+
+        if (state.ChangeStatsEditorText != statsText)
+        {
+            state.ChangeStatsEditorText = statsText;
+            state.ChangeStatsEditorState = new EditorState(new Hex1bDocument(statsText)) { IsReadOnly = true };
+        }
+
+        var leftSearchProvider = new DiffSearchDecorationProvider { Query = query };
+        var rightSearchProvider = new DiffSearchDecorationProvider { Query = query };
+        var statsSearchProvider = new DiffSearchDecorationProvider { Query = query };
+
         return ctx.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>();
@@ -37,72 +81,76 @@ public static class DiffSummaryView
             // Search bar
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
-            // Side-by-side assembly info
+            // Side-by-side assembly info (read-only editors)
             widgets.Add(outer.HSplitter(
                 left =>
                 [
                     left.Border(
-                        left.VStack(info =>
-                        [
-                            DiffInfoLine(info, "Name", state.Left.AssemblyName ?? "", query),
-                            DiffInfoLine(info, "Version", state.Left.AssemblyVersion ?? "", query),
-                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Left.FileSize), query),
-                            DiffInfoLine(info, "Types", state.Left.TypeDefs.Count.ToString(), query),
-                            DiffInfoLine(info, "Methods", state.Left.MethodDefs.Count.ToString(), query),
-                            DiffInfoLine(info, "References", state.Left.AssemblyRefs.Count.ToString(), query)
-                        ])
+                        left.ThemePanel(t => t
+                            .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                            .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                        left.Editor(state.LeftInfoEditorState!)
+                            .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                            .Decorations(new InfoLabelDecorationProvider())
+                            .Decorations(leftSearchProvider)
+                            .FillWidth().FillHeight())
                     ).Title($" {state.Left.FileName} (Left) ").Fill()
                 ],
                 right =>
                 [
                     right.Border(
-                        right.VStack(info =>
-                        [
-                            DiffInfoLine(info, "Name", state.Right.AssemblyName ?? "", query),
-                            DiffInfoLine(info, "Version", state.Right.AssemblyVersion ?? "", query),
-                            DiffInfoLine(info, "Size", DotsiderState.FormatSize(state.Right.FileSize), query),
-                            DiffInfoLine(info, "Types", state.Right.TypeDefs.Count.ToString(), query),
-                            DiffInfoLine(info, "Methods", state.Right.MethodDefs.Count.ToString(), query),
-                            DiffInfoLine(info, "References", state.Right.AssemblyRefs.Count.ToString(), query)
-                        ])
+                        right.ThemePanel(t => t
+                            .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                            .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                        right.Editor(state.RightInfoEditorState!)
+                            .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                            .Decorations(new InfoLabelDecorationProvider())
+                            .Decorations(rightSearchProvider)
+                            .FillWidth().FillHeight())
                     ).Title($" {state.Right.FileName} (Right) ").Fill()
                 ],
                 leftWidth: 50).FixedHeight(9));
 
-            // Change statistics
+            // Change statistics (read-only editor with decoration providers)
             widgets.Add(outer.Border(
-                outer.VStack(stats =>
-                [
-                    stats.HStack(h =>
-                    [
-                        h.Text("  Types:      ").FixedWidth(14),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Green), h.Text($"+{summary.TypesAdded}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), h.Text($"-{summary.TypesRemoved}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Yellow), h.Text($"~{summary.TypesChanged}"))
-                    ]).FixedHeight(1),
-                    stats.HStack(h =>
-                    [
-                        h.Text("  Methods:    ").FixedWidth(14),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Green), h.Text($"+{summary.MethodsAdded}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), h.Text($"-{summary.MethodsRemoved}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Yellow), h.Text($"~{summary.MethodsChanged}"))
-                    ]).FixedHeight(1),
-                    stats.HStack(h =>
-                    [
-                        h.Text("  References: ").FixedWidth(14),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Green), h.Text($"+{summary.RefsAdded}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), h.Text($"-{summary.RefsRemoved}")).FixedWidth(6),
-                        h.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Yellow), h.Text($"~{summary.RefsChanged}"))
-                    ]).FixedHeight(1),
-                    stats.Text(""),
-                    stats.Text($"  Size delta: {(summary.SizeDelta >= 0 ? "+" : "")}{DotsiderState.FormatSize(Math.Abs(summary.SizeDelta))}")
-                ])
+                outer.ThemePanel(t => t
+                    .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                    .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                outer.Editor(state.ChangeStatsEditorState!)
+                    .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                    .Decorations(new InfoLabelDecorationProvider())
+                    .Decorations(new DiffStatsDecorationProvider())
+                    .Decorations(statsSearchProvider)
+                    .FillWidth().FillHeight())
             ).Title(" Change Summary ").Fill());
 
             return [.. widgets];
         })
         .WithInputBindings(bindings =>
         {
+            // Tab cycles focus: Left Info → Right Info → Change Stats → Left Info
+            bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+            {
+                if (state.App.FocusedNode is EditorNode { State: var es })
+                {
+                    if (es == state.LeftInfoEditorState)
+                        state.App.RequestFocus(node =>
+                            node is EditorNode e && e.State == state.RightInfoEditorState);
+                    else if (es == state.RightInfoEditorState)
+                        state.App.RequestFocus(node =>
+                            node is EditorNode e && e.State == state.ChangeStatsEditorState);
+                    else
+                        state.App.RequestFocus(node =>
+                            node is EditorNode e && e.State == state.LeftInfoEditorState);
+                }
+                else
+                {
+                    state.App.RequestFocus(node =>
+                        node is EditorNode e && e.State == state.LeftInfoEditorState);
+                }
+                state.App.Invalidate();
+            }, "Cycle focus");
+
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
@@ -113,14 +161,5 @@ public static class DiffSummaryView
             }, "Esc");
         })
         .Fill();
-    }
-
-    private static HStackWidget DiffInfoLine<T>(WidgetContext<T> ctx, string label, string value, string? query) where T : Hex1bWidget
-    {
-        return ctx.HStack(row =>
-        [
-            row.Text($"  {label}: ").FixedWidth(16),
-            HighlightHelper.HighlightText(row, value, query)
-        ]).FixedHeight(1);
     }
 }

@@ -12,6 +12,12 @@ The **General** tab (`1`) is the first thing you see when opening an assembly. I
 - **Architecture** — AnyCPU, x64, ARM64, etc.
 - **Dependency table** — all referenced assemblies with their versions
 
+## Text selection and copy
+
+The Assembly Info panel is a read-only editor. Click into it or press `Tab` to move focus there, then select text with click-drag or `Shift` + arrow keys. Press `y` to yank the selection to the clipboard.
+
+On the dependency table, focus a row and press `y` to copy it as tab-separated values. Press `Tab` to cycle focus between the info panel and the table.
+
 ## Drill into references
 
 Select any row in the dependency table and press `Enter`. If the referenced assembly exists on disk (next to the current file or in a probing path), dotsider opens it in a new analysis context. Press `Backspace` to return.

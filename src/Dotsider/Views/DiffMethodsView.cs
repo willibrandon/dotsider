@@ -42,9 +42,32 @@ public static class DiffMethodsView
             search.SetMatchCount(filtered.Count);
         }
 
-        // Set up match navigation
-        state.NavigateNextMatch = null;
-        state.NavigatePrevMatch = null;
+        // Set up match navigation — cycle through filtered rows
+        if (filtered.Count > 0 && !string.IsNullOrEmpty(query))
+        {
+            var keys = filtered.Select(e =>
+            {
+                var m = e.Right ?? e.Left!;
+                return e.Kind.ToString() + ":" + m.DeclaringType + "::" + m.Name + m.Signature;
+            }).ToList();
+            state.NavigateNextMatch = () =>
+            {
+                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
+                idx = (idx + 1) % keys.Count;
+                state.DiffFocusedKey = keys[idx];
+            };
+            state.NavigatePrevMatch = () =>
+            {
+                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
+                idx = idx <= 0 ? keys.Count - 1 : idx - 1;
+                state.DiffFocusedKey = keys[idx];
+            };
+        }
+        else
+        {
+            state.NavigateNextMatch = null;
+            state.NavigatePrevMatch = null;
+        }
 
         return ctx.VStack(outer =>
         {
@@ -69,16 +92,24 @@ public static class DiffMethodsView
                 {
                     var (prefix, color) = GetDiffStyle(entry.Kind);
                     var method = entry.Right ?? entry.Left!;
+                    var flash = rowState.IsFocused && state.YankFlashRow;
+                    var focused = rowState.IsFocused && !flash;
+                    var fg = flash ? Hex1bColor.FromRgb(24, 24, 37)
+                        : focused ? Hex1bColor.Black
+                        : color;
+                    var bg = flash ? Hex1bColor.FromRgb(126, 201, 216)
+                        : focused ? Hex1bColor.FromRgb(0, 200, 180)
+                        : Hex1bColor.Default;
                     return
                     [
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(prefix))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.DeclaringType, query, !string.IsNullOrEmpty(query), color))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.Name, query, !string.IsNullOrEmpty(query), color))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color),
-                            HighlightHelper.HighlightCell(c, method.Signature, query, !string.IsNullOrEmpty(query), color))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, color), c.Text(entry.ChangeDescription ?? "")))
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(prefix))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg),
+                            HighlightHelper.HighlightCell(c, method.DeclaringType, query, !string.IsNullOrEmpty(query), fg))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg),
+                            HighlightHelper.HighlightCell(c, method.Name, query, !string.IsNullOrEmpty(query), fg))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg),
+                            HighlightHelper.HighlightCell(c, method.Signature, query, !string.IsNullOrEmpty(query), fg))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(entry.ChangeDescription ?? "")))
                     ];
                 })
                 .Focus(state.DiffFocusedKey)

@@ -141,12 +141,16 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 | `1`-`8` | Switch tabs |
 | `Enter` | Drill into selected item (assembly ref, method, DLL in package) |
 | `Backspace` | Go back (assembly stack, breadcrumb, or cross-view jump) |
+| `y` | Yank (copy) — selected text in editors, or focused row in tables |
+| `Tab` | Cycle focus between info panels and tables |
 | `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |
 | `x` | Jump to method body in Hex Dump (IL Inspector tab, when a method with RVA is selected) |
 | `/` | Search (highlights matches inline) |
 | `n` / `N` | Next / previous search match |
 | `s` | Toggle human-readable sizes |
 | `q` | Quit |
+
+Info panels (Assembly Info, PE Headers, CLR Header, detail popups, string details) are selectable read-only editors. Click or `Tab` into them, select text with `Shift` + arrow keys, and press `y` to copy.
 
 **Hex Dump tab** uses vi-style modal editing — the editor starts in normal mode (read-only) to prevent accidental writes:
 
@@ -162,7 +166,7 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 
 In insert mode, type two hex digits (0-9, a-f) to overwrite one byte. The first digit sets the high nibble; the second commits the edit. Saving validates the PE image before writing — invalid edits are rejected.
 
-Diff mode adds `f` to cycle filters (All / Added / Removed / Changed).
+Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). NuGet mode uses `Esc` to return from DLL inspection to the package browser.
 
 ## How it works
 

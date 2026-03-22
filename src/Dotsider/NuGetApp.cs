@@ -59,18 +59,41 @@ public sealed class NuGetApp(NuGetState state)
             // Hints bar
             outer.InfoBar(s =>
             {
-                var hints = new List<IInfoBarChild>
-                {
-                    s.Section(_state.IsBrowsingPackage ? "Enter: Open DLL" : "1-5: Tabs"),
-                    s.Section("Backspace: Back")
-                };
+                var hints = new List<IInfoBarChild>();
+
                 if (_state.IsBrowsingPackage)
                 {
+                    hints.Add(s.Section("Enter: Open DLL"));
                     if (_state.BrowserSearch.IsActive)
                         hints.Add(s.Section("Esc: Clear"));
                     hints.Add(s.Section("/: Search"));
+                    hints.Add(s.Section("y: Yank"));
                 }
+                else if (_state.SelectedDllState is not null)
+                {
+                    var dll = _state.SelectedDllState;
+                    hints.Add(s.Section("1-5: Tabs"));
+                    // Only show "Esc: Back" when no hex/search modal will claim Esc first
+                    var hexInsert = dll.CurrentTab == TabId.HexDump && dll.HexMode == HexEditMode.Insert;
+                    var dllSearchAct = dll.Search[dll.CurrentTab].IsActive;
+                    if (!hexInsert && !dllSearchAct && !dll.HexJumpDialogOpen
+                        && dll.PeDetailContent is null && dll.StringsDetailContent is null)
+                        hints.Add(s.Section("Esc: Back"));
+                    // DLL-inspector-specific hints (shared with DotsiderApp)
+                    DllInspectorBindings.AddHints(hints, s, dll);
+                }
+
                 hints.Add(s.Spacer());
+
+                // Yank notification (right side, auto-clearing)
+                var yankNotification = _state.YankNotification
+                    ?? _state.SelectedDllState?.YankNotification;
+                if (!string.IsNullOrEmpty(yankNotification))
+                {
+                    hints.Add(s.Section(yankNotification).Theme(t => t
+                        .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
+                    hints.Add(s.Separator(" "));
+                }
 
                 // Navigation error in DLL inspector (right side)
                 if (!_state.IsBrowsingPackage && _state.SelectedDllState is { NavigationError: { } navError })
@@ -87,7 +110,15 @@ public sealed class NuGetApp(NuGetState state)
         .WithInputBindings(bindings =>
         {
             var browserSearch = _state.BrowserSearch;
-            var isSearchEditing = browserSearch.IsActive && !browserSearch.IsConfirmed;
+            // Gate on BOTH browser and embedded DLL inspector input state
+            var dllSearch = _state.SelectedDllState?.Search[_state.SelectedDllState.CurrentTab];
+            var dllSearchEditing = dllSearch is { IsActive: true, IsConfirmed: false };
+            var hexInsertMode = _state.SelectedDllState is { CurrentTab: TabId.HexDump }
+                && _state.SelectedDllState.HexMode == HexEditMode.Insert;
+            var hexJumpOpen = _state.SelectedDllState?.HexJumpDialogOpen == true;
+            var dllEditingArgs = _state.SelectedDllState?.DynamicEditingArgs == true;
+            var isSearchEditing = (browserSearch.IsActive && !browserSearch.IsConfirmed)
+                || dllSearchEditing || hexInsertMode || hexJumpOpen || dllEditingArgs;
 
             if (_state.IsBrowsingPackage)
             {
@@ -160,37 +191,204 @@ public sealed class NuGetApp(NuGetState state)
                 }, "Open DLL");
             }
 
-            bindings.Key(Hex1bKey.Backspace).Action(_ =>
+            // Escape handler — search/hex modals are handled by DllInspectorBindings.
+            // This handler covers: detail popups, back-to-package, and browser search dismiss.
+            // Only register when the shared helper hasn't already claimed Escape for search/hex.
+            var dllSearchActive = dllSearch is { IsActive: true };
+            var dllHexInsertNoSearch = !dllSearchActive
+                && _state.SelectedDllState is { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Insert };
+            var dllHexJumpOpen = _state.SelectedDllState?.HexJumpDialogOpen == true;
+            if (!dllSearchActive && !dllHexInsertNoSearch && !dllHexJumpOpen)
             {
-                if (!_state.IsBrowsingPackage)
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                 {
-                    _state.SelectedDllState?.Dispose();
-                    _state.SelectedDllState = null;
-                    _state.SelectedDllEntry = null;
-                    _state.IsBrowsingPackage = true;
-                    _state.App.Invalidate();
-                }
-            }, "Back to package");
+                    if (!_state.IsBrowsingPackage)
+                    {
+                        var dllState = _state.SelectedDllState;
+                        if (dllState is not null)
+                        {
+                            if (dllState.PeDetailContent is not null)
+                            {
+                                dllState.PeDetailContent = null;
+                                dllState.PeDetailEditorText = null;
+                                dllState.PeDetailEditorState = null;
+                                dllState.RequestContentFocus();
+                                _state.App.Invalidate();
+                                return;
+                            }
+                            if (dllState.StringsDetailContent is not null)
+                            {
+                                dllState.StringsDetailContent = null;
+                                dllState.StringsDetailEditorText = null;
+                                dllState.StringsDetailEditorState = null;
+                                dllState.RequestContentFocus();
+                                _state.App.Invalidate();
+                                return;
+                            }
+                        }
+
+                        _state.SelectedDllState?.Dispose();
+                        _state.SelectedDllState = null;
+                        _state.SelectedDllEntry = null;
+                        _state.IsBrowsingPackage = true;
+                        _state.FileTreeFocusedKey = _state.SavedFileTreeFocusedKey;
+                        _state.App.RequestFocus(node =>
+                            node.GetType().Name.StartsWith("TableNode"));
+                        _state.App.Invalidate();
+                    }
+                    else if (_state.BrowserSearch.IsActive)
+                    {
+                        _state.BrowserSearch.Dismiss();
+                        _state.App.Invalidate();
+                    }
+                }, "Back to package");
+            }
 
             if (!_state.IsBrowsingPackage && _state.SelectedDllState is not null)
             {
-                for (var i = 0; i < 5; i++)
+                if (!isSearchEditing)
                 {
-                    var tabIndex = i;
-                    var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                    bindings.Key(key).Global().Action(_ =>
+                    for (var i = 0; i < 5; i++)
                     {
-                        _state.SelectedDllState!.CurrentTab = tabIndex;
-                        _state.App.Invalidate();
-                    }, $"Tab {tabIndex + 1}");
+                        var tabIndex = i;
+                        var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
+                        bindings.Key(key).Global().Action(_ =>
+                        {
+                            _state.SelectedDllState!.CurrentTab = tabIndex;
+                            _state.SelectedDllState.RequestContentFocus();
+                            _state.App.Invalidate();
+                        }, $"Tab {tabIndex + 1}");
+                    }
                 }
+
+                // Hex + IL Inspector + search bindings (shared with DotsiderApp).
+                // Must be outside isSearchEditing gate so hex insert Escape works.
+                DllInspectorBindings.Register(bindings, _state.SelectedDllState, _state.App,
+                    includeSearch: true);
             }
 
             if (!isSearchEditing)
+            {
                 bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+
+                // Universal yank — same behavior as DotsiderApp
+                bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
+                {
+                    // 1. Any focused editor with selection
+                    if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
+                    {
+                        string text;
+                        var hexState = _state.SelectedDllState?.HexEditorState;
+                        if (hexState is not null && editor.State == hexState)
+                        {
+                            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
+                        }
+                        else
+                        {
+                            // Neovim-style: include cursor character, collapse cursor
+                            var range = editor.State.Cursor.SelectionRange;
+                            var doc = editor.State.Document;
+                            var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
+                                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+                                doc.Length));
+                            var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
+                            text = doc.GetText(yankRange);
+
+                            var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+                            editor.State.SetCursorPosition(lastChar);
+
+                            // Flash
+                            var yankProvider = YankHelper.FindYankProvider(_state, editor.State);
+                            if (yankProvider is not null)
+                            {
+                                var startPos = doc.OffsetToPosition(yankRange.Start);
+                                var endPos = doc.OffsetToPosition(yankRange.End);
+                                yankProvider.HighlightRange = (startPos, endPos);
+                                _state.App.Invalidate();
+                                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                                {
+                                    yankProvider.HighlightRange = null;
+                                    _state.App.Invalidate();
+                                }, TaskScheduler.Default);
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            ctx.CopyToClipboard(text);
+                            ShowYankNotification(text);
+                        }
+                        return;
+                    }
+
+                    // 2. Focused editor WITHOUT selection → do nothing
+                    if (ctx.FocusedNode is EditorNode) return;
+
+                    // 3. Non-editor focus → table row
+                    string? yankText = null;
+                    if (_state.IsBrowsingPackage)
+                    {
+                        // Seed focus if not yet set
+                        _state.FileTreeFocusedKey ??=
+                            _state.Package.DllFiles.Count > 0 ? _state.Package.DllFiles[0].FullPath : null;
+                        if (_state.FileTreeFocusedKey is string path)
+                            yankText = path;
+                    }
+                    else if (_state.SelectedDllState is not null)
+                    {
+                        yankText = YankHelper.GetYankText(_state.SelectedDllState);
+                    }
+
+                    if (yankText is not null)
+                    {
+                        ctx.CopyToClipboard(yankText);
+                        ShowYankNotification(yankText);
+
+                        // Flash the focused row
+                        if (_state.IsBrowsingPackage)
+                        {
+                            _state.YankFlashRow = true;
+                            _state.App.Invalidate();
+                            _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                            {
+                                _state.YankFlashRow = false;
+                                _state.App.Invalidate();
+                            }, TaskScheduler.Default);
+                        }
+                        else if (_state.SelectedDllState is not null)
+                        {
+                            var flashTarget = _state.SelectedDllState;
+                            flashTarget.YankFlashRow = true;
+                            _state.App.Invalidate();
+                            _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                            {
+                                flashTarget.YankFlashRow = false;
+                                _state.App.Invalidate();
+                            }, TaskScheduler.Default);
+                        }
+                    }
+                }, "Yank");
+            }
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
         });
+    }
+
+    private void ShowYankNotification(string text)
+    {
+        var gen = ++_state.YankGeneration;
+        _state.YankNotification = text.Contains('\n')
+            ? $"Yanked {text.Count(c => c == '\n') + 1} lines"
+            : $"Yanked: {(text.Length > 40 ? text[..37] + "..." : text)}";
+        _state.App.Invalidate();
+        _ = Task.Delay(TimeSpan.FromMilliseconds(1500)).ContinueWith(_ =>
+        {
+            if (_state.YankGeneration == gen)
+            {
+                _state.YankNotification = null;
+                _state.App.Invalidate();
+            }
+        }, TaskScheduler.Default);
     }
 
     private Hex1bWidget BuildDllInspector(WidgetContext<VStackWidget> outer)

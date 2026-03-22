@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Widgets;
 
 namespace Dotsider;
 
@@ -52,6 +53,37 @@ public sealed class DiffState : IDisposable
 
     /// <summary>Delegate to navigate to the previous search match in the current diff view.</summary>
     public Action? NavigatePrevMatch { get; set; }
+
+    // --- Yank State ---
+
+    /// <summary>Yank notification message shown in the hints bar, auto-clears after 1.5 seconds.</summary>
+    public string? YankNotification { get; set; }
+
+    /// <summary>Generation counter for yank notification timer race prevention.</summary>
+    public long YankGeneration { get; set; }
+
+    /// <summary>Whether the focused table row should flash with yank highlight colors. Auto-clears after 150ms.</summary>
+    public bool YankFlashRow { get; set; }
+
+    // --- Read-Only Editor State (for text selection + yank) ---
+
+    /// <summary>Read-only editor for the left assembly info panel in diff summary.</summary>
+    public EditorState? LeftInfoEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="LeftInfoEditorState"/>, for staleness detection.</summary>
+    public string? LeftInfoEditorText { get; set; }
+
+    /// <summary>Read-only editor for the right assembly info panel in diff summary.</summary>
+    public EditorState? RightInfoEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="RightInfoEditorState"/>, for staleness detection.</summary>
+    public string? RightInfoEditorText { get; set; }
+
+    /// <summary>Read-only editor for the change statistics panel in diff summary.</summary>
+    public EditorState? ChangeStatsEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="ChangeStatsEditorState"/>, for staleness detection.</summary>
+    public string? ChangeStatsEditorText { get; set; }
 
     /// <inheritdoc/>
     public void Dispose()

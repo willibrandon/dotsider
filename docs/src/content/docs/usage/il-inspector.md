@@ -20,7 +20,7 @@ Each instruction shows:
 
 ## Copy
 
-Select text in the disassembly pane with `Shift` + arrow keys, then press `y` to copy it to the clipboard. A brief flash confirms the copied range.
+Select text in the disassembly pane with click-drag or `Shift` + arrow keys, then press `y` to yank it to the clipboard. The cursor collapses to the end of the selection and a brief flash confirms the copied range — matching neovim's yank behavior.
 
 ## Search
 

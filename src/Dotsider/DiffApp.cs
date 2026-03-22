@@ -101,32 +101,90 @@ public sealed class DiffApp(DiffState state)
                     bindings.Key(key).Global().Action(_ =>
                     {
                         _state.CurrentTab = tabIndex;
+                        _state.DiffFocusedKey = null;
+                        // Summary tab has editors; other tabs have tables
+                        if (tabIndex > 0)
+                            _state.App.RequestFocus(node =>
+                                node.GetType().Name.StartsWith("TableNode"));
                         _state.App.Invalidate();
                     }, $"Tab {tabIndex + 1}");
                 }
 
                 bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
 
-                // Left/Right arrows to cycle tabs
-                bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                // Left/Right arrows to cycle tabs (not registered when editor is focused)
+                if (_state.App.FocusedNode is not EditorNode)
                 {
-                    if (_state.CurrentTab > 0)
+                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                     {
-                        _state.CurrentTab--;
-                        _state.DiffFocusedKey = null;
-                        _state.App.Invalidate();
-                    }
-                }, "Previous tab");
+                        if (_state.CurrentTab > 0)
+                        {
+                            _state.CurrentTab--;
+                            _state.DiffFocusedKey = null;
+                            if (_state.CurrentTab > 0)
+                                _state.App.RequestFocus(node =>
+                                    node.GetType().Name.StartsWith("TableNode"));
+                            _state.App.Invalidate();
+                        }
+                    }, "Previous tab");
 
-                bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
-                {
-                    if (_state.CurrentTab < 3)
+                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
                     {
-                        _state.CurrentTab++;
-                        _state.DiffFocusedKey = null;
-                        _state.App.Invalidate();
+                        if (_state.CurrentTab < 3)
+                        {
+                            _state.CurrentTab++;
+                            _state.DiffFocusedKey = null;
+                            _state.App.RequestFocus(node =>
+                                node.GetType().Name.StartsWith("TableNode"));
+                            _state.App.Invalidate();
+                        }
+                    }, "Next tab");
+                }
+
+                // Universal yank
+                bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
+                {
+                    // Editor with selection
+                    if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
+                    {
+                        var range = editor.State.Cursor.SelectionRange;
+                        var doc = editor.State.Document;
+                        var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
+                            Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+                            doc.Length));
+                        var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
+                        var text = doc.GetText(yankRange);
+
+                        var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+                        editor.State.SetCursorPosition(lastChar);
+
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            ctx.CopyToClipboard(text);
+                            ShowYankNotification(text);
+                        }
+                        return;
                     }
-                }, "Next tab");
+
+                    // Editor without selection → do nothing
+                    if (ctx.FocusedNode is EditorNode) return;
+
+                    // Table row
+                    var yankText = YankHelper.GetYankText(_state);
+                    if (yankText is not null)
+                    {
+                        ctx.CopyToClipboard(yankText);
+                        ShowYankNotification(yankText);
+
+                        _state.YankFlashRow = true;
+                        _state.App.Invalidate();
+                        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                        {
+                            _state.YankFlashRow = false;
+                            _state.App.Invalidate();
+                        }, TaskScheduler.Default);
+                    }
+                }, "Yank");
             }
 
             bindings.Key(Hex1bKey.F).Action(_ =>
@@ -196,10 +254,39 @@ public sealed class DiffApp(DiffState state)
                 hints.Add(s.Section("Esc: Clear"));
             hints.Add(s.Section("/: Search"));
 
+            var yankable = _state.CurrentTab == 0 || _state.DiffFocusedKey is not null;
+            if (yankable)
+                hints.Add(s.Section("y: Yank"));
+
             hints.Add(s.Spacer());
+
+            if (!string.IsNullOrEmpty(_state.YankNotification))
+            {
+                hints.Add(s.Section(_state.YankNotification).Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
+                hints.Add(s.Separator(" "));
+            }
+
             hints.Add(s.Section("q: Quit"));
             return hints;
         }).WithDefaultSeparator(" | ");
+
+    private void ShowYankNotification(string text)
+    {
+        var gen = ++_state.YankGeneration;
+        _state.YankNotification = text.Contains('\n')
+            ? $"Yanked {text.Count(c => c == '\n') + 1} lines"
+            : $"Yanked: {(text.Length > 40 ? text[..37] + "..." : text)}";
+        _state.App.Invalidate();
+        _ = Task.Delay(TimeSpan.FromMilliseconds(1500)).ContinueWith(_ =>
+        {
+            if (_state.YankGeneration == gen)
+            {
+                _state.YankNotification = null;
+                _state.App.Invalidate();
+            }
+        }, TaskScheduler.Default);
+    }
 
     private static int CountChanges<T>(IReadOnlyList<DiffEntry<T>> diffs) =>
         diffs.Count(d => d.Kind != DiffKind.Unchanged);

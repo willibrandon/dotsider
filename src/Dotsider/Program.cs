@@ -176,8 +176,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
 
     diagnosticsListener.StartListening();
 
-    // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
-    Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+    CursorColorHelper.SetThemeCursorColor();
 
     try
     {
@@ -185,6 +184,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
     }
     finally
     {
+        CursorColorHelper.ResetCursorColor();
         diffHex1bApp.Dispose();
     }
 
@@ -282,8 +282,7 @@ static async Task<int> RunTui(string[] args, string filePath)
 
         nugetListener.StartListening();
 
-        // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
-        Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+        CursorColorHelper.SetThemeCursorColor();
 
         try
         {
@@ -291,6 +290,7 @@ static async Task<int> RunTui(string[] args, string filePath)
         }
         finally
         {
+            CursorColorHelper.ResetCursorColor();
             nugetHex1bApp.Dispose();
         }
 
@@ -343,8 +343,7 @@ static async Task<int> RunTui(string[] args, string filePath)
 
     diagnosticsListener.StartListening();
     
-    // OSC 12: set terminal cursor color to teal (0,200,180) to match the theme accent
-    Console.Write("\x1b]12;rgb:00/c8/b4\x1b\\");
+    CursorColorHelper.SetThemeCursorColor();
 
     try
     {
@@ -352,6 +351,7 @@ static async Task<int> RunTui(string[] args, string filePath)
     }
     finally
     {
+        CursorColorHelper.ResetCursorColor();
         hex1bApp.Dispose();
     }
 

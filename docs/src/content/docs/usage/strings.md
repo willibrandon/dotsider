@@ -11,6 +11,10 @@ The **Strings** tab (`4`) extracts text from three sources:
 - **Metadata strings** — type names, method names, namespace names from the `#Strings` heap
 - **Raw scan** — binary string extraction from the entire file, similar to the Unix `strings` command
 
+## Copy strings
+
+Press `y` on a focused table row to copy the string value to the clipboard. Press `Enter` to open a detail popup where you can select and copy specific portions of longer strings.
+
 ## Minimum length
 
 Use the `--min-len` / `-n` flag to control the minimum length for the raw binary scan:
