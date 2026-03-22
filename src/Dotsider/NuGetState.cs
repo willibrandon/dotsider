@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Widgets;
 
 namespace Dotsider;
 
@@ -32,11 +33,40 @@ public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
     /// <summary>Whether the user is viewing the package file list (true) or a DLL inspector (false).</summary>
     public bool IsBrowsingPackage { get; set; } = true;
 
+    /// <summary>Saved focused key from the DLL file list, restored when returning from DLL inspection.</summary>
+    public object? SavedFileTreeFocusedKey { get; set; }
+
     /// <summary>Search state for the package browser view.</summary>
     public SearchState BrowserSearch { get; } = new();
 
     /// <summary>The currently selected tab index in the DLL inspector.</summary>
     public int CurrentTab { get; set; }
+
+    // --- Read-Only Editor State ---
+
+    /// <summary>Read-only editor for the Package Info panel.</summary>
+    public EditorState? PackageInfoEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="PackageInfoEditorState"/>, for staleness detection.</summary>
+    public string? PackageInfoEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Package Info editor.</summary>
+    public Views.IlYankDecorationProvider PackageInfoYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Package Info editor.</summary>
+    internal Hex1b.Documents.DocumentOffset? PackageInfoPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Package Info editor.</summary>
+    internal Hex1b.Documents.DocumentOffset? PackageInfoPrevCursorPosition;
+
+    /// <summary>Whether the focused table row should flash with yank highlight colors. Auto-clears after 150ms.</summary>
+    public bool YankFlashRow { get; set; }
+
+    /// <summary>Yank notification message shown in the hints bar, auto-clears after 1.5 seconds.</summary>
+    public string? YankNotification { get; set; }
+
+    /// <summary>Generation counter for yank notification timer race prevention.</summary>
+    public long YankGeneration { get; set; }
 
     /// <inheritdoc/>
     public void Dispose()

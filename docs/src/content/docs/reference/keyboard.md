@@ -12,6 +12,8 @@ description: All keyboard shortcuts for navigating dotsider.
 | `Backspace` | Go back |
 | `/` | Search |
 | `n` / `N` | Next / previous search match |
+| `y` | Yank (copy) — selected text in editors, or focused row in tables |
+| `Tab` | Cycle focus between info panels and tables |
 | `s` | Toggle human-readable sizes |
 | `q` | Quit |
 
@@ -19,6 +21,7 @@ description: All keyboard shortcuts for navigating dotsider.
 
 | Key | Action |
 |-----|--------|
+| `Tab` | Cycle focus: PE Headers → CLR Header → metadata table |
 | `g` | Jump to IL Inspector for focused TypeDef/MethodDef |
 
 ## IL Inspector tab
@@ -26,6 +29,7 @@ description: All keyboard shortcuts for navigating dotsider.
 | Key | Action |
 |-----|--------|
 | `x` | Jump to method body in Hex Dump |
+| `l` | Focus the IL disassembly editor |
 
 ## Hex Dump tab — Normal mode
 
@@ -49,4 +53,16 @@ description: All keyboard shortcuts for navigating dotsider.
 
 | Key | Action |
 |-----|--------|
+| `1`–`4` / `←` `→` | Switch diff tabs |
 | `f` | Cycle filters (All / Added / Removed / Changed) |
+| `y` | Yank focused row or selected text |
+| `Tab` | Cycle focus between summary panels |
+
+## NuGet mode
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Open selected DLL in the full analyzer |
+| `Esc` | Return to package browser from DLL inspector |
+| `Tab` | Cycle focus between Package Info and DLL table |
+| `y` | Yank focused DLL path or selected text |

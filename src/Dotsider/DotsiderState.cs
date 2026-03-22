@@ -170,6 +170,82 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Method tokens whose IL text matches the confirmed search query. Used to broaden tree filtering.</summary>
     public HashSet<int>? IlTextMatchMethodTokens { get; set; }
 
+    // --- Yank State ---
+
+    /// <summary>Yank notification message shown in the hints bar, auto-clears after 1.5 seconds.</summary>
+    public string? YankNotification { get; set; }
+
+    /// <summary>Generation counter for yank notification timer race prevention.</summary>
+    public long YankGeneration { get; set; }
+
+    /// <summary>Whether the focused table row should flash with yank highlight colors. Auto-clears after 150ms.</summary>
+    public bool YankFlashRow { get; set; }
+
+    // --- Read-Only Editor State (for text selection + yank) ---
+
+    /// <summary>Read-only editor for the General tab Assembly Info panel.</summary>
+    public EditorState? GeneralInfoEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="GeneralInfoEditorState"/>, for staleness detection.</summary>
+    public string? GeneralInfoEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the General tab Assembly Info editor.</summary>
+    public IlYankDecorationProvider GeneralInfoYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for double-click word boundary adjustment in the General info editor.</summary>
+    internal DocumentOffset? GeneralInfoPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for double-click word boundary adjustment in the General info editor.</summary>
+    internal DocumentOffset? GeneralInfoPrevCursorPosition;
+
+    /// <summary>Read-only editor for the PE Headers panel.</summary>
+    public EditorState? PeHeadersEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="PeHeadersEditorState"/>, for staleness detection.</summary>
+    public string? PeHeadersEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the PE Headers editor.</summary>
+    public IlYankDecorationProvider PeHeadersYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the PE Headers editor.</summary>
+    internal DocumentOffset? PeHeadersPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the PE Headers editor.</summary>
+    internal DocumentOffset? PeHeadersPrevCursorPosition;
+
+    /// <summary>Read-only editor for the CLR Header panel.</summary>
+    public EditorState? ClrHeaderEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="ClrHeaderEditorState"/>, for staleness detection.</summary>
+    public string? ClrHeaderEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the CLR Header editor.</summary>
+    public IlYankDecorationProvider ClrHeaderYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the CLR Header editor.</summary>
+    internal DocumentOffset? ClrHeaderPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the CLR Header editor.</summary>
+    internal DocumentOffset? ClrHeaderPrevCursorPosition;
+
+    /// <summary>Read-only editor for the PE detail popup overlay.</summary>
+    public EditorState? PeDetailEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="PeDetailEditorState"/>, for staleness detection.</summary>
+    public string? PeDetailEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the PE detail popup editor.</summary>
+    public IlYankDecorationProvider PeDetailYankProvider { get; } = new();
+
+    /// <summary>Read-only editor for the Strings detail popup overlay.</summary>
+    public EditorState? StringsDetailEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="StringsDetailEditorState"/>, for staleness detection.</summary>
+    public string? StringsDetailEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Strings detail popup editor.</summary>
+    public IlYankDecorationProvider StringsDetailYankProvider { get; } = new();
+
     // --- Strings Tab State ---
 
     /// <summary>The minimum string length filter for raw strings.</summary>
@@ -414,7 +490,7 @@ public sealed class DotsiderState : IDisposable
         if (back.Tab == TabId.PeMetadata)
             PeSubTab = back.SubTab;
         App.RequestFocus(node =>
-            node is EditorNode or ListNode or TreeNode or InteractableNode
+            node is ListNode or TreeNode or InteractableNode
             || node.GetType().Name.StartsWith("TableNode"));
         App.Invalidate();
     }
@@ -428,9 +504,11 @@ public sealed class DotsiderState : IDisposable
     {
         if (CurrentTab == TabId.IlInspector)
             App.RequestFocus(node => node is ListNode);
+        else if (CurrentTab == TabId.HexDump)
+            App.RequestFocus(node => node is EditorNode);
         else
             App.RequestFocus(node =>
-                node is EditorNode or TreeNode or ListNode or InteractableNode
+                node is TreeNode or ListNode or InteractableNode
                 || node.GetType().Name.StartsWith("TableNode"));
     }
 
@@ -530,6 +608,17 @@ public sealed class DotsiderState : IDisposable
         IlPendingCursorMatch = null;
         IlTextMatchMethodTokens = null;
         IlYankProvider.HighlightRange = null;
+        YankNotification = null;
+        GeneralInfoEditorState = null;
+        GeneralInfoEditorText = null;
+        PeHeadersEditorState = null;
+        PeHeadersEditorText = null;
+        ClrHeaderEditorState = null;
+        ClrHeaderEditorText = null;
+        PeDetailEditorState = null;
+        PeDetailEditorText = null;
+        StringsDetailEditorState = null;
+        StringsDetailEditorText = null;
         StringsSourceTab = 0;
         StringsFocusedKey = null;
         StringsDetailContent = null;

@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Theming;
@@ -14,7 +15,7 @@ namespace Dotsider.Views;
 public static class StringsView
 {
     private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
-    private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
+    [ThreadStatic] private static bool s_yankFlash;
     private static readonly string[] SourceTabs = ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary"];
 
     /// <summary>
@@ -25,6 +26,7 @@ public static class StringsView
     /// <returns>The root widget for the Strings tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        s_yankFlash = state.YankFlashRow;
         var search = state.Search[TabId.Strings];
         var activeStrings = state.GetActiveStrings();
         var query = search.Query;
@@ -62,6 +64,14 @@ public static class StringsView
             {
                 state.StringsFocusedKey = RowKey(activeStrings[0]);
             }
+        }
+
+        // Build detail popup editor state when content changes
+        if (state.StringsDetailContent is not null && state.StringsDetailEditorText != state.StringsDetailContent)
+        {
+            state.StringsDetailEditorText = state.StringsDetailContent;
+            var detailText = $"  Length: {state.StringsDetailContent.Length}\n\n  {state.StringsDetailContent.Replace("\n", "\n  ")}";
+            state.StringsDetailEditorState = new EditorState(new Hex1bDocument(detailText)) { IsReadOnly = true };
         }
 
         return ctx.ZStack(z =>
@@ -134,29 +144,32 @@ public static class StringsView
                 // Left/Right arrows to switch sub-tabs (suppressed during search editing)
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                    if (state.App.FocusedNode is not EditorNode)
                     {
-                        if (state.StringsSourceTab > 0)
+                        bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                         {
-                            state.StringsSourceTab--;
-                            search.Reset();
-                            state.StringsFocusedKey = null;
-                            state.RequestContentFocus();
-                            state.App.Invalidate();
-                        }
-                    }, "Previous sub-tab");
+                            if (state.StringsSourceTab > 0)
+                            {
+                                state.StringsSourceTab--;
+                                search.Reset();
+                                state.StringsFocusedKey = null;
+                                state.RequestContentFocus();
+                                state.App.Invalidate();
+                            }
+                        }, "Previous sub-tab");
 
-                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
-                    {
-                        if (state.StringsSourceTab < StringsSubTabId.Count - 1)
+                        bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
                         {
-                            state.StringsSourceTab++;
+                            if (state.StringsSourceTab < StringsSubTabId.Count - 1)
+                            {
+                                state.StringsSourceTab++;
                             search.Reset();
                             state.StringsFocusedKey = null;
                             state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Next sub-tab");
+                    }
                 }
 
                 bindings.Key(Hex1bKey.OemPlus).Action(_ =>
@@ -207,32 +220,29 @@ public static class StringsView
             })
             .Fill(),
 
-            // Layer 1: String detail popup (conditional)
-            state.StringsDetailContent is not null
+            // Layer 1: String detail popup (read-only editor for selection + yank)
+            state.StringsDetailContent is not null && state.StringsDetailEditorState is not null
                 ? z.Backdrop(
                     z.Align(Alignment.Center,
                         z.VStack(outer =>
                         [
                             outer.Border(
-                                outer.VScrollPanel(scroll =>
-                                [
-                                    scroll.HStack(row =>
-                                    [
-                                        row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
-                                            row.Text("  Length: ")),
-                                        row.Text(state.StringsDetailContent.Length.ToString())
-                                    ]).FixedHeight(1),
-                                    scroll.Text(""),
-                                    .. state.StringsDetailContent
-                                        .Split('\n')
-                                        .Select(line => scroll.Text($"  {line}"))
-                                ])
+                                outer.ThemePanel(t => t
+                                    .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                                    .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                                outer.Editor(state.StringsDetailEditorState)
+                                    .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                                    .Decorations(new StringsDetailDecorationProvider())
+                                    .Decorations(state.StringsDetailYankProvider)
+                                    .FillWidth().FillHeight())
                             ).Title(" String Detail ").FixedWidth(70).FillHeight()
                         ]).FixedWidth(70).FixedHeight(15)
                     )
                 ).OnClickAway(() =>
                 {
                     state.StringsDetailContent = null;
+                    state.StringsDetailEditorText = null;
+                    state.StringsDetailEditorState = null;
                     state.RequestContentFocus();
                     state.App.Invalidate();
                 })
@@ -271,6 +281,7 @@ public static class StringsView
             .OnRowActivated((key, entry) =>
             {
                 state.StringsDetailContent = entry.Value;
+                state.App.RequestFocus(node => node is EditorNode);
                 state.App.Invalidate();
             })
             .Compact().Fill();
@@ -278,12 +289,20 @@ public static class StringsView
 
     private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
     private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+    private static readonly Hex1bColor YankFlashFg = Hex1bColor.FromRgb(24, 24, 37);
+    private static readonly Hex1bColor YankFlashBg = Hex1bColor.FromRgb(126, 201, 216);
 
     private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
-        where T : Hex1bWidget =>
-        isFocused ? c.ThemePanel(t => t
-            .Set(GlobalTheme.ForegroundColor, FocusFg)
-            .Set(GlobalTheme.BackgroundColor, FocusBg), child) : child;
+        where T : Hex1bWidget
+    {
+        if (!isFocused) return child;
+        var flash = s_yankFlash;
+        var fg = flash ? YankFlashFg : FocusFg;
+        var bg = flash ? YankFlashBg : FocusBg;
+        return c.ThemePanel(t => t
+            .Set(GlobalTheme.ForegroundColor, fg)
+            .Set(GlobalTheme.BackgroundColor, bg), child);
+    }
 
     private static string RowKey(StringEntry e) =>
         $"{e.Offset}:{e.Source}";

@@ -1,10 +1,21 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Dotsider.Tests;
 
 internal static class TestHelpers
 {
+    /// <summary>
+    /// Computes the expected OSC 52 clipboard sequence for the given text,
+    /// matching the format used by <see cref="Hex1b.Hex1bApp.CopyToClipboard"/>.
+    /// </summary>
+    internal static string ExpectedOsc52(string text)
+    {
+        var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
+        return $"\x1b]52;c;{base64}\x07";
+    }
+
     /// <summary>
     /// Logs a diagnostic message with timestamp to stderr (captured by xUnit).
     /// </summary>

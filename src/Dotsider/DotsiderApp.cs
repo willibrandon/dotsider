@@ -139,6 +139,79 @@ public sealed class DotsiderApp(DotsiderState state)
                 // Suppress Q quit in hex insert mode — let editor receive it as byte input
                 if (!(_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert))
                     bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+
+                // Universal yank — works on all tabs with neovim-style behavior
+                bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
+                {
+                    // 1. Any focused editor with selection
+                    if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
+                    {
+                        string text;
+                        if (editor.State == _state.HexEditorState)
+                        {
+                            // Hex dump: extract bytes as "4D 5A 90 00"
+                            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
+                        }
+                        else
+                        {
+                            // All other editors: neovim-style yank
+                            // Include the cursor character (word-boundary adjustment)
+                            var range = editor.State.Cursor.SelectionRange;
+                            var doc = editor.State.Document;
+                            var yankEnd = new DocumentOffset(Math.Min(
+                                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+                                doc.Length));
+                            var yankRange = new DocumentRange(range.Start, yankEnd);
+                            text = doc.GetText(yankRange);
+
+                            // Collapse cursor to last character of yanked range
+                            var lastChar = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+                            editor.State.SetCursorPosition(lastChar);
+
+                            // Flash the yanked range (150ms IncSearch style)
+                            var yankProvider = FindYankProvider(editor.State);
+                            if (yankProvider is not null)
+                            {
+                                var startPos = doc.OffsetToPosition(yankRange.Start);
+                                var endPos = doc.OffsetToPosition(yankRange.End);
+                                yankProvider.HighlightRange = (startPos, endPos);
+                                _state.App.Invalidate();
+                                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                                {
+                                    yankProvider.HighlightRange = null;
+                                    _state.App.Invalidate();
+                                }, TaskScheduler.Default);
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            ctx.CopyToClipboard(text);
+                            ShowYankNotification(text);
+                        }
+                        return;
+                    }
+
+                    // 3. Focused editor WITHOUT selection → do nothing
+                    if (ctx.FocusedNode is EditorNode) return;
+
+                    // 4. Non-editor focus → table row / surface node
+                    var yankText = YankHelper.GetYankText(_state);
+                    if (yankText is not null)
+                    {
+                        ctx.CopyToClipboard(yankText);
+                        ShowYankNotification(yankText);
+
+                        // Flash the focused row (150ms)
+                        _state.YankFlashRow = true;
+                        _state.App.Invalidate();
+                        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                        {
+                            _state.YankFlashRow = false;
+                            _state.App.Invalidate();
+                        }, TaskScheduler.Default);
+                    }
+                }, "Yank");
             }
 
             // Global search toggle — array-indexed, no switch statement
@@ -181,67 +254,9 @@ public sealed class DotsiderApp(DotsiderState state)
                 }, "Confirm search");
             }
 
-            // Hex tab keybindings — normal mode only, registered global because
-            // EditorNode's AnyCharacter() binding consumes letter keys in path-based routing
-            if (!isSearchEditing && !_state.HexJumpDialogOpen
-                && _state.CurrentTab == TabId.HexDump
-                && _state.HexMode == HexEditMode.Normal)
-            {
-                bindings.Key(Hex1bKey.I).Global().Action(_ =>
-                {
-                    _state.HexMode = HexEditMode.Insert;
-                    _state.HexEditorState.IsReadOnly = false;
-                    _state.HexNotification = null;
-                    _state.App.Invalidate();
-                }, "Insert mode");
-
-                bindings.Key(Hex1bKey.G).Global().Action(_ =>
-                {
-                    _state.HexJumpDialogOpen = true;
-                    _state.HexJumpInput = "";
-                    _state.HexNotification = null;
-                    _state.App.RequestFocus(node => node is TextBoxNode);
-                    _state.App.Invalidate();
-                }, "Jump to offset");
-
-                bindings.Key(Hex1bKey.E).Global().Action(_ =>
-                {
-                    _state.HexEndianness = _state.HexEndianness == HexEndianness.Little
-                        ? HexEndianness.Big : HexEndianness.Little;
-                    _state.App.Invalidate();
-                }, "Toggle endianness");
-
-                bindings.Key(Hex1bKey.H).Global().Action(_ =>
-                {
-                    _state.HexEditorState.MoveCursor(CursorDirection.Left);
-                    _state.App.Invalidate();
-                }, "Left");
-                bindings.Key(Hex1bKey.L).Global().Action(_ =>
-                {
-                    _state.HexEditorState.MoveCursor(CursorDirection.Right);
-                    _state.App.Invalidate();
-                }, "Right");
-                bindings.Key(Hex1bKey.K).Global().Action(_ =>
-                {
-                    _state.HexEditorState.MoveCursor(CursorDirection.Up);
-                    _state.App.Invalidate();
-                }, "Up");
-                bindings.Key(Hex1bKey.J).Global().Action(_ =>
-                {
-                    _state.HexEditorState.MoveCursor(CursorDirection.Down);
-                    _state.App.Invalidate();
-                }, "Down");
-            }
-
-            // Jump dialog Enter — global so it fires above TextBox capture
-            if (_state.HexJumpDialogOpen)
-            {
-                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
-                {
-                    Views.HexDumpView.ProcessJumpInput(_state);
-                    _state.App.Invalidate();
-                }, "Jump");
-            }
+            // Hex + IL Inspector keybindings (shared with NuGetApp)
+            if (!isSearchEditing)
+                DllInspectorBindings.Register(bindings, _state, _state.App);
 
             // Ctrl+S: Save hex changes — only in normal mode with pending edits
             if (_state.CurrentTab == TabId.HexDump
@@ -254,67 +269,6 @@ public sealed class DotsiderApp(DotsiderState state)
                     _state.App.Invalidate();
                     ScheduleNotificationClear(_state);
                 }, "Save hex changes");
-            }
-
-            // IL Inspector tab keybindings — Global because EditorNode's AnyCharacter() consumes letters
-            if (!isSearchEditing && _state.CurrentTab == TabId.IlInspector)
-            {
-                // Escape clears editor selection — only when no search is active
-                // to avoid conflicting with the global search Escape binding
-                if (!currentSearch.IsActive && _state.IlEditorState?.Cursor.HasSelection == true)
-                {
-                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
-                    {
-                        _state.IlEditorState.Cursor.SelectionAnchor = null;
-                        _state.App.Invalidate();
-                    }, "Clear selection");
-                }
-                if (_state.IlSelectedMethod is { Rva: > 0 } ilMethod)
-                {
-                    bindings.Key(Hex1bKey.X).Global().Action(_ =>
-                    {
-                        _state.NavigateToHexOffset(ilMethod.Rva);
-                    }, "View in hex");
-                }
-
-                bindings.Key(Hex1bKey.L).Global().Action(_ =>
-                {
-                    _state.App.RequestFocus(node => node is EditorNode);
-                    _state.App.Invalidate();
-                }, "Focus IL");
-
-                bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
-                {
-                    if (_state.IlEditorState?.Cursor.HasSelection == true)
-                    {
-                        var range = _state.IlEditorState.Cursor.SelectionRange;
-                        // Include the cursor character — after one-shot word-boundary
-                        // adjustment the cursor sits on the last word char, one before
-                        // the exclusive selection end.
-                        var doc = _state.IlEditorState.Document;
-                        var yankEnd = new DocumentOffset(Math.Min(
-                            Math.Max(range.End.Value, _state.IlEditorState.Cursor.Position.Value + 1),
-                            doc.Length));
-                        var yankRange = new DocumentRange(range.Start, yankEnd);
-                        var text = doc.GetText(yankRange);
-                        ctx.CopyToClipboard(text);
-
-                        // Collapse cursor to last character of yanked range (neovim behavior)
-                        var lastChar = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
-                        _state.IlEditorState.SetCursorPosition(lastChar);
-
-                        // Flash the yanked range (neovim IncSearch style, 150ms)
-                        var startPos = doc.OffsetToPosition(yankRange.Start);
-                        var endPos = doc.OffsetToPosition(yankRange.End);
-                        _state.IlYankProvider.HighlightRange = (startPos, endPos);
-                        _state.App.Invalidate();
-                        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
-                        {
-                            _state.IlYankProvider.HighlightRange = null;
-                            _state.App.Invalidate();
-                        }, TaskScheduler.Default);
-                    }
-                }, "Yank");
             }
 
             // n/N only registered when search is confirmed
@@ -478,7 +432,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 if (_state.IlSelectedMethod is { Rva: > 0 })
                     hints.Add(s.Section("x: Hex"));
                 if (_state.IlEditorState?.Cursor.HasSelection == true)
-                    hints.Add(s.Section("y: Yank"));
+                    hints.Add(s.Section("y: Yank (IL)"));
             }
             else if (_state.CurrentTab == 3)
                 hints.Add(s.Section("Enter: Detail"));
@@ -532,7 +486,32 @@ public sealed class DotsiderApp(DotsiderState state)
             if (_state.CurrentTab is 0 or 1 or 6) // General, PE/Metadata, Size Map
                 hints.Add(s.Section(_state.HumanReadableSizes ? "s: Sizes (dec)" : "s: Sizes (hex)"));
 
+            // y: Yank hint — show when yankable content exists
+            var yankable = _state.CurrentTab switch
+            {
+                TabId.General => _state.GeneralFocusedDep is not null,
+                TabId.PeMetadata => _state.PeDetailContent is not null || _state.PeFocusedKey is not null,
+                TabId.IlInspector => false, // shown separately above as "y: Yank (IL)"
+                TabId.Strings => _state.StringsDetailContent is not null || _state.StringsFocusedKey is not null,
+                TabId.HexDump => true,
+                TabId.DepGraph => _state.GraphSelectedNode is not null || _state.GraphSelectedIndex >= 0,
+                TabId.SizeMap => _state.TreemapHoveredItem is not null || _state.TreemapSelectedIndex >= 0,
+                TabId.Dynamic => _state.DynamicSubTab is DynamicSubTabId.Events or DynamicSubTabId.Output
+                    && (_state.DynamicEventsFocusedKey is not null || _state.DynamicOutputFocusedKey is not null),
+                _ => false
+            };
+            if (yankable)
+                hints.Add(s.Section("y: Yank"));
+
             hints.Add(s.Spacer());
+
+            // Yank notification (right side, auto-clearing)
+            if (!string.IsNullOrEmpty(_state.YankNotification))
+            {
+                hints.Add(s.Section(_state.YankNotification).Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
+                hints.Add(s.Separator(" "));
+            }
 
             // General tab: navigation error (right side)
             if (_state.CurrentTab == 0 && !string.IsNullOrEmpty(_state.NavigationError))
@@ -659,6 +638,32 @@ public sealed class DotsiderApp(DotsiderState state)
         state.IlCurrentMatchIndex = -1;
         state.IlTextMatchMethodTokens = null;
         state.IlFocusedTreeKey = null;
+        state.GeneralInfoEditorState = null;
+        state.GeneralInfoEditorText = null;
+        state.PeHeadersEditorState = null;
+        state.PeHeadersEditorText = null;
+        state.ClrHeaderEditorState = null;
+        state.ClrHeaderEditorText = null;
+    }
+
+    private IlYankDecorationProvider? FindYankProvider(EditorState editorState) =>
+        YankHelper.FindYankProvider(_state, editorState);
+
+    private void ShowYankNotification(string text)
+    {
+        var gen = ++_state.YankGeneration;
+        _state.YankNotification = text.Contains('\n')
+            ? $"Yanked {text.Count(c => c == '\n') + 1} lines"
+            : $"Yanked: {(text.Length > 40 ? text[..37] + "..." : text)}";
+        _state.App.Invalidate();
+        _ = Task.Delay(TimeSpan.FromMilliseconds(1500)).ContinueWith(_ =>
+        {
+            if (_state.YankGeneration == gen)
+            {
+                _state.YankNotification = null;
+                _state.App.Invalidate();
+            }
+        }, TaskScheduler.Default);
     }
 
     private static void ScheduleNotificationClear(DotsiderState state)

@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Theming;
@@ -65,28 +66,51 @@ public static class GeneralView
             }
         }
 
+        // Build Assembly Info text for read-only editor
+        var infoText = string.Join("\n",
+            $"  Assembly Name:    {analyzer.AssemblyName ?? "(none)"}",
+            $"  Version:          {analyzer.AssemblyVersion ?? "(none)"}",
+            $"  Target Framework: {analyzer.TargetFramework ?? "(unknown)"}",
+            $"  Culture:          {analyzer.Culture ?? "neutral"}",
+            $"  Public Key Token: {analyzer.PublicKeyToken ?? "(none)"}",
+            "",
+            $"  File Size:        {state.FormatSizeToggleable(analyzer.FileSize)}",
+            $"  Architecture:     {analyzer.Architecture}",
+            $"  Last Modified:    {analyzer.LastModified:yyyy-MM-dd HH:mm:ss UTC}",
+            $"  Created:          {analyzer.CreatedTime:yyyy-MM-dd HH:mm:ss UTC}",
+            $"  Read-Only:        {(analyzer.IsReadOnly ? "Yes" : "No")}",
+            $"  Has Metadata:     {(analyzer.HasMetadata ? "Yes" : "No")}");
+
+        if (state.GeneralInfoEditorText != infoText)
+        {
+            state.GeneralInfoEditorText = infoText;
+            state.GeneralInfoEditorState = new EditorState(new Hex1bDocument(infoText)) { IsReadOnly = true };
+        }
+
+        // Adjust word boundaries after double-click (consistent with IL Inspector)
+        if (state.GeneralInfoEditorState is not null && state.CurrentTab == TabId.General)
+        {
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.GeneralInfoEditorState,
+                ref state.GeneralInfoPrevSelectionAnchor,
+                ref state.GeneralInfoPrevCursorPosition);
+        }
+
         return ctx.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>
             {
-                // Assembly Info section
+                // Assembly Info section (read-only editor for text selection + yank)
                 outer.Border(
-                outer.VStack(info =>
-                [
-                    InfoLine(info, "Assembly Name", analyzer.AssemblyName ?? "(none)"),
-                    InfoLine(info, "Version", analyzer.AssemblyVersion ?? "(none)"),
-                    InfoLine(info, "Target Framework", analyzer.TargetFramework ?? "(unknown)"),
-                    InfoLine(info, "Culture", analyzer.Culture ?? "neutral"),
-                    InfoLine(info, "Public Key Token", analyzer.PublicKeyToken ?? "(none)"),
-                    info.Text(""),
-                    InfoLine(info, "File Size", state.FormatSizeToggleable(analyzer.FileSize)),
-                    InfoLine(info, "Architecture", analyzer.Architecture),
-                    InfoLine(info, "Last Modified", analyzer.LastModified.ToString("yyyy-MM-dd HH:mm:ss UTC")),
-                    InfoLine(info, "Created", analyzer.CreatedTime.ToString("yyyy-MM-dd HH:mm:ss UTC")),
-                    InfoLine(info, "Read-Only", analyzer.IsReadOnly ? "Yes" : "No"),
-                    InfoLine(info, "Has Metadata", analyzer.HasMetadata ? "Yes" : "No")
-                ])
-            ).Title(" Assembly Info ")
+                    outer.ThemePanel(t => t
+                        .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                        .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                    outer.Editor(state.GeneralInfoEditorState!)
+                        .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                        .Decorations(new InfoLabelDecorationProvider())
+                        .Decorations(state.GeneralInfoYankProvider)
+                        .FillWidth().FillHeight())
+                ).Title(" Assembly Info ").FixedHeight(14)
             };
 
             // Search bar
@@ -104,15 +128,21 @@ public static class GeneralView
                         h.Cell("Public Key Token").Width(SizeHint.Fixed(20))
                     ])
                     .Row((r, asmRef, rs) =>
-                    [
-                        r.Cell(c => FocusStyle(c, HighlightHelper.HighlightCell(c, asmRef.Name, query,
-                            !string.IsNullOrEmpty(query),
-                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null), rs.IsFocused)),
-                        r.Cell(c => FocusStyle(c, c.Text(asmRef.Version), rs.IsFocused)),
-                        r.Cell(c => FocusStyle(c, c.Text(asmRef.Culture), rs.IsFocused)),
-                        r.Cell(c => FocusStyle(c, c.Text(asmRef.PublicKeyToken ?? ""), rs.IsFocused))
-                    ])
-                    .Focus(state.GeneralFocusedDep)
+                    {
+                        var flash = rs.IsFocused && state.YankFlashRow;
+                        var fg = rs.IsFocused ? (flash ? YankFlashFg : FocusFg) : (Hex1bColor?)null;
+                        var bg = rs.IsFocused ? (flash ? YankFlashBg : FocusBg) : (Hex1bColor?)null;
+                        return
+                        [
+                            r.Cell(c => FocusStyle(c, HighlightHelper.HighlightCell(c, asmRef.Name, query,
+                                !string.IsNullOrEmpty(query), fg, bg), rs.IsFocused, flash)),
+                            r.Cell(c => FocusStyle(c, c.Text(asmRef.Version), rs.IsFocused, flash)),
+                            r.Cell(c => FocusStyle(c, c.Text(asmRef.Culture), rs.IsFocused, flash)),
+                            r.Cell(c => FocusStyle(c, c.Text(asmRef.PublicKeyToken ?? ""), rs.IsFocused, flash))
+                        ];
+                    })
+                    .Focus(state.App.FocusedNode is EditorNode
+                        ? null : state.GeneralFocusedDep)
                     .OnFocusChanged(key => state.GeneralFocusedDep = key)
                     .OnRowActivated((_, asmRef) =>
                     {
@@ -154,10 +184,28 @@ public static class GeneralView
             bindings.Key(Hex1bKey.Backspace).Action(_ =>
             {
                 if (state.PopAssembly())
+                    state.App.Invalidate();
+            }, "Back");
+
+            bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+            {
+                if (state.App.FocusedNode is EditorNode)
                 {
+                    // Editor → Table: seed focus to first row if none selected
+                    state.GeneralFocusedDep ??=
+                        state.Analyzer.AssemblyRefs.Count > 0
+                            ? state.Analyzer.AssemblyRefs[0].Name : null;
+                    state.App.RequestFocus(node =>
+                        node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
                 }
-            }, "Back");
+                else
+                {
+                    // Table → Editor
+                    state.App.RequestFocus(node => node is EditorNode);
+                    state.App.Invalidate();
+                }
+            }, "Toggle focus");
 
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {
@@ -184,12 +232,19 @@ public static class GeneralView
 
     private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
     private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+    private static readonly Hex1bColor YankFlashFg = Hex1bColor.FromRgb(24, 24, 37);
+    private static readonly Hex1bColor YankFlashBg = Hex1bColor.FromRgb(126, 201, 216);
 
-    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
-        where T : Hex1bWidget =>
-        isFocused ? c.ThemePanel(t => t
-            .Set(GlobalTheme.ForegroundColor, FocusFg)
-            .Set(GlobalTheme.BackgroundColor, FocusBg), child) : child;
+    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused,
+        bool yankFlash = false) where T : Hex1bWidget
+    {
+        if (!isFocused) return child;
+        var fg = yankFlash ? YankFlashFg : FocusFg;
+        var bg = yankFlash ? YankFlashBg : FocusBg;
+        return c.ThemePanel(t => t
+            .Set(GlobalTheme.ForegroundColor, fg)
+            .Set(GlobalTheme.BackgroundColor, bg), child);
+    }
 
     private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value) where T : Hex1bWidget
     {
