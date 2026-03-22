@@ -16,7 +16,7 @@ Each instruction shows:
 ## Cross-tab navigation
 
 - Press `x` on a selected method to jump to its body in the **Hex Dump** tab. The hex view scrolls to the method's RVA.
-- Press `Backspace` to return to where you came from.
+- Press `Esc` to return to where you came from.
 
 ## Copy
 

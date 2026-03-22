@@ -34,7 +34,7 @@ public sealed class InfoEditorViewRenderer : IEditorViewRenderer
         // Overwrite tilde lines with blank space
         var docLineCount = state.Document.LineCount;
         var viewportLines = viewport.Height;
-        var firstEmptyViewLine = docLineCount - scrollOffset;
+        var firstEmptyViewLine = docLineCount - scrollOffset + 1;
 
         if (firstEmptyViewLine < 0) firstEmptyViewLine = 0;
 

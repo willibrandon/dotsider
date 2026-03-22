@@ -609,6 +609,329 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    // --- Size Map drill ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_SelectThenEnterDrills()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Empty(_state!.TreemapBreadcrumb);
+
+        // Select with arrow first, then Enter to drill
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.TreemapSelectedIndex >= 0, TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state.TreemapBreadcrumb.Count > 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotEmpty(_state.TreemapBreadcrumb);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_EnterWithoutSelection_DoesNothing()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Empty(_state!.TreemapBreadcrumb);
+        Assert.Equal(-1, _state.TreemapSelectedIndex);
+
+        // Press Enter with no selection — should be a no-op
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(200, ct);
+        Assert.Empty(_state.TreemapBreadcrumb);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    // --- Esc regression: nested cross-view + assembly stack ---
+
+    [Fact(Timeout = 60_000)]
+    public async Task EscBack_CrossViewTakesPriorityOverAssemblyStack()
+    {
+        // Use RichLibrary — its refs resolve to BCL assemblies in the runtime dir
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Real drill via PushAssembly — resolve a BCL ref from the runtime directory
+        var refName = _state!.Analyzer.AssemblyRefs[0].Name;
+        var resolvedPath = Dotsider.Core.Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
+            _state.Analyzer.FilePath, refName);
+        Assert.NotNull(resolvedPath);
+        Assert.True(_state.PushAssembly(resolvedPath),
+            $"PushAssembly should succeed for resolved ref '{refName}'");
+        _state.App.Invalidate();
+        await Task.Delay(200, ct);
+
+        Assert.True(_state.NavigationStack.Count > 0);
+
+        // The drilled BCL assembly may lack user types with methods.
+        // Navigate back to push RichLibrary again so we have real types for g.
+        _state.PopAssembly();
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        // Re-push so NavigationStack > 0, but stay on the RichLibrary analyzer
+        Assert.True(_state.PushAssembly(resolvedPath));
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        // Pop back to RichLibrary — now NavigationStack has the BCL assembly
+        _state.PopAssembly();
+
+        // Push the BCL one more time so we have NavigationStack > 0
+        // while the current analyzer is RichLibrary (which has real types)
+        _state.NavigationStack.Push(new Dotsider.Core.Analysis.AssemblyAnalyzer(resolvedPath));
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        Assert.True(_state.NavigationStack.Count > 0);
+
+        // Switch to PE/Metadata TypeDef sub-tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D2) // PE/Metadata
+            .WaitUntil(s => s.ContainsText("TypeDef") || s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        _state.PeSubTab = PeSubTabId.TypeDef;
+        _state.App.Invalidate();
+        await Task.Delay(200, ct);
+
+        // RichLibrary has real types with methods
+        var typeDef = _state.Analyzer.TypeDefs.FirstOrDefault(t =>
+            !t.FullName.StartsWith("<") && t.MethodCount > 0);
+        Assert.NotNull(typeDef);
+
+        _state.PeFocusedKey = typeDef.Token;
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        // Press g to trigger cross-view jump to IL Inspector
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("g")
+            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state.CrossViewBackTarget);
+        Assert.True(_state.NavigationStack.Count > 0);
+
+        // Esc 1: cross-view back to PE/Metadata — NOT assembly pop
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state.CrossViewBackTarget is null, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(TabId.PeMetadata, _state.CurrentTab);
+        Assert.True(_state.NavigationStack.Count > 0,
+            "Assembly stack should still have the parent");
+
+        // Allow bindings to rebuild after cross-view back
+        await Task.Delay(200, ct);
+
+        // Esc 2: pop assembly and return to General
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state.CurrentTab == TabId.General, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Empty(_state.NavigationStack);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    // --- Esc regression: Dynamic filter clears before assembly pop ---
+
+    [Fact(Timeout = 120_000)]
+    public async Task EscBack_DynamicFilterClearsBeforeAssemblyPop()
+    {
+        // Use HelloWorld which is executable (has entry point for Dynamic tab)
+        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Drill into a referenced assembly
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Go back to HelloWorld (we need the executable for Dynamic tab)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.NavigationStack.Count == 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Re-drill so NavigationStack > 0
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var stackBefore = _state!.NavigationStack.Count;
+
+        // Switch to Dynamic tab
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D8) // Dynamic tab
+            .WaitUntil(_ => _state.CurrentTab == TabId.Dynamic, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Set filter programmatically — the guard condition checks state regardless
+        // of whether the Events UI is rendered (the drilled assembly may be a library)
+        _state.DynamicSubTab = DynamicSubTabId.Events;
+        _state.DynamicCategoryFilter = Dotsider.Core.Analysis.Models.TraceEventCategory.GC;
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        // Esc should NOT pop the assembly — the dynamicFilterActive guard blocks it
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(200, ct);
+        Assert.Equal(stackBefore, _state.NavigationStack.Count);
+
+        // Clear the filter manually and verify Esc now pops
+        _state.DynamicCategoryFilter = null;
+        _state.App.Invalidate();
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state.NavigationStack.Count == 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(TabId.General, _state.CurrentTab);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    // --- Size Map regression: zero-match search Enter is no-op ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_EnterAfterZeroMatchSearch_DoesNotDrill()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Search for something that won't match
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.OemQuestion)
+            .Type("zzzznotanamespace")
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Verify the precondition: zero matches, no selection
+        Assert.Equal(-1, _state!.TreemapMatchIndex);
+        Assert.Equal(-1, _state.TreemapSelectedIndex);
+        Assert.Empty(_state.TreemapBreadcrumb);
+
+        // Enter should be a no-op — no match, no selection
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(200, ct);
+        Assert.Empty(_state.TreemapBreadcrumb);
+        Assert.Equal(-1, _state.TreemapMatchIndex);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    // --- Strings detail popup regression: content must be visible on screen ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task StringsDetail_PopupShowsStringContentOnScreen()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.Strings);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Capture the string value from the first visible row
+        var strings = _state!.GetActiveStrings();
+        Assert.True(strings.Count > 0);
+        var firstString = strings[0].Value;
+
+        // Navigate to first row and open detail popup
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => s.ContainsText("String Detail"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // The actual string content must be visible on the terminal — not just "Length: N"
+        // This catches the InfoEditorViewRenderer regression where content lines were blanked
+        var snippet = firstString.Length > 20 ? firstString[..20] : firstString;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText(snippet), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
     // --- Yank notification auto-clear ---
 
     [Fact(Timeout = 30_000)]

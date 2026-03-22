@@ -20,6 +20,6 @@ On the dependency table, focus a row and press `y` to copy it as tab-separated v
 
 ## Drill into references
 
-Select any row in the dependency table and press `Enter`. If the referenced assembly exists on disk (next to the current file or in a probing path), dotsider opens it in a new analysis context. Press `Backspace` to return.
+Select any row in the dependency table and press `Enter`. If the referenced assembly exists on disk (next to the current file or in a probing path), dotsider opens it in a new analysis context. Press `Esc` to return.
 
 This lets you walk an entire dependency chain without leaving the TUI.

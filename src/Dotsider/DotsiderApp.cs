@@ -335,17 +335,33 @@ public sealed class DotsiderApp(DotsiderState state)
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(ctx => ctx.RequestStop(), "Quit");
 
-            // Cross-view back navigation — suppressed when any text input is active
-            // (search editing, hex jump dialog, hex insert mode, dynamic args editing)
-            // or when the current tab locally consumes Backspace
-            var tabUsesBackspace = (_state.CurrentTab == TabId.General && _state.NavigationStack.Count > 0)
-                || (_state.CurrentTab == TabId.SizeMap && _state.TreemapBreadcrumb.Count > 0);
-            if (!tabUsesBackspace && !isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode
-                && !_state.DynamicEditingArgs && _state.CrossViewBackTarget is not null)
+            // Back navigation via Esc — assembly stack pop or cross-view back.
+            // Only when no other modal claims Esc.
+            var hasBackTarget = _state.NavigationStack.Count > 0 || _state.CrossViewBackTarget is not null;
+            var sizeMapUsesEsc = _state.CurrentTab == TabId.SizeMap && _state.TreemapBreadcrumb.Count > 0;
+            var dynamicFilterActive = _state.CurrentTab == TabId.Dynamic
+                && _state.DynamicSubTab == DynamicSubTabId.Events
+                && _state.DynamicCategoryFilter is not null;
+            if (hasBackTarget && !sizeMapUsesEsc && !dynamicFilterActive
+                && !currentSearch.IsActive && !_state.HexJumpDialogOpen && !hexInsertMode
+                && !_state.DynamicEditingArgs
+                && _state.PeDetailContent is null && _state.StringsDetailContent is null
+                && !(_state.CurrentTab == TabId.IlInspector && _state.IlEditorState?.Cursor.HasSelection == true))
             {
-                bindings.Key(Hex1bKey.Backspace).Global().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                 {
-                    _state.NavigateBack();
+                    // Cross-view back takes priority — return to the originating tab first
+                    if (_state.CrossViewBackTarget is not null)
+                    {
+                        _state.NavigateBack();
+                    }
+                    else if (_state.NavigationStack.Count > 0)
+                    {
+                        _state.PopAssembly();
+                        _state.NavigateToTab(TabId.General);
+                        _state.RequestContentFocus();
+                        _state.App.Invalidate();
+                    }
                 }, "Back");
             }
         });
@@ -418,7 +434,7 @@ public sealed class DotsiderApp(DotsiderState state)
             hints.Add(s.Section("1-8: Tabs"));
 
             if (_state.NavigationStack.Count > 0)
-                hints.Add(s.Section("Backspace: Back"));
+                hints.Add(s.Section("Esc: Back"));
 
             if (_state.CurrentTab == 1)
             {
@@ -451,7 +467,7 @@ public sealed class DotsiderApp(DotsiderState state)
             else if (_state.CurrentTab == 5)
                 hints.Add(s.Section("←→: Select | Enter: Open"));
             else if (_state.CurrentTab == 6)
-                hints.Add(s.Section("Enter: Drill | ←→: Select | Backspace: Up"));
+                hints.Add(s.Section("Enter: Drill | ←→: Select | Esc: Up"));
             else if (_state.CurrentTab == 7)
             {
                 if (_state.Tracer?.ProcessState == TraceProcessState.Running)
@@ -474,7 +490,7 @@ public sealed class DotsiderApp(DotsiderState state)
 
             // Cross-view back hint
             if (_state.CrossViewBackTarget is not null)
-                hints.Add(s.Section("Backspace: Back"));
+                hints.Add(s.Section("Esc: Back"));
 
             // Search hint — always available on all tabs
             var currentSearch = _state.Search[_state.CurrentTab];

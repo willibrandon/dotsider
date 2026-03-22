@@ -9,7 +9,7 @@ description: All keyboard shortcuts for navigating dotsider.
 |-----|--------|
 | `1`–`8` | Switch tabs |
 | `Enter` | Drill into selected item |
-| `Backspace` | Go back |
+| `Esc` | Go back (when no search or modal is active) |
 | `/` | Search |
 | `n` / `N` | Next / previous search match |
 | `y` | Yank (copy) — selected text in editors, or focused row in tables |
