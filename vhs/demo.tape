@@ -66,8 +66,8 @@ Sleep 1500ms
 Enter
 Sleep 2s
 
-# "Press Backspace to go back."
-Backspace
+# "Press Esc to go back."
+Escape
 Sleep 1500ms
 
 # ── 4. Search ─────────────────────────────────────────
