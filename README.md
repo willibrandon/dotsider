@@ -142,6 +142,9 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 | `Enter` | Drill into selected item (assembly ref, method, DLL in package) |
 | `Esc` | Go back (assembly stack, breadcrumb, or cross-view jump) |
 | `y` | Yank (copy) — selected text in editors, or focused row in tables |
+| `iw` | Select inner word (vim text object) |
+| `iW` | Select inner WORD (whitespace-delimited — grabs fully-qualified names) |
+| `yiw` / `yiW` | Select + yank word/WORD in one motion |
 | `Tab` | Cycle focus between info panels and tables |
 | `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |
 | `x` | Jump to method body in Hex Dump (IL Inspector tab, when a method with RVA is selected) |
@@ -150,7 +153,7 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 | `s` | Toggle human-readable sizes |
 | `q` | Quit |
 
-Info panels (Assembly Info, PE Headers, CLR Header, detail popups, string details) are selectable read-only editors. Click or `Tab` into them, select text with `Shift` + arrow keys, and press `y` to copy.
+Info panels (Assembly Info, PE Headers, CLR Header, detail popups, string details) are selectable read-only editors. Click or `Tab` into them, select text with `Shift` + arrow keys, and press `y` to copy. For word-level selection without the mouse, `iw` selects the word under the cursor and `iW` selects the full whitespace-delimited token — `yiw` copies it in one keystroke.
 
 **Hex Dump tab** uses vi-style modal editing — the editor starts in normal mode (read-only) to prevent accidental writes:
 

@@ -109,6 +109,19 @@ public static class GeneralView
                         .WithViewRenderer(InfoEditorViewRenderer.Instance)
                         .Decorations(new InfoLabelDecorationProvider())
                         .Decorations(state.GeneralInfoYankProvider)
+                        .WithInputBindings(bindings =>
+                        {
+                            TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                bindings,
+                                state.GeneralInfoEditorState!,
+                                () => state.VimPending,
+                                () => state.VimPendingEditor,
+                                () => state.VimPendingCursorOffset,
+                                () => state.VimPendingTimestamp,
+                                (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                state.PerformEditorYank,
+                                () => state.App.Invalidate());
+                        })
                         .FillWidth().FillHeight())
                 ).Title(" Assembly Info ").FixedHeight(14)
             };
@@ -183,6 +196,7 @@ public static class GeneralView
         {
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (state.App.FocusedNode is EditorNode)
                 {
                     // Editor → Table: seed focus to first row if none selected

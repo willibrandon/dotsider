@@ -148,6 +148,7 @@ public static class StringsView
                     {
                         bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                         {
+                            state.VimPending = VimMotionState.Idle;
                             if (state.StringsSourceTab > 0)
                             {
                                 state.StringsSourceTab--;
@@ -160,6 +161,7 @@ public static class StringsView
 
                         bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
                         {
+                            state.VimPending = VimMotionState.Idle;
                             if (state.StringsSourceTab < StringsSubTabId.Count - 1)
                             {
                                 state.StringsSourceTab++;
@@ -212,6 +214,7 @@ public static class StringsView
                 {
                     bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
+                        state.VimPending = VimMotionState.Idle;
                         state.StringsDetailContent = null;
                         state.RequestContentFocus();
                         state.App.Invalidate();
@@ -234,6 +237,19 @@ public static class StringsView
                                     .WithViewRenderer(InfoEditorViewRenderer.Instance)
                                     .Decorations(new StringsDetailDecorationProvider())
                                     .Decorations(state.StringsDetailYankProvider)
+                                    .WithInputBindings(bindings =>
+                                    {
+                                        TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                            bindings,
+                                            state.StringsDetailEditorState!,
+                                            () => state.VimPending,
+                                            () => state.VimPendingEditor,
+                                            () => state.VimPendingCursorOffset,
+                                            () => state.VimPendingTimestamp,
+                                            (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                            state.PerformEditorYank,
+                                            () => state.App.Invalidate());
+                                    })
                                     .FillWidth().FillHeight())
                             ).Title(" String Detail ").FixedWidth(70).FillHeight()
                         ]).FixedWidth(70).FixedHeight(15)

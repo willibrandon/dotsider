@@ -48,6 +48,19 @@ public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
                 .Decorations(AppState.IlSyntaxProvider)
                 .Decorations(AppState.IlSearchProvider)
                 .Decorations(AppState.IlYankProvider)
+                .WithInputBindings(bindings =>
+                {
+                    TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                        bindings,
+                        State,
+                        () => AppState.VimPending,
+                        () => AppState.VimPendingEditor,
+                        () => AppState.VimPendingCursorOffset,
+                        () => AppState.VimPendingTimestamp,
+                        (s, e, o) => { AppState.VimPending = s; AppState.VimPendingEditor = e; AppState.VimPendingCursorOffset = o; AppState.VimPendingTimestamp = DateTime.UtcNow; },
+                        AppState.PerformEditorYank,
+                        () => AppState.App.Invalidate());
+                })
                 .FillWidth()
                 .FillHeight())
             .FillWidth()

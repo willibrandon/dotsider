@@ -93,6 +93,19 @@ public static class DiffSummaryView
                             .WithViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(leftSearchProvider)
+                            .WithInputBindings(bindings =>
+                            {
+                                TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                    bindings,
+                                    state.LeftInfoEditorState!,
+                                    () => state.VimPending,
+                                    () => state.VimPendingEditor,
+                                    () => state.VimPendingCursorOffset,
+                                    () => state.VimPendingTimestamp,
+                                    (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                    state.PerformEditorYank,
+                                    () => state.App.Invalidate());
+                            })
                             .FillWidth().FillHeight())
                     ).Title($" {state.Left.FileName} (Left) ").Fill()
                 ],
@@ -106,6 +119,19 @@ public static class DiffSummaryView
                             .WithViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(rightSearchProvider)
+                            .WithInputBindings(bindings =>
+                            {
+                                TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                    bindings,
+                                    state.RightInfoEditorState!,
+                                    () => state.VimPending,
+                                    () => state.VimPendingEditor,
+                                    () => state.VimPendingCursorOffset,
+                                    () => state.VimPendingTimestamp,
+                                    (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                    state.PerformEditorYank,
+                                    () => state.App.Invalidate());
+                            })
                             .FillWidth().FillHeight())
                     ).Title($" {state.Right.FileName} (Right) ").Fill()
                 ],
@@ -121,6 +147,19 @@ public static class DiffSummaryView
                     .Decorations(new InfoLabelDecorationProvider())
                     .Decorations(new DiffStatsDecorationProvider())
                     .Decorations(statsSearchProvider)
+                    .WithInputBindings(bindings =>
+                    {
+                        TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                            bindings,
+                            state.ChangeStatsEditorState!,
+                            () => state.VimPending,
+                            () => state.VimPendingEditor,
+                            () => state.VimPendingCursorOffset,
+                            () => state.VimPendingTimestamp,
+                            (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                            state.PerformEditorYank,
+                            () => state.App.Invalidate());
+                    })
                     .FillWidth().FillHeight())
             ).Title(" Change Summary ").Fill());
 
@@ -131,6 +170,7 @@ public static class DiffSummaryView
             // Tab cycles focus: Left Info → Right Info → Change Stats → Left Info
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (state.App.FocusedNode is EditorNode { State: var es })
                 {
                     if (es == state.LeftInfoEditorState)
@@ -153,6 +193,7 @@ public static class DiffSummaryView
 
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (search.IsActive)
                 {
                     search.Dismiss();

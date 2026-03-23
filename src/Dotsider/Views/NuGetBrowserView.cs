@@ -81,6 +81,19 @@ public static class NuGetBrowserView
                         .WithViewRenderer(InfoEditorViewRenderer.Instance)
                         .Decorations(new InfoLabelDecorationProvider())
                         .Decorations(state.PackageInfoYankProvider)
+                        .WithInputBindings(bindings =>
+                        {
+                            TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                bindings,
+                                state.PackageInfoEditorState!,
+                                () => state.VimPending,
+                                () => state.VimPendingEditor,
+                                () => state.VimPendingCursorOffset,
+                                () => state.VimPendingTimestamp,
+                                (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                state.PerformEditorYank,
+                                () => state.App.Invalidate());
+                        })
                         .FillWidth().FillHeight())
                 ).Title(" Package Info ").FixedHeight(11)
             };
@@ -158,6 +171,7 @@ public static class NuGetBrowserView
             // Tab toggles focus between Package Info editor and DLL table
             bindings.Key(Hex1b.Input.Hex1bKey.Tab).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (state.App.FocusedNode is EditorNode)
                 {
                     state.FileTreeFocusedKey ??=

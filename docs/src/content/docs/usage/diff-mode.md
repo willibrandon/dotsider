@@ -28,6 +28,6 @@ This is useful for reviewing breaking changes between library versions, auditing
 
 ## Copy
 
-The Summary tab has selectable info panels and change statistics. Press `Tab` to cycle focus between them, select text, and press `y` to copy.
+The Summary tab has selectable info panels and change statistics. Press `Tab` to cycle focus between them, select text, and press `y` to copy. `iw` and `yiw` work in these panels for quick word-level copying.
 
 On the Types, Methods, and References tabs, focus a row and press `y` to copy it as tab-separated values. A brief flash confirms the yank.

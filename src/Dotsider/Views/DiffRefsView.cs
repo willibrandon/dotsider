@@ -121,6 +121,7 @@ public static class DiffRefsView
         {
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (search.IsActive)
                 {
                     search.Dismiss();

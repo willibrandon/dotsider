@@ -124,6 +124,7 @@ public static class DiffMethodsView
         {
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (search.IsActive)
                 {
                     search.Dismiss();

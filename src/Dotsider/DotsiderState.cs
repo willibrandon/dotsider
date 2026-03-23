@@ -181,6 +181,23 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Whether the focused table row should flash with yank highlight colors. Auto-clears after 150ms.</summary>
     public bool YankFlashRow { get; set; }
 
+    // --- Vim Text Object State ---
+
+    /// <summary>Current state of a pending vim text-object sequence (iw, iW, yiw, yiW).</summary>
+    public VimMotionState VimPending { get; set; }
+
+    /// <summary>The editor that started the current vim text-object sequence, for affinity checking.</summary>
+    public EditorState? VimPendingEditor { get; set; }
+
+    /// <summary>Cursor position when the text-object sequence was armed, for cursor affinity.</summary>
+    public int VimPendingCursorOffset { get; set; }
+
+    /// <summary>Timestamp when the text-object sequence was armed, for 1-second timeout.</summary>
+    public DateTime VimPendingTimestamp { get; set; }
+
+    /// <summary>Delegate to perform a neovim-style editor yank, set by the host app (DotsiderApp/NuGetApp).</summary>
+    public Action<Hex1b.Input.InputBindingActionContext, EditorNode>? PerformEditorYank { get; set; }
+
     // --- Read-Only Editor State (for text selection + yank) ---
 
     /// <summary>Read-only editor for the General tab Assembly Info panel.</summary>
@@ -609,6 +626,10 @@ public sealed class DotsiderState : IDisposable
         IlTextMatchMethodTokens = null;
         IlYankProvider.HighlightRange = null;
         YankNotification = null;
+        VimPending = VimMotionState.Idle;
+        VimPendingEditor = null;
+        VimPendingCursorOffset = 0;
+        VimPendingTimestamp = default;
         GeneralInfoEditorState = null;
         GeneralInfoEditorText = null;
         PeHeadersEditorState = null;

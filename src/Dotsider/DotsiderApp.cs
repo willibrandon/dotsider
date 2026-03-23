@@ -21,6 +21,7 @@ public sealed class DotsiderApp(DotsiderState state)
 {
     private readonly DotsiderState _state = state;
     private bool _initialFocusRequested;
+    private bool _yankDelegateSet;
 
     /// <summary>
     /// Builds the root widget tree for the current frame.
@@ -39,6 +40,13 @@ public sealed class DotsiderApp(DotsiderState state)
             _initialFocusRequested = true;
             SeedFocusedRowIfNeeded();
             RequestContentFocus();
+        }
+
+        // Wire up the yank delegate for text object support
+        if (!_yankDelegateSet)
+        {
+            _yankDelegateSet = true;
+            _state.PerformEditorYank = PerformEditorYank;
         }
 
 
@@ -105,6 +113,10 @@ public sealed class DotsiderApp(DotsiderState state)
             var currentSearch = _state.Search[_state.CurrentTab];
             var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
 
+            // VimReset wraps all Global bindings to cancel pending vim text-object sequences
+            Action<InputBindingActionContext> VimReset(Action<InputBindingActionContext> action)
+                => ctx => { _state.VimPending = VimMotionState.Idle; action(ctx); };
+
             // Number keys 1-8, s, q suppressed during search editing, jump dialog,
             // or hex insert mode to let EditorNode/TextBox receive character input
             var hexInsertMode = _state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert;
@@ -114,13 +126,13 @@ public sealed class DotsiderApp(DotsiderState state)
                 {
                     var tabIndex = i;
                     var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                    bindings.Key(key).Global().Action(_ =>
+                    bindings.Key(key).Global().Action(VimReset(_ =>
                     {
                         SelectTab(tabIndex);
                         SeedFocusedRowIfNeeded();
                         RequestContentFocus();
                         _state.App.Invalidate();
-                    }, $"Tab {tabIndex + 1}");
+                    }), $"Tab {tabIndex + 1}");
                 }
 
                 // Suppress size toggle on Dynamic Events sub-tab (S = Socket filter)
@@ -129,73 +141,51 @@ public sealed class DotsiderApp(DotsiderState state)
                     || (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert);
                 if (!suppressSizeToggle)
                 {
-                    bindings.Key(Hex1bKey.S).Global().Action(_ =>
+                    bindings.Key(Hex1bKey.S).Global().Action(VimReset(_ =>
                     {
                         _state.HumanReadableSizes = !_state.HumanReadableSizes;
                         _state.App.Invalidate();
-                    }, "Toggle size format");
+                    }), "Toggle size format");
                 }
 
                 // Suppress Q quit in hex insert mode — let editor receive it as byte input
                 if (!(_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert))
-                    bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+                    bindings.Key(Hex1bKey.Q).Global().Action(VimReset(ctx => ctx.RequestStop()), "Quit");
 
                 // Universal yank — works on all tabs with neovim-style behavior
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
+                    // Timeout check — reset stale vim pending state
+                    if (_state.VimPending != VimMotionState.Idle
+                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
+                        _state.VimPending = VimMotionState.Idle;
+
                     // 1. Any focused editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
-                        string text;
-                        if (editor.State == _state.HexEditorState)
-                        {
-                            // Hex dump: extract bytes as "4D 5A 90 00"
-                            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
-                        }
-                        else
-                        {
-                            // All other editors: neovim-style yank
-                            // Include the cursor character (word-boundary adjustment)
-                            var range = editor.State.Cursor.SelectionRange;
-                            var doc = editor.State.Document;
-                            var yankEnd = new DocumentOffset(Math.Min(
-                                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
-                                doc.Length));
-                            var yankRange = new DocumentRange(range.Start, yankEnd);
-                            text = doc.GetText(yankRange);
-
-                            // Collapse cursor to last character of yanked range
-                            var lastChar = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
-                            editor.State.SetCursorPosition(lastChar);
-
-                            // Flash the yanked range (150ms IncSearch style)
-                            var yankProvider = FindYankProvider(editor.State);
-                            if (yankProvider is not null)
-                            {
-                                var startPos = doc.OffsetToPosition(yankRange.Start);
-                                var endPos = doc.OffsetToPosition(yankRange.End);
-                                yankProvider.HighlightRange = (startPos, endPos);
-                                _state.App.Invalidate();
-                                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
-                                {
-                                    yankProvider.HighlightRange = null;
-                                    _state.App.Invalidate();
-                                }, TaskScheduler.Default);
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            ctx.CopyToClipboard(text);
-                            ShowYankNotification(text);
-                        }
+                        _state.VimPending = VimMotionState.Idle;
+                        PerformEditorYank(ctx, editor);
                         return;
                     }
 
-                    // 3. Focused editor WITHOUT selection → do nothing
-                    if (ctx.FocusedNode is EditorNode) return;
+                    // 2. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW
+                    if (ctx.FocusedNode is EditorNode noSelEditor)
+                    {
+                        // Don't arm on hex dump normal mode (I conflicts with Insert)
+                        if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Normal)
+                        {
+                            _state.VimPending = VimMotionState.Idle;
+                            return;
+                        }
+                        _state.VimPending = VimMotionState.WaitingForYMotion;
+                        _state.VimPendingEditor = noSelEditor.State;
+                        _state.VimPendingCursorOffset = noSelEditor.State.Cursor.Position.Value;
+                        _state.VimPendingTimestamp = DateTime.UtcNow;
+                        return;
+                    }
 
-                    // 4. Non-editor focus → table row / surface node
+                    // 3. Non-editor focus → table row / surface node
+                    _state.VimPending = VimMotionState.Idle;
                     var yankText = YankHelper.GetYankText(_state);
                     if (yankText is not null)
                     {
@@ -230,15 +220,15 @@ public sealed class DotsiderApp(DotsiderState state)
             var detailPopupOpen = _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
             if (!_state.HexJumpDialogOpen && !detailPopupOpen)
             {
-                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 }
             }
             if (isSearchEditing)
             {
-                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     if (!string.IsNullOrEmpty(currentSearch.Query))
                     {
@@ -246,44 +236,44 @@ public sealed class DotsiderApp(DotsiderState state)
                         if (_state.CurrentTab == TabId.HexDump)
                             Views.HexDumpView.ExecuteSearch(_state);
                         currentSearch.Confirm();
-                        // Restore focus from the search TextBox back to the content area.
                         // Restore focus from the search TextBox back to the content area
                         RequestContentFocus();
                         _state.App.Invalidate();
                     }
-                }, "Confirm search");
+                }), "Confirm search");
             }
 
             // Hex + IL Inspector keybindings (shared with NuGetApp)
             if (!isSearchEditing)
-                DllInspectorBindings.Register(bindings, _state, _state.App);
+                DllInspectorBindings.Register(bindings, _state, _state.App,
+                    resetVimPending: () => _state.VimPending = VimMotionState.Idle);
 
             // Ctrl+S: Save hex changes — only in normal mode with pending edits
             if (_state.CurrentTab == TabId.HexDump
                 && _state.HexMode == HexEditMode.Normal
                 && _state.HexIsDirty)
             {
-                bindings.Ctrl().Key(Hex1bKey.S).Global().OverridesCapture().Action(_ =>
+                bindings.Ctrl().Key(Hex1bKey.S).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     SaveHexChanges(_state);
                     _state.App.Invalidate();
                     ScheduleNotificationClear(_state);
-                }, "Save hex changes");
+                }), "Save hex changes");
             }
 
             // n/N only registered when search is confirmed
             if (currentSearch.IsActive && currentSearch.IsConfirmed)
             {
-                bindings.Key(Hex1bKey.N).Global().Action(_ =>
+                bindings.Key(Hex1bKey.N).Global().Action(VimReset(_ =>
                 {
                     _state.NavigateNextMatch?.Invoke();
                     _state.App.Invalidate();
-                }, "Next match");
-                bindings.Shift().Key(Hex1bKey.N).Global().Action(_ =>
+                }), "Next match");
+                bindings.Shift().Key(Hex1bKey.N).Global().Action(VimReset(_ =>
                 {
                     _state.NavigatePrevMatch?.Invoke();
                     _state.App.Invalidate();
-                }, "Prev match");
+                }), "Prev match");
             }
 
             // Global Escape to dismiss search (editing or confirmed) — must be
@@ -292,7 +282,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // would otherwise consume the key in the focus-based routing walk.
             if (currentSearch.IsActive && !_state.HexJumpDialogOpen)
             {
-                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     // In hex insert mode, Esc exits insert first — search stays active
                     if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert)
@@ -314,7 +304,7 @@ public sealed class DotsiderApp(DotsiderState state)
                     }
                     RequestContentFocus();
                     _state.App.Invalidate();
-                }, "Clear search");
+                }), "Clear search");
             }
 
             // Hex insert mode without search: Global Escape to exit insert mode —
@@ -324,16 +314,16 @@ public sealed class DotsiderApp(DotsiderState state)
                 && _state.HexMode == HexEditMode.Insert
                 && !_state.HexJumpDialogOpen)
             {
-                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     _state.HexMode = HexEditMode.Normal;
                     _state.HexEditorState.IsReadOnly = true;
                     _state.App.Invalidate();
-                }, "Exit insert mode");
+                }), "Exit insert mode");
             }
 
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
-                .Action(ctx => ctx.RequestStop(), "Quit");
+                .Action(VimReset(ctx => ctx.RequestStop()), "Quit");
 
             // Back navigation via Esc — assembly stack pop or cross-view back.
             // Only when no other modal claims Esc.
@@ -348,7 +338,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 && _state.PeDetailContent is null && _state.StringsDetailContent is null
                 && !(_state.CurrentTab == TabId.IlInspector && _state.IlEditorState?.Cursor.HasSelection == true))
             {
-                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     // Cross-view back takes priority — return to the originating tab first
                     if (_state.CrossViewBackTarget is not null)
@@ -362,7 +352,7 @@ public sealed class DotsiderApp(DotsiderState state)
                         _state.RequestContentFocus();
                         _state.App.Invalidate();
                     }
-                }, "Back");
+                }), "Back");
             }
         });
     }
@@ -519,6 +509,18 @@ public sealed class DotsiderApp(DotsiderState state)
             if (yankable)
                 hints.Add(s.Section("y: Yank"));
 
+            // iw/iW hint — show when a read-only editor is focused (not hex dump)
+            try
+            {
+                if (_state.App.FocusedNode is EditorNode
+                    && _state.CurrentTab != TabId.HexDump)
+                    hints.Add(s.Section("iw: Word | iW: WORD"));
+            }
+            catch (NullReferenceException)
+            {
+                // Focus ring not yet initialized
+            }
+
             hints.Add(s.Spacer());
 
             // Yank notification (right side, auto-clearing)
@@ -664,6 +666,57 @@ public sealed class DotsiderApp(DotsiderState state)
 
     private IlYankDecorationProvider? FindYankProvider(EditorState editorState) =>
         YankHelper.FindYankProvider(_state, editorState);
+
+    /// <summary>
+    /// Performs a neovim-style yank on the focused editor's selection or current text-object range.
+    /// Handles hex dump byte extraction, cursor collapse, flash, clipboard, and notification.
+    /// </summary>
+    private void PerformEditorYank(InputBindingActionContext ctx, EditorNode editor)
+    {
+        string text;
+        if (editor.State == _state.HexEditorState)
+        {
+            // Hex dump: extract bytes as "4D 5A 90 00"
+            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
+        }
+        else
+        {
+            // All other editors: neovim-style yank
+            // Include the cursor character (word-boundary adjustment)
+            var range = editor.State.Cursor.SelectionRange;
+            var doc = editor.State.Document;
+            var yankEnd = new DocumentOffset(Math.Min(
+                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+                doc.Length));
+            var yankRange = new DocumentRange(range.Start, yankEnd);
+            text = doc.GetText(yankRange);
+
+            // Collapse cursor to last character of yanked range
+            var lastChar = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+            editor.State.SetCursorPosition(lastChar);
+
+            // Flash the yanked range (150ms IncSearch style)
+            var yankProvider = FindYankProvider(editor.State);
+            if (yankProvider is not null)
+            {
+                var startPos = doc.OffsetToPosition(yankRange.Start);
+                var endPos = doc.OffsetToPosition(yankRange.End);
+                yankProvider.HighlightRange = (startPos, endPos);
+                _state.App.Invalidate();
+                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                {
+                    yankProvider.HighlightRange = null;
+                    _state.App.Invalidate();
+                }, TaskScheduler.Default);
+            }
+        }
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            ctx.CopyToClipboard(text);
+            ShowYankNotification(text);
+        }
+    }
 
     private void ShowYankNotification(string text)
     {

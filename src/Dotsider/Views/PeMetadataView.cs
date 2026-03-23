@@ -158,6 +158,19 @@ public static class PeMetadataView
                                 .WithViewRenderer(InfoEditorViewRenderer.Instance)
                                 .Decorations(new InfoLabelDecorationProvider())
                                 .Decorations(state.PeHeadersYankProvider)
+                                .WithInputBindings(bindings =>
+                                {
+                                    TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                        bindings,
+                                        state.PeHeadersEditorState!,
+                                        () => state.VimPending,
+                                        () => state.VimPendingEditor,
+                                        () => state.VimPendingCursorOffset,
+                                        () => state.VimPendingTimestamp,
+                                        (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                        state.PerformEditorYank,
+                                        () => state.App.Invalidate());
+                                })
                                 .FillWidth().FillHeight())
                         ).Title(" PE Headers ").Fill()
                     ],
@@ -171,6 +184,19 @@ public static class PeMetadataView
                                 .WithViewRenderer(InfoEditorViewRenderer.Instance)
                                 .Decorations(new InfoLabelDecorationProvider())
                                 .Decorations(state.ClrHeaderYankProvider)
+                                .WithInputBindings(bindings =>
+                                {
+                                    TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                        bindings,
+                                        state.ClrHeaderEditorState!,
+                                        () => state.VimPending,
+                                        () => state.VimPendingEditor,
+                                        () => state.VimPendingCursorOffset,
+                                        () => state.VimPendingTimestamp,
+                                        (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                        state.PerformEditorYank,
+                                        () => state.App.Invalidate());
+                                })
                                 .FillWidth().FillHeight())
                         ).Title(" CLR Header ").Fill()
                     ],
@@ -235,6 +261,7 @@ public static class PeMetadataView
                     {
                         bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                         {
+                            state.VimPending = VimMotionState.Idle;
                             if (state.PeSubTab > 0)
                             {
                                 state.PeSubTab--;
@@ -247,6 +274,7 @@ public static class PeMetadataView
 
                         bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
                         {
+                            state.VimPending = VimMotionState.Idle;
                             if (state.PeSubTab < PeSubTabId.Count - 1)
                             {
                                 state.PeSubTab++;
@@ -261,6 +289,7 @@ public static class PeMetadataView
                     // Tab cycles focus: PE Headers → CLR Header → Table → PE Headers
                     bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
                     {
+                        state.VimPending = VimMotionState.Idle;
                         if (state.App.FocusedNode is EditorNode { State: var es })
                         {
                             if (es == state.PeHeadersEditorState)
@@ -289,6 +318,7 @@ public static class PeMetadataView
                     {
                         bindings.Key(Hex1bKey.G).Global().Action(_ =>
                         {
+                            state.VimPending = VimMotionState.Idle;
                             if (state.PeFocusedKey is int token)
                             {
                                 if (state.PeSubTab == PeSubTabId.TypeDef)
@@ -319,6 +349,7 @@ public static class PeMetadataView
                 {
                     bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
+                        state.VimPending = VimMotionState.Idle;
                         state.PeDetailContent = null;
                         state.RequestContentFocus();
                         state.App.Invalidate();
@@ -338,6 +369,19 @@ public static class PeMetadataView
                             .WithViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(state.PeDetailYankProvider)
+                            .WithInputBindings(bindings =>
+                            {
+                                TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                    bindings,
+                                    state.PeDetailEditorState!,
+                                    () => state.VimPending,
+                                    () => state.VimPendingEditor,
+                                    () => state.VimPendingCursorOffset,
+                                    () => state.VimPendingTimestamp,
+                                    (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                    state.PerformEditorYank,
+                                    () => state.App.Invalidate());
+                            })
                             .FillWidth().FillHeight())
                     ).Title(" Detail ").FixedWidth(60).FixedHeight(12)
                 ).OnClickAway(() =>
