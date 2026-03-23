@@ -25,6 +25,7 @@ public sealed class DiffApp(DiffState state)
     /// <returns>The root widget of the diff application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
+        _state.PerformEditorYank ??= PerformEditorYank;
         var summary = _state.DiffResult.MetadataSummary;
         var changeCount = summary.TypesAdded + summary.TypesRemoved + summary.TypesChanged +
                           summary.MethodsAdded + summary.MethodsRemoved + summary.MethodsChanged;
@@ -91,6 +92,10 @@ public sealed class DiffApp(DiffState state)
             var currentSearch = _state.Search[_state.CurrentTab];
             var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
 
+            // VimReset wraps all Global bindings to cancel pending vim text-object sequences
+            Action<InputBindingActionContext> VimReset(Action<InputBindingActionContext> action)
+                => ctx => { _state.VimPending = VimMotionState.Idle; action(ctx); };
+
             // Number keys 1-4, f, q suppressed during search editing to let TextBox receive input
             if (!isSearchEditing)
             {
@@ -98,7 +103,7 @@ public sealed class DiffApp(DiffState state)
                 {
                     var tabIndex = i;
                     var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                    bindings.Key(key).Global().Action(_ =>
+                    bindings.Key(key).Global().Action(VimReset(_ =>
                     {
                         _state.CurrentTab = tabIndex;
                         _state.DiffFocusedKey = null;
@@ -107,15 +112,15 @@ public sealed class DiffApp(DiffState state)
                             _state.App.RequestFocus(node =>
                                 node.GetType().Name.StartsWith("TableNode"));
                         _state.App.Invalidate();
-                    }, $"Tab {tabIndex + 1}");
+                    }), $"Tab {tabIndex + 1}");
                 }
 
-                bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+                bindings.Key(Hex1bKey.Q).Global().Action(VimReset(ctx => ctx.RequestStop()), "Quit");
 
                 // Left/Right arrows to cycle tabs (not registered when editor is focused)
                 if (_state.App.FocusedNode is not EditorNode)
                 {
-                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(VimReset(_ =>
                     {
                         if (_state.CurrentTab > 0)
                         {
@@ -126,9 +131,9 @@ public sealed class DiffApp(DiffState state)
                                     node.GetType().Name.StartsWith("TableNode"));
                             _state.App.Invalidate();
                         }
-                    }, "Previous tab");
+                    }), "Previous tab");
 
-                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                    bindings.Key(Hex1bKey.RightArrow).Global().Action(VimReset(_ =>
                     {
                         if (_state.CurrentTab < 3)
                         {
@@ -138,38 +143,37 @@ public sealed class DiffApp(DiffState state)
                                 node.GetType().Name.StartsWith("TableNode"));
                             _state.App.Invalidate();
                         }
-                    }, "Next tab");
+                    }), "Next tab");
                 }
 
                 // Universal yank
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
+                    // Timeout check
+                    if (_state.VimPending != VimMotionState.Idle
+                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
+                        _state.VimPending = VimMotionState.Idle;
+
                     // Editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
-                        var range = editor.State.Cursor.SelectionRange;
-                        var doc = editor.State.Document;
-                        var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
-                            Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
-                            doc.Length));
-                        var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
-                        var text = doc.GetText(yankRange);
-
-                        var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
-                        editor.State.SetCursorPosition(lastChar);
-
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            ctx.CopyToClipboard(text);
-                            ShowYankNotification(text);
-                        }
+                        _state.VimPending = VimMotionState.Idle;
+                        PerformEditorYank(ctx, editor);
                         return;
                     }
 
-                    // Editor without selection → do nothing
-                    if (ctx.FocusedNode is EditorNode) return;
+                    // Editor without selection → arm operator-pending for yiw/yiW
+                    if (ctx.FocusedNode is EditorNode noSelEditor)
+                    {
+                        _state.VimPending = VimMotionState.WaitingForYMotion;
+                        _state.VimPendingEditor = noSelEditor.State;
+                        _state.VimPendingCursorOffset = noSelEditor.State.Cursor.Position.Value;
+                        _state.VimPendingTimestamp = DateTime.UtcNow;
+                        return;
+                    }
 
                     // Table row
+                    _state.VimPending = VimMotionState.Idle;
                     var yankText = YankHelper.GetYankText(_state);
                     if (yankText is not null)
                     {
@@ -187,11 +191,11 @@ public sealed class DiffApp(DiffState state)
                 }, "Yank");
             }
 
-            bindings.Key(Hex1bKey.F).Action(_ =>
+            bindings.Key(Hex1bKey.F).Action(VimReset(_ =>
             {
                 _state.FilterMode = (DiffFilterMode)(((int)_state.FilterMode + 1) % 4);
                 _state.App.Invalidate();
-            }, "Cycle filter");
+            }), "Cycle filter");
 
             // Global search toggle (same dual-binding strategy as DotsiderApp)
             void searchToggle()
@@ -203,40 +207,40 @@ public sealed class DiffApp(DiffState state)
                 _state.App.Invalidate();
             }
 
-            bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+            bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => searchToggle()), "Search");
             if (!isSearchEditing)
             {
-                bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => searchToggle(), "Search");
+                bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(VimReset(_ => searchToggle()), "Search");
             }
             if (isSearchEditing)
             {
-                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     if (!string.IsNullOrEmpty(currentSearch.Query))
                     {
                         currentSearch.Confirm();
                         _state.App.Invalidate();
                     }
-                }, "Confirm search");
+                }), "Confirm search");
             }
 
             // n/N only registered when search is confirmed
             if (currentSearch.IsActive && currentSearch.IsConfirmed)
             {
-                bindings.Key(Hex1bKey.N).Global().Action(_ =>
+                bindings.Key(Hex1bKey.N).Global().Action(VimReset(_ =>
                 {
                     _state.NavigateNextMatch?.Invoke();
                     _state.App.Invalidate();
-                }, "Next match");
-                bindings.Shift().Key(Hex1bKey.N).Global().Action(_ =>
+                }), "Next match");
+                bindings.Shift().Key(Hex1bKey.N).Global().Action(VimReset(_ =>
                 {
                     _state.NavigatePrevMatch?.Invoke();
                     _state.App.Invalidate();
-                }, "Prev match");
+                }), "Prev match");
             }
 
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
-                .Action(ctx => ctx.RequestStop(), "Quit");
+                .Action(VimReset(ctx => ctx.RequestStop()), "Quit");
         });
     }
 
@@ -258,6 +262,17 @@ public sealed class DiffApp(DiffState state)
             if (yankable)
                 hints.Add(s.Section("y: Yank"));
 
+            // iw/iW hint — show when a read-only editor is focused
+            try
+            {
+                if (_state.App.FocusedNode is EditorNode)
+                    hints.Add(s.Section("iw: Word | iW: WORD"));
+            }
+            catch (NullReferenceException)
+            {
+                // Focus ring not yet initialized
+            }
+
             hints.Add(s.Spacer());
 
             if (!string.IsNullOrEmpty(_state.YankNotification))
@@ -270,6 +285,30 @@ public sealed class DiffApp(DiffState state)
             hints.Add(s.Section("q: Quit"));
             return hints;
         }).WithDefaultSeparator(" | ");
+
+    /// <summary>
+    /// Performs a neovim-style yank on the focused diff editor's selection.
+    /// No flash — matches existing diff mode behavior.
+    /// </summary>
+    private void PerformEditorYank(InputBindingActionContext ctx, EditorNode editor)
+    {
+        var range = editor.State.Cursor.SelectionRange;
+        var doc = editor.State.Document;
+        var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
+            Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+            doc.Length));
+        var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
+        var text = doc.GetText(yankRange);
+
+        var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+        editor.State.SetCursorPosition(lastChar);
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            ctx.CopyToClipboard(text);
+            ShowYankNotification(text);
+        }
+    }
 
     private void ShowYankNotification(string text)
     {

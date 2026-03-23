@@ -13,7 +13,7 @@ The **Strings** tab (`4`) extracts text from three sources:
 
 ## Copy strings
 
-Press `y` on a focused table row to copy the string value to the clipboard. Press `Enter` to open a detail popup where you can select and copy specific portions of longer strings.
+Press `y` on a focused table row to copy the string value to the clipboard. Press `Enter` to open a detail popup where you can select and copy specific portions of longer strings. In the detail popup, `iw` and `yiw` let you grab individual words without reaching for the mouse.
 
 ## Minimum length
 

@@ -25,6 +25,12 @@ public sealed class NuGetApp(NuGetState state)
     /// <returns>The root widget of the NuGet application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
+        _state.PerformEditorYank ??= PerformEditorYank;
+
+        // Wire yank delegate on the embedded DLL state too
+        if (_state.SelectedDllState is { PerformEditorYank: null } dllSetup)
+            dllSetup.PerformEditorYank = PerformEditorYank;
+
         // Drain pending mutations from the diagnostics socket listener
         if (_state.SelectedDllState is { } dllState)
         {
@@ -83,6 +89,19 @@ public sealed class NuGetApp(NuGetState state)
                     DllInspectorBindings.AddHints(hints, s, dll);
                 }
 
+                // iw/iW hint — show when a read-only editor is focused (not hex dump)
+                try
+                {
+                    var isHexDump = _state.SelectedDllState is
+                        { CurrentTab: TabId.HexDump };
+                    if (_state.App.FocusedNode is EditorNode && !isHexDump)
+                        hints.Add(s.Section("iw: Word | iW: WORD"));
+                }
+                catch (NullReferenceException)
+                {
+                    // Focus ring not yet initialized
+                }
+
                 hints.Add(s.Spacer());
 
                 // Yank notification (right side, auto-clearing)
@@ -109,6 +128,10 @@ public sealed class NuGetApp(NuGetState state)
         ])
         .WithInputBindings(bindings =>
         {
+            // VimReset wraps all Global bindings to cancel pending vim text-object sequences
+            Action<InputBindingActionContext> VimReset(Action<InputBindingActionContext> action)
+                => ctx => { _state.VimPending = VimMotionState.Idle; action(ctx); };
+
             var browserSearch = _state.BrowserSearch;
             // Gate on BOTH browser and embedded DLL inspector input state
             var dllSearch = _state.SelectedDllState?.Search[_state.SelectedDllState.CurrentTab];
@@ -130,31 +153,31 @@ public sealed class NuGetApp(NuGetState state)
                         _state.App.RequestFocus(node => node is TextBoxNode);
                     _state.App.Invalidate();
                 }
-                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 }
                 if (isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
+                    bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
                     {
                         if (!string.IsNullOrEmpty(browserSearch.Query))
                         {
                             browserSearch.Confirm();
                             _state.App.Invalidate();
                         }
-                    }, "Confirm search");
+                    }), "Confirm search");
                 }
 
-                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(VimReset(_ =>
                 {
                     if (browserSearch.IsActive)
                     {
                         browserSearch.Dismiss();
                         _state.App.Invalidate();
                     }
-                }, "Esc");
+                }), "Esc");
 
                 bindings.Key(Hex1bKey.Enter).Action(_ =>
                 {
@@ -200,7 +223,7 @@ public sealed class NuGetApp(NuGetState state)
             var dllHexJumpOpen = _state.SelectedDllState?.HexJumpDialogOpen == true;
             if (!dllSearchActive && !dllHexInsertNoSearch && !dllHexJumpOpen)
             {
-                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
                     if (!_state.IsBrowsingPackage)
                     {
@@ -241,7 +264,7 @@ public sealed class NuGetApp(NuGetState state)
                         _state.BrowserSearch.Dismiss();
                         _state.App.Invalidate();
                     }
-                }, "Back to package");
+                }), "Back to package");
             }
 
             if (!_state.IsBrowsingPackage && _state.SelectedDllState is not null)
@@ -252,79 +275,76 @@ public sealed class NuGetApp(NuGetState state)
                     {
                         var tabIndex = i;
                         var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                        bindings.Key(key).Global().Action(_ =>
+                        bindings.Key(key).Global().Action(VimReset(_ =>
                         {
                             _state.SelectedDllState!.CurrentTab = tabIndex;
                             _state.SelectedDllState.RequestContentFocus();
                             _state.App.Invalidate();
-                        }, $"Tab {tabIndex + 1}");
+                        }), $"Tab {tabIndex + 1}");
                     }
                 }
 
                 // Hex + IL Inspector + search bindings (shared with DotsiderApp).
                 // Must be outside isSearchEditing gate so hex insert Escape works.
                 DllInspectorBindings.Register(bindings, _state.SelectedDllState, _state.App,
-                    includeSearch: true);
+                    includeSearch: true,
+                    resetVimPending: () => _state.VimPending = VimMotionState.Idle);
             }
 
             if (!isSearchEditing)
             {
-                bindings.Key(Hex1bKey.Q).Global().Action(ctx => ctx.RequestStop(), "Quit");
+                bindings.Key(Hex1bKey.Q).Global().Action(VimReset(ctx => ctx.RequestStop()), "Quit");
 
                 // Universal yank — same behavior as DotsiderApp
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
+                    // Timeout check
+                    if (_state.VimPending != VimMotionState.Idle
+                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
+                        _state.VimPending = VimMotionState.Idle;
+
                     // 1. Any focused editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
-                        string text;
-                        var hexState = _state.SelectedDllState?.HexEditorState;
-                        if (hexState is not null && editor.State == hexState)
-                        {
-                            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
-                        }
-                        else
-                        {
-                            // Neovim-style: include cursor character, collapse cursor
-                            var range = editor.State.Cursor.SelectionRange;
-                            var doc = editor.State.Document;
-                            var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
-                                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
-                                doc.Length));
-                            var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
-                            text = doc.GetText(yankRange);
-
-                            var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
-                            editor.State.SetCursorPosition(lastChar);
-
-                            // Flash
-                            var yankProvider = YankHelper.FindYankProvider(_state, editor.State);
-                            if (yankProvider is not null)
-                            {
-                                var startPos = doc.OffsetToPosition(yankRange.Start);
-                                var endPos = doc.OffsetToPosition(yankRange.End);
-                                yankProvider.HighlightRange = (startPos, endPos);
-                                _state.App.Invalidate();
-                                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
-                                {
-                                    yankProvider.HighlightRange = null;
-                                    _state.App.Invalidate();
-                                }, TaskScheduler.Default);
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            ctx.CopyToClipboard(text);
-                            ShowYankNotification(text);
-                        }
+                        _state.VimPending = VimMotionState.Idle;
+                        PerformEditorYank(ctx, editor);
                         return;
                     }
 
-                    // 2. Focused editor WITHOUT selection → do nothing
-                    if (ctx.FocusedNode is EditorNode) return;
+                    // 2. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW
+                    if (ctx.FocusedNode is EditorNode noSelEditor)
+                    {
+                        // Don't arm on hex dump normal mode (I conflicts with Insert)
+                        var isHexNormal = _state.SelectedDllState is
+                            { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Normal };
+                        if (isHexNormal)
+                        {
+                            _state.VimPending = VimMotionState.Idle;
+                            return;
+                        }
+
+                        // Arm on the correct state: DLL inspector views read from
+                        // SelectedDllState, browser views read from NuGetState.
+                        if (!_state.IsBrowsingPackage && _state.SelectedDllState is { } dllArm)
+                        {
+                            dllArm.VimPending = VimMotionState.WaitingForYMotion;
+                            dllArm.VimPendingEditor = noSelEditor.State;
+                            dllArm.VimPendingCursorOffset = noSelEditor.State.Cursor.Position.Value;
+                            dllArm.VimPendingTimestamp = DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            _state.VimPending = VimMotionState.WaitingForYMotion;
+                            _state.VimPendingEditor = noSelEditor.State;
+                            _state.VimPendingCursorOffset = noSelEditor.State.Cursor.Position.Value;
+                            _state.VimPendingTimestamp = DateTime.UtcNow;
+                        }
+                        
+                        return;
+                    }
 
                     // 3. Non-editor focus → table row
+                    _state.VimPending = VimMotionState.Idle;
                     string? yankText = null;
                     if (_state.IsBrowsingPackage)
                     {
@@ -370,8 +390,55 @@ public sealed class NuGetApp(NuGetState state)
                 }, "Yank");
             }
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
-                .Action(ctx => ctx.RequestStop(), "Quit");
+                .Action(VimReset(ctx => ctx.RequestStop()), "Quit");
         });
+    }
+
+    /// <summary>
+    /// Performs a neovim-style yank on the focused editor's selection.
+    /// Handles hex dump byte extraction, cursor collapse, flash, clipboard, and notification.
+    /// </summary>
+    private void PerformEditorYank(InputBindingActionContext ctx, EditorNode editor)
+    {
+        string text;
+        var hexState = _state.SelectedDllState?.HexEditorState;
+        if (hexState is not null && editor.State == hexState)
+        {
+            text = YankHelper.GetHexSelectionText(editor.State) ?? "";
+        }
+        else
+        {
+            var range = editor.State.Cursor.SelectionRange;
+            var doc = editor.State.Document;
+            var yankEnd = new Hex1b.Documents.DocumentOffset(Math.Min(
+                Math.Max(range.End.Value, editor.State.Cursor.Position.Value + 1),
+                doc.Length));
+            var yankRange = new Hex1b.Documents.DocumentRange(range.Start, yankEnd);
+            text = doc.GetText(yankRange);
+
+            var lastChar = new Hex1b.Documents.DocumentOffset(Math.Max(0, yankEnd.Value - 1));
+            editor.State.SetCursorPosition(lastChar);
+
+            var yankProvider = YankHelper.FindYankProvider(_state, editor.State);
+            if (yankProvider is not null)
+            {
+                var startPos = doc.OffsetToPosition(yankRange.Start);
+                var endPos = doc.OffsetToPosition(yankRange.End);
+                yankProvider.HighlightRange = (startPos, endPos);
+                _state.App.Invalidate();
+                _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+                {
+                    yankProvider.HighlightRange = null;
+                    _state.App.Invalidate();
+                }, TaskScheduler.Default);
+            }
+        }
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            ctx.CopyToClipboard(text);
+            ShowYankNotification(text);
+        }
     }
 
     private void ShowYankNotification(string text)

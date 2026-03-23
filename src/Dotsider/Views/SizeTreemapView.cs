@@ -165,6 +165,7 @@ public static class SizeTreemapView
                 {
                     bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
+                        state.VimPending = VimMotionState.Idle;
                         state.TreemapCurrentLevel = state.TreemapBreadcrumb.Pop();
                         state.TreemapSelectedIndex = -1;
                         state.App.Invalidate();

@@ -65,6 +65,23 @@ public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
     /// <summary>Yank notification message shown in the hints bar, auto-clears after 1.5 seconds.</summary>
     public string? YankNotification { get; set; }
 
+    // --- Vim Text Object State ---
+
+    /// <summary>Current state of a pending vim text-object sequence (iw, iW, yiw, yiW).</summary>
+    public VimMotionState VimPending { get; set; }
+
+    /// <summary>The editor that started the current vim text-object sequence, for affinity checking.</summary>
+    public EditorState? VimPendingEditor { get; set; }
+
+    /// <summary>Cursor position when the text-object sequence was armed, for cursor affinity.</summary>
+    public int VimPendingCursorOffset { get; set; }
+
+    /// <summary>Timestamp when the text-object sequence was armed, for 1-second timeout.</summary>
+    public DateTime VimPendingTimestamp { get; set; }
+
+    /// <summary>Delegate to perform a neovim-style editor yank, set by the host app (NuGetApp).</summary>
+    public Action<Hex1b.Input.InputBindingActionContext, EditorNode>? PerformEditorYank { get; set; }
+
     /// <summary>Generation counter for yank notification timer race prevention.</summary>
     public long YankGeneration { get; set; }
 

@@ -111,6 +111,7 @@ public static class DynamicAnalysisView
         {
             bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 if (!state.DynamicEditingArgs)
                 {
                     state.Tracer = new RuntimeTracer(
@@ -124,6 +125,7 @@ public static class DynamicAnalysisView
 
             bindings.Key(Hex1bKey.A).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 state.DynamicEditingArgs = !state.DynamicEditingArgs;
                 state.App.Invalidate();
             }, "Edit args");
@@ -187,6 +189,7 @@ public static class DynamicAnalysisView
             {
                 bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                 {
+                    state.VimPending = VimMotionState.Idle;
                     if (state.DynamicSubTab > 0)
                     {
                         state.DynamicSubTab--;
@@ -196,6 +199,7 @@ public static class DynamicAnalysisView
 
                 bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
                 {
+                    state.VimPending = VimMotionState.Idle;
                     if (state.DynamicSubTab < DynamicSubTabId.Count - 1)
                     {
                         state.DynamicSubTab++;
@@ -207,6 +211,7 @@ public static class DynamicAnalysisView
             // Ctrl+K to stop the traced process
             bindings.Ctrl().Key(Hex1bKey.K).Global().Action(_ =>
             {
+                state.VimPending = VimMotionState.Idle;
                 tracer.Stop();
                 state.App.Invalidate();
             }, "Stop traced process");
@@ -220,6 +225,7 @@ public static class DynamicAnalysisView
             {
                 bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
                 {
+                    state.VimPending = VimMotionState.Idle;
                     if (TryNavigateJitEvent(state, tracer))
                         return;
 

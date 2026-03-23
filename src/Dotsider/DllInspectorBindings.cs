@@ -19,8 +19,9 @@ public static class DllInspectorBindings
     /// <param name="app">The Hex1b app instance for invalidation and focus.</param>
     /// <param name="includeSearch">Whether to register search toggle/confirm/dismiss bindings.
     /// DotsiderApp registers its own search bindings, so this is false for DotsiderApp.</param>
+    /// <param name="resetVimPending">Optional callback to reset the vim text-object pending state to idle.</param>
     public static void Register(InputBindingsBuilder bindings, DotsiderState state, Hex1bApp app,
-        bool includeSearch = false)
+        bool includeSearch = false, Action? resetVimPending = null)
     {
         var currentSearch = state.Search[state.CurrentTab];
         var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
@@ -40,10 +41,18 @@ public static class DllInspectorBindings
                     app.Invalidate();
                 }
 
-                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    SearchToggle();
+                }, "Search");
                 if (!isSearchEditing)
                 {
-                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ => SearchToggle(), "Search");
+                    bindings.Key(Hex1bKey.None).Global().OverridesCapture().Action(_ =>
+                    {
+                        resetVimPending?.Invoke();
+                        SearchToggle();
+                    }, "Search");
                 }
             }
 
@@ -51,6 +60,7 @@ public static class DllInspectorBindings
             {
                 bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     if (!string.IsNullOrEmpty(currentSearch.Query))
                     {
                         if (state.CurrentTab == TabId.HexDump)
@@ -67,11 +77,13 @@ public static class DllInspectorBindings
             {
                 bindings.Key(Hex1bKey.N).Global().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     state.NavigateNextMatch?.Invoke();
                     app.Invalidate();
                 }, "Next match");
                 bindings.Shift().Key(Hex1bKey.N).Global().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     state.NavigatePrevMatch?.Invoke();
                     app.Invalidate();
                 }, "Prev match");
@@ -82,6 +94,7 @@ public static class DllInspectorBindings
             {
                 bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     if (state.CurrentTab == TabId.HexDump && state.HexMode == HexEditMode.Insert)
                     {
                         state.HexMode = HexEditMode.Normal;
@@ -111,6 +124,7 @@ public static class DllInspectorBindings
             {
                 bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     state.HexMode = HexEditMode.Normal;
                     state.HexEditorState.IsReadOnly = true;
                     app.Invalidate();
@@ -124,6 +138,7 @@ public static class DllInspectorBindings
         {
             bindings.Key(Hex1bKey.I).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexMode = HexEditMode.Insert;
                 state.HexEditorState.IsReadOnly = false;
                 state.HexNotification = null;
@@ -132,6 +147,7 @@ public static class DllInspectorBindings
 
             bindings.Key(Hex1bKey.G).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexJumpDialogOpen = true;
                 state.HexJumpInput = "";
                 state.HexNotification = null;
@@ -141,6 +157,7 @@ public static class DllInspectorBindings
 
             bindings.Key(Hex1bKey.E).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexEndianness = state.HexEndianness == HexEndianness.Little
                     ? HexEndianness.Big : HexEndianness.Little;
                 app.Invalidate();
@@ -148,21 +165,25 @@ public static class DllInspectorBindings
 
             bindings.Key(Hex1bKey.H).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexEditorState.MoveCursor(CursorDirection.Left);
                 app.Invalidate();
             }, "Left");
             bindings.Key(Hex1bKey.L).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexEditorState.MoveCursor(CursorDirection.Right);
                 app.Invalidate();
             }, "Right");
             bindings.Key(Hex1bKey.K).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexEditorState.MoveCursor(CursorDirection.Up);
                 app.Invalidate();
             }, "Up");
             bindings.Key(Hex1bKey.J).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 state.HexEditorState.MoveCursor(CursorDirection.Down);
                 app.Invalidate();
             }, "Down");
@@ -173,6 +194,7 @@ public static class DllInspectorBindings
         {
             bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 Views.HexDumpView.ProcessJumpInput(state);
                 app.Invalidate();
             }, "Jump");
@@ -195,12 +217,14 @@ public static class DllInspectorBindings
             {
                 bindings.Key(Hex1bKey.X).Global().Action(_ =>
                 {
+                    resetVimPending?.Invoke();
                     state.NavigateToHexOffset(ilMethod.Rva);
                 }, "View in hex");
             }
 
             bindings.Key(Hex1bKey.L).Global().Action(_ =>
             {
+                resetVimPending?.Invoke();
                 app.RequestFocus(node => node is EditorNode);
                 app.Invalidate();
             }, "Focus IL");
@@ -242,6 +266,20 @@ public static class DllInspectorBindings
                 if (state.HexIsDirty)
                     hexHints += " | Ctrl+S: Save";
                 hints.Add(s.Section(hexHints));
+            }
+        }
+
+        // iw/iW hint — show when a read-only editor is focused (not hex dump)
+        if (state.CurrentTab != TabId.HexDump)
+        {
+            try
+            {
+                if (state.App.FocusedNode is EditorNode)
+                    hints.Add(s.Section("iw: Word"));
+            }
+            catch (NullReferenceException)
+            {
+                // Focus ring may not be initialized yet
             }
         }
 

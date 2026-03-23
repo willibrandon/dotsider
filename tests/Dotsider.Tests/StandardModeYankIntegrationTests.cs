@@ -1015,4 +1015,206 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _cts?.Dispose();
         GC.SuppressFinalize(this);
     }
+
+    // --- Vim Text Object Tests ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task General_IwSelectsWordInEditor()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Tab) // Focus editor
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(IsFocusedOnEditor());
+        Assert.False(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+
+        // Press i — verify it arms the state machine
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.I)
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForTextObject, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(VimMotionState.WaitingForTextObject, _state!.VimPending);
+
+        // Press w — should select inner word
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.W)
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.Idle, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(VimMotionState.Idle, _state.VimPending);
+        Assert.True(_state.GeneralInfoEditorState!.Cursor.HasSelection);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task General_IWSelectsWORDInEditor()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press i, wait, then Shift+W (iW)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("i")
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForTextObject, TimeSpan.FromSeconds(5))
+            .Type("W") // uppercase W = Shift+W
+            .WaitUntil(_ => _state!.GeneralInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task General_YiwYanksWordFromEditor()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press y — verify it arms WaitingForYMotion
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Y)
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYMotion, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(VimMotionState.WaitingForYMotion, _state!.VimPending);
+
+        // Press i — advances to WaitingForYTextObject
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.I)
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press w — selects + yanks
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.W)
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.YankNotification);
+        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var clipboard));
+        Assert.False(string.IsNullOrEmpty(clipboard));
+        Assert.Equal(VimMotionState.Idle, _state.VimPending);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task General_InterruptedByGlobalKey_DoesNotSelect()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press i, then 2 (tab switch, Global D2 resets VimPending), then w
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("i")
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForTextObject, TimeSpan.FromSeconds(5))
+            .Type("2") // tab switch → VimReset
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.Idle, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(VimMotionState.Idle, _state!.VimPending);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task General_RandomLetterCancels()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press i then a (random letter cancels), then w
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("i")
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForTextObject, TimeSpan.FromSeconds(5))
+            .Type("a") // EditorNode-level A binding resets
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.Idle, TimeSpan.FromSeconds(5))
+            .Type("w") // should NOT select (VimPending is Idle, W not registered)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(100, ct);
+        Assert.False(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDump_YDoesNotArmOnHexNormal()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, initialTab: TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Hex Dump"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press y on hex dump without selection — should NOT arm VimPending
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(100, ct);
+        Assert.Equal(VimMotionState.Idle, _state!.VimPending);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
 }

@@ -21,4 +21,4 @@ Press `Tab` to cycle focus between the Package Info panel and the DLL table. Pre
 
 ## Copy
 
-Select text in the Package Info panel and press `y` to copy. On the DLL table, focus a row and press `y` to copy the file path.
+Select text in the Package Info panel and press `y` to copy. `iw` and `yiw` work here for quick word selection. On the DLL table, focus a row and press `y` to copy the file path.
