@@ -30,6 +30,9 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
 
         SkippedUserStringCount = 0;
         var results = new List<StringEntry>();
+
+        if (reader.GetHeapSize(HeapIndex.UserString) == 0) return results;
+
         var handle = MetadataTokens.UserStringHandle(1);
 
         while (!handle.IsNil)
@@ -48,7 +51,14 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
                 SkippedUserStringCount++;
             }
 
-            handle = reader.GetNextHandle(handle);
+            try
+            {
+                handle = reader.GetNextHandle(handle);
+            }
+            catch (BadImageFormatException)
+            {
+                break;
+            }
         }
 
         return results;
@@ -66,6 +76,9 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
 
         SkippedMetadataStringCount = 0;
         var results = new List<StringEntry>();
+
+        if (reader.GetHeapSize(HeapIndex.String) == 0) return results;
+
         var handle = MetadataTokens.StringHandle(1);
 
         while (!handle.IsNil)
@@ -84,7 +97,14 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
                 SkippedMetadataStringCount++;
             }
 
-            handle = reader.GetNextHandle(handle);
+            try
+            {
+                handle = reader.GetNextHandle(handle);
+            }
+            catch (BadImageFormatException)
+            {
+                break;
+            }
         }
 
         return results;
