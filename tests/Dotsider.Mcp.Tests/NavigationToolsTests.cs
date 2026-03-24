@@ -41,7 +41,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
 
         var doc = JsonDocument.Parse(text!);
         Assert.Equal("diff", doc.RootElement.GetProperty("mode").GetString());
-        Assert.Equal(2, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.Equal(3, doc.RootElement.GetProperty("tab").GetInt32());
         Assert.Equal("addedOnly", doc.RootElement.GetProperty("filterMode").GetString());
     }
 
@@ -87,7 +87,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         var doc = JsonDocument.Parse(text!);
         Assert.Equal("nuget", doc.RootElement.GetProperty("mode").GetString());
         Assert.False(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(3, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.Equal(4, doc.RootElement.GetProperty("tab").GetInt32());
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         // Diff mode has getState => null, so navigate should fail
         var result = await client.CallToolAsync(
             "navigate_to",
-            new Dictionary<string, object?> { ["sessionId"] = listener.Pid, ["tabId"] = 2 },
+            new Dictionary<string, object?> { ["sessionId"] = listener.Pid, ["tabId"] = 3 },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
@@ -154,13 +154,13 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
-        // Navigate to Strings tab via MCP
+        // Navigate to Strings tab via MCP (1-based: Strings = 4)
         var navResult = await client.CallToolAsync(
             "navigate_to",
             new Dictionary<string, object?>
             {
                 ["sessionId"] = listener.Pid,
-                ["tabId"] = TabId.Strings
+                ["tabId"] = TabId.Strings + 1
             },
             cancellationToken: ct);
         var navText = GetTextContent(navResult);
@@ -185,7 +185,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         var doc = JsonDocument.Parse(viewText!);
         Assert.Equal("nuget", doc.RootElement.GetProperty("mode").GetString());
         Assert.False(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.Strings, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.Equal(TabId.Strings + 1, doc.RootElement.GetProperty("tab").GetInt32());
     }
 
     // --- Disposal ---
@@ -242,7 +242,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             currentViewProvider: () => new
             {
                 Mode = "diff",
-                Tab = currentTabProvider(),
+                Tab = currentTabProvider() + 1,
                 FilterMode = filterModeProvider(),
             });
         listener.StartListening(overridePid: pid);
@@ -282,7 +282,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             {
                 Mode = "nuget",
                 IsBrowsingPackage = isBrowsing,
-                Tab = selectDll ? selectedDllTab : (int?)null,
+                Tab = selectDll ? selectedDllTab + 1 : (int?)null,
                 SelectedDll = selectedDllName,
             });
         listener.StartListening(overridePid: pid);
@@ -348,7 +348,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
                 {
                     Mode = "nuget",
                     s.IsBrowsingPackage,
-                    Tab = s.SelectedDllState?.CurrentTab,
+                    Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
                 };
             });

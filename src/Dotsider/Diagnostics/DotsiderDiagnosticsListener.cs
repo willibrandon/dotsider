@@ -613,7 +613,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var state = RequireState();
         return DotsiderResponse.Ok(new
         {
-            Tab = state.CurrentTab,
+            Tab = state.CurrentTab + 1,
             state.PeSubTab,
             state.DynamicSubTab,
             AssemblyPath = state.Analyzer.FilePath,
@@ -628,13 +628,14 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("TabId is required for navigate");
 
         var tabId = request.TabId.Value;
-        if (tabId is < 0 or > 7)
-            return DotsiderResponse.Fail($"TabId must be 0-7, got {tabId}");
+        if (tabId is < 1 or > 8)
+            return DotsiderResponse.Fail($"TabId must be 1-8, got {tabId}");
 
+        var tabIndex = tabId - 1;
         var state = RequireState();
         state.PendingMutations.Enqueue(s =>
         {
-            s.NavigateToTab(tabId);
+            s.NavigateToTab(tabIndex);
         });
 
         // Trigger a render frame so the mutation queue gets drained
@@ -649,7 +650,7 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("Query is required for search");
 
         var state = RequireState();
-        var tabId = request.TabId ?? state.CurrentTab;
+        var tabId = request.TabId is { } t ? t - 1 : state.CurrentTab;
 
         state.PendingMutations.Enqueue(s =>
         {

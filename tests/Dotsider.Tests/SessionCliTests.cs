@@ -55,7 +55,7 @@ public class SessionCliTests : IAsyncLifetime
 
         _dotsiderSocket.On("get-current-view", _ => new
         {
-            Tab = 1,           // PE/Metadata (numeric, matching real protocol)
+            Tab = 2,           // PE/Metadata (1-based, matching real protocol)
             PeSubTab = 0,      // Sections
             DynamicSubTab = 0, // Events
             AssemblyPath = "/test/MyApp.dll",
@@ -147,7 +147,7 @@ public class SessionCliTests : IAsyncLifetime
         Assert.True(doc.RootElement.TryGetProperty("assemblyInfo", out var info));
         Assert.Equal("MyApp.dll", info.GetProperty("fileName").GetString());
         Assert.True(doc.RootElement.TryGetProperty("currentView", out var view));
-        Assert.Equal(1, view.GetProperty("tab").GetInt32());
+        Assert.Equal(2, view.GetProperty("tab").GetInt32());
     }
 
     [Fact]
@@ -246,7 +246,8 @@ public class SessionCliTests : IAsyncLifetime
 
     [Theory]
     [InlineData(-1)]
-    [InlineData(8)]
+    [InlineData(0)]
+    [InlineData(9)]
     [InlineData(99)]
     public async Task Sessions_Navigate_OutOfRangeTab_ReturnsError(int tabId)
     {
@@ -254,7 +255,7 @@ public class SessionCliTests : IAsyncLifetime
             "sessions", "navigate", TestPid.ToString(), tabId.ToString());
 
         Assert.NotEqual(0, exitCode);
-        Assert.Contains("Tab index must be 0-7", stderr);
+        Assert.Contains("Tab must be 1-8", stderr);
     }
 
     [Fact]

@@ -59,7 +59,7 @@ Interact with running dotsider TUI instances. Each instance exposes a Unix domai
 dotsider sessions list                            # list running instances
 dotsider sessions info <pid>                      # assembly info + current view
 dotsider sessions view <pid>                      # current tab and view state
-dotsider sessions navigate <pid> <tab>            # switch to tab (0-7)
+dotsider sessions navigate <pid> <tab>            # switch to tab (1-8)
 dotsider sessions capture <pid>                    # capture screen as text
 dotsider sessions trace start <pid>               # start tracing
 dotsider sessions trace events <pid>              # get JIT, GC, exception events

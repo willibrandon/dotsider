@@ -79,7 +79,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
                 {
                     Mode = "nuget",
                     s.IsBrowsingPackage,
-                    Tab = s.SelectedDllState?.CurrentTab,
+                    Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
                 };
             });
@@ -121,9 +121,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         // Verify initial tab is 0 (General)
         Assert.Equal(TabId.General, _nugetState!.SelectedDllState!.CurrentTab);
 
-        // Navigate to Strings tab via the socket
+        // Navigate to Strings tab via the socket (1-based: Strings = 4)
         var navResponse = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "navigate", TabId = TabId.Strings }, ct);
+            new DotsiderRequest { Method = "navigate", TabId = TabId.Strings + 1 }, ct);
         Assert.True(navResponse.Success);
 
         // Wait for the render loop to drain the mutation queue
@@ -142,9 +142,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
 
         OpenFirstDll();
 
-        // Navigate to PE/Metadata tab
+        // Navigate to PE/Metadata tab (1-based: PE/Metadata = 2)
         var navResponse = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "navigate", TabId = TabId.PeMetadata }, ct);
+            new DotsiderRequest { Method = "navigate", TabId = TabId.PeMetadata + 1 }, ct);
         Assert.True(navResponse.Success);
 
         await TestHelpers.WaitUntilAsync(
@@ -160,7 +160,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.NotNull(data);
         Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
         Assert.False(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.PeMetadata, data.Value.GetProperty("tab").GetInt32());
+        Assert.Equal(TabId.PeMetadata + 1, data.Value.GetProperty("tab").GetInt32());
         Assert.Equal(
             _nugetState!.SelectedDllEntry!.Name,
             data.Value.GetProperty("selectedDll").GetString());
@@ -222,7 +222,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
 
         // Don't open a DLL — navigate should fail because getState returns null
         var navResponse = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "navigate", TabId = TabId.Strings }, ct);
+            new DotsiderRequest { Method = "navigate", TabId = TabId.Strings + 1 }, ct);
         Assert.False(navResponse.Success);
     }
 
