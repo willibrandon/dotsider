@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 
@@ -152,5 +153,48 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Equal(0, extractor.SkippedUserStringCount);
         extractor.ExtractMetadataStrings();
         Assert.Equal(0, extractor.SkippedMetadataStringCount);
+    }
+
+    /// <summary>
+    /// Reproduces #82: drilling into System.Runtime and switching to the Strings tab
+    /// crashes with BadImageFormatException because GetNextHandle reads past the
+    /// end of the #US heap.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RuntimeAssembly_ExtractUserStrings_DoesNotThrow()
+    {
+        var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
+        var systemRuntime = Path.Combine(runtimeDir, "System.Runtime.dll");
+        Assert.True(File.Exists(systemRuntime), $"System.Runtime.dll not found at {runtimeDir}");
+
+        using var a = new AssemblyAnalyzer(systemRuntime);
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractUserStrings();
+
+        // System.Runtime has no user string literals (its #US heap is zero bytes).
+        // Must not crash, and must not report false skips.
+        Assert.NotNull(strings);
+        Assert.Empty(strings);
+        Assert.Equal(0, extractor.SkippedUserStringCount);
+    }
+
+    /// <summary>
+    /// Same as above but for the #Strings metadata heap, which has the same
+    /// unguarded GetNextHandle pattern.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RuntimeAssembly_ExtractMetadataStrings_DoesNotThrow()
+    {
+        var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
+        var systemRuntime = Path.Combine(runtimeDir, "System.Runtime.dll");
+        Assert.True(File.Exists(systemRuntime), $"System.Runtime.dll not found at {runtimeDir}");
+
+        using var a = new AssemblyAnalyzer(systemRuntime);
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractMetadataStrings();
+
+        Assert.NotNull(strings);
     }
 }
