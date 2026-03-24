@@ -198,14 +198,23 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         // Use the first match — coordinates are 0-based
         var (targetRow, targetCol) = allMatches[0];
 
-        // Single click first to give the editor focus (tree panel has focus by default),
-        // then double-click to select the word.
+        // Single click first to give the editor focus (tree panel has focus by default).
+        // Wait for the click to be processed — the editor cursor position changes
+        // when the editor receives focus and handles the mouse event.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.ClickAtAsync(targetCol, targetRow, ct: ct);
-        await Task.Delay(100, ct);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
+        // Double-click to select the word. Wait for the selection to appear
+        // rather than using Task.Delay — CI runners can be slow.
         await auto.DoubleClickAtAsync(targetCol, targetRow, ct: ct);
-        await Task.Delay(200, ct);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.IlEditorState?.Cursor.HasSelection == true, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Verify selection happened
         Assert.True(_state.IlEditorState!.Cursor.HasSelection,

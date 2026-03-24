@@ -1819,25 +1819,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
-        // Navigate to Dynamic tab, launch trace, wait for exit
+        // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
+        // Don't check ProcessState in memory — wait for the screen to prove
+        // the exit has been rendered, which is what "Re-run" in the hint bar means.
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
+            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(30))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
         var tracer = _state!.Tracer!;
-
-        // Status bar should show "Re-run" when no navigable JIT event is focused
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
 
         // Filter to JIT events
         await new Hex1bTerminalInputSequenceBuilder()
