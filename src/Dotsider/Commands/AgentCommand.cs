@@ -213,7 +213,7 @@ internal static class AgentCommand
         dotsider sessions list                          # discover running dotsider TUI instances
         dotsider sessions info <pid>                    # assembly info + current view
         dotsider sessions view <pid>                    # current tab and view state
-        dotsider sessions navigate <pid> <tab>          # switch to tab (0-7, see tab list below)
+        dotsider sessions navigate <pid> <tab>          # switch to tab (1-8, see tab list below)
         dotsider sessions capture <pid>                    # capture screen as plain text
         ```
 
@@ -259,7 +259,7 @@ internal static class AgentCommand
 
         - All commands support `--json` for machine-readable output
         - Session commands require a running dotsider TUI instance
-        - Tab indices: 0=General, 1=PE/Metadata, 2=IL Inspector, 3=Strings, 4=Hex Dump, 5=Dep Graph, 6=Size Map, 7=Dynamic
+        - Tab numbers: 1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic
         - Capture outputs plain text of the current TUI screen
         """;
 }

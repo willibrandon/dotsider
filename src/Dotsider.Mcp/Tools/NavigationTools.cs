@@ -29,7 +29,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// Navigates to a specific tab in the running dotsider TUI.
     /// </summary>
     /// <param name="sessionId">PID of the running dotsider instance.</param>
-    /// <param name="tabId">Tab ID (0=General, 1=PE/Metadata, 2=IL Inspector, 3=Strings, 4=Hex Dump, 5=Dep Graph, 6=Size Map, 7=Dynamic).</param>
+    /// <param name="tabId">Tab number (1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON confirmation that navigation was queued.</returns>
     [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]

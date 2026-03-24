@@ -20,8 +20,9 @@ internal static class SessionsCommand
         if (element is null) return "unknown";
         if (element.Value.ValueKind == JsonValueKind.Number)
         {
-            var idx = element.Value.GetInt32();
-            return idx >= 0 && idx < s_tabNames.Length ? $"{s_tabNames[idx]} ({idx})" : idx.ToString();
+            var tab = element.Value.GetInt32();
+            var idx = tab - 1;
+            return idx >= 0 && idx < s_tabNames.Length ? $"{s_tabNames[idx]} ({tab})" : tab.ToString();
         }
 
         return element.Value.GetDisplayString("unknown");
@@ -233,7 +234,7 @@ internal static class SessionsCommand
     {
         var tabArg = new Argument<int>("tab")
         {
-            Description = "Tab index to navigate to (0=General, 1=PE/Metadata, 2=IL Inspector, 3=Strings, 4=Hex Dump, 5=Dep Graph, 6=Size Map, 7=Dynamic)"
+            Description = "Tab to navigate to (1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic)"
         };
 
         var command = new Command("navigate", "Switch to a specific tab in a running instance")
@@ -249,9 +250,9 @@ internal static class SessionsCommand
             var json = parseResult.GetValue(jsonOption);
             using var formatter = new OutputFormatter { JsonMode = json };
 
-            if (tabId is < 0 or > 7)
+            if (tabId is < 1 or > 8)
             {
-                OutputFormatter.WriteError($"Error: Tab index must be 0-7, got {tabId}");
+                OutputFormatter.WriteError($"Error: Tab must be 1-8, got {tabId}");
                 return 1;
             }
 

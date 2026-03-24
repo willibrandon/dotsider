@@ -35,7 +35,7 @@ Discover and interact with running dotsider TUI instances over Unix domain socke
 dotsider sessions list                      # list running instances
 dotsider sessions info <pid>                # assembly info + current view
 dotsider sessions view <pid>                # current view state
-dotsider sessions navigate <pid> <tab>      # switch to a tab (0-7)
+dotsider sessions navigate <pid> <tab>      # switch to a tab (1-8)
 dotsider sessions capture <pid>             # capture screen as text
 dotsider sessions capture <pid> --format svg # capture as SVG
 dotsider sessions trace events <pid>        # trace events

@@ -133,7 +133,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
             return new
             {
                 Mode = "diff",
-                Tab = s.CurrentTab,
+                Tab = s.CurrentTab + 1,
                 s.FilterMode,
             };
         });
@@ -244,7 +244,7 @@ static async Task<int> RunTui(string[] args, string filePath)
                 {
                     Mode = "nuget",
                     s.IsBrowsingPackage,
-                    Tab = s.SelectedDllState?.CurrentTab,
+                    Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
                 };
             });

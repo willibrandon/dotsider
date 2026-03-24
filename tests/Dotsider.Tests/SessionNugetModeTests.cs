@@ -69,7 +69,7 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
             {
                 Mode = "nuget",
                 IsBrowsingPackage = _isBrowsingPackage,
-                Tab = _selectedDllTab,
+                Tab = _selectedDllTab is { } t ? t + 1 : (int?)null,
                 SelectedDll = _selectedDllName,
             });
         _listener.StartListening(overridePid: NugetPid);
@@ -170,7 +170,7 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.NotNull(data);
         Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
         Assert.False(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.Strings, data.Value.GetProperty("tab").GetInt32());
+        Assert.Equal(TabId.Strings + 1, data.Value.GetProperty("tab").GetInt32());
         Assert.Equal("RichLibrary.dll", data.Value.GetProperty("selectedDll").GetString());
     }
 

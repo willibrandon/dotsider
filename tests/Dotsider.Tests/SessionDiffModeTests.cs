@@ -79,7 +79,7 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
             currentViewProvider: () => new
             {
                 Mode = "diff",
-                Tab = _currentTab,
+                Tab = _currentTab + 1,
                 FilterMode = _filterMode,
             });
         _listener.StartListening(overridePid: DiffPid);
@@ -165,7 +165,7 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         var data = response.Data as JsonElement?;
         Assert.NotNull(data);
         Assert.Equal("diff", data.Value.GetProperty("mode").GetString());
-        Assert.Equal(2, data.Value.GetProperty("tab").GetInt32());
+        Assert.Equal(3, data.Value.GetProperty("tab").GetInt32());
         Assert.Equal("addedOnly", data.Value.GetProperty("filterMode").GetString());
     }
 
@@ -219,7 +219,7 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         var root = doc.RootElement;
 
         Assert.Equal("diff", root.GetProperty("mode").GetString());
-        Assert.Equal(1, root.GetProperty("tab").GetInt32());
+        Assert.Equal(2, root.GetProperty("tab").GetInt32());
     }
 
     // --- Helpers ---

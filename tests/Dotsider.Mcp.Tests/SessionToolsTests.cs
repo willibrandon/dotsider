@@ -229,7 +229,7 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             currentViewProvider: () => new
             {
                 Mode = "diff",
-                Tab = 0,
+                Tab = 1,
                 FilterMode = DiffFilterMode.All,
             });
         listener.StartListening(overridePid: pid);
