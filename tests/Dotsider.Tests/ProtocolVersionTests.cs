@@ -1,0 +1,189 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+using Dotsider.Core.Protocol;
+using Dotsider.Diagnostics;
+using Dotsider.Infrastructure;
+using Hex1b;
+
+namespace Dotsider.Tests;
+
+/// <summary>
+/// Tests that protocol versioning works correctly on both server and client sides.
+/// Uses the full headless TUI stack with real assemblies.
+/// </summary>
+[Collection("SampleAssemblies")]
+public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposable
+{
+    private Hex1bAppWorkloadAdapter? _workload;
+    private Hex1bTerminal? _terminal;
+    private Hex1bApp? _app;
+    private DotsiderState? _state;
+    private DotsiderDiagnosticsListener? _listener;
+
+    private async Task<string> StartTuiWithDiagnosticsAsync(CancellationToken ct)
+    {
+        var pendingMutations = new ConcurrentQueue<Action<DotsiderState>>();
+
+        _workload = new Hex1bAppWorkloadAdapter();
+        _terminal = Hex1bTerminal.CreateBuilder()
+            .WithWorkload(_workload)
+            .WithHeadless()
+            .WithDimensions(120, 30)
+            .Build();
+
+        _app = new Hex1bApp(
+            ctx =>
+            {
+                _state ??= new DotsiderState(_app!, samples.HelloWorldDll, pendingMutations);
+                var dotsiderApp = new DotsiderApp(_state);
+                return Task.FromResult<Hex1b.Widgets.Hex1bWidget>(dotsiderApp.Build(ctx));
+            },
+            new Hex1bAppOptions
+            {
+                WorkloadAdapter = _workload,
+                EnableInputCoalescing = false
+            });
+
+        _listener = new DotsiderDiagnosticsListener(() => _state);
+        _listener.StartListening(overridePid: Random.Shared.Next(100_000, 999_999));
+
+        _ = _app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await TestHelpers.WaitUntilAsync(
+            () => _state is not null,
+            TimeSpan.FromSeconds(10));
+
+        return _listener.SocketPath!;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        GC.SuppressFinalize(this);
+        if (_listener is not null) await _listener.DisposeAsync();
+        _state?.Dispose();
+        _app?.Dispose();
+        if (_terminal is not null) await _terminal.DisposeAsync();
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task CorrectVersion_Succeeds()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "assembly-info" }, ct);
+
+        Assert.True(response.Success);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task MissingVersion_IsRejected()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+
+        // Send raw JSON without "v" field — [JsonRequired] throws JsonException
+        var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
+            """{"method":"assembly-info"}""", ct);
+
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
+        Assert.NotNull(response);
+        Assert.False(response.Success);
+        Assert.Contains("JSON", response.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task WrongVersion_IsRejected()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+
+        var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
+            """{"v":99,"method":"assembly-info"}""", ct);
+
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
+        Assert.NotNull(response);
+        Assert.False(response.Success);
+        Assert.Contains("version mismatch", response.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task Response_ContainsVersion()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+
+        var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
+            JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
+                DotsiderJsonOptions.Default), ct);
+
+        var doc = JsonDocument.Parse(rawResponse);
+        Assert.True(doc.RootElement.TryGetProperty("v", out var v));
+        Assert.Equal(1, v.GetInt32());
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task PreRoutingErrors_ContainVersion()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+
+        // Version mismatch error carries "v":1
+        var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
+            """{"v":99,"method":"assembly-info"}""", ct);
+        var doc = JsonDocument.Parse(rawResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("v").GetInt32());
+
+        // Peer rejection error carries "v":1
+        _listener!.ForceRejectPeers = true;
+        rawResponse = await DotsiderClient.SendRawAsync(socketPath,
+            JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
+                DotsiderJsonOptions.Default), ct);
+        doc = JsonDocument.Parse(rawResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("v").GetInt32());
+        _listener.ForceRejectPeers = false;
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task DotsiderClient_RejectsOldServerResponse()
+    {
+        var socketPath = GetUniqueSocketPath();
+        await using var testSocket = new TestRawJsonSocket(socketPath);
+        testSocket.OnRequest(_ => """{"success":true}""");
+        testSocket.Start();
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "assembly-info" },
+            TestContext.Current.CancellationToken);
+
+        Assert.False(response.Success);
+        Assert.Contains("server response", response.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task DotsiderClient_RejectsWrongServerVersion()
+    {
+        var socketPath = GetUniqueSocketPath();
+        await using var testSocket = new TestRawJsonSocket(socketPath);
+        testSocket.OnRequest(_ => """{"v":99,"success":true}""");
+        testSocket.Start();
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "assembly-info" },
+            TestContext.Current.CancellationToken);
+
+        Assert.False(response.Success);
+        Assert.Contains("version mismatch", response.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetUniqueSocketPath()
+    {
+        var dir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".dotsider", "sockets");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, $"test-{Random.Shared.Next(100_000, 999_999)}.dotsider.socket");
+    }
+}

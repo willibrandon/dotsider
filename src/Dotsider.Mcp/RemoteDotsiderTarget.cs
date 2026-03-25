@@ -40,8 +40,22 @@ public sealed class RemoteDotsiderTarget(string socketPath)
         if (responseLine.StartsWith('\uFEFF'))
             responseLine = responseLine[1..];
 
-        return JsonSerializer.Deserialize<DotsiderResponse>(responseLine, DotsiderJsonOptions.Default)
-            ?? DotsiderResponse.Fail("Invalid response");
+        DotsiderResponse response;
+        try
+        {
+            response = JsonSerializer.Deserialize<DotsiderResponse>(responseLine, DotsiderJsonOptions.Default)
+                ?? DotsiderResponse.Fail("Invalid response");
+        }
+        catch (JsonException ex)
+        {
+            return DotsiderResponse.Fail($"Invalid server response: {ex.Message}");
+        }
+
+        if (response.V != DotsiderProtocol.Version)
+            return DotsiderResponse.Fail(
+                $"Server protocol version mismatch: expected {DotsiderProtocol.Version}, got {response.V}");
+
+        return response;
     }
 
     /// <summary>

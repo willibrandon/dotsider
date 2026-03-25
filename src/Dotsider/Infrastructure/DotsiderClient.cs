@@ -18,8 +18,23 @@ internal sealed class DotsiderClient
     {
         var json = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
         var responseJson = await SendRawAsync(socketPath, json, ct);
-        return JsonSerializer.Deserialize<DotsiderResponse>(responseJson, DotsiderJsonOptions.Default)
-            ?? new DotsiderResponse { Success = false, Error = "Empty response" };
+
+        DotsiderResponse response;
+        try
+        {
+            response = JsonSerializer.Deserialize<DotsiderResponse>(responseJson, DotsiderJsonOptions.Default)
+                ?? new DotsiderResponse { Success = false, Error = "Empty response" };
+        }
+        catch (JsonException ex)
+        {
+            return DotsiderResponse.Fail($"Invalid server response: {ex.Message}");
+        }
+
+        if (response.V != DotsiderProtocol.Version)
+            return DotsiderResponse.Fail(
+                $"Server protocol version mismatch: expected {DotsiderProtocol.Version}, got {response.V}");
+
+        return response;
     }
 
     /// <summary>
