@@ -68,6 +68,8 @@ Tools work in two modes:
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI via Unix domain socket for live state, tracing, and navigation
 
+Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
+
 ## Guided prompts
 
 **4 prompts** for common workflows:
