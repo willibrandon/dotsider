@@ -100,7 +100,14 @@ internal sealed class DotsiderDiagnosticsListener(
             try
             {
                 await using var s = new NetworkStream(client, ownsSocket: true);
+                using var r = new StreamReader(s, leaveOpen: true);
                 await using var w = new StreamWriter(s, leaveOpen: true) { AutoFlush = true };
+
+                // Read and discard the client's request before responding
+                // to avoid EPIPE on the client side
+                using var readCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try { await r.ReadLineAsync(readCts.Token); } catch { /* timeout or error */ }
+
                 var rejection = DotsiderResponse.Fail(
                     $"Connection rejected: too many concurrent connections (limit: {MaxConnections})");
                 await w.WriteLineAsync(
@@ -116,26 +123,6 @@ internal sealed class DotsiderDiagnosticsListener(
 
         try
         {
-            // 2. Peer credential check (on raw socket before wrapping)
-            if (ForceRejectPeers || !_peerVerifier!.IsSameUser(client))
-            {
-                try
-                {
-                    await using var s = new NetworkStream(client, ownsSocket: true);
-                    await using var w = new StreamWriter(s, leaveOpen: true) { AutoFlush = true };
-                    var rejection = DotsiderResponse.Fail(
-                        "Connection rejected: peer is not the same user");
-                    await w.WriteLineAsync(
-                        JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
-                }
-                catch
-                {
-                    // Connection-level errors are silently dropped
-                }
-
-                return;
-            }
-
             // Optional test hook to hold the connection slot open
             if (TestDelayHook is not null)
                 await TestDelayHook();
@@ -144,7 +131,7 @@ internal sealed class DotsiderDiagnosticsListener(
             using var reader = new StreamReader(stream, leaveOpen: true);
             await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
 
-            // 3. Read with timeout to prevent stalled clients from pinning slots
+            // 2. Read with timeout to prevent stalled clients from pinning slots
             using var readCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             readCts.CancelAfter(TimeSpan.FromSeconds(5));
 
@@ -159,6 +146,17 @@ internal sealed class DotsiderDiagnosticsListener(
             }
 
             if (string.IsNullOrWhiteSpace(line)) return;
+
+            // 3. Peer credential check (after read so the client's write completes
+            //    before we close — avoids EPIPE on the client side)
+            if (ForceRejectPeers || !_peerVerifier!.IsSameUser(client))
+            {
+                var rejection = DotsiderResponse.Fail(
+                    "Connection rejected: peer is not the same user");
+                await writer.WriteLineAsync(
+                    JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+                return;
+            }
 
             // 4. Deserialize ([JsonRequired] catches missing "v")
             DotsiderRequest? request;
