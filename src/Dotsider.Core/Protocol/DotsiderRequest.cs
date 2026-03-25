@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Dotsider.Core.Protocol;
 
 /// <summary>
@@ -5,6 +7,10 @@ namespace Dotsider.Core.Protocol;
 /// </summary>
 public sealed class DotsiderRequest
 {
+    /// <summary>Protocol version. Must match <see cref="DotsiderProtocol.Version"/>.</summary>
+    [JsonRequired]
+    public int V { get; set; } = DotsiderProtocol.Version;
+
     /// <summary>The method to invoke (e.g. "assembly-info", "list-types", "disassemble").</summary>
     public string Method { get; set; } = "";
 

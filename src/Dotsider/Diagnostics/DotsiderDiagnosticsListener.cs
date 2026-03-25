@@ -15,10 +15,26 @@ internal sealed class DotsiderDiagnosticsListener(
     Func<object?>? assemblyInfoProvider = null,
     Func<object?>? currentViewProvider = null) : IAsyncDisposable
 {
+    private const int MaxConnections = 4;
+
     private readonly CancellationTokenSource _cts = new();
+    private readonly SemaphoreSlim _connectionSlots = new(MaxConnections, MaxConnections);
     private Socket? _listener;
     private Task? _acceptLoop;
     private string? _socketPath;
+    private IPeerCredentialVerifier? _peerVerifier;
+
+    /// <summary>
+    /// When <see langword="true"/>, rejects all peer connections regardless of identity.
+    /// Exposed for testing the rejection code path. Same pattern as <c>overridePid</c>.
+    /// </summary>
+    internal bool ForceRejectPeers { get; set; }
+
+    /// <summary>
+    /// Optional async hook invoked inside the handler after acquiring a connection slot
+    /// but before reading. Exposed for testing connection-limit behavior.
+    /// </summary>
+    internal Func<Task>? TestDelayHook { get; set; }
 
     /// <summary>The path to the Unix domain socket file.</summary>
     public string? SocketPath => _socketPath;
@@ -31,10 +47,7 @@ internal sealed class DotsiderDiagnosticsListener(
     /// </param>
     public void StartListening(int? overridePid = null)
     {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".dotsider", "sockets");
-        Directory.CreateDirectory(dir);
+        var dir = SocketDirectoryHelper.EnsureSocketDirectory();
 
         var pid = overridePid ?? Environment.ProcessId;
         _socketPath = Path.Combine(dir, $"{pid}.dotsider.socket");
@@ -45,8 +58,13 @@ internal sealed class DotsiderDiagnosticsListener(
 
         _listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         _listener.Bind(new UnixDomainSocketEndPoint(_socketPath));
+
+        if (OperatingSystem.IsWindows())
+            SocketDirectoryHelper.SecureSocketFile(_socketPath);
+
         _listener.Listen(5);
 
+        _peerVerifier = PeerCredentialVerifierFactory.Create();
         _acceptLoop = Task.Run(() => AcceptConnectionsAsync(_cts.Token));
     }
 
@@ -76,15 +94,73 @@ internal sealed class DotsiderDiagnosticsListener(
 
     private async Task HandleConnectionAsync(Socket client)
     {
+        // 1. Connection limit (cheapest check, no I/O)
+        if (!await _connectionSlots.WaitAsync(0))
+        {
+            try
+            {
+                await using var s = new NetworkStream(client, ownsSocket: true);
+                await using var w = new StreamWriter(s, leaveOpen: true) { AutoFlush = true };
+                var rejection = DotsiderResponse.Fail(
+                    $"Connection rejected: too many concurrent connections (limit: {MaxConnections})");
+                await w.WriteLineAsync(
+                    JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+            }
+            catch
+            {
+                // Connection-level errors are silently dropped
+            }
+
+            return;
+        }
+
         try
         {
+            // 2. Peer credential check (on raw socket before wrapping)
+            if (ForceRejectPeers || !_peerVerifier!.IsSameUser(client))
+            {
+                try
+                {
+                    await using var s = new NetworkStream(client, ownsSocket: true);
+                    await using var w = new StreamWriter(s, leaveOpen: true) { AutoFlush = true };
+                    var rejection = DotsiderResponse.Fail(
+                        "Connection rejected: peer is not the same user");
+                    await w.WriteLineAsync(
+                        JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+                }
+                catch
+                {
+                    // Connection-level errors are silently dropped
+                }
+
+                return;
+            }
+
+            // Optional test hook to hold the connection slot open
+            if (TestDelayHook is not null)
+                await TestDelayHook();
+
             await using var stream = new NetworkStream(client, ownsSocket: true);
             using var reader = new StreamReader(stream, leaveOpen: true);
             await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
 
-            var line = await reader.ReadLineAsync();
+            // 3. Read with timeout to prevent stalled clients from pinning slots
+            using var readCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            readCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            string? line;
+            try
+            {
+                line = await reader.ReadLineAsync(readCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(line)) return;
 
+            // 4. Deserialize ([JsonRequired] catches missing "v")
             DotsiderRequest? request;
             try
             {
@@ -106,6 +182,17 @@ internal sealed class DotsiderDiagnosticsListener(
                 return;
             }
 
+            // 5. Protocol version check (catches wrong-but-present "v")
+            if (request.V != DotsiderProtocol.Version)
+            {
+                var errorResponse = DotsiderResponse.Fail(
+                    $"Protocol version mismatch: expected {DotsiderProtocol.Version}, got {request.V}");
+                await writer.WriteLineAsync(
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                return;
+            }
+
+            // 6. Route to handler
             var response = HandleRequest(request);
             await writer.WriteLineAsync(
                 JsonSerializer.Serialize(response, DotsiderJsonOptions.Default));
@@ -113,6 +200,10 @@ internal sealed class DotsiderDiagnosticsListener(
         catch
         {
             // Connection-level errors are silently dropped
+        }
+        finally
+        {
+            _connectionSlots.Release();
         }
     }
 
@@ -683,6 +774,14 @@ internal sealed class DotsiderDiagnosticsListener(
         {
             try { await _acceptLoop; } catch { /* expected */ }
         }
+
+        // Drain: acquire all slots. Each active handler holds one slot and will
+        // release it once the CTS cancellation triggers its read timeout or
+        // operation cancellation. The 5s read timeout bounds this wait.
+        for (var i = 0; i < MaxConnections; i++)
+            await _connectionSlots.WaitAsync();
+
+        _connectionSlots.Dispose();
 
         if (_socketPath is not null && File.Exists(_socketPath))
             File.Delete(_socketPath);
