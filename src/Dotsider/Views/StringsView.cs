@@ -109,7 +109,8 @@ public static class StringsView
                     stringsTabs = outer.ThemePanel(t => t
                         .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
                         .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
-                        stringsTabs);
+                        stringsTabs)
+                        .Fill();
                 }
 
                 widgets.Add(stringsTabs);

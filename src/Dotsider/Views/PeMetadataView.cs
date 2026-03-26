@@ -242,7 +242,8 @@ public static class PeMetadataView
                     metadataTabs = outer.ThemePanel(t => t
                         .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
                         .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
-                        metadataTabs);
+                        metadataTabs)
+                        .Fill();
                 }
 
                 widgets.Add(metadataTabs);
