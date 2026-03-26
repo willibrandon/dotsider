@@ -102,16 +102,16 @@ public static class StringsView
                 .Compact()
                 .Fill();
 
-                // Suppress the teal selected-tab highlight when the detail popup
-                // is open so it doesn't bleed through the transparent backdrop.
-                if (state.StringsDetailContent is not null)
-                {
-                    stringsTabs = outer.ThemePanel(t => t
-                        .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
-                        .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
-                        stringsTabs)
-                        .Fill();
-                }
+                // Always wrap in a ThemePanel so the widget tree stays stable when
+                // the detail popup toggles — avoids re-measure that resets scroll.
+                // When the popup is open, suppress the teal tab highlight so it
+                // doesn't bleed through the transparent backdrop.
+                var popupOpen = state.StringsDetailContent is not null;
+                stringsTabs = outer.ThemePanel(t => popupOpen
+                    ? t.Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
+                         .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default)
+                    : t, stringsTabs)
+                .Fill();
 
                 widgets.Add(stringsTabs);
 

@@ -235,16 +235,16 @@ public static class PeMetadataView
                 .Compact()
                 .Fill();
 
-                // Suppress the teal selected-tab highlight when the detail popup
-                // is open so it doesn't bleed through the transparent backdrop.
-                if (state.PeDetailContent is not null)
-                {
-                    metadataTabs = outer.ThemePanel(t => t
-                        .Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
-                        .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default),
-                        metadataTabs)
-                        .Fill();
-                }
+                // Always wrap in a ThemePanel so the widget tree stays stable when
+                // the detail popup toggles — avoids re-measure that resets scroll.
+                // When the popup is open, suppress the teal tab highlight so it
+                // doesn't bleed through the transparent backdrop.
+                var popupOpen = state.PeDetailContent is not null;
+                metadataTabs = outer.ThemePanel(t => popupOpen
+                    ? t.Set(TabBarTheme.SelectedForegroundColor, Hex1bColor.FromRgb(140, 140, 160))
+                         .Set(TabBarTheme.SelectedBackgroundColor, Hex1bColor.Default)
+                    : t, metadataTabs)
+                .Fill();
 
                 widgets.Add(metadataTabs);
 
