@@ -24,8 +24,6 @@ public static class DynamicAnalysisView
     private static readonly Hex1bColor Orange = Hex1bColor.FromRgb(220, 140, 60);
     private static readonly Hex1bColor DimGray = Hex1bColor.FromRgb(100, 100, 120);
     private static readonly Hex1bColor Teal = Hex1bColor.FromRgb(0, 200, 180);
-    private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
-    private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
     private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
 
     internal static readonly Dictionary<TraceEventCategory, Hex1bColor> CategoryColors = new()
@@ -328,25 +326,17 @@ public static class DynamicAnalysisView
                 ])
                 .Row((r, evt, rs) =>
                 [
-                    r.Cell(c => FocusStyle(c, c.Text(evt.Timestamp.ToString(@"mm\:ss\.fff")), rs.IsFocused)),
-                    r.Cell(c => FocusStyle(c,
-                        rs.IsFocused
-                            ? c.Text(evt.Category.ToString())
-                            : c.ThemePanel(
-                                t => t.Set(GlobalTheme.ForegroundColor,
-                                    CategoryColors.GetValueOrDefault(evt.Category, Hex1bColor.White)),
-                                c.Text(evt.Category.ToString())),
-                        rs.IsFocused)),
-                    r.Cell(c => FocusStyle(c,
-                        HighlightHelper.HighlightCell(c, evt.EventName, query,
-                            !string.IsNullOrEmpty(query),
-                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                        rs.IsFocused)),
-                    r.Cell(c => FocusStyle(c,
-                        HighlightHelper.HighlightCell(c, evt.Detail, query,
-                            !string.IsNullOrEmpty(query),
-                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                        rs.IsFocused))
+                    r.Cell(evt.Timestamp.ToString(@"mm\:ss\.fff")),
+                    r.Cell(c => c.ThemePanel(
+                        t => t.Set(GlobalTheme.ForegroundColor,
+                            CategoryColors.GetValueOrDefault(evt.Category, Hex1bColor.White)),
+                        c.Text(evt.Category.ToString()))),
+                    r.Cell(c => HighlightHelper.HighlightCell(c, evt.EventName, query,
+                        !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null)),
+                    r.Cell(c => HighlightHelper.HighlightCell(c, evt.Detail, query,
+                        !string.IsNullOrEmpty(query),
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null))
                 ])
                 .Focus(state.DynamicEventsFocusedKey)
                 .OnFocusChanged(key =>
@@ -501,16 +491,15 @@ public static class DynamicAnalysisView
             ])
             .Row((r, line, rs) =>
             [
-                r.Cell(c => FocusStyle(c, c.Text(line.Timestamp.ToString(@"mm\:ss\.fff")), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c, line.IsStdErr && !rs.IsFocused
+                r.Cell(line.Timestamp.ToString(@"mm\:ss\.fff")),
+                r.Cell(c => line.IsStdErr
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text("err"))
-                    : c.Text(line.IsStdErr ? "err" : "out"), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c, line.IsStdErr && !rs.IsFocused
+                    : c.Text("out")),
+                r.Cell(c => line.IsStdErr
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text))
                     : HighlightHelper.HighlightCell(c, line.Text, query,
                         !string.IsNullOrEmpty(query),
-                        rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                    rs.IsFocused))
+                        rs.IsFocused ? Hex1bColor.Black : null, rs.IsFocused ? Teal : null))
             ])
             .Focus(state.DynamicOutputFocusedKey)
             .OnFocusChanged(key => state.DynamicOutputFocusedKey = key)
@@ -757,14 +746,5 @@ public static class DynamicAnalysisView
 
             y++;
         }
-    }
-
-    private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
-        where T : Hex1bWidget
-    {
-        if (!isFocused) return child;
-        return c.ThemePanel(t => t
-            .Set(GlobalTheme.ForegroundColor, FocusFg)
-            .Set(GlobalTheme.BackgroundColor, FocusBg), child);
     }
 }
