@@ -823,28 +823,20 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // of whether the Events UI is rendered (the drilled assembly may be a library)
         _state.DynamicSubTab = DynamicSubTabId.Events;
         _state.DynamicCategoryFilter = Dotsider.Core.Analysis.Models.TraceEventCategory.GC;
-        _state.App.Invalidate();
-        await Task.Delay(100, ct);
+
+        // Use the Automator to send Escape through the input pipeline, which triggers
+        // a render that processes the filter state before the key binding runs.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Esc should NOT pop the assembly — the dynamicFilterActive guard blocks it
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Escape)
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        await Task.Delay(200, ct);
+        await auto.EscapeAsync(ct: ct);
         Assert.Equal(stackBefore, _state.NavigationStack.Count);
 
-        // Clear the filter manually and verify Esc now pops
+        // Clear the filter and send Esc again — should now pop
         _state.DynamicCategoryFilter = null;
-        _state.App.Invalidate();
-        await Task.Delay(100, ct);
-
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.NavigationStack.Count == 0, TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        await auto.EscapeAsync(ct: ct);
+        await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.General,
+            description: "Esc to pop back to General tab");
 
         Assert.Equal(TabId.General, _state.CurrentTab);
 
