@@ -38,7 +38,10 @@ dotsider analyze MyLib.dll --strings          # extract strings
 dotsider analyze MyLib.dll --size             # size breakdown
 dotsider analyze MyLib.dll --json             # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt # write to file
+dotsider analyze MyApp.exe                    # apphost .exe → auto-redirects to MyApp.dll
 ```
+
+If the `.exe` is a native apphost with no .NET metadata and a companion managed `.dll` exists, `analyze` auto-redirects and prints a note to stderr.
 
 | Option | Description |
 |--------|-------------|
@@ -60,7 +63,7 @@ dotsider sessions list                            # list running instances
 dotsider sessions info <pid>                      # assembly info + current view
 dotsider sessions view <pid>                      # current tab and view state
 dotsider sessions navigate <pid> <tab>            # switch to tab (1-8)
-dotsider sessions capture <pid>                    # capture screen as text
+dotsider sessions capture <pid>                   # capture screen as text
 dotsider sessions trace start <pid>               # start tracing
 dotsider sessions trace events <pid>              # get JIT, GC, exception events
 dotsider sessions trace counters <pid>            # get performance counters

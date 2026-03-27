@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 
@@ -202,6 +203,22 @@ public class CliTests(SampleAssemblyFixture fixture)
 
         Assert.NotEqual(0, exitCode);
         Assert.Contains("Required command was not provided", stderr);
+    }
+
+    // --- Apphost Detection ---
+
+    [Fact]
+    public async Task Analyze_ApphostExe_AutoRedirectsToManagedDll()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        var (exitCode, stdout, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.HelloWorldExe);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("apphost", stderr, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("HelloWorld", stdout);
     }
 
     // --- Helpers ---

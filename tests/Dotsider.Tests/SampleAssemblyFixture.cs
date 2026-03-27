@@ -63,11 +63,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
         var tfm = "net10.0";
 
         HelloWorldDll = SamplePath("HelloWorld", config, tfm, "HelloWorld.dll");
-        HelloWorldExe = SamplePath("HelloWorld", config, tfm, "HelloWorld");
+        HelloWorldExe = SamplePath("HelloWorld", config, tfm, "HelloWorld.exe");
         ComplexAppDll = SamplePath("ComplexApp", config, tfm, "ComplexApp.dll");
-        ComplexAppExe = SamplePath("ComplexApp", config, tfm, "ComplexApp");
+        ComplexAppExe = SamplePath("ComplexApp", config, tfm, "ComplexApp.exe");
         MinimalApiDll = SamplePath("MinimalApi", config, tfm, "MinimalApi.dll");
-        MinimalApiExe = SamplePath("MinimalApi", config, tfm, "MinimalApi");
+        MinimalApiExe = SamplePath("MinimalApi", config, tfm, "MinimalApi.exe");
         RichLibraryDll = SamplePath("RichLibrary", config, tfm, "RichLibrary.dll");
         RichLibraryV2Dll = SamplePath("RichLibraryV2", config, tfm, "RichLibrary.dll");
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
@@ -98,6 +98,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
             Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
         if (NativeAotConsoleExe is not null)
             Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.True(File.Exists(HelloWorldExe), $"HelloWorld.exe not found at {HelloWorldExe}");
+            Assert.True(File.Exists(ComplexAppExe), $"ComplexApp.exe not found at {ComplexAppExe}");
+            Assert.True(File.Exists(MinimalApiExe), $"MinimalApi.exe not found at {MinimalApiExe}");
+        }
     }
 
     public ValueTask DisposeAsync()

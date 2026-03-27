@@ -39,7 +39,7 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs:
+dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead.
 
 | Tab | What you see |
 |-----|-------------|
@@ -93,15 +93,16 @@ TUI options:
 Run analysis without the TUI — pipe to other tools, write to files, or output JSON for scripting.
 
 ```
-dotsider analyze MyLib.dll                  # assembly info (default)
-dotsider analyze MyLib.dll --types          # list type definitions
-dotsider analyze MyLib.dll --methods        # list method definitions
-dotsider analyze MyLib.dll --il Type.Method # disassemble a method
-dotsider analyze MyLib.dll --deps           # assembly references
-dotsider analyze MyLib.dll --strings        # extract strings
-dotsider analyze MyLib.dll --size           # size breakdown
-dotsider analyze MyLib.dll --json           # any of the above as JSON
-dotsider analyze MyLib.dll --types -o out.txt  # write to file
+dotsider analyze MyLib.dll                      # assembly info (default)
+dotsider analyze MyLib.dll --types              # list type definitions
+dotsider analyze MyLib.dll --methods            # list method definitions
+dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
+dotsider analyze MyLib.dll --deps               # assembly references
+dotsider analyze MyLib.dll --strings            # extract strings
+dotsider analyze MyLib.dll --size               # size breakdown
+dotsider analyze MyLib.dll --json               # any of the above as JSON
+dotsider analyze MyLib.dll --types -o out.txt   # write to file
+dotsider analyze MyApp.exe                      # apphost .exe → auto-redirects to MyApp.dll
 ```
 
 ### CLI: `dotsider sessions`

@@ -52,6 +52,17 @@ Whether the request succeeded.
 public bool Success { get; set; }
 ```
 
+### V
+
+Protocol version echoed in every response.
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+[JsonRequired]
+public int V { get; set; }
+```
+
 ## Methods
 
 ### Fail(string)
