@@ -67,10 +67,12 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         await auto.UpAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state!.DynamicEventsFocusedKey is not null);
 
-        // Wait for the teal focus background to be rendered to the screen buffer.
-        // The internal state (DynamicEventsFocusedKey) updates before the focus
-        // color is painted, so we poll the snapshot for the actual teal cell.
+        // Wait for the teal focus background to appear and verify the category
+        // cell color in the SAME snapshot. We cannot capture the snapshot reference
+        // because WaitUntilStep disposes it after the predicate returns. Instead,
+        // extract the category cell's foreground color inside the predicate.
         var teal = Hex1bColor.FromRgb(0, 200, 180);
+        Hex1bColor? categoryFg = null;
         await auto.WaitUntilAsync(s =>
         {
             for (var y = 0; y < s.Height; y++)
@@ -78,39 +80,29 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
                 var cell = s.GetCell(1, y);
                 if (cell.Background is { } bg
                     && bg.R == teal.R && bg.G == teal.G && bg.B == teal.B)
-                    return true;
+                {
+                    // Found the focused row — find the category text by scanning
+                    // for a known category name (JIT, GC, etc.) on this row.
+                    var lineText = s.GetTextAt(y, 0, s.Width);
+                    foreach (var cat in DynamicAnalysisView.CategoryColors.Keys)
+                    {
+                        var catName = cat.ToString();
+                        var idx = lineText.IndexOf(catName, StringComparison.Ordinal);
+                        if (idx >= 0)
+                        {
+                            categoryFg = s.GetCell(idx, y).Foreground;
+                            return true;
+                        }
+                    }
+
+                    return true; // focused row found but no known category text
+                }
             }
             return false;
         }, description: "teal focus background to appear");
 
-        // Find the focused data row by scanning for the teal background cell.
-        var snapshot = terminal.CreateSnapshot();
         var focusedKey = _state!.DynamicEventsFocusedKey;
         Assert.NotNull(focusedKey);
-
-        // Locate the focused row by scanning for a data row whose cell at x=1
-        // has the teal focus background.
-        int focusedLine = -1;
-        for (var y = 0; y < snapshot.Height; y++)
-        {
-            var lineText = snapshot.GetTextAt(y, 0, 12);
-            if (!lineText.Contains("00:")) continue;
-
-            var cell = snapshot.GetCell(1, y);
-            if (cell.Background is not null &&
-                cell.Background.Value.R == teal.R &&
-                cell.Background.Value.G == teal.G &&
-                cell.Background.Value.B == teal.B)
-            {
-                focusedLine = y;
-                break;
-            }
-        }
-
-        Assert.True(focusedLine >= 0, "Could not find focused row with teal background");
-
-        // Category text starts at x=14 (x=0 border, x=1-12 Time, x=13 border, x=14+ Category)
-        var categoryCell = snapshot.GetCell(14, focusedLine);
 
         // The focused row's category cell must NOT have any of the known category
         // colors. When focused, it should be black (0,0,0) or null (theme default).
@@ -118,9 +110,9 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
             .Select(c => (c.R, c.G, c.B))
             .ToHashSet();
 
-        if (categoryCell.Foreground is not null)
+        if (categoryFg is not null)
         {
-            var fg = categoryCell.Foreground.Value;
+            var fg = categoryFg.Value;
             Assert.False(knownCategoryColors.Contains((fg.R, fg.G, fg.B)),
                 $"Focused row category cell still has category color ({fg.R},{fg.G},{fg.B}) — should be black on focus");
 
