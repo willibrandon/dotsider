@@ -67,10 +67,24 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         await auto.UpAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state!.DynamicEventsFocusedKey is not null);
 
-        // Find the focused data row. The focused key tells us which row the
-        // table considers focused; find it on screen by matching its key text.
-        var snapshot = terminal.CreateSnapshot();
+        // Wait for the teal focus background to be rendered to the screen buffer.
+        // The internal state (DynamicEventsFocusedKey) updates before the focus
+        // color is painted, so we poll the snapshot for the actual teal cell.
         var teal = Hex1bColor.FromRgb(0, 200, 180);
+        await auto.WaitUntilAsync(s =>
+        {
+            for (var y = 0; y < s.Height; y++)
+            {
+                var cell = s.GetCell(1, y);
+                if (cell.Background is { } bg
+                    && bg.R == teal.R && bg.G == teal.G && bg.B == teal.B)
+                    return true;
+            }
+            return false;
+        }, description: "teal focus background to appear");
+
+        // Find the focused data row by scanning for the teal background cell.
+        var snapshot = terminal.CreateSnapshot();
         var focusedKey = _state!.DynamicEventsFocusedKey;
         Assert.NotNull(focusedKey);
 
