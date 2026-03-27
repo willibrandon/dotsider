@@ -43,5 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Clear stale Docker credentials
+        run: docker logout docker.io 2>/dev/null || true
+
       - name: Run deploy tests
         run: bash tests/deploy/run.sh
