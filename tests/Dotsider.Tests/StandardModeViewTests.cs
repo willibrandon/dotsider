@@ -1791,15 +1791,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for exit
+        // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
+        // Wait for "Re-run" text (not internal ProcessState) to ensure the exit has
+        // been fully rendered before applying the JIT filter and focusing an event.
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Assembly Name");
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error,
-            timeout: TimeSpan.FromSeconds(30));
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
