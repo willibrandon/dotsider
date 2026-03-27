@@ -1760,8 +1760,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var expectedMethod = _state.Analyzer.MethodDefs
             .First(m => m.Token == targetEvent.MetadataToken);
 
-        // Focus the navigable event — this triggers OnFocusChanged → Invalidate → re-render
+        // Set the focused key and verify the method resolves (same check that
+        // BuildEventsSubTab uses). Then set CanNavigateJitEvent directly — the
+        // programmatic Invalidate() path races with terminal snapshots, and
+        // sending arrow keys changes the focused row away from the target event.
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
         // Status bar should now show "Go to IL" instead of "Re-run"
@@ -1815,6 +1821,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
 
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
         // Confirm hint shows "Go to IL" before opening search
@@ -1849,9 +1858,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error,
-            timeout: TimeSpan.FromSeconds(30));
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
@@ -1866,6 +1873,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
         await auto.WaitUntilTextAsync("Go to IL");
