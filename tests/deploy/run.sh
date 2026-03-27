@@ -23,7 +23,19 @@ IMAGE_NAME="dotsider-deploy-tests"
 SUITE="${1:-all}"
 
 echo "── Building test image ──"
-docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/Dockerfile" "$REPO_ROOT"
+# Docker Hub rate-limits anonymous pulls on shared CI runner IPs.
+# Retry up to 3 times with backoff to handle transient 429 errors.
+for attempt in 1 2 3; do
+    if docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/Dockerfile" "$REPO_ROOT"; then
+        break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+        echo "ERROR: docker build failed after 3 attempts"
+        exit 1
+    fi
+    echo "── Retrying docker build (attempt $((attempt + 1))/3) after ${attempt}0s ──"
+    sleep "$((attempt * 10))"
+done
 
 # Clean up any previous container
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
