@@ -1,6 +1,7 @@
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -51,7 +52,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     {
         var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(50, ct);
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
@@ -84,16 +84,14 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Switch to Strings tab then back to IL.
-        // Wait after returning to IL so the tab switch's RequestContentFocus
-        // is applied before we send DownArrow.
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.D4)
-            .WaitUntil(s => s.ContainsText("User Strings") || s.ContainsText("Metadata"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
-            .Wait(200)
-            .Build()
-            .ApplyAsync(terminal, ct);
+        // Wait for focus to return to the tree after the tab switch's RequestContentFocus.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        await auto.KeyAsync(Hex1bKey.D4, ct: ct);
+        await auto.WaitUntilAsync(s => s.ContainsText("User Strings") || s.ContainsText("Metadata"));
+        await auto.KeyAsync(Hex1bKey.D3, ct: ct);
+        await auto.WaitUntilTextAsync("IL_0000");
+        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ListNode,
+            description: "focus to return to tree");
 
         // Selected method must be preserved after tab round-trip
         var selectedBefore = _state!.IlSelectedMethod;
@@ -105,7 +103,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Press DownArrow — should move table focus, not editor cursor.
         // Use the automator to ensure the key is fully processed before asserting.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key, not editor)
@@ -124,7 +121,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     {
         var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(50, ct);
 
         // Go to IL tab, select a method programmatically, click in editor
         await new Hex1bTerminalInputSequenceBuilder()
@@ -164,11 +160,10 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         _state.NavigateToIlMethod(method);
 
         // Wait for IL content and for the jump's RequestFocus to be applied
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_"), TimeSpan.FromSeconds(10))
-            .Wait(200)
-            .Build()
-            .ApplyAsync(terminal, ct);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        await auto.WaitUntilTextAsync("IL_");
+        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ListNode,
+            description: "focus to return to tree");
 
         // The jumped-to method must be selected in state
         Assert.Equal(method, _state.IlSelectedMethod);
@@ -185,7 +180,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // DownArrow should be consumed by the table, not the editor.
         // Use the automator to ensure the key is fully processed before asserting.
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key)
@@ -204,7 +198,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     {
         var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(50, ct);
 
         // Start on IL tab — list selection defaults to row 0
         await new Hex1bTerminalInputSequenceBuilder()
@@ -255,7 +248,6 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     {
         var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
-        await Task.Delay(50, ct);
 
         // Go to IL tab
         await new Hex1bTerminalInputSequenceBuilder()
@@ -284,22 +276,27 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(Views.IlInspectorView.GetExpansionState(_state, typeKey, defaultExpanded: false),
             "Type should start collapsed");
 
-        // RightArrow expands
+        // Find the first method under this type so we can use its name as a screen-based
+        // expansion indicator (avoids polling internal Dictionary from test thread)
+        var firstMethod = _state.Analyzer.MethodDefs
+            .First(m => m.DeclaringType == firstType.FullName);
+
+        // RightArrow expands — child method rows become visible
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
+            .WaitUntil(s => s.ContainsText(firstMethod.Name), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(50, ct);
 
         Assert.True(_state.IlTreeExpansionState.TryGetValue(typeKey, out var expanded) && expanded,
             "RightArrow must expand the focused type row");
 
-        // LeftArrow collapses
+        // LeftArrow collapses — child method rows disappear
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
+            .WaitUntil(s => !s.ContainsText(firstMethod.Name), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(50, ct);
 
         Assert.True(_state.IlTreeExpansionState.TryGetValue(typeKey, out var collapsed) && !collapsed,
             "LeftArrow must collapse the focused type row");
