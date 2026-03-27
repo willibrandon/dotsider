@@ -391,16 +391,16 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         Assert.True(matches.Count > 0);
         var (row, col) = matches[0];
 
-        // Click to focus editor, then double-click to select word
+        // Click to focus editor, then double-click to select word.
+        // Each Automator step completes through the input pipeline before the next.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.ClickAtAsync(col, row, ct: ct);
-        await Task.Delay(150, ct);
         await auto.DoubleClickAtAsync(col, row, ct: ct);
 
-        // Wait for selection
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
-            TimeSpan.FromSeconds(5));
+        // Wait for selection via screen state (not internal state polling)
+        await auto.WaitUntilAsync(
+            _ => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
+            description: "editor word selection after double-click");
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()

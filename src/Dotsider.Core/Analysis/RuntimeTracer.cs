@@ -58,16 +58,37 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     // Process output
     private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
 
-    // --- Public state ---
+    // --- Synchronized public state ---
+    // ProcessState, ExitCode, and ErrorMessage are read from the UI thread
+    // and written from up to 3 threads (Process.Exited handler, EventPipe
+    // background task, Stop/Dispose). A single lock synchronizes both reads
+    // and writes so that observers always see consistent state (e.g. ExitCode
+    // is set before ProcessState transitions to Exited).
+    private readonly Lock _stateLock = new();
+    private TraceProcessState _processState = TraceProcessState.Idle;
+    private int? _exitCode;
+    private string? _errorMessage;
 
     /// <summary>The current state of the traced process.</summary>
-    public TraceProcessState ProcessState { get; private set; } = TraceProcessState.Idle;
+    public TraceProcessState ProcessState
+    {
+        get { lock (_stateLock) return _processState; }
+        private set { lock (_stateLock) _processState = value; }
+    }
 
     /// <summary>The exit code of the traced process, or null if not yet exited.</summary>
-    public int? ExitCode { get; private set; }
+    public int? ExitCode
+    {
+        get { lock (_stateLock) return _exitCode; }
+        private set { lock (_stateLock) _exitCode = value; }
+    }
 
     /// <summary>The error message if the trace failed, or null.</summary>
-    public string? ErrorMessage { get; private set; }
+    public string? ErrorMessage
+    {
+        get { lock (_stateLock) return _errorMessage; }
+        private set { lock (_stateLock) _errorMessage = value; }
+    }
 
     /// <summary>The OS process ID of the traced process, or null if not started.</summary>
     public int? ProcessId => _process?.Id;
@@ -144,8 +165,12 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
         if (_process is null)
         {
-            ErrorMessage = "Failed to start process";
-            ProcessState = TraceProcessState.Error;
+            lock (_stateLock)
+            {
+                _errorMessage = "Failed to start process";
+                _processState = TraceProcessState.Error;
+            }
+
             MarkDirty();
             return;
         }
@@ -159,10 +184,19 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
-            if (ProcessState == TraceProcessState.Running)
+            bool transitioned;
+            lock (_stateLock)
             {
-                ProcessState = TraceProcessState.Exited;
-                ExitCode = _process.HasExited ? _process.ExitCode : null;
+                transitioned = _processState == TraceProcessState.Running;
+                if (transitioned)
+                {
+                    _exitCode = _process.HasExited ? _process.ExitCode : null;
+                    _processState = TraceProcessState.Exited;
+                }
+            }
+
+            if (transitioned)
+            {
                 _stopwatch?.Stop();
                 // StopProcessing unblocks source.Process() synchronously.
                 // session.Stop() can deadlock on Windows when the pipe is
@@ -173,7 +207,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             }
         };
 
-        ProcessState = TraceProcessState.Starting;
+        lock (_stateLock) _processState = TraceProcessState.Starting;
         MarkDirty();
 
         // Invalidation timer (100ms interval). While the process is Running,
@@ -223,15 +257,19 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
                 if (session is null)
                 {
-                    ErrorMessage = "Timed out connecting to runtime diagnostics (5s). Is this a valid .NET assembly?";
-                    ProcessState = TraceProcessState.Error;
+                    lock (_stateLock)
+                    {
+                        _errorMessage = "Timed out connecting to runtime diagnostics (5s). Is this a valid .NET assembly?";
+                        _processState = TraceProcessState.Error;
+                    }
+
                     // Kill suspended process so it doesn't hang
                     try { _process.Kill(); } catch { }
                     return;
                 }
 
                 _session = session;
-                ProcessState = TraceProcessState.Running;
+                lock (_stateLock) _processState = TraceProcessState.Running;
                 MarkDirty();
 
                 // Resume the suspended runtime now that EventPipe is attached
@@ -244,16 +282,22 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
             {
                 // Expected: process exited (pipe broke) or user cancelled
-                if (ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+                lock (_stateLock)
                 {
-                    ProcessState = TraceProcessState.Exited;
-                    ExitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                    if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+                    {
+                        _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                        _processState = TraceProcessState.Exited;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                ErrorMessage = ex.Message;
-                ProcessState = TraceProcessState.Error;
+                lock (_stateLock)
+                {
+                    _errorMessage = ex.Message;
+                    _processState = TraceProcessState.Error;
+                }
             }
             finally
             {
@@ -283,10 +327,13 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _invalidateTimer = null;
         _stopwatch?.Stop();
 
-        if (ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+        lock (_stateLock)
         {
-            ProcessState = TraceProcessState.Exited;
-            ExitCode = _process?.HasExited == true ? _process.ExitCode : null;
+            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+            {
+                _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                _processState = TraceProcessState.Exited;
+            }
         }
 
         MarkDirty();

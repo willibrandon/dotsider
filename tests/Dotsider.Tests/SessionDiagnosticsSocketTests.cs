@@ -58,16 +58,24 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
         var listener = new DotsiderDiagnosticsListener(() => state);
         listener.StartListening();
 
-        // Start the app and allow time for first render
+        // Start the app and wait for state initialization + first render
         var cts = new CancellationTokenSource();
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(50);
 
-        // Wait for the TUI state to be initialized and rendered
         await TestHelpers.WaitUntilAsync(
             () => state is not null,
             TimeSpan.FromSeconds(10));
-        await Task.Delay(50);
+
+        // Wait for the screen to contain rendered content (not just blank spaces).
+        // The General tab renders "HelloWorld" in the title bar on first frame.
+        await TestHelpers.WaitUntilAsync(
+            () =>
+            {
+                using var snapshot = terminal.CreateSnapshot();
+                return snapshot.GetScreenText().Contains("HelloWorld");
+            },
+            TimeSpan.FromSeconds(10),
+            interval: TimeSpan.FromMilliseconds(50));
 
         return (terminal, app, filter, listener, state!, runTask, cts);
     }

@@ -23,6 +23,21 @@ IMAGE_NAME="dotsider-deploy-tests"
 SUITE="${1:-all}"
 
 echo "── Building test image ──"
+# GitHub Actions runners may have stale Docker Hub credentials that cause
+# "401 Unauthorized: incorrect username or password" on pulls. Remove any
+# stored auth for Docker Hub registries to force clean anonymous pulls.
+if [ -f "$HOME/.docker/config.json" ]; then
+    python3 -c "
+import json, sys, os
+p = os.path.expanduser('~/.docker/config.json')
+with open(p) as f: cfg = json.load(f)
+auths = cfg.get('auths', {})
+for k in list(auths):
+    if 'docker.io' in k or 'registry-1' in k:
+        del auths[k]
+with open(p, 'w') as f: json.dump(cfg, f)
+" 2>/dev/null || true
+fi
 docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/Dockerfile" "$REPO_ROOT"
 
 # Clean up any previous container

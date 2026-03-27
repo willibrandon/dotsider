@@ -50,32 +50,41 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDotsiderApp();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for events
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .WaitUntil(s => s.ContainsText("Events"), TimeSpan.FromSeconds(10))
-            // Move focus into the events table to ensure a row is focused
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.UpArrow)
-            .WaitUntil(_ => _state!.DynamicEventsFocusedKey is not null, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Navigate to Dynamic tab, launch trace, wait for exit to render
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
+        await auto.WaitUntilTextAsync("Events");
+        // Move focus into the events table to ensure a row is focused
+        await auto.DownAsync(cts.Token);
+        await auto.UpAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.DynamicEventsFocusedKey is not null);
 
-        // Allow one more render frame for the focus style to be applied
-        await Task.Delay(200, cts.Token);
-
-        // Find the focused data row. The focused key tells us which row the
-        // table considers focused; find it on screen by matching its key text.
-        var snapshot = terminal.CreateSnapshot();
+        // Wait for the teal focus background to be rendered to the screen buffer.
+        // The internal state (DynamicEventsFocusedKey) updates before the focus
+        // color is painted, so we poll the snapshot for the actual teal cell.
         var teal = Hex1bColor.FromRgb(0, 200, 180);
+        await auto.WaitUntilAsync(s =>
+        {
+            for (var y = 0; y < s.Height; y++)
+            {
+                var cell = s.GetCell(1, y);
+                if (cell.Background is { } bg
+                    && bg.R == teal.R && bg.G == teal.G && bg.B == teal.B)
+                    return true;
+            }
+            return false;
+        }, description: "teal focus background to appear");
+
+        // Find the focused data row by scanning for the teal background cell.
+        var snapshot = terminal.CreateSnapshot();
         var focusedKey = _state!.DynamicEventsFocusedKey;
         Assert.NotNull(focusedKey);
 

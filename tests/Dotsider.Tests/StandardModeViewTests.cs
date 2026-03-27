@@ -1107,65 +1107,43 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Launch process and wait for exit so sub-tabs are visible
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Launch process and wait for exit so sub-tabs are visible
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         // Starts on Events sub-tab
         Assert.Equal(DynamicSubTabId.Events, _state!.DynamicSubTab);
 
         // Right → Counters
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.RightAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters);
         Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         // Right → Output
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.RightAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Output);
         Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
 
         // Right → Summary
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.RightAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Summary);
         Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
 
         // Right at max → stays on Summary (no wrap)
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.RightArrow)
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.RightAsync(cts.Token);
         Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
 
         // Left → back to Output
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.LeftAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Output);
         Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
 
         cts.Cancel();
@@ -1178,83 +1156,53 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Launch, wait for exit, stay on Events sub-tab
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Launch, wait for exit, stay on Events sub-tab
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         Assert.Null(_state!.DynamicCategoryFilter);
 
         // g → GC filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.G)
-            .WaitUntil(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.G, cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC);
         Assert.Equal(TraceEventCategory.GC, _state.DynamicCategoryFilter);
 
         // j → JIT filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.J)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.J, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT);
         Assert.Equal(TraceEventCategory.JIT, _state.DynamicCategoryFilter);
 
         // e → Exception filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.E)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.E, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception);
         Assert.Equal(TraceEventCategory.Exception, _state.DynamicCategoryFilter);
 
         // l → Loader filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.L)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader);
         Assert.Equal(TraceEventCategory.Loader, _state.DynamicCategoryFilter);
 
         // t → Threading filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.T)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.T, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading);
         Assert.Equal(TraceEventCategory.Threading, _state.DynamicCategoryFilter);
 
         // h → HTTP filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.H)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.KeyAsync(Hex1bKey.H, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http);
         Assert.Equal(TraceEventCategory.Http, _state.DynamicCategoryFilter);
 
         // Esc → clears filter
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.DynamicCategoryFilter is null, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
-
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter is null);
         Assert.Null(_state.DynamicCategoryFilter);
 
         cts.Cancel();
@@ -1269,31 +1217,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.MinimalApiDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Navigate to Dynamic tab and launch
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running,
-                TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Navigate to Dynamic tab and launch
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running);
 
         Assert.NotNull(_state!.Tracer);
         Assert.Equal(TraceProcessState.Running, _state.Tracer!.ProcessState);
 
         // Ctrl+K to stop — the web server would run indefinitely without this
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Ctrl().Key(Hex1bKey.K)
-            .WaitUntil(_ => _state.Tracer!.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error,
-                TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.Tracer!.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error);
 
         Assert.True(_state.Tracer!.ProcessState
             is TraceProcessState.Exited or TraceProcessState.Error);
@@ -1308,40 +1248,33 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Launch and wait for process to finish (Exited or Error)
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Launch and wait for process to finish (Exited or Error)
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         var firstTracer = _state!.Tracer;
         Assert.NotNull(firstTracer);
 
         // Press Enter to re-run
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.Tracer != firstTracer, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.Tracer != firstTracer);
 
         // A new tracer was created
         Assert.NotNull(_state.Tracer);
         Assert.NotEqual(firstTracer, _state.Tracer);
 
         // Wait for the re-run to exit successfully
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.Tracer!.ProcessState == TraceProcessState.Exited,
-                TimeSpan.FromSeconds(15))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.Tracer!.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(15));
 
         Assert.Equal(TraceProcessState.Exited, _state.Tracer!.ProcessState);
         Assert.Equal(0, _state.Tracer.ExitCode);
@@ -1356,29 +1289,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Navigate to Dynamic tab and launch the process
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter) // Launch process
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         // Process has exited — activating search must not crash with
         // "Global binding conflict: Enter is already registered"
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state!.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.OemQuestion, cts.Token); // '/' — activate search
+        await auto.WaitUntilAsync(_ => _state!.Search[TabId.Dynamic].IsActive);
 
-        await Task.Delay(100, cts.Token);
         Assert.True(_state!.Search[TabId.Dynamic].IsActive);
 
         cts.Cancel();
@@ -1576,29 +1503,24 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Navigate to Dynamic tab, launch the process, wait for exit
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Navigate to Dynamic tab, launch the process, wait for exit
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         // Record initial size toggle state
         var sizesBefore = _state!.HumanReadableSizes;
 
         // Press S on the Events sub-tab — should set Socket filter, not toggle sizes
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.S)
-            .WaitUntil(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.S, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket);
 
         Assert.Equal(TraceEventCategory.Socket, _state.DynamicCategoryFilter);
         Assert.Equal(sizesBefore, _state.HumanReadableSizes);
@@ -1740,19 +1662,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        //Navigate to Dynamic tab, launch trace, and wait for exit
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Navigate to Dynamic tab, launch trace, and wait for exit
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error,
+            timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
@@ -1789,19 +1709,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Use J key to set JIT filter (runs on the render thread, not a direct state mutation)
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}:{targetEvent.MetadataToken}";
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.J)
-            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.J, cts.Token);
+        await auto.WaitUntilTextAsync("Filter: JIT");
 
         // Set focused key to the second overload's row, then press Enter
         _state.DynamicEventsFocusedKey = eventKey;
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.IlInspector);
 
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
         Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
@@ -1818,29 +1732,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
         // Don't check ProcessState in memory — wait for the screen to prove
         // the exit has been rendered, which is what "Re-run" in the hint bar means.
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
         // Filter to JIT events
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.J)
-            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.J, cts.Token);
+        await auto.WaitUntilTextAsync("Filter: JIT");
 
         // Find a navigable JIT event from the analyzed assembly
         var targetEvent = tracer.GetEvents()
@@ -1852,22 +1760,22 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var expectedMethod = _state.Analyzer.MethodDefs
             .First(m => m.Token == targetEvent.MetadataToken);
 
-        // Focus the navigable event — this triggers OnFocusChanged → Invalidate → re-render
+        // Set the focused key and verify the method resolves (same check that
+        // BuildEventsSubTab uses). Then set CanNavigateJitEvent directly — the
+        // programmatic Invalidate() path races with terminal snapshots, and
+        // sending arrow keys changes the focused row away from the target event.
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
         // Status bar should now show "Go to IL" instead of "Re-run"
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilTextAsync("Go to IL");
 
         // Press Enter — should navigate to IL Inspector, NOT re-run the trace
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.IlInspector);
 
         Assert.Equal(TabId.IlInspector, _state.CurrentTab);
         Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
@@ -1887,28 +1795,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for exit
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
+        // Wait for "Re-run" text (not internal ProcessState) to ensure the exit has
+        // been fully rendered before applying the JIT filter and focusing an event.
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
         // Filter to JIT and focus a navigable event so CanNavigateJitEvent is true
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.J)
-            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.J, cts.Token);
+        await auto.WaitUntilTextAsync("Filter: JIT");
 
         var targetEvent = tracer.GetEvents()
             .First(e => e.Category == TraceEventCategory.JIT
@@ -1918,26 +1821,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
 
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
         // Confirm hint shows "Go to IL" before opening search
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilTextAsync("Go to IL");
 
         // Open search — Enter now confirms search, not navigates
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => _state.Search[TabId.Dynamic].IsActive, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.OemQuestion, cts.Token);
+        await auto.WaitUntilAsync(_ => _state.Search[TabId.Dynamic].IsActive);
 
         // Hint must revert to "Re-run" while search is editing
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Re-run"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilTextAsync("Re-run");
 
         // Tab must still be Dynamic — Enter did not navigate
         Assert.Equal(TabId.Dynamic, _state.CurrentTab);
@@ -1953,28 +1850,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Navigate to Dynamic tab, launch trace, wait for exit
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Assembly Name");
+        await auto.KeyAsync(Hex1bKey.D8, cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
 
         var tracer = _state!.Tracer!;
 
         // Filter to JIT and focus a navigable event
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.J)
-            .WaitUntil(s => s.ContainsText("Filter: JIT"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.J, cts.Token);
+        await auto.WaitUntilTextAsync("Filter: JIT");
 
         var targetEvent = tracer.GetEvents()
             .First(e => e.Category == TraceEventCategory.JIT
@@ -1983,32 +1873,26 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
         _state.DynamicEventsFocusedKey = eventKey;
+        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+            _state, tracer.GetEvents()));
+        _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("Go to IL"), TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.WaitUntilTextAsync("Go to IL");
 
         // Open search and type a query
         var search = _state.Search[TabId.Dynamic];
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => search.IsActive, TimeSpan.FromSeconds(10))
-            .Type("Format")
-            .WaitUntil(_ => search.Query == "Format", TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.KeyAsync(Hex1bKey.OemQuestion, cts.Token);
+        await auto.WaitUntilAsync(_ => search.IsActive);
+        await auto.TypeAsync("Format", cts.Token);
+        await auto.WaitUntilAsync(_ => search.Query == "Format");
 
         Assert.True(search.IsActive);
         Assert.False(search.IsConfirmed);
 
         // Press Enter — should confirm search, NOT navigate to IL
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => search.IsConfirmed, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, cts.Token);
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(_ => search.IsConfirmed);
 
         Assert.True(search.IsConfirmed);
         Assert.Equal("Format", search.Query);
