@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
 using Hex1b;
 using Hex1b.Widgets;
@@ -537,6 +538,49 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         // Back → IL Inspector
         state.NavigateBack();
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    // --- Apphost Detection ---
+
+    [Fact(Timeout = 30_000)]
+    public void ConstructFromApphostExe_SetsApphostDialogState()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldExe);
+
+        Assert.True(state.ApphostDialogOpen);
+        Assert.NotNull(state.ApphostCompanionDllPath);
+        Assert.EndsWith(".dll", state.ApphostCompanionDllPath!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void ConstructFromManagedDll_NoApphostDialog()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+
+        Assert.False(state.ApphostDialogOpen);
+        Assert.Null(state.ApphostCompanionDllPath);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void PushAssembly_FromApphostToCompanionDll_Works()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldExe);
+        Assert.False(state.Analyzer.HasMetadata);
+
+        Assert.True(state.PushAssembly(state.ApphostCompanionDllPath!));
+
+        Assert.True(state.Analyzer.HasMetadata);
+        Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
+        Assert.Single(state.NavigationStack);
     }
 
     public void Dispose()

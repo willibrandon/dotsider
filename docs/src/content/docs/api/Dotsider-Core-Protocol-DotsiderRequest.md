@@ -172,3 +172,14 @@ Full or partial type name for filtering.
 public string? TypeName { get; set; }
 ```
 
+### V
+
+Protocol version. Must match [Version](/api/dotsider.core.protocol.dotsiderprotocol.version/).
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+[JsonRequired]
+public int V { get; set; }
+```
+

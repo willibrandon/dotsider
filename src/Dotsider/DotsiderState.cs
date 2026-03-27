@@ -27,11 +27,22 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         if (Analyzer.HasMetadata)
             IlDisassembler = new IlDisassembler(Analyzer);
-        
+
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
+
+        // Detect apphost .exe with a companion managed .dll
+        if (!Analyzer.HasMetadata)
+        {
+            var companionDll = ApphostDetector.FindCompanionDll(filePath);
+            if (companionDll is not null)
+            {
+                ApphostCompanionDllPath = companionDll;
+                ApphostDialogOpen = true;
+            }
+        }
     }
 
     /// <summary>
@@ -378,6 +389,14 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Whether the hex document has unsaved edits.</summary>
     public bool HexIsDirty => HexEditorState.Document.Version != HexCleanVersion;
+
+    // --- Apphost Detection State ---
+
+    /// <summary>Whether the apphost companion DLL dialog is currently shown.</summary>
+    public bool ApphostDialogOpen { get; set; }
+
+    /// <summary>The path to the companion managed .dll, or null if not detected.</summary>
+    public string? ApphostCompanionDllPath { get; set; }
 
     // --- Dynamic Analysis Tab State ---
 

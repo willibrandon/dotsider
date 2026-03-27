@@ -34,12 +34,16 @@ public sealed class DotsiderApp(DotsiderState state)
         while (_state.PendingMutations.TryDequeue(out var mutation))
             mutation(_state);
 
-        // On first render, move focus from the tab bar into the content area
+        // On first render, move focus from the tab bar into the content area.
+        // Defer if the apphost dialog is open — focus will be seeded on dismiss.
         if (!_initialFocusRequested)
         {
             _initialFocusRequested = true;
-            SeedFocusedRowIfNeeded();
-            RequestContentFocus();
+            if (!_state.ApphostDialogOpen)
+            {
+                SeedFocusedRowIfNeeded();
+                RequestContentFocus();
+            }
         }
 
         // Wire up the yank delegate for text object support
@@ -50,7 +54,7 @@ public sealed class DotsiderApp(DotsiderState state)
         }
 
 
-        return ctx.VStack(outer =>
+        var mainContent = ctx.VStack(outer =>
         [
             // Title bar
             outer.InfoBar(bar =>
@@ -120,7 +124,8 @@ public sealed class DotsiderApp(DotsiderState state)
             // Number keys 1-8, s, q suppressed during search editing, jump dialog,
             // or hex insert mode to let EditorNode/TextBox receive character input
             var hexInsertMode = _state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert;
-            if (!isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode)
+            if (!isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode
+                && !_state.ApphostDialogOpen)
             {
                 for (var i = 0; i < 8; i++)
                 {
@@ -218,7 +223,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 _state.App.Invalidate();
             }
             var detailPopupOpen = _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
-            if (!_state.HexJumpDialogOpen && !detailPopupOpen)
+            if (!_state.HexJumpDialogOpen && !detailPopupOpen && !_state.ApphostDialogOpen)
             {
                 bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 if (!isSearchEditing)
@@ -243,8 +248,24 @@ public sealed class DotsiderApp(DotsiderState state)
                 }), "Confirm search");
             }
 
-            // Hex + IL Inspector keybindings (shared with NuGetApp)
-            if (!isSearchEditing)
+            // Apphost dialog Enter — navigate to companion managed .dll.
+            // Registered as Global so it fires regardless of focus position
+            // (the dialog overlay is in a ZStack layer separate from the main content).
+            if (_state.ApphostDialogOpen && _state.ApphostCompanionDllPath is not null)
+            {
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
+                {
+                    _state.ApphostDialogOpen = false;
+                    _state.PushAssembly(_state.ApphostCompanionDllPath);
+                    SeedFocusedRowIfNeeded();
+                    RequestContentFocus();
+                    _state.App.Invalidate();
+                }), "Open managed DLL");
+            }
+
+            // Hex + IL Inspector keybindings (shared with NuGetApp).
+            // Suppressed while the apphost dialog is open to prevent background shortcuts.
+            if (!isSearchEditing && !_state.ApphostDialogOpen)
                 DllInspectorBindings.Register(bindings, _state, _state.App,
                     resetVimPending: () => _state.VimPending = VimMotionState.Idle);
 
@@ -334,7 +355,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 && _state.DynamicCategoryFilter is not null;
             if (hasBackTarget && !sizeMapUsesEsc && !dynamicFilterActive
                 && !currentSearch.IsActive && !_state.HexJumpDialogOpen && !hexInsertMode
-                && !_state.DynamicEditingArgs
+                && !_state.ApphostDialogOpen && !_state.DynamicEditingArgs
                 && _state.PeDetailContent is null && _state.StringsDetailContent is null
                 && !(_state.CurrentTab == TabId.IlInspector && _state.IlEditorState?.Cursor.HasSelection == true))
             {
@@ -348,6 +369,11 @@ public sealed class DotsiderApp(DotsiderState state)
                     else if (_state.NavigationStack.Count > 0)
                     {
                         _state.PopAssembly();
+
+                        // Re-show the apphost dialog when backing out to an apphost .exe
+                        if (_state.ApphostCompanionDllPath is not null && !_state.Analyzer.HasMetadata)
+                            _state.ApphostDialogOpen = true;
+
                         _state.NavigateToTab(TabId.General);
                         _state.RequestContentFocus();
                         _state.App.Invalidate();
@@ -355,6 +381,51 @@ public sealed class DotsiderApp(DotsiderState state)
                 }), "Back");
             }
         });
+
+        // Apphost dialog overlay
+        if (_state.ApphostDialogOpen && _state.ApphostCompanionDllPath is not null)
+        {
+            var dllName = Path.GetFileName(_state.ApphostCompanionDllPath);
+            return ctx.ZStack(z =>
+            [
+                mainContent,
+                z.Backdrop(
+                    z.Border(
+                        z.VStack(dlg =>
+                        [
+                            dlg.Text(""),
+                            dlg.Text("  This file is a native apphost executable."),
+                            dlg.Text("  It has no .NET metadata to inspect."),
+                            dlg.Text(""),
+                            dlg.Text("  A managed assembly was found:"),
+                            dlg.Text($"  {dllName}"),
+                            dlg.Text(""),
+                            dlg.Text("  Open the managed .dll instead?"),
+                            dlg.Text(""),
+                            dlg.Text("  Enter: Yes | Esc: No, keep .exe")
+                        ])
+                    ).Title(" Apphost Detected ").FixedWidth(55).FixedHeight(12)
+                    .WithInputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                        {
+                            _state.ApphostDialogOpen = false;
+                            SeedFocusedRowIfNeeded();
+                            RequestContentFocus();
+                            _state.App.Invalidate();
+                        }, "Keep .exe");
+                    })
+                ).OnClickAway(() =>
+                {
+                    _state.ApphostDialogOpen = false;
+                    SeedFocusedRowIfNeeded();
+                    RequestContentFocus();
+                    _state.App.Invalidate();
+                })
+            ]).Fill();
+        }
+
+        return mainContent;
     }
 
     private void SelectTab(int tabIndex)

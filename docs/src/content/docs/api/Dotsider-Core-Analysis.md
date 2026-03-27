@@ -7,6 +7,14 @@ sidebar:
 
 ## Classes
 
+### [ApphostDetector](/api/dotsider.core.analysis.apphostdetector/)
+
+Detects .NET apphost executables and locates their companion managed assemblies.
+
+```csharp
+public static class ApphostDetector
+```
+
 ### [AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)
 
 Core analyzer that reads a .NET assembly and extracts PE, metadata, IL, and string information.

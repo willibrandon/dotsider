@@ -15,6 +15,14 @@ Shared JSON serialization options for the dotsider diagnostics protocol.
 public static class DotsiderJsonOptions
 ```
 
+### [DotsiderProtocol](/api/dotsider.core.protocol.dotsiderprotocol/)
+
+Constants for the dotsider diagnostics protocol.
+
+```csharp
+public static class DotsiderProtocol
+```
+
 ### [DotsiderRequest](/api/dotsider.core.protocol.dotsiderrequest/)
 
 JSON request sent to a dotsider diagnostics socket.

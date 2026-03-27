@@ -81,19 +81,50 @@ internal static class AnalyzeCommand
 
             try
             {
-                // Validate output path before opening any files
-                if (outputPath is not null &&
-                    string.Equals(
-                        Path.GetFullPath(file.FullName),
-                        Path.GetFullPath(outputPath),
-                        StringComparison.OrdinalIgnoreCase))
+                var filePath = file.FullName;
+                var originalPath = filePath;
+
+                // Detect apphost .exe — only redirect when the .exe has no .NET metadata
+                if (filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
-                    return Task.FromResult(1);
+                    try
+                    {
+                        using var probe = new AssemblyAnalyzer(filePath);
+                        if (!probe.HasMetadata)
+                        {
+                            var companion = ApphostDetector.FindCompanionDll(filePath);
+                            if (companion is not null)
+                            {
+                                Console.Error.WriteLine(
+                                    $"Note: {file.Name} is a native apphost. "
+                                    + $"Analyzing {Path.GetFileName(companion)} instead.");
+                                filePath = companion;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Fall through to main analyzer which will report the error
+                    }
                 }
 
-                using var analyzer = new AssemblyAnalyzer(file.FullName);
-                var disassembler = new IlDisassembler(analyzer);
+                // Output-path collision check — reject if -o matches EITHER the original
+                // input path OR the resolved analyzed path, so neither can be clobbered
+                if (outputPath is not null)
+                {
+                    var outputFull = Path.GetFullPath(outputPath);
+                    if (string.Equals(Path.GetFullPath(filePath), outputFull,
+                            StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(Path.GetFullPath(originalPath), outputFull,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                        return Task.FromResult(1);
+                    }
+                }
+
+                using var analyzer = new AssemblyAnalyzer(filePath);
+                var disassembler = analyzer.HasMetadata ? new IlDisassembler(analyzer) : null;
 
                 // Defer opening the output file until we know the input is valid
                 using var formatter = new OutputFormatter(outputPath) { JsonMode = json };
@@ -105,7 +136,15 @@ internal static class AnalyzeCommand
                     return Task.FromResult(PrintMethods(analyzer, formatter));
 
                 if (parseResult.GetValue(s_ilOption) is { } ilTarget)
+                {
+                    if (disassembler is null)
+                    {
+                        Console.Error.WriteLine("Error: --il requires a .NET assembly with metadata");
+                        return Task.FromResult(1);
+                    }
+                    
                     return Task.FromResult(PrintIl(analyzer, disassembler, ilTarget, formatter));
+                }
 
                 if (parseResult.GetValue(s_depsOption))
                     return Task.FromResult(PrintDeps(analyzer, formatter));

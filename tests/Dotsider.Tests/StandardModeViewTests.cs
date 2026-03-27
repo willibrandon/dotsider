@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
@@ -2013,6 +2014,126 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("Format", search.Query);
         Assert.Equal(TabId.Dynamic, _state.CurrentTab);
         Assert.Same(tracer, _state.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    // --- Apphost Detection ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task ApphostExe_ShowsDialog()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.ApphostDialogOpen);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task ApphostExe_Enter_NavigatesToManagedDll()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => !s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("depth 2"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.False(_state!.ApphostDialogOpen);
+        Assert.True(_state.Analyzer.HasMetadata);
+        Assert.Equal("HelloWorld.dll", _state.Analyzer.FileName);
+        Assert.Single(_state.NavigationStack);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task ApphostExe_Escape_DismissesDialog()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.False(_state!.ApphostDialogOpen);
+        Assert.False(_state.Analyzer.HasMetadata);
+        Assert.Empty(_state.NavigationStack);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task ApphostExe_Enter_ThenBack_ReshowsDialog()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Apphost .exe is a Windows artifact");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        // Accept the dialog → navigate into the managed .dll
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(s => !s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("depth 2"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.Analyzer.HasMetadata);
+
+        // Back out → should re-show the dialog on the apphost .exe
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => s.ContainsText("Apphost Detected"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.ApphostDialogOpen);
+        Assert.False(_state.Analyzer.HasMetadata);
+        Assert.NotNull(_state.ApphostCompanionDllPath);
+        Assert.Empty(_state.NavigationStack);
 
         cts.Cancel();
         await runTask;
