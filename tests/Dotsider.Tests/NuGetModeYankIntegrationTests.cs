@@ -695,6 +695,39 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task PackageInfo_YY_YanksCurrentLine()
+    {
+        var (terminal, app, ct) = Launch();
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            // Tab to focus the Package Info editor
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // yy to yank the current line
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .Type("y")
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+
+        Assert.True(yankedText.Length > 0);
+        Assert.DoesNotContain("\n", yankedText);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
     public void Dispose()
     {
         _cts?.Cancel();

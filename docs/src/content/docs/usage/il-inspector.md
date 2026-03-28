@@ -22,7 +22,7 @@ Each instruction shows:
 
 Select text in the disassembly pane with click-drag or `Shift` + arrow keys, then press `y` to yank it to the clipboard. The cursor collapses to the end of the selection and a brief flash confirms the copied range — matching neovim's yank behavior.
 
-`iw` selects the word under the cursor (an opcode, a token, a label). `yiw` copies it directly. `iW` grabs the full whitespace-delimited token, which is useful for qualified names in operands.
+`iw` selects the word under the cursor (an opcode, a token, a label). `yiw` copies it directly. `iW` grabs the full whitespace-delimited token, which is useful for qualified names in operands. `V` selects the entire instruction line and `yy` copies it directly.
 
 ## Search
 

@@ -165,7 +165,20 @@ public sealed class DotsiderApp(DotsiderState state)
                         && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
                         _state.VimPending = VimMotionState.Idle;
 
-                    // 1. Any focused editor with selection
+                    // 1. yy: second y while already armed → yank entire line
+                    if (_state.VimPending == VimMotionState.WaitingForYMotion
+                        && ctx.FocusedNode is EditorNode { State: var yyState } yyEditor
+                        && yyState == _state.VimPendingEditor
+                        && yyState.Cursor.Position.Value == _state.VimPendingCursorOffset)
+                    {
+                        _state.VimPending = VimMotionState.Idle;
+                        TextObjectHelper.SelectLine(yyState);
+                        if (yyState.Cursor.HasSelection)
+                            PerformEditorYank(ctx, yyEditor);
+                        return;
+                    }
+
+                    // 2. Any focused editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
                         _state.VimPending = VimMotionState.Idle;
@@ -173,7 +186,7 @@ public sealed class DotsiderApp(DotsiderState state)
                         return;
                     }
 
-                    // 2. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW
+                    // 3. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW/yy
                     if (ctx.FocusedNode is EditorNode noSelEditor)
                     {
                         // Don't arm on hex dump normal mode (I conflicts with Insert)
@@ -585,7 +598,7 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 if (_state.App.FocusedNode is EditorNode
                     && _state.CurrentTab != TabId.HexDump)
-                    hints.Add(s.Section("iw: Word | iW: WORD"));
+                    hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
             }
             catch (NullReferenceException)
             {

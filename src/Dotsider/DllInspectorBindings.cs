@@ -269,20 +269,6 @@ public static class DllInspectorBindings
             }
         }
 
-        // iw/iW hint — show when a read-only editor is focused (not hex dump)
-        if (state.CurrentTab != TabId.HexDump)
-        {
-            try
-            {
-                if (state.App.FocusedNode is EditorNode)
-                    hints.Add(s.Section("iw: Word"));
-            }
-            catch (NullReferenceException)
-            {
-                // Focus ring may not be initialized yet
-            }
-        }
-
         // Cross-view back hint
         if (state.CrossViewBackTarget is not null)
             hints.Add(s.Section("Esc: Back"));
