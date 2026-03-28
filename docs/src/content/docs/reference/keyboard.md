@@ -13,6 +13,8 @@ description: All keyboard shortcuts for navigating dotsider.
 | `/` | Search |
 | `n` / `N` | Next / previous search match |
 | `y` | Yank (copy) — selected text in editors, or focused row in tables |
+| `yy` | Yank entire line under cursor |
+| `V` | Select entire line under cursor |
 | `iw` | Select inner word under cursor (letters, digits, underscores) |
 | `iW` | Select inner WORD under cursor (whitespace-delimited) |
 | `yiw` | Select + yank inner word in one motion |

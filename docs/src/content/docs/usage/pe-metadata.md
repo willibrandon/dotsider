@@ -18,7 +18,7 @@ The **PE / Metadata** tab (`2`) exposes the raw structure of the Portable Execut
 
 ## Text selection and copy
 
-The PE Headers and CLR Header panels are selectable editors. Press `Tab` to cycle focus between them and the metadata table. Select text and press `y` to copy. `iw` and `yiw` work here too — quick way to grab a single header value.
+The PE Headers and CLR Header panels are selectable editors. Press `Tab` to cycle focus between them and the metadata table. Select text and press `y` to copy. `iw` and `yiw` work here too — quick way to grab a single header value. `V` and `yy` work for line-level selection and copy.
 
 Press `Enter` on any metadata table row to open a detail popup. The popup is also a selectable editor — select specific values and press `y` to yank them.
 

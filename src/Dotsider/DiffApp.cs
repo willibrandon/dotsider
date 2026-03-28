@@ -154,6 +154,19 @@ public sealed class DiffApp(DiffState state)
                         && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
                         _state.VimPending = VimMotionState.Idle;
 
+                    // yy: second y while already armed → yank entire line
+                    if (_state.VimPending == VimMotionState.WaitingForYMotion
+                        && ctx.FocusedNode is EditorNode { State: var yyState } yyEditor
+                        && yyState == _state.VimPendingEditor
+                        && yyState.Cursor.Position.Value == _state.VimPendingCursorOffset)
+                    {
+                        _state.VimPending = VimMotionState.Idle;
+                        TextObjectHelper.SelectLine(yyState);
+                        if (yyState.Cursor.HasSelection)
+                            PerformEditorYank(ctx, yyEditor);
+                        return;
+                    }
+
                     // Editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
@@ -162,7 +175,7 @@ public sealed class DiffApp(DiffState state)
                         return;
                     }
 
-                    // Editor without selection → arm operator-pending for yiw/yiW
+                    // Editor without selection → arm operator-pending for yiw/yiW/yy
                     if (ctx.FocusedNode is EditorNode noSelEditor)
                     {
                         _state.VimPending = VimMotionState.WaitingForYMotion;
@@ -266,7 +279,7 @@ public sealed class DiffApp(DiffState state)
             try
             {
                 if (_state.App.FocusedNode is EditorNode)
-                    hints.Add(s.Section("iw: Word | iW: WORD"));
+                    hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
             }
             catch (NullReferenceException)
             {

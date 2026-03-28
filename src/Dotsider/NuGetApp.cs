@@ -95,7 +95,7 @@ public sealed class NuGetApp(NuGetState state)
                     var isHexDump = _state.SelectedDllState is
                         { CurrentTab: TabId.HexDump };
                     if (_state.App.FocusedNode is EditorNode && !isHexDump)
-                        hints.Add(s.Section("iw: Word | iW: WORD"));
+                        hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
                 }
                 catch (NullReferenceException)
                 {
@@ -298,20 +298,48 @@ public sealed class NuGetApp(NuGetState state)
                 // Universal yank — same behavior as DotsiderApp
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
-                    // Timeout check
+                    // Timeout check — reset stale state on both stores
                     if (_state.VimPending != VimMotionState.Idle
                         && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
                         _state.VimPending = VimMotionState.Idle;
+                    if (_state.SelectedDllState is { VimPending: not VimMotionState.Idle } dllTimeout
+                        && (DateTime.UtcNow - dllTimeout.VimPendingTimestamp).TotalSeconds > 1.0)
+                        dllTimeout.VimPending = VimMotionState.Idle;
 
-                    // 1. Any focused editor with selection
+                    // 1. yy: second y while already armed → yank entire line
+                    // Check both state stores (browser vs DLL inspector)
+                    if (ctx.FocusedNode is EditorNode { State: var yyState } yyEditor)
+                    {
+                        var dllPending = _state.SelectedDllState;
+                        var isDllYY = dllPending is { VimPending: VimMotionState.WaitingForYMotion }
+                            && yyState == dllPending.VimPendingEditor
+                            && yyState.Cursor.Position.Value == dllPending.VimPendingCursorOffset;
+                        var isBrowserYY = _state.VimPending == VimMotionState.WaitingForYMotion
+                            && yyState == _state.VimPendingEditor
+                            && yyState.Cursor.Position.Value == _state.VimPendingCursorOffset;
+
+                        if (isDllYY || isBrowserYY)
+                        {
+                            if (isDllYY) dllPending!.VimPending = VimMotionState.Idle;
+                            if (isBrowserYY) _state.VimPending = VimMotionState.Idle;
+                            TextObjectHelper.SelectLine(yyState);
+                            if (yyState.Cursor.HasSelection)
+                                PerformEditorYank(ctx, yyEditor);
+                            return;
+                        }
+                    }
+
+                    // 2. Any focused editor with selection
                     if (ctx.FocusedNode is EditorNode { State.Cursor.HasSelection: true } editor)
                     {
                         _state.VimPending = VimMotionState.Idle;
+                        if (_state.SelectedDllState is { } dllSel)
+                            dllSel.VimPending = VimMotionState.Idle;
                         PerformEditorYank(ctx, editor);
                         return;
                     }
 
-                    // 2. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW
+                    // 3. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW/yy
                     if (ctx.FocusedNode is EditorNode noSelEditor)
                     {
                         // Don't arm on hex dump normal mode (I conflicts with Insert)
@@ -339,7 +367,7 @@ public sealed class NuGetApp(NuGetState state)
                             _state.VimPendingCursorOffset = noSelEditor.State.Cursor.Position.Value;
                             _state.VimPendingTimestamp = DateTime.UtcNow;
                         }
-                        
+
                         return;
                     }
 

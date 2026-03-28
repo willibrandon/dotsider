@@ -167,6 +167,28 @@ public static class TextObjectHelper
             invalidate();
         }, "");
 
+        // --- Triple-click override: select line content only (no trailing newline) ---
+        // The default EditorWidget triple-click uses SelectLineAt which positions the
+        // cursor at the start of the NEXT line (exclusive end convention). PerformEditorYank
+        // adds +1 to cursor.Position (inclusive/neovim convention for iw/iW). These two
+        // conventions clash, causing yank to grab the newline plus the first character of
+        // the next line. Fix: replace the default handler with one that positions the
+        // cursor on the last visible character of the line (inclusive end).
+        bindings.Remove(EditorWidget.TripleClick);
+        bindings.Mouse(MouseButton.Left).TripleClick().Action(_ =>
+        {
+            SelectLine(thisEditorState);
+            invalidate();
+        }, "Triple-click to select line");
+
+        // --- Shift+V: visual line select (vim V) ---
+        bindings.Shift().Key(Hex1bKey.V).Action(_ =>
+        {
+            ResetToIdle();
+            SelectLine(thisEditorState);
+            invalidate();
+        }, "Select line");
+
         // --- All other bindings (conditionally registered when pending) ---
         if (getVimPending() == VimMotionState.Idle) return;
 
@@ -320,6 +342,42 @@ public static class TextObjectHelper
 
         ResetToIdle();
         invalidate();
+    }
+
+    /// <summary>
+    /// Selects the entire visible content of the line at the cursor position.
+    /// Anchor is set to the exclusive end (one past the last visible character)
+    /// and Position to the line start, producing a half-open selection
+    /// <c>[lineStart, lineStart + len)</c> that the renderer highlights correctly.
+    /// <c>PerformEditorYank</c>'s <c>+1</c> adjustment computes
+    /// <c>Math.Max(lineStart + len, lineStart + 1) = lineStart + len</c>,
+    /// extracting exactly the visible content without the trailing newline.
+    /// </summary>
+    /// <param name="state">The editor state to modify.</param>
+    internal static void SelectLine(EditorState state)
+    {
+        if (state.Document.Length == 0) return;
+
+        var pos = state.Document.OffsetToPosition(state.Cursor.Position);
+        var lineStart = state.Document.PositionToOffset(new DocumentPosition(pos.Line, 1));
+        var lineText = state.Document.GetLineText(pos.Line);
+
+        state.Cursors.CollapseToSingle();
+
+        if (lineText.Length == 0)
+        {
+            // Empty line — just position cursor at line start, no selection
+            state.SetCursorPosition(lineStart);
+            return;
+        }
+
+        // Anchor at exclusive end, Position at start. This makes:
+        //   SelectionRange = (lineStart, lineStart + lineText.Length)
+        //   HasSelection = true (even for single-char lines)
+        //   Renderer highlights [lineStart, lineStart + len) — all visible chars
+        //   Yank extracts [lineStart, lineStart + len) — no trailing newline
+        state.Cursor.SelectionAnchor = new DocumentOffset(lineStart.Value + lineText.Length);
+        state.Cursor.Position = lineStart;
     }
 
     private enum CharClass { Word, Punctuation, Whitespace, Newline }

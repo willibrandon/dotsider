@@ -1209,4 +1209,179 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
     }
+
+    // --- Triple-click line selection ---
+
+    [Fact(Timeout = 60_000)]
+    public async Task IlInspector_TripleClickSelectsOnlyCurrentLine()
+    {
+        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Navigate to IL Inspector with a method that has IL instructions
+        var method = _state!.Analyzer.MethodDefs
+            .First(m => m.Rva > 0);
+
+        _state.NavigateToIlMethod(method);
+
+        // Wait for IL content to render — look for the first IL instruction
+        List<(int Line, int Column)> matches = [];
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s =>
+            {
+                var found = s.FindText("IL_0000:");
+                if (found.Count == 0) return false;
+                matches = [.. found.Select(m => (m.Line, m.Column))];
+                return true;
+            }, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var (row, col) = matches[0];
+
+        // Focus the IL editor (status bar shows "l: Focus IL" when tree has focus)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => IsFocusedOnEditor(_state.IlEditorState),
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Triple-click to select the line: three rapid clicks at the same position
+        // (matches the pattern used by hex1b's own EditorMouseTests)
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
+            .WaitUntil(_ => _state!.IlEditorState?.Cursor.HasSelection == true,
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Verify the editor still has focus after triple-click
+        Assert.True(IsFocusedOnEditor(_state.IlEditorState),
+            "Editor should have focus after triple-click");
+
+        // Yank the selection
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Verify clipboard content
+        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+
+        // The yanked text should be exactly the IL_0000 line — no trailing newline
+        // and no character from the next line (e.g. "I" from "IL_0005")
+        Assert.StartsWith("IL_0000:", yankedText);
+        Assert.DoesNotContain("\n", yankedText);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task IlInspector_ShiftV_SelectsCurrentLine()
+    {
+        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Navigate to IL Inspector with a method
+        var method = _state!.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        _state.NavigateToIlMethod(method);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Focus the IL editor and position cursor on a line
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => IsFocusedOnEditor(_state.IlEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.False(_state.IlEditorState!.Cursor.HasSelection);
+
+        // Shift+V to select the line
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Shift().Key(Hex1bKey.V)
+            .WaitUntil(_ => _state.IlEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Verify: selection covers visible line content, no newline
+        var es = _state.IlEditorState!;
+        var selected = es.Document.GetText(es.Cursor.SelectionRange);
+        // SelectLine uses inclusive end, so GetText(range) may miss the last char;
+        // yank adds +1, but for this assertion just check the raw selection is clean
+        Assert.True(selected.Length > 0, "Selection should not be empty");
+        Assert.DoesNotContain("\n", selected);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task IlInspector_YY_YanksCurrentLine()
+    {
+        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Navigate to IL Inspector with a method
+        var method = _state!.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        _state.NavigateToIlMethod(method);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Focus the IL editor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => IsFocusedOnEditor(_state.IlEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // yy to yank the current line
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .Type("y")
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+
+        // The first line visible is a comment line (// Method: ...)
+        // Verify: no newline, no bleed into next line
+        Assert.True(yankedText.Length > 0);
+        Assert.DoesNotContain("\n", yankedText);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
 }
