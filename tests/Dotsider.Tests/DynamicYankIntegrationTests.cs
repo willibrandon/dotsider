@@ -250,7 +250,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     }
 
     [Fact(Timeout = 30_000)]
-    public async Task Dynamic_LeftRightDoNotSwitchSubTabsWhenEditorFocused()
+    public async Task Dynamic_LeftRightNavigateSubTabsFromEditorFocus()
     {
         var (terminal, app, ct) = Launch(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
@@ -258,15 +258,25 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
         await NavigateToCounters().Build().ApplyAsync(terminal, ct);
 
-        var subtabBefore = _state!.DynamicSubTab;
+        Assert.Equal(DynamicSubTabId.Counters, _state!.DynamicSubTab);
+
+        // Left from Counters → Events
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Events, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        await Task.Delay(100, ct);
-        Assert.Equal(subtabBefore, _state.DynamicSubTab);
+        Assert.Equal(DynamicSubTabId.Events, _state.DynamicSubTab);
+
+        // Right from Events → Counters
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
