@@ -403,12 +403,12 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     }
 
     [Fact(Timeout = 60_000)]
-    public async Task Dynamic_Counters_PostExitRefresh_UpdatesWhileFocused()
+    public async Task Dynamic_Summary_PostExitRefresh_UpdatesWhileFocused()
     {
         var (terminal, app, ct) = Launch(samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
 
-        // Launch trace, wait for running, switch to Counters, focus editor
+        // Launch trace, wait for running, switch to Summary (via Counters), focus editor
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
@@ -418,16 +418,21 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(5))
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Capture the editor text while running
-        var textWhileRunning = _state!.DynamicCpuEditorText;
+        await TabOutOfCountersEditorsAsync(terminal, ct);
+
+        await NavigateFromCountersToSummary()
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Capture the Summary editor text while running — Duration is always increasing
+        var textWhileRunning = _state!.DynamicSummaryEditorText;
         Assert.True(IsFocusedOnEditor());
 
-        // Wait for more counter updates to accumulate so final text will differ
+        // Wait so the Duration field accumulates more time
         await Task.Delay(2000, ct);
 
         // Stop the tracer — the editor should refresh even though it still has focus
@@ -438,10 +443,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // After exit, the editor text should reflect the final counter values,
-        // not be frozen at the snapshot from when the process was still running.
-        // The text must have been updated (process ran for 2+ extra seconds).
-        Assert.NotEqual(textWhileRunning, _state.DynamicCpuEditorText);
+        // After exit, the editor text must reflect the final summary values,
+        // not be frozen at the snapshot captured while the process was running.
+        // Duration always changes, so the text is guaranteed to differ.
+        Assert.NotEqual(textWhileRunning, _state.DynamicSummaryEditorText);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
