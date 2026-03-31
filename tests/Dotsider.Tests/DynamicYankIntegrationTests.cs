@@ -2,6 +2,7 @@ using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -80,24 +81,28 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>Sends Tab keys until focus leaves all editors on the Counters subtab.</summary>
     private async Task TabOutOfCountersEditorsAsync(Hex1bTerminal terminal, CancellationToken ct)
     {
+        // Each Tab moves focus to the next editor or to the subtab strip.
+        // We send Tab and wait for the focused node to change, repeating
+        // until focus lands on something that isn't an EditorNode.
         for (var i = 0; i < 6; i++)
         {
-            try
-            {
-                var focused = _state?.App.FocusedNode;
-                if (focused is not EditorNode) return;
-            }
+            Hex1bNode? before;
+            try { before = _state?.App.FocusedNode; }
             catch (NullReferenceException) { return; }
+
+            if (before is not EditorNode) return;
 
             await new Hex1bTerminalInputSequenceBuilder()
                 .Key(Hex1bKey.Tab)
+                .WaitUntil(_ =>
+                {
+                    try { return _state?.App.FocusedNode != before; }
+                    catch (NullReferenceException) { return true; }
+                }, TimeSpan.FromSeconds(2))
                 .Build()
                 .ApplyAsync(terminal, ct);
-
-            await Task.Delay(50, ct);
         }
 
-        // Verify we actually left
         Assert.False(IsFocusedOnEditor(),
             $"Still on an editor after 6 Tab presses. FocusedNode: {_state?.App.FocusedNode?.GetType().Name}");
     }
@@ -408,7 +413,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         var (terminal, app, ct) = Launch(samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
 
-        // Launch trace, wait for running, switch to Summary (via Counters), focus editor
+        // Launch trace, wait for running, switch to Summary (via Counters)
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
@@ -428,25 +433,28 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Capture the Summary editor text while running — Duration is always increasing
-        var textWhileRunning = _state!.DynamicSummaryEditorText;
         Assert.True(IsFocusedOnEditor());
 
-        // Wait so the Duration field accumulates more time
-        await Task.Delay(2000, ct);
+        // Capture the frozen EditorState reference while the process is running.
+        // The freeze mechanism keeps this exact instance alive while focused+running.
+        var frozenState = _state!.DynamicSummaryEditorState;
 
-        // Stop the tracer — the editor should refresh even though it still has focus
+        // Let the process run longer so Duration accumulates past the frozen snapshot
+        await Task.Delay(3000, ct);
+
+        // Stop the tracer — once exited, the freeze lifts and the editor must update
         _state.Tracer!.Stop();
+
+        // Wait for exit, then wait for the EditorState to be recreated (proving the
+        // freeze was lifted and UpdateEditorIfNeeded saw the changed text)
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.Tracer!.ProcessState
                 is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.DynamicSummaryEditorState != frozenState, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // After exit, the editor text must reflect the final summary values,
-        // not be frozen at the snapshot captured while the process was running.
-        // Duration always changes, so the text is guaranteed to differ.
-        Assert.NotEqual(textWhileRunning, _state.DynamicSummaryEditorText);
+        Assert.NotSame(frozenState, _state.DynamicSummaryEditorState);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
