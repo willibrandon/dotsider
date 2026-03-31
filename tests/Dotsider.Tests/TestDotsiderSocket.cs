@@ -184,6 +184,10 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
             {
                 break;
             }
+            catch (SocketException)
+            {
+                break;
+            }
 
             try
             {

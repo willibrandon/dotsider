@@ -586,8 +586,14 @@ public sealed class DotsiderApp(DotsiderState state)
                 TabId.HexDump => true,
                 TabId.DepGraph => _state.GraphSelectedNode is not null || _state.GraphSelectedIndex >= 0,
                 TabId.SizeMap => _state.TreemapHoveredItem is not null || _state.TreemapSelectedIndex >= 0,
-                TabId.Dynamic => _state.DynamicSubTab is DynamicSubTabId.Events or DynamicSubTabId.Output
-                    && (_state.DynamicEventsFocusedKey is not null || _state.DynamicOutputFocusedKey is not null),
+                TabId.Dynamic => _state.DynamicSubTab switch
+                {
+                    DynamicSubTabId.Events => _state.DynamicEventsFocusedKey is not null,
+                    DynamicSubTabId.Output => _state.DynamicOutputFocusedKey is not null,
+                    DynamicSubTabId.Counters => _state.DynamicMemoryEditorState is not null,
+                    DynamicSubTabId.Summary => _state.DynamicSummaryEditorState is not null,
+                    _ => false
+                },
                 _ => false
             };
             if (yankable)

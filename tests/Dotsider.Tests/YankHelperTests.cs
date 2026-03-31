@@ -3,7 +3,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
-using Hex1b.Automation;
 using Hex1b.Documents;
 using Hex1b.Widgets;
 
@@ -482,6 +481,21 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
         state.StringsDetailEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
         Assert.Same(state.StringsDetailYankProvider, YankHelper.FindYankProvider(state, state.StringsDetailEditorState));
+
+        state.DynamicCpuEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DynamicCpuYankProvider, YankHelper.FindYankProvider(state, state.DynamicCpuEditorState));
+
+        state.DynamicMemoryEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DynamicMemoryYankProvider, YankHelper.FindYankProvider(state, state.DynamicMemoryEditorState));
+
+        state.DynamicGcEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DynamicGcYankProvider, YankHelper.FindYankProvider(state, state.DynamicGcEditorState));
+
+        state.DynamicThreadingEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DynamicThreadingYankProvider, YankHelper.FindYankProvider(state, state.DynamicThreadingEditorState));
+
+        state.DynamicSummaryEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DynamicSummaryYankProvider, YankHelper.FindYankProvider(state, state.DynamicSummaryEditorState));
 
         // Unknown editor returns null
         var unknownState = new EditorState(new Hex1bDocument("unknown")) { IsReadOnly = true };

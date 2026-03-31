@@ -1,8 +1,10 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Layout;
+using Hex1b.Nodes;
 using Hex1b.Surfaces;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -26,7 +28,12 @@ public static class DynamicAnalysisView
     private static readonly Hex1bColor Teal = Hex1bColor.FromRgb(0, 200, 180);
     private static readonly Hex1bColor FocusFg = Hex1bColor.Black;
     private static readonly Hex1bColor FocusBg = Hex1bColor.FromRgb(0, 200, 180);
+    private static readonly Hex1bColor YankFlashFg = Hex1bColor.FromRgb(24, 24, 37);
+    private static readonly Hex1bColor YankFlashBg = Hex1bColor.FromRgb(126, 201, 216);
     private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
+
+    /// <summary>Set per-frame to enable yank flash on the focused table row.</summary>
+    [ThreadStatic] private static bool s_yankFlash;
 
     internal static readonly Dictionary<TraceEventCategory, Hex1bColor> CategoryColors = new()
     {
@@ -49,6 +56,8 @@ public static class DynamicAnalysisView
     /// <returns>The root widget for the Dynamic tab.</returns>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        s_yankFlash = state.YankFlashRow;
+
         // .NET Framework — EventPipe is not available
         if (state.IsNetFramework)
             return BuildMessageView(ctx,
@@ -163,11 +172,11 @@ public static class DynamicAnalysisView
             [
                 tp.Tab("Events", t => [BuildEventsSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Events),
-                tp.Tab("Counters", t => [BuildCountersSubTab(t, tracer)])
+                tp.Tab("Counters", t => [BuildCountersSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Counters),
                 tp.Tab("Output", t => [BuildOutputSubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Output),
-                tp.Tab("Summary", t => [BuildSummarySubTab(t, tracer)])
+                tp.Tab("Summary", t => [BuildSummarySubTab(t, state, tracer)])
                     .Selected(state.DynamicSubTab == DynamicSubTabId.Summary)
             ])
             .OnSelectionChanged(e =>
@@ -177,6 +186,7 @@ public static class DynamicAnalysisView
                     state.CanNavigateJitEvent = false;
                 state.App.Invalidate();
             })
+            .MetricName("dynamic-subtabs")
             .Compact()
             .Fill());
 
@@ -195,6 +205,7 @@ public static class DynamicAnalysisView
                     if (state.DynamicSubTab > 0)
                     {
                         state.DynamicSubTab--;
+                        RequestDynamicSubTabFocus(state);
                         state.App.Invalidate();
                     }
                 }, "Previous sub-tab");
@@ -205,9 +216,46 @@ public static class DynamicAnalysisView
                     if (state.DynamicSubTab < DynamicSubTabId.Count - 1)
                     {
                         state.DynamicSubTab++;
+                        RequestDynamicSubTabFocus(state);
                         state.App.Invalidate();
                     }
                 }, "Next sub-tab");
+            }
+
+            // Tab cycles focus through editors and subtab strip on Counters/Summary
+            if (state.DynamicSubTab == DynamicSubTabId.Counters)
+            {
+                bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+                {
+                    state.VimPending = VimMotionState.Idle;
+                    var next = state.App.FocusedNode is EditorNode { State: var es } ? es switch
+                    {
+                        _ when es == state.DynamicCpuEditorState => state.DynamicMemoryEditorState,
+                        _ when es == state.DynamicMemoryEditorState => state.DynamicGcEditorState,
+                        _ when es == state.DynamicGcEditorState => state.DynamicThreadingEditorState,
+                        _ => (EditorState?)null // Threading → subtab strip
+                    } : state.DynamicCpuEditorState; // subtab strip → CPU
+
+                    if (next is not null)
+                        state.App.RequestFocus(node => node is EditorNode e && e.State == next);
+                    else
+                        state.App.RequestFocus(node =>
+                            node is TabPanelNode { MetricName: "dynamic-subtabs" });
+                    state.App.Invalidate();
+                }, "Cycle focus");
+            }
+            else if (state.DynamicSubTab == DynamicSubTabId.Summary)
+            {
+                bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+                {
+                    state.VimPending = VimMotionState.Idle;
+                    if (state.App.FocusedNode is EditorNode)
+                        state.App.RequestFocus(node =>
+                            node is TabPanelNode { MetricName: "dynamic-subtabs" });
+                    else
+                        state.App.RequestFocus(node => node is EditorNode);
+                    state.App.Invalidate();
+                }, "Toggle focus");
             }
 
             // Ctrl+K to stop the traced process
@@ -239,6 +287,16 @@ public static class DynamicAnalysisView
                     state.DynamicOutputFocusedKey = null;
                     state.DynamicCategoryFilter = null;
                     state.CanNavigateJitEvent = false;
+                    state.DynamicCpuEditorState = null;
+                    state.DynamicCpuEditorText = null;
+                    state.DynamicMemoryEditorState = null;
+                    state.DynamicMemoryEditorText = null;
+                    state.DynamicGcEditorState = null;
+                    state.DynamicGcEditorText = null;
+                    state.DynamicThreadingEditorState = null;
+                    state.DynamicThreadingEditorText = null;
+                    state.DynamicSummaryEditorState = null;
+                    state.DynamicSummaryEditorText = null;
                     state.App.RequestFocus(node =>
                         node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
@@ -337,16 +395,10 @@ public static class DynamicAnalysisView
                                     CategoryColors.GetValueOrDefault(evt.Category, Hex1bColor.White)),
                                 c.Text(evt.Category.ToString())),
                         rs.IsFocused)),
-                    r.Cell(c => FocusStyle(c,
-                        HighlightHelper.HighlightCell(c, evt.EventName, query,
-                            !string.IsNullOrEmpty(query),
-                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                        rs.IsFocused)),
-                    r.Cell(c => FocusStyle(c,
-                        HighlightHelper.HighlightCell(c, evt.Detail, query,
-                            !string.IsNullOrEmpty(query),
-                            rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                        rs.IsFocused))
+                    r.Cell(c => FocusHighlightCell(c, evt.EventName, query,
+                        !string.IsNullOrEmpty(query), rs.IsFocused)),
+                    r.Cell(c => FocusHighlightCell(c, evt.Detail, query,
+                        !string.IsNullOrEmpty(query), rs.IsFocused))
                 ])
                 .Focus(state.DynamicEventsFocusedKey)
                 .OnFocusChanged(key =>
@@ -405,52 +457,83 @@ public static class DynamicAnalysisView
     }
 
     private static Hex1bWidget BuildCountersSubTab(
-        WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
+        WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var counters = tracer.GetLatestCounters();
 
         if (counters is null)
             return ctx.Text("  Waiting for counter data (updates every ~1s)...").Fill();
 
+        var cpuText = $"  CPU Usage: {counters.CpuUsagePercent:F1}%";
+        var memoryText = $"  Working Set:  {counters.WorkingSetMb:F1} MB\n  GC Heap Size: {counters.GcHeapSizeMb:F1} MB";
+        var gcText = $"  Gen 0: {counters.Gen0Collections}    Gen 1: {counters.Gen1Collections}    Gen 2: {counters.Gen2Collections}";
+        var threadingText = $"  Threads: {counters.ThreadPoolThreadCount}    Queue: {counters.ThreadPoolQueueLength}    Exceptions: {counters.ExceptionCount}    Timers: {counters.ActiveTimerCount}";
+
+        var firstCreation = UpdateEditorIfNeeded(state.App, tracer, state.DynamicCpuEditorState, state.DynamicCpuEditorText, cpuText,
+            out var cpuEs, out var cpuTxt);
+        state.DynamicCpuEditorState = cpuEs;
+        state.DynamicCpuEditorText = cpuTxt;
+
+        UpdateEditorIfNeeded(state.App, tracer, state.DynamicMemoryEditorState, state.DynamicMemoryEditorText, memoryText,
+            out var memEs, out var memTxt);
+        state.DynamicMemoryEditorState = memEs;
+        state.DynamicMemoryEditorText = memTxt;
+
+        UpdateEditorIfNeeded(state.App, tracer, state.DynamicGcEditorState, state.DynamicGcEditorText, gcText,
+            out var gcEs, out var gcTxt);
+        state.DynamicGcEditorState = gcEs;
+        state.DynamicGcEditorText = gcTxt;
+
+        UpdateEditorIfNeeded(state.App, tracer, state.DynamicThreadingEditorState, state.DynamicThreadingEditorText, threadingText,
+            out var thrEs, out var thrTxt);
+        state.DynamicThreadingEditorState = thrEs;
+        state.DynamicThreadingEditorText = thrTxt;
+
+        if (state.CurrentTab == TabId.Dynamic && state.DynamicSubTab == DynamicSubTabId.Counters)
+        {
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DynamicCpuEditorState!,
+                ref state.DynamicCpuPrevSelectionAnchor,
+                ref state.DynamicCpuPrevCursorPosition);
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DynamicMemoryEditorState!,
+                ref state.DynamicMemoryPrevSelectionAnchor,
+                ref state.DynamicMemoryPrevCursorPosition);
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DynamicGcEditorState!,
+                ref state.DynamicGcPrevSelectionAnchor,
+                ref state.DynamicGcPrevCursorPosition);
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DynamicThreadingEditorState!,
+                ref state.DynamicThreadingPrevSelectionAnchor,
+                ref state.DynamicThreadingPrevCursorPosition);
+        }
+
+        // Request editor focus when editors are first created (deferred from arrow key binding
+        // which fires before editors exist in the tree)
+        if (firstCreation)
+            state.App.RequestFocus(node => node is EditorNode);
+
         return ctx.VStack(inner =>
         [
-            // CPU gauge
+            // CPU
             inner.Border(
-                inner.Surface(s =>
-                [
-                    s.Layer(surface => DrawGauge(surface, "CPU Usage",
-                        counters.CpuUsagePercent, 100, "%", Teal))
-                ]).FixedHeight(1)
+                BuildReadOnlyEditor(inner, state, state.DynamicCpuEditorState!, state.DynamicCpuYankProvider)
             ).Title(" CPU ").FixedHeight(3),
 
             // Memory
             inner.Border(
-                inner.VStack(v =>
-                [
-                    CounterLine(v, "  Working Set:  ", $"{counters.WorkingSetMb:F1} MB"),
-                    CounterLine(v, "  GC Heap Size: ", $"{counters.GcHeapSizeMb:F1} MB")
-                ])
+                BuildReadOnlyEditor(inner, state, state.DynamicMemoryEditorState!, state.DynamicMemoryYankProvider)
             ).Title(" Memory ").FixedHeight(4),
 
             // GC Collections
             inner.Border(
-                inner.HStack(row =>
-                [
-                    CounterLine(row, "  Gen 0: ", $"{counters.Gen0Collections}"),
-                    CounterLine(row, "    Gen 1: ", $"{counters.Gen1Collections}"),
-                    CounterLine(row, "    Gen 2: ", $"{counters.Gen2Collections}").Fill()
-                ])
+                BuildReadOnlyEditor(inner, state, state.DynamicGcEditorState!, state.DynamicGcYankProvider)
             ).Title(" GC Collections ").FixedHeight(3),
 
             // Threading
             inner.Border(
-                inner.HStack(row =>
-                [
-                    CounterLine(row, "  Threads: ", $"{counters.ThreadPoolThreadCount}"),
-                    CounterLine(row, "    Queue: ", $"{counters.ThreadPoolQueueLength}"),
-                    CounterLine(row, "    Exceptions: ", $"{counters.ExceptionCount}"),
-                    CounterLine(row, "    Timers: ", $"{counters.ActiveTimerCount}").Fill()
-                ])
+                BuildReadOnlyEditor(inner, state, state.DynamicThreadingEditorState!, state.DynamicThreadingYankProvider)
             ).Title(" Threading ").FixedHeight(3),
 
             // Spacer
@@ -458,23 +541,6 @@ public static class DynamicAnalysisView
         ]).Fill();
     }
 
-    private static void DrawGauge(Surface surface, string label, double value,
-        double max, string unit, Hex1bColor color)
-    {
-        var w = surface.Width;
-        var labelText = $"{label}: {value:F1}{unit} ";
-        var barStart = Math.Min(labelText.Length + 1, w - 2);
-        var barWidth = Math.Max(0, w - barStart - 1);
-        var filled = (int)(barWidth * Math.Clamp(value / max, 0, 1));
-
-        surface.WriteText(1, 0, labelText, Hex1bColor.White);
-
-        for (var x = 0; x < barWidth; x++)
-        {
-            var c = x < filled ? color : Hex1bColor.FromRgb(40, 40, 50);
-            surface.WriteChar(barStart + x, 0, '█', c);
-        }
-    }
 
     private static TableWidget<OutputLine> BuildOutputSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
@@ -505,12 +571,10 @@ public static class DynamicAnalysisView
                 r.Cell(c => FocusStyle(c, line.IsStdErr && !rs.IsFocused
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text("err"))
                     : c.Text(line.IsStdErr ? "err" : "out"), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c, line.IsStdErr && !rs.IsFocused
-                    ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text))
-                    : HighlightHelper.HighlightCell(c, line.Text, query,
-                        !string.IsNullOrEmpty(query),
-                        rs.IsFocused ? FocusFg : null, rs.IsFocused ? FocusBg : null),
-                    rs.IsFocused))
+                r.Cell(c => line.IsStdErr && !rs.IsFocused
+                    ? FocusStyle(c, c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text)), rs.IsFocused)
+                    : FocusHighlightCell(c, line.Text, query,
+                        !string.IsNullOrEmpty(query), rs.IsFocused))
             ])
             .Focus(state.DynamicOutputFocusedKey)
             .OnFocusChanged(key => state.DynamicOutputFocusedKey = key)
@@ -521,23 +585,40 @@ public static class DynamicAnalysisView
     }
 
     private static VStackWidget BuildSummarySubTab(
-        WidgetContext<VStackWidget> ctx, RuntimeTracer tracer)
+        WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
         var summary = tracer.GetSummary();
 
+        var summaryText = string.Join("\n",
+            $"  Total Events:     {summary.TotalEvents:N0}",
+            $"  Duration:         {summary.Duration:mm\\:ss\\.fff}",
+            $"  Jitted Methods:   {summary.JittedMethodCount:N0}",
+            $"  GC Collections:   {summary.TotalGcCollections:N0}",
+            $"  Exceptions:       {summary.TotalExceptions:N0}",
+            $"  Peak Working Set: {summary.PeakWorkingSetMb:F1} MB",
+            $"  Peak GC Heap:     {summary.PeakGcHeapMb:F1} MB");
+
+        var firstCreation = UpdateEditorIfNeeded(state.App, tracer, state.DynamicSummaryEditorState, state.DynamicSummaryEditorText, summaryText,
+            out var sumEs, out var sumTxt);
+        state.DynamicSummaryEditorState = sumEs;
+        state.DynamicSummaryEditorText = sumTxt;
+
+        if (state.CurrentTab == TabId.Dynamic && state.DynamicSubTab == DynamicSubTabId.Summary)
+        {
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DynamicSummaryEditorState!,
+                ref state.DynamicSummaryPrevSelectionAnchor,
+                ref state.DynamicSummaryPrevCursorPosition);
+        }
+
+        if (firstCreation)
+            state.App.RequestFocus(node => node is EditorNode);
+
         return ctx.VStack(inner =>
         [
+            // Trace Summary
             inner.Border(
-                inner.VStack(info =>
-                [
-                    InfoLine(info, "Total Events", summary.TotalEvents.ToString("N0")),
-                    InfoLine(info, "Duration", summary.Duration.ToString(@"mm\:ss\.fff")),
-                    InfoLine(info, "JIT'd Methods", summary.JittedMethodCount.ToString("N0")),
-                    InfoLine(info, "GC Collections", summary.TotalGcCollections.ToString("N0")),
-                    InfoLine(info, "Exceptions", summary.TotalExceptions.ToString("N0")),
-                    InfoLine(info, "Peak Working Set", $"{summary.PeakWorkingSetMb:F1} MB"),
-                    InfoLine(info, "Peak GC Heap", $"{summary.PeakGcHeapMb:F1} MB")
-                ])
+                BuildReadOnlyEditor(inner, state, state.DynamicSummaryEditorState!, state.DynamicSummaryYankProvider)
             ).Title(" Trace Summary ").FixedHeight(9),
 
             // Event distribution as a simple bar chart using Surface
@@ -561,26 +642,63 @@ public static class DynamicAnalysisView
         ]).FixedHeight(1);
     }
 
-    private static HStackWidget CounterLine<T>(WidgetContext<T> ctx, string label, string value)
-        where T : Hex1bWidget
+    /// <summary>
+    /// Updates an editor state only when the text changes, preserving cursor/selection
+    /// while the tracer is actively running and the editor has focus. Once the tracer
+    /// exits or errors, always update so the final values are visible.
+    /// </summary>
+    private static bool UpdateEditorIfNeeded(
+        Hex1bApp app, RuntimeTracer tracer,
+        EditorState? editorState, string? editorText, string newText,
+        out EditorState newEditorState, out string newEditorText)
     {
-        return ctx.HStack(row =>
-        [
-            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
-                row.Text(label)),
-            row.Text(value)
-        ]);
+        var wasNull = editorState is null;
+        var isFocused = app.FocusedNode is EditorNode { State: var es } && es == editorState;
+        var isLiveAndFocused = isFocused
+            && tracer.ProcessState is TraceProcessState.Running or TraceProcessState.Starting;
+        if ((editorText != newText && !isLiveAndFocused) || wasNull)
+        {
+            newEditorText = newText;
+            newEditorState = new EditorState(new Hex1bDocument(newText)) { IsReadOnly = true };
+        }
+        else
+        {
+            newEditorState = editorState!;
+            newEditorText = editorText!;
+        }
+
+        return wasNull;
     }
 
-    private static HStackWidget InfoLine<T>(WidgetContext<T> ctx, string label, string value)
-        where T : Hex1bWidget
+    /// <summary>
+    /// Builds a readonly editor widget with the standard selection theme, decorations,
+    /// and vim text-object bindings.
+    /// </summary>
+    private static ThemePanelWidget BuildReadOnlyEditor<T>(
+        WidgetContext<T> ctx, DotsiderState state, EditorState editorState,
+        IlYankDecorationProvider yankProvider) where T : Hex1bWidget
     {
-        return ctx.HStack(row =>
-        [
-            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
-                row.Text($"  {label}:")).FixedWidth(22),
-            row.Text($" {value}").Fill()
-        ]).FixedHeight(1);
+        return ctx.ThemePanel(t => t
+                .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+            ctx.Editor(editorState)
+                .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                .Decorations(new InfoLabelDecorationProvider())
+                .Decorations(yankProvider)
+                .WithInputBindings(bindings =>
+                {
+                    TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                        bindings,
+                        editorState,
+                        () => state.VimPending,
+                        () => state.VimPendingEditor,
+                        () => state.VimPendingCursorOffset,
+                        () => state.VimPendingTimestamp,
+                        (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                        state.PerformEditorYank,
+                        () => state.App.Invalidate());
+                })
+                .FillWidth().FillHeight());
     }
 
     /// <summary>
@@ -759,12 +877,33 @@ public static class DynamicAnalysisView
         }
     }
 
+    private static void RequestDynamicSubTabFocus(DotsiderState state)
+    {
+        if (state.DynamicSubTab is DynamicSubTabId.Counters or DynamicSubTabId.Summary)
+            state.App.RequestFocus(node => node is EditorNode);
+        else
+            state.App.RequestFocus(node => node.GetType().Name.StartsWith("TableNode"));
+    }
+
     private static Hex1bWidget FocusStyle<T>(WidgetContext<T> c, Hex1bWidget child, bool isFocused)
         where T : Hex1bWidget
     {
         if (!isFocused) return child;
+        var flash = s_yankFlash;
+        var fg = flash ? YankFlashFg : FocusFg;
+        var bg = flash ? YankFlashBg : FocusBg;
         return c.ThemePanel(t => t
-            .Set(GlobalTheme.ForegroundColor, FocusFg)
-            .Set(GlobalTheme.BackgroundColor, FocusBg), child);
+            .Set(GlobalTheme.ForegroundColor, fg)
+            .Set(GlobalTheme.BackgroundColor, bg), child);
+    }
+
+    private static Hex1bWidget FocusHighlightCell<T>(
+        WidgetContext<T> c, string text, string? query, bool isMatch, bool isFocused)
+        where T : Hex1bWidget
+    {
+        var flash = isFocused && s_yankFlash;
+        var fg = isFocused ? (flash ? YankFlashFg : FocusFg) : (Hex1bColor?)null;
+        var bg = isFocused ? (flash ? YankFlashBg : FocusBg) : (Hex1bColor?)null;
+        return FocusStyle(c, HighlightHelper.HighlightCell(c, text, query, isMatch, fg, bg), isFocused);
     }
 }

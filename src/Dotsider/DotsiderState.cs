@@ -274,6 +274,83 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Yank flash decoration provider for the Strings detail popup editor.</summary>
     public IlYankDecorationProvider StringsDetailYankProvider { get; } = new();
 
+    // --- Dynamic Readonly Editors ---
+
+    /// <summary>Read-only editor for the Dynamic Counters CPU section.</summary>
+    public EditorState? DynamicCpuEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DynamicCpuEditorState"/>, for staleness detection.</summary>
+    public string? DynamicCpuEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Dynamic Counters CPU editor.</summary>
+    public IlYankDecorationProvider DynamicCpuYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Dynamic CPU editor.</summary>
+    internal DocumentOffset? DynamicCpuPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Dynamic CPU editor.</summary>
+    internal DocumentOffset? DynamicCpuPrevCursorPosition;
+
+    /// <summary>Read-only editor for the Dynamic Counters Memory section.</summary>
+    public EditorState? DynamicMemoryEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DynamicMemoryEditorState"/>, for staleness detection.</summary>
+    public string? DynamicMemoryEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Dynamic Counters Memory editor.</summary>
+    public IlYankDecorationProvider DynamicMemoryYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Dynamic Memory editor.</summary>
+    internal DocumentOffset? DynamicMemoryPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Dynamic Memory editor.</summary>
+    internal DocumentOffset? DynamicMemoryPrevCursorPosition;
+
+    /// <summary>Read-only editor for the Dynamic Counters GC Collections section.</summary>
+    public EditorState? DynamicGcEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DynamicGcEditorState"/>, for staleness detection.</summary>
+    public string? DynamicGcEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Dynamic Counters GC editor.</summary>
+    public IlYankDecorationProvider DynamicGcYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Dynamic GC editor.</summary>
+    internal DocumentOffset? DynamicGcPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Dynamic GC editor.</summary>
+    internal DocumentOffset? DynamicGcPrevCursorPosition;
+
+    /// <summary>Read-only editor for the Dynamic Counters Threading section.</summary>
+    public EditorState? DynamicThreadingEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DynamicThreadingEditorState"/>, for staleness detection.</summary>
+    public string? DynamicThreadingEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Dynamic Counters Threading editor.</summary>
+    public IlYankDecorationProvider DynamicThreadingYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Dynamic Threading editor.</summary>
+    internal DocumentOffset? DynamicThreadingPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Dynamic Threading editor.</summary>
+    internal DocumentOffset? DynamicThreadingPrevCursorPosition;
+
+    /// <summary>Read-only editor for the Dynamic Summary Trace Summary section.</summary>
+    public EditorState? DynamicSummaryEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DynamicSummaryEditorState"/>, for staleness detection.</summary>
+    public string? DynamicSummaryEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Dynamic Summary editor.</summary>
+    public IlYankDecorationProvider DynamicSummaryYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Dynamic Summary editor.</summary>
+    internal DocumentOffset? DynamicSummaryPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Dynamic Summary editor.</summary>
+    internal DocumentOffset? DynamicSummaryPrevCursorPosition;
+
     // --- Strings Tab State ---
 
     /// <summary>The minimum string length filter for raw strings.</summary>
@@ -542,6 +619,9 @@ public sealed class DotsiderState : IDisposable
             App.RequestFocus(node => node is ListNode);
         else if (CurrentTab == TabId.HexDump)
             App.RequestFocus(node => node is EditorNode);
+        else if (CurrentTab == TabId.Dynamic
+                 && DynamicSubTab is DynamicSubTabId.Counters or DynamicSubTabId.Summary)
+            App.RequestFocus(node => node is EditorNode);
         else
             App.RequestFocus(node =>
                 node is TreeNode or ListNode or InteractableNode
@@ -695,6 +775,16 @@ public sealed class DotsiderState : IDisposable
         DynamicCategoryFilter = null;
         DynamicEditingArgs = false;
         DynamicOutputFocusedKey = null;
+        DynamicCpuEditorState = null;
+        DynamicCpuEditorText = null;
+        DynamicMemoryEditorState = null;
+        DynamicMemoryEditorText = null;
+        DynamicGcEditorState = null;
+        DynamicGcEditorText = null;
+        DynamicThreadingEditorState = null;
+        DynamicThreadingEditorText = null;
+        DynamicSummaryEditorState = null;
+        DynamicSummaryEditorText = null;
         // Note: Tracer and DynamicArguments intentionally NOT reset
     }
 

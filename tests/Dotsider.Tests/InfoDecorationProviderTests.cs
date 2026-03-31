@@ -107,4 +107,15 @@ public class InfoDecorationProviderTests
 
         Assert.Empty(spans);
     }
+
+    [Fact]
+    public void InfoLabel_ColorsJittedMethodsLabel()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Jitted Methods:   89");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Single(spans);
+    }
 }

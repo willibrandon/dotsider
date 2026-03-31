@@ -81,6 +81,11 @@ public static class YankHelper
         if (editorState == state.ClrHeaderEditorState) return state.ClrHeaderYankProvider;
         if (editorState == state.PeDetailEditorState) return state.PeDetailYankProvider;
         if (editorState == state.StringsDetailEditorState) return state.StringsDetailYankProvider;
+        if (editorState == state.DynamicCpuEditorState) return state.DynamicCpuYankProvider;
+        if (editorState == state.DynamicMemoryEditorState) return state.DynamicMemoryYankProvider;
+        if (editorState == state.DynamicGcEditorState) return state.DynamicGcYankProvider;
+        if (editorState == state.DynamicThreadingEditorState) return state.DynamicThreadingYankProvider;
+        if (editorState == state.DynamicSummaryEditorState) return state.DynamicSummaryYankProvider;
         return null;
     }
 
