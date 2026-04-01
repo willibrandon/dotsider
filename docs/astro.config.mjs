@@ -45,6 +45,14 @@ export default defineConfig({
             {
                 tag: 'link',
                 attrs: {
+                    rel: 'icon',
+                    type: 'image/png',
+                    href: '/icon.png',
+                },
+            },
+            {
+                tag: 'link',
+                attrs: {
                     rel: 'sitemap',
                     type: 'application/xml',
                     href: '/sitemap-index.xml',
