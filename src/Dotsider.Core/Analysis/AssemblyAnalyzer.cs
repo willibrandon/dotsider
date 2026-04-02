@@ -15,7 +15,7 @@ namespace Dotsider.Core.Analysis;
 public sealed class AssemblyAnalyzer : IDisposable
 {
     private readonly Stream _stream;
-    private readonly PEReader _peReader;
+    private readonly PEReader? _peReader;
     private readonly MetadataReader? _metadataReader;
     private readonly byte[] _rawBytes;
 
@@ -33,7 +33,6 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// </summary>
     /// <param name="filePath">Absolute path to the assembly file.</param>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
-    /// <exception cref="BadImageFormatException">The file is not a valid PE image.</exception>
     public AssemblyAnalyzer(string filePath)
     {
         FilePath = filePath;
@@ -61,6 +60,14 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             ReadPeHeaders();
             ReadClrHeader();
+        }
+        catch (BadImageFormatException) when (IsNativeExecutable(_rawBytes))
+        {
+            // Non-PE native binary (ELF or Mach-O on Linux/macOS), such as a
+            // .NET apphost or NativeAOT output. Raw bytes are already loaded
+            // for hex dump; PE-specific analysis will be empty.
+            _peReader?.Dispose();
+            _peReader = null;
         }
         catch
         {
@@ -99,6 +106,11 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             ReadPeHeaders();
             ReadClrHeader();
+        }
+        catch (BadImageFormatException) when (IsNativeExecutable(_rawBytes))
+        {
+            _peReader?.Dispose();
+            _peReader = null;
         }
         catch
         {
@@ -188,7 +200,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <returns>The method body block, or null.</returns>
     public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
     {
-        if (method.Rva == 0) return null;
+        if (method.Rva == 0 || _peReader is null) return null;
         return _peReader.GetMethodBody(method.Rva);
     }
 
@@ -231,8 +243,26 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        _peReader.Dispose();
+        _peReader?.Dispose();
         _stream.Dispose();
+    }
+
+    /// <summary>
+    /// Returns true if the raw bytes start with a recognized native executable
+    /// magic (ELF or Mach-O). Used to distinguish legitimate non-PE binaries
+    /// from corrupted or junk files.
+    /// </summary>
+    private static bool IsNativeExecutable(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length < 4) return false;
+
+        // ELF: \x7fELF
+        if (bytes[0] == 0x7F && bytes[1] == 0x45 && bytes[2] == 0x4C && bytes[3] == 0x46)
+            return true;
+
+        // Mach-O: four known magic values (big/little endian, 32/64-bit)
+        uint magic = (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
+        return magic is 0xFEEDFACE or 0xFEEDFACF or 0xCEFAEDFE or 0xCFFAEDFE;
     }
 
     private void ReadAssemblyIdentity()
@@ -275,6 +305,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private void ReadPeHeaders()
     {
+        if (_peReader is null) return;
         var coffHeader = _peReader.PEHeaders.CoffHeader;
         var optionalHeader = _peReader.PEHeaders.PEHeader;
 
@@ -312,6 +343,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private void ReadClrHeader()
     {
+        if (_peReader is null) return;
         var corHeader = _peReader.PEHeaders.CorHeader;
         if (corHeader is null) return;
 
@@ -330,6 +362,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private List<SectionInfo> ReadSections()
     {
+        if (_peReader is null) return [];
         return [.. _peReader.PEHeaders.SectionHeaders
             .Select(s => new SectionInfo(
                 Name: s.Name,
@@ -513,7 +546,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 try
                 {
                     var resourcesRva = ClrHeader.ResourcesRva;
-                    var sectionData = _peReader.GetSectionData(resourcesRva);
+                    var sectionData = _peReader!.GetSectionData(resourcesRva);
                     if (sectionData.Length > 0)
                     {
                         var reader = sectionData.GetReader();

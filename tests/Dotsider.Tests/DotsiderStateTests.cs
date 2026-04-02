@@ -545,8 +545,6 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public void ConstructFromApphostExe_SetsApphostDialogState()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldExe);
@@ -569,8 +567,6 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public void PushAssembly_FromApphostToCompanionDll_Works()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldExe);

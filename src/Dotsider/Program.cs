@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.Text;
 using Dotsider;
 using Dotsider.Commands;
+using Dotsider.Core.Analysis;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
@@ -94,6 +95,28 @@ diffCommand.SetAction(async (parseResult, ct) =>
         return 1;
     }
 
+    // Redirect apphost binaries to their companion managed .dll
+    var leftPath = left.FullName;
+    var rightPath = right.FullName;
+
+    var leftCompanion = ApphostDetector.FindCompanionDll(leftPath);
+    if (leftCompanion is not null)
+    {
+        Console.Error.WriteLine(
+            $"Note: {left.Name} is a native apphost. "
+            + $"Analyzing {Path.GetFileName(leftCompanion)} instead.");
+        leftPath = leftCompanion;
+    }
+
+    var rightCompanion = ApphostDetector.FindCompanionDll(rightPath);
+    if (rightCompanion is not null)
+    {
+        Console.Error.WriteLine(
+            $"Note: {right.Name} is a native apphost. "
+            + $"Analyzing {Path.GetFileName(rightCompanion)} instead.");
+        rightPath = rightCompanion;
+    }
+
     DiffState? capturedDiffState = null;
 
     await using var diagnosticsListener = new DotsiderDiagnosticsListener(
@@ -167,7 +190,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
     {
         if (capturedDiffState is null)
         {
-            var diffState = new DiffState(diffHex1bApp!, left.FullName, right.FullName);
+            var diffState = new DiffState(diffHex1bApp!, leftPath, rightPath);
             capturedDiffState = diffState;
             diffApp = new DiffApp(diffState);
         }

@@ -24,9 +24,10 @@ public static class ApphostDetector
 
 ### FindCompanionDll(string)
 
-If exePath ends with `.exe` and the binary is a .NET
-apphost (embeds both the companion DLL name and a `hostfxr` reference),
-returns the path to the companion `.dll` provided it has readable .NET metadata.
+If the binary at exePath is a .NET apphost (embeds both the
+companion DLL name and a `hostfxr` reference), returns the path to the
+companion `.dll` provided it has readable .NET metadata. Works with Windows
+`.exe` files and extensionless Linux/macOS executables.
 
 **Parameters:**
 
@@ -45,9 +46,11 @@ public static string? FindCompanionDll(string exePath)
 ## Remarks
 
 `dotnet build` produces both a managed `.dll` (the actual assembly with IL and
-metadata) and a native apphost `.exe` (a launcher that bootstraps the runtime).
-The apphost has no CLR metadata, so most analysis tabs are empty. This detector
-verifies the `.exe` is an apphost by requiring two signals: the companion DLL
-name embedded in the binary AND a reference to `hostfxr` (the .NET host
-framework resolver that every apphost imports to bootstrap the runtime).
+metadata) and a native apphost launcher that bootstraps the runtime. On Windows the
+apphost is a `.exe` (PE format); on Linux and macOS it is an extensionless
+executable (ELF or Mach-O). The apphost has no CLR metadata, so most analysis tabs
+are empty. This detector verifies the file is an apphost by requiring two signals:
+the companion DLL name embedded in the binary AND a reference to `hostfxr`
+(the .NET host framework resolver). These signals are platform-invariant — the
+.NET SDK embeds them identically regardless of binary format.
 

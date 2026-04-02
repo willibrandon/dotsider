@@ -1920,8 +1920,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_ShowsDialog()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
@@ -1943,8 +1941,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Enter_NavigatesToManagedDll()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
@@ -1972,8 +1968,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Escape_DismissesDialog()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
@@ -1999,8 +1993,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Enter_ThenBack_ReshowsDialog()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
