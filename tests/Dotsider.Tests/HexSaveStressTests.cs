@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Hex1b;
 using Hex1b.Automation;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Widgets;
 
@@ -230,6 +231,53 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task NativeBinary_HexSave_Succeeds()
+    {
+        // Copy ONLY the apphost (no companion DLL) so there's no apphost
+        // dialog — the file opens as a plain native binary without metadata.
+        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, "HelloWorld");
+        File.Copy(samples.HelloWorldExe, tempFile);
+
+        try
+        {
+            var (terminal, app) = CreateDotsiderApp(tempFile);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            var runTask = app.RunAsync(cts.Token);
+            await Task.Delay(100, cts.Token);
+
+            // Navigate to hex tab, edit a byte, save
+            await new Hex1bTerminalInputSequenceBuilder()
+                .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+                .Key(Hex1bKey.D5)
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
+                .Key(Hex1bKey.I)
+                .WaitUntil(s => s.ContainsText("INSERT"), TimeSpan.FromSeconds(10))
+                .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
+                .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
+                .Key(Hex1bKey.F).Key(Hex1bKey.F)
+                .WaitUntil(_ => _state!.HexIsDirty, TimeSpan.FromSeconds(10))
+                .Key(Hex1bKey.Escape)
+                .WaitUntil(s => s.ContainsText("i: Edit"), TimeSpan.FromSeconds(10))
+                .Ctrl().Key(Hex1bKey.S)
+                .WaitUntil(_ => _state!.HexNotification != null, TimeSpan.FromSeconds(10))
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+
+            Assert.Contains("written", _state!.HexNotification);
+            Assert.False(_state.HexIsDirty);
+
+            cts.Cancel();
+            await runTask;
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
     [Fact]
     public void InMemoryAnalyzer_FunctionsWithoutDisk()
     {
@@ -246,6 +294,102 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(analyzer.HasMetadata);
         Assert.NotNull(analyzer.AssemblyName);
         Assert.True(analyzer.RawBytes.Length > 0);
+    }
+
+    [Fact]
+    public void InMemoryAnalyzer_NativeBinary_SaveRecoveryPath()
+    {
+        // Simulates the byte-array fallback in SaveHexChanges: after a hex
+        // edit on a native binary (apphost/NativeAOT), all disk candidates
+        // are exhausted and the analyzer is reconstructed from memory.
+        var originalBytes = File.ReadAllBytes(samples.HelloWorldExe);
+
+        // Simulate a hex edit: modify a byte in the native binary
+        var editedBytes = originalBytes.ToArray();
+        editedBytes[4] = 0xFF;
+
+        using var analyzer = new AssemblyAnalyzer(editedBytes, samples.HelloWorldExe);
+
+        Assert.Equal(samples.HelloWorldExe, analyzer.FilePath);
+        Assert.Equal(editedBytes.Length, analyzer.FileSize);
+        Assert.False(analyzer.HasMetadata);
+        Assert.False(analyzer.RawBytes.IsEmpty);
+        Assert.Equal(0xFF, analyzer.RawBytes.Span[4]);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void ReopenOrFallback_AllCandidatesFail_ReturnsInMemoryAnalyzer()
+    {
+        // Exercises the candidate loop + byte-array fallback with all
+        // non-existent paths so the in-memory branch triggers.
+        var originalBytes = File.ReadAllBytes(samples.HelloWorldExe);
+        var editedBytes = originalBytes.ToArray();
+        editedBytes[4] = 0xFF;
+
+        string[] bogusPath =
+        [
+            "/nonexistent/dir/HelloWorld",
+            "/nonexistent/dir/HelloWorld.tmp",
+            "/nonexistent/dir/HelloWorld.recovery"
+        ];
+
+        var (analyzer, resolvedPath) = DotsiderApp.ReopenOrFallback(
+            bogusPath, editedBytes, samples.HelloWorldExe);
+
+        using (analyzer)
+        {
+            Assert.Null(resolvedPath);
+            Assert.Equal(samples.HelloWorldExe, analyzer.FilePath);
+            Assert.False(analyzer.HasMetadata);
+            Assert.Equal(editedBytes.Length, analyzer.FileSize);
+            Assert.Equal(0xFF, analyzer.RawBytes.Span[4]);
+        }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void SaveHexChanges_NativeBinary_MemoryFallbackSetsNotification()
+    {
+        // Drives SaveHexChanges through the resolvedPath == null branch by
+        // injecting a reopener that always returns the in-memory fallback.
+        // Verifies the caller correctly sets the "working from memory" notification.
+        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, "HelloWorld");
+        File.Copy(samples.HelloWorldExe, tempFile);
+
+        try
+        {
+            _workload = new Hex1bAppWorkloadAdapter();
+            _terminal = Hex1bTerminal.CreateBuilder()
+                .WithWorkload(_workload)
+                .WithHeadless()
+                .WithDimensions(80, 24)
+                .Build();
+            _hex1bApp = new Hex1bApp(
+                _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+                new Hex1bAppOptions { WorkloadAdapter = _workload });
+            _state = new DotsiderState(_hex1bApp, tempFile);
+
+            // Make the document dirty
+            _state.HexEditorState.IsReadOnly = false;
+            _state.HexEditorState.Document.ApplyBytes(
+                new ByteReplaceOperation(4, 1, [0xFF]));
+            _state.HexEditorState.IsReadOnly = true;
+            Assert.True(_state.HexIsDirty);
+
+            // Inject a reopener that simulates all disk candidates failing
+            DotsiderApp.SaveHexChanges(_state,
+                reopener: (_, bytes, path) => (new AssemblyAnalyzer(bytes, path), null));
+
+            Assert.Equal("Saved (working from memory — file may be locked)", _state.HexNotification);
+            Assert.False(_state.HexIsDirty);
+            Assert.False(_state.Analyzer.HasMetadata);
+            Assert.Equal(0xFF, _state.Analyzer.RawBytes.Span[4]);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
     }
 
     public void Dispose()

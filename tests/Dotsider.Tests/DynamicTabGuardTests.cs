@@ -87,8 +87,6 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public void IsNativeAot_TrueForNativeAotConsole()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "NativeAOT produces ELF/Mach-O on non-Windows; dotsider requires PE");
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
         Assert.True(state.IsNativeAot);
@@ -128,8 +126,6 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task Tab8_NativeAot_ShowsIdleViewNotGuard()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "NativeAOT produces ELF/Mach-O on non-Windows; dotsider requires PE");
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
@@ -157,8 +153,6 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task NativeAot_NavigateAllTabs_NoCrash()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "NativeAOT produces ELF/Mach-O on non-Windows; dotsider requires PE");
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(cts.Token);

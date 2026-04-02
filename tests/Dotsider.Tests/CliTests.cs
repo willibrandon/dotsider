@@ -208,11 +208,8 @@ public class CliTests(SampleAssemblyFixture fixture)
     // --- Apphost Detection ---
 
     [Fact]
-    public async Task Analyze_ApphostExe_AutoRedirectsToManagedDll()
+    public async Task Analyze_Apphost_AutoRedirectsToManagedDll()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
-
         var (exitCode, stdout, stderr) = await RunDotsiderAsync(
             "analyze", fixture.HelloWorldExe);
 

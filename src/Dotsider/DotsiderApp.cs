@@ -641,8 +641,13 @@ public sealed class DotsiderApp(DotsiderState state)
             return hints;
         }).WithDefaultSeparator(" | ");
 
-    private static void SaveHexChanges(DotsiderState state)
+    /// <summary>Delegate for the reopen-or-fallback step, injectable for testing.</summary>
+    internal delegate (AssemblyAnalyzer Analyzer, string? ResolvedPath) ReopenFunc(
+        string[] candidatePaths, byte[] recoveryBytes, string filePath);
+
+    internal static void SaveHexChanges(DotsiderState state, ReopenFunc? reopener = null)
     {
+        reopener ??= ReopenOrFallback;
         var filePath = state.Analyzer.FilePath;
         var tempPath = filePath + ".tmp";
 
@@ -689,31 +694,48 @@ public sealed class DotsiderApp(DotsiderState state)
             filePath + ".recovery"
         ];
 
-        foreach (var path in candidates)
+        var (analyzer, resolvedPath) = reopener(candidates, newBytes, filePath);
+        CommitAnalyzer(state, analyzer);
+
+        if (resolvedPath is null)
+        {
+            state.HexNotification = "Saved (working from memory — file may be locked)";
+        }
+        else
+        {
+            savedPath = resolvedPath;
+            var fileName = Path.GetFileName(savedPath);
+            var size = new FileInfo(savedPath).Length;
+            state.HexNotification = savedPath == filePath
+                ? $"\"{fileName}\" {size}B written"
+                : $"Saved to {fileName} (could not overwrite original)";
+        }
+    }
+
+    /// <summary>
+    /// Tries each candidate path in order. If all fail, falls back to an
+    /// in-memory analyzer constructed from <paramref name="recoveryBytes"/>.
+    /// </summary>
+    /// <returns>
+    /// The opened analyzer and the resolved path, or <c>null</c> path if
+    /// the in-memory fallback was used.
+    /// </returns>
+    internal static (AssemblyAnalyzer Analyzer, string? ResolvedPath) ReopenOrFallback(
+        string[] candidatePaths, byte[] recoveryBytes, string filePath)
+    {
+        foreach (var path in candidatePaths)
         {
             try
             {
-                // Recovery path needs the bytes written first
                 if (path.EndsWith(".recovery") && !File.Exists(path))
-                    File.WriteAllBytes(path, newBytes);
+                    File.WriteAllBytes(path, recoveryBytes);
 
-                CommitAnalyzer(state, new AssemblyAnalyzer(path));
-                savedPath = path;
-
-                var fileName = Path.GetFileName(savedPath);
-                var size = new FileInfo(savedPath).Length;
-                state.HexNotification = savedPath == filePath
-                    ? $"\"{fileName}\" {size}B written"
-                    : $"Saved to {fileName} (could not overwrite original)";
-                return;
+                return (new AssemblyAnalyzer(path), path);
             }
             catch { /* try next candidate */ }
         }
 
-        // All disk candidates exhausted. Fall back to in-memory analyzer
-        // constructed from the validated bytes — no filesystem I/O required.
-        CommitAnalyzer(state, new AssemblyAnalyzer(newBytes, filePath));
-        state.HexNotification = "Saved (working from memory — file may be locked)";
+        return (new AssemblyAnalyzer(recoveryBytes, filePath), null);
     }
 
     /// <summary>

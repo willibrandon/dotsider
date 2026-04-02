@@ -291,6 +291,40 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
     }
 
     [Fact(Timeout = 30_000)]
+    public void NativeApphost_FileConstructor_ToleratesNonPeBinary()
+    {
+        using var a = new AssemblyAnalyzer(samples.HelloWorldExe);
+
+        Assert.False(a.HasMetadata);
+        Assert.True(a.FileSize > 0);
+        Assert.False(a.RawBytes.IsEmpty);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void NativeApphost_ByteArrayConstructor_ToleratesNonPeBinary()
+    {
+        var bytes = File.ReadAllBytes(samples.HelloWorldExe);
+        using var a = new AssemblyAnalyzer(bytes, samples.HelloWorldExe);
+
+        Assert.False(a.HasMetadata);
+        Assert.Equal(bytes.Length, a.FileSize);
+        Assert.False(a.RawBytes.IsEmpty);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void NativeAot_ByteArrayConstructor_ToleratesNonPeBinary()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
+        using var a = new AssemblyAnalyzer(bytes, samples.NativeAotConsoleExe!);
+
+        Assert.False(a.HasMetadata);
+        Assert.Equal(bytes.Length, a.FileSize);
+    }
+
+    [Fact(Timeout = 30_000)]
     public void ResolveToken_ReturnsString()
     {
         using var a = new AssemblyAnalyzer(samples.RichLibraryDll);

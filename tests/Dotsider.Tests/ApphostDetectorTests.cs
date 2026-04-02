@@ -9,11 +9,8 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
 {
     private readonly List<string> _tempFiles = [];
     [Fact(Timeout = 30_000)]
-    public void FindCompanionDll_ApphostExe_ReturnsCompanionDllPath()
+    public void FindCompanionDll_Apphost_ReturnsCompanionDllPath()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Apphost .exe is a Windows artifact");
-
         var result = ApphostDetector.FindCompanionDll(samples.HelloWorldExe);
 
         Assert.NotNull(result);
@@ -32,8 +29,6 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_NativeAotExe_ReturnsNull()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "NativeAOT .exe is a Windows artifact");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -85,6 +80,16 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         var result = ApphostDetector.FindCompanionDll(fakeExePath);
 
         Assert.Null(result);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void FindCompanionDll_DottedNameApphost_ReturnsCompanionDllPath()
+    {
+        var result = ApphostDetector.FindCompanionDll(samples.DottedNameAppExe);
+
+        Assert.NotNull(result);
+        Assert.EndsWith("Dotted.Name.App.dll", result!, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(result));
     }
 
     public void Dispose()

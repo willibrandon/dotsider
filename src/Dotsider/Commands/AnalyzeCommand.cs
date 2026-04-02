@@ -84,28 +84,15 @@ internal static class AnalyzeCommand
                 var filePath = file.FullName;
                 var originalPath = filePath;
 
-                // Detect apphost .exe — only redirect when the .exe has no .NET metadata
-                if (filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                // Detect apphost (Windows .exe or extensionless Linux/macOS binary)
+                // and redirect to the companion managed .dll.
+                var companion = ApphostDetector.FindCompanionDll(filePath);
+                if (companion is not null)
                 {
-                    try
-                    {
-                        using var probe = new AssemblyAnalyzer(filePath);
-                        if (!probe.HasMetadata)
-                        {
-                            var companion = ApphostDetector.FindCompanionDll(filePath);
-                            if (companion is not null)
-                            {
-                                Console.Error.WriteLine(
-                                    $"Note: {file.Name} is a native apphost. "
-                                    + $"Analyzing {Path.GetFileName(companion)} instead.");
-                                filePath = companion;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // Fall through to main analyzer which will report the error
-                    }
+                    Console.Error.WriteLine(
+                        $"Note: {file.Name} is a native apphost. "
+                        + $"Analyzing {Path.GetFileName(companion)} instead.");
+                    filePath = companion;
                 }
 
                 // Output-path collision check — reject if -o matches EITHER the original

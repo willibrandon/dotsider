@@ -27,7 +27,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
     // .NET Framework sample (Windows only — net48 requires Windows)
     public string? NetFxConsoleExe { get; private set; }
 
-    // NativeAOT sample (Windows-only — ELF/Mach-O outputs aren't PE files)
+    // Dotted assembly name sample (e.g., Company.Product.Tool)
+    public string DottedNameAppDll { get; private set; } = null!;
+    public string DottedNameAppExe { get; private set; } = null!;
+
+    // NativeAOT sample
     public string? NativeAotConsoleExe { get; private set; }
 
     // Non-.NET binary for error case testing
@@ -47,41 +51,43 @@ public class SampleAssemblyFixture : IAsyncLifetime
             BuildProject("samples/MinimalApi"),
             BuildProject("samples/NativeLib"),
             BuildProject("samples/EmptyLib"),
+            BuildProject("samples/Dotted.Name.App"),
         };
 
-        // Both samples are Windows-only: net48 needs Windows, and NativeAOT
-        // outputs ELF/Mach-O on Linux/macOS which aren't PE files.
+        // net48 needs Windows; NativeAOT builds on all platforms.
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
             builds.Add(BuildProject("samples/NetFxConsole"));
-            builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
-        }
+
+        builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
 
         await Task.WhenAll(builds);
 
         var config = "Debug";
         var tfm = "net10.0";
+        var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
 
         HelloWorldDll = SamplePath("HelloWorld", config, tfm, "HelloWorld.dll");
-        HelloWorldExe = SamplePath("HelloWorld", config, tfm, "HelloWorld.exe");
+        HelloWorldExe = SamplePath("HelloWorld", config, tfm, $"HelloWorld{apphostExt}");
         ComplexAppDll = SamplePath("ComplexApp", config, tfm, "ComplexApp.dll");
-        ComplexAppExe = SamplePath("ComplexApp", config, tfm, "ComplexApp.exe");
+        ComplexAppExe = SamplePath("ComplexApp", config, tfm, $"ComplexApp{apphostExt}");
         MinimalApiDll = SamplePath("MinimalApi", config, tfm, "MinimalApi.dll");
-        MinimalApiExe = SamplePath("MinimalApi", config, tfm, "MinimalApi.exe");
+        MinimalApiExe = SamplePath("MinimalApi", config, tfm, $"MinimalApi{apphostExt}");
         RichLibraryDll = SamplePath("RichLibrary", config, tfm, "RichLibrary.dll");
         RichLibraryV2Dll = SamplePath("RichLibraryV2", config, tfm, "RichLibrary.dll");
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
         EmptyLibDll = SamplePath("EmptyLib", config, tfm, "EmptyLib.dll");
+        DottedNameAppDll = SamplePath("Dotted.Name.App", config, tfm, "Dotted.Name.App.dll");
+        DottedNameAppExe = SamplePath("Dotted.Name.App", config, tfm, $"Dotted.Name.App{apphostExt}");
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             NetFxConsoleExe = Path.Combine(_repoRoot, "samples", "NetFxConsole",
                 "bin", config, "net48", "NetFxConsole.exe");
-
-            var rid = RuntimeInformation.RuntimeIdentifier;
-            NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
-                "bin", "Release", tfm, rid, "publish", "NativeAotConsole.exe");
         }
+
+        var rid = RuntimeInformation.RuntimeIdentifier;
+        NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+            "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
         RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
             "bin", config, "RichLibrary.2.5.1.nupkg");
@@ -98,12 +104,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
             Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
         if (NativeAotConsoleExe is not null)
             Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Assert.True(File.Exists(HelloWorldExe), $"HelloWorld.exe not found at {HelloWorldExe}");
-            Assert.True(File.Exists(ComplexAppExe), $"ComplexApp.exe not found at {ComplexAppExe}");
-            Assert.True(File.Exists(MinimalApiExe), $"MinimalApi.exe not found at {MinimalApiExe}");
-        }
+        Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
+        Assert.True(File.Exists(ComplexAppExe), $"ComplexApp apphost not found at {ComplexAppExe}");
+        Assert.True(File.Exists(MinimalApiExe), $"MinimalApi apphost not found at {MinimalApiExe}");
+        Assert.True(File.Exists(DottedNameAppDll), $"Dotted.Name.App.dll not found at {DottedNameAppDll}");
+        Assert.True(File.Exists(DottedNameAppExe), $"Dotted.Name.App apphost not found at {DottedNameAppExe}");
     }
 
     public ValueTask DisposeAsync()
