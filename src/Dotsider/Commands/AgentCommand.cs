@@ -61,7 +61,30 @@ internal static class AgentCommand
                     using var process = Process.Start(psi);
                     if (process is not null)
                     {
-                        await process.WaitForExitAsync(ct);
+                        try
+                        {
+                            await process.WaitForExitAsync(ct);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Ctrl+C: stay alive so the child isn't orphaned.
+                            // On macOS/Linux, an orphaned child's terminal read
+                            // returns EIO, causing a noisy IOException stack trace.
+                            if (!process.HasExited)
+                            {
+                                using var gracefulCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                                try
+                                {
+                                    await process.WaitForExitAsync(gracefulCts.Token);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    process.Kill();
+                                    await process.WaitForExitAsync(CancellationToken.None);
+                                }
+                            }
+                        }
+
                         return process.ExitCode;
                     }
                 }
