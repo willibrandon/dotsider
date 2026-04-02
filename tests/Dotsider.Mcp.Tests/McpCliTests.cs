@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.RegularExpressions;
+using Hex1b;
 using ModelContextProtocol.Client;
 
 namespace Dotsider.Mcp.Tests;
@@ -6,7 +9,7 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Process-level tests for the dotsider-mcp CLI entry point.
 /// </summary>
-public class McpCliTests
+public partial class McpCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
         FindRepoRoot(), "src", "Dotsider.Mcp");
@@ -71,6 +74,108 @@ public class McpCliTests
         return (process.ExitCode, stdout, stderr);
     }
 
+    /// <summary>
+    /// Verifies the MCP server shuts down cleanly when Ctrl+C is pressed in a real terminal.
+    /// Reproduces the parent-child process relationship: bash (session leader) → dotsider →
+    /// dotsider-mcp. Without the fix, dotsider exits first, orphaning dotsider-mcp, and
+    /// the orphaned process's read() on the terminal returns EIO → IOException.
+    /// Regression test for https://github.com/willibrandon/dotsider/issues/108.
+    /// </summary>
+    [Fact]
+    public async Task CtrlC_InTerminal_ShutsDownWithoutTransportException()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // Windows console handles Ctrl+C cleanly; this is a macOS/Linux issue
+
+        var repoRoot = FindRepoRoot();
+        var dotsiderExe = Path.Combine(
+            repoRoot, "src", "Dotsider", "bin", s_buildConfig, "net10.0", "dotsider");
+        var mcpDir = Path.Combine(
+            repoRoot, "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0");
+
+        Assert.True(File.Exists(dotsiderExe), $"dotsider not found: {dotsiderExe}");
+        Assert.True(File.Exists(Path.Combine(mcpDir, "dotsider-mcp")),
+            $"dotsider-mcp not found in: {mcpDir}");
+
+        // Start an interactive shell in the PTY (bash becomes session leader).
+        // This mirrors the real user experience: shell → dotsider → dotsider-mcp.
+        var env = new Dictionary<string, string>
+        {
+            ["PATH"] = $"{mcpDir}:{Environment.GetEnvironmentVariable("PATH")}"
+        };
+
+        await using var pty = new Hex1bTerminalChildProcess(
+            "/bin/bash", ["--norc", "--noprofile"],
+            environment: env,
+            initialWidth: 160, initialHeight: 24);
+
+        var ct = TestContext.Current.CancellationToken;
+        await pty.StartAsync(ct);
+
+        var output = new StringBuilder();
+        var serverStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var shellReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ctrlCSent = false;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+        var token = timeoutCts.Token;
+
+        var readTask = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var chunk = await pty.ReadOutputAsync(token);
+                if (chunk.IsEmpty)
+                    break;
+
+                var text = Encoding.UTF8.GetString(chunk.Span);
+                output.Append(text);
+
+                if (text.Contains("Application started"))
+                    serverStarted.TrySetResult();
+
+                // Only eligible after Ctrl+C has been sent — a READY> prompt
+                // proves dotsider + dotsider-mcp have both exited and bash
+                // regained the foreground. If shutdown is deadlocked this never fires.
+                if (Volatile.Read(ref ctrlCSent) && text.Contains("READY>"))
+                    shellReady.TrySetResult();
+            }
+        }, token);
+
+        // Set a unique prompt we can detect after Ctrl+C
+        await pty.WriteInputAsync(Encoding.UTF8.GetBytes("PS1='READY> '\n"), token);
+        await Task.Delay(500, token);
+
+        // Launch dotsider agent mcp from bash (creates the parent-child relationship)
+        await pty.WriteInputAsync(
+            Encoding.UTF8.GetBytes($"{dotsiderExe} agent mcp\n"), token);
+
+        await serverStarted.Task.WaitAsync(token);
+
+        // Arm the prompt detector, then send Ctrl+C.
+        Volatile.Write(ref ctrlCSent, true);
+        await pty.WriteInputAsync(new byte[] { 0x03 }, token);
+
+        // Wait for bash to regain the foreground (proves shutdown completed).
+        // If shutdown is deadlocked, this times out and the test FAILS.
+        await shellReady.Task.WaitAsync(token);
+
+        // Exit bash cleanly — must succeed, not silently swallow a timeout.
+        await pty.WriteInputAsync(Encoding.UTF8.GetBytes("exit\n"), token);
+        await pty.WaitForExitAsync(token);
+
+        await timeoutCts.CancelAsync();
+        try { await readTask; }
+        catch (OperationCanceledException) { }
+
+        var allOutput = AnsiEscapeRegex().Replace(output.ToString(), "");
+
+        Assert.DoesNotContain("IOException", allOutput);
+        Assert.DoesNotContain("Input/output error", allOutput);
+        Assert.DoesNotContain("reading failed", allOutput);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
@@ -91,4 +196,7 @@ public class McpCliTests
 
         return "Debug";
     }
+
+    [GeneratedRegex(@"\e\[[^@-~]*[@-~]")]
+    private static partial Regex AnsiEscapeRegex();
 }
