@@ -180,33 +180,20 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         Task.Run(() => ReadOutput(_process.StandardOutput, false, startTime));
         Task.Run(() => ReadOutput(_process.StandardError, true, startTime));
 
-        // Handle process exit
+        // Handle process exit — capture exit code and unblock event processing,
+        // but do NOT transition state here. The state transition happens after
+        // ProcessEventsLoop returns so that all buffered EventPipe events are
+        // flushed before observers see ProcessState == Exited.
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
-            bool transitioned;
             lock (_stateLock)
-            {
-                transitioned = _processState == TraceProcessState.Running;
-                if (transitioned)
-                {
-                    _exitCode = _process.HasExited ? _process.ExitCode : null;
-                    _processState = TraceProcessState.Exited;
-                    // Invalidate inside the lock so the render is scheduled before
-                    // any observer sees the Exited state. Hex1bApp.Invalidate()
-                    // just sets a flag — no lock acquisition, no deadlock risk.
-                    invalidate();
-                }
-            }
-
-            if (transitioned)
-            {
-                _stopwatch?.Stop();
-                // StopProcessing unblocks source.Process() synchronously.
-                // session.Stop() can deadlock on Windows when the pipe is
-                // already broken, so we only use the TraceEventSource path.
-                _eventSource?.StopProcessing();
-            }
+                _exitCode = _process.HasExited ? _process.ExitCode : null;
+            _stopwatch?.Stop();
+            // StopProcessing unblocks source.Process() synchronously.
+            // session.Stop() can deadlock on Windows when the pipe is
+            // already broken, so we only use the TraceEventSource path.
+            _eventSource?.StopProcessing();
         };
 
         lock (_stateLock) _processState = TraceProcessState.Starting;
@@ -277,8 +264,21 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 // Resume the suspended runtime now that EventPipe is attached
                 client!.ResumeRuntime();
 
-                // Process events — blocks until session ends
+                // Process events — blocks until session ends.
+                // When it returns, all buffered events have been flushed.
                 ProcessEventsLoop(session);
+
+                // Transition to Exited now that events are fully processed.
+                // Exit code was already captured by the Process.Exited handler.
+                lock (_stateLock)
+                {
+                    if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+                    {
+                        _exitCode ??= _process?.HasExited == true ? _process.ExitCode : null;
+                        _processState = TraceProcessState.Exited;
+                        invalidate();
+                    }
+                }
             }
             catch (OperationCanceledException) { /* user cancelled */ }
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
@@ -288,8 +288,9 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
                     {
-                        _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                        _exitCode ??= _process?.HasExited == true ? _process.ExitCode : null;
                         _processState = TraceProcessState.Exited;
+                        invalidate();
                     }
                 }
             }
@@ -299,6 +300,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     _errorMessage = ex.Message;
                     _processState = TraceProcessState.Error;
+                    invalidate();
                 }
             }
             finally
