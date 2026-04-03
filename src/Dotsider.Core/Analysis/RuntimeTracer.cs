@@ -335,21 +335,15 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _invalidateTimer = null;
         _stopwatch?.Stop();
 
-        bool transitioned;
         lock (_stateLock)
         {
-            transitioned = _processState is TraceProcessState.Running or TraceProcessState.Starting;
-            if (transitioned)
+            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
             {
                 _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
                 _processState = TraceProcessState.Exited;
+                invalidate();
             }
         }
-
-        // Direct invalidate after transition — the timer is already disposed so
-        // MarkDirty alone would never trigger a re-render.
-        if (transitioned)
-            invalidate();
     }
 
     /// <inheritdoc/>
