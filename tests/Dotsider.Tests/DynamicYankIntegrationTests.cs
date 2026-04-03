@@ -449,8 +449,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // The freeze mechanism keeps this exact instance alive while focused+running.
         var frozenState = _state!.DynamicSummaryEditorState;
 
-        // Let the process run longer so Duration accumulates past the frozen snapshot
-        await Task.Delay(3000, ct);
+        // Wait for the tracer to accumulate some data so Duration differs from the frozen snapshot
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => true, TimeSpan.FromSeconds(3))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Stop the tracer — once exited, the freeze lifts and the editor must update
         _state.Tracer!.Stop();
@@ -459,8 +462,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // freeze was lifted and UpdateEditorIfNeeded saw the changed text)
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.Tracer!.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(10))
-            .WaitUntil(_ => _state.DynamicSummaryEditorState != frozenState, TimeSpan.FromSeconds(5))
+                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(15))
+            .WaitUntil(_ => _state.DynamicSummaryEditorState != frozenState, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 

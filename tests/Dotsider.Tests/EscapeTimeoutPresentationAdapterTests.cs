@@ -314,13 +314,17 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             TimeSpan.FromSeconds(5),
             interval: TimeSpan.FromMilliseconds(25));
 
-        //Send ESC, wait for timeout, then send literal '['
+        // Send ESC, wait for the escape timeout to fire (50ms adapter timeout),
+        // then send literal '['. We must wait for the escape event before sending
+        // the bracket to avoid the two being combined into a CSI sequence.
         queued.EnqueueInput(0x1b);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => events.Contains("escape"),
+            TimeSpan.FromSeconds(10));
         queued.EnqueueInput("["u8.ToArray());
 
         await TestHelpers.WaitUntilAsync(
-            () => events.Contains("escape") && events.Any(e => e.StartsWith("text:")),
+            () => events.Any(e => e.StartsWith("text:")),
             TimeSpan.FromSeconds(10));
 
         Assert.Contains("escape", events);

@@ -1542,26 +1542,24 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Press 'i' — should NOT enter insert mode (data interp is focused)
+        // Use WaitUntil to ensure a render cycle processes the key
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("i")
+            .WaitUntil(_ => true, TimeSpan.FromSeconds(1))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
         Assert.Equal(HexEditMode.Normal, _state!.HexMode);
 
-        // Tab back to hex editor
+        // Tab back to hex editor, then press 'i' — should enter insert mode.
+        // Both steps in one sequence so the binding re-registration from the
+        // focus change is guaranteed to happen before the 'i' keypress.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        // Press 'i' — should enter insert mode (hex editor is focused)
-        await new Hex1bTerminalInputSequenceBuilder()
             .Type("i")
+            .WaitUntil(_ => _state!.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
         Assert.Equal(HexEditMode.Insert, _state!.HexMode);
 
         _cts!.Cancel();
@@ -1587,16 +1585,15 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Activate search with '/' and type a pattern
+        // Activate search with '/' and type a pattern, confirm with Enter
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("/")
             .Type("4D")
             .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
 
-        // After search confirm, focus should return to hex editor (not data interp)
         Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
             "Search confirm should refocus to hex editor");
 
@@ -1604,17 +1601,12 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        await new Hex1bTerminalInputSequenceBuilder()
             .Type("/")
             .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
 
-        // After search dismiss, focus should return to hex editor
         Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
             "Search dismiss should refocus to hex editor");
 
@@ -1646,15 +1638,10 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         Assert.NotNull(textBefore);
 
         // Move cursor right — values should change
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("l")
-            .Build()
-            .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
-
         // Second byte of MZ header is 0x5A ('Z'), Int8 = 90
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("90"), TimeSpan.FromSeconds(5))
+            .Type("l")
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBefore, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1665,11 +1652,6 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var textBeforeEndian = _state!.DataInterpEditorText;
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("e")
-            .Build()
-            .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
-
-        await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("BE"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);

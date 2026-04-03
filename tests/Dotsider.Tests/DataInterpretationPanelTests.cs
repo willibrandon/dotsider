@@ -167,9 +167,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         // Move cursor right — byte value changes
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("l")
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBefore, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
 
         var textAfter = _state!.DataInterpEditorText;
         Assert.NotEqual(textBefore, textAfter);
