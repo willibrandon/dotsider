@@ -1652,7 +1652,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var textBeforeEndian = _state!.DataInterpEditorText;
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("e")
-            .WaitUntil(s => s.ContainsText("BE"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBeforeEndian, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
