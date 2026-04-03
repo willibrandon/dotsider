@@ -8,8 +8,10 @@ namespace Dotsider.Views;
 
 /// <summary>
 /// Renders a data interpretation panel showing the bytes at the current cursor
-/// position as multiple numeric types. Uses a read-only editor for text selection,
-/// copy, and label highlighting consistent with other info panels.
+/// position as multiple numeric types. The editor document stores 4 row-major
+/// lines with tab-separated fields. The <see cref="DataInterpViewRenderer"/>
+/// renders them as a 4×4 matrix at proportional column widths using the actual
+/// viewport width — no build-time width estimation needed.
 /// </summary>
 public static class DataInterpretationPanel
 {
@@ -76,28 +78,19 @@ public static class DataInterpretationPanel
         string FmtF(float? val) => val.HasValue ? val.Value.ToString("G6") : "-";
         string FmtD(double? val) => val.HasValue ? val.Value.ToString("G6") : "-";
 
-        // Match the original 4×4 Grid layout with proportional column widths.
-        // The panel sits inside a single border (2 chars), so inner width =
-        // terminal width - 2. Each column gets 25%, with truncation to prevent
-        // overflow. Falls back to 120 in headless/redirected environments.
-        var termWidth = 120;
-        try { termWidth = Console.WindowWidth; } catch { }
-        var colW = Math.Max(19, (termWidth - 2) / 4);
-
-        static string Cell(string label, string value, int width)
-        {
-            var cell = $" {label}: {value}";
-            return cell.Length <= width ? cell.PadRight(width) : cell[..width];
-        }
-
         var hexVal = b0.HasValue ? $"0x{b0.Value:X2}" : "-";
         var octalVal = b0.HasValue ? $"0{Convert.ToString(b0.Value, 8)}" : "-";
 
+        // Row-major document: 4 lines, each with 4 tab-separated fields.
+        // The renderer splits on \t and draws each field at proportional
+        // column positions using viewport.Width. Tab separators let vim
+        // motions (w/b/e) jump between fields naturally, and j/k moves
+        // between visual rows because each line = one visual row.
         var text = string.Join("\n",
-            $"{Cell("Int8", Fmt(i8), colW)}{Cell("Int32", Fmt(i32), colW)}{Cell("Hex", hexVal, colW)}{Cell("Float32", FmtF(f32), colW)}",
-            $"{Cell("UInt8", Fmt(u8), colW)}{Cell("UInt32", Fmt(u32), colW)}{Cell("Octal", octalVal, colW)}{Cell("Float64", FmtD(f64), colW)}",
-            $"{Cell("Int16", Fmt(i16), colW)}{Cell("Int64", Fmt(i64), colW)}{Cell("Binary", binaryStr, colW)}{Cell("Offset", $"0x{byteOffset:X}", colW)}",
-            $"{Cell("UInt16", Fmt(u16), colW)}{Cell("UInt64", Fmt(u64), colW)}{Cell("Length", doc.ByteCount.ToString(), colW)}{Cell("Endian", $"{endianLabel} (e)", colW)}");
+            $" Int8: {Fmt(i8)}\t Int32: {Fmt(i32)}\t Hex: {hexVal}\t Float32: {FmtF(f32)}",
+            $" UInt8: {Fmt(u8)}\t UInt32: {Fmt(u32)}\t Octal: {octalVal}\t Float64: {FmtD(f64)}",
+            $" Int16: {Fmt(i16)}\t Int64: {Fmt(i64)}\t Binary: {binaryStr}\t Offset: 0x{byteOffset:X}",
+            $" UInt16: {Fmt(u16)}\t UInt64: {Fmt(u64)}\t Length: {doc.ByteCount}\t Endian: {endianLabel} (e)");
 
         if (state.DataInterpEditorText != text)
         {
@@ -119,8 +112,7 @@ public static class DataInterpretationPanel
                 .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             ctx.Editor(state.DataInterpEditorState!)
-                .WithViewRenderer(InfoEditorViewRenderer.Instance)
-                .Decorations(new DataInterpDecorationProvider())
+                .WithViewRenderer(DataInterpViewRenderer.Instance)
                 .Decorations(state.DataInterpYankProvider)
                 .WithInputBindings(bindings =>
                 {
