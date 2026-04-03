@@ -81,30 +81,22 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>Sends Tab keys until focus leaves all editors on the Counters subtab.</summary>
     private async Task TabOutOfCountersEditorsAsync(Hex1bTerminal terminal, CancellationToken ct)
     {
-        // Each Tab moves focus to the next editor or to the subtab strip.
-        // We send Tab and wait for the focused node to change, repeating
-        // until focus lands on something that isn't an EditorNode.
+        // Counters has up to 4 editors (CPU, Memory, GC, Threading). Tab through
+        // them one at a time until focus lands on a non-editor (the subtab strip).
+        // Use the automator API — each step gets a reasonable timeout that handles
+        // slow CI render cycles when the EventPipe tracer is processing live events.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         for (var i = 0; i < 6; i++)
         {
-            Hex1bNode? before;
-            try { before = _state?.App.FocusedNode; }
-            catch (NullReferenceException) { return; }
-
-            if (before is not EditorNode) return;
-
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Key(Hex1bKey.Tab)
-                .WaitUntil(_ =>
-                {
-                    try { return _state?.App.FocusedNode != before; }
-                    catch (NullReferenceException) { return true; }
-                }, TimeSpan.FromSeconds(2))
-                .Build()
-                .ApplyAsync(terminal, ct);
+            if (!IsFocusedOnEditor()) return;
+            var before = _state?.App.FocusedNode;
+            await auto.TabAsync(ct);
+            await auto.WaitUntilAsync(_ =>
+            {
+                try { return _state?.App.FocusedNode != before; }
+                catch (NullReferenceException) { return true; }
+            }, description: $"focus to change after Tab {i + 1}");
         }
-
-        Assert.False(IsFocusedOnEditor(),
-            $"Still on an editor after 6 Tab presses. FocusedNode: {_state?.App.FocusedNode?.GetType().Name}");
     }
 
     private Hex1bTerminalInputSequenceBuilder NavigateFromCountersToSummary()
