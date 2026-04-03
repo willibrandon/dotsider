@@ -269,7 +269,9 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 ProcessEventsLoop(session);
 
                 // Transition to Exited now that events are fully processed.
-                // Exit code was already captured by the Process.Exited handler.
+                // Wait for the process to fully exit so ExitCode is available —
+                // Process.Exited may not have fired yet on fast exits.
+                try { _process.WaitForExit(5000); } catch { }
                 lock (_stateLock)
                 {
                     if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
