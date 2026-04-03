@@ -76,11 +76,13 @@ public static class DataInterpretationPanel
         string FmtF(float? val) => val.HasValue ? val.Value.ToString("G6") : "-";
         string FmtD(double? val) => val.HasValue ? val.Value.ToString("G6") : "-";
 
-        // Match the original 4×4 Grid layout. Each cell is padded or truncated
-        // to a fixed width, replicating the old Grid's SizeHint.Fill behavior
-        // where cells had fixed boundaries and content was clipped at the edge.
-        // 4 × 19 = 76 chars, fitting within 78 inner columns (80-col terminal).
-        const int colW = 19;
+        // Match the original 4×4 Grid layout with proportional column widths.
+        // The panel sits inside a single border (2 chars), so inner width =
+        // terminal width - 2. Each column gets 25%, with truncation to prevent
+        // overflow. Falls back to 120 in headless/redirected environments.
+        var termWidth = 120;
+        try { termWidth = Console.WindowWidth; } catch { }
+        var colW = Math.Max(19, (termWidth - 2) / 4);
 
         static string Cell(string label, string value, int width)
         {

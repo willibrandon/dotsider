@@ -1585,9 +1585,10 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Activate search with '/' and type a pattern, confirm with Enter
+        // Activate search with '/', wait for TextBox focus before typing the query
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("/")
+            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
             .Type("4D")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
@@ -1597,11 +1598,13 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
             "Search confirm should refocus to hex editor");
 
-        // Now test Escape dismiss: Tab to data interp, search, then Escape
+        // Now test Escape dismiss: Tab to data interp, activate search,
+        // wait for TextBox focus, then Escape to dismiss
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
             .Type("/")
+            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()
