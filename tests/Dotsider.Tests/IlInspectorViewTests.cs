@@ -100,11 +100,17 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // Capture editor cursor before DownArrow
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
 
-        // Press DownArrow — should move table focus, not editor cursor.
-        // Use the automator to ensure the key is fully processed before asserting.
-        await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
+        // Press DownArrow — should move tree focus, not editor cursor.
+        // Send the key and verify in a single sequence to avoid a focus race
+        // between the WaitUntil above and the key press.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state!.App.FocusedNode is ListNode, TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.DownArrow)
+            .WaitUntil(_ => true, TimeSpan.FromSeconds(1))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
-        // Editor cursor must not have moved (table consumed the key, not editor)
+        // Editor cursor must not have moved (tree consumed the key, not editor)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
 
         _cts!.Cancel();
