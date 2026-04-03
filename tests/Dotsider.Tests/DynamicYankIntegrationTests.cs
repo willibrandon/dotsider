@@ -88,25 +88,21 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
     }
 
-    /// <summary>Sends Tab keys until focus leaves all editors on the Counters subtab.</summary>
+    /// <summary>Moves focus out of the Counters editors to the subtab strip.</summary>
     private async Task TabOutOfCountersEditorsAsync(Hex1bTerminal terminal, CancellationToken ct)
     {
-        // Counters has up to 4 editors (CPU, Memory, GC, Threading). Tab through
-        // them one at a time until focus lands on a non-editor (the subtab strip).
-        // Use the automator API — each step gets a reasonable timeout that handles
-        // slow CI render cycles when the EventPipe tracer is processing live events.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
-        for (var i = 0; i < 6; i++)
-        {
-            if (!IsFocusedOnEditor()) return;
-            var before = _state?.App.FocusedNode;
-            await auto.TabAsync(ct);
-            await auto.WaitUntilAsync(_ =>
-            {
-                try { return _state?.App.FocusedNode != before; }
-                catch (NullReferenceException) { return true; }
-            }, description: $"focus to change after Tab {i + 1}");
-        }
+        // During a live trace, render cycles can be slow because each frame
+        // processes EventPipe events. Instead of tabbing through editors one
+        // at a time (which requires one render cycle per Tab), directly request
+        // focus on the subtab strip and wait for it.
+        _state!.App.RequestFocus(node =>
+            node.GetType().Name.StartsWith("TabPanelNode"));
+        _state.App.Invalidate();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
     }
 
     private Hex1bTerminalInputSequenceBuilder NavigateFromCountersToSummary()
