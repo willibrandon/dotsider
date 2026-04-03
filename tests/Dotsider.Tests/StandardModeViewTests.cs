@@ -1809,11 +1809,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error,
-            timeout: TimeSpan.FromSeconds(30));
+        // Wait for "Re-run" on screen — proves both exit AND render completed.
+        // A state-based WaitUntil for ProcessState can pass before the render
+        // that shows "Re-run", causing the subsequent WaitUntilText to time out.
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, _state!.Tracer!.ProcessState);
-        await auto.WaitUntilTextAsync("Re-run");
 
         var tracer = _state!.Tracer!;
 
@@ -1860,17 +1860,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for exit
+        // Navigate to Dynamic tab, launch trace, wait for exit to render
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Assembly Name");
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error,
-            timeout: TimeSpan.FromSeconds(30));
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, _state!.Tracer!.ProcessState);
-        await auto.WaitUntilTextAsync("Re-run");
 
         var tracer = _state!.Tracer!;
 
