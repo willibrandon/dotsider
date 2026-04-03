@@ -302,7 +302,9 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             finally
             {
                 _stopwatch?.Stop();
-                MarkDirty();
+                // Direct invalidate — the timer only fires when ProcessState is
+                // Running, and by this point it's Exited or Error.
+                invalidate();
             }
         });
     }
