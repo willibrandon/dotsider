@@ -118,4 +118,32 @@ public class InfoDecorationProviderTests
 
         Assert.Single(spans);
     }
+
+    [Fact]
+    public void DataInterp_ColorsAllLabelsPerLine()
+    {
+        var provider = new DataInterpDecorationProvider();
+        var doc = new Hex1bDocument(
+            " Int8: 77                   Int32: 9460301              Hex: 0x4D                  Float32: 1.32567E-38");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Equal(4, spans.Count);
+    }
+
+    [Fact]
+    public void DataInterp_ColorsAllRowsAndColumns()
+    {
+        var provider = new DataInterpDecorationProvider();
+        var doc = new Hex1bDocument(string.Join("\n",
+            " Int8: 77       Int32: 100     Hex: 0x4D      Float32: 1.0",
+            " UInt8: 77      UInt32: 100    Octal: 0115    Float64: 2.0",
+            " Int16: 23117   Int64: 100     Binary: 010    Offset: 0x0",
+            " UInt16: 23117  UInt64: 100    Length: 7168   Endian: LE (e)"));
+
+        var spans = provider.GetDecorations(1, 4, doc);
+
+        // 4 labels per line x 4 lines = 16 spans
+        Assert.Equal(16, spans.Count);
+    }
 }

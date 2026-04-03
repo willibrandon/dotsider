@@ -256,6 +256,21 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the CLR Header editor.</summary>
     internal DocumentOffset? ClrHeaderPrevCursorPosition;
 
+    /// <summary>Read-only editor for the Data Interpretation panel on the Hex Dump tab.</summary>
+    public EditorState? DataInterpEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="DataInterpEditorState"/>, for staleness detection.</summary>
+    public string? DataInterpEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the Data Interpretation editor.</summary>
+    public IlYankDecorationProvider DataInterpYankProvider { get; } = new();
+
+    /// <summary>Tracks the previous frame's selection anchor for word boundary adjustment in the Data Interpretation editor.</summary>
+    internal DocumentOffset? DataInterpPrevSelectionAnchor;
+
+    /// <summary>Tracks the previous frame's cursor position for word boundary adjustment in the Data Interpretation editor.</summary>
+    internal DocumentOffset? DataInterpPrevCursorPosition;
+
     /// <summary>Read-only editor for the PE detail popup overlay.</summary>
     public EditorState? PeDetailEditorState { get; set; }
 
@@ -618,7 +633,7 @@ public sealed class DotsiderState : IDisposable
         if (CurrentTab == TabId.IlInspector)
             App.RequestFocus(node => node is ListNode);
         else if (CurrentTab == TabId.HexDump)
-            App.RequestFocus(node => node is EditorNode);
+            App.RequestFocus(node => node is EditorNode e && e.State == HexEditorState);
         else if (CurrentTab == TabId.Dynamic
                  && DynamicSubTab is DynamicSubTabId.Counters or DynamicSubTabId.Summary)
             App.RequestFocus(node => node is EditorNode);
@@ -735,6 +750,8 @@ public sealed class DotsiderState : IDisposable
         PeHeadersEditorText = null;
         ClrHeaderEditorState = null;
         ClrHeaderEditorText = null;
+        DataInterpEditorState = null;
+        DataInterpEditorText = null;
         PeDetailEditorState = null;
         PeDetailEditorText = null;
         StringsDetailEditorState = null;

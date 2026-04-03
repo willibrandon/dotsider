@@ -8,7 +8,7 @@ description: Hex editor with vi-style modal editing and byte category coloring.
 The **Hex Dump** tab (`5`) is a full hex editor with:
 
 - **Byte category coloring** — PE headers, metadata, IL bodies, and data sections are color-coded
-- **Data interpretation panel** — shows the value at the cursor as int8/16/32/64, float, double, and UTF-8
+- **Data interpretation panel** — shows the value at the cursor as int8/16/32/64, float32/64, hex, octal, and binary with text selection and copy support
 - **Vi-style modal editing** — starts in normal mode (read-only) to prevent accidental writes
 
 ## Normal mode
@@ -19,6 +19,7 @@ The **Hex Dump** tab (`5`) is a full hex editor with:
 | `g` | Jump to hex offset |
 | `i` | Enter insert mode |
 | `e` | Toggle endianness (LE/BE) |
+| `Tab` | Toggle focus between hex editor and data interpretation panel |
 | `/` | Search |
 | `Ctrl+T` | Toggle text/hex search mode |
 

@@ -189,8 +189,10 @@ public sealed class DotsiderApp(DotsiderState state)
                     // 3. Focused editor WITHOUT selection → arm operator-pending for yiw/yiW/yy
                     if (ctx.FocusedNode is EditorNode noSelEditor)
                     {
-                        // Don't arm on hex dump normal mode (I conflicts with Insert)
-                        if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Normal)
+                        // Don't arm on hex dump normal mode when the hex editor is focused
+                        // (I conflicts with Insert). Allow arming when the data interp editor is focused.
+                        if (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Normal
+                            && noSelEditor.State == _state.HexEditorState)
                         {
                             _state.VimPending = VimMotionState.Idle;
                             return;
@@ -774,6 +776,8 @@ public sealed class DotsiderApp(DotsiderState state)
         state.PeHeadersEditorText = null;
         state.ClrHeaderEditorState = null;
         state.ClrHeaderEditorText = null;
+        state.DataInterpEditorState = null;
+        state.DataInterpEditorText = null;
     }
 
     private IlYankDecorationProvider? FindYankProvider(EditorState editorState) =>

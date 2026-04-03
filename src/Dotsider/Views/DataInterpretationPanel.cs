@@ -1,18 +1,20 @@
 using System.Buffers.Binary;
 using Hex1b;
-using Hex1b.Layout;
+using Hex1b.Documents;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
 
 /// <summary>
-/// Renders a 4×4 data interpretation panel showing the bytes at the current cursor
-/// position as multiple numeric types. Updates every frame (immediate mode).
+/// Renders a data interpretation panel showing the bytes at the current cursor
+/// position as multiple numeric types. Uses a read-only editor for text selection,
+/// copy, and label highlighting consistent with other info panels.
 /// </summary>
 public static class DataInterpretationPanel
 {
     /// <summary>
-    /// Builds the data interpretation grid widget showing numeric conversions
+    /// Builds the data interpretation editor widget showing numeric conversions
     /// of the bytes at the current hex cursor position.
     /// </summary>
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
@@ -74,37 +76,64 @@ public static class DataInterpretationPanel
         string FmtF(float? val) => val.HasValue ? val.Value.ToString("G6") : "-";
         string FmtD(double? val) => val.HasValue ? val.Value.ToString("G6") : "-";
 
+        // Match the original 4×4 Grid layout. Each cell is padded or truncated
+        // to a fixed width, replicating the old Grid's SizeHint.Fill behavior
+        // where cells had fixed boundaries and content was clipped at the edge.
+        // 4 × 19 = 76 chars, fitting within 78 inner columns (80-col terminal).
+        const int colW = 19;
+
+        static string Cell(string label, string value, int width)
+        {
+            var cell = $" {label}: {value}";
+            return cell.Length <= width ? cell.PadRight(width) : cell[..width];
+        }
+
+        var hexVal = b0.HasValue ? $"0x{b0.Value:X2}" : "-";
+        var octalVal = b0.HasValue ? $"0{Convert.ToString(b0.Value, 8)}" : "-";
+
+        var text = string.Join("\n",
+            $"{Cell("Int8", Fmt(i8), colW)}{Cell("Int32", Fmt(i32), colW)}{Cell("Hex", hexVal, colW)}{Cell("Float32", FmtF(f32), colW)}",
+            $"{Cell("UInt8", Fmt(u8), colW)}{Cell("UInt32", Fmt(u32), colW)}{Cell("Octal", octalVal, colW)}{Cell("Float64", FmtD(f64), colW)}",
+            $"{Cell("Int16", Fmt(i16), colW)}{Cell("Int64", Fmt(i64), colW)}{Cell("Binary", binaryStr, colW)}{Cell("Offset", $"0x{byteOffset:X}", colW)}",
+            $"{Cell("UInt16", Fmt(u16), colW)}{Cell("UInt64", Fmt(u64), colW)}{Cell("Length", doc.ByteCount.ToString(), colW)}{Cell("Endian", $"{endianLabel} (e)", colW)}");
+
+        if (state.DataInterpEditorText != text)
+        {
+            state.DataInterpEditorText = text;
+            state.DataInterpEditorState = new EditorState(new Hex1bDocument(text)) { IsReadOnly = true };
+        }
+
+        // Adjust word boundaries after double-click (consistent with other info editors)
+        if (state.DataInterpEditorState is not null && state.CurrentTab == TabId.HexDump)
+        {
+            IlInspectorView.AdjustWordSelectionCursorOneShot(
+                state.DataInterpEditorState,
+                ref state.DataInterpPrevSelectionAnchor,
+                ref state.DataInterpPrevCursorPosition);
+        }
+
         return ctx.Border(
-            ctx.Grid(g =>
-            {
-                g.Columns.Add(SizeHint.Fill);
-                g.Columns.Add(SizeHint.Fill);
-                g.Columns.Add(SizeHint.Fill);
-                g.Columns.Add(SizeHint.Fill);
-                return
-                [
-                    // Row 0
-                    g.Cell(c => c.Text($" Int8: {Fmt(i8)}")).Row(0).Column(0),
-                    g.Cell(c => c.Text($" Int32: {Fmt(i32)}")).Row(0).Column(1),
-                    g.Cell(c => c.Text($" Hex: {(b0.HasValue ? $"0x{b0.Value:X2}" : "-")}")).Row(0).Column(2),
-                    g.Cell(c => c.Text($" Float32: {FmtF(f32)}")).Row(0).Column(3),
-                    // Row 1
-                    g.Cell(c => c.Text($" UInt8: {Fmt(u8)}")).Row(1).Column(0),
-                    g.Cell(c => c.Text($" UInt32: {Fmt(u32)}")).Row(1).Column(1),
-                    g.Cell(c => c.Text($" Octal: {(b0.HasValue ? $"0{Convert.ToString(b0.Value, 8)}" : "-")}")).Row(1).Column(2),
-                    g.Cell(c => c.Text($" Float64: {FmtD(f64)}")).Row(1).Column(3),
-                    // Row 2
-                    g.Cell(c => c.Text($" Int16: {Fmt(i16)}")).Row(2).Column(0),
-                    g.Cell(c => c.Text($" Int64: {Fmt(i64)}")).Row(2).Column(1),
-                    g.Cell(c => c.Text($" Binary: {binaryStr}")).Row(2).Column(2),
-                    g.Cell(c => c.Text($" Offset: 0x{byteOffset:X}")).Row(2).Column(3),
-                    // Row 3
-                    g.Cell(c => c.Text($" UInt16: {Fmt(u16)}")).Row(3).Column(0),
-                    g.Cell(c => c.Text($" UInt64: {Fmt(u64)}")).Row(3).Column(1),
-                    g.Cell(c => c.Text($" Length: {doc.ByteCount}")).Row(3).Column(2),
-                    g.Cell(c => c.Text($" Endian: {endianLabel} (e)")).Row(3).Column(3),
-                ];
-            })
+            ctx.ThemePanel(t => t
+                .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+            ctx.Editor(state.DataInterpEditorState!)
+                .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                .Decorations(new DataInterpDecorationProvider())
+                .Decorations(state.DataInterpYankProvider)
+                .WithInputBindings(bindings =>
+                {
+                    TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                        bindings,
+                        state.DataInterpEditorState!,
+                        () => state.VimPending,
+                        () => state.VimPendingEditor,
+                        () => state.VimPendingCursorOffset,
+                        () => state.VimPendingTimestamp,
+                        (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                        state.PerformEditorYank,
+                        () => state.App.Invalidate());
+                })
+                .FillWidth().FillHeight())
         ).Title(" Data Interpretation ").FixedHeight(6);
     }
 }
