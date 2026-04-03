@@ -56,6 +56,16 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         catch (NullReferenceException) { return false; }
     }
 
+    private bool IsFocusedOnEditor(EditorState? expectedState)
+    {
+        try
+        {
+            return _state?.App.FocusedNode is EditorNode { State: var es }
+                && es == expectedState;
+        }
+        catch (NullReferenceException) { return false; }
+    }
+
     private Hex1bTerminalInputSequenceBuilder LaunchTraceAndWaitForExit()
     {
         return new Hex1bTerminalInputSequenceBuilder()
@@ -108,7 +118,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(5))
             .WaitUntil(_ => _state!.DynamicSummaryEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState), TimeSpan.FromSeconds(5));
     }
 
     [Fact(Timeout = 30_000)]

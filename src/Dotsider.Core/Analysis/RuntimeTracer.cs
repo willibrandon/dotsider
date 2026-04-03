@@ -192,6 +192,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     _exitCode = _process.HasExited ? _process.ExitCode : null;
                     _processState = TraceProcessState.Exited;
+                    // Invalidate inside the lock so the render is scheduled before
+                    // any observer sees the Exited state. Hex1bApp.Invalidate()
+                    // just sets a flag — no lock acquisition, no deadlock risk.
+                    invalidate();
                 }
             }
 
@@ -202,8 +206,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 // session.Stop() can deadlock on Windows when the pipe is
                 // already broken, so we only use the TraceEventSource path.
                 _eventSource?.StopProcessing();
-                // Direct invalidate — don't rely on timer (it may be disposed by Stop())
-                invalidate();
             }
         };
 
