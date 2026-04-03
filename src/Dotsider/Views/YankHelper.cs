@@ -86,6 +86,7 @@ public static class YankHelper
         if (editorState == state.DynamicGcEditorState) return state.DynamicGcYankProvider;
         if (editorState == state.DynamicThreadingEditorState) return state.DynamicThreadingYankProvider;
         if (editorState == state.DynamicSummaryEditorState) return state.DynamicSummaryYankProvider;
+        if (editorState == state.DataInterpEditorState) return state.DataInterpYankProvider;
         return null;
     }
 

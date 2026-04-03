@@ -497,6 +497,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         state.DynamicSummaryEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
         Assert.Same(state.DynamicSummaryYankProvider, YankHelper.FindYankProvider(state, state.DynamicSummaryEditorState));
 
+        state.DataInterpEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        Assert.Same(state.DataInterpYankProvider, YankHelper.FindYankProvider(state, state.DataInterpEditorState));
+
         // Unknown editor returns null
         var unknownState = new EditorState(new Hex1bDocument("unknown")) { IsReadOnly = true };
         Assert.Null(YankHelper.FindYankProvider(state, unknownState));

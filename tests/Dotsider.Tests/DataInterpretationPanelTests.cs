@@ -120,6 +120,68 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task HexDumpTab_EndianToggleUpdatesValues()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Endian:") && s.ContainsText("LE"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Toggle endianness
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("e")
+            .WaitUntil(s => s.ContainsText("BE"), TimeSpan.FromSeconds(5))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.Equal(HexEndianness.Big, _state!.HexEndianness);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDumpTab_CursorMoveUpdatesInterpretation()
+    {
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Int8:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var textBefore = _state!.DataInterpEditorText;
+        Assert.NotNull(textBefore);
+
+        // Move cursor right — byte value changes
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBefore, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var textAfter = _state!.DataInterpEditorText;
+        Assert.NotEqual(textBefore, textAfter);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
     public void Dispose()
     {
         _state?.Dispose();

@@ -45,6 +45,7 @@ description: All keyboard shortcuts for navigating dotsider.
 | `g` | Jump to hex offset |
 | `i` | Enter insert mode |
 | `e` | Toggle endianness (LE/BE) |
+| `Tab` | Toggle focus between hex editor and data interpretation panel |
 | `Ctrl+T` | Toggle text/hex search |
 | `Ctrl+S` | Save modified bytes |
 

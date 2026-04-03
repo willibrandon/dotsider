@@ -1384,4 +1384,282 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
     }
+
+    // --- Hex Dump / Data Interpretation ---
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDump_TabTogglesFocusBetweenHexEditorAndDataInterp()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Initial focus should be on the hex editor
+        await Task.Delay(100, ct);
+        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+            "Initial focus should be on the hex editor");
+
+        // Tab → data interp editor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        Assert.True(IsFocusedOnEditor(_state!.DataInterpEditorState));
+
+        // Tab → back to hex editor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        Assert.True(IsFocusedOnEditor(_state!.HexEditorState));
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task DataInterp_SelectionYank_CopiesTextAndFlashes()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            // Tab to data interp editor
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Select text via Shift+Right
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.DataInterpEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Yank
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state!.YankNotification);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task DataInterp_DoubleClickWordSelection_AdjustsBoundaryAndYanks()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Find "Int8" on screen (in the data interpretation panel)
+        List<(int Line, int Column)> matches = [];
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s =>
+            {
+                var found = s.FindText("Int8");
+                if (found.Count == 0) return false;
+                matches = [.. found.Select(m => (m.Line, m.Column))];
+                return true;
+            }, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(matches.Count > 0);
+        var (row, col) = matches[0];
+
+        // Single click to give editor focus, then double-click to select word
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        await auto.ClickAtAsync(col + 2, row, ct: ct);
+        await Task.Delay(150, ct);
+        await auto.DoubleClickAtAsync(col + 2, row, ct: ct);
+
+        // Wait for selection to appear
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.DataInterpEditorState?.Cursor.HasSelection == true,
+            TimeSpan.FromSeconds(5));
+
+        // Verify selection is a clean word
+        var es = _state!.DataInterpEditorState!;
+        var selected = es.Document.GetText(es.Cursor.SelectionRange);
+        Assert.True(selected.Length > 0, "Selection should not be empty");
+        Assert.True(selected.All(char.IsLetterOrDigit),
+            $"Expected pure word, got '{selected}'");
+
+        // Yank the selection
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.NotNull(_state.YankNotification);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDump_InsertModeOnlyActivatesFromHexEditor()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Tab to data interp editor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Press 'i' — should NOT enter insert mode (data interp is focused)
+        // Use WaitUntil to ensure a render cycle processes the key
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("i")
+            .WaitUntil(_ => true, TimeSpan.FromSeconds(1))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+
+        // Tab back to hex editor, then press 'i' — should enter insert mode.
+        // Both steps in one sequence so the binding re-registration from the
+        // focus change is guaranteed to happen before the 'i' keypress.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
+            .Type("i")
+            .WaitUntil(_ => _state!.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        Assert.Equal(HexEditMode.Insert, _state!.HexMode);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDump_SearchRefocusesToHexEditor()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Tab to data interp editor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Activate search with '/' and type a pattern, confirm with Enter
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("/")
+            .Type("4D")
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+            "Search confirm should refocus to hex editor");
+
+        // Now test Escape dismiss: Tab to data interp, search, then Escape
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            .Type("/")
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+            "Search dismiss should refocus to hex editor");
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task HexDump_DataInterpUpdatesOnCursorMoveAndEndianToggle()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // At offset 0 of a .NET assembly, first byte is 0x4D ('M' of MZ header)
+        // Int8 for 0x4D = 77, UInt8 for 0x4D = 77
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Int8:") && s.ContainsText("77"), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Capture current data interp text
+        var textBefore = _state!.DataInterpEditorText;
+        Assert.NotNull(textBefore);
+
+        // Move cursor right — values should change
+        // Second byte of MZ header is 0x5A ('Z'), Int8 = 90
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBefore, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var textAfterMove = _state!.DataInterpEditorText;
+        Assert.NotEqual(textBefore, textAfterMove);
+
+        // Toggle endianness — multi-byte values should change
+        var textBeforeEndian = _state!.DataInterpEditorText;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("e")
+            .WaitUntil(_ => _state!.DataInterpEditorText != textBeforeEndian, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var textAfterEndian = _state!.DataInterpEditorText;
+        Assert.NotEqual(textBeforeEndian, textAfterEndian);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
 }

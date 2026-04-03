@@ -136,15 +136,7 @@ public static class DllInspectorBindings
         if (state.CurrentTab == TabId.HexDump && !state.HexJumpDialogOpen
             && state.HexMode == HexEditMode.Normal)
         {
-            bindings.Key(Hex1bKey.I).Global().Action(_ =>
-            {
-                resetVimPending?.Invoke();
-                state.HexMode = HexEditMode.Insert;
-                state.HexEditorState.IsReadOnly = false;
-                state.HexNotification = null;
-                app.Invalidate();
-            }, "Insert mode");
-
+            // g (jump) and e (endianness) work from any editor on the tab
             bindings.Key(Hex1bKey.G).Global().Action(_ =>
             {
                 resetVimPending?.Invoke();
@@ -163,30 +155,47 @@ public static class DllInspectorBindings
                 app.Invalidate();
             }, "Toggle endianness");
 
-            bindings.Key(Hex1bKey.H).Global().Action(_ =>
+            // i/h/j/k/l only register when the hex editor is focused so the data
+            // interpretation editor's local ConfigureReadOnlyEditorBindings can
+            // handle those keys for vim navigation and text objects.
+            var hexEditorFocused = app.FocusedNode is not EditorNode focusedEd
+                || focusedEd.State == state.HexEditorState;
+            if (hexEditorFocused)
             {
-                resetVimPending?.Invoke();
-                state.HexEditorState.MoveCursor(CursorDirection.Left);
-                app.Invalidate();
-            }, "Left");
-            bindings.Key(Hex1bKey.L).Global().Action(_ =>
-            {
-                resetVimPending?.Invoke();
-                state.HexEditorState.MoveCursor(CursorDirection.Right);
-                app.Invalidate();
-            }, "Right");
-            bindings.Key(Hex1bKey.K).Global().Action(_ =>
-            {
-                resetVimPending?.Invoke();
-                state.HexEditorState.MoveCursor(CursorDirection.Up);
-                app.Invalidate();
-            }, "Up");
-            bindings.Key(Hex1bKey.J).Global().Action(_ =>
-            {
-                resetVimPending?.Invoke();
-                state.HexEditorState.MoveCursor(CursorDirection.Down);
-                app.Invalidate();
-            }, "Down");
+                bindings.Key(Hex1bKey.I).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.HexMode = HexEditMode.Insert;
+                    state.HexEditorState.IsReadOnly = false;
+                    state.HexNotification = null;
+                    app.Invalidate();
+                }, "Insert mode");
+
+                bindings.Key(Hex1bKey.H).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.HexEditorState.MoveCursor(CursorDirection.Left);
+                    app.Invalidate();
+                }, "Left");
+                bindings.Key(Hex1bKey.L).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.HexEditorState.MoveCursor(CursorDirection.Right);
+                    app.Invalidate();
+                }, "Right");
+                bindings.Key(Hex1bKey.K).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.HexEditorState.MoveCursor(CursorDirection.Up);
+                    app.Invalidate();
+                }, "Up");
+                bindings.Key(Hex1bKey.J).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.HexEditorState.MoveCursor(CursorDirection.Down);
+                    app.Invalidate();
+                }, "Down");
+            }
         }
 
         // Hex jump dialog Enter
