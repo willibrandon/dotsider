@@ -1750,7 +1750,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
-        _state.App.Invalidate();
+        // Send Escape to trigger a render frame — App.Invalidate() alone doesn't
+        // reliably wake the headless render loop. Escape is harmless on the Events
+        // subtab after exit (no search or filter active at this point).
+        await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1820,7 +1823,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
-        _state.App.Invalidate();
+        // Send Escape to trigger a render frame — App.Invalidate() alone doesn't
+        // reliably wake the headless render loop. Escape is harmless on the Events
+        // subtab after exit (no search or filter active at this point).
+        await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1881,7 +1887,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
-        _state.App.Invalidate();
+        // Send Escape to trigger a render frame — App.Invalidate() alone doesn't
+        // reliably wake the headless render loop. Escape is harmless on the Events
+        // subtab after exit (no search or filter active at this point).
+        await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;

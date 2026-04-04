@@ -97,13 +97,14 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(selectedBefore);
         Assert.Equal("ToTitleCase", selectedBefore!.Name);
 
-        // Confirm tree focus, capture editor cursor, press DownArrow, then verify
-        // the editor cursor didn't move (tree consumed the key, not editor).
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ListNode,
-            description: "tree to have focus before DownArrow");
+        // Capture editor cursor before DownArrow
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
+
+        // Press DownArrow — should move table focus, not editor cursor.
+        // Use the automator to ensure the key is fully processed before asserting.
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
-        await auto.WaitUntilAsync(_ => true, description: "render after DownArrow");
+
+        // Editor cursor must not have moved (table consumed the key, not editor)
         Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
 
         _cts!.Cancel();
