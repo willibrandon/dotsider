@@ -31,7 +31,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     private CancellationTokenSource? _cts;
     private Stopwatch? _stopwatch;
     private Timer? _invalidateTimer;
-    private volatile bool _processExited;
 
     // Ring buffer for events — lock protects both read and write
     private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
@@ -181,31 +180,31 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         Task.Run(() => ReadOutput(_process.StandardOutput, false, startTime));
         Task.Run(() => ReadOutput(_process.StandardError, true, startTime));
 
-        // Handle process exit — transition state immediately so tests that poll
-        // ProcessState don't hang waiting for source.Process() to unblock (the
-        // EventPipe pipe doesn't always close promptly on Linux).
+        // Handle process exit
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
-            _processExited = true;
+            bool transitioned;
             lock (_stateLock)
             {
-                // Always capture exit code — this handler is the authoritative
-                // source. The background task may have already transitioned to
-                // Exited with a null exit code (HasExited was false at that point).
-                try { _exitCode = _process.ExitCode; }
-                catch { /* process state not yet available */ }
-                if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+                transitioned = _processState == TraceProcessState.Running;
+                if (transitioned)
                 {
+                    _exitCode = _process.HasExited ? _process.ExitCode : null;
                     _processState = TraceProcessState.Exited;
-                    invalidate();
                 }
             }
-            _stopwatch?.Stop();
-            // StopProcessing unblocks source.Process() synchronously.
-            // session.Stop() can deadlock on Windows when the pipe is
-            // already broken, so we only use the TraceEventSource path.
-            _eventSource?.StopProcessing();
+
+            if (transitioned)
+            {
+                _stopwatch?.Stop();
+                // StopProcessing unblocks source.Process() synchronously.
+                // session.Stop() can deadlock on Windows when the pipe is
+                // already broken, so we only use the TraceEventSource path.
+                _eventSource?.StopProcessing();
+                // Direct invalidate — don't rely on timer (it may be disposed by Stop())
+                invalidate();
+            }
         };
 
         lock (_stateLock) _processState = TraceProcessState.Starting;
@@ -219,14 +218,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             if (Interlocked.Exchange(ref _dirty, 0) == 1
                 || ProcessState == TraceProcessState.Running)
                 invalidate();
-
-            // On Linux, the EventPipe pipe doesn't always close promptly when
-            // the process exits, leaving source.Process() blocked. Use the
-            // _processExited flag (set by Process.Exited handler) instead of
-            // accessing the Process object which may have been disposed.
-            if (_processExited
-                && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
-                _eventSource?.StopProcessing();
         }, null, 0, 100);
 
         // Connection + event processing on background task.
@@ -284,21 +275,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 // Resume the suspended runtime now that EventPipe is attached
                 client!.ResumeRuntime();
 
-                // Process events — blocks until session ends.
-                // When it returns, all buffered events have been flushed.
+                // Process events — blocks until session ends
                 ProcessEventsLoop(session);
-
-                // Transition to Exited now that events are fully processed.
-                // Exit code is captured by Process.Exited handler or Stop().
-                lock (_stateLock)
-                {
-                    if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
-                    {
-                        _exitCode ??= _process?.HasExited == true ? _process.ExitCode : null;
-                        _processState = TraceProcessState.Exited;
-                        invalidate();
-                    }
-                }
             }
             catch (OperationCanceledException) { /* user cancelled */ }
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
@@ -308,9 +286,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
                     {
-                        _exitCode ??= _process?.HasExited == true ? _process.ExitCode : null;
+                        _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
                         _processState = TraceProcessState.Exited;
-                        invalidate();
                     }
                 }
             }
@@ -320,14 +297,11 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     _errorMessage = ex.Message;
                     _processState = TraceProcessState.Error;
-                    invalidate();
                 }
             }
             finally
             {
                 _stopwatch?.Stop();
-                // Direct invalidate — the timer only fires when ProcessState is
-                // Running, and by this point it's Exited or Error.
                 invalidate();
             }
         });
