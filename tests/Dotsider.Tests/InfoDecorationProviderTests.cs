@@ -119,4 +119,70 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    [Fact]
+    public void InfoLabel_IgnoresColonsInsideValues()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Description:  Visit https://example.com for details");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        // Only "Description:" should be colored, not "https:"
+        Assert.Single(spans);
+    }
+
+    [Fact]
+    public void InfoLabel_IgnoresTrailingColonInValue()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Description:  abc:");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Single(spans);
+    }
+
+    [Fact]
+    public void InfoLabel_IgnoresColonAfterDoubleSpaceInValue()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Description:  Value  with: colon");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Single(spans);
+    }
+
+    [Fact]
+    public void InfoLabel_IgnoresDoubleColonInValues()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  MethodDef:    Namespace.Type::Method");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Single(spans);
+    }
+
+    [Fact]
+    public void InfoLabel_ColorsMultipleLabelsPerLine()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Gen 0: 4    Gen 1: 4    Gen 2: 4");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Equal(3, spans.Count);
+    }
+
+    [Fact]
+    public void InfoLabel_ColorsThreadingLabels()
+    {
+        var provider = new InfoLabelDecorationProvider();
+        var doc = new Hex1bDocument("  Threads: 2    Queue: 0    Exceptions: 0    Timers: 1");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        Assert.Equal(4, spans.Count);
+    }
 }
