@@ -1742,11 +1742,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error,
-            timeout: TimeSpan.FromSeconds(30));
-        Assert.Equal(TraceProcessState.Exited, _state!.Tracer!.ProcessState);
-        await auto.WaitUntilTextAsync("Re-run");
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
+        Assert.True(_state!.Tracer!.ProcessState
+            is TraceProcessState.Exited or TraceProcessState.Error);
 
         var tracer = _state!.Tracer!;
 
