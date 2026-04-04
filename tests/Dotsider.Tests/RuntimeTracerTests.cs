@@ -29,6 +29,27 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         return _tracer;
     }
 
+    /// <summary>
+    /// Waits for the tracer to reach Exited or Error. If the process hangs
+    /// under EventPipe (known issue on Windows CI), stops it after the timeout.
+    /// </summary>
+    private static async Task WaitForExitAsync(RuntimeTracer tracer, TimeSpan timeout)
+    {
+        try
+        {
+            await TestHelpers.WaitUntilAsync(
+                () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
+                timeout);
+        }
+        catch (TimeoutException)
+        {
+            tracer.Stop();
+            await TestHelpers.WaitUntilAsync(
+                () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
+                TimeSpan.FromSeconds(10));
+        }
+    }
+
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_TransitionsToRunning()
     {
@@ -48,9 +69,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         // ExitCode is set by the Process.Exited handler which fires asynchronously —
         // wait for it rather than reading immediately after state transition.
@@ -63,9 +82,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         var events = tracer.GetEvents();
         Assert.NotEmpty(events);
@@ -91,9 +108,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         var output = tracer.GetOutput();
         Assert.NotEmpty(output);
@@ -104,9 +119,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         var summary = tracer.GetSummary();
         Assert.True(summary.TotalEvents > 0);
@@ -146,9 +159,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         Assert.Null(tracer.ErrorMessage);
     }
@@ -158,9 +169,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         var summary = tracer.GetSummary();
         var exceptionEvents = summary.EventsByCategory
@@ -173,9 +182,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.ComplexAppDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(45));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(45));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
 
         var events = tracer.GetEvents();
@@ -225,9 +232,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         var events = tracer.GetEvents();
         var categories = events.Select(e => e.Category).Distinct().ToHashSet();
@@ -242,9 +247,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         tracer.Start();
         // Wait for the specific Format JIT events — ProcessState can transition
         // to Exited before all events are flushed from the EventPipe buffer.
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
-            TimeSpan.FromSeconds(30));
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
         await TestHelpers.WaitUntilAsync(
             () => tracer.GetEvents().Count(e => e.Category == TraceEventCategory.JIT
