@@ -240,14 +240,17 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
     {
         var tracer = CreateTracer(samples.HelloWorldDll);
         tracer.Start();
+        // Wait for the specific Format JIT events — ProcessState can transition
+        // to Exited before all events are flushed from the EventPipe buffer.
         await TestHelpers.WaitUntilAsync(
             () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
             TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
+        await TestHelpers.WaitUntilAsync(
+            () => tracer.GetEvents().Count(e => e.Category == TraceEventCategory.JIT
+                && e.Detail.EndsWith(".Format") && e.MetadataToken > 0) >= 2,
+            TimeSpan.FromSeconds(10));
 
-        // HelloWorld defines Formatter.Format(int) and Formatter.Format(string).
-        // Both produce JIT events with identical Detail ("Formatter.Format")
-        // but distinct MetadataTokens.
         var jitEvents = tracer.GetEvents()
             .Where(e => e.Category == TraceEventCategory.JIT)
             .ToList();

@@ -180,15 +180,25 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         Task.Run(() => ReadOutput(_process.StandardOutput, false, startTime));
         Task.Run(() => ReadOutput(_process.StandardError, true, startTime));
 
-        // Handle process exit — capture exit code and unblock event processing,
-        // but do NOT transition state here. The state transition happens after
-        // ProcessEventsLoop returns so that all buffered EventPipe events are
-        // flushed before observers see ProcessState == Exited.
+        // Handle process exit — transition state immediately so tests that poll
+        // ProcessState don't hang waiting for source.Process() to unblock (the
+        // EventPipe pipe doesn't always close promptly on Linux).
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
             lock (_stateLock)
-                _exitCode = _process.HasExited ? _process.ExitCode : null;
+            {
+                // Always capture exit code — this handler is the authoritative
+                // source. The background task may have already transitioned to
+                // Exited with a null exit code (HasExited was false at that point).
+                try { _exitCode = _process.ExitCode; }
+                catch { /* process state not yet available */ }
+                if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+                {
+                    _processState = TraceProcessState.Exited;
+                    invalidate();
+                }
+            }
             _stopwatch?.Stop();
             // StopProcessing unblocks source.Process() synchronously.
             // session.Stop() can deadlock on Windows when the pipe is
