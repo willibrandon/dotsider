@@ -194,6 +194,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                     _processState = TraceProcessState.Exited;
                 }
             }
+            if (transitioned)
+                invalidate();
 
             if (transitioned)
             {
@@ -202,8 +204,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 // session.Stop() can deadlock on Windows when the pipe is
                 // already broken, so we only use the TraceEventSource path.
                 _eventSource?.StopProcessing();
-                // Direct invalidate — don't rely on timer (it may be disposed by Stop())
-                invalidate();
             }
         };
 
@@ -302,7 +302,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             finally
             {
                 _stopwatch?.Stop();
-                MarkDirty();
+                invalidate();
             }
         });
     }
@@ -327,20 +327,17 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _invalidateTimer = null;
         _stopwatch?.Stop();
 
-        bool transitioned;
+        bool stopped;
         lock (_stateLock)
         {
-            transitioned = _processState is TraceProcessState.Running or TraceProcessState.Starting;
-            if (transitioned)
+            stopped = _processState is TraceProcessState.Running or TraceProcessState.Starting;
+            if (stopped)
             {
                 _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
                 _processState = TraceProcessState.Exited;
             }
         }
-
-        // Direct invalidate after transition — the timer is already disposed so
-        // MarkDirty alone would never trigger a re-render.
-        if (transitioned)
+        if (stopped)
             invalidate();
     }
 

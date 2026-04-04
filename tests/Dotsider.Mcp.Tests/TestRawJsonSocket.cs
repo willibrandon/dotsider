@@ -59,7 +59,11 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
             {
                 client = await _listener.AcceptAsync(ct);
             }
-            catch (OperationCanceledException)
+            catch (Exception) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (SocketException)
             {
                 break;
             }
@@ -80,7 +84,7 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
 
                 await writer.WriteLineAsync(response.AsMemory(), ct);
             }
-            catch (OperationCanceledException)
+            catch (Exception) when (ct.IsCancellationRequested)
             {
                 break;
             }

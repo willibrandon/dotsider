@@ -40,11 +40,17 @@ public partial class McpCliTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
+        // Launch the built DLL directly instead of going through `dotnet run`
+        // which has project resolution overhead that can exceed the timeout.
+        var dllPath = Path.Combine(
+            FindRepoRoot(), "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0", "dotsider-mcp.dll");
+        Assert.True(File.Exists(dllPath), $"dotsider-mcp.dll not found: {dllPath}");
+
         await using var client = await McpClient.CreateAsync(
             new StdioClientTransport(new StdioClientTransportOptions
             {
                 Command = "dotnet",
-                Arguments = [$"run", "--no-build", "-c", s_buildConfig, "--project", s_projectPath],
+                Arguments = [dllPath],
             }),
             cancellationToken: cts.Token);
 

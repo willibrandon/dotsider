@@ -58,9 +58,11 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
         var selEnd = hasSelection ? state.Cursor.SelectionEnd.Value : -1;
         var cursorPos = isFocused ? state.Cursor.Position.Value : -1;
 
-        // Yank flash range (from decoration providers)
+        // Yank flash range and colors (from decoration providers)
         var yankStart = -1;
         var yankEnd = -1;
+        var yankFgAnsi = fgAnsi;
+        var yankBgAnsi = bgAnsi;
         if (decorationProviders is not null)
         {
             foreach (var provider in decorationProviders)
@@ -68,10 +70,13 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
                 var spans = provider.GetDecorations(1, doc.LineCount, doc);
                 foreach (var span in spans)
                 {
-                    if (span.Decoration.Background is { IsDefault: false })
+                    if (span.Decoration.Background is { IsDefault: false } yankBg)
                     {
                         yankStart = doc.PositionToOffset(span.Start).Value;
                         yankEnd = doc.PositionToOffset(span.End).Value;
+                        yankBgAnsi = yankBg.ToBackgroundAnsi();
+                        if (span.Decoration.Foreground is { IsDefault: false } yankFgColor)
+                            yankFgAnsi = yankFgColor.ToForegroundAnsi();
                     }
                 }
             }
@@ -124,7 +129,7 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
                         else if (!isText)
                             sb.Append(fgAnsi).Append(bgAnsi); // cursor slot without cursor
                         else if (docOffset >= yankStart && docOffset < yankEnd && yankStart >= 0)
-                            sb.Append(fgAnsi).Append(selBgAnsi);
+                            sb.Append(yankFgAnsi).Append(yankBgAnsi);
                         else if (docOffset >= selStart && docOffset < selEnd)
                             sb.Append(selFgAnsi).Append(selBgAnsi);
                         else if (colonIdx >= 0 && ci <= colonIdx)
@@ -156,12 +161,13 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
     public DocumentOffset? HitTest(int localX, int localY, EditorState state,
         int viewportColumns, int viewportLines, int scrollOffset, int horizontalScrollOffset)
     {
-        if (localY < 0 || localY >= Rows || localY >= state.Document.LineCount)
+        if (localY < 0 || localY >= Rows || localY >= state.Document.LineCount
+            || localX < 0)
             return null;
 
         var colW = viewportColumns / Cols;
         var col = Math.Min(localX / Math.Max(1, colW), Cols - 1);
-        var charInCell = localX - col * colW;
+        var charInCell = Math.Max(0, localX - col * colW);
 
         var lineText = state.Document.GetLineText(localY + 1) ?? "";
         var fields = lineText.Split('\t');
@@ -180,7 +186,7 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
         for (var line = 0; line < localY; line++)
             lineOffset += (state.Document.GetLineText(line + 1)?.Length ?? 0) + 1;
 
-        return new DocumentOffset(Math.Min(lineOffset + docCol, state.Document.Length));
+        return new DocumentOffset(Math.Clamp(lineOffset + docCol, 0, state.Document.Length));
     }
 
     /// <inheritdoc />

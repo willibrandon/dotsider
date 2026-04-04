@@ -56,6 +56,16 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         catch (NullReferenceException) { return false; }
     }
 
+    private bool IsFocusedOnEditor(EditorState? expectedState)
+    {
+        try
+        {
+            return _state?.App.FocusedNode is EditorNode { State: var es }
+                && es == expectedState;
+        }
+        catch (NullReferenceException) { return false; }
+    }
+
     private Hex1bTerminalInputSequenceBuilder LaunchTraceAndWaitForExit()
     {
         return new Hex1bTerminalInputSequenceBuilder()
@@ -78,25 +88,21 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
     }
 
-    /// <summary>Sends Tab keys until focus leaves all editors on the Counters subtab.</summary>
+    /// <summary>Moves focus out of the Counters editors to the subtab strip.</summary>
     private async Task TabOutOfCountersEditorsAsync(Hex1bTerminal terminal, CancellationToken ct)
     {
-        // Counters has up to 4 editors (CPU, Memory, GC, Threading). Tab through
-        // them one at a time until focus lands on a non-editor (the subtab strip).
-        // Use the automator API — each step gets a reasonable timeout that handles
-        // slow CI render cycles when the EventPipe tracer is processing live events.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
-        for (var i = 0; i < 6; i++)
-        {
-            if (!IsFocusedOnEditor()) return;
-            var before = _state?.App.FocusedNode;
-            await auto.TabAsync(ct);
-            await auto.WaitUntilAsync(_ =>
-            {
-                try { return _state?.App.FocusedNode != before; }
-                catch (NullReferenceException) { return true; }
-            }, description: $"focus to change after Tab {i + 1}");
-        }
+        // During a live trace, render cycles can be slow because each frame
+        // processes EventPipe events. Instead of tabbing through editors one
+        // at a time (which requires one render cycle per Tab), directly request
+        // focus on the subtab strip and wait for it.
+        _state!.App.RequestFocus(node =>
+            node.GetType().Name.StartsWith("TabPanelNode"));
+        _state.App.Invalidate();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
     }
 
     private Hex1bTerminalInputSequenceBuilder NavigateFromCountersToSummary()
@@ -108,7 +114,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(5))
             .WaitUntil(_ => _state!.DynamicSummaryEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState), TimeSpan.FromSeconds(5));
     }
 
     [Fact(Timeout = 30_000)]
@@ -447,17 +453,14 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Stop the tracer — once exited, the freeze lifts and the editor must update
-        _state.Tracer!.Stop();
-
-        // Wait for exit, then wait for the EditorState to be recreated (proving the
-        // freeze was lifted and UpdateEditorIfNeeded saw the changed text)
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.Tracer!.ProcessState
-                is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(15))
-            .WaitUntil(_ => _state.DynamicSummaryEditorState != frozenState, TimeSpan.FromSeconds(10))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        // Stop the tracer via Ctrl+K (through the UI, which naturally triggers a
+        // render) rather than calling Stop() directly. Direct Stop() can race with
+        // the render loop's snapshot polling.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(15));
+        await auto.Ctrl().KeyAsync(Hex1bKey.K, ct);
+        await auto.WaitUntilTextAsync("Exited");
+        await auto.WaitUntilAsync(_ => _state.DynamicSummaryEditorState != frozenState,
+            description: "editor state to update after freeze lifts");
 
         Assert.NotSame(frozenState, _state.DynamicSummaryEditorState);
 

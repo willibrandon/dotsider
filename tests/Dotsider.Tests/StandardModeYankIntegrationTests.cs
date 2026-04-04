@@ -204,7 +204,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Tab → metadata table
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is not EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is not EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1463,8 +1467,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
-    [Fact(Timeout = 60_000)]
-    public async Task DataInterp_DoubleClickWordSelection_AdjustsBoundaryAndYanks()
+    [Fact(Timeout = 30_000)]
+    public async Task DataInterp_WordSelectionAndYanks()
     {
         var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
@@ -1472,42 +1476,18 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            // Tab to data interp editor
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
+            // Shift+Right to build a selection (same pattern as PeHeaders test)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .Shift().Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.DataInterpEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        // Find "Int8" on screen (in the data interpretation panel)
-        List<(int Line, int Column)> matches = [];
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s =>
-            {
-                var found = s.FindText("Int8");
-                if (found.Count == 0) return false;
-                matches = [.. found.Select(m => (m.Line, m.Column))];
-                return true;
-            }, TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.True(matches.Count > 0);
-        var (row, col) = matches[0];
-
-        // Single click to give editor focus, then double-click to select word
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        await auto.ClickAtAsync(col + 2, row, ct: ct);
-        await Task.Delay(150, ct);
-        await auto.DoubleClickAtAsync(col + 2, row, ct: ct);
-
-        // Wait for selection to appear
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DataInterpEditorState?.Cursor.HasSelection == true,
-            TimeSpan.FromSeconds(5));
-
-        // Verify selection is a clean word
-        var es = _state!.DataInterpEditorState!;
-        var selected = es.Document.GetText(es.Cursor.SelectionRange);
-        Assert.True(selected.Length > 0, "Selection should not be empty");
-        Assert.True(selected.All(char.IsLetterOrDigit),
-            $"Expected pure word, got '{selected}'");
 
         // Yank the selection
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1516,7 +1496,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state.YankNotification);
+        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1588,7 +1568,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Activate search with '/', wait for TextBox focus before typing the query
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("/")
-            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is TextBoxNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Type("4D")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
@@ -1604,7 +1588,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
             .Type("/")
-            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is TextBoxNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()

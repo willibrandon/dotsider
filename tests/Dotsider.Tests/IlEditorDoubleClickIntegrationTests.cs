@@ -208,11 +208,19 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Double-click to select the word. Wait for the selection to appear
-        // rather than using Task.Delay — CI runners can be slow.
+        // Double-click to select the word. Wait for HasSelection AND for the
+        // AdjustWordSelectionCursorOneShot to fire (runs on the next Build after
+        // selection, pulling the cursor back from punctuation to a word character).
         await auto.DoubleClickAtAsync(targetCol, targetRow, ct: ct);
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.IlEditorState?.Cursor.HasSelection == true, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                var es = _state.IlEditorState;
+                if (es?.Cursor.HasSelection != true) return false;
+                var text = es.Document.GetText();
+                var pos = es.Cursor.Position.Value;
+                return pos < text.Length && char.IsLetterOrDigit(text[pos]);
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
