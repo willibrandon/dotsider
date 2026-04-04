@@ -212,6 +212,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         // Invalidation timer (100ms interval). While the process is Running,
         // always invalidate so the elapsed time display stays current.
         // Otherwise, only invalidate when the dirty flag is set.
+        var timerProcess = _process; // capture for safe access from timer callback
         _invalidateTimer = new Timer(_ =>
         {
             if (Interlocked.Exchange(ref _dirty, 0) == 1
@@ -222,9 +223,13 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             // the process exits, leaving source.Process() blocked. If the process
             // has exited but ProcessState is still Running, call StopProcessing
             // to unblock the event loop.
-            if (_process?.HasExited == true
-                && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
-                _eventSource?.StopProcessing();
+            try
+            {
+                if (timerProcess.HasExited
+                    && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+                    _eventSource?.StopProcessing();
+            }
+            catch { /* process handle may have been closed by Stop/Dispose */ }
         }, null, 0, 100);
 
         // Connection + event processing on background task.
