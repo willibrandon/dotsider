@@ -204,7 +204,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Tab → metadata table
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is not EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is not EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1564,7 +1568,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Activate search with '/', wait for TextBox focus before typing the query
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("/")
-            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is TextBoxNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Type("4D")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
@@ -1580,7 +1588,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
             .Type("/")
-            .WaitUntil(_ => _state!.App.FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is TextBoxNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()

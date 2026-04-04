@@ -59,24 +59,36 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         // Tab → Left Info
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode { State: var es }
-                && es == _state.LeftInfoEditorState, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.LeftInfoEditorState; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Tab → Right Info
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode { State: var es }
-                && es == _state.RightInfoEditorState, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.RightInfoEditorState; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Tab → Change Stats
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode { State: var es }
-                && es == _state.ChangeStatsEditorState, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.ChangeStatsEditorState; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -94,7 +106,11 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab) // Focus left info editor
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -272,8 +288,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to left info editor
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode { State: var es }
-                && es == _state.LeftInfoEditorState, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.LeftInfoEditorState; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -601,7 +621,11 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to focus the left info editor
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 

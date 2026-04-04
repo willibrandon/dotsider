@@ -80,14 +80,22 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Tab → Package Info editor
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Tab → back to table
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is not EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is not EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -336,7 +344,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             // Tab to Package Info editor
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -431,7 +443,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             // Tab to Assembly Info editor
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -706,7 +722,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             // Tab to focus the Package Info editor
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => _state!.App.FocusedNode is EditorNode, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is EditorNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 

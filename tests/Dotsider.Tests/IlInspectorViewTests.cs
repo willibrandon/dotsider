@@ -89,7 +89,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(s => s.ContainsText("User Strings") || s.ContainsText("Metadata"));
         await auto.KeyAsync(Hex1bKey.D3, ct: ct);
         await auto.WaitUntilTextAsync("IL_0000");
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ListNode,
+        await auto.WaitUntilAsync(_ =>
+            {
+                try { return _state!.App.FocusedNode is ListNode; }
+                catch (NullReferenceException) { return false; }
+            },
             description: "focus to return to tree");
 
         // Selected method must be preserved after tab round-trip
@@ -161,7 +165,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // Wait for IL content and for the jump's RequestFocus to be applied
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await auto.WaitUntilTextAsync("IL_");
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ListNode,
+        await auto.WaitUntilAsync(_ =>
+            {
+                try { return _state!.App.FocusedNode is ListNode; }
+                catch (NullReferenceException) { return false; }
+            },
             description: "focus to return to tree");
 
         // The jumped-to method must be selected in state
