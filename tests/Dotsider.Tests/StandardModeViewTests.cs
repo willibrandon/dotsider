@@ -1277,6 +1277,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(15));
 
         Assert.Equal(TraceProcessState.Exited, _state.Tracer!.ProcessState);
+        await auto.WaitUntilAsync(_ => _state.Tracer!.ExitCode is not null,
+            description: "exit code to be captured");
         Assert.Equal(0, _state.Tracer.ExitCode);
 
         cts.Cancel();

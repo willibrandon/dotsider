@@ -269,9 +269,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 ProcessEventsLoop(session);
 
                 // Transition to Exited now that events are fully processed.
-                // Brief wait for the OS to finish process cleanup so ExitCode
-                // is available if the Process.Exited handler hasn't fired yet.
-                try { _process.WaitForExit(1000); } catch { }
+                // Exit code is captured by Process.Exited handler or Stop().
                 lock (_stateLock)
                 {
                     if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
@@ -286,7 +284,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
             {
                 // Expected: process exited (pipe broke) or user cancelled
-                try { _process?.WaitForExit(1000); } catch { }
                 lock (_stateLock)
                 {
                     if (_processState is TraceProcessState.Running or TraceProcessState.Starting)

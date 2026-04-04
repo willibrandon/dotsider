@@ -52,6 +52,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
             () => tracer.ProcessState is TraceProcessState.Exited or TraceProcessState.Error,
             TimeSpan.FromSeconds(30));
         Assert.Equal(TraceProcessState.Exited, tracer.ProcessState);
+        // ExitCode is set by the Process.Exited handler which fires asynchronously —
+        // wait for it rather than reading immediately after state transition.
+        await TestHelpers.WaitUntilAsync(() => tracer.ExitCode is not null, TimeSpan.FromSeconds(5));
         Assert.Equal(0, tracer.ExitCode);
     }
 
@@ -177,6 +180,7 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
 
         var events = tracer.GetEvents();
 
+        await TestHelpers.WaitUntilAsync(() => tracer.ExitCode is not null, TimeSpan.FromSeconds(5));
         Assert.Equal(0, tracer.ExitCode);
         Assert.NotEmpty(events);
     }
