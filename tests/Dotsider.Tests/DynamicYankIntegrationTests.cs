@@ -453,12 +453,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Stop the tracer — once exited, the freeze lifts and the editor must update.
-        // Invalidate after Stop to ensure the render loop wakes up, then use the
-        // automator for screen-based waiting.
-        _state.Tracer!.Stop();
-        _state.App.Invalidate();
+        // Stop the tracer via Ctrl+K (through the UI, which naturally triggers a
+        // render) rather than calling Stop() directly. Direct Stop() can race with
+        // the render loop's snapshot polling.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(15));
+        await auto.Ctrl().KeyAsync(Hex1bKey.K, ct);
         await auto.WaitUntilTextAsync("Exited");
         await auto.WaitUntilAsync(_ => _state.DynamicSummaryEditorState != frozenState,
             description: "editor state to update after freeze lifts");
