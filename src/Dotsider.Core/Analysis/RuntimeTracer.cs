@@ -31,6 +31,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     private CancellationTokenSource? _cts;
     private Stopwatch? _stopwatch;
     private Timer? _invalidateTimer;
+    private volatile bool _processExited;
 
     // Ring buffer for events — lock protects both read and write
     private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
@@ -186,6 +187,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
+            _processExited = true;
             lock (_stateLock)
             {
                 // Always capture exit code — this handler is the authoritative
@@ -212,7 +214,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         // Invalidation timer (100ms interval). While the process is Running,
         // always invalidate so the elapsed time display stays current.
         // Otherwise, only invalidate when the dirty flag is set.
-        var timerProcess = _process; // capture for safe access from timer callback
         _invalidateTimer = new Timer(_ =>
         {
             if (Interlocked.Exchange(ref _dirty, 0) == 1
@@ -220,16 +221,12 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 invalidate();
 
             // On Linux, the EventPipe pipe doesn't always close promptly when
-            // the process exits, leaving source.Process() blocked. If the process
-            // has exited but ProcessState is still Running, call StopProcessing
-            // to unblock the event loop.
-            try
-            {
-                if (timerProcess.HasExited
-                    && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
-                    _eventSource?.StopProcessing();
-            }
-            catch { /* process handle may have been closed by Stop/Dispose */ }
+            // the process exits, leaving source.Process() blocked. Use the
+            // _processExited flag (set by Process.Exited handler) instead of
+            // accessing the Process object which may have been disposed.
+            if (_processExited
+                && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+                _eventSource?.StopProcessing();
         }, null, 0, 100);
 
         // Connection + event processing on background task.
