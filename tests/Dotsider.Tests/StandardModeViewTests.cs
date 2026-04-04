@@ -1750,6 +1750,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
+        _state.App.Invalidate();
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1819,6 +1820,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
+        _state.App.Invalidate();
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1879,6 +1881,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
             await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
+        _state.App.Invalidate();
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
