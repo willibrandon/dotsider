@@ -134,10 +134,11 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Toggle endianness
+        // Toggle endianness — wait for the state change, not screen text,
+        // because "BE" can already exist in hex dump content (byte 0xBE).
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("e")
-            .WaitUntil(s => s.ContainsText("BE"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.HexEndianness == HexEndianness.Big, TimeSpan.FromSeconds(5))
             .Ctrl().Key(Hex1bKey.C)
             .Build()
             .ApplyAsync(terminal, ct);
