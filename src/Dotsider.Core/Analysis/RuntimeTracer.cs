@@ -192,6 +192,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     _exitCode = _process.HasExited ? _process.ExitCode : null;
                     _processState = TraceProcessState.Exited;
+                    invalidate();
                 }
             }
 
@@ -202,8 +203,6 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 // session.Stop() can deadlock on Windows when the pipe is
                 // already broken, so we only use the TraceEventSource path.
                 _eventSource?.StopProcessing();
-                // Direct invalidate — don't rely on timer (it may be disposed by Stop())
-                invalidate();
             }
         };
 
