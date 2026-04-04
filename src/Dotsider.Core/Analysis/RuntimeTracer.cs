@@ -217,6 +217,14 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             if (Interlocked.Exchange(ref _dirty, 0) == 1
                 || ProcessState == TraceProcessState.Running)
                 invalidate();
+
+            // On Linux, the EventPipe pipe doesn't always close promptly when
+            // the process exits, leaving source.Process() blocked. If the process
+            // has exited but ProcessState is still Running, call StopProcessing
+            // to unblock the event loop.
+            if (_process?.HasExited == true
+                && ProcessState is TraceProcessState.Running or TraceProcessState.Starting)
+                _eventSource?.StopProcessing();
         }, null, 0, 100);
 
         // Connection + event processing on background task.
