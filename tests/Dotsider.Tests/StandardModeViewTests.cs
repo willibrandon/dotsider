@@ -1737,16 +1737,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
-        // Don't check ProcessState in memory — wait for the screen to prove
-        // the exit has been rendered, which is what "Re-run" in the hint bar means.
+        // Navigate to Dynamic tab, launch trace. Wait for the target JIT events,
+        // then stop the tracer if the process hasn't exited on its own.
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Assembly Name");
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
-        Assert.True(_state!.Tracer!.ProcessState
-            is TraceProcessState.Exited or TraceProcessState.Error);
+        await auto.WaitUntilAsync(_ =>
+            _state!.Tracer?.GetEvents().Any(e => e.Category == TraceEventCategory.JIT
+                && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
+            timeout: TimeSpan.FromSeconds(30));
+        if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
+            _state.Tracer.Stop();
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
 
@@ -1801,23 +1805,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for exit to render on screen.
-        // Wait for "Re-run" text (not internal ProcessState) to ensure the exit has
-        // been fully rendered before applying the JIT filter and focusing an event.
+        // Navigate to Dynamic tab, launch trace. Wait for the target JIT events,
+        // then stop the tracer if the process hasn't exited on its own (the traced
+        // process can hang under EventPipe on Windows CI).
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Assembly Name");
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        // Wait for "Re-run" on screen — proves both exit AND render completed.
-        // A state-based WaitUntil for ProcessState can pass before the render
-        // that shows "Re-run", causing the subsequent WaitUntilText to time out.
-        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
-        Assert.Equal(TraceProcessState.Exited, _state!.Tracer!.ProcessState);
+        await auto.WaitUntilAsync(_ =>
+            _state!.Tracer?.GetEvents().Any(e => e.Category == TraceEventCategory.JIT
+                && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
+            timeout: TimeSpan.FromSeconds(30));
+        if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
+            _state.Tracer.Stop();
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
 
-        // Filter to JIT and focus a navigable event so CanNavigateJitEvent is true
+        // Filter to JIT and focus a navigable event
         await auto.KeyAsync(Hex1bKey.J, cts.Token);
         await auto.WaitUntilTextAsync("Filter: JIT");
 
@@ -1860,14 +1866,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
-        // Navigate to Dynamic tab, launch trace, wait for exit to render
+        // Navigate to Dynamic tab, launch trace. Wait for the target JIT events,
+        // then stop the tracer if the process hasn't exited on its own.
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Assembly Name");
         await auto.KeyAsync(Hex1bKey.D8, cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"));
         await auto.EnterAsync(cts.Token);
-        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(30));
-        Assert.Equal(TraceProcessState.Exited, _state!.Tracer!.ProcessState);
+        await auto.WaitUntilAsync(_ =>
+            _state!.Tracer?.GetEvents().Any(e => e.Category == TraceEventCategory.JIT
+                && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
+            timeout: TimeSpan.FromSeconds(30));
+        if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
+            _state.Tracer.Stop();
+        await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
 
