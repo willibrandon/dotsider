@@ -1749,8 +1749,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
-            _state.Tracer.Stop();
-        _state.App.Invalidate();
+            await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1819,8 +1818,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
-            _state.Tracer.Stop();
-        _state.App.Invalidate();
+            await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
@@ -1880,8 +1878,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 && e.Detail == "Formatter.Format" && e.MetadataToken > 0) == true,
             timeout: TimeSpan.FromSeconds(30));
         if (_state!.Tracer!.ProcessState == TraceProcessState.Running)
-            _state.Tracer.Stop();
-        _state.App.Invalidate();
+            await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
         await auto.WaitUntilTextAsync("Re-run", timeout: TimeSpan.FromSeconds(10));
 
         var tracer = _state!.Tracer!;
