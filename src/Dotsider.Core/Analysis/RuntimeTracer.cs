@@ -192,9 +192,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 {
                     _exitCode = _process.HasExited ? _process.ExitCode : null;
                     _processState = TraceProcessState.Exited;
-                    invalidate();
                 }
             }
+            if (transitioned)
+                invalidate();
 
             if (transitioned)
             {
@@ -326,15 +327,18 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _invalidateTimer = null;
         _stopwatch?.Stop();
 
+        bool stopped;
         lock (_stateLock)
         {
-            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+            stopped = _processState is TraceProcessState.Running or TraceProcessState.Starting;
+            if (stopped)
             {
                 _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
                 _processState = TraceProcessState.Exited;
-                invalidate();
             }
         }
+        if (stopped)
+            invalidate();
     }
 
     /// <inheritdoc/>
