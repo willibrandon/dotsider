@@ -383,13 +383,13 @@ public sealed class DotsiderApp(DotsiderState state)
                     }
                     else if (_state.NavigationStack.Count > 0)
                     {
-                        _state.PopAssembly();
+                        var backTab = _state.PopAssembly();
 
                         // Re-show the apphost dialog when backing out to an apphost .exe
                         if (_state.ApphostCompanionDllPath is not null && !_state.Analyzer.HasMetadata)
                             _state.ApphostDialogOpen = true;
 
-                        _state.NavigateToTab(TabId.General);
+                        _state.NavigateToTab(backTab);
                         _state.RequestContentFocus();
                         _state.App.Invalidate();
                     }

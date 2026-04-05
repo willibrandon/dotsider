@@ -104,7 +104,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldDll);
         Assert.True(state.PushAssembly(samples.RichLibraryDll));
-        Assert.True(state.PopAssembly());
+        state.PopAssembly();
         Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
         Assert.Empty(state.NavigationStack);
     }
@@ -158,7 +158,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         // Set an error, then pop
         state.PushAssembly("/nonexistent/fake.dll");
         Assert.NotNull(state.NavigationError);
-        Assert.True(state.PopAssembly());
+        state.PopAssembly();
         Assert.Null(state.NavigationError);
     }
 
@@ -186,11 +186,13 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     [Fact(Timeout = 30_000)]
-    public void PopAssembly_EmptyStack_ReturnsFalse()
+    public void PopAssembly_EmptyStack_IsNoOp()
     {
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.HelloWorldDll);
-        Assert.False(state.PopAssembly());
+        state.PopAssembly();
+        Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
+        Assert.Empty(state.NavigationStack);
     }
 
     [Fact(Timeout = 30_000)]
