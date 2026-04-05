@@ -96,6 +96,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Saved focused dep keys matching the navigation stack for restore on back.</summary>
     private readonly Stack<object?> _focusedDepStack = new();
 
+    /// <summary>Saved tab IDs matching the navigation stack for restore on back.</summary>
+    private readonly Stack<int> _tabStack = new();
+
     /// <summary>Maximum navigation depth for assembly drill-down.</summary>
     public const int MaxNavigationDepth = 10;
 
@@ -682,6 +685,7 @@ public sealed class DotsiderState : IDisposable
 
         NavigationError = null;
         _focusedDepStack.Push(GeneralFocusedDep);
+        _tabStack.Push(CurrentTab);
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
         StringExtractor = new StringExtractor(Analyzer);
@@ -696,10 +700,12 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>
     /// Pops the top of the navigation stack and restores the previous analyzer.
+    /// Returns the tab that was active when the assembly was pushed, or
+    /// <see cref="TabId.General"/> if nothing was saved.
     /// </summary>
-    public bool PopAssembly()
+    public int PopAssembly()
     {
-        if (NavigationStack.Count == 0) return false;
+        if (NavigationStack.Count == 0) return TabId.General;
         NavigationError = null;
         Analyzer.Dispose();
         Analyzer = NavigationStack.Pop();
@@ -709,10 +715,11 @@ public sealed class DotsiderState : IDisposable
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
+        var savedTab = _tabStack.Count > 0 ? _tabStack.Pop() : TabId.General;
         var savedFocus = _focusedDepStack.Count > 0 ? _focusedDepStack.Pop() : null;
         ResetViewState();
         GeneralFocusedDep = savedFocus;
-        return true;
+        return savedTab;
     }
 
     private void ResetViewState()
