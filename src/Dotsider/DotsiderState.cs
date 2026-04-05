@@ -99,6 +99,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Saved tab IDs matching the navigation stack for restore on back.</summary>
     private readonly Stack<int> _tabStack = new();
 
+    /// <summary>Saved graph selection indices matching the navigation stack for restore on back.</summary>
+    private readonly Stack<int> _graphSelectionStack = new();
+
     /// <summary>Maximum navigation depth for assembly drill-down.</summary>
     public const int MaxNavigationDepth = 10;
 
@@ -686,6 +689,7 @@ public sealed class DotsiderState : IDisposable
         NavigationError = null;
         _focusedDepStack.Push(GeneralFocusedDep);
         _tabStack.Push(CurrentTab);
+        _graphSelectionStack.Push(GraphSelectedIndex);
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
         StringExtractor = new StringExtractor(Analyzer);
@@ -716,9 +720,11 @@ public sealed class DotsiderState : IDisposable
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
         var savedTab = _tabStack.Count > 0 ? _tabStack.Pop() : TabId.General;
+        var savedGraphSelection = _graphSelectionStack.Count > 0 ? _graphSelectionStack.Pop() : -1;
         var savedFocus = _focusedDepStack.Count > 0 ? _focusedDepStack.Pop() : null;
         ResetViewState();
         GeneralFocusedDep = savedFocus;
+        GraphSelectedIndex = savedGraphSelection;
         return savedTab;
     }
 
