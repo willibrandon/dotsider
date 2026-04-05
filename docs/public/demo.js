@@ -56,6 +56,8 @@
   term.unicode.activeVersion = '11';
 
   term.open(tv);
+  // Suppress the browser context menu so right-click doesn't cover the TUI
+  tv.addEventListener('contextmenu', (e) => e.preventDefault());
   try { term.loadAddon(new WebglAddon()); } catch (e) { /* fallback to DOM renderer */ }
 
   // Handle OSC 52 clipboard write sequences from the TUI.
