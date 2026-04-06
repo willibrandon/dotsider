@@ -7,8 +7,10 @@ namespace Dotsider.Core.Analysis.Models;
 /// <param name="DeclaringType">The fully qualified name of the type that declares this member.</param>
 /// <param name="Name">The name of the referenced member.</param>
 /// <param name="Signature">The decoded signature of the member.</param>
+/// <param name="Kind">Whether this member reference is a method or a field.</param>
 public sealed record MemberRefInfo(
     int Token,
     string DeclaringType,
     string Name,
-    string Signature);
+    string Signature,
+    MemberRefKind Kind);

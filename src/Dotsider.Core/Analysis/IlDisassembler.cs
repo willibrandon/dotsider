@@ -45,12 +45,23 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
                 opCode = (ILOpCode)opCodeByte;
             }
 
+            var operandStart = offset;
             var operand = DecodeOperand(ilBytes, ref offset, opCode);
+
+            int? metadataToken = null;
+            var operandKind = GetOperandType(opCode);
+            if (operandKind is OperandKind.InlineMethod or OperandKind.InlineField
+                or OperandKind.InlineType or OperandKind.InlineTok
+                && operandStart + 4 <= ilBytes.Length)
+            {
+                metadataToken = BitConverter.ToInt32(ilBytes, operandStart);
+            }
 
             instructions.Add(new IlInstruction(
                 Offset: instructionOffset,
                 OpCode: FormatOpCode(opCode),
-                Operand: operand));
+                Operand: operand,
+                MetadataToken: metadataToken));
         }
 
         return instructions;
@@ -88,6 +99,54 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         }
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Disassembles a method and returns the text, instruction list, and header line count.
+    /// </summary>
+    /// <param name="method">The method to disassemble.</param>
+    /// <returns>Tuple of (text, instructions, headerLineCount), or null if no IL body.</returns>
+    public (string Text, IReadOnlyList<IlInstruction> Instructions, int HeaderLineCount)? DisassembleWithText(
+        MethodDefInfo method)
+    {
+        var body = analyzer.GetMethodBody(method);
+        if (body is null) return null;
+
+        var instructions = Disassemble(method);
+        var lines = new List<string>
+        {
+            $"// Method: {method.DeclaringType}::{method.Name}",
+            $"// Signature: {method.Signature}",
+            $"// RVA: 0x{method.Rva:X8}",
+            $"// Code size: {body.GetILBytes()?.Length ?? 0} bytes",
+            $"// Max stack: {body.MaxStack}",
+        };
+        if (body.LocalSignature.IsNil is false)
+            lines.Add($"// Locals init: {!body.LocalVariablesInitialized}");
+        lines.Add("");
+
+        var headerLineCount = lines.Count;
+        foreach (var inst in instructions)
+        {
+            var operandPart = string.IsNullOrEmpty(inst.Operand) ? "" : $" {inst.Operand}";
+            lines.Add($"IL_{inst.Offset:X4}: {inst.OpCode}{operandPart}");
+        }
+        return (string.Join('\n', lines), instructions, headerLineCount);
+    }
+
+    /// <summary>
+    /// Returns the number of header lines for a method's disassembly listing.
+    /// </summary>
+    /// <param name="method">The method to compute header lines for.</param>
+    /// <returns>The number of header lines, or 0 if no IL body.</returns>
+    public int GetHeaderLineCount(MethodDefInfo method)
+    {
+        var body = analyzer.GetMethodBody(method);
+        if (body is null) return 0;
+        var count = 5;
+        if (body.LocalSignature.IsNil is false) count++;
+        count++;
+        return count;
     }
 
     private string DecodeOperand(byte[] ilBytes, ref int offset, ILOpCode opCode)

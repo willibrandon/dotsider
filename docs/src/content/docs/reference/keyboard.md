@@ -34,6 +34,8 @@ description: All keyboard shortcuts for navigating dotsider.
 
 | Key | Action |
 |-----|--------|
+| `Enter` / `gd` | Go to definition (on a token-bearing instruction) |
+| `Esc` | Go back from go-to-definition |
 | `x` | Jump to method body in Hex Dump |
 | `l` | Focus the IL disassembly editor |
 

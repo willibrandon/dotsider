@@ -53,6 +53,22 @@ The list of decoded IL instructions.
 public IReadOnlyList<IlInstruction> Disassemble(MethodDefInfo method)
 ```
 
+### DisassembleWithText(MethodDefInfo)
+
+Disassembles a method and returns the text, instruction list, and header line count.
+
+**Parameters:**
+
+- `method` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)): The method to disassemble.
+
+**Returns:** [Nullable\<String, IlInstruction\>, Int32\>\>](https://learn.microsoft.com/dotnet/api/system.nullable-3)
+
+Tuple of (text, instructions, headerLineCount), or null if no IL body.
+
+```csharp
+public (string Text, IReadOnlyList<IlInstruction> Instructions, int HeaderLineCount)? DisassembleWithText(MethodDefInfo method)
+```
+
 ### FormatDisassembly(MethodDefInfo)
 
 Formats a complete disassembly listing for a method, including header information.
@@ -67,5 +83,21 @@ A multi-line string with the full disassembly listing.
 
 ```csharp
 public string FormatDisassembly(MethodDefInfo method)
+```
+
+### GetHeaderLineCount(MethodDefInfo)
+
+Returns the number of header lines for a method's disassembly listing.
+
+**Parameters:**
+
+- `method` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)): The method to compute header lines for.
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+The number of header lines, or 0 if no IL body.
+
+```csharp
+public int GetHeaderLineCount(MethodDefInfo method)
 ```
 

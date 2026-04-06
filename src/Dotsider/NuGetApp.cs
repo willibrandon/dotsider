@@ -248,6 +248,13 @@ public sealed class NuGetApp(NuGetState state)
                                 _state.App.Invalidate();
                                 return;
                             }
+
+                            if (dllState.CurrentTab == TabId.IlInspector && dllState.IlBackStack.Count > 0)
+                            {
+                                var entry = dllState.IlBackStack.Pop();
+                                dllState.RestoreFromIlBackEntry(entry);
+                                return;
+                            }
                         }
 
                         _state.SelectedDllState?.Dispose();

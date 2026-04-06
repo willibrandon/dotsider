@@ -169,8 +169,7 @@ public static class IlInspectorView
         })
         .WithInputBindings(bindings =>
         {
-            // Escape dismisses search (kept here — not moved to global because
-            // global Escape already handles confirmed search dismiss)
+            // Escape: search dismiss OR IL back navigation (local binding, not global)
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {
                 if (search.IsActive)
@@ -179,6 +178,11 @@ public static class IlInspectorView
                     state.IlSearchProvider.Query = null;
                     state.IlSearchProvider.CurrentMatchStart = null;
                     state.App.Invalidate();
+                }
+                else if (state.IlBackStack.Count > 0)
+                {
+                    var entry = state.IlBackStack.Pop();
+                    state.RestoreFromIlBackEntry(entry);
                 }
             }, "Esc");
         })
@@ -333,18 +337,66 @@ public static class IlInspectorView
         WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
     {
         if (state.IlSelectedMethod is not { } method)
+        {
+            if (state.IlSelectedField is { } field)
+            {
+                var fieldInfo = $"// Field: {field.DeclaringType}::{field.Name}\n"
+                    + $"// Type: {field.Signature}\n"
+                    + $"// Attributes: {field.Attributes}\n"
+                    + $"// Token: 0x{field.Token:X8}\n"
+                    + "\n"
+                    + "// Fields do not have IL bodies.\n"
+                    + "// Press Esc to go back.";
+                var fieldDoc = new Hex1bDocument(fieldInfo);
+                state.IlEditorState = new EditorState(fieldDoc) { IsReadOnly = true };
+                state.IlEditorMethod = null;
+                state.IlEditorAnalyzer = null;
+                var fieldEditorKey = ("field", field.Token);
+                return
+                [
+                    new IlEditorHostWidget
+                    {
+                        EditorKey = fieldEditorKey,
+                        State = state.IlEditorState,
+                        AppState = state
+                    }.FillWidth().FillHeight()
+                ];
+            }
+
             return [ctx.Text("  Select a method to view IL disassembly").FillHeight()];
+        }
 
         // Create new editor state when the method changes or when the analyzer
         // was replaced (e.g. after SaveHexChanges swaps in a new image).
         if (state.IlEditorMethod?.Token != method.Token
             || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
         {
-            var disassembly = state.IlDisassembler!.FormatDisassembly(method);
+            var result = state.IlDisassembler!.DisassembleWithText(method);
+            var disassembly = result?.Text ?? state.IlDisassembler.FormatDisassembly(method);
             var doc = new Hex1bDocument(disassembly);
             state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlEditorMethod = method;
             state.IlEditorAnalyzer = state.Analyzer;
+            state.IlInstructions = result?.Instructions;
+            state.IlHeaderLineCount = result?.HeaderLineCount ?? 0;
+            state.IlNavigationProvider.Instructions = state.IlInstructions;
+            state.IlNavigationProvider.HeaderLineCount = state.IlHeaderLineCount;
+        }
+
+        // Consume pending cursor match (from search n/N navigation)
+        if (state.IlPendingCursorMatch is { } match && state.IlEditorState is not null)
+        {
+            state.IlPendingCursorMatch = null;
+            var matchText = state.IlEditorState.Document.GetText();
+            var line = 1;
+            var col = 1;
+            var targetOffset = 0;
+            for (var i = 0; i < matchText.Length; i++)
+            {
+                if (line == match.Line && col == match.Column) { targetOffset = i; break; }
+                if (matchText[i] == '\n') { line++; col = 1; } else col++;
+            }
+            state.IlEditorState.SetCursorPosition(new DocumentOffset(targetOffset));
         }
 
         // After double-click word selection, the cursor lands one past the word

@@ -26,7 +26,7 @@ public sealed record IlInstruction : IEquatable<IlInstruction>
 
 ## Constructors
 
-### IlInstruction(int, string, string)
+### IlInstruction(int, string, string, int?)
 
 A single decoded IL (Intermediate Language) instruction.
 
@@ -35,12 +35,23 @@ A single decoded IL (Intermediate Language) instruction.
 - `Offset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The byte offset of this instruction within the method body.
 - `OpCode` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The IL opcode mnemonic (e.g., "ldstr", "call", "ret").
 - `Operand` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The decoded operand as a display string, or empty if the opcode takes no operand.
+- `MetadataToken` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The raw metadata token for token-bearing operands (methods, fields, types), or null.
 
 ```csharp
-public IlInstruction(int Offset, string OpCode, string Operand)
+public IlInstruction(int Offset, string OpCode, string Operand, int? MetadataToken = null)
 ```
 
 ## Properties
+
+### MetadataToken
+
+The raw metadata token for token-bearing operands (methods, fields, types), or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? MetadataToken { get; init; }
+```
 
 ### Offset
 
