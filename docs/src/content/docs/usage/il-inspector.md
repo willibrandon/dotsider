@@ -13,6 +13,17 @@ Each instruction shows:
 - **Opcode** — the IL instruction
 - **Operand** — decoded metadata tokens, string literals, branch targets
 
+## Go to definition
+
+Press `Enter` or `gd` while the cursor is on a token-bearing instruction (`call`, `callvirt`, `newobj`, `ldfld`, `castclass`, etc.) to navigate to the target. Navigable operands are underlined.
+
+- **Local methods** open their disassembly directly.
+- **External methods** resolve the referenced assembly and open it. Reference assemblies like `System.Runtime` that contain no IL are automatically mapped to their implementation (`System.Private.CoreLib`).
+- **Fields** show the field signature, declaring type, and attributes in the right pane.
+- **Generic instantiations** (`List<int>`, `Task<string>`) unwrap to the underlying open generic type.
+
+Press `Esc` to go back. The previous IL bytecode, cursor position, tree expansion state, and scroll position are all restored. You can chain multiple jumps and unwind them one at a time.
+
 ## Cross-tab navigation
 
 - Press `x` on a selected method to jump to its body in the **Hex Dump** tab. The hex view scrolls to the method's RVA.
