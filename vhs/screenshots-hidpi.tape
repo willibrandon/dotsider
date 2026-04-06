@@ -40,7 +40,9 @@ Sleep 2s
 Type "3"
 Sleep 4s
 
-# Navigate tree down to ProductCatalog (12 items from top)
+# Navigate tree down to ProductCatalog (13 items from top — IlNavigationFixture added)
+Down
+Sleep 200ms
 Down
 Sleep 200ms
 Down
