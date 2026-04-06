@@ -361,36 +361,50 @@ public sealed class DotsiderApp(DotsiderState state)
             bindings.Ctrl().Key(Hex1bKey.C).Global().OverridesCapture()
                 .Action(VimReset(ctx => ctx.RequestStop()), "Quit");
 
-            // Back navigation via Esc — assembly stack pop or cross-view back.
-            // Only when no other modal claims Esc.
-            var hasBackTarget = _state.NavigationStack.Count > 0 || _state.CrossViewBackTarget is not null;
+            // Unified Escape: back navigation + IL selection clear in ONE binding.
+            // Single Global Escape prevents conflicts between clear-selection and back-nav.
+            var hasBackTarget = _state.NavigationStack.Count > 0
+                || _state.CrossViewBackTarget is not null
+                || _state.IlBackStack.Count > 0;
+            var hasIlSelection = _state.CurrentTab == TabId.IlInspector
+                && _state.IlEditorState?.Cursor.HasSelection == true;
             var sizeMapUsesEsc = _state.CurrentTab == TabId.SizeMap && _state.TreemapBreadcrumb.Count > 0;
             var dynamicFilterActive = _state.CurrentTab == TabId.Dynamic
                 && _state.DynamicSubTab == DynamicSubTabId.Events
                 && _state.DynamicCategoryFilter is not null;
-            if (hasBackTarget && !sizeMapUsesEsc && !dynamicFilterActive
+            if ((hasBackTarget || hasIlSelection) && !sizeMapUsesEsc && !dynamicFilterActive
                 && !currentSearch.IsActive && !_state.HexJumpDialogOpen && !hexInsertMode
                 && !_state.ApphostDialogOpen && !_state.DynamicEditingArgs
-                && _state.PeDetailContent is null && _state.StringsDetailContent is null
-                && !(_state.CurrentTab == TabId.IlInspector && _state.IlEditorState?.Cursor.HasSelection == true))
+                && _state.PeDetailContent is null && _state.StringsDetailContent is null)
             {
                 bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
-                    // Cross-view back takes priority — return to the originating tab first
-                    if (_state.CrossViewBackTarget is not null)
+                    // Priority 1: IL go-to-definition back
+                    if (_state.CurrentTab == TabId.IlInspector && _state.IlBackStack.Count > 0)
+                    {
+                        var entry = _state.IlBackStack.Pop();
+                        _state.RestoreFromIlBackEntry(entry);
+                    }
+                    // Priority 2: Cross-view back
+                    else if (_state.CrossViewBackTarget is not null)
                     {
                         _state.NavigateBack();
                     }
+                    // Priority 3: Assembly stack pop
                     else if (_state.NavigationStack.Count > 0)
                     {
                         var backTab = _state.PopAssembly();
-
-                        // Re-show the apphost dialog when backing out to an apphost .exe
                         if (_state.ApphostCompanionDllPath is not null && !_state.Analyzer.HasMetadata)
                             _state.ApphostDialogOpen = true;
-
                         _state.NavigateToTab(backTab);
                         _state.RequestContentFocus();
+                        _state.App.Invalidate();
+                    }
+                    // Priority 4: IL selection clear (only when no navigation targets)
+                    else if (_state.CurrentTab == TabId.IlInspector
+                        && _state.IlEditorState?.Cursor.HasSelection == true)
+                    {
+                        _state.IlEditorState.Cursor.SelectionAnchor = null;
                         _state.App.Invalidate();
                     }
                 }), "Back");
@@ -509,7 +523,7 @@ public sealed class DotsiderApp(DotsiderState state)
 
             hints.Add(s.Section("1-8: Tabs"));
 
-            if (_state.NavigationStack.Count > 0)
+            if (_state.NavigationStack.Count > 0 || _state.IlBackStack.Count > 0)
                 hints.Add(s.Section("Esc: Back"));
 
             if (_state.CurrentTab == 1)
@@ -520,6 +534,8 @@ public sealed class DotsiderApp(DotsiderState state)
             }
             else if (_state.CurrentTab == 2)
             {
+                if (_state.IlSelectedMethod is not null)
+                    hints.Add(s.Section("Enter/gd: Go to def"));
                 hints.Add(s.Section("l: Focus IL"));
                 if (_state.IlSelectedMethod is { Rva: > 0 })
                     hints.Add(s.Section("x: Hex"));
@@ -620,6 +636,14 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section(_state.YankNotification).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
+                hints.Add(s.Separator(" "));
+            }
+
+            // Transient notice (right side, all tabs)
+            if (!string.IsNullOrEmpty(_state.TransientNotice))
+            {
+                hints.Add(s.Section(_state.TransientNotice).Theme(t => t
+                    .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                 hints.Add(s.Separator(" "));
             }
 
@@ -762,6 +786,7 @@ public sealed class DotsiderApp(DotsiderState state)
         state.TreemapCurrentLevel = null;
         state.TreemapBreadcrumb.Clear();
         state.IlSelectedMethod = null;
+        state.IlSelectedField = null;
         state.IlEditorMethod = null;
         state.IlEditorAnalyzer = null;
         state.IlEditorState = null;
@@ -770,6 +795,12 @@ public sealed class DotsiderApp(DotsiderState state)
         state.IlCurrentMatchIndex = -1;
         state.IlTextMatchMethodTokens = null;
         state.IlFocusedTreeKey = null;
+        state.IlInstructions = null;
+        state.IlHeaderLineCount = 0;
+        state.IlNavigationProvider.Instructions = null;
+        state.IlBackStack.Clear();
+        state.IlGdPending = false;
+        state.TransientNotice = null;
         state.GeneralInfoEditorState = null;
         state.GeneralInfoEditorText = null;
         state.PeHeadersEditorState = null;

@@ -50,6 +50,24 @@ Decodes IL (Intermediate Language) method bodies into human-readable instruction
 public sealed class IlDisassembler
 ```
 
+### [IlNavigationResolver](/api/dotsider.core.analysis.ilnavigationresolver/)
+
+Resolves a metadata token from an IL instruction to an [IlNavigationTarget](/api/dotsider.core.analysis.models.ilnavigationtarget/)
+describing what the token points to and where it lives.
+
+```csharp
+public static class IlNavigationResolver
+```
+
+### [ImplementationAssemblyResolver](/api/dotsider.core.analysis.implementationassemblyresolver/)
+
+Resolves reference assemblies (e.g., System.Runtime) to their implementation
+assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
+
+```csharp
+public static class ImplementationAssemblyResolver
+```
+
 ### [NuGetPackageAnalyzer](/api/dotsider.core.analysis.nugetpackageanalyzer/)
 
 Opens and analyzes a NuGet package (.nupkg) file.

@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Input;
 using Hex1b.Theming;
 using Hex1b.Widgets;
 
@@ -10,6 +11,9 @@ namespace Dotsider.Views;
 /// the inner EditorNode is discarded and recreated, which resets native
 /// scroll to line 1. When the key is unchanged (tab switch), the same
 /// EditorNode survives and preserves its scroll position.
+///
+/// For go-to-definition back-navigation, evicted EditorNodes are cached
+/// by key so they can be restored with their scroll position intact.
 /// </summary>
 public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
 {
@@ -28,12 +32,17 @@ public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
     /// <inheritdoc/>
     protected override void UpdateNode(IlEditorHostNode node)
     {
-        // When the key changes, discard the old EditorNode so reconciliation
-        // creates a fresh one with _scrollOffset starting at 0 (→ 1 after ArrangeCore).
         if (!Equals(node.LastEditorKey, EditorKey))
         {
+            if (node.LastEditorKey is not null && node.ContentChild is not null)
+                node.SavedEditors[node.LastEditorKey] = node.ContentChild;
+
             node.LastEditorKey = EditorKey;
-            node.ContentChild = null;
+
+            if (node.SavedEditors.Remove(EditorKey, out var saved))
+                node.ContentChild = saved;
+            else
+                node.ContentChild = null;
         }
     }
 
@@ -48,8 +57,27 @@ public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
                 .Decorations(AppState.IlSyntaxProvider)
                 .Decorations(AppState.IlSearchProvider)
                 .Decorations(AppState.IlYankProvider)
+                .Decorations(AppState.IlNavigationProvider)
                 .WithInputBindings(bindings =>
                 {
+                    // Escape: IL back navigation takes priority over vim cancel.
+                    // Must be registered BEFORE TextObjectHelper which also binds Escape.
+                    // First match wins in the binding walk.
+                    bindings.Key(Hex1bKey.Escape).Action(_ =>
+                    {
+                        if (AppState.IlBackStack.Count > 0)
+                        {
+                            var entry = AppState.IlBackStack.Pop();
+                            AppState.RestoreFromIlBackEntry(entry);
+                        }
+                        else
+                        {
+                            // Fall through: reset vim text-object state (matches TextObjectHelper behavior)
+                            AppState.VimPending = VimMotionState.Idle;
+                            AppState.App.Invalidate();
+                        }
+                    }, "Back");
+
                     TextObjectHelper.ConfigureReadOnlyEditorBindings(
                         bindings,
                         State,
@@ -60,6 +88,28 @@ public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
                         (s, e, o) => { AppState.VimPending = s; AppState.VimPendingEditor = e; AppState.VimPendingCursorOffset = o; AppState.VimPendingTimestamp = DateTime.UtcNow; },
                         AppState.PerformEditorYank,
                         () => AppState.App.Invalidate());
+
+                    bindings.Key(Hex1bKey.Enter).Action(_ => PerformGoToDefinition(), "Go to definition");
+
+                    bindings.Key(Hex1bKey.G).Action(_ =>
+                    {
+                        AppState.IlGdPending = true;
+                        AppState.IlGdTimestamp = DateTime.UtcNow;
+                        AppState.App.Invalidate();
+                    }, "");
+
+                    if (AppState.IlGdPending)
+                    {
+                        bindings.Key(Hex1bKey.D).Action(_ =>
+                        {
+                            AppState.IlGdPending = false;
+                            PerformGoToDefinition();
+                        }, "Go to definition");
+                    }
+
+                    if (AppState.IlGdPending
+                        && (DateTime.UtcNow - AppState.IlGdTimestamp).TotalSeconds > 1.0)
+                        AppState.IlGdPending = false;
                 })
                 .FillWidth()
                 .FillHeight())
@@ -67,5 +117,20 @@ public sealed record IlEditorHostWidget : CompositeWidget<IlEditorHostNode>
             .FillHeight();
 
         return Task.FromResult(content);
+    }
+
+    private void PerformGoToDefinition()
+    {
+        if (AppState.IlInstructions is { } instructions
+            && AppState.IlEditorState is { } es)
+        {
+            var inst = IlNavigationHelper.GetInstructionAtCursor(
+                es, instructions, AppState.IlHeaderLineCount);
+            if (inst?.MetadataToken is not null)
+            {
+                AppState.NavigateToIlDefinition(inst.MetadataToken.Value);
+                AppState.App.Invalidate();
+            }
+        }
     }
 }

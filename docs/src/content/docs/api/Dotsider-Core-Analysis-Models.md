@@ -63,6 +63,14 @@ Summary statistics for the diff.
 public sealed record DiffSummary : IEquatable<DiffSummary>
 ```
 
+### [FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/)
+
+Information about a field defined in the assembly's FieldDef metadata table.
+
+```csharp
+public sealed record FieldDefInfo : IEquatable<FieldDefInfo>
+```
+
 ### [GraphEdge](/api/dotsider.core.analysis.models.graphedge/)
 
 An edge connecting two nodes in the dependency graph.
@@ -85,6 +93,86 @@ A single decoded IL (Intermediate Language) instruction.
 
 ```csharp
 public sealed record IlInstruction : IEquatable<IlInstruction>
+```
+
+### [IlNavigationTarget](/api/dotsider.core.analysis.models.ilnavigationtarget/)
+
+Represents the resolved target of an IL code navigation (go-to-definition) action.
+
+```csharp
+public abstract record IlNavigationTarget : IEquatable<IlNavigationTarget>
+```
+
+### [IlNavigationTarget.ExternalField](/api/dotsider.core.analysis.models.ilnavigationtarget.externalfield/)
+
+A field in an external (referenced) assembly.
+
+```csharp
+public sealed record IlNavigationTarget.ExternalField : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.ExternalField>
+```
+
+### [IlNavigationTarget.ExternalMethod](/api/dotsider.core.analysis.models.ilnavigationtarget.externalmethod/)
+
+A method in an external (referenced) assembly.
+
+```csharp
+public sealed record IlNavigationTarget.ExternalMethod : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.ExternalMethod>
+```
+
+### [IlNavigationTarget.ExternalType](/api/dotsider.core.analysis.models.ilnavigationtarget.externaltype/)
+
+A type in an external (referenced) assembly.
+
+```csharp
+public sealed record IlNavigationTarget.ExternalType : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.ExternalType>
+```
+
+### [IlNavigationTarget.GenericInstantiation](/api/dotsider.core.analysis.models.ilnavigationtarget.genericinstantiation/)
+
+A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly.
+
+```csharp
+public sealed record IlNavigationTarget.GenericInstantiation : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.GenericInstantiation>
+```
+
+### [IlNavigationTarget.LocalField](/api/dotsider.core.analysis.models.ilnavigationtarget.localfield/)
+
+A field defined in the current assembly.
+
+```csharp
+public sealed record IlNavigationTarget.LocalField : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.LocalField>
+```
+
+### [IlNavigationTarget.LocalMethod](/api/dotsider.core.analysis.models.ilnavigationtarget.localmethod/)
+
+A method defined in the current assembly.
+
+```csharp
+public sealed record IlNavigationTarget.LocalMethod : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.LocalMethod>
+```
+
+### [IlNavigationTarget.LocalType](/api/dotsider.core.analysis.models.ilnavigationtarget.localtype/)
+
+A type defined in the current assembly.
+
+```csharp
+public sealed record IlNavigationTarget.LocalType : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.LocalType>
+```
+
+### [IlNavigationTarget.Unresolved](/api/dotsider.core.analysis.models.ilnavigationtarget.unresolved/)
+
+A token that could not be resolved to any known target.
+
+```csharp
+public sealed record IlNavigationTarget.Unresolved : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.Unresolved>
+```
+
+### [IlNavigationTarget.Unsupported](/api/dotsider.core.analysis.models.ilnavigationtarget.unsupported/)
+
+A token kind that is recognized but not supported for navigation.
+
+```csharp
+public sealed record IlNavigationTarget.Unsupported : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.Unsupported>
 ```
 
 ### [MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/)
@@ -199,6 +287,14 @@ Describes the kind of difference detected between two assembly elements.
 
 ```csharp
 public enum DiffKind
+```
+
+### [MemberRefKind](/api/dotsider.core.analysis.models.memberrefkind/)
+
+Distinguishes whether a MemberRef entry refers to a method or a field.
+
+```csharp
+public enum MemberRefKind
 ```
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)

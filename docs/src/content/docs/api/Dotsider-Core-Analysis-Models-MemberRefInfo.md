@@ -26,7 +26,7 @@ public sealed record MemberRefInfo : IEquatable<MemberRefInfo>
 
 ## Constructors
 
-### MemberRefInfo(int, string, string, string)
+### MemberRefInfo(int, string, string, string, MemberRefKind)
 
 Information about a referenced member (method or field) from the MemberRef metadata table.
 
@@ -36,9 +36,10 @@ Information about a referenced member (method or field) from the MemberRef metad
 - `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The fully qualified name of the type that declares this member.
 - `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The name of the referenced member.
 - `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The decoded signature of the member.
+- `Kind` ([MemberRefKind](/api/dotsider.core.analysis.models.memberrefkind/)): Whether this member reference is a method or a field.
 
 ```csharp
-public MemberRefInfo(int Token, string DeclaringType, string Name, string Signature)
+public MemberRefInfo(int Token, string DeclaringType, string Name, string Signature, MemberRefKind Kind)
 ```
 
 ## Properties
@@ -51,6 +52,16 @@ The fully qualified name of the type that declares this member.
 
 ```csharp
 public string DeclaringType { get; init; }
+```
+
+### Kind
+
+Whether this member reference is a method or a field.
+
+**Returns:** [MemberRefKind](/api/dotsider.core.analysis.models.memberrefkind/)
+
+```csharp
+public MemberRefKind Kind { get; init; }
 ```
 
 ### Name

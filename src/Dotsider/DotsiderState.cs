@@ -187,6 +187,33 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Method tokens whose IL text matches the confirmed search query. Used to broaden tree filtering.</summary>
     public HashSet<int>? IlTextMatchMethodTokens { get; set; }
 
+    /// <summary>Back stack for IL go-to-definition navigation. Esc pops and restores.</summary>
+    public Stack<IlBackEntry> IlBackStack { get; } = new();
+
+    /// <summary>The instruction list for the currently displayed method.</summary>
+    public IReadOnlyList<IlInstruction>? IlInstructions { get; set; }
+
+    /// <summary>The number of header lines in the current disassembly.</summary>
+    public int IlHeaderLineCount { get; set; }
+
+    /// <summary>The field targeted by the last field go-to-definition, displayed in the right pane.</summary>
+    public FieldDefInfo? IlSelectedField { get; set; }
+
+    /// <summary>Navigation decoration provider that underlines navigable IL operands.</summary>
+    public IlNavigationDecorationProvider IlNavigationProvider { get; } = new();
+
+    /// <summary>Whether the first key of a gd chord has been pressed.</summary>
+    public bool IlGdPending { get; set; }
+
+    /// <summary>Timestamp when the gd chord was armed.</summary>
+    public DateTime IlGdTimestamp { get; set; }
+
+    /// <summary>Transient notice in the hints bar. Auto-clears after 3 seconds.</summary>
+    public string? TransientNotice { get; set; }
+
+    /// <summary>Generation counter for transient notice timer race prevention.</summary>
+    public long TransientNoticeGeneration { get; set; }
+
     // --- Yank State ---
 
     /// <summary>Yank notification message shown in the hints bar, auto-clears after 1.5 seconds.</summary>
@@ -613,6 +640,262 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
+    /// Navigates to the definition of the IL instruction's metadata token.
+    /// </summary>
+    /// <param name="token">The metadata token from the IL instruction.</param>
+    /// <returns>True if navigation occurred.</returns>
+    public bool NavigateToIlDefinition(int token)
+    {
+        var target = IlNavigationResolver.Resolve(Analyzer, token);
+        switch (target)
+        {
+            case IlNavigationTarget.LocalMethod(var method):
+                if (method.Token == IlSelectedMethod?.Token) return false;
+                PushIlBackEntry(false);
+                IlSelectedMethod = method;
+                IlSelectedField = null;
+                ExpandIlTreeForMethod(method);
+                IlFocusedTreeKey = $"method:{method.Token}";
+                App.RequestFocus(node => node is EditorNode);
+                App.Invalidate();
+                return true;
+
+            case IlNavigationTarget.LocalType(var type):
+                PushIlBackEntry(false);
+                IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
+                IlFocusedTreeKey = $"type:{type.FullName}";
+                App.RequestFocus(node => node is ListNode);
+                App.Invalidate();
+                return true;
+
+            case IlNavigationTarget.LocalField(var field, var dt):
+                PushIlBackEntry(false);
+                IlSelectedMethod = null;
+                IlSelectedField = field;
+                IlEditorState = null;
+                IlEditorMethod = null;
+                IlEditorAnalyzer = null;
+                IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
+                IlTreeExpansionState[$"type:{dt.FullName}"] = true;
+                IlFocusedTreeKey = $"type:{dt.FullName}";
+                App.RequestFocus(node => node is ListNode);
+                App.Invalidate();
+                return true;
+
+            case IlNavigationTarget.ExternalMethod(var memberName, var extDeclType, var signature, var assemblyName):
+                return NavigateToExternalMethod(assemblyName, memberName, signature, extDeclType);
+
+            case IlNavigationTarget.ExternalType(var typeRef, var assemblyName):
+                return NavigateToExternalType(assemblyName, typeRef);
+
+            case IlNavigationTarget.ExternalField(var fieldName, var extFieldDeclType, var assemblyName):
+                return NavigateToExternalField(assemblyName, fieldName, extFieldDeclType);
+
+            case IlNavigationTarget.GenericInstantiation:
+                ShowTransientNotice("Generic instantiation — navigation not yet supported");
+                return false;
+
+            case IlNavigationTarget.Unsupported(_, var reason):
+                ShowTransientNotice(reason);
+                return false;
+
+            case IlNavigationTarget.Unresolved(_, var reason):
+                ShowTransientNotice(reason);
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Restores IL inspector state from a back entry, forcing the editor to recreate.
+    /// </summary>
+    /// <param name="entry">The back entry to restore from.</param>
+    internal void RestoreFromIlBackEntry(IlBackEntry entry)
+    {
+        if (entry.CrossAssembly && NavigationStack.Count > 0)
+            PopAssembly();
+        IlSelectedMethod = entry.Method;
+        IlSelectedField = null;
+        IlEditorState = entry.EditorState;
+        IlEditorMethod = entry.EditorMethod;
+        IlEditorAnalyzer = entry.EditorAnalyzer;
+        IlFocusedTreeKey = entry.FocusedTreeKey;
+        IlTreeExpansionState.Clear();
+        foreach (var (k, v) in entry.TreeExpansionState)
+            IlTreeExpansionState[k] = v;
+        // Restore instruction list for navigation decorations
+        if (IlDisassembler is not null)
+        {
+            var r = IlDisassembler.DisassembleWithText(entry.Method);
+            IlInstructions = r?.Instructions;
+            IlHeaderLineCount = r?.HeaderLineCount ?? 0;
+            IlNavigationProvider.Instructions = IlInstructions;
+            IlNavigationProvider.HeaderLineCount = IlHeaderLineCount;
+        }
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Shows a transient notice in the hints bar that auto-clears after 3 seconds.
+    /// </summary>
+    /// <param name="message">The notice message to display.</param>
+    public void ShowTransientNotice(string message)
+    {
+        TransientNotice = message;
+        var gen = ++TransientNoticeGeneration;
+        _ = Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ =>
+        {
+            if (TransientNoticeGeneration == gen) { TransientNotice = null; App.Invalidate(); }
+        }, TaskScheduler.Default);
+    }
+
+    private void PushIlBackEntry(bool crossAssembly)
+    {
+        if (IlSelectedMethod is null || IlEditorState is null
+            || IlEditorMethod is null || IlEditorAnalyzer is null) return;
+        IlBackStack.Push(new IlBackEntry(
+            IlSelectedMethod, IlEditorState, IlEditorMethod, IlEditorAnalyzer,
+            IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly));
+    }
+
+    private void ExpandIlTreeForMethod(MethodDefInfo method)
+    {
+        var typeDef = Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
+        var ns = typeDef is not null && !string.IsNullOrEmpty(typeDef.Namespace)
+            ? typeDef.Namespace : "(global)";
+        IlTreeExpansionState[$"ns:{ns}"] = true;
+        IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+    }
+
+    private bool NavigateToExternalMethod(string assemblyName, string memberName, string signature,
+        string? declaringType = null)
+    {
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        AssemblyAnalyzer probe;
+        try { probe = new AssemblyAnalyzer(resolvedPath); }
+        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+
+        // Filter by declaring type first to avoid cross-type name collisions.
+        // Always scope to declaring type when available — don't fall back to unscoped.
+        List<MethodDefInfo> candidates;
+        if (declaringType is not null)
+        {
+            // Exact FQ match first, then simple name suffix for forwarded types
+            candidates = [.. probe.MethodDefs.Where(m =>
+                m.Name == memberName && m.DeclaringType == declaringType)];
+            if (candidates.Count == 0)
+            {
+                // Type forwarding changes namespaces — match the simple type name
+                var simpleType = declaringType.Contains('.')
+                    ? declaringType[(declaringType.LastIndexOf('.') + 1)..] : declaringType;
+                candidates = [.. probe.MethodDefs.Where(m =>
+                    m.Name == memberName
+                    && m.DeclaringType.Split('.')[^1] == simpleType)];
+            }
+        }
+        else
+        {
+            candidates = [.. probe.MethodDefs.Where(m => m.Name == memberName)];
+        }
+        MethodDefInfo? methodTarget = candidates.Count == 1 ? candidates[0]
+            : candidates.Count > 1 && !string.IsNullOrEmpty(signature)
+                ? (candidates.FirstOrDefault(m => m.Signature == signature) ?? candidates[0])
+            : candidates.Count > 0 ? candidates[0] : null;
+        if (methodTarget is null) { probe.Dispose(); ShowTransientNotice($"Method {memberName} not found in {Path.GetFileName(resolvedPath)}"); return false; }
+        PushIlBackEntry(true);
+        PushAssemblyDirect(probe);
+        IlSelectedMethod = methodTarget;
+        ExpandIlTreeForMethod(methodTarget);
+        IlFocusedTreeKey = $"method:{methodTarget.Token}";
+        NavigateToTab(TabId.IlInspector);
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+        return true;
+    }
+
+    private bool NavigateToExternalType(string assemblyName, TypeRefInfo typeRef)
+    {
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        AssemblyAnalyzer probe;
+        try { probe = new AssemblyAnalyzer(resolvedPath); }
+        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+        var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName || t.Name == typeRef.Name);
+        if (typeTarget is null) { probe.Dispose(); ShowTransientNotice($"Type {typeRef.Name} not found"); return false; }
+        PushIlBackEntry(true);
+        PushAssemblyDirect(probe);
+        IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(typeTarget.Namespace) ? typeTarget.Namespace : "(global)")}"] = true;
+        IlFocusedTreeKey = $"type:{typeTarget.FullName}";
+        NavigateToTab(TabId.IlInspector);
+        App.RequestFocus(node => node is ListNode);
+        App.Invalidate();
+        return true;
+    }
+
+    private bool NavigateToExternalField(string assemblyName, string fieldName,
+        string? declaringType = null)
+    {
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        AssemblyAnalyzer probe;
+        try { probe = new AssemblyAnalyzer(resolvedPath); }
+        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+        // Scope field lookup by declaring type when available
+        FieldDefInfo? fieldTarget = null;
+        if (declaringType is not null)
+        {
+            fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
+                f.Name == fieldName && f.DeclaringType == declaringType);
+            if (fieldTarget is null)
+            {
+                var simpleType = declaringType.Contains('.')
+                    ? declaringType[(declaringType.LastIndexOf('.') + 1)..] : declaringType;
+                fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
+                    f.Name == fieldName && f.DeclaringType.Split('.')[^1] == simpleType);
+            }
+        }
+        fieldTarget ??= probe.FieldDefs.FirstOrDefault(f => f.Name == fieldName);
+        if (fieldTarget is null) { probe.Dispose(); ShowTransientNotice($"Field {fieldName} not found"); return false; }
+        var dt = probe.TypeDefs.FirstOrDefault(t => t.FullName == fieldTarget.DeclaringType);
+        if (dt is null) { probe.Dispose(); return false; }
+        PushIlBackEntry(true);
+        PushAssemblyDirect(probe);
+        IlSelectedField = fieldTarget;
+        IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
+        IlTreeExpansionState[$"type:{dt.FullName}"] = true;
+        IlFocusedTreeKey = $"type:{dt.FullName}";
+        NavigateToTab(TabId.IlInspector);
+        App.RequestFocus(node => node is ListNode);
+        App.Invalidate();
+        return true;
+    }
+
+    /// <summary>
+    /// Pushes a pre-constructed analyzer onto the navigation stack.
+    /// </summary>
+    /// <param name="analyzer">The analyzer to push.</param>
+    internal void PushAssemblyDirect(AssemblyAnalyzer analyzer)
+    {
+        NavigationError = null;
+        _focusedDepStack.Push(GeneralFocusedDep);
+        _tabStack.Push(CurrentTab);
+        _graphSelectionStack.Push(GraphSelectedIndex);
+        NavigationStack.Push(Analyzer);
+        Analyzer = analyzer;
+        StringExtractor = new StringExtractor(Analyzer);
+        IlDisassembler = Analyzer.HasMetadata ? new IlDisassembler(Analyzer) : null;
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
+        ResetViewState();
+    }
+
+    /// <summary>
     /// Returns to the tab saved by the last cross-view navigation.
     /// </summary>
     public void NavigateBack()
@@ -699,6 +982,9 @@ public sealed class DotsiderState : IDisposable
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
         ResetViewState();
+        // Normal assembly push (dependency navigation) invalidates any IL back entries
+        // because they reference the old analyzer's methods/editor state.
+        IlBackStack.Clear();
         return true;
     }
 
@@ -740,6 +1026,7 @@ public sealed class DotsiderState : IDisposable
         PeDetailContent = null;
         IlFocusedTreeKey = null;
         IlSelectedMethod = null;
+        IlSelectedField = null;
         IlTreeExpansionState.Clear();
         IlEditorState = null;
         IlEditorMethod = null;
@@ -751,6 +1038,14 @@ public sealed class DotsiderState : IDisposable
         IlLastSearchQuery = null;
         IlPendingCursorMatch = null;
         IlTextMatchMethodTokens = null;
+        // IlBackStack is NOT cleared here — cross-assembly navigation pushes
+        // a back entry BEFORE calling PushAssemblyDirect which calls ResetViewState.
+        // Clearing it would wipe the entry needed for Esc back.
+        IlInstructions = null;
+        IlHeaderLineCount = 0;
+        IlNavigationProvider.Instructions = null;
+        IlGdPending = false;
+        TransientNotice = null;
         IlYankProvider.HighlightRange = null;
         YankNotification = null;
         VimPending = VimMotionState.Idle;

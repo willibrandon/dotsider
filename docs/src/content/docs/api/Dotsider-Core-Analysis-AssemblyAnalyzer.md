@@ -135,6 +135,16 @@ Gets the custom attributes applied to metadata entities.
 public IReadOnlyList<CustomAttributeInfo> CustomAttributes { get; }
 ```
 
+### FieldDefs
+
+Gets the FieldDef metadata table entries.
+
+**Returns:** [IReadOnlyList\<FieldDefInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<FieldDefInfo> FieldDefs { get; }
+```
+
 ### FileName
 
 The file name without directory path.

@@ -213,14 +213,8 @@ public static class DllInspectorBindings
         if (state.CurrentTab == TabId.IlInspector)
         {
             var ilSearch = state.Search[TabId.IlInspector];
-            if (!ilSearch.IsActive && state.IlEditorState?.Cursor.HasSelection == true)
-            {
-                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
-                {
-                    state.IlEditorState.Cursor.SelectionAnchor = null;
-                    app.Invalidate();
-                }, "Clear selection");
-            }
+            // Selection clearing moved to DotsiderApp's unified Escape handler
+            // to avoid Global Escape binding conflicts with back navigation.
 
             if (state.IlSelectedMethod is { Rva: > 0 } ilMethod)
             {
@@ -257,6 +251,8 @@ public static class DllInspectorBindings
         }
         else if (state.CurrentTab == TabId.IlInspector)
         {
+            if (state.IlSelectedMethod is not null)
+                hints.Add(s.Section("Enter/gd: Go to def"));
             hints.Add(s.Section("l: Focus IL"));
             if (state.IlSelectedMethod is { Rva: > 0 })
                 hints.Add(s.Section("x: Hex"));
