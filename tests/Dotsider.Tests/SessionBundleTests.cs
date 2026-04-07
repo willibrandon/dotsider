@@ -170,7 +170,9 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
             s.HexEditorState.IsReadOnly = true;
         });
         _app!.Invalidate();
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.HexIsDirty,
+            TimeSpan.FromSeconds(10));
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
@@ -334,7 +336,9 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Navigate to the IL tab first
         await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.CurrentTab == TabId.IlInspector,
+            TimeSpan.FromSeconds(10));
 
         // Find CallLocalMethod's token by disassembling it
         var disasmResponse = await DotsiderClient.SendAsync(socketPath,
@@ -391,7 +395,9 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Navigate to the IL tab first
         await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.CurrentTab == TabId.IlInspector,
+            TimeSpan.FromSeconds(10));
 
         // Disassemble CallExternal to find the Console.WriteLine call token
         var disasmResponse = await DotsiderClient.SendAsync(socketPath,
@@ -436,15 +442,13 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate-to-il-definition", Token = callToken }, ct);
         Assert.True(navResponse.Success);
-        await Task.Delay(500, ct);
 
-        // Verify navigation depth changed (cross-assembly push)
-        var viewAfter = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewAfter.Success);
-        var depthAfter = (viewAfter.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
-        Assert.True(depthAfter > depthBefore,
-            $"Expected navigation depth to increase from {depthBefore}, but got {depthAfter}");
+        // Wait for cross-assembly navigation to complete
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count > depthBefore,
+            TimeSpan.FromSeconds(10));
+
+        Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
 
     // --- navigate-back ---
@@ -462,27 +466,19 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyName = "System.Runtime" }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
-
-        // Verify depth is 2 (original + pushed)
-        var viewPushed = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewPushed.Success);
-        var depthPushed = (viewPushed.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
-        Assert.Equal(1, depthPushed);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count == 1,
+            TimeSpan.FromSeconds(10));
 
         // Navigate back
         var backResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate-back" }, ct);
         Assert.True(backResponse.Success);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count == 0,
+            TimeSpan.FromSeconds(10));
 
-        // Verify depth is back to 1
-        var viewBack = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewBack.Success);
-        var depthBack = (viewBack.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
-        Assert.Equal(0, depthBack);
+        Assert.Empty(_state!.NavigationStack);
     }
 
     // --- push-assembly ---
@@ -507,15 +503,11 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyName = "System.Runtime" }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count > depthBefore,
+            TimeSpan.FromSeconds(10));
 
-        // Verify depth increased
-        var viewAfter = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewAfter.Success);
-        var depthAfter = (viewAfter.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
-        Assert.True(depthAfter > depthBefore,
-            $"Expected navigation depth to increase from {depthBefore}, but got {depthAfter}");
+        Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
 
     /// <summary>
@@ -538,15 +530,11 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.HelloWorldDll }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count > depthBefore,
+            TimeSpan.FromSeconds(10));
 
-        // Verify depth increased
-        var viewAfter = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewAfter.Success);
-        var depthAfter = (viewAfter.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
-        Assert.True(depthAfter > depthBefore,
-            $"Expected navigation depth to increase from {depthBefore}, but got {depthAfter}");
+        Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
 
     /// <summary>
@@ -562,14 +550,14 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.HelloWorldExe }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
 
-        // Verify the pushed assembly has metadata (companion DLL, not the native host)
-        var info = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "assembly-info" }, ct);
-        Assert.True(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
-        Assert.True(data.GetProperty("hasMetadata").GetBoolean());
+        // Wait for the push mutation to be applied
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count > 0,
+            TimeSpan.FromSeconds(10));
+
+        // The pushed assembly should have metadata (companion DLL, not the native host)
+        Assert.True(_state!.Analyzer.HasMetadata);
     }
 
     /// <summary>
@@ -586,15 +574,14 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.SelfContainedConsoleExe }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
 
-        // Verify the pushed assembly has metadata (entry assembly, not the bundle host)
-        var info = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "assembly-info" }, ct);
-        Assert.True(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
-        Assert.True(data.GetProperty("hasMetadata").GetBoolean());
-        Assert.Equal("SelfContainedConsole", data.GetProperty("assemblyName").GetString());
+        // Wait for the push mutation to be applied
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.Analyzer.AssemblyName == "SelfContainedConsole",
+            TimeSpan.FromSeconds(10));
+
+        Assert.True(_state!.Analyzer.HasMetadata);
+        Assert.Equal("SelfContainedConsole", _state.Analyzer.AssemblyName);
     }
 
     /// <summary>
@@ -612,23 +599,27 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.HelloWorldDll }, ct);
         Assert.True(pushResponse.Success);
-        await Task.Delay(500, ct);
+
+        // Wait for the push mutation to be applied
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count > 0,
+            TimeSpan.FromSeconds(10));
 
         // Navigate back — should return to the apphost and reopen the dialog
         var backResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate-back" }, ct);
         Assert.True(backResponse.Success);
-        await Task.Delay(500, ct);
 
-        // The assembly-info should show the native host (no metadata)
-        var info = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "assembly-info" }, ct);
-        Assert.True(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
-        Assert.False(data.GetProperty("hasMetadata").GetBoolean());
+        // Wait for the back mutation to be applied
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.NavigationStack.Count == 0,
+            TimeSpan.FromSeconds(10));
+
+        // The analyzer should be the native apphost (no metadata)
+        Assert.False(_state!.Analyzer.HasMetadata);
 
         // The apphost dialog must be reopened so the user can navigate to the companion
-        Assert.True(_state!.ApphostDialogOpen);
+        Assert.True(_state.ApphostDialogOpen);
         Assert.NotNull(_state.ApphostCompanionDllPath);
     }
 
