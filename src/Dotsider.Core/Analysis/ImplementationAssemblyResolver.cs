@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 
@@ -10,7 +11,7 @@ namespace Dotsider.Core.Analysis;
 /// </summary>
 public static class ImplementationAssemblyResolver
 {
-    private static readonly ConcurrentDictionary<(string, string, string?), string?> Cache = new();
+    private static readonly ConcurrentDictionary<(string, string, string?, string?), ResolvedAssembly?> Cache = new();
 
     private static readonly Dictionary<string, string> KnownMappings = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -32,67 +33,98 @@ public static class ImplementationAssemblyResolver
     };
 
     /// <summary>
-    /// Resolves an assembly name to a path, falling back to the implementation assembly
-    /// if the reference assembly has no IL.
+    /// Resolves an assembly name to a path or bundle entry, falling back to the
+    /// implementation assembly if the reference assembly has no IL.
     /// </summary>
     /// <param name="referencingAssemblyPath">The path of the assembly that references the target.</param>
     /// <param name="assemblyName">The assembly name to resolve.</param>
     /// <param name="declaringType">Optional declaring type for type-aware resolution (needed for mscorlib).</param>
-    /// <returns>The resolved path, or null if not found.</returns>
-    public static string? Resolve(string referencingAssemblyPath, string assemblyName,
-        string? declaringType = null)
+    /// <param name="targetFramework">Target framework moniker for shared framework probing.</param>
+    /// <param name="preferredRuntimePack">Preferred runtime pack to probe first.</param>
+    /// <param name="sourceBundlePath">If the referencing assembly came from a bundle, the bundle path.</param>
+    /// <returns>The resolved assembly, or null if not found.</returns>
+    public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName,
+        string? declaringType = null, string? targetFramework = null,
+        string? preferredRuntimePack = null, string? sourceBundlePath = null)
     {
-        var key = (referencingAssemblyPath, assemblyName, declaringType);
+        var key = (referencingAssemblyPath, assemblyName, declaringType, sourceBundlePath);
         if (Cache.TryGetValue(key, out var cached)) return cached;
-        var result = ResolveCore(referencingAssemblyPath, assemblyName, declaringType);
+        var result = ResolveCore(referencingAssemblyPath, assemblyName, declaringType,
+            targetFramework, preferredRuntimePack, sourceBundlePath);
         Cache.TryAdd(key, result);
         return result;
     }
 
-    private static string? ResolveCore(string referencingAssemblyPath, string assemblyName,
-        string? declaringType)
+    private static ResolvedAssembly? ResolveCore(string referencingAssemblyPath, string assemblyName,
+        string? declaringType, string? targetFramework, string? preferredRuntimePack,
+        string? sourceBundlePath)
     {
-        var directPath = AssemblyAnalyzer.ResolveAssemblyPath(referencingAssemblyPath, assemblyName);
-        if (directPath is not null && HasUsableMetadata(directPath))
-            return directPath;
+        var directResult = AssemblyAnalyzer.ResolveAssembly(
+            referencingAssemblyPath, assemblyName, targetFramework, preferredRuntimePack, sourceBundlePath);
+        if (directResult is not null && HasUsableMetadata(directResult))
+            return directResult;
 
         if (KnownMappings.TryGetValue(assemblyName, out var implName))
         {
-            var implPath = AssemblyAnalyzer.ResolveAssemblyPath(referencingAssemblyPath, implName);
-            if (implPath is not null) return implPath;
+            var implResult = AssemblyAnalyzer.ResolveAssembly(
+                referencingAssemblyPath, implName, targetFramework, preferredRuntimePack, sourceBundlePath);
+            if (implResult is not null) return implResult;
         }
 
         // mscorlib is monolithic in .NET Framework but its types are spread across
         // many assemblies in .NET Core. The stub mscorlib.dll in the runtime directory
         // contains type forwarders that point each type to its real implementation
         // assembly — read those to resolve the exact assembly for the declaring type.
-        if (directPath is not null && declaringType is not null)
+        if (directResult is not null && declaringType is not null)
         {
-            var forwarded = ResolveViaTypeForwarders(referencingAssemblyPath, directPath, declaringType);
+            var forwarded = ResolveViaTypeForwarders(
+                referencingAssemblyPath, directResult, declaringType,
+                targetFramework, preferredRuntimePack, sourceBundlePath);
             if (forwarded is not null) return forwarded;
         }
 
-        return directPath;
+        return directResult;
     }
 
-    private static string? ResolveViaTypeForwarders(string referencingAssemblyPath, string stubPath,
-        string declaringType)
+    private static ResolvedAssembly? ResolveViaTypeForwarders(string referencingAssemblyPath,
+        ResolvedAssembly stubAssembly, string declaringType,
+        string? targetFramework, string? preferredRuntimePack, string? sourceBundlePath)
     {
         try
         {
-            using var stream = File.OpenRead(stubPath);
-            using var pe = new PEReader(stream);
-            if (!pe.HasMetadata) return null;
-            var reader = pe.GetMetadataReader();
-
-            foreach (var handle in reader.ExportedTypes)
+            PEReader pe;
+            Stream? stream = null;
+            switch (stubAssembly)
             {
-                var fullName = GetExportedTypeFullName(reader, handle);
-                if (fullName != declaringType) continue;
+                case ResolvedAssembly.FromFile(var path):
+                    stream = File.OpenRead(path);
+                    pe = new PEReader(stream);
+                    break;
+                case ResolvedAssembly.FromBundle(var bytes, _, _):
+                    stream = new MemoryStream(bytes, writable: false);
+                    pe = new PEReader(stream);
+                    break;
+                default:
+                    return null;
+            }
 
-                var asmName = GetForwardedAssemblyName(reader, handle);
-                if (asmName is null) continue;
-                return AssemblyAnalyzer.ResolveAssemblyPath(referencingAssemblyPath, asmName);
+            using (stream)
+            using (pe)
+            {
+                if (!pe.HasMetadata) return null;
+                var reader = pe.GetMetadataReader();
+
+                foreach (var handle in reader.ExportedTypes)
+                {
+                    var fullName = GetExportedTypeFullName(reader, handle);
+                    if (fullName != declaringType) continue;
+
+                    var asmName = GetForwardedAssemblyName(reader, handle);
+                    if (asmName is null) continue;
+                    return AssemblyAnalyzer.ResolveAssembly(
+                        referencingAssemblyPath, asmName,
+                        targetFramework, preferredRuntimePack, sourceBundlePath);
+                }
             }
         }
         catch
@@ -135,12 +167,23 @@ public static class ImplementationAssemblyResolver
         return reader.GetString(reader.GetAssemblyReference((AssemblyReferenceHandle)impl).Name);
     }
 
-    private static bool HasUsableMetadata(string path)
+    private static bool HasUsableMetadata(ResolvedAssembly resolved)
     {
         try
         {
-            using var analyzer = new AssemblyAnalyzer(path);
-            return analyzer.HasMetadata && analyzer.MethodDefs.Any(m => m.Rva > 0);
+            switch (resolved)
+            {
+                case ResolvedAssembly.FromFile(var path):
+                    using (var analyzer = new AssemblyAnalyzer(path))
+                        return analyzer.HasMetadata && analyzer.MethodDefs.Any(m => m.Rva > 0);
+
+                case ResolvedAssembly.FromBundle(var bytes, var name, var bundlePath):
+                    using (var analyzer = new AssemblyAnalyzer(bytes, name, bundlePath))
+                        return analyzer.HasMetadata && analyzer.MethodDefs.Any(m => m.Rva > 0);
+
+                default:
+                    return false;
+            }
         }
         catch { return false; }
     }

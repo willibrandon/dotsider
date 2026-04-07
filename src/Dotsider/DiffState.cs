@@ -24,6 +24,21 @@ public sealed class DiffState : IDisposable
         DiffResult = AssemblyDiffer.Compare(Left, Right);
     }
 
+    /// <summary>
+    /// Creates a new diff state comparing two pre-built analyzers.
+    /// Used when the analyzers were created via <see cref="AssemblyLoader"/>.
+    /// </summary>
+    /// <param name="app">The Hex1b application instance.</param>
+    /// <param name="left">The analyzer for the left (baseline) assembly.</param>
+    /// <param name="right">The analyzer for the right (changed) assembly.</param>
+    public DiffState(Hex1bApp app, AssemblyAnalyzer left, AssemblyAnalyzer right)
+    {
+        App = app;
+        Left = left;
+        Right = right;
+        DiffResult = AssemblyDiffer.Compare(Left, Right);
+    }
+
     /// <summary>The Hex1b application instance.</summary>
     public Hex1bApp App { get; }
 

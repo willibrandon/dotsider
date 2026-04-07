@@ -15,12 +15,65 @@ The complete diff result between two assemblies.
 public sealed record AssemblyDiffResult : IEquatable<AssemblyDiffResult>
 ```
 
+### [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/)
+
+The result of opening an assembly file via [AssemblyLoader](/api/dotsider.core.analysis.assemblyloader/),
+distinguishing between direct loads, apphost companion redirects, and
+single-file bundle entry extractions.
+
+```csharp
+public abstract record AssemblyOpenResult : IEquatable<AssemblyOpenResult>
+```
+
+### [AssemblyOpenResult.ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/)
+
+The file is a native apphost with a companion managed .dll on disk.
+The caller decides when to redirect (e.g. showing a dialog first).
+
+```csharp
+public sealed record AssemblyOpenResult.ApphostWithCompanion : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.ApphostWithCompanion>
+```
+
+### [AssemblyOpenResult.BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/)
+
+The file is a single-file bundle. The entry assembly has been extracted
+from the bundle and is ready for analysis.
+
+```csharp
+public sealed record AssemblyOpenResult.BundleEntry : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.BundleEntry>
+```
+
+### [AssemblyOpenResult.Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/)
+
+Direct load — the file is a .dll or .exe with metadata, or a native binary
+with no metadata (NativeAOT, unknown format).
+
+```csharp
+public sealed record AssemblyOpenResult.Direct : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.Direct>
+```
+
 ### [AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)
 
 Information about a referenced assembly from the AssemblyRef metadata table.
 
 ```csharp
 public sealed record AssemblyRefInfo : IEquatable<AssemblyRefInfo>
+```
+
+### [BundleEntry](/api/dotsider.core.analysis.models.bundleentry/)
+
+Describes a single file entry within a .NET single-file bundle.
+
+```csharp
+public sealed record BundleEntry : IEquatable<BundleEntry>
+```
+
+### [BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/)
+
+The parsed manifest header of a .NET single-file bundle.
+
+```csharp
+public sealed record BundleManifest : IEquatable<BundleManifest>
 ```
 
 ### [ClrHeader](/api/dotsider.core.analysis.models.clrheader/)
@@ -215,6 +268,30 @@ Aggregated PE header information for a .NET assembly.
 public sealed record PeHeaders : IEquatable<PeHeaders>
 ```
 
+### [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
+
+The result of resolving an assembly reference — either a file on disk or bytes from a bundle.
+
+```csharp
+public abstract record ResolvedAssembly : IEquatable<ResolvedAssembly>
+```
+
+### [ResolvedAssembly.FromBundle](/api/dotsider.core.analysis.models.resolvedassembly.frombundle/)
+
+The assembly was found inside a single-file bundle.
+
+```csharp
+public sealed record ResolvedAssembly.FromBundle : ResolvedAssembly, IEquatable<ResolvedAssembly>, IEquatable<ResolvedAssembly.FromBundle>
+```
+
+### [ResolvedAssembly.FromFile](/api/dotsider.core.analysis.models.resolvedassembly.fromfile/)
+
+The assembly was found as a file on disk.
+
+```csharp
+public sealed record ResolvedAssembly.FromFile : ResolvedAssembly, IEquatable<ResolvedAssembly>, IEquatable<ResolvedAssembly.FromFile>
+```
+
 ### [ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/)
 
 Information about a managed resource embedded in the assembly.
@@ -280,6 +357,14 @@ public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 ```
 
 ## Enums
+
+### [BundleFileType](/api/dotsider.core.analysis.models.bundlefiletype/)
+
+Identifies the type of file embedded in a .NET single-file bundle.
+
+```csharp
+public enum BundleFileType : byte
+```
 
 ### [DiffKind](/api/dotsider.core.analysis.models.diffkind/)
 

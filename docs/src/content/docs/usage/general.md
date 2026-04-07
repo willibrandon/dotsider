@@ -22,6 +22,6 @@ On the dependency table, focus a row and press `y` to copy it as tab-separated v
 
 ## Drill into references
 
-Select any row in the dependency table and press `Enter`. If the referenced assembly exists on disk (next to the current file or in a probing path), dotsider opens it in a new analysis context. Press `Esc` to return.
+Select any row in the dependency table and press `Enter`. dotsider searches for the referenced assembly in the app directory, the .NET shared framework, and any single-file bundles in scope. If found, it opens in a new analysis context. Press `Esc` to return.
 
-This lets you walk an entire dependency chain without leaving the TUI.
+This lets you walk an entire dependency chain without leaving the TUI — including into framework assemblies like `System.Runtime` or assemblies bundled inside a self-contained single-file executable.

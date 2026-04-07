@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Website.Tests;
 
@@ -8,11 +9,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
     public string RichLibraryDll { get; private set; } = null!;
 
+    /// <summary>Directory containing the published single-file Website and RichLibrary.dll.</summary>
+    public string WebsitePublishedDir { get; private set; } = null!;
+
+    /// <summary>Path to the published single-file Website executable.</summary>
+    public string WebsitePublishedExe { get; private set; } = null!;
+
     public async ValueTask InitializeAsync()
     {
         _repoRoot = GetRepoRoot();
 
         await BuildProject("samples/RichLibrary");
+        await PublishWebsite();
 
         const string config = "Debug";
         const string tfm = "net10.0";
@@ -20,12 +28,61 @@ public class SampleAssemblyFixture : IAsyncLifetime
         RichLibraryDll = Path.Combine(_repoRoot, "samples", "RichLibrary", "bin", config, tfm, "RichLibrary.dll");
 
         Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
+        Assert.True(File.Exists(WebsitePublishedExe), $"Website not found at {WebsitePublishedExe}");
+
+        // Copy RichLibrary.dll into publish directory (mirrors deploy workflow)
+        File.Copy(RichLibraryDll,
+            Path.Combine(WebsitePublishedDir, "RichLibrary.dll"), overwrite: true);
     }
 
     public ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
         return ValueTask.CompletedTask;
+    }
+
+    private async Task PublishWebsite()
+    {
+        var rid = RuntimeInformation.RuntimeIdentifier;
+        var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+
+        WebsitePublishedDir = Path.Combine(_repoRoot, "tests", "Dotsider.Website.Tests",
+            "bin", "website-publish");
+        WebsitePublishedExe = Path.Combine(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
+
+        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-website-publish.lock");
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException) { await Task.Delay(200); }
+        }
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish src/Dotsider.Website/Dotsider.Website.csproj -c Release -r {rid} --self-contained -p:PublishSingleFile=true -o {WebsitePublishedDir} -v q",
+                WorkingDirectory = _repoRoot,
+                UseShellExecute = false,
+            };
+
+            var process = Process.Start(psi)!;
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    $"Website publish failed (exit {process.ExitCode})");
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
     }
 
     private async Task BuildProject(string relativePath)
@@ -41,10 +98,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
                 break;
             }
-            catch (IOException)
-            {
-                await Task.Delay(200);
-            }
+            catch (IOException) { await Task.Delay(200); }
         }
 
         try

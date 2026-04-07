@@ -27,18 +27,24 @@ public sealed class AssemblyAnalyzer : IDisposable
 
 ## Constructors
 
-### AssemblyAnalyzer(byte[], string)
+### AssemblyAnalyzer(byte[], string, string?, string?)
 
-Creates an analyzer from raw bytes in memory. Used as a last-resort
-fallback when disk I/O is unavailable after a save operation.
+Creates an analyzer from raw bytes in memory. Used for bundle-extracted
+assemblies and as a last-resort fallback when disk I/O is unavailable
+after a save operation.
 
 **Parameters:**
 
-- `bytes` ([Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])): 
-- `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+- `bytes` ([Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])): The raw assembly bytes.
+- `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): On-disk path for physical operations (tracing, save checks).
+- `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): If this assembly was extracted from a single-file bundle, the path to the bundle file.
+Used for assembly resolution context.
+- `displayName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Logical name of the analyzed artifact for UI display (e.g. "SelfContainedConsole.dll"
+when the entry assembly is extracted from a bundle). If null, defaults to the file name
+portion of filePath.
 
 ```csharp
-public AssemblyAnalyzer(byte[] bytes, string filePath)
+public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath = null, string? displayName = null)
 ```
 
 ### AssemblyAnalyzer(string)
@@ -95,6 +101,17 @@ The assembly version string, or null.
 public string? AssemblyVersion { get; }
 ```
 
+### CanSaveInPlace
+
+Whether in-place hex save is supported. Returns `false` for bundle-backed analyzers
+because writing extracted entry bytes back over the bundle would corrupt it.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool CanSaveInPlace { get; }
+```
+
 ### ClrHeader
 
 The parsed CLR header, or null if not a .NET assembly.
@@ -133,6 +150,18 @@ Gets the custom attributes applied to metadata entities.
 
 ```csharp
 public IReadOnlyList<CustomAttributeInfo> CustomAttributes { get; }
+```
+
+### DisplayName
+
+Logical display name for the analyzed artifact. For bundle-backed analyzers this is
+the entry assembly file name (e.g. "SelfContainedConsole.dll") while [FilePath](/api/dotsider.core.analysis.assemblyanalyzer.filepath/)
+points to the bundle executable on disk. For file-backed analyzers, equals [FileName](/api/dotsider.core.analysis.assemblyanalyzer.filename/).
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string DisplayName { get; }
 ```
 
 ### FieldDefs
@@ -185,6 +214,16 @@ Whether the PE file contains .NET metadata.
 public bool HasMetadata { get; }
 ```
 
+### IsBundleBacked
+
+Whether this analyzer was created from bytes extracted from a single-file bundle.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IsBundleBacked { get; }
+```
+
 ### IsReadOnly
 
 Whether the file is read-only on disk.
@@ -203,6 +242,17 @@ The last modification time in UTC.
 
 ```csharp
 public DateTime LastModified { get; }
+```
+
+### LaunchPath
+
+The path to launch when tracing this assembly. For bundle-backed analyzers this is
+the bundle executable; for file-backed analyzers this is [FilePath](/api/dotsider.core.analysis.assemblyanalyzer.filepath/).
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string LaunchPath { get; }
 ```
 
 ### MemberRefs
@@ -233,6 +283,19 @@ The parsed PE headers.
 
 ```csharp
 public PeHeaders? PeHeaders { get; }
+```
+
+### PreferredRuntimePack
+
+The preferred .NET runtime pack for this assembly, detected from its assembly references.
+Returns "Microsoft.WindowsDesktop.App" for WPF/WinForms assemblies,
+"Microsoft.AspNetCore.App" for ASP.NET Core assemblies,
+or "Microsoft.NETCore.App" otherwise.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string PreferredRuntimePack { get; }
 ```
 
 ### PublicKeyToken
@@ -273,6 +336,17 @@ Gets the PE sections.
 
 ```csharp
 public IReadOnlyList<SectionInfo> Sections { get; }
+```
+
+### SourceBundlePath
+
+If this assembly was loaded from a single-file bundle, the path to the bundle file.
+Used as resolution context when probing for referenced assemblies.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? SourceBundlePath { get; }
 ```
 
 ### TargetFramework
@@ -343,10 +417,32 @@ The method body block, or null.
 public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
 ```
 
+### ResolveAssembly(string, string, string?, string?, string?)
+
+Resolves a referenced assembly name to a file on disk or bytes from a bundle.
+Probes: app-local, runtime directory, source bundle, host process bundle,
+adjacent bundles, and .NET shared framework.
+
+**Parameters:**
+
+- `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path of the assembly that references the target.
+- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Assembly name without extension (e.g. "System.Runtime").
+- `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker for version-matched shared framework probing.
+- `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Preferred runtime pack to probe first (e.g. "Microsoft.AspNetCore.App").
+- `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): If the referencing assembly came from a bundle, the bundle path.
+
+**Returns:** [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
+
+The resolved assembly, or `null` if not found.
+
+```csharp
+public static ResolvedAssembly? ResolveAssembly(string referencingAssemblyPath, string assemblyName, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
+```
+
 ### ResolveAssemblyPath(string, string)
 
-Attempts to resolve a referenced assembly name to a file path on disk.
-Searches the same directory as the referencing assembly, then .NET runtime dirs.
+Backward-compatible wrapper that resolves to a file path only.
+Returns `null` for bundle-backed results.
 
 **Parameters:**
 

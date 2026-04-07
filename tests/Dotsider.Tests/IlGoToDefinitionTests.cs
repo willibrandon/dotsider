@@ -524,7 +524,8 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var resolved = ImplementationAssemblyResolver.Resolve(
             samples.RichLibraryDll, "mscorlib", declaringType);
         Assert.NotNull(resolved);
-        Assert.Contains(expectedAssembly, Path.GetFileNameWithoutExtension(resolved));
+        var fromFile = Assert.IsType<ResolvedAssembly.FromFile>(resolved);
+        Assert.Contains(expectedAssembly, Path.GetFileNameWithoutExtension(fromFile.Path));
     }
 
     [Fact(Timeout = 30_000)]

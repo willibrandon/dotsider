@@ -14,5 +14,6 @@ Sample .NET projects used as test fixtures for dotsider's analysis, diff, and tr
 | [NetFxConsole](NetFxConsole/) | Console app (.NET Fx) | .NET Framework 4.8 target for Dynamic tab guard testing |
 | [NativeAotConsole](NativeAotConsole/) | Console app (NativeAOT) | NativeAOT-published binary for Dynamic tab tracing tests |
 | [Dotted.Name.App](Dotted.Name.App/) | Console app | Dotted assembly name for cross-platform apphost detection testing |
+| [SelfContainedConsole](SelfContainedConsole/) | Console app (single-file) | Self-contained single-file bundle for bundle reading and resolution testing |
 
 All managed samples target .NET 10 with nullable reference types enabled unless noted otherwise.

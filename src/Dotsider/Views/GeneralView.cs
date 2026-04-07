@@ -159,11 +159,14 @@ public static class GeneralView
                     .OnFocusChanged(key => state.GeneralFocusedDep = key)
                     .OnRowActivated((_, asmRef) =>
                     {
-                        var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
-                            state.Analyzer.FilePath, asmRef.Name);
-                        if (resolvedPath is not null)
+                        var resolved = AssemblyAnalyzer.ResolveAssembly(
+                            state.Analyzer.FilePath, asmRef.Name,
+                            state.Analyzer.TargetFramework,
+                            state.Analyzer.PreferredRuntimePack,
+                            state.Analyzer.SourceBundlePath);
+                        if (resolved is not null)
                         {
-                            state.PushAssembly(resolvedPath);
+                            state.PushAssembly(resolved);
                             state.App.Invalidate();
                         }
                     })
@@ -178,11 +181,14 @@ public static class GeneralView
                                 ?? (analyzer.AssemblyRefs.Count > 0 ? analyzer.AssemblyRefs[0].Name : null);
                             if (focusedName is not null)
                             {
-                                var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
-                                    state.Analyzer.FilePath, focusedName);
-                                if (resolvedPath is not null)
+                                var resolved = AssemblyAnalyzer.ResolveAssembly(
+                                    state.Analyzer.FilePath, focusedName,
+                                    state.Analyzer.TargetFramework,
+                                    state.Analyzer.PreferredRuntimePack,
+                                    state.Analyzer.SourceBundlePath);
+                                if (resolved is not null)
                                 {
-                                    state.PushAssembly(resolvedPath);
+                                    state.PushAssembly(resolved);
                                     state.App.Invalidate();
                                 }
                             }

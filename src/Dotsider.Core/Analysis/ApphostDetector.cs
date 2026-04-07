@@ -86,6 +86,26 @@ public static class ApphostDetector
         }
     }
 
+    /// <summary>
+    /// If the file at <paramref name="exePath"/> is a single-file bundle, extracts the
+    /// entry assembly (the app's own managed code) and returns its bytes and name.
+    /// Uses dotted-name-safe basename matching to locate the entry assembly within
+    /// the bundle manifest.
+    /// </summary>
+    /// <param name="exePath">Path to the executable file.</param>
+    /// <returns>
+    /// The entry assembly bytes and file name, or <c>null</c> if the file is not a
+    /// single-file bundle or the entry assembly could not be identified.
+    /// </returns>
+    public static (byte[] Bytes, string Name)? FindBundledEntryAssembly(string exePath)
+    {
+        // A .dll is already a managed assembly — never probe it as a bundle.
+        if (exePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return SingleFileBundleReader.FindEntryAssembly(exePath);
+    }
+
     private static bool ContainsSequence(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
     {
         if (needle.Length == 0 || haystack.Length < needle.Length)

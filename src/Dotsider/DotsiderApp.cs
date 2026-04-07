@@ -64,8 +64,8 @@ public sealed class DotsiderApp(DotsiderState state)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(0, 200, 180))),
                 bar.Separator(" "),
                 bar.Section(_state.NavigationStack.Count > 0
-                    ? $"{_state.Analyzer.FileName} (depth {_state.NavigationStack.Count + 1})"
-                    : _state.Analyzer.FileName).Theme(t => t
+                    ? $"{_state.Analyzer.DisplayName} (depth {_state.NavigationStack.Count + 1})"
+                    : _state.Analyzer.DisplayName).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
@@ -673,6 +673,12 @@ public sealed class DotsiderApp(DotsiderState state)
 
     internal static void SaveHexChanges(DotsiderState state, ReopenFunc? reopener = null)
     {
+        if (!state.Analyzer.CanSaveInPlace)
+        {
+            state.HexNotification = "Cannot save in place: this assembly was extracted from a single-file bundle";
+            return;
+        }
+
         reopener ??= ReopenOrFallback;
         var filePath = state.Analyzer.FilePath;
         var tempPath = filePath + ".tmp";

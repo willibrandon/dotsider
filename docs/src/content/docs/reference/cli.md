@@ -39,9 +39,10 @@ dotsider analyze MyLib.dll --size             # size breakdown
 dotsider analyze MyLib.dll --json             # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt # write to file
 dotsider analyze MyApp.exe                    # apphost .exe → auto-redirects to MyApp.dll
+dotsider analyze MyApp                        # single-file bundle → extracts entry assembly
 ```
 
-If the `.exe` is a native apphost with no .NET metadata and a companion managed `.dll` exists, `analyze` auto-redirects and prints a note to stderr.
+If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
 
 | Option | Description |
 |--------|-------------|

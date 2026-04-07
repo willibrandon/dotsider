@@ -18,7 +18,7 @@ Each instruction shows:
 Press `Enter` or `gd` while the cursor is on a token-bearing instruction (`call`, `callvirt`, `newobj`, `ldfld`, `castclass`, etc.) to navigate to the target. Navigable operands are underlined.
 
 - **Local methods** open their disassembly directly.
-- **External methods** resolve the referenced assembly and open it. Reference assemblies like `System.Runtime` that contain no IL are automatically mapped to their implementation (`System.Private.CoreLib`).
+- **External methods** resolve the referenced assembly and open it. Reference assemblies like `System.Runtime` that contain no IL are automatically mapped to their implementation (`System.Private.CoreLib`). Resolution probes the app directory, the .NET shared framework, and any single-file bundles in scope.
 - **Fields** show the field signature, declaring type, and attributes in the right pane.
 - **Generic instantiations** (`List<int>`, `Task<string>`) unwrap to the underlying open generic type.
 

@@ -41,7 +41,7 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead.
+dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed.
 
 | Tab | What you see |
 |-----|-------------|
@@ -105,6 +105,7 @@ dotsider analyze MyLib.dll --size               # size breakdown
 dotsider analyze MyLib.dll --json               # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt   # write to file
 dotsider analyze MyApp.exe                      # apphost .exe → auto-redirects to MyApp.dll
+dotsider analyze MyApp                          # single-file bundle → extracts and analyzes entry assembly
 ```
 
 ### CLI: `dotsider sessions`
@@ -250,8 +251,9 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ```
 src/Dotsider.Core/
-  Analysis/           PE reading, metadata extraction, IL disassembly,
-                      diffing, dependency graphs, size analysis, runtime tracing
+  Analysis/           PE reading, metadata extraction, IL disassembly, diffing,
+                      dependency graphs, size analysis, runtime tracing,
+                      single-file bundle reading, .NET shared framework discovery
   Analysis/Models/    Data types for analysis results
   Protocol/           Request/response types and JSON options for the UDS protocol
 
@@ -281,9 +283,10 @@ samples/
   EmptyLib/           Minimal library (edge case testing)
   NetFxConsole/       .NET Framework 4.8 console app (Dynamic tab guard testing)
   NativeAotConsole/   NativeAOT-published console app (Dynamic tab tracing tests)
+  SelfContainedConsole/ Self-contained single-file bundle (bundle reading, resolution tests)
 
 tests/Dotsider.Tests/
-  SampleAssemblyFixture.cs   Builds all 9 samples once, shared across tests
+  SampleAssemblyFixture.cs   Builds all 10 samples once, shared across tests
   *Tests.cs                  Integration tests against real assemblies
 
 tests/Dotsider.Mcp.Tests/
