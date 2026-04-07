@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace Dotsider.Core.Analysis;
 
 /// <summary>
-/// Resolves reference assemblies (e.g., System.Runtime) to their implementation
+/// Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation
 /// assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 /// </summary>
 public static class ImplementationAssemblyResolver
@@ -27,6 +27,7 @@ public static class ImplementationAssemblyResolver
         ["System.Threading.Tasks"] = "System.Private.CoreLib",
         ["System.ComponentModel"] = "System.Private.CoreLib",
         ["netstandard"] = "System.Private.CoreLib",
+        ["mscorlib"] = "System.Private.CoreLib",
     };
 
     /// <summary>

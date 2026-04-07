@@ -61,7 +61,7 @@ public static class IlNavigationResolver
 
 ### [ImplementationAssemblyResolver](/api/dotsider.core.analysis.implementationassemblyresolver/)
 
-Resolves reference assemblies (e.g., System.Runtime) to their implementation
+Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation
 assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp

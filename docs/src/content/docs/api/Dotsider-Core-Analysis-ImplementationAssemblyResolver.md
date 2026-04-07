@@ -1,6 +1,6 @@
 ---
 title: "ImplementationAssemblyResolver"
-description: "Resolves reference assemblies (e.g., System.Runtime) to their implementation assemblies (e.g., System.Private.CoreLib) by probing for type forwarding."
+description: "Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation assemblies (e.g., System.Private.CoreLib) by probing for type forwarding."
 slug: api/dotsider.core.analysis.implementationassemblyresolver
 sidebar:
   order: 0
@@ -10,7 +10,7 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Resolves reference assemblies (e.g., System.Runtime) to their implementation
+Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation
 assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp

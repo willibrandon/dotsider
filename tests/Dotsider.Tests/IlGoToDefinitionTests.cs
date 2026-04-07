@@ -472,6 +472,45 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     }
 
     [Fact(Timeout = 30_000)]
+    public void NetFx_ExternalMethod_NavigatesToMscorlibMethod()
+    {
+        if (samples.NetFxConsoleExe is null) return; // Windows-only sample
+
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.NetFxConsoleExe);
+        state.CurrentTab = TabId.IlInspector;
+
+        // NetFxConsole.Program::Main calls Console.WriteLine which references mscorlib in net48
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "Main" && m.DeclaringType.Contains("Program"));
+        state.IlSelectedMethod = method;
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        // Find the call instruction targeting mscorlib
+        var callInst = result.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null);
+
+        // Resolver must identify this as an external method in mscorlib
+        var target = IlNavigationResolver.Resolve(state.Analyzer, callInst.MetadataToken!.Value);
+        var extMethod = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.Equal("mscorlib", extMethod.AssemblyName);
+
+        // Navigation to mscorlib methods must succeed (resolved via System.Private.CoreLib)
+        var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
+        Assert.True(navigated, $"Navigation failed with notice: {state.TransientNotice}");
+        Assert.Null(state.TransientNotice);
+        Assert.NotNull(state.IlSelectedMethod);
+        Assert.Contains("Console", state.IlSelectedMethod.DeclaringType);
+    }
+
+    [Fact(Timeout = 30_000)]
     public void ExternalMethod_NavigatesToCorrectDeclaringType()
     {
         var app = new Hex1bApp(
