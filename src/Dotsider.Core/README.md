@@ -14,6 +14,11 @@ Core library for .NET assembly analysis. Provides analyzers, models, and the dia
 | `AssemblyDiffer` | Compares two assemblies and reports added, removed, and changed types, methods, and references |
 | `RuntimeTracer` | Launches a .NET process with EventPipe tracing for JIT, GC, exception, and counter events |
 | `NuGetPackageAnalyzer` | Reads `.nupkg` files for package metadata and DLL listing |
+| `SingleFileBundleReader` | Detects and reads .NET single-file bundles — parses the manifest and extracts individual entries |
+| `DotNetRuntimeLocator` | Discovers system .NET installations and resolves shared framework assembly paths |
+| `AssemblyLoader` | Opens assemblies with automatic apphost companion redirect and single-file bundle entry extraction |
+| `ApphostDetector` | Detects .NET apphost executables, locates companion managed assemblies, and identifies single-file bundles |
+| `ImplementationAssemblyResolver` | Maps reference assemblies to their implementations via known mappings, type forwarders, bundles, and shared framework probing |
 | `TreemapLayout` | Computes squarified treemap rectangles for size visualization |
 
 ## Models
@@ -27,6 +32,9 @@ All models live in `Analysis/Models/` and are plain records or classes suitable 
 - `DiffModels` (AssemblyDiff, TypeDiff, MethodDiff)
 - `TraceEventEntry`, `TraceEventCategory`, `CounterSnapshot`, `TraceSummary`, `TraceProcessState`
 - `OutputLine`, `NuGetFileEntry`, `DependencyGraph`
+- `BundleManifest`, `BundleEntry`, `BundleFileType`
+- `ResolvedAssembly` (`FromFile`, `FromBundle`)
+- `AssemblyOpenResult` (`Direct`, `ApphostWithCompanion`, `BundleEntry`)
 
 ## Protocol
 

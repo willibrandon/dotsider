@@ -37,7 +37,6 @@ dotsider sessions info <pid>                # assembly info + current view
 dotsider sessions view <pid>                # current view state
 dotsider sessions navigate <pid> <tab>      # switch to a tab (1-8)
 dotsider sessions capture <pid>             # capture screen as text
-dotsider sessions capture <pid> --format svg # capture as SVG
 dotsider sessions trace events <pid>        # trace events
 dotsider sessions trace counters <pid>      # performance counters
 dotsider sessions trace output <pid>        # process stdout/stderr
