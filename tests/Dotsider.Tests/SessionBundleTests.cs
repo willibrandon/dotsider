@@ -562,9 +562,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.HelloWorldExe }, ct);
         Assert.True(pushResponse.Success);
-        await TestHelpers.WaitUntilAsync(
-            () => _state?.Analyzer.AssemblyName == "HelloWorld",
-            TimeSpan.FromSeconds(10));
+        await Task.Delay(500, ct);
 
         // Verify the pushed assembly has metadata (companion DLL, not the native host)
         var info = await DotsiderClient.SendAsync(socketPath,
@@ -588,9 +586,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.SelfContainedConsoleExe }, ct);
         Assert.True(pushResponse.Success);
-        await TestHelpers.WaitUntilAsync(
-            () => _state?.Analyzer.AssemblyName == "SelfContainedConsole",
-            TimeSpan.FromSeconds(10));
+        await Task.Delay(500, ct);
 
         // Verify the pushed assembly has metadata (entry assembly, not the bundle host)
         var info = await DotsiderClient.SendAsync(socketPath,
@@ -616,17 +612,13 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "push-assembly", AssemblyPath = samples.HelloWorldDll }, ct);
         Assert.True(pushResponse.Success);
-        await TestHelpers.WaitUntilAsync(
-            () => _state?.Analyzer.AssemblyName == "HelloWorld",
-            TimeSpan.FromSeconds(10));
+        await Task.Delay(500, ct);
 
         // Navigate back — should return to the apphost and reopen the dialog
         var backResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate-back" }, ct);
         Assert.True(backResponse.Success);
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.ApphostDialogOpen,
-            TimeSpan.FromSeconds(10));
+        await Task.Delay(500, ct);
 
         // The assembly-info should show the native host (no metadata)
         var info = await DotsiderClient.SendAsync(socketPath,

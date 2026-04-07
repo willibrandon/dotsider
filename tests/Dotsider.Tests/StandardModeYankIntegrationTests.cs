@@ -307,8 +307,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .Wait(50)
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -554,7 +553,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     // --- General tab double-click word selection ---
 
     [Fact(Timeout = 60_000)]
-    public async Task General_WordSelectionInEditor_SelectsPureWordAndYanks()
+    public async Task General_DoubleClickWordSelection_AdjustsBoundaryAndYanks()
     {
         var (terminal, app, ct) = Launch(samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
@@ -565,28 +564,34 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Tab to focus the Assembly Info editor. The editor content starts with
-        // leading spaces ("  Assembly Name:"), so move the cursor right to land on
-        // a word character before using vim iw to select the word.
-        // This avoids mouse double-click timing which is unreliable on CI when
-        // EnableInputCoalescing=false (each click triggers a render cycle and
-        // ComputeClickCount uses wall-clock timing with a 500ms threshold).
+        // Find "Version" on screen — it appears inside the Assembly Info editor
+        // and is more likely to be a standalone word than "Assembly" which is part of "Assembly Name:"
+        List<(int Line, int Column)> matches = [];
         await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
-            // Move past leading spaces to land on 'A' of "Assembly"
-            .Key(Hex1bKey.RightArrow)
-            .Key(Hex1bKey.RightArrow)
-            .Wait(50)
-            .Key(Hex1bKey.I)
-            .Wait(50)
-            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForTextObject, TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.W)
-            .Wait(50)
-            .WaitUntil(_ => _state!.GeneralInfoEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(10))
+            .WaitUntil(s =>
+            {
+                var found = s.FindText("Version");
+                if (found.Count == 0) return false;
+                matches = [.. found.Select(m => (m.Line, m.Column))];
+                return true;
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        Assert.True(matches.Count > 0);
+        // Use the first match — coordinates are 0-based screen positions
+        var (row, col) = matches[0];
+
+        // Single click to give editor focus, then double-click to select word
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        await auto.ClickAtAsync(col + 2, row, ct: ct); // +2 to land inside the word
+        await Task.Delay(150, ct);
+        await auto.DoubleClickAtAsync(col + 2, row, ct: ct);
+
+        // Wait for selection to appear
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.GeneralInfoEditorState?.Cursor.HasSelection == true,
+            TimeSpan.FromSeconds(5));
 
         // Verify selection is a clean word
         var es = _state!.GeneralInfoEditorState!;
@@ -598,8 +603,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Yank the selection
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .Wait(50)
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1096,8 +1100,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Press y — verify it arms WaitingForYMotion
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Y)
-            .Wait(50)
-            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYMotion, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYMotion, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1106,16 +1109,14 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Press i — advances to WaitingForYTextObject
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.I)
-            .Wait(50)
-            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Press w — selects + yanks
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.W)
-            .Wait(50)
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1213,10 +1214,10 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
-    // --- Line selection (Shift+V) ---
+    // --- Triple-click line selection ---
 
     [Fact(Timeout = 60_000)]
-    public async Task IlInspector_SelectLineYanksOnlyCurrentLine()
+    public async Task IlInspector_TripleClickSelectsOnlyCurrentLine()
     {
         var (terminal, app, ct) = Launch(samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
@@ -1234,10 +1235,19 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _state.NavigateToIlMethod(method);
 
         // Wait for IL content to render — look for the first IL instruction
+        List<(int Line, int Column)> matches = [];
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s =>
+            {
+                var found = s.FindText("IL_0000:");
+                if (found.Count == 0) return false;
+                matches = [.. found.Select(m => (m.Line, m.Column))];
+                return true;
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        var (row, col) = matches[0];
 
         // Focus the IL editor (status bar shows "l: Focus IL" when tree has focus)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1247,25 +1257,25 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Use Shift+V to select the current line — this is a keyboard-only
-        // approach that avoids CI timing issues with mouse click-count detection.
+        // Triple-click to select the line: three rapid clicks at the same position
+        // (matches the pattern used by hex1b's own EditorMouseTests)
         await new Hex1bTerminalInputSequenceBuilder()
-            .Shift().Key(Hex1bKey.V)
-            .Wait(50)
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
             .WaitUntil(_ => _state!.IlEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(10))
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Verify the editor still has focus after line selection
+        // Verify the editor still has focus after triple-click
         Assert.True(IsFocusedOnEditor(_state.IlEditorState),
-            "Editor should have focus after Shift+V line selection");
+            "Editor should have focus after triple-click");
 
         // Yank the selection
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .Wait(50)
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1273,9 +1283,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
-        // The yanked text should be only the current line — no trailing newline
+        // The yanked text should be exactly the IL_0000 line — no trailing newline
         // and no character from the next line (e.g. "I" from "IL_0005")
-        Assert.True(yankedText.Length > 0, "Yanked text should not be empty");
+        Assert.StartsWith("IL_0000:", yankedText);
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
