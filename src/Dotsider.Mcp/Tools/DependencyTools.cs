@@ -27,7 +27,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.AssemblyRefs, DotsiderJsonOptions.Default);
         }
 
@@ -56,7 +56,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var (nodes, edges) = DependencyGraphBuilder.Build(analyzer);
             return JsonSerializer.Serialize(new { Nodes = nodes, Edges = edges },
                 DotsiderJsonOptions.Default);
@@ -87,7 +87,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(analyzer.TypeRefs, DotsiderJsonOptions.Default);
         }
 

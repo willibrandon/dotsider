@@ -72,4 +72,70 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
         var error = response.TryGetProperty("error", out var err) ? err.GetString() : "Unknown error";
         return $"Error: {error}";
     }
+
+    /// <summary>
+    /// Navigates to the definition of a metadata token in the IL Inspector.
+    /// Works for method calls, field accesses, type references, and other
+    /// token-bearing IL instructions. Cross-assembly navigation is supported.
+    /// </summary>
+    /// <param name="sessionId">PID of the running dotsider instance.</param>
+    /// <param name="token">The metadata token from the IL instruction operand.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON confirmation that navigation was queued.</returns>
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
+    public async partial Task<string> NavigateToIlDefinition(
+        int sessionId,
+        int token,
+        CancellationToken ct = default)
+    {
+        return await sessionManager.GetTarget(sessionId)
+            .SendAndUnwrapAsync(new DotsiderRequest
+            {
+                Method = "navigate-to-il-definition",
+                Token = token
+            }, ct);
+    }
+
+    /// <summary>
+    /// Goes back in the navigation history, following the same priority as
+    /// pressing Escape in the TUI: IL back stack, cross-view back, assembly
+    /// stack pop, then IL selection clear.
+    /// </summary>
+    /// <param name="sessionId">PID of the running dotsider instance.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON confirmation that back navigation was queued.</returns>
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
+    public async partial Task<string> NavigateBack(
+        int sessionId,
+        CancellationToken ct = default)
+    {
+        return await sessionManager.GetTarget(sessionId)
+            .SendAndUnwrapAsync(new DotsiderRequest { Method = "navigate-back" }, ct);
+    }
+
+    /// <summary>
+    /// Opens a dependency assembly by explicit path or by resolving an assembly name
+    /// using the current analyzer's context (target framework, runtime pack, bundle).
+    /// When both are provided, the explicit path takes precedence.
+    /// </summary>
+    /// <param name="sessionId">PID of the running dotsider instance.</param>
+    /// <param name="assemblyPath">Explicit path to the assembly to open.</param>
+    /// <param name="assemblyName">Assembly name to resolve (e.g. "System.Runtime").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON confirmation that the push was queued.</returns>
+    [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
+    public async partial Task<string> PushAssembly(
+        int sessionId,
+        string? assemblyPath = null,
+        string? assemblyName = null,
+        CancellationToken ct = default)
+    {
+        return await sessionManager.GetTarget(sessionId)
+            .SendAndUnwrapAsync(new DotsiderRequest
+            {
+                Method = "push-assembly",
+                AssemblyPath = assemblyPath,
+                AssemblyName = assemblyName
+            }, ct);
+    }
 }

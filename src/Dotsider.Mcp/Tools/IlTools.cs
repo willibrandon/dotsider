@@ -32,7 +32,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var disassembler = new IlDisassembler(analyzer);
 
             var method = analyzer.MethodDefs.FirstOrDefault(m =>
@@ -76,7 +76,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var disassembler = new IlDisassembler(analyzer);
             var max = maxResults ?? 50;
             var results = new List<object>();

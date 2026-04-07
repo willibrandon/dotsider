@@ -55,4 +55,7 @@ public sealed class DotsiderRequest
 
     /// <summary>Minimum string length for raw string extraction.</summary>
     public int? MinLength { get; set; }
+
+    /// <summary>Assembly name to resolve (e.g. "System.Runtime"), used by resolve-assembly and push-assembly.</summary>
+    public string? AssemblyName { get; set; }
 }

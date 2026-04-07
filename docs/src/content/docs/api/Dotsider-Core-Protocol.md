@@ -39,3 +39,22 @@ JSON response from a dotsider diagnostics socket.
 public sealed class DotsiderResponse
 ```
 
+### [FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/)
+
+Result of resolving an assembly from the system .NET shared framework.
+Includes the full path and the runtime pack that provided it.
+
+```csharp
+public sealed record FrameworkAssemblyInfo : IEquatable<FrameworkAssemblyInfo>
+```
+
+### [ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/)
+
+Serialization-safe representation of an assembly resolution result.
+Used in protocol and MCP responses where [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
+cannot be serialized directly (FromBundle contains raw bytes).
+
+```csharp
+public sealed record ResolvedAssemblyInfo : IEquatable<ResolvedAssemblyInfo>
+```
+

@@ -33,11 +33,11 @@ matching the closest runtime version to the target framework.
 - `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker (e.g. ".NETCoreApp,Version=v10.0"). Used for version matching.
 - `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): If specified, this runtime pack is probed first (e.g. "Microsoft.AspNetCore.App").
 
-**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+**Returns:** [FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/)
 
-Full path to the assembly, or `null` if not found.
+The resolved assembly info including the winning runtime pack, or `null` if not found.
 
 ```csharp
-public static string? FindAssemblyInSharedFramework(string assemblyName, string? targetFramework, string? preferredRuntimePack = null)
+public static FrameworkAssemblyInfo? FindAssemblyInSharedFramework(string assemblyName, string? targetFramework, string? preferredRuntimePack = null)
 ```
 

@@ -33,7 +33,7 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var extractor = new StringExtractor(analyzer);
             var user = extractor.ExtractUserStrings();
             var metadata = extractor.ExtractMetadataStrings();

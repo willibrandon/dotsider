@@ -22,7 +22,9 @@ dotsider analyze MyApp.dll --methods        # method definitions
 dotsider analyze MyApp.dll --il Type.Method # disassemble a method
 dotsider analyze MyApp.dll --deps           # assembly references
 dotsider analyze MyApp.dll --strings        # extract strings
+dotsider analyze MyApp.dll --fields         # field definitions
 dotsider analyze MyApp.dll --size           # size breakdown
+dotsider analyze MyApp.dll --bundle         # single-file bundle manifest
 dotsider analyze MyApp.dll --json           # JSON output
 dotsider analyze MyApp.dll -o report.txt    # write to file
 ```

@@ -101,7 +101,9 @@ dotsider analyze MyLib.dll --methods            # list method definitions
 dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
 dotsider analyze MyLib.dll --deps               # assembly references
 dotsider analyze MyLib.dll --strings            # extract strings
+dotsider analyze MyLib.dll --fields             # list field definitions
 dotsider analyze MyLib.dll --size               # size breakdown
+dotsider analyze MyLib.dll --bundle             # show single-file bundle manifest
 dotsider analyze MyLib.dll --json               # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt   # write to file
 dotsider analyze MyApp.exe                      # apphost .exe → auto-redirects to MyApp.dll

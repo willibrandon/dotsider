@@ -69,7 +69,14 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `get-dependency-graph` | — | Dependency graph nodes and edges |
 | `get-type-refs` | — | Type references |
 | `diff-assemblies` | LeftPath, RightPath | Assembly comparison |
-| `get-current-view` | — | Active tab and view state |
+| `list-fields` | TypeName?, Query?, MaxResults? | Field definitions with optional filter |
+| `is-bundle` | AssemblyPath | Check if a file is a single-file bundle |
+| `get-bundle-manifest` | AssemblyPath | Bundle manifest with entry list |
+| `resolve-assembly` | AssemblyName | Resolve a dependency using the 6-step resolution chain |
+| `navigate-to-il-definition` | Token | Go-to-definition by metadata token |
+| `navigate-back` | — | Back navigation (IL back, cross-view, assembly pop) |
+| `push-assembly` | AssemblyPath? or AssemblyName? | Open a dependency assembly |
+| `get-current-view` | — | Active tab, view state, and trace eligibility |
 | `navigate` | TabId | Switch to a tab |
 | `get-trace-events` | CategoryFilter?, MaxResults? | Trace events |
 | `get-trace-counters` | — | Performance counter snapshot |

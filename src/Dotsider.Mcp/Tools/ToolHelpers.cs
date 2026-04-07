@@ -1,3 +1,5 @@
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using ModelContextProtocol;
 
 namespace Dotsider.Mcp.Tools;
@@ -41,5 +43,33 @@ internal static class ToolHelpers
             throw new McpException($"{label} is required.");
         if (!File.Exists(path))
             throw new McpException($"File not found: {path}");
+    }
+
+    /// <summary>
+    /// Opens an assembly file, handling apphosts and single-file bundles.
+    /// For apphosts, silently redirects to the companion managed .dll.
+    /// For single-file bundles, extracts and returns the entry assembly.
+    /// </summary>
+    /// <param name="path">Path to the assembly file.</param>
+    /// <returns>The opened analyzer.</returns>
+    /// <exception cref="McpException">Thrown if the file cannot be opened.</exception>
+    internal static AssemblyAnalyzer OpenAnalyzer(string path)
+    {
+        ValidateAssemblyPath(path);
+        var result = AssemblyLoader.Open(path);
+        return result switch
+        {
+            AssemblyOpenResult.Direct(var a) => a,
+            AssemblyOpenResult.ApphostWithCompanion(var host, var companion) =>
+                OpenCompanion(host, companion),
+            AssemblyOpenResult.BundleEntry(var entry, _) => entry,
+            _ => throw new McpException($"Cannot open: {path}")
+        };
+    }
+
+    private static AssemblyAnalyzer OpenCompanion(AssemblyAnalyzer host, string companion)
+    {
+        host.Dispose();
+        return new AssemblyAnalyzer(companion);
     }
 }

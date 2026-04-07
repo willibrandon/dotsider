@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
 
@@ -27,13 +26,19 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             return JsonSerializer.Serialize(new
             {
                 analyzer.FilePath, analyzer.FileName, analyzer.FileSize,
                 analyzer.AssemblyName, analyzer.AssemblyVersion, analyzer.TargetFramework,
                 analyzer.Culture, analyzer.PublicKeyToken, analyzer.Architecture,
                 analyzer.HasMetadata,
+                analyzer.DisplayName,
+                analyzer.SourceBundlePath,
+                analyzer.IsBundleBacked,
+                analyzer.PreferredRuntimePack,
+                analyzer.LaunchPath,
+                analyzer.CanSaveInPlace,
                 TypeCount = analyzer.TypeDefs.Count,
                 MethodCount = analyzer.MethodDefs.Count,
                 AssemblyRefCount = analyzer.AssemblyRefs.Count
@@ -69,7 +74,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var types = analyzer.TypeDefs.AsEnumerable();
             if (!string.IsNullOrEmpty(query))
                 types = types.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
@@ -109,7 +114,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var methods = analyzer.MethodDefs.AsEnumerable();
             if (!string.IsNullOrEmpty(typeName))
                 methods = methods.Where(m => m.DeclaringType.Contains(typeName, StringComparison.OrdinalIgnoreCase));
@@ -151,7 +156,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var max = maxResults ?? 100;
 
             var types = analyzer.TypeDefs

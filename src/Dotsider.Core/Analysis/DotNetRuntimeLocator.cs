@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using Dotsider.Core.Protocol;
 
 namespace Dotsider.Core.Analysis;
 
@@ -10,7 +11,7 @@ public static class DotNetRuntimeLocator
 {
     private static string? _cachedBasePath;
     private static bool _basePathResolved;
-    private static readonly ConcurrentDictionary<(string, string?, string?), string?> Cache = new();
+    private static readonly ConcurrentDictionary<(string, string?, string?), FrameworkAssemblyInfo?> Cache = new();
 
     private static readonly string[] RuntimePacks =
     [
@@ -31,8 +32,8 @@ public static class DotNetRuntimeLocator
     /// <param name="preferredRuntimePack">
     /// If specified, this runtime pack is probed first (e.g. "Microsoft.AspNetCore.App").
     /// </param>
-    /// <returns>Full path to the assembly, or <c>null</c> if not found.</returns>
-    public static string? FindAssemblyInSharedFramework(
+    /// <returns>The resolved assembly info including the winning runtime pack, or <c>null</c> if not found.</returns>
+    public static FrameworkAssemblyInfo? FindAssemblyInSharedFramework(
         string assemblyName, string? targetFramework, string? preferredRuntimePack = null)
     {
         var key = (assemblyName, targetFramework, preferredRuntimePack);
@@ -70,7 +71,7 @@ public static class DotNetRuntimeLocator
         _basePathResolved = false;
     }
 
-    private static string? FindAssemblyCore(
+    private static FrameworkAssemblyInfo? FindAssemblyCore(
         string assemblyName, string? targetFramework, string? preferredRuntimePack)
     {
         var basePath = FindDotNetBasePath();
@@ -95,11 +96,11 @@ public static class DotNetRuntimeLocator
 
             var dllPath = Path.Combine(packDir, versionFolder, $"{assemblyName}.dll");
             if (File.Exists(dllPath))
-                return dllPath;
+                return new FrameworkAssemblyInfo(dllPath, pack);
 
             var exePath = Path.Combine(packDir, versionFolder, $"{assemblyName}.exe");
             if (File.Exists(exePath))
-                return exePath;
+                return new FrameworkAssemblyInfo(exePath, pack);
         }
 
         return null;
