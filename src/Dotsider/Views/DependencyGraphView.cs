@@ -129,9 +129,12 @@ public static class DependencyGraphView
                     if (state.GraphSelectedIndex >= 0 && state.GraphSelectedIndex < nodes.Count)
                     {
                         var node = nodes[state.GraphSelectedIndex];
-                        var resolvedPath = AssemblyAnalyzer.ResolveAssemblyPath(
-                            state.Analyzer.FilePath, node.Name);
-                        if (resolvedPath is not null && state.PushAssembly(resolvedPath))
+                        var resolved = AssemblyAnalyzer.ResolveAssembly(
+                            state.Analyzer.FilePath, node.Name,
+                            state.Analyzer.TargetFramework,
+                            state.Analyzer.PreferredRuntimePack,
+                            state.Analyzer.SourceBundlePath);
+                        if (resolved is not null && state.PushAssembly(resolved))
                         {
                             state.NavigateToTab(TabId.General);
                             state.App.RequestFocus(n =>

@@ -4,6 +4,7 @@ using System.Text;
 using Dotsider;
 using Dotsider.Commands;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
@@ -95,26 +96,51 @@ diffCommand.SetAction(async (parseResult, ct) =>
         return 1;
     }
 
-    // Redirect apphost binaries to their companion managed .dll
     var leftPath = left.FullName;
     var rightPath = right.FullName;
 
-    var leftCompanion = ApphostDetector.FindCompanionDll(leftPath);
-    if (leftCompanion is not null)
+    var leftResult = AssemblyLoader.Open(leftPath);
+    AssemblyAnalyzer leftAnalyzer;
+    switch (leftResult)
     {
-        Console.Error.WriteLine(
-            $"Note: {left.Name} is a native apphost. "
-            + $"Analyzing {Path.GetFileName(leftCompanion)} instead.");
-        leftPath = leftCompanion;
+        case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
+            host.Dispose();
+            Console.Error.WriteLine(
+                $"Note: {left.Name} is a native apphost. "
+                + $"Analyzing {Path.GetFileName(companion)} instead.");
+            leftAnalyzer = new AssemblyAnalyzer(companion);
+            break;
+        case AssemblyOpenResult.BundleEntry(var entry, _):
+            Console.Error.WriteLine(
+                $"Note: {left.Name} is a single-file bundle. "
+                + $"Analyzing entry assembly {entry.FileName} instead.");
+            leftAnalyzer = entry;
+            break;
+        default:
+            leftAnalyzer = ((AssemblyOpenResult.Direct)leftResult).Analyzer;
+            break;
     }
 
-    var rightCompanion = ApphostDetector.FindCompanionDll(rightPath);
-    if (rightCompanion is not null)
+    var rightResult = AssemblyLoader.Open(rightPath);
+    AssemblyAnalyzer rightAnalyzer;
+    switch (rightResult)
     {
-        Console.Error.WriteLine(
-            $"Note: {right.Name} is a native apphost. "
-            + $"Analyzing {Path.GetFileName(rightCompanion)} instead.");
-        rightPath = rightCompanion;
+        case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
+            host.Dispose();
+            Console.Error.WriteLine(
+                $"Note: {right.Name} is a native apphost. "
+                + $"Analyzing {Path.GetFileName(companion)} instead.");
+            rightAnalyzer = new AssemblyAnalyzer(companion);
+            break;
+        case AssemblyOpenResult.BundleEntry(var entry, _):
+            Console.Error.WriteLine(
+                $"Note: {right.Name} is a single-file bundle. "
+                + $"Analyzing entry assembly {entry.FileName} instead.");
+            rightAnalyzer = entry;
+            break;
+        default:
+            rightAnalyzer = ((AssemblyOpenResult.Direct)rightResult).Analyzer;
+            break;
     }
 
     DiffState? capturedDiffState = null;
@@ -190,7 +216,7 @@ diffCommand.SetAction(async (parseResult, ct) =>
     {
         if (capturedDiffState is null)
         {
-            var diffState = new DiffState(diffHex1bApp!, leftPath, rightPath);
+            var diffState = new DiffState(diffHex1bApp!, leftAnalyzer, rightAnalyzer);
             capturedDiffState = diffState;
             diffApp = new DiffApp(diffState);
         }

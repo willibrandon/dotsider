@@ -22,6 +22,26 @@ public static class ApphostDetector
 
 ## Methods
 
+### FindBundledEntryAssembly(string)
+
+If the file at exePath is a single-file bundle, extracts the
+entry assembly (the app's own managed code) and returns its bytes and name.
+Uses dotted-name-safe basename matching to locate the entry assembly within
+the bundle manifest.
+
+**Parameters:**
+
+- `exePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path to the executable file.
+
+**Returns:** [Nullable\<Byte[], String\>\>](https://learn.microsoft.com/dotnet/api/system.nullable-2)
+
+The entry assembly bytes and file name, or `null` if the file is not a
+single-file bundle or the entry assembly could not be identified.
+
+```csharp
+public static (byte[] Bytes, string Name)? FindBundledEntryAssembly(string exePath)
+```
+
 ### FindCompanionDll(string)
 
 If the binary at exePath is a .NET apphost (embeds both the

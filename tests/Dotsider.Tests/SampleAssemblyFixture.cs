@@ -34,6 +34,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
     // NativeAOT sample
     public string? NativeAotConsoleExe { get; private set; }
 
+    // Self-contained single-file sample
+    public string? SelfContainedConsoleExe { get; private set; }
+
     // Non-.NET binary for error case testing
     public string NonDotNetBinaryPath { get; private set; } = null!;
 
@@ -59,6 +62,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
             builds.Add(BuildProject("samples/NetFxConsole"));
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
+        builds.Add(PublishSelfContainedProject("samples/SelfContainedConsole"));
 
         await Task.WhenAll(builds);
 
@@ -89,6 +93,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
         NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
             "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
+        SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
+            "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
+
         RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
             "bin", config, "RichLibrary.2.5.1.nupkg");
 
@@ -104,6 +111,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
             Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
         if (NativeAotConsoleExe is not null)
             Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
+        if (SelfContainedConsoleExe is not null)
+            Assert.True(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
         Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
         Assert.True(File.Exists(ComplexAppExe), $"ComplexApp apphost not found at {ComplexAppExe}");
         Assert.True(File.Exists(MinimalApiExe), $"MinimalApi apphost not found at {MinimalApiExe}");
@@ -162,6 +171,53 @@ public class SampleAssemblyFixture : IAsyncLifetime
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
+
+            var process = Process.Start(psi)!;
+            var stdout = await process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    private async Task PublishSelfContainedProject(string relativePath)
+    {
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} --self-contained -p:PublishSingleFile=true -v q",
+                WorkingDirectory = projectDir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();

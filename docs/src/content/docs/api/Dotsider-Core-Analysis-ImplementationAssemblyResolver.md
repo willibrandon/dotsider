@@ -23,22 +23,25 @@ public static class ImplementationAssemblyResolver
 
 ## Methods
 
-### Resolve(string, string, string?)
+### Resolve(string, string, string?, string?, string?, string?)
 
-Resolves an assembly name to a path, falling back to the implementation assembly
-if the reference assembly has no IL.
+Resolves an assembly name to a path or bundle entry, falling back to the
+implementation assembly if the reference assembly has no IL.
 
 **Parameters:**
 
 - `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The path of the assembly that references the target.
 - `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The assembly name to resolve.
 - `declaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Optional declaring type for type-aware resolution (needed for mscorlib).
+- `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker for shared framework probing.
+- `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Preferred runtime pack to probe first.
+- `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): If the referencing assembly came from a bundle, the bundle path.
 
-**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+**Returns:** [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
-The resolved path, or null if not found.
+The resolved assembly, or null if not found.
 
 ```csharp
-public static string? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null)
+public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
 ```
 

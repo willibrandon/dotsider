@@ -126,7 +126,7 @@ public static class DynamicAnalysisView
                 if (!state.DynamicEditingArgs)
                 {
                     state.Tracer = new RuntimeTracer(
-                        state.Analyzer.FilePath, state.DynamicArguments, () => state.App.Invalidate());
+                        state.Analyzer.LaunchPath, state.DynamicArguments, () => state.App.Invalidate());
                     state.Tracer.Start();
                     state.App.RequestFocus(node =>
                         node.GetType().Name.StartsWith("TableNode"));
@@ -281,7 +281,7 @@ public static class DynamicAnalysisView
 
                     state.Tracer?.Dispose();
                     state.Tracer = new RuntimeTracer(
-                        state.Analyzer.FilePath, state.DynamicArguments, () => state.App.Invalidate());
+                        state.Analyzer.LaunchPath, state.DynamicArguments, () => state.App.Invalidate());
                     state.Tracer.Start();
                     state.DynamicEventsFocusedKey = null;
                     state.DynamicOutputFocusedKey = null;

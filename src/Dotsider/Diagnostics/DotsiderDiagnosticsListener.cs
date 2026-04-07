@@ -664,7 +664,7 @@ internal sealed class DotsiderDiagnosticsListener(
             var args = request.Arguments ?? "";
             s.Tracer?.Dispose();
             s.Tracer = new RuntimeTracer(
-                s.Analyzer.FilePath, args, () => s.App.Invalidate());
+                s.Analyzer.LaunchPath, args, () => s.App.Invalidate());
             s.Tracer.Start();
         });
 

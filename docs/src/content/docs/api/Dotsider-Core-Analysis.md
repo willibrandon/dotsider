@@ -33,6 +33,17 @@ Uses dictionary-based O(n) matching by name.
 public static class AssemblyDiffer
 ```
 
+### [AssemblyLoader](/api/dotsider.core.analysis.assemblyloader/)
+
+Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
+single-file bundles (entry assembly extraction), and direct .dll/.exe loading.
+Returns an [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) that preserves the distinction so callers
+can decide how to present each case (e.g. showing an apphost dialog).
+
+```csharp
+public static class AssemblyLoader
+```
+
 ### [DependencyGraphBuilder](/api/dotsider.core.analysis.dependencygraphbuilder/)
 
 Builds a dependency graph from an assembly's references and type refs.
@@ -40,6 +51,14 @@ Uses a hierarchical tree layout with the root assembly at top center.
 
 ```csharp
 public static class DependencyGraphBuilder
+```
+
+### [DotNetRuntimeLocator](/api/dotsider.core.analysis.dotnetruntimelocator/)
+
+Discovers system .NET installations and resolves shared framework assembly paths.
+
+```csharp
+public static class DotNetRuntimeLocator
 ```
 
 ### [IlDisassembler](/api/dotsider.core.analysis.ildisassembler/)
@@ -84,6 +103,15 @@ runtime events via EventPipe diagnostics (PID-based connect with retry).
 
 ```csharp
 public sealed class RuntimeTracer : IDisposable
+```
+
+### [SingleFileBundleReader](/api/dotsider.core.analysis.singlefilebundlereader/)
+
+Reads .NET single-file bundles — detects the bundle signature, parses the
+manifest header, and extracts individual entries.
+
+```csharp
+public static class SingleFileBundleReader
 ```
 
 ### [SizeAnalyzer](/api/dotsider.core.analysis.sizeanalyzer/)

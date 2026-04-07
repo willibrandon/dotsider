@@ -30,6 +30,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<CustomAttributeInfo>? _customAttributes;
     private IReadOnlyList<ResourceInfo>? _resources;
     private IReadOnlyList<SectionInfo>? _sections;
+    private string? _preferredRuntimePack;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -40,6 +41,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         FilePath = filePath;
         FileName = Path.GetFileName(filePath);
+        DisplayName = FileName;
 
         _rawBytes = File.ReadAllBytes(filePath);
         FileSize = _rawBytes.Length;
@@ -81,13 +83,28 @@ public sealed class AssemblyAnalyzer : IDisposable
     }
 
     /// <summary>
-    /// Creates an analyzer from raw bytes in memory. Used as a last-resort
-    /// fallback when disk I/O is unavailable after a save operation.
+    /// Creates an analyzer from raw bytes in memory. Used for bundle-extracted
+    /// assemblies and as a last-resort fallback when disk I/O is unavailable
+    /// after a save operation.
     /// </summary>
-    public AssemblyAnalyzer(byte[] bytes, string filePath)
+    /// <param name="bytes">The raw assembly bytes.</param>
+    /// <param name="filePath">On-disk path for physical operations (tracing, save checks).</param>
+    /// <param name="sourceBundlePath">
+    /// If this assembly was extracted from a single-file bundle, the path to the bundle file.
+    /// Used for assembly resolution context.
+    /// </param>
+    /// <param name="displayName">
+    /// Logical name of the analyzed artifact for UI display (e.g. "SelfContainedConsole.dll"
+    /// when the entry assembly is extracted from a bundle). If null, defaults to the file name
+    /// portion of <paramref name="filePath"/>.
+    /// </param>
+    public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath = null,
+        string? displayName = null)
     {
         FilePath = filePath;
         FileName = Path.GetFileName(filePath);
+        DisplayName = displayName ?? FileName;
+        SourceBundlePath = sourceBundlePath;
 
         _rawBytes = bytes;
         FileSize = bytes.Length;
@@ -129,6 +146,13 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <summary>The file name without directory path.</summary>
     public string FileName { get; }
 
+    /// <summary>
+    /// Logical display name for the analyzed artifact. For bundle-backed analyzers this is
+    /// the entry assembly file name (e.g. "SelfContainedConsole.dll") while <see cref="FilePath"/>
+    /// points to the bundle executable on disk. For file-backed analyzers, equals <see cref="FileName"/>.
+    /// </summary>
+    public string DisplayName { get; }
+
     /// <summary>The file size in bytes.</summary>
     public long FileSize { get; }
 
@@ -167,6 +191,35 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>Whether the PE file contains .NET metadata.</summary>
     public bool HasMetadata => _metadataReader is not null;
+
+    /// <summary>
+    /// If this assembly was loaded from a single-file bundle, the path to the bundle file.
+    /// Used as resolution context when probing for referenced assemblies.
+    /// </summary>
+    public string? SourceBundlePath { get; }
+
+    /// <summary>Whether this analyzer was created from bytes extracted from a single-file bundle.</summary>
+    public bool IsBundleBacked => SourceBundlePath is not null;
+
+    /// <summary>
+    /// The path to launch when tracing this assembly. For bundle-backed analyzers this is
+    /// the bundle executable; for file-backed analyzers this is <see cref="FilePath"/>.
+    /// </summary>
+    public string LaunchPath => SourceBundlePath ?? FilePath;
+
+    /// <summary>
+    /// Whether in-place hex save is supported. Returns <c>false</c> for bundle-backed analyzers
+    /// because writing extracted entry bytes back over the bundle would corrupt it.
+    /// </summary>
+    public bool CanSaveInPlace => !IsBundleBacked;
+
+    /// <summary>
+    /// The preferred .NET runtime pack for this assembly, detected from its assembly references.
+    /// Returns "Microsoft.WindowsDesktop.App" for WPF/WinForms assemblies,
+    /// "Microsoft.AspNetCore.App" for ASP.NET Core assemblies,
+    /// or "Microsoft.NETCore.App" otherwise.
+    /// </summary>
+    public string PreferredRuntimePack => _preferredRuntimePack ??= DetectRuntimePack();
 
     /// <summary>Gets the PE sections.</summary>
     public IReadOnlyList<SectionInfo> Sections
@@ -941,25 +994,140 @@ public sealed class AssemblyAnalyzer : IDisposable
     }
 
     /// <summary>
-    /// Attempts to resolve a referenced assembly name to a file path on disk.
-    /// Searches the same directory as the referencing assembly, then .NET runtime dirs.
+    /// Resolves a referenced assembly name to a file on disk or bytes from a bundle.
+    /// Probes: app-local, runtime directory, source bundle, host process bundle,
+    /// adjacent bundles, and .NET shared framework.
+    /// </summary>
+    /// <param name="referencingAssemblyPath">Path of the assembly that references the target.</param>
+    /// <param name="assemblyName">Assembly name without extension (e.g. "System.Runtime").</param>
+    /// <param name="targetFramework">Target framework moniker for version-matched shared framework probing.</param>
+    /// <param name="preferredRuntimePack">Preferred runtime pack to probe first (e.g. "Microsoft.AspNetCore.App").</param>
+    /// <param name="sourceBundlePath">If the referencing assembly came from a bundle, the bundle path.</param>
+    /// <returns>The resolved assembly, or <c>null</c> if not found.</returns>
+    public static ResolvedAssembly? ResolveAssembly(
+        string referencingAssemblyPath,
+        string assemblyName,
+        string? targetFramework = null,
+        string? preferredRuntimePack = null,
+        string? sourceBundlePath = null)
+    {
+        // For bundle-backed analyzers, referencingAssemblyPath is a virtual name —
+        // use the bundle's directory for disk-based probing.
+        var directory = sourceBundlePath is not null
+            ? Path.GetDirectoryName(sourceBundlePath)!
+            : Path.GetDirectoryName(referencingAssemblyPath)!;
+
+        // 1. App-local directory
+        var local = Path.Combine(directory, $"{assemblyName}.dll");
+        if (File.Exists(local)) return new ResolvedAssembly.FromFile(local);
+
+        local = Path.Combine(directory, $"{assemblyName}.exe");
+        if (File.Exists(local)) return new ResolvedAssembly.FromFile(local);
+
+        // 2. .NET runtime directory (BCL assemblies)
+        var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
+        var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
+        if (File.Exists(runtimeDll)) return new ResolvedAssembly.FromFile(runtimeDll);
+
+        // 3. Source bundle — if the referencing assembly came from a bundle
+        var fromSourceBundle = TryResolveFromBundle(sourceBundlePath, assemblyName);
+        if (fromSourceBundle is not null) return fromSourceBundle;
+
+        // 4. Host process bundle — if the current process is a single-file bundle
+        var fromHostBundle = TryResolveFromBundle(Environment.ProcessPath, assemblyName);
+        if (fromHostBundle is not null) return fromHostBundle;
+
+        // 5. Adjacent bundles — scan same directory for other bundles
+        var fromAdjacentBundle = TryResolveFromAdjacentBundles(directory, assemblyName);
+        if (fromAdjacentBundle is not null) return fromAdjacentBundle;
+
+        // 6. .NET shared framework discovery
+        var sharedPath = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
+            assemblyName, targetFramework, preferredRuntimePack);
+        if (sharedPath is not null) return new ResolvedAssembly.FromFile(sharedPath);
+
+        return null;
+    }
+
+    /// <summary>
+    /// Backward-compatible wrapper that resolves to a file path only.
+    /// Returns <c>null</c> for bundle-backed results.
     /// </summary>
     public static string? ResolveAssemblyPath(string referencingAssemblyPath, string assemblyName)
     {
-        var directory = Path.GetDirectoryName(referencingAssemblyPath)!;
+        var resolved = ResolveAssembly(referencingAssemblyPath, assemblyName);
+        return resolved is ResolvedAssembly.FromFile(var path) ? path : null;
+    }
 
-        // Same directory (app-local deps)
-        var local = Path.Combine(directory, $"{assemblyName}.dll");
-        if (File.Exists(local)) return local;
+    private static ResolvedAssembly.FromBundle? TryResolveFromBundle(string? bundlePath, string assemblyName)
+    {
+        if (bundlePath is null)
+            return null;
 
-        local = Path.Combine(directory, $"{assemblyName}.exe");
-        if (File.Exists(local)) return local;
+        if (!SingleFileBundleReader.IsBundle(bundlePath, out var headerOffset))
+            return null;
 
-        // .NET runtime directory (BCL assemblies)
-        var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
-        if (File.Exists(runtimeDll)) return runtimeDll;
+        try
+        {
+            var manifest = SingleFileBundleReader.ReadManifest(bundlePath, headerOffset);
+            var bytes = SingleFileBundleReader.ReadAssembly(bundlePath, manifest, assemblyName);
+            if (bytes is not null)
+                return new ResolvedAssembly.FromBundle(bytes, $"{assemblyName}.dll", bundlePath);
+        }
+        catch
+        {
+            // Bundle not readable
+        }
 
         return null;
+    }
+
+    private static ResolvedAssembly.FromBundle? TryResolveFromAdjacentBundles(
+        string directory, string assemblyName)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                // Skip files we've already checked (source bundle, host process)
+                if (string.Equals(file, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Only check executable-looking files (no extension or .exe)
+                var ext = Path.GetExtension(file);
+                if (ext.Length > 0 && !ext.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var result = TryResolveFromBundle(file, assemblyName);
+                if (result is not null)
+                    return result;
+            }
+        }
+        catch
+        {
+            // Directory not accessible
+        }
+
+        return null;
+    }
+
+    private string DetectRuntimePack()
+    {
+        if (_metadataReader is null)
+            return "Microsoft.NETCore.App";
+
+        foreach (var h in _metadataReader.AssemblyReferences)
+        {
+            var r = _metadataReader.GetAssemblyReference(h);
+            var name = _metadataReader.GetString(r.Name);
+
+            if (name is "WindowsBase" or "PresentationFramework" or "PresentationCore")
+                return "Microsoft.WindowsDesktop.App";
+
+            if (name.StartsWith("Microsoft.AspNetCore.", StringComparison.Ordinal))
+                return "Microsoft.AspNetCore.App";
+        }
+
+        return "Microsoft.NETCore.App";
     }
 }

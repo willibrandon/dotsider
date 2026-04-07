@@ -84,15 +84,30 @@ internal static class AnalyzeCommand
                 var filePath = file.FullName;
                 var originalPath = filePath;
 
-                // Detect apphost (Windows .exe or extensionless Linux/macOS binary)
-                // and redirect to the companion managed .dll.
-                var companion = ApphostDetector.FindCompanionDll(filePath);
-                if (companion is not null)
+                var result = AssemblyLoader.Open(filePath);
+                AssemblyAnalyzer analyzer;
+                string analyzedPath;
+                switch (result)
                 {
-                    Console.Error.WriteLine(
-                        $"Note: {file.Name} is a native apphost. "
-                        + $"Analyzing {Path.GetFileName(companion)} instead.");
-                    filePath = companion;
+                    case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
+                        host.Dispose();
+                        Console.Error.WriteLine(
+                            $"Note: {file.Name} is a native apphost. "
+                            + $"Analyzing {Path.GetFileName(companion)} instead.");
+                        analyzer = new AssemblyAnalyzer(companion);
+                        analyzedPath = companion;
+                        break;
+                    case AssemblyOpenResult.BundleEntry(var entry, var bundle):
+                        Console.Error.WriteLine(
+                            $"Note: {file.Name} is a single-file bundle. "
+                            + $"Analyzing entry assembly {entry.FileName} instead.");
+                        analyzer = entry;
+                        analyzedPath = bundle;
+                        break;
+                    default:
+                        analyzer = ((AssemblyOpenResult.Direct)result).Analyzer;
+                        analyzedPath = filePath;
+                        break;
                 }
 
                 // Output-path collision check — reject if -o matches EITHER the original
@@ -100,17 +115,18 @@ internal static class AnalyzeCommand
                 if (outputPath is not null)
                 {
                     var outputFull = Path.GetFullPath(outputPath);
-                    if (string.Equals(Path.GetFullPath(filePath), outputFull,
+                    if (string.Equals(Path.GetFullPath(analyzedPath), outputFull,
                             StringComparison.OrdinalIgnoreCase)
                         || string.Equals(Path.GetFullPath(originalPath), outputFull,
                             StringComparison.OrdinalIgnoreCase))
                     {
                         Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                        analyzer.Dispose();
                         return Task.FromResult(1);
                     }
                 }
 
-                using var analyzer = new AssemblyAnalyzer(filePath);
+                using var analyzerScope = analyzer;
                 var disassembler = analyzer.HasMetadata ? new IlDisassembler(analyzer) : null;
 
                 // Defer opening the output file until we know the input is valid

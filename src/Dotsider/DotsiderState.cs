@@ -23,7 +23,22 @@ public sealed class DotsiderState : IDisposable
     {
         App = app;
         PendingMutations = pendingMutations ?? new();
-        Analyzer = new AssemblyAnalyzer(filePath);
+
+        var openResult = AssemblyLoader.Open(filePath);
+        Analyzer = openResult switch
+        {
+            AssemblyOpenResult.Direct(var a) => a,
+            AssemblyOpenResult.ApphostWithCompanion(var host, _) => host,
+            AssemblyOpenResult.BundleEntry(var entry, _) => entry,
+            _ => throw new InvalidOperationException($"Unknown open result: {openResult.GetType().Name}")
+        };
+
+        if (openResult is AssemblyOpenResult.ApphostWithCompanion(_, var companion))
+        {
+            ApphostCompanionDllPath = companion;
+            ApphostDialogOpen = true;
+        }
+
         StringExtractor = new StringExtractor(Analyzer);
         if (Analyzer.HasMetadata)
             IlDisassembler = new IlDisassembler(Analyzer);
@@ -32,17 +47,6 @@ public sealed class DotsiderState : IDisposable
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
         HexCleanVersion = hexDoc.Version;
-
-        // Detect apphost .exe with a companion managed .dll
-        if (!Analyzer.HasMetadata)
-        {
-            var companionDll = ApphostDetector.FindCompanionDll(filePath);
-            if (companionDll is not null)
-            {
-                ApphostCompanionDllPath = companionDll;
-                ApphostDialogOpen = true;
-            }
-        }
     }
 
     /// <summary>
@@ -773,11 +777,21 @@ public sealed class DotsiderState : IDisposable
     private bool NavigateToExternalMethod(string assemblyName, string memberName, string signature,
         string? declaringType = null)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, declaringType);
-        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        var resolved = ImplementationAssemblyResolver.Resolve(
+            Analyzer.FilePath, assemblyName, declaringType,
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
-        try { probe = new AssemblyAnalyzer(resolvedPath); }
-        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+        try
+        {
+            probe = resolved switch
+            {
+                ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
+                ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                _ => throw new InvalidOperationException()
+            };
+        }
+        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
 
         // Filter by declaring type first to avoid cross-type name collisions.
         // Always scope to declaring type when available — don't fall back to unscoped.
@@ -795,7 +809,7 @@ public sealed class DotsiderState : IDisposable
             : candidates.Count > 1 && !string.IsNullOrEmpty(signature)
                 ? (candidates.FirstOrDefault(m => m.Signature == signature) ?? candidates[0])
             : candidates.Count > 0 ? candidates[0] : null;
-        if (methodTarget is null) { probe.Dispose(); ShowTransientNotice($"Method {memberName} not found in {Path.GetFileName(resolvedPath)}"); return false; }
+        if (methodTarget is null) { probe.Dispose(); ShowTransientNotice($"Method {memberName} not found in {assemblyName}"); return false; }
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
         IlSelectedMethod = methodTarget;
@@ -809,11 +823,21 @@ public sealed class DotsiderState : IDisposable
 
     private bool NavigateToExternalType(string assemblyName, TypeRefInfo typeRef)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, typeRef.FullName);
-        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        var resolved = ImplementationAssemblyResolver.Resolve(
+            Analyzer.FilePath, assemblyName, typeRef.FullName,
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
-        try { probe = new AssemblyAnalyzer(resolvedPath); }
-        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+        try
+        {
+            probe = resolved switch
+            {
+                ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
+                ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                _ => throw new InvalidOperationException()
+            };
+        }
+        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
         var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName);
         if (typeTarget is null) { probe.Dispose(); ShowTransientNotice($"Type {typeRef.Name} not found"); return false; }
         PushIlBackEntry(true);
@@ -829,11 +853,21 @@ public sealed class DotsiderState : IDisposable
     private bool NavigateToExternalField(string assemblyName, string fieldName,
         string? declaringType = null)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, declaringType);
-        if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        var resolved = ImplementationAssemblyResolver.Resolve(
+            Analyzer.FilePath, assemblyName, declaringType,
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
-        try { probe = new AssemblyAnalyzer(resolvedPath); }
-        catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
+        try
+        {
+            probe = resolved switch
+            {
+                ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
+                ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                _ => throw new InvalidOperationException()
+            };
+        }
+        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
         // Scope field lookup by declaring type when available
         FieldDefInfo? fieldTarget = null;
         if (declaringType is not null)
@@ -970,6 +1004,53 @@ public sealed class DotsiderState : IDisposable
         ResetViewState();
         // Normal assembly push (dependency navigation) invalidates any IL back entries
         // because they reference the old analyzer's methods/editor state.
+        IlBackStack.Clear();
+        return true;
+    }
+
+    /// <summary>
+    /// Pushes a resolved assembly (file or bundle-backed) onto the navigation stack.
+    /// </summary>
+    /// <param name="resolved">The resolved assembly to push.</param>
+    /// <returns>True if the assembly was pushed successfully; false on error or depth limit.</returns>
+    public bool PushAssembly(ResolvedAssembly resolved)
+    {
+        if (NavigationStack.Count >= MaxNavigationDepth)
+        {
+            NavigationError = $"Navigation depth limit reached ({MaxNavigationDepth})";
+            return false;
+        }
+
+        AssemblyAnalyzer newAnalyzer;
+        try
+        {
+            newAnalyzer = resolved switch
+            {
+                ResolvedAssembly.FromFile(var path) => new AssemblyAnalyzer(path),
+                ResolvedAssembly.FromBundle(var bytes, var name, var bundle) =>
+                    new AssemblyAnalyzer(bytes, name, sourceBundlePath: bundle),
+                _ => throw new ArgumentException("Unknown resolution type")
+            };
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileNotFoundException or IOException or UnauthorizedAccessException or OverflowException)
+        {
+            NavigationError = $"Cannot open assembly: {ex.Message}";
+            return false;
+        }
+
+        NavigationError = null;
+        _focusedDepStack.Push(GeneralFocusedDep);
+        _tabStack.Push(CurrentTab);
+        _graphSelectionStack.Push(GraphSelectedIndex);
+        NavigationStack.Push(Analyzer);
+        Analyzer = newAnalyzer;
+        StringExtractor = new StringExtractor(Analyzer);
+        IlDisassembler = Analyzer.HasMetadata ? new IlDisassembler(Analyzer) : null;
+        var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
+        HexRowDoc = hexDoc;
+        HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
+        HexCleanVersion = hexDoc.Version;
+        ResetViewState();
         IlBackStack.Clear();
         return true;
     }
