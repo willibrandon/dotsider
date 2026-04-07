@@ -1,6 +1,6 @@
 ---
 title: "ImplementationAssemblyResolver"
-description: "Resolves reference assemblies (e.g., System.Runtime) to their implementation assemblies (e.g., System.Private.CoreLib) by probing for type forwarding."
+description: "Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation assemblies (e.g., System.Private.CoreLib) by probing for type forwarding."
 slug: api/dotsider.core.analysis.implementationassemblyresolver
 sidebar:
   order: 0
@@ -10,7 +10,7 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Resolves reference assemblies (e.g., System.Runtime) to their implementation
+Resolves reference assemblies (e.g., System.Runtime, mscorlib) to their implementation
 assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
@@ -23,7 +23,7 @@ public static class ImplementationAssemblyResolver
 
 ## Methods
 
-### Resolve(string, string)
+### Resolve(string, string, string?)
 
 Resolves an assembly name to a path, falling back to the implementation assembly
 if the reference assembly has no IL.
@@ -32,12 +32,13 @@ if the reference assembly has no IL.
 
 - `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The path of the assembly that references the target.
 - `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The assembly name to resolve.
+- `declaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Optional declaring type for type-aware resolution (needed for mscorlib).
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 The resolved path, or null if not found.
 
 ```csharp
-public static string? Resolve(string referencingAssemblyPath, string assemblyName)
+public static string? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null)
 ```
 
