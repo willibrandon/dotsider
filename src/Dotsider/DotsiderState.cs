@@ -773,7 +773,7 @@ public sealed class DotsiderState : IDisposable
     private bool NavigateToExternalMethod(string assemblyName, string memberName, string signature,
         string? declaringType = null)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, declaringType);
         if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
         try { probe = new AssemblyAnalyzer(resolvedPath); }
@@ -784,18 +784,8 @@ public sealed class DotsiderState : IDisposable
         List<MethodDefInfo> candidates;
         if (declaringType is not null)
         {
-            // Exact FQ match first, then simple name suffix for forwarded types
             candidates = [.. probe.MethodDefs.Where(m =>
                 m.Name == memberName && m.DeclaringType == declaringType)];
-            if (candidates.Count == 0)
-            {
-                // Type forwarding changes namespaces — match the simple type name
-                var simpleType = declaringType.Contains('.')
-                    ? declaringType[(declaringType.LastIndexOf('.') + 1)..] : declaringType;
-                candidates = [.. probe.MethodDefs.Where(m =>
-                    m.Name == memberName
-                    && m.DeclaringType.Split('.')[^1] == simpleType)];
-            }
         }
         else
         {
@@ -819,12 +809,12 @@ public sealed class DotsiderState : IDisposable
 
     private bool NavigateToExternalType(string assemblyName, TypeRefInfo typeRef)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, typeRef.FullName);
         if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
         try { probe = new AssemblyAnalyzer(resolvedPath); }
         catch { ShowTransientNotice($"Cannot open: {Path.GetFileName(resolvedPath)}"); return false; }
-        var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName || t.Name == typeRef.Name);
+        var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName);
         if (typeTarget is null) { probe.Dispose(); ShowTransientNotice($"Type {typeRef.Name} not found"); return false; }
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
@@ -839,7 +829,7 @@ public sealed class DotsiderState : IDisposable
     private bool NavigateToExternalField(string assemblyName, string fieldName,
         string? declaringType = null)
     {
-        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName);
+        var resolvedPath = ImplementationAssemblyResolver.Resolve(Analyzer.FilePath, assemblyName, declaringType);
         if (resolvedPath is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
         AssemblyAnalyzer probe;
         try { probe = new AssemblyAnalyzer(resolvedPath); }
@@ -850,15 +840,11 @@ public sealed class DotsiderState : IDisposable
         {
             fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
                 f.Name == fieldName && f.DeclaringType == declaringType);
-            if (fieldTarget is null)
-            {
-                var simpleType = declaringType.Contains('.')
-                    ? declaringType[(declaringType.LastIndexOf('.') + 1)..] : declaringType;
-                fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
-                    f.Name == fieldName && f.DeclaringType.Split('.')[^1] == simpleType);
-            }
         }
-        fieldTarget ??= probe.FieldDefs.FirstOrDefault(f => f.Name == fieldName);
+        else
+        {
+            fieldTarget = probe.FieldDefs.FirstOrDefault(f => f.Name == fieldName);
+        }
         if (fieldTarget is null) { probe.Dispose(); ShowTransientNotice($"Field {fieldName} not found"); return false; }
         var dt = probe.TypeDefs.FirstOrDefault(t => t.FullName == fieldTarget.DeclaringType);
         if (dt is null) { probe.Dispose(); return false; }

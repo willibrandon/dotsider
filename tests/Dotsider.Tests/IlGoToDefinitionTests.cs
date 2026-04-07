@@ -502,12 +502,46 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var extMethod = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
         Assert.Equal("mscorlib", extMethod.AssemblyName);
 
-        // Navigation to mscorlib methods must succeed (resolved via System.Private.CoreLib)
+        // Navigation to mscorlib methods must succeed — the resolver should find
+        // System.Console.dll via namespace probing, not land on Internal.Console in CoreLib
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
         Assert.True(navigated, $"Navigation failed with notice: {state.TransientNotice}");
         Assert.Null(state.TransientNotice);
         Assert.NotNull(state.IlSelectedMethod);
-        Assert.Contains("Console", state.IlSelectedMethod.DeclaringType);
+        Assert.Equal("System.Console", state.IlSelectedMethod.DeclaringType);
+    }
+
+    [Theory(Timeout = 30_000)]
+    [InlineData("System.Console", "System.Console")]
+    [InlineData("System.Object", "System.Private.CoreLib")]
+    [InlineData("System.Collections.Queue", "System.Collections.NonGeneric")]
+    [InlineData("Microsoft.Win32.RegistryKey", "Microsoft.Win32.Registry")]
+    [InlineData("System.Environment/SpecialFolder", "System.Private.CoreLib")]
+    public void MscorlibResolver_TypeForwarders_FindCorrectAssembly(
+        string declaringType, string expectedAssembly)
+    {
+        ImplementationAssemblyResolver.ClearCache();
+        var resolved = ImplementationAssemblyResolver.Resolve(
+            samples.RichLibraryDll, "mscorlib", declaringType);
+        Assert.NotNull(resolved);
+        Assert.Contains(expectedAssembly, Path.GetFileNameWithoutExtension(resolved));
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void MscorlibResolver_NestedTypeForwarder_FollowsParentChain()
+    {
+        // System.Environment forwards to System.Private.CoreLib on modern .NET.
+        // Verify the nested type resolves to the same assembly as the parent,
+        // proving the Implementation chain is followed rather than falling back.
+        ImplementationAssemblyResolver.ClearCache();
+        var parent = ImplementationAssemblyResolver.Resolve(
+            samples.RichLibraryDll, "mscorlib", "System.Environment");
+        ImplementationAssemblyResolver.ClearCache();
+        var nested = ImplementationAssemblyResolver.Resolve(
+            samples.RichLibraryDll, "mscorlib", "System.Environment/SpecialFolder");
+        Assert.NotNull(parent);
+        Assert.NotNull(nested);
+        Assert.Equal(parent, nested);
     }
 
     [Fact(Timeout = 30_000)]

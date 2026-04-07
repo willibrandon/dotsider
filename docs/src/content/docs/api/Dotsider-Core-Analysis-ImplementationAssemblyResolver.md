@@ -23,7 +23,7 @@ public static class ImplementationAssemblyResolver
 
 ## Methods
 
-### Resolve(string, string)
+### Resolve(string, string, string?)
 
 Resolves an assembly name to a path, falling back to the implementation assembly
 if the reference assembly has no IL.
@@ -32,12 +32,13 @@ if the reference assembly has no IL.
 
 - `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The path of the assembly that references the target.
 - `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The assembly name to resolve.
+- `declaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Optional declaring type for type-aware resolution (needed for mscorlib).
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 The resolved path, or null if not found.
 
 ```csharp
-public static string? Resolve(string referencingAssemblyPath, string assemblyName)
+public static string? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null)
 ```
 

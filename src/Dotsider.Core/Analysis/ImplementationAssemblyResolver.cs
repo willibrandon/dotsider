@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Core.Analysis;
 
@@ -8,7 +10,7 @@ namespace Dotsider.Core.Analysis;
 /// </summary>
 public static class ImplementationAssemblyResolver
 {
-    private static readonly ConcurrentDictionary<(string, string), string?> Cache = new();
+    private static readonly ConcurrentDictionary<(string, string, string?), string?> Cache = new();
 
     private static readonly Dictionary<string, string> KnownMappings = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -27,7 +29,6 @@ public static class ImplementationAssemblyResolver
         ["System.Threading.Tasks"] = "System.Private.CoreLib",
         ["System.ComponentModel"] = "System.Private.CoreLib",
         ["netstandard"] = "System.Private.CoreLib",
-        ["mscorlib"] = "System.Private.CoreLib",
     };
 
     /// <summary>
@@ -36,17 +37,20 @@ public static class ImplementationAssemblyResolver
     /// </summary>
     /// <param name="referencingAssemblyPath">The path of the assembly that references the target.</param>
     /// <param name="assemblyName">The assembly name to resolve.</param>
+    /// <param name="declaringType">Optional declaring type for type-aware resolution (needed for mscorlib).</param>
     /// <returns>The resolved path, or null if not found.</returns>
-    public static string? Resolve(string referencingAssemblyPath, string assemblyName)
+    public static string? Resolve(string referencingAssemblyPath, string assemblyName,
+        string? declaringType = null)
     {
-        var key = (referencingAssemblyPath, assemblyName);
+        var key = (referencingAssemblyPath, assemblyName, declaringType);
         if (Cache.TryGetValue(key, out var cached)) return cached;
-        var result = ResolveCore(referencingAssemblyPath, assemblyName);
+        var result = ResolveCore(referencingAssemblyPath, assemblyName, declaringType);
         Cache.TryAdd(key, result);
         return result;
     }
 
-    private static string? ResolveCore(string referencingAssemblyPath, string assemblyName)
+    private static string? ResolveCore(string referencingAssemblyPath, string assemblyName,
+        string? declaringType)
     {
         var directPath = AssemblyAnalyzer.ResolveAssemblyPath(referencingAssemblyPath, assemblyName);
         if (directPath is not null && HasUsableMetadata(directPath))
@@ -58,7 +62,77 @@ public static class ImplementationAssemblyResolver
             if (implPath is not null) return implPath;
         }
 
+        // mscorlib is monolithic in .NET Framework but its types are spread across
+        // many assemblies in .NET Core. The stub mscorlib.dll in the runtime directory
+        // contains type forwarders that point each type to its real implementation
+        // assembly — read those to resolve the exact assembly for the declaring type.
+        if (directPath is not null && declaringType is not null)
+        {
+            var forwarded = ResolveViaTypeForwarders(referencingAssemblyPath, directPath, declaringType);
+            if (forwarded is not null) return forwarded;
+        }
+
         return directPath;
+    }
+
+    private static string? ResolveViaTypeForwarders(string referencingAssemblyPath, string stubPath,
+        string declaringType)
+    {
+        try
+        {
+            using var stream = File.OpenRead(stubPath);
+            using var pe = new PEReader(stream);
+            if (!pe.HasMetadata) return null;
+            var reader = pe.GetMetadataReader();
+
+            foreach (var handle in reader.ExportedTypes)
+            {
+                var fullName = GetExportedTypeFullName(reader, handle);
+                if (fullName != declaringType) continue;
+
+                var asmName = GetForwardedAssemblyName(reader, handle);
+                if (asmName is null) continue;
+                return AssemblyAnalyzer.ResolveAssemblyPath(referencingAssemblyPath, asmName);
+            }
+        }
+        catch
+        {
+            // Stub might not be readable — fall through
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Builds the full name for an exported type, following nested type parents.
+    /// Uses '/' as the nesting separator to match the IL metadata convention.
+    /// </summary>
+    private static string GetExportedTypeFullName(MetadataReader reader, ExportedTypeHandle handle)
+    {
+        var exported = reader.GetExportedType(handle);
+        var name = reader.GetString(exported.Name);
+
+        if (exported.Implementation.Kind == HandleKind.ExportedType)
+        {
+            var parentName = GetExportedTypeFullName(reader, (ExportedTypeHandle)exported.Implementation);
+            return $"{parentName}/{name}";
+        }
+
+        var ns = reader.GetString(exported.Namespace);
+        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+    }
+
+    /// <summary>
+    /// Follows the Implementation chain from an exported type up to the root AssemblyReference.
+    /// Returns the assembly name, or null if the chain doesn't end at an AssemblyReference.
+    /// </summary>
+    private static string? GetForwardedAssemblyName(MetadataReader reader, ExportedTypeHandle handle)
+    {
+        var impl = reader.GetExportedType(handle).Implementation;
+        while (impl.Kind == HandleKind.ExportedType)
+            impl = reader.GetExportedType((ExportedTypeHandle)impl).Implementation;
+
+        if (impl.Kind != HandleKind.AssemblyReference) return null;
+        return reader.GetString(reader.GetAssemblyReference((AssemblyReferenceHandle)impl).Name);
     }
 
     private static bool HasUsableMetadata(string path)
