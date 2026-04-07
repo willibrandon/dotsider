@@ -6,6 +6,8 @@ A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, depend
 dotsider HelloWorld.dll
 ```
 
+![dotsider IL Inspector](assets/tinytooltown.png)
+
 ## Installation
 
 ### dotnet tool (recommended)
