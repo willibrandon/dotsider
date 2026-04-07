@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
@@ -18,6 +19,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     private readonly PEReader? _peReader;
     private readonly MetadataReader? _metadataReader;
     private readonly byte[] _rawBytes;
+    private volatile bool _disposed;
 
     private IReadOnlyList<TypeDefInfo>? _typeDefs;
     private IReadOnlyList<MethodDefInfo>? _methodDefs;
@@ -167,31 +169,94 @@ public sealed class AssemblyAnalyzer : IDisposable
     public bool HasMetadata => _metadataReader is not null;
 
     /// <summary>Gets the PE sections.</summary>
-    public IReadOnlyList<SectionInfo> Sections => _sections ??= ReadSections();
+    public IReadOnlyList<SectionInfo> Sections
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _sections ??= ReadSections();
+        }
+    }
 
     /// <summary>Gets the TypeDef metadata table entries.</summary>
-    public IReadOnlyList<TypeDefInfo> TypeDefs => _typeDefs ??= ReadTypeDefs();
+    public IReadOnlyList<TypeDefInfo> TypeDefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _typeDefs ??= ReadTypeDefs();
+        }
+    }
 
     /// <summary>Gets the MethodDef metadata table entries.</summary>
-    public IReadOnlyList<MethodDefInfo> MethodDefs => _methodDefs ??= ReadMethodDefs();
+    public IReadOnlyList<MethodDefInfo> MethodDefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _methodDefs ??= ReadMethodDefs();
+        }
+    }
 
     /// <summary>Gets the AssemblyRef metadata table entries.</summary>
-    public IReadOnlyList<AssemblyRefInfo> AssemblyRefs => _assemblyRefs ??= ReadAssemblyRefs();
+    public IReadOnlyList<AssemblyRefInfo> AssemblyRefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _assemblyRefs ??= ReadAssemblyRefs();
+        }
+    }
 
     /// <summary>Gets the TypeRef metadata table entries.</summary>
-    public IReadOnlyList<TypeRefInfo> TypeRefs => _typeRefs ??= ReadTypeRefs();
+    public IReadOnlyList<TypeRefInfo> TypeRefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _typeRefs ??= ReadTypeRefs();
+        }
+    }
 
     /// <summary>Gets the MemberRef metadata table entries.</summary>
-    public IReadOnlyList<MemberRefInfo> MemberRefs => _memberRefs ??= ReadMemberRefs();
+    public IReadOnlyList<MemberRefInfo> MemberRefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _memberRefs ??= ReadMemberRefs();
+        }
+    }
 
     /// <summary>Gets the FieldDef metadata table entries.</summary>
-    public IReadOnlyList<FieldDefInfo> FieldDefs => _fieldDefs ??= ReadFieldDefs();
+    public IReadOnlyList<FieldDefInfo> FieldDefs
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _fieldDefs ??= ReadFieldDefs();
+        }
+    }
 
     /// <summary>Gets the custom attributes applied to metadata entities.</summary>
-    public IReadOnlyList<CustomAttributeInfo> CustomAttributes => _customAttributes ??= ReadCustomAttributes();
+    public IReadOnlyList<CustomAttributeInfo> CustomAttributes
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _customAttributes ??= ReadCustomAttributes();
+        }
+    }
 
     /// <summary>Gets the manifest resources defined in the assembly.</summary>
-    public IReadOnlyList<ResourceInfo> Resources => _resources ??= ReadResources();
+    public IReadOnlyList<ResourceInfo> Resources
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _resources ??= ReadResources();
+        }
+    }
 
     /// <summary>Gets the raw bytes of the file for hex editor display.</summary>
     public ReadOnlyMemory<byte> RawBytes => _rawBytes;
@@ -204,6 +269,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <returns>The method body block, or null.</returns>
     public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (method.Rva == 0 || _peReader is null) return null;
         return _peReader.GetMethodBody(method.Rva);
     }
@@ -212,7 +278,11 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Gets the underlying <see cref="MetadataReader"/> for advanced queries.
     /// Returns null if the file has no .NET metadata.
     /// </summary>
-    public MetadataReader? GetMetadataReader() => _metadataReader;
+    public MetadataReader? GetMetadataReader()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _metadataReader;
+    }
 
     /// <summary>
     /// Resolves a metadata token to a human-readable name.
@@ -221,6 +291,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <returns>A display string for the token.</returns>
     public string ResolveToken(int token)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_metadataReader is null) return $"0x{token:X8}";
 
         try
@@ -247,6 +318,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        _disposed = true;
         _peReader?.Dispose();
         _stream.Dispose();
     }
@@ -283,7 +355,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (publicKey.Length > 0)
         {
             // Compute public key token (last 8 bytes of SHA1 hash, reversed)
-            var hash = System.Security.Cryptography.SHA1.HashData(publicKey);
+            var hash = SHA1.HashData(publicKey);
             var tokenBytes = new byte[8];
             Array.Copy(hash, hash.Length - 8, tokenBytes, 0, 8);
             Array.Reverse(tokenBytes);
@@ -437,6 +509,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 ImplAttributes: md.ImplAttributes,
                 Rva: md.RelativeVirtualAddress));
         }
+
         return result;
     }
 
@@ -462,6 +535,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             result.Add(new AssemblyRefInfo(name, version, culture, publicKeyToken));
         }
+
         return result;
     }
 
@@ -488,6 +562,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             result.Add(new TypeRefInfo(
                 MetadataTokens.GetToken(handle), ns, name, fullName, scope));
         }
+
         return result;
     }
 
@@ -507,6 +582,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)mr.Parent),
                 _ => $"0x{MetadataTokens.GetToken(mr.Parent):X8}"
             };
+
             var kind = MemberRefKind.Method;
             var signature = "";
             try
@@ -529,6 +605,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             result.Add(new MemberRefInfo(
                 MetadataTokens.GetToken(handle), declaringType, name, signature, kind));
         }
+
         return result;
     }
 
@@ -553,6 +630,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                     MetadataTokens.GetToken(fieldHandle), typeName, name, fd.Attributes, fieldSig));
             }
         }
+
         return result;
     }
 
@@ -570,6 +648,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             result.Add(new CustomAttributeInfo(parent, ctor, value));
         }
+
         return result;
     }
 
@@ -611,6 +690,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             result.Add(new ResourceInfo(name, visibility, offset, size, isLinked));
         }
+
         return result;
     }
 
@@ -807,33 +887,57 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         /// <inheritdoc/>
-        public string GetSZArrayType(string elementType) => $"{elementType}[]";
+        public string GetSZArrayType(string elementType) =>
+            $"{elementType}[]";
+
         /// <inheritdoc/>
-        public string GetArrayType(string elementType, ArrayShape shape) => $"{elementType}[{new string(',', shape.Rank - 1)}]";
+        public string GetArrayType(string elementType, ArrayShape shape) =>
+            $"{elementType}[{new string(',', shape.Rank - 1)}]";
+
         /// <inheritdoc/>
-        public string GetByReferenceType(string elementType) => $"ref {elementType}";
+        public string GetByReferenceType(string elementType) =>
+            $"ref {elementType}";
+
         /// <inheritdoc/>
-        public string GetPointerType(string elementType) => $"{elementType}*";
+        public string GetPointerType(string elementType) =>
+            $"{elementType}*";
+
         /// <inheritdoc/>
         public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) =>
             $"{genericType}<{string.Join(", ", typeArguments)}>";
+
         /// <inheritdoc/>
-        public string GetGenericMethodParameter(object? genericContext, int index) => $"!!{index}";
+        public string GetGenericMethodParameter(object? genericContext, int index) =>
+            $"!!{index}";
+
         /// <inheritdoc/>
-        public string GetGenericTypeParameter(object? genericContext, int index) => $"!{index}";
+        public string GetGenericTypeParameter(object? genericContext, int index) =>
+            $"!{index}";
+
         /// <inheritdoc/>
-        public string GetPinnedType(string elementType) => $"pinned {elementType}";
-        /// <inheritdoc/>
+        public string GetPinnedType(string elementType) =>
+            $"pinned {elementType}";
+
         /// <inheritdoc/>
         public string GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
         {
-            try { return reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext); }
-            catch { return "TypeSpec"; }
+            try
+            {
+                return reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
+            }
+            catch
+            {
+                return "TypeSpec";
+            }
         }
+
         /// <inheritdoc/>
-        public string GetFunctionPointerType(MethodSignature<string> signature) => "delegate*";
+        public string GetFunctionPointerType(MethodSignature<string> signature) =>
+            "delegate*";
+
         /// <inheritdoc/>
-        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) => unmodifiedType;
+        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) =>
+            unmodifiedType;
     }
 
     /// <summary>

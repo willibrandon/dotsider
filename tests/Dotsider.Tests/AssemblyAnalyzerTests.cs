@@ -518,4 +518,59 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEqual((Machine)0, a.PeHeaders!.Machine);
         Assert.NotEqual((Characteristics)0, a.PeHeaders.Characteristics);
     }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_AssemblyRefs_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        Assert.True(a.HasMetadata);
+        a.Dispose();
+
+        // After Dispose, accessing AssemblyRefs must throw ObjectDisposedException
+        // rather than crashing the process with AccessViolationException from
+        // reading freed metadata memory.
+        Assert.Throws<ObjectDisposedException>(() => _ = a.AssemblyRefs);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_TypeDefs_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        a.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => _ = a.TypeDefs);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_MethodDefs_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        a.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => _ = a.MethodDefs);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_FieldDefs_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        a.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => _ = a.FieldDefs);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_GetMethodBody_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var method = a.MethodDefs.First(m => m.Rva > 0);
+        a.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => a.GetMethodBody(method));
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void AccessAfterDispose_ResolveToken_ThrowsInsteadOfCrashing()
+    {
+        var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var token = a.MethodDefs.First(m => m.Rva > 0).Token;
+        a.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => a.ResolveToken(token));
+    }
 }
