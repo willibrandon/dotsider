@@ -130,7 +130,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
 
@@ -159,7 +159,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
 
@@ -195,7 +195,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         var cursorBeforeNav = await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
         Assert.True(cursorBeforeNav > 0, "Cursor should be past the header lines");
@@ -237,7 +237,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
 
@@ -254,7 +254,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.DownAsync(cts.Token);
         await TestHelpers.WaitUntilAsync(
             () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorBefore,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // Verify cursor moved (scroll not frozen)
         var cursorAfterScroll = _state.IlEditorState?.Cursor.Position.Value ?? -1;
@@ -263,7 +263,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.UpAsync(cts.Token);
         await TestHelpers.WaitUntilAsync(
             () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorAfterScroll,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         var cursorAfterUp = _state.IlEditorState?.Cursor.Position.Value ?? -1;
         Assert.NotEqual(cursorAfterScroll, cursorAfterUp);
@@ -281,7 +281,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
 
@@ -317,7 +317,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
 
         await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
 

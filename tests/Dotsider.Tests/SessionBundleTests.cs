@@ -62,7 +62,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
 
         await TestHelpers.WaitUntilAsync(
             () => _state is not null,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         return (_app, _listener.SocketPath!);
     }
@@ -172,7 +172,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         _app!.Invalidate();
         await TestHelpers.WaitUntilAsync(
             () => _state!.HexIsDirty,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
@@ -338,7 +338,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
         await TestHelpers.WaitUntilAsync(
             () => _state?.CurrentTab == TabId.IlInspector,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // Find CallLocalMethod's token by disassembling it
         var disasmResponse = await DotsiderClient.SendAsync(socketPath,
@@ -397,7 +397,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
         await TestHelpers.WaitUntilAsync(
             () => _state?.CurrentTab == TabId.IlInspector,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // Disassemble CallExternal to find the Console.WriteLine call token
         var disasmResponse = await DotsiderClient.SendAsync(socketPath,
@@ -446,7 +446,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Wait for cross-assembly navigation to complete
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count > depthBefore,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
@@ -468,7 +468,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(pushResponse.Success);
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count == 1,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // Navigate back
         var backResponse = await DotsiderClient.SendAsync(socketPath,
@@ -476,7 +476,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(backResponse.Success);
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count == 0,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         Assert.Empty(_state!.NavigationStack);
     }
@@ -505,7 +505,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(pushResponse.Success);
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count > depthBefore,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
@@ -532,7 +532,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(pushResponse.Success);
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count > depthBefore,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         Assert.True(_state!.NavigationStack.Count > depthBefore);
     }
@@ -554,7 +554,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Wait for the push mutation to be applied
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count > 0,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // The pushed assembly should have metadata (companion DLL, not the native host)
         Assert.True(_state!.Analyzer.HasMetadata);
@@ -578,7 +578,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Wait for the push mutation to be applied
         await TestHelpers.WaitUntilAsync(
             () => _state?.Analyzer.AssemblyName == "SelfContainedConsole",
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         Assert.True(_state!.Analyzer.HasMetadata);
         Assert.Equal("SelfContainedConsole", _state.Analyzer.AssemblyName);
@@ -603,7 +603,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Wait for the push mutation to be applied
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count > 0,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // Navigate back — should return to the apphost and reopen the dialog
         var backResponse = await DotsiderClient.SendAsync(socketPath,
@@ -613,7 +613,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // Wait for the back mutation to be applied
         await TestHelpers.WaitUntilAsync(
             () => _state?.NavigationStack.Count == 0,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         // The analyzer should be the native apphost (no metadata)
         Assert.False(_state!.Analyzer.HasMetadata);

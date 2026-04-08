@@ -52,8 +52,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -72,8 +72,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -84,7 +84,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -95,7 +95,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             {
                 try { return _state!.App.FocusedNode is not EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -110,8 +110,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -122,7 +122,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -142,7 +142,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
         // Notification auto-clears
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.YankNotification is null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.YankNotification is null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -159,8 +159,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -170,8 +170,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Enter → drill into DLL
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => !_state.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -180,7 +180,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc → back to package
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -199,11 +199,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -212,7 +212,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Open search in the DLL inspector
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // /
-            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -240,11 +240,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -253,8 +253,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Go to Hex Dump tab
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D5) // Tab 5 = Hex Dump
-            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -264,7 +264,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Enter insert mode
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.I)
-            .WaitUntil(_ => dllState.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -273,7 +273,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc 1: exit insert mode (NOT back to package)
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => dllState.HexMode == HexEditMode.Normal, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.HexMode == HexEditMode.Normal, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -283,7 +283,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc 2: back to package
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -300,11 +300,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -317,7 +317,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Immediately go back to package (within 150ms flash window)
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -340,15 +340,15 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             // Tab to Package Info editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -357,13 +357,13 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.PackageInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.PackageInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -382,8 +382,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -396,7 +396,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
                 if (found.Count == 0) return false;
                 matches = [.. found.Select(m => (m.Line, m.Column))];
                 return true;
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -408,7 +408,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // render cycles exceed the 500ms double-click threshold.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab) // focus editor
-            .WaitUntil(_ => _state!.PackageInfoEditorState is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.PackageInfoEditorState is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -425,14 +425,14 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Key(Hex1bKey.I)
             .Key(Hex1bKey.W)
             .WaitUntil(_ => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(10))
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -451,18 +451,18 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             // Tab to Assembly Info editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -472,7 +472,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -489,11 +489,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -501,8 +501,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D5) // Hex Dump
-            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -511,7 +511,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Open jump dialog
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("g")
-            .WaitUntil(_ => dllState.HexJumpDialogOpen, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.HexJumpDialogOpen, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -521,7 +521,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc closes dialog
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => !dllState.HexJumpDialogOpen, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !dllState.HexJumpDialogOpen, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -540,11 +540,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -553,7 +553,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Open search
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -561,7 +561,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("q")
             .WaitUntil(_ => (dllState.Search[dllState.CurrentTab].Query ?? "").Contains("q"),
-                TimeSpan.FromSeconds(10))
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -581,11 +581,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -594,8 +594,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Go to Hex Dump
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D5)
-            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.CurrentTab == TabId.HexDump, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
         await Task.Delay(200, ct);
@@ -603,7 +603,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Enter insert mode
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.I)
-            .WaitUntil(_ => dllState.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -612,7 +612,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc 1: exit insert mode
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => dllState.HexMode == HexEditMode.Normal, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.HexMode == HexEditMode.Normal, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -622,17 +622,17 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Start a search
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => dllState.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(5))
             .Type("MZ")
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => dllState.Search[TabId.HexDump].IsConfirmed, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.Search[TabId.HexDump].IsConfirmed, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Esc 2: dismiss confirmed search with hex cleanup
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => !dllState.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !dllState.Search[TabId.HexDump].IsActive, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -642,7 +642,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Esc 3: back to package
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.IsBrowsingPackage, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -659,11 +659,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -672,7 +672,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Open search
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
-            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => dllState.Search[dllState.CurrentTab].IsActive, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -700,11 +700,11 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Enter) // Drill into DLL
-            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -733,15 +733,15 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
             // Tab to focus the Package Info editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -749,7 +749,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 

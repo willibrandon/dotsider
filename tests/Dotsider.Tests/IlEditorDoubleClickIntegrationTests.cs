@@ -77,10 +77,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -91,7 +91,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         SelectMethodInTree(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -121,7 +121,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 var text = es.Document.GetText();
                 return pos < text.Length && char.IsLetterOrDigit(text[pos]);
             },
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(5));
 
         var fullText = doc.GetText();
         var cursorOffset = _state.IlEditorState!.Cursor.Position.Value;
@@ -162,10 +162,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -177,7 +177,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Wait for the IL editor to fully render
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -190,7 +190,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 if (matches.Count == 0) return false;
                 allMatches = [.. matches.Select(m => (m.Line, m.Column))];
                 return true;
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
         Assert.True(allMatches.Count > 0, "Expected 'System.' visible on screen");
@@ -201,10 +201,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         // Single click first to give the editor focus (tree panel has focus by default).
         // Wait for the click to be processed — the editor cursor position changes
         // when the editor receives focus and handles the mouse event.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.ClickAtAsync(targetCol, targetRow, ct: ct);
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -220,7 +220,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 var text = es.Document.GetText();
                 var pos = es.Cursor.Position.Value;
                 return pos < text.Length && char.IsLetterOrDigit(text[pos]);
-            }, TimeSpan.FromSeconds(10))
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
