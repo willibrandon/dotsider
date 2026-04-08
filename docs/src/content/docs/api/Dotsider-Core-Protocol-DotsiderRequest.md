@@ -32,6 +32,16 @@ Command-line arguments for starting a trace.
 public string? Arguments { get; set; }
 ```
 
+### AssemblyName
+
+Assembly name to resolve (e.g. "System.Runtime"), used by resolve-assembly and push-assembly.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? AssemblyName { get; set; }
+```
+
 ### AssemblyPath
 
 Path to an assembly file (for direct analysis or diff).

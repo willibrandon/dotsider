@@ -35,7 +35,9 @@ dotsider analyze MyLib.dll --methods          # list method definitions
 dotsider analyze MyLib.dll --il Type.Method   # disassemble a method
 dotsider analyze MyLib.dll --deps             # assembly references
 dotsider analyze MyLib.dll --strings          # extract strings
+dotsider analyze MyLib.dll --fields           # list field definitions
 dotsider analyze MyLib.dll --size             # size breakdown
+dotsider analyze MyLib.dll --bundle           # show single-file bundle manifest
 dotsider analyze MyLib.dll --json             # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt # write to file
 dotsider analyze MyApp.exe                    # apphost .exe → auto-redirects to MyApp.dll
@@ -51,7 +53,9 @@ If the file is a native apphost with a companion `.dll`, `analyze` auto-redirect
 | `--il <name>` | Disassemble a specific method |
 | `--deps` | Show assembly references |
 | `--strings` | Extract strings |
+| `--fields` | List field definitions |
 | `--size` | Show size breakdown |
+| `--bundle` | Show single-file bundle manifest |
 | `--json` | Output as JSON |
 | `-o`, `--output <file>` | Write output to a file |
 

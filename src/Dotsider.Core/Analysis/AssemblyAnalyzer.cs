@@ -1042,9 +1042,9 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (fromAdjacentBundle is not null) return fromAdjacentBundle;
 
         // 6. .NET shared framework discovery
-        var sharedPath = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
+        var sharedResult = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
             assemblyName, targetFramework, preferredRuntimePack);
-        if (sharedPath is not null) return new ResolvedAssembly.FromFile(sharedPath);
+        if (sharedResult is not null) return new ResolvedAssembly.FromFile(sharedResult.Path);
 
         return null;
     }

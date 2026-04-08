@@ -28,7 +28,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var tree = SizeAnalyzer.BuildSizeTree(analyzer);
             return JsonSerializer.Serialize(tree, DotsiderJsonOptions.Default);
         }
@@ -60,7 +60,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
         if (assemblyPath is not null)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
-            using var analyzer = new AssemblyAnalyzer(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var max = maxResults ?? 20;
             var methods = analyzer.MethodDefs
                 .Select(m =>

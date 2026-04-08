@@ -182,6 +182,21 @@ internal static class SessionsCommand
                 formatter.WriteLine($"Types:      {info?.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
                 formatter.WriteLine($"Methods:    {info?.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
                 formatter.WriteLine("");
+                var displayName = info?.GetPropertyOrNull("displayName")?.GetString();
+                if (displayName is not null && displayName != info?.GetPropertyOrNull("fileName")?.GetString())
+                    formatter.WriteLine($"Display:    {displayName} (from bundle)");
+
+                var runtimePack = info?.GetPropertyOrNull("preferredRuntimePack")?.GetString();
+                if (runtimePack is not null)
+                    formatter.WriteLine($"Runtime Pack: {runtimePack}");
+
+                var hasEntryPoint = view?.GetPropertyOrNull("hasEntryPoint")?.GetBoolean();
+                var isNativeAot = view?.GetPropertyOrNull("isNativeAot")?.GetBoolean();
+                var isNetFx = view?.GetPropertyOrNull("isNetFramework")?.GetBoolean();
+                var traceable = (hasEntryPoint == true || isNativeAot == true) && isNetFx != true;
+                formatter.WriteLine($"Traceable:  {(traceable ? "yes" : "no")}");
+
+                formatter.WriteLine("");
                 formatter.WriteLine($"Tab:        {FormatTabName(view?.GetPropertyOrNull("tab"))}");
                 formatter.WriteLine($"Tracer:     {view?.GetPropertyOrNull("tracerState")?.GetDisplayString("none") ?? "none"}");
             }

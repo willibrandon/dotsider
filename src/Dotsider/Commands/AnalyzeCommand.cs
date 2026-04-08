@@ -45,6 +45,16 @@ internal static class AnalyzeCommand
         Description = "Show size breakdown"
     };
 
+    private static readonly Option<bool> s_fieldsOption = new("--fields")
+    {
+        Description = "List field definitions"
+    };
+
+    private static readonly Option<bool> s_bundleOption = new("--bundle")
+    {
+        Description = "Show single-file bundle manifest"
+    };
+
     private static readonly Option<string?> s_outputOption = new("--output", "-o")
     {
         Description = "Write output to a file instead of stdout"
@@ -64,6 +74,8 @@ internal static class AnalyzeCommand
             s_depsOption,
             s_stringsOption,
             s_sizeOption,
+            s_fieldsOption,
+            s_bundleOption,
             s_outputOption
         };
 
@@ -77,6 +89,21 @@ internal static class AnalyzeCommand
             {
                 Console.Error.WriteLine($"Error: File not found: {file.FullName}");
                 return Task.FromResult(1);
+            }
+
+            // --bundle short-circuits before assembly loading — inspects the bundle itself
+            if (parseResult.GetValue(s_bundleOption))
+            {
+                if (outputPath is not null
+                    && string.Equals(Path.GetFullPath(outputPath), Path.GetFullPath(file.FullName),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                    return Task.FromResult(1);
+                }
+
+                using var formatter = new OutputFormatter(outputPath) { JsonMode = json };
+                return Task.FromResult(PrintBundle(file.FullName, formatter));
             }
 
             try
@@ -158,6 +185,9 @@ internal static class AnalyzeCommand
                 if (parseResult.GetValue(s_sizeOption))
                     return Task.FromResult(PrintSize(analyzer, formatter));
 
+                if (parseResult.GetValue(s_fieldsOption))
+                    return Task.FromResult(PrintFields(analyzer, formatter));
+
                 // Default: show assembly info
                 return Task.FromResult(PrintAssemblyInfo(analyzer, formatter));
             }
@@ -182,6 +212,7 @@ internal static class AnalyzeCommand
             {
                 a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
                 a.TargetFramework, a.Architecture, a.HasMetadata,
+                a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -193,6 +224,12 @@ internal static class AnalyzeCommand
             fmt.WriteLine($"Version:    {a.AssemblyVersion ?? "(none)"}");
             fmt.WriteLine($"Framework:  {a.TargetFramework ?? "(none)"}");
             fmt.WriteLine($"Arch:       {a.Architecture}");
+            if (a.IsBundleBacked)
+            {
+                fmt.WriteLine($"Display:    {a.DisplayName} (from bundle)");
+                fmt.WriteLine($"Bundle:     {a.SourceBundlePath}");
+            }
+            fmt.WriteLine($"Runtime Pack: {a.PreferredRuntimePack}");
             fmt.WriteLine("");
 
             fmt.WriteLine($"Types ({a.TypeDefs.Count}):");
@@ -243,12 +280,13 @@ internal static class AnalyzeCommand
         }
 
         fmt.WriteTable(
-            ["Type", "Name", "Signature"],
-            a.MethodDefs.Select(m => new[]
+            ["Namespace", "Type", "Name", "Signature"],
+            a.MethodDefs.Select(m =>
             {
-                m.DeclaringType,
-                m.Name,
-                m.Signature
+                var lastDot = m.DeclaringType.LastIndexOf('.');
+                var ns = lastDot >= 0 ? m.DeclaringType[..lastDot] : "";
+                var typeName = lastDot >= 0 ? m.DeclaringType[(lastDot + 1)..] : m.DeclaringType;
+                return new[] { ns, typeName, m.Name, m.Signature };
             }));
 
         return 0;
@@ -370,5 +408,58 @@ internal static class AnalyzeCommand
 
         foreach (var child in node.Children.OrderByDescending(c => c.Size).Take(20))
             PrintSizeNode(child, fmt, indent + 1);
+    }
+
+    private static int PrintFields(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(a.FieldDefs);
+            return 0;
+        }
+
+        fmt.WriteTable(
+            ["Namespace", "Type", "Name", "Signature"],
+            a.FieldDefs.Select(f =>
+            {
+                var lastDot = f.DeclaringType.LastIndexOf('.');
+                var ns = lastDot >= 0 ? f.DeclaringType[..lastDot] : "";
+                var typeName = lastDot >= 0 ? f.DeclaringType[(lastDot + 1)..] : f.DeclaringType;
+                return new[] { ns, typeName, f.Name, f.Signature };
+            }));
+
+        return 0;
+    }
+
+    private static int PrintBundle(string filePath, OutputFormatter fmt)
+    {
+        if (!SingleFileBundleReader.IsBundle(filePath, out var offset))
+        {
+            OutputFormatter.WriteError("Error: File is not a single-file bundle");
+            return 1;
+        }
+
+        var manifest = SingleFileBundleReader.ReadManifest(filePath, offset);
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(manifest);
+            return 0;
+        }
+
+        fmt.WriteLine($"Bundle version: {manifest.MajorVersion}.{manifest.MinorVersion}");
+        fmt.WriteLine($"Entries: {manifest.FileCount}");
+        fmt.WriteLine("");
+        fmt.WriteTable(
+            ["Name", "Type", "Size", "Compressed"],
+            manifest.Entries.Select(e => new[]
+            {
+                e.RelativePath,
+                e.Type.ToString(),
+                DotsiderState.FormatSize(e.Size),
+                e.CompressedSize > 0 ? DotsiderState.FormatSize(e.CompressedSize) : "-"
+            }));
+
+        return 0;
     }
 }

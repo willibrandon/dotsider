@@ -256,9 +256,22 @@ internal sealed class DotsiderDiagnosticsListener(
                 "start-trace" => HandleStartTrace(request),
                 "stop-trace" => HandleStopTrace(),
 
+                // Fields
+                "list-fields" => HandleListFields(request),
+
+                // Bundle
+                "is-bundle" => HandleIsBundle(request),
+                "get-bundle-manifest" => HandleGetBundleManifest(request),
+
+                // Assembly resolution
+                "resolve-assembly" => HandleResolveAssembly(request),
+
                 // Navigation (live session)
                 "get-current-view" => HandleGetCurrentView(),
                 "navigate" => HandleNavigate(request),
+                "navigate-to-il-definition" => HandleNavigateToIlDefinition(request),
+                "navigate-back" => HandleNavigateBack(),
+                "push-assembly" => HandlePushAssembly(request),
                 "search" => HandleSearch(request),
 
                 _ => DotsiderResponse.Fail($"Unknown method: {request.Method}")
@@ -303,6 +316,12 @@ internal sealed class DotsiderDiagnosticsListener(
             a.PublicKeyToken,
             a.Architecture,
             a.HasMetadata,
+            a.DisplayName,
+            a.SourceBundlePath,
+            a.IsBundleBacked,
+            a.LaunchPath,
+            a.CanSaveInPlace,
+            a.PreferredRuntimePack,
             TypeCount = a.TypeDefs.Count,
             MethodCount = a.MethodDefs.Count,
             AssemblyRefCount = a.AssemblyRefs.Count
@@ -707,7 +726,11 @@ internal sealed class DotsiderDiagnosticsListener(
             state.DynamicSubTab,
             AssemblyPath = state.Analyzer.FilePath,
             NavigationDepth = state.NavigationStack.Count,
-            TracerState = state.Tracer?.ProcessState.ToString()
+            TracerState = state.Tracer?.ProcessState.ToString(),
+            state.HexIsDirty,
+            state.HasEntryPoint,
+            state.IsNativeAot,
+            state.IsNetFramework
         });
     }
 
@@ -754,6 +777,183 @@ internal sealed class DotsiderDiagnosticsListener(
         state.App.Invalidate();
 
         return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
+    }
+
+    // --- Field Handlers ---
+
+    private DotsiderResponse HandleListFields(DotsiderRequest request)
+    {
+        var fields = RequireAnalyzer().FieldDefs;
+        if (!string.IsNullOrEmpty(request.TypeName))
+        {
+            fields = [.. fields.Where(f =>
+                f.DeclaringType.Contains(request.TypeName, StringComparison.OrdinalIgnoreCase))];
+        }
+
+        if (!string.IsNullOrEmpty(request.Query))
+        {
+            fields = [.. fields.Where(f =>
+                f.Name.Contains(request.Query, StringComparison.OrdinalIgnoreCase))];
+        }
+
+        if (request.MaxResults is > 0)
+            fields = [.. fields.Take(request.MaxResults.Value)];
+
+        return DotsiderResponse.Ok(fields);
+    }
+
+    // --- Bundle Handlers ---
+
+    private static DotsiderResponse HandleIsBundle(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.AssemblyPath))
+            return DotsiderResponse.Fail("AssemblyPath is required for is-bundle");
+
+        var isBundle = SingleFileBundleReader.IsBundle(request.AssemblyPath, out var headerOffset);
+        return DotsiderResponse.Ok(new { IsBundle = isBundle, HeaderOffset = headerOffset });
+    }
+
+    private static DotsiderResponse HandleGetBundleManifest(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.AssemblyPath))
+            return DotsiderResponse.Fail("AssemblyPath is required for get-bundle-manifest");
+
+        if (!SingleFileBundleReader.IsBundle(request.AssemblyPath, out var headerOffset))
+            return DotsiderResponse.Fail("File is not a single-file bundle");
+
+        var manifest = SingleFileBundleReader.ReadManifest(request.AssemblyPath, headerOffset);
+        return DotsiderResponse.Ok(manifest);
+    }
+
+    // --- Assembly Resolution Handlers ---
+
+    private DotsiderResponse HandleResolveAssembly(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.AssemblyName))
+            return DotsiderResponse.Fail("AssemblyName is required for resolve-assembly");
+
+        var state = RequireState();
+        var resolved = AssemblyAnalyzer.ResolveAssembly(
+            state.Analyzer.FilePath, request.AssemblyName,
+            state.Analyzer.TargetFramework, state.Analyzer.PreferredRuntimePack,
+            state.Analyzer.SourceBundlePath);
+
+        if (resolved is null)
+            return DotsiderResponse.Ok(null);
+
+        var info = resolved switch
+        {
+            ResolvedAssembly.FromFile(var path) => new ResolvedAssemblyInfo("file", path, null, null),
+            ResolvedAssembly.FromBundle(_, var name, var bundle) => new ResolvedAssemblyInfo("bundle", null, name, bundle),
+            _ => null
+        };
+        return DotsiderResponse.Ok(info);
+    }
+
+    // --- IL Navigation Handlers ---
+
+    private DotsiderResponse HandleNavigateToIlDefinition(DotsiderRequest request)
+    {
+        var state = RequireState();
+        var token = request.Token;
+        if (token is null)
+            return DotsiderResponse.Fail("Token is required for navigate-to-il-definition");
+
+        state.PendingMutations.Enqueue(s =>
+        {
+            s.NavigateToIlDefinition(token.Value);
+            s.App.Invalidate();
+        });
+        state.App.Invalidate();
+        return DotsiderResponse.Ok(new { Status = "queued" });
+    }
+
+    private DotsiderResponse HandleNavigateBack()
+    {
+        var state = RequireState();
+        state.PendingMutations.Enqueue(s =>
+        {
+            // Priority 1: IL go-to-definition back
+            if (s.CurrentTab == TabId.IlInspector && s.IlBackStack.Count > 0)
+            {
+                var entry = s.IlBackStack.Pop();
+                s.RestoreFromIlBackEntry(entry);
+            }
+            // Priority 2: Cross-view back
+            else if (s.CrossViewBackTarget is not null)
+            {
+                s.NavigateBack();
+            }
+            // Priority 3: Assembly stack pop
+            else if (s.NavigationStack.Count > 0)
+            {
+                var backTab = s.PopAssembly();
+                if (s.ApphostCompanionDllPath is not null && !s.Analyzer.HasMetadata)
+                    s.ApphostDialogOpen = true;
+                s.NavigateToTab(backTab);
+                s.App.Invalidate();
+            }
+            // Priority 4: IL selection clear
+            else if (s.CurrentTab == TabId.IlInspector
+                && s.IlEditorState?.Cursor.HasSelection == true)
+            {
+                s.IlEditorState.Cursor.SelectionAnchor = null;
+                s.App.Invalidate();
+            }
+        });
+        state.App.Invalidate();
+        return DotsiderResponse.Ok(new { Status = "queued" });
+    }
+
+    private DotsiderResponse HandlePushAssembly(DotsiderRequest request)
+    {
+        var state = RequireState();
+
+        if (!string.IsNullOrEmpty(request.AssemblyPath))
+        {
+            // Load outside the mutation to avoid blocking the render thread
+            var openResult = AssemblyLoader.Open(request.AssemblyPath);
+            state.PendingMutations.Enqueue(s =>
+            {
+                switch (openResult)
+                {
+                    case AssemblyOpenResult.Direct(var a):
+                        s.PushAssemblyDirect(a);
+                        break;
+                    case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
+                        host.Dispose();
+                        s.PushAssembly(companion);
+                        break;
+                    case AssemblyOpenResult.BundleEntry(var entry, _):
+                        s.PushAssemblyDirect(entry);
+                        break;
+                }
+                s.App.Invalidate();
+            });
+        }
+        else if (!string.IsNullOrEmpty(request.AssemblyName))
+        {
+            // Resolve outside the mutation to avoid blocking the render thread
+            var resolved = AssemblyAnalyzer.ResolveAssembly(
+                state.Analyzer.FilePath, request.AssemblyName,
+                state.Analyzer.TargetFramework, state.Analyzer.PreferredRuntimePack,
+                state.Analyzer.SourceBundlePath);
+            if (resolved is not null)
+            {
+                state.PendingMutations.Enqueue(s =>
+                {
+                    s.PushAssembly(resolved);
+                    s.App.Invalidate();
+                });
+            }
+        }
+        else
+        {
+            return DotsiderResponse.Fail("Either assemblyPath or assemblyName is required for push-assembly");
+        }
+
+        state.App.Invalidate();
+        return DotsiderResponse.Ok(new { Status = "queued" });
     }
 
     // --- Lifecycle ---

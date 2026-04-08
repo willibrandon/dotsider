@@ -72,13 +72,14 @@ internal sealed class OutputFormatter : IDisposable
                 widths[i] = Math.Max(widths[i], row[i].Length);
         }
 
-        _writer.WriteLine(string.Join("  ", headers.Select((h, i) => h.PadRight(widths[i]))));
-        _writer.WriteLine(string.Join("  ", widths.Select(w => new string('-', w))));
+        var last = headers.Length - 1;
+        _writer.WriteLine(string.Join("  ", headers.Select((h, i) => i < last ? h.PadRight(widths[i]) : h)));
+        _writer.WriteLine(string.Join("  ", widths.Select((w, i) => new string('-', i < last ? w : headers[last].Length))));
 
         foreach (var row in allRows)
         {
             _writer.WriteLine(string.Join("  ", row.Select((c, i) =>
-                i < widths.Length ? c.PadRight(widths[i]) : c)));
+                i < last && i < widths.Length ? c.PadRight(widths[i]) : c)));
         }
     }
 
