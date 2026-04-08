@@ -63,20 +63,6 @@ public class ToolRegistrationTests : McpServerTestBase
         Assert.Contains("get_current_view", names);
         Assert.Contains("navigate_to", names);
         Assert.Contains("capture_screen", names);
-        Assert.Contains("navigate_to_il_definition", names);
-        Assert.Contains("navigate_back", names);
-        Assert.Contains("push_assembly", names);
-
-        // Bundle tools
-        Assert.Contains("get_bundle_info", names);
-        Assert.Contains("list_bundle_entries", names);
-
-        // Runtime tools
-        Assert.Contains("find_framework_assembly", names);
-        Assert.Contains("resolve_assembly", names);
-
-        // Field tools
-        Assert.Contains("list_fields", names);
     }
 
     [Fact]

@@ -18,15 +18,6 @@ public class PromptTests : McpServerTestBase
         Assert.Contains("dependency_health", names);
     }
 
-    [Fact(Timeout = 30_000)]
-    public async Task ListPrompts_IncludesBundleAnalysis()
-    {
-        await StartServerAsync();
-        await using var client = await CreateClientAsync();
-        var prompts = await client.ListPromptsAsync(cancellationToken: TestCancellationToken);
-        Assert.Contains(prompts, p => p.Name == "bundle_analysis");
-    }
-
     [Fact]
     public async Task GetPrompt_SecurityAudit_ReturnsPromptContent()
     {

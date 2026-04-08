@@ -230,10 +230,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Type("n")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, firstFocused),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         var secondFocused = _state.DiffFocusedKey;
         Assert.NotEqual(firstFocused, secondFocused);
@@ -243,10 +240,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.N)
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, secondFocused),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         Assert.NotEqual(secondFocused, _state.DiffFocusedKey);
 

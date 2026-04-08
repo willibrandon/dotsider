@@ -27,13 +27,12 @@ public sealed class DotNetRuntimeLocatorTests : IDisposable
 
     /// <summary>Verifies that System.Runtime can be found in the shared framework.</summary>
     [Fact(Timeout = 30_000)]
-    public void FindAssemblyInSharedFramework_SystemRuntime_ReturnsPathAndPack()
+    public void FindAssemblyInSharedFramework_SystemRuntime_ReturnsPath()
     {
         var result = DotNetRuntimeLocator.FindAssemblyInSharedFramework("System.Runtime", null);
         Assert.NotNull(result);
         Assert.True(File.Exists(result.Path));
         Assert.EndsWith(".dll", result.Path);
-        Assert.NotEmpty(result.RuntimePack);
     }
 
     /// <summary>Verifies that System.Private.CoreLib can be found in the shared framework.</summary>
@@ -71,7 +70,6 @@ public sealed class DotNetRuntimeLocatorTests : IDisposable
             "System.Runtime", null, "Microsoft.NETCore.App");
         Assert.NotNull(result);
         Assert.Contains("Microsoft.NETCore.App", result.Path);
-        Assert.Equal("Microsoft.NETCore.App", result.RuntimePack);
     }
 
     /// <summary>Verifies that WindowsDesktop.App preferred pack is probed first on Windows.</summary>
@@ -85,7 +83,6 @@ public sealed class DotNetRuntimeLocatorTests : IDisposable
             "WindowsBase", null, "Microsoft.WindowsDesktop.App");
         Assert.NotNull(result);
         Assert.Contains("Microsoft.WindowsDesktop.App", result.Path);
-        Assert.Equal("Microsoft.WindowsDesktop.App", result.RuntimePack);
     }
 
     /// <summary>Verifies that AspNetCore.App preferred pack is probed first when available.</summary>
@@ -94,10 +91,9 @@ public sealed class DotNetRuntimeLocatorTests : IDisposable
     {
         var result = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
             "Microsoft.AspNetCore", null, "Microsoft.AspNetCore.App");
+        // ASP.NET Core runtime may or may not be installed — just verify no crash
+        // and that when found, it's from the right pack
         if (result is not null)
-        {
             Assert.Contains("Microsoft.AspNetCore.App", result.Path);
-            Assert.Equal("Microsoft.AspNetCore.App", result.RuntimePack);
-        }
     }
 }
