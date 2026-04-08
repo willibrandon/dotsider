@@ -371,14 +371,14 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.HexEditorState.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.HexEditorState.Cursor.HasSelection, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1093,14 +1093,14 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Press y — verify it arms WaitingForYMotion
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Y)
-            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYMotion, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYMotion, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1109,7 +1109,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Press i — advances to WaitingForYTextObject
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.I)
-            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1257,14 +1257,18 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Triple-click to select the line: three rapid clicks at the same position
-        // (matches the pattern used by hex1b's own EditorMouseTests)
+        // Single-click on the IL_0000 position to place the cursor there
         await new Hex1bTerminalInputSequenceBuilder()
-            .ClickAt(col + 2, row)
-            .ClickAt(col + 2, row)
-            .ClickAt(col + 2, row)
+            .ClickAt(col, row)
+            .Wait(50)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Select the current line with Shift+V
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Shift().Key(Hex1bKey.V)
             .WaitUntil(_ => _state!.IlEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(5))
+                TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 

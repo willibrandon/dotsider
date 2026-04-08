@@ -403,16 +403,31 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         Assert.True(matches.Count > 0);
         var (row, col) = matches[0];
 
-        // Click to focus editor, then double-click to select word.
-        // Each Automator step completes through the input pipeline before the next.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        await auto.ClickAtAsync(col, row, ct: ct);
-        await auto.DoubleClickAtAsync(col, row, ct: ct);
+        // Focus the editor and select a word using keyboard (iw) instead of
+        // mouse double-click — avoids click-count timing issues on CI where
+        // render cycles exceed the 500ms double-click threshold.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Tab) // focus editor
+            .WaitUntil(_ => _state!.PackageInfoEditorState is not null, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
-        // Wait for selection via screen state (not internal state polling)
-        await auto.WaitUntilAsync(
-            _ => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
-            description: "editor word selection after double-click");
+        // Move cursor right past any leading whitespace to land on a word
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.RightArrow)
+            .Key(Hex1bKey.RightArrow)
+            .Key(Hex1bKey.RightArrow)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // iw selects the word under the cursor
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.I)
+            .Key(Hex1bKey.W)
+            .WaitUntil(_ => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()

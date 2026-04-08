@@ -250,15 +250,20 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallLocalMethod");
 
         // SCROLL: press Down arrow to scroll — this must work (not be frozen)
+        var cursorBefore = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
         await auto.DownAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        await TestHelpers.WaitUntilAsync(
+            () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorBefore,
+            TimeSpan.FromSeconds(5));
 
         // Verify cursor moved (scroll not frozen)
-        var cursorAfterScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
+        var cursorAfterScroll = _state.IlEditorState?.Cursor.Position.Value ?? -1;
 
         // Press Up arrow back
         await auto.UpAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        await TestHelpers.WaitUntilAsync(
+            () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorAfterScroll,
+            TimeSpan.FromSeconds(5));
 
         var cursorAfterUp = _state.IlEditorState?.Cursor.Position.Value ?? -1;
         Assert.NotEqual(cursorAfterScroll, cursorAfterUp);
