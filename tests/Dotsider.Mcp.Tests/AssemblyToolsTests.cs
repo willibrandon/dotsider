@@ -220,4 +220,58 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         var types = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.Equal(JsonValueKind.Array, types.ValueKind);
     }
+
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_IncludesNewProperties()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.NotNull(json.GetProperty("displayName").GetString());
+        Assert.False(json.GetProperty("isBundleBacked").GetBoolean());
+        Assert.True(json.GetProperty("canSaveInPlace").GetBoolean());
+        Assert.Equal("Microsoft.NETCore.App", json.GetProperty("preferredRuntimePack").GetString());
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_BundleBacked_ShowsBundleInfo()
+    {
+        Assert.NotNull(samples.SelfContainedConsoleExe);
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.SelfContainedConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(json.GetProperty("isBundleBacked").GetBoolean());
+        Assert.Equal("SelfContainedConsole.dll", json.GetProperty("displayName").GetString());
+        Assert.False(json.GetProperty("canSaveInPlace").GetBoolean());
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_AspNetCore_PreferredPack()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.MinimalApiDll },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal("Microsoft.AspNetCore.App", json.GetProperty("preferredRuntimePack").GetString());
+    }
 }
