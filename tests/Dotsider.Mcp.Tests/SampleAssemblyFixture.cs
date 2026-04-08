@@ -162,13 +162,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
             };
 
             var process = Process.Start(psi)!;
-            var stdout = await process.StandardOutput.ReadToEndAsync();
-            var stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
 
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
-                    $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+                    $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
         }
         finally
         {
