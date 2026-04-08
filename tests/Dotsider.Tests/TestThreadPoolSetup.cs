@@ -16,6 +16,6 @@ internal static class TestThreadPoolSetup
 #pragma warning restore CA2255
     internal static void Initialize()
     {
-        ThreadPool.SetMinThreads(32, 32);
+        ThreadPool.SetMinThreads(64, 64);
     }
 }
