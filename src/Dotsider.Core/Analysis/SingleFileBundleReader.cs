@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.IO.MemoryMappedFiles;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
@@ -36,8 +37,29 @@ public static class SingleFileBundleReader
         headerOffset = 0;
         try
         {
-            var data = File.ReadAllBytes(filePath);
-            return IsBundle(data, out headerOffset);
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists || fileInfo.Length < BundleSignature.Length + sizeof(long))
+                return false;
+
+            using var mmf = MemoryMappedFile.CreateFromFile(
+                filePath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
+            using var accessor = mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+
+            unsafe
+            {
+                byte* ptr = null;
+                accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+                try
+                {
+                    var length = checked((int)fileInfo.Length);
+                    var data = new ReadOnlySpan<byte>(ptr, length);
+                    return IsBundle(data, out headerOffset);
+                }
+                finally
+                {
+                    accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+                }
+            }
         }
         catch
         {
