@@ -1,23 +1,28 @@
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Benchmarks;
 
 /// <summary>
 /// Benchmarks for <see cref="IlDisassembler"/> disassembly of all methods
-/// in large BCL assemblies. Some methods in CoreLib contain tokens that
-/// reference forward-declared runtime types, causing BadImageFormatException
+/// in large BCL assemblies, plus single-method <see cref="IlDisassembler.DisassembleWithText"/>
+/// and <see cref="IlDisassembler.GetHeaderLineCount"/>. Some methods in CoreLib contain tokens
+/// that reference forward-declared runtime types, causing BadImageFormatException
 /// during operand resolution — these are caught and skipped, matching the
 /// real app's behavior.
 /// </summary>
 [MemoryDiagnoser]
+[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 public class IlDisassemblerBenchmarks
 {
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
     private IlDisassembler _coreLibDisasm = null!;
     private IlDisassembler _xmlDisasm = null!;
+    private MethodDefInfo _representativeMethod = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -27,6 +32,23 @@ public class IlDisassemblerBenchmarks
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
         _coreLibDisasm = new IlDisassembler(_coreLibAnalyzer);
         _xmlDisasm = new IlDisassembler(_xmlAnalyzer);
+
+        // Pick a representative method with a non-trivial body (>10 instructions)
+        foreach (var method in _coreLibAnalyzer.MethodDefs)
+        {
+            try
+            {
+                var instructions = _coreLibDisasm.Disassemble(method);
+                if (instructions.Count > 10)
+                {
+                    _representativeMethod = method;
+                    break;
+                }
+            }
+            catch (BadImageFormatException) { }
+        }
+
+        _representativeMethod ??= _coreLibAnalyzer.MethodDefs[0];
     }
 
     [GlobalCleanup]
@@ -97,4 +119,19 @@ public class IlDisassemblerBenchmarks
         }
         return totalLen;
     }
+
+    // --- Single-method benchmarks (used on every method selection in the UI) ---
+
+    [Benchmark(Description = "CoreLib DisassembleWithText single method")]
+    [BenchmarkCategory("SingleMethod")]
+    public int CoreLib_DisassembleWithText_SingleMethod()
+    {
+        var result = _coreLibDisasm.DisassembleWithText(_representativeMethod);
+        return result?.Text.Length ?? 0;
+    }
+
+    [Benchmark(Description = "CoreLib GetHeaderLineCount single method")]
+    [BenchmarkCategory("SingleMethod")]
+    public int CoreLib_GetHeaderLineCount_SingleMethod()
+        => _coreLibDisasm.GetHeaderLineCount(_representativeMethod);
 }

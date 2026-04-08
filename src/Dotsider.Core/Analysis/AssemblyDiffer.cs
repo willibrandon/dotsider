@@ -38,24 +38,30 @@ public static class AssemblyDiffer
     private static IReadOnlyList<DiffEntry<TypeDefInfo>> CompareTypes(
         IReadOnlyList<TypeDefInfo> left, IReadOnlyList<TypeDefInfo> right)
     {
-        var leftByName = new Dictionary<string, TypeDefInfo>();
+        var leftByName = new Dictionary<string, TypeDefInfo>(left.Count);
         foreach (var t in left) leftByName.TryAdd(t.FullName, t);
-        var rightByName = new Dictionary<string, TypeDefInfo>();
+        var rightByName = new Dictionary<string, TypeDefInfo>(right.Count);
         foreach (var t in right) rightByName.TryAdd(t.FullName, t);
-        var result = new List<DiffEntry<TypeDefInfo>>();
+        var result = new List<DiffEntry<TypeDefInfo>>(left.Count + right.Count);
 
         foreach (var lt in left)
         {
             if (rightByName.TryGetValue(lt.FullName, out var rt))
             {
-                var changes = new List<string>();
-                if (lt.BaseType != rt.BaseType) changes.Add($"base: {lt.BaseType} -> {rt.BaseType}");
-                if (lt.MethodCount != rt.MethodCount) changes.Add($"methods: {lt.MethodCount} -> {rt.MethodCount}");
-                if (lt.FieldCount != rt.FieldCount) changes.Add($"fields: {lt.FieldCount} -> {rt.FieldCount}");
-                if (lt.Attributes != rt.Attributes) changes.Add("attributes changed");
+                string? detail = null;
+                if (lt.BaseType != rt.BaseType || lt.MethodCount != rt.MethodCount
+                    || lt.FieldCount != rt.FieldCount || lt.Attributes != rt.Attributes)
+                {
+                    var changes = new List<string>(4);
+                    if (lt.BaseType != rt.BaseType) changes.Add($"base: {lt.BaseType} -> {rt.BaseType}");
+                    if (lt.MethodCount != rt.MethodCount) changes.Add($"methods: {lt.MethodCount} -> {rt.MethodCount}");
+                    if (lt.FieldCount != rt.FieldCount) changes.Add($"fields: {lt.FieldCount} -> {rt.FieldCount}");
+                    if (lt.Attributes != rt.Attributes) changes.Add("attributes changed");
+                    detail = string.Join(", ", changes);
+                }
 
-                result.Add(changes.Count > 0
-                    ? new DiffEntry<TypeDefInfo>(DiffKind.Changed, lt, rt, string.Join(", ", changes))
+                result.Add(detail is not null
+                    ? new DiffEntry<TypeDefInfo>(DiffKind.Changed, lt, rt, detail)
                     : new DiffEntry<TypeDefInfo>(DiffKind.Unchanged, lt, rt, null));
             }
             else
@@ -76,34 +82,32 @@ public static class AssemblyDiffer
     private static IReadOnlyList<DiffEntry<MethodDefInfo>> CompareMethods(
         IReadOnlyList<MethodDefInfo> left, IReadOnlyList<MethodDefInfo> right)
     {
-        static string Key(MethodDefInfo m) => $"{m.DeclaringType}::{m.Name}{m.Signature}";
-
-        var leftByKey = new Dictionary<string, MethodDefInfo>();
+        // Tuple key avoids 60K+ string allocations from interpolation on large assemblies
+        var leftByKey = new Dictionary<(string DeclaringType, string Name, string Signature), MethodDefInfo>(left.Count);
         foreach (var m in left)
-        {
-            var key = Key(m);
-            leftByKey.TryAdd(key, m);
-        }
+            leftByKey.TryAdd((m.DeclaringType, m.Name, m.Signature), m);
 
-        var rightByKey = new Dictionary<string, MethodDefInfo>();
+        var rightByKey = new Dictionary<(string DeclaringType, string Name, string Signature), MethodDefInfo>(right.Count);
         foreach (var m in right)
-        {
-            var key = Key(m);
-            rightByKey.TryAdd(key, m);
-        }
+            rightByKey.TryAdd((m.DeclaringType, m.Name, m.Signature), m);
 
-        var result = new List<DiffEntry<MethodDefInfo>>();
+        var result = new List<DiffEntry<MethodDefInfo>>(left.Count + right.Count);
 
         foreach (var (key, lm) in leftByKey)
         {
             if (rightByKey.TryGetValue(key, out var rm))
             {
-                var changes = new List<string>();
-                if (lm.Attributes != rm.Attributes) changes.Add("attributes changed");
-                if (lm.ImplAttributes != rm.ImplAttributes) changes.Add("impl changed");
+                string? detail = null;
+                if (lm.Attributes != rm.Attributes || lm.ImplAttributes != rm.ImplAttributes)
+                {
+                    var changes = new List<string>(2);
+                    if (lm.Attributes != rm.Attributes) changes.Add("attributes changed");
+                    if (lm.ImplAttributes != rm.ImplAttributes) changes.Add("impl changed");
+                    detail = string.Join(", ", changes);
+                }
 
-                result.Add(changes.Count > 0
-                    ? new DiffEntry<MethodDefInfo>(DiffKind.Changed, lm, rm, string.Join(", ", changes))
+                result.Add(detail is not null
+                    ? new DiffEntry<MethodDefInfo>(DiffKind.Changed, lm, rm, detail)
                     : new DiffEntry<MethodDefInfo>(DiffKind.Unchanged, lm, rm, null));
             }
             else
@@ -124,22 +128,27 @@ public static class AssemblyDiffer
     private static IReadOnlyList<DiffEntry<AssemblyRefInfo>> CompareRefs(
         IReadOnlyList<AssemblyRefInfo> left, IReadOnlyList<AssemblyRefInfo> right)
     {
-        var leftByName = new Dictionary<string, AssemblyRefInfo>();
+        var leftByName = new Dictionary<string, AssemblyRefInfo>(left.Count);
         foreach (var r in left) leftByName.TryAdd(r.Name, r);
-        var rightByName = new Dictionary<string, AssemblyRefInfo>();
+        var rightByName = new Dictionary<string, AssemblyRefInfo>(right.Count);
         foreach (var r in right) rightByName.TryAdd(r.Name, r);
-        var result = new List<DiffEntry<AssemblyRefInfo>>();
+        var result = new List<DiffEntry<AssemblyRefInfo>>(left.Count + right.Count);
 
         foreach (var lr in left)
         {
             if (rightByName.TryGetValue(lr.Name, out var rr))
             {
-                var changes = new List<string>();
-                if (lr.Version != rr.Version) changes.Add($"version: {lr.Version} -> {rr.Version}");
-                if (lr.PublicKeyToken != rr.PublicKeyToken) changes.Add("public key changed");
+                string? detail = null;
+                if (lr.Version != rr.Version || lr.PublicKeyToken != rr.PublicKeyToken)
+                {
+                    var changes = new List<string>(2);
+                    if (lr.Version != rr.Version) changes.Add($"version: {lr.Version} -> {rr.Version}");
+                    if (lr.PublicKeyToken != rr.PublicKeyToken) changes.Add("public key changed");
+                    detail = string.Join(", ", changes);
+                }
 
-                result.Add(changes.Count > 0
-                    ? new DiffEntry<AssemblyRefInfo>(DiffKind.Changed, lr, rr, string.Join(", ", changes))
+                result.Add(detail is not null
+                    ? new DiffEntry<AssemblyRefInfo>(DiffKind.Changed, lr, rr, detail)
                     : new DiffEntry<AssemblyRefInfo>(DiffKind.Unchanged, lr, rr, null));
             }
             else

@@ -171,18 +171,57 @@ public static class ImplementationAssemblyResolver
     {
         try
         {
+            Stream? stream = null;
             switch (resolved)
             {
                 case ResolvedAssembly.FromFile(var path):
-                    using (var analyzer = new AssemblyAnalyzer(path))
-                        return analyzer.HasMetadata && analyzer.MethodDefs.Any(m => m.Rva > 0);
-
-                case ResolvedAssembly.FromBundle(var bytes, var name, var bundlePath):
-                    using (var analyzer = new AssemblyAnalyzer(bytes, name, bundlePath))
-                        return analyzer.HasMetadata && analyzer.MethodDefs.Any(m => m.Rva > 0);
-
+                    stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    break;
+                case ResolvedAssembly.FromBundle(var bytes, _, _):
+                    stream = new MemoryStream(bytes, writable: false);
+                    break;
                 default:
                     return false;
+            }
+
+            using (stream)
+            using (var pe = new PEReader(stream))
+            {
+                if (!pe.HasMetadata)
+                    return false;
+
+                var reader = pe.GetMetadataReader();
+
+                // Fast path: reference assemblies carry ReferenceAssemblyAttribute
+                // on the assembly definition and never have IL bodies.
+                foreach (var handle in reader.GetCustomAttributes(EntityHandle.AssemblyDefinition))
+                {
+                    var attr = reader.GetCustomAttribute(handle);
+                    if (attr.Constructor.Kind == HandleKind.MemberReference)
+                    {
+                        var ctor = reader.GetMemberReference((MemberReferenceHandle)attr.Constructor);
+                        if (ctor.Parent.Kind == HandleKind.TypeReference)
+                        {
+                            var typeRef = reader.GetTypeReference((TypeReferenceHandle)ctor.Parent);
+                            if (reader.GetString(typeRef.Name) == "ReferenceAssemblyAttribute"
+                                && reader.GetString(typeRef.Namespace) == "System.Runtime.CompilerServices")
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+
+                // Stub assemblies (e.g. mscorlib) have metadata and type forwarders
+                // but no IL bodies. Check that at least one method has an RVA,
+                // stopping at the first hit rather than enumerating every MethodDef.
+                foreach (var methodHandle in reader.MethodDefinitions)
+                {
+                    if (reader.GetMethodDefinition(methodHandle).RelativeVirtualAddress > 0)
+                        return true;
+                }
+
+                return false;
             }
         }
         catch { return false; }
