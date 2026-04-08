@@ -22,6 +22,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
     private Hex1bApp? _app;
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
+    private CancellationTokenSource? _appCts;
 
     /// <summary>
     /// Starts a headless dotsider TUI with the diagnostics socket listener,
@@ -57,7 +58,8 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         _listener.StartListening();
 
         // Start the TUI and wait for first render
-        _ = _app.RunAsync(ct);
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _ = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -624,10 +626,12 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        _appCts?.Cancel();
         if (_listener is not null)
             await _listener.DisposeAsync();
         _state?.Dispose();
         if (_terminal is not null)
             await _terminal.DisposeAsync();
+        _appCts?.Dispose();
     }
 }
