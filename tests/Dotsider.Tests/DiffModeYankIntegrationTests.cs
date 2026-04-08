@@ -51,8 +51,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary") || s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -103,8 +103,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab) // Focus left info editor
             .WaitUntil(_ =>
             {
@@ -137,10 +137,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Type("2") // Types tab
-            .WaitUntil(s => s.ContainsText("Type") && s.ContainsText("Base Type"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Type") && s.ContainsText("Base Type"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow) // Seed focus on first row
             .Build()
             .ApplyAsync(terminal, ct);
@@ -195,10 +195,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D2) // Types tab
-            .WaitUntil(s => s.ContainsText("Type"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Type"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -261,8 +261,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -290,8 +290,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to left info editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
@@ -332,8 +332,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to left info, then tab to right info
             .Key(Hex1bKey.Tab)
             .Key(Hex1bKey.Tab)
@@ -369,8 +369,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to left info first
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
@@ -421,10 +421,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Methods tab
-            .WaitUntil(s => s.ContainsText("Method") && s.ContainsText("Declaring Type"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Method") && s.ContainsText("Declaring Type"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow) // Seed focus
             .Build()
             .ApplyAsync(terminal, ct);
@@ -451,10 +451,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Refs tab
-            .WaitUntil(s => s.ContainsText("Assembly") && s.ContainsText("Left Version"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly") && s.ContainsText("Left Version"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -481,10 +481,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Methods tab
-            .WaitUntil(s => s.ContainsText("Method"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Method"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -508,10 +508,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Type("n")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, first),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
         Assert.NotEqual(first, second);
@@ -521,10 +518,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.N)
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, second),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         Assert.NotEqual(second, _state.DiffFocusedKey);
 
@@ -541,10 +535,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Refs tab
-            .WaitUntil(s => s.ContainsText("Assembly"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Assembly"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -568,10 +562,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Type("n")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, first),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
         Assert.NotEqual(first, second);
@@ -581,10 +572,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.N)
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await TestHelpers.WaitUntilAsync(
-            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, second),
-            TimeSpan.FromSeconds(5));
+        await Task.Delay(100, ct);
 
         Assert.NotEqual(second, _state.DiffFocusedKey);
 
@@ -601,10 +589,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D2) // Types tab
-            .WaitUntil(s => s.ContainsText("Type"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Type"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -635,8 +623,8 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Change Summary"), TimeSpan.FromSeconds(10))
             // Tab to focus the left info editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>

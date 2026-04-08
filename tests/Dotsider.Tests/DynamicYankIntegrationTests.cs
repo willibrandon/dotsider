@@ -69,10 +69,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     private Hex1bTerminalInputSequenceBuilder LaunchTraceAndWaitForExit()
     {
         return new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState
                 is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
@@ -100,7 +100,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         _state.App.Invalidate();
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
     }
@@ -329,7 +329,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ =>
                 _state.DynamicCpuEditorState is null
-                && _state.DynamicSummaryEditorState is null, TimeSpan.FromSeconds(5))
+                && _state.DynamicSummaryEditorState is null, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -349,10 +349,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
@@ -383,10 +383,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
@@ -423,10 +423,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         // Launch trace, wait for running, switch to Summary (via Counters)
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)

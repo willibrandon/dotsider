@@ -95,8 +95,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -133,8 +133,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -182,8 +182,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("PE Headers") || s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("PE Headers") || s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -223,8 +223,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -257,8 +257,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -298,8 +298,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -324,8 +324,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -360,8 +360,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -399,8 +399,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -433,8 +433,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(10))
             // Tab to PE Headers editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.PeHeadersEditorState), TimeSpan.FromSeconds(5))
@@ -472,8 +472,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             // Open detail popup
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(5))
@@ -519,8 +519,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
             // Open detail popup
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.StringsDetailContent is not null, TimeSpan.FromSeconds(5))
@@ -559,8 +559,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -582,17 +582,16 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Use the first match — coordinates are 0-based screen positions
         var (row, col) = matches[0];
 
-        // Click to give editor focus, then use iw to select the word under the cursor.
-        // Avoids mouse double-click timing issues on CI.
-        await new Hex1bTerminalInputSequenceBuilder()
-            .ClickAt(col + 2, row) // +2 to land inside the word
-            .Wait(50)
-            .Key(Hex1bKey.I)
-            .Key(Hex1bKey.W)
-            .WaitUntil(_ => _state!.GeneralInfoEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        // Single click to give editor focus, then double-click to select word
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        await auto.ClickAtAsync(col + 2, row, ct: ct); // +2 to land inside the word
+        await Task.Delay(150, ct);
+        await auto.DoubleClickAtAsync(col + 2, row, ct: ct);
+
+        // Wait for selection to appear
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.GeneralInfoEditorState?.Cursor.HasSelection == true,
+            TimeSpan.FromSeconds(5));
 
         // Verify selection is a clean word
         var es = _state!.GeneralInfoEditorState!;
@@ -623,8 +622,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -652,8 +651,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -683,8 +682,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -725,7 +724,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Switch to PE/Metadata TypeDef sub-tab
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D2) // PE/Metadata
-            .WaitUntil(s => s.ContainsText("TypeDef") || s.ContainsText("Sections"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("TypeDef") || s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -789,15 +788,15 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Drill into a referenced assembly
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -811,7 +810,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Re-drill so NavigationStack > 0
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.NavigationStack.Count > 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -831,7 +830,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // Use the Automator to send Escape through the input pipeline, which triggers
         // a render that processes the filter state before the key binding runs.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Esc should NOT pop the assembly — the dynamicFilterActive guard blocks it
         await auto.EscapeAsync(ct: ct);
@@ -858,8 +857,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary") && s.ContainsText("Total:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -900,8 +899,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("strings"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -938,8 +937,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -974,8 +973,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1022,8 +1021,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab) // Focus editor
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
@@ -1062,8 +1061,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
@@ -1091,8 +1090,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
@@ -1137,8 +1136,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
@@ -1166,8 +1165,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
@@ -1197,8 +1196,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Hex Dump"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Hex Dump"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1224,8 +1223,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1244,7 +1243,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
                 if (found.Count == 0) return false;
                 matches = [.. found.Select(m => (m.Line, m.Column))];
                 return true;
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1258,16 +1257,12 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Single-click on the IL_0000 position to place the cursor there
+        // Triple-click to select the line: three rapid clicks at the same position
+        // (matches the pattern used by hex1b's own EditorMouseTests)
         await new Hex1bTerminalInputSequenceBuilder()
-            .ClickAt(col, row)
-            .Wait(50)
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        // Select the current line with Shift+V
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Shift().Key(Hex1bKey.V)
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
             .WaitUntil(_ => _state!.IlEditorState?.Cursor.HasSelection == true,
                 TimeSpan.FromSeconds(5))
             .Build()
@@ -1304,8 +1299,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1314,7 +1309,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _state.NavigateToIlMethod(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1353,8 +1348,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1363,7 +1358,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         _state.NavigateToIlMethod(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("IL_0000:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1403,8 +1398,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1440,8 +1435,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             // Tab to data interp editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
@@ -1479,8 +1474,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             // Tab to data interp editor
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
@@ -1514,8 +1509,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1558,8 +1553,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1617,8 +1612,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 

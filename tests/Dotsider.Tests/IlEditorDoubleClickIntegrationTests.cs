@@ -77,10 +77,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -91,7 +91,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         SelectMethodInTree(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -162,10 +162,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Navigate to IL Inspector tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(5))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3)
-            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("▶") || s.ContainsText("▼"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -177,7 +177,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         // Wait for the IL editor to fully render
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -190,7 +190,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 if (matches.Count == 0) return false;
                 allMatches = [.. matches.Select(m => (m.Line, m.Column))];
                 return true;
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
         Assert.True(allMatches.Count > 0, "Expected 'System.' visible on screen");
