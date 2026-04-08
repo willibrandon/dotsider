@@ -911,9 +911,10 @@ internal sealed class DotsiderDiagnosticsListener(
 
         if (!string.IsNullOrEmpty(request.AssemblyPath))
         {
+            // Load outside the mutation to avoid blocking the render thread
+            var openResult = AssemblyLoader.Open(request.AssemblyPath);
             state.PendingMutations.Enqueue(s =>
             {
-                var openResult = AssemblyLoader.Open(request.AssemblyPath);
                 switch (openResult)
                 {
                     case AssemblyOpenResult.Direct(var a):
@@ -932,16 +933,19 @@ internal sealed class DotsiderDiagnosticsListener(
         }
         else if (!string.IsNullOrEmpty(request.AssemblyName))
         {
-            state.PendingMutations.Enqueue(s =>
+            // Resolve outside the mutation to avoid blocking the render thread
+            var resolved = AssemblyAnalyzer.ResolveAssembly(
+                state.Analyzer.FilePath, request.AssemblyName,
+                state.Analyzer.TargetFramework, state.Analyzer.PreferredRuntimePack,
+                state.Analyzer.SourceBundlePath);
+            if (resolved is not null)
             {
-                var resolved = AssemblyAnalyzer.ResolveAssembly(
-                    s.Analyzer.FilePath, request.AssemblyName,
-                    s.Analyzer.TargetFramework, s.Analyzer.PreferredRuntimePack,
-                    s.Analyzer.SourceBundlePath);
-                if (resolved is not null)
+                state.PendingMutations.Enqueue(s =>
+                {
                     s.PushAssembly(resolved);
-                s.App.Invalidate();
-            });
+                    s.App.Invalidate();
+                });
+            }
         }
         else
         {

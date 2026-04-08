@@ -67,10 +67,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         // Focus editor with 'l', then navigate down to the call line
         await auto.KeyAsync(Hex1bKey.L, ct);
-        await Task.Delay(200, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.IlEditorState is not null,
+            TimeSpan.FromSeconds(5));
         // 15 downs: 7 header lines + 8 instructions to reach IL_0010 call
         for (var i = 0; i < 15; i++) await auto.DownAsync(ct);
-        await Task.Delay(200, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => (_state!.IlEditorState?.Cursor.Position.Value ?? -1) > 0,
+            TimeSpan.FromSeconds(5));
 
         return _state!.IlEditorState?.Cursor.Position.Value ?? -1;
     }

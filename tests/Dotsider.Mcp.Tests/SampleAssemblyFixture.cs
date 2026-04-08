@@ -140,15 +140,25 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         try
         {
+            // Skip if the other test project already published
+            var rid = RuntimeInformation.RuntimeIdentifier;
+            var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+            var expectedOutput = Path.Combine(_repoRoot, relativePath,
+                "bin", "Release", "net10.0", rid, "publish",
+                $"{Path.GetFileName(relativePath)}{apphostExt}");
+            if (File.Exists(expectedOutput))
+            {
+                lockFile.Dispose();
+                return;
+            }
+
             var projectDir = Path.Combine(_repoRoot, relativePath);
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} --self-contained -p:PublishSingleFile=true -v q",
+                Arguments = $"publish -c Release -r {rid} --self-contained -p:PublishSingleFile=true -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
             };
 
             var process = Process.Start(psi)!;
