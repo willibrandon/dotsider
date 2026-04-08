@@ -93,6 +93,16 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         try
         {
+            // Skip if the other test project already built this sample
+            var projectName = Path.GetFileName(relativePath);
+            var expectedDll = Path.Combine(_repoRoot, relativePath,
+                "bin", "Debug", "net10.0", $"{projectName}.dll");
+            if (File.Exists(expectedDll))
+            {
+                lockFile.Dispose();
+                return;
+            }
+
             var projectDir = Path.Combine(_repoRoot, relativePath);
             var psi = new ProcessStartInfo
             {
