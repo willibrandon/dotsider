@@ -258,6 +258,46 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("Tab must be 1-8", stderr);
     }
 
+    /// <summary>
+    /// Verifies that sessions info shows Traceable: yes for NativeAOT assemblies
+    /// even when HasEntryPoint is false, since NativeAOT binaries can be traced directly.
+    /// </summary>
+    [Fact]
+    public async Task Sessions_Info_NativeAot_ShowsTraceableYes()
+    {
+        // Override get-current-view to report NativeAOT without entry point
+        _dotsiderSocket.On("get-current-view", _ => new
+        {
+            Tab = 1,
+            PeSubTab = 0,
+            DynamicSubTab = 0,
+            AssemblyPath = "/test/NativeAot",
+            NavigationDepth = 0,
+            TracerState = "idle",
+            HexIsDirty = false,
+            HasEntryPoint = false,
+            IsNativeAot = true,
+            IsNetFramework = false
+        });
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "sessions", "info", TestPid.ToString());
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Traceable:  yes", stdout);
+
+        // Restore original handler for other tests
+        _dotsiderSocket.On("get-current-view", _ => new
+        {
+            Tab = 2,
+            PeSubTab = 0,
+            DynamicSubTab = 0,
+            AssemblyPath = "/test/MyApp.dll",
+            NavigationDepth = 0,
+            TracerState = "idle"
+        });
+    }
+
     [Fact]
     public async Task Sessions_Info_InvalidPid_ReturnsError()
     {
