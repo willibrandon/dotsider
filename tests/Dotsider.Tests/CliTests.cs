@@ -218,6 +218,112 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("HelloWorld", stdout);
     }
 
+    // --- Fields ---
+
+    /// <summary>Verifies that --fields lists field definitions in text mode.</summary>
+    [Fact]
+    public async Task Analyze_Fields_ListsFieldDefinitions()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--fields");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Namespace", stdout);
+        Assert.Contains("Name", stdout);
+        Assert.Contains("Signature", stdout);
+    }
+
+    /// <summary>Verifies that --fields with --json outputs a JSON array.</summary>
+    [Fact]
+    public async Task Analyze_Fields_Json_OutputsJson()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--fields", "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, json.ValueKind);
+        Assert.True(json.GetArrayLength() > 0);
+    }
+
+    // --- Bundle ---
+
+    /// <summary>Verifies that --bundle shows the manifest for a single-file bundle.</summary>
+    [Fact]
+    public async Task Analyze_Bundle_ShowsManifest()
+    {
+        Assert.NotNull(fixture.SelfContainedConsoleExe);
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.SelfContainedConsoleExe!, "--bundle");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Bundle version:", stdout);
+        Assert.Contains("Entries:", stdout);
+    }
+
+    /// <summary>Verifies that --bundle with --json outputs structured manifest data.</summary>
+    [Fact]
+    public async Task Analyze_Bundle_Json_OutputsJson()
+    {
+        Assert.NotNull(fixture.SelfContainedConsoleExe);
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.SelfContainedConsoleExe!, "--bundle", "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.True(json.GetProperty("fileCount").GetInt32() > 0);
+    }
+
+    /// <summary>Verifies that --bundle on a non-bundle file returns an error.</summary>
+    [Fact]
+    public async Task Analyze_Bundle_NonBundle_ReturnsError()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--bundle");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("not a single-file bundle", stderr);
+    }
+
+    /// <summary>Verifies that --bundle -o rejects writing to the same input file.</summary>
+    [Fact]
+    public async Task Analyze_Bundle_SameInputAndOutput_RejectsWithError()
+    {
+        Assert.NotNull(fixture.SelfContainedConsoleExe);
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.SelfContainedConsoleExe!, "--bundle", "-o", fixture.SelfContainedConsoleExe!);
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("Output path cannot be the same as the input file", stderr);
+    }
+
+    /// <summary>Verifies that default output for a bundle-backed assembly shows DisplayName.</summary>
+    [Fact]
+    public async Task Analyze_DefaultOutput_BundleBacked_ShowsDisplayName()
+    {
+        Assert.NotNull(fixture.SelfContainedConsoleExe);
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.SelfContainedConsoleExe!);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("from bundle", stdout);
+    }
+
+    /// <summary>Verifies that default JSON output for a bundle-backed assembly includes bundle properties.</summary>
+    [Fact]
+    public async Task Analyze_DefaultOutput_BundleBacked_Json_IncludesProperties()
+    {
+        Assert.NotNull(fixture.SelfContainedConsoleExe);
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.SelfContainedConsoleExe!, "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.True(json.GetProperty("isBundleBacked").GetBoolean());
+        Assert.Equal("SelfContainedConsole.dll", json.GetProperty("displayName").GetString());
+        Assert.NotNull(json.GetProperty("preferredRuntimePack").GetString());
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
