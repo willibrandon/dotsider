@@ -51,28 +51,37 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**28 tools** across:
+**38 tools** across:
 
-- Assembly analysis
-- IL disassembly
-- Metadata inspection
-- Dependency graphs
-- Size analysis
-- String extraction
-- Diffing
-- NuGet package analysis
-- Runtime tracing
+| Category | Tools |
+|----------|-------|
+| Assembly analysis | `get_assembly_info`, `list_types`, `list_methods`, `find_members` |
+| Field analysis | `list_fields` |
+| IL disassembly | `disassemble_method`, `search_il_opcodes` |
+| Metadata inspection | `get_pe_headers`, `get_clr_header`, `get_sections`, `get_custom_attributes`, `get_resources`, `resolve_token` |
+| Dependencies | `get_assembly_refs`, `get_dependency_graph`, `get_type_refs` |
+| Size analysis | `get_size_breakdown`, `get_largest_methods` |
+| String extraction | `extract_strings` |
+| Diffing | `diff_assemblies` |
+| NuGet packages | `analyze_nupkg` |
+| Bundle inspection | `get_bundle_info`, `list_bundle_entries` |
+| Runtime discovery | `find_framework_assembly`, `resolve_assembly` |
+| Navigation | `get_current_view`, `navigate_to`, `capture_screen`, `navigate_to_il_definition`, `navigate_back`, `push_assembly` |
+| Sessions | `discover_dotsider_sessions`, `get_session_info` |
+| Tracing | `get_trace_events`, `get_trace_counters`, `get_process_output`, `start_trace`, `stop_trace` |
 
 Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI via Unix domain socket for live state, tracing, and navigation
 
+Single-file executables and native apphosts are handled transparently in direct mode — the server extracts the entry assembly from bundles and redirects apphosts to their companion DLLs, matching CLI and TUI behavior.
+
 Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
 
 ## Guided prompts
 
-**4 prompts** for common workflows:
+**5 prompts** for common workflows:
 
 | Prompt | Purpose |
 |--------|---------|
@@ -80,6 +89,7 @@ Session sockets are access-controlled. The socket directory and socket file are 
 | API surface review | Map the public API surface |
 | Breaking change detection | Compare two versions for breaking changes |
 | Dependency health | Assess dependency risk and freshness |
+| Bundle analysis | Inspect a single-file bundle: structure, entry assembly, and dependency resolution |
 
 ## Generating AI skill files
 
