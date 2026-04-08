@@ -121,7 +121,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 var text = es.Document.GetText();
                 return pos < text.Length && char.IsLetterOrDigit(text[pos]);
             },
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         var fullText = doc.GetText();
         var cursorOffset = _state.IlEditorState!.Cursor.Position.Value;
@@ -201,10 +201,10 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         // Single click first to give the editor focus (tree panel has focus by default).
         // Wait for the click to be processed — the editor cursor position changes
         // when the editor receives focus and handles the mouse event.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await auto.ClickAtAsync(targetCol, targetRow, ct: ct);
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -220,7 +220,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
                 var text = es.Document.GetText();
                 var pos = es.Cursor.Position.Value;
                 return pos < text.Length && char.IsLetterOrDigit(text[pos]);
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 

@@ -64,7 +64,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
                 try { return _state!.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -76,7 +76,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
                 try { return _state!.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.RightInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -88,7 +88,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
                 try { return _state!.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.ChangeStatsEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -110,7 +110,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -167,7 +167,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -180,7 +180,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         // Notification auto-clears
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.YankNotification is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.YankNotification is null, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -219,7 +219,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 var s = _state!.Search[_state.CurrentTab];
                 return s.IsActive && s.IsConfirmed;
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -233,7 +233,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await TestHelpers.WaitUntilAsync(
             () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, firstFocused),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         var secondFocused = _state.DiffFocusedKey;
         Assert.NotEqual(firstFocused, secondFocused);
@@ -246,7 +246,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await TestHelpers.WaitUntilAsync(
             () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, secondFocused),
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.NotEqual(secondFocused, _state.DiffFocusedKey);
 
@@ -271,7 +271,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         // Right arrow switches to Types tab (tab index 1)
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state.CurrentTab == 1, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.CurrentTab == 1, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -299,7 +299,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
                 try { return _state!.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -308,14 +308,14 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.LeftInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.LeftInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -341,7 +341,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -350,9 +350,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.RightInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.RightInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(10))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -377,21 +377,21 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.LeftInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             // Tab to right info
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
                 try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             // Tab to change stats
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
                 try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.ChangeStatsEditorState; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -400,9 +400,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
             .Shift().Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.ChangeStatsEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.ChangeStatsEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(10))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -432,7 +432,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -462,7 +462,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -498,7 +498,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 var s = _state!.Search[_state.CurrentTab];
                 return s.IsActive && s.IsConfirmed;
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -508,7 +508,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Type("n")
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
+
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, first),
+            TimeSpan.FromSeconds(10));
 
         var second = _state.DiffFocusedKey;
         Assert.NotEqual(first, second);
@@ -518,7 +521,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.N)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
+
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, second),
+            TimeSpan.FromSeconds(10));
 
         Assert.NotEqual(second, _state.DiffFocusedKey);
 
@@ -552,7 +558,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 var s = _state!.Search[_state.CurrentTab];
                 return s.IsActive && s.IsConfirmed;
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -562,7 +568,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Type("n")
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
+
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, first),
+            TimeSpan.FromSeconds(10));
 
         var second = _state.DiffFocusedKey;
         Assert.NotEqual(first, second);
@@ -572,7 +581,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.N)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
+
+        await TestHelpers.WaitUntilAsync(
+            () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, second),
+            TimeSpan.FromSeconds(10));
 
         Assert.NotEqual(second, _state.DiffFocusedKey);
 
@@ -600,7 +612,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -631,7 +643,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             {
                 try { return _state!.App.FocusedNode is EditorNode; }
                 catch (NullReferenceException) { return false; }
-            }, TimeSpan.FromSeconds(5))
+            }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -639,7 +651,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 

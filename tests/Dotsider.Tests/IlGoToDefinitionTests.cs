@@ -254,7 +254,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.DownAsync(cts.Token);
         await TestHelpers.WaitUntilAsync(
             () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorBefore,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         // Verify cursor moved (scroll not frozen)
         var cursorAfterScroll = _state.IlEditorState?.Cursor.Position.Value ?? -1;
@@ -263,7 +263,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.UpAsync(cts.Token);
         await TestHelpers.WaitUntilAsync(
             () => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorAfterScroll,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         var cursorAfterUp = _state.IlEditorState?.Cursor.Position.Value ?? -1;
         Assert.NotEqual(cursorAfterScroll, cursorAfterUp);

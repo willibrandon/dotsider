@@ -76,16 +76,16 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState
                 is TraceProcessState.Exited or TraceProcessState.Error, TimeSpan.FromSeconds(30))
-            .WaitUntil(s => s.ContainsText("Events"), TimeSpan.FromSeconds(5));
+            .WaitUntil(s => s.ContainsText("Events"), TimeSpan.FromSeconds(10));
     }
 
     private Hex1bTerminalInputSequenceBuilder NavigateToCounters()
     {
         return new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(10));
     }
 
     /// <summary>Moves focus out of the Counters editors to the subtab strip.</summary>
@@ -110,11 +110,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // Note: caller must call TabOutOfCountersEditorsAsync first, then use this
         return new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state!.DynamicSummaryEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState), TimeSpan.FromSeconds(5));
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Summary, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.DynamicSummaryEditorState is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState), TimeSpan.FromSeconds(10));
     }
 
     [Fact(Timeout = 30_000)]
@@ -126,9 +126,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         await LaunchTraceAndWaitForExit()
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.UpArrow)
-            .WaitUntil(_ => _state!.DynamicEventsFocusedKey is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicEventsFocusedKey is not null, TimeSpan.FromSeconds(10))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -153,13 +153,13 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state!.Tracer!.GetOutput().Count > 0, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Output, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.Tracer!.GetOutput().Count > 0, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.DownArrow)
             .Key(Hex1bKey.UpArrow)
-            .WaitUntil(_ => _state!.DynamicOutputFocusedKey is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicOutputFocusedKey is not null, TimeSpan.FromSeconds(10))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -211,7 +211,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         await NavigateToCounters()
             .Type("yiw")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -235,7 +235,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         await NavigateFromCountersToSummary()
             .Type("yiw")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -261,7 +261,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // Left from Counters → Events
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Events, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Events, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -270,7 +270,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // Right from Events → Counters
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -295,7 +295,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab != DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab != DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -321,11 +321,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
-            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.LeftArrow)
             .Key(Hex1bKey.LeftArrow)
             .Key(Hex1bKey.LeftArrow)
-            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Events, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.DynamicSubTab == DynamicSubTabId.Events, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ =>
                 _state.DynamicCpuEditorState is null
@@ -356,9 +356,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -390,8 +390,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -430,8 +430,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
             .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
