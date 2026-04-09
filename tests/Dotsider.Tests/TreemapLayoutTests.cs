@@ -144,6 +144,71 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Equal(nodes.Count, rects.Count);
     }
 
+    /// <summary>
+    /// Full geometry invariant for the RichLibrary root at a standard viewport:
+    /// total rect area matches container area, no overlaps, edges reach bounds.
+    /// See: https://github.com/willibrandon/dotsider/issues/134
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Layout_RealAssembly_RectsCoverFullArea()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
+
+        const double width = 120;
+        const double height = 30;
+        var rects = TreemapLayout.Layout(tree.Children, 0, 0, width, height);
+
+        Assert.NotEmpty(rects);
+        AssertNoOverlaps(rects);
+        AssertFullCoverage(rects, width, height);
+    }
+
+    /// <summary>
+    /// Same geometry invariant at a larger viewport to cover different aspect ratios
+    /// and squarification decisions.
+    /// See: https://github.com/willibrandon/dotsider/issues/134
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Layout_RealAssembly_RectsCoverFullArea_LargeViewport()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
+
+        const double width = 240;
+        const double height = 60;
+        var rects = TreemapLayout.Layout(tree.Children, 0, 0, width, height);
+
+        Assert.NotEmpty(rects);
+        AssertNoOverlaps(rects);
+        AssertFullCoverage(rects, width, height);
+    }
+
+    /// <summary>
+    /// Geometry invariant for a drilled namespace with 3+ type children.
+    /// Verifies the layout fix works at subtree levels, not just the root.
+    /// See: https://github.com/willibrandon/dotsider/issues/134
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Layout_RealAssembly_DrilledNamespace_RectsCoverFullArea()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var tree = SizeAnalyzer.BuildSizeTree(a);
+
+        // Find the first namespace with 3+ children for a meaningful drilled layout
+        var ns = tree.Children.FirstOrDefault(c =>
+            c.Kind == SizeNodeKind.Namespace && c.Children.Count >= 3);
+        Assert.NotNull(ns);
+
+        const double width = 120;
+        const double height = 30;
+        var rects = TreemapLayout.Layout(ns.Children, 0, 0, width, height);
+
+        Assert.NotEmpty(rects);
+        AssertNoOverlaps(rects);
+        AssertFullCoverage(rects, width, height);
+    }
+
     private static List<SizeNode> CreateTestNodes(int count)
     {
         var nodes = new List<SizeNode>();
@@ -152,6 +217,18 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
             nodes.Add(new SizeNode($"node{i}", $"node{i}", (i + 1) * 10, SizeNodeKind.Type, []));
         }
         return nodes;
+    }
+
+    private static void AssertFullCoverage(IReadOnlyList<TreemapRect> rects, double width, double height)
+    {
+        var totalRectArea = rects.Sum(r => r.Width * r.Height);
+        Assert.Equal(width * height, totalRectArea, 0.01);
+
+        var maxRight = rects.Max(r => r.X + r.Width);
+        Assert.Equal(width, maxRight, 0.01);
+
+        var maxBottom = rects.Max(r => r.Y + r.Height);
+        Assert.Equal(height, maxBottom, 0.01);
     }
 
     private static void AssertNoOverlaps(IReadOnlyList<TreemapRect> rects)

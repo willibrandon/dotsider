@@ -36,7 +36,7 @@ public static class TreemapLayout
     private static void Squarify(
         List<SizeNode> items, int startIndex,
         double x, double y, double w, double h,
-        double totalArea, List<TreemapRect> result)
+        double totalSize, List<TreemapRect> result)
     {
         if (startIndex >= items.Count || w <= 0 || h <= 0)
             return;
@@ -58,11 +58,11 @@ public static class TreemapLayout
 
         for (var i = startIndex; i < items.Count; i++)
         {
-            var itemArea = (double)items[i].Size / totalArea * w * h;
+            var itemArea = (double)items[i].Size / totalSize * w * h;
             rowItems.Add(i);
             rowArea += itemArea;
 
-            var worst = WorstAspect(rowItems, items, totalArea, w, h, shortSide, rowArea);
+            var worst = WorstAspect(rowItems, items, totalSize, w, h, shortSide, rowArea);
             if (worst <= bestWorst)
             {
                 bestWorst = worst;
@@ -85,7 +85,7 @@ public static class TreemapLayout
 
         foreach (var idx in rowItems)
         {
-            var itemArea = (double)items[idx].Size / totalArea * w * h;
+            var itemArea = (double)items[idx].Size / totalSize * w * h;
             var itemLength = itemArea / rowLength;
 
             if (isHorizontal)
@@ -104,15 +104,19 @@ public static class TreemapLayout
         var nextIndex = rowItems[^1] + 1;
         if (nextIndex < items.Count)
         {
+            var remainingSize = 0.0;
+            for (var i = nextIndex; i < items.Count; i++)
+                remainingSize += items[i].Size;
+
             if (isHorizontal)
-                Squarify(items, nextIndex, x + rowLength, y, w - rowLength, h, totalArea, result);
+                Squarify(items, nextIndex, x + rowLength, y, w - rowLength, h, remainingSize, result);
             else
-                Squarify(items, nextIndex, x, y + rowLength, w, h - rowLength, totalArea, result);
+                Squarify(items, nextIndex, x, y + rowLength, w, h - rowLength, remainingSize, result);
         }
     }
 
     private static double WorstAspect(
-        List<int> row, List<SizeNode> items, double totalArea,
+        List<int> row, List<SizeNode> items, double totalSize,
         double w, double h, double shortSide, double rowArea)
     {
         var rowLength = rowArea / shortSide;
@@ -121,7 +125,7 @@ public static class TreemapLayout
         var worst = 0.0;
         foreach (var idx in row)
         {
-            var itemArea = (double)items[idx].Size / totalArea * w * h;
+            var itemArea = (double)items[idx].Size / totalSize * w * h;
             var itemLength = itemArea / rowLength;
             if (itemLength <= 0) continue;
             var aspect = Math.Max(rowLength / itemLength, itemLength / rowLength);
