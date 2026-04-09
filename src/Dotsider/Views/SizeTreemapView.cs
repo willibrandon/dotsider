@@ -115,14 +115,14 @@ public static class SizeTreemapView
                     var relY = e.Context.MouseY - e.Node.Bounds.Y;
                     var rects = TreemapLayout.Layout(
                         currentLevel.Children, 0, 0, e.Node.Bounds.Width, e.Node.Bounds.Height);
+                    // Iterate all rects — take the last match, not the first,
+                    // because DrawTreemap paints later rects on top of earlier
+                    // ones at shared boundary cells.
                     foreach (var rect in rects)
                     {
-                        if (relX >= (int)rect.X && relX < (int)(rect.X + rect.Width) &&
-                            relY >= (int)rect.Y && relY < (int)(rect.Y + rect.Height))
-                        {
+                        var (cx1, cy1, cx2, cy2) = CellBounds(rect);
+                        if (relX >= cx1 && relX < cx2 && relY >= cy1 && relY < cy2)
                             drillTarget = rect.Node;
-                            break;
-                        }
                     }
                 }
                 else
@@ -249,6 +249,17 @@ public static class SizeTreemapView
 
     private static readonly Hex1bColor SelectionBorder = Hex1bColor.FromRgb(255, 255, 255);
 
+    /// <summary>
+    /// Converts a floating-point treemap rectangle to integer cell bounds.
+    /// Uses Floor for start and Ceiling for end to prevent 1-cell gaps at
+    /// boundaries caused by floating-point precision loss.
+    /// </summary>
+    internal static (int X1, int Y1, int X2, int Y2) CellBounds(TreemapRect rect) =>
+        ((int)rect.X,
+         (int)rect.Y,
+         (int)Math.Ceiling(rect.X + rect.Width),
+         (int)Math.Ceiling(rect.Y + rect.Height));
+
     private static void DrawTreemap(Surface surface, IReadOnlyList<TreemapRect> rects,
         DotsiderState state, int mouseX, int mouseY, string? query)
     {
@@ -264,10 +275,7 @@ public static class SizeTreemapView
                 : hasQuery ? HighlightHelper.DimColor
                 : Palette[i % Palette.Length];
 
-            var x1 = (int)rect.X;
-            var y1 = (int)rect.Y;
-            var x2 = (int)(rect.X + rect.Width);
-            var y2 = (int)(rect.Y + rect.Height);
+            var (x1, y1, x2, y2) = CellBounds(rect);
 
             if (x2 <= x1 || y2 <= y1) continue;
 
