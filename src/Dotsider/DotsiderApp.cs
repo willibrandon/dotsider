@@ -800,7 +800,12 @@ public sealed class DotsiderApp(DotsiderState state)
         state.IlSearchMatches = [];
         state.IlCurrentMatchIndex = -1;
         state.IlTextMatchMethodTokens = null;
-        state.IlFocusedTreeKey = null;
+        state.SetIlFocusedTreeKey(null);
+        state.IlEditorKey = null;
+        state.IlEditorField = null;
+        state.IlTreeListNode = null;
+        state.IlEditorKeyCache.Clear();
+        state.IlCachedEditors.Clear();
         state.IlInstructions = null;
         state.IlHeaderLineCount = 0;
         state.IlNavigationProvider.Instructions = null;

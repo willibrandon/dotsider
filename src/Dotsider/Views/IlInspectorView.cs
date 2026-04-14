@@ -96,6 +96,29 @@ public static class IlInspectorView
         var treeRows = BuildTreeRows(state);
         var formattedRows = treeRows.Select(r => FormatTreeRow(r, state)).ToList();
 
+        // Per-render sync: capture ListNode from Focusables ring and sync SelectedIndex.
+        // On the first frame after the IL Inspector renders, the ListNode appears in
+        // App.Focusables. InitialSelectedIndex covers frame 1 before that.
+        if (state.IlTreeListNode is null || !state.App.Focusables.Contains(state.IlTreeListNode))
+        {
+            state.IlTreeListNode = null;
+            foreach (var node in state.App.Focusables)
+            {
+                if (node is ListNode ln)
+                {
+                    state.IlTreeListNode = ln;
+                    break;
+                }
+            }
+        }
+        
+        if (state.IlTreeListNode is { } treeListNode && state.IlFocusedTreeKey is string focusKey)
+        {
+            var targetIdx = IlTreeList.FindRowIndex(treeRows, focusKey);
+            if (targetIdx >= 0 && treeListNode.SelectedIndex != targetIdx)
+                treeListNode.SelectedIndex = targetIdx;
+        }
+
         return ctx.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>();
@@ -105,19 +128,18 @@ public static class IlInspectorView
 
             // Main content: HSplitter with tree list on left, disassembly editor on right
             widgets.Add(outer.HSplitter(
-                // Left pane: flattened tree via IlTreeListWidget (composite over ListWidget)
+                // Left pane: flattened tree list
                 left =>
                 [
                     left.ThemePanel(
                         t => t
                             .Set(ListTheme.SelectedIndicator, "")
                             .Set(ListTheme.UnselectedIndicator, ""),
-                    new IlTreeListWidget
-                    {
-                        Rows = treeRows,
-                        FormattedRows = formattedRows,
-                        FocusedKey = state.IlFocusedTreeKey as string,
-                        SelectionChanged = index =>
+                    IlTreeList.Build(
+                        treeRows,
+                        formattedRows,
+                        state.IlFocusedTreeKey as string,
+                        selectionChanged: index =>
                         {
                             if (index >= 0 && index < treeRows.Count)
                             {
@@ -128,13 +150,13 @@ public static class IlInspectorView
                             }
                             state.App.Invalidate();
                         },
-                        ItemActivated = index =>
+                        itemActivated: index =>
                         {
                             if (index >= 0 && index < treeRows.Count)
                                 ActivateTreeRow(treeRows[index], state);
                             state.App.Invalidate();
                         },
-                        ExpandRow = index =>
+                        expandRow: index =>
                         {
                             if (index >= 0 && index < treeRows.Count)
                             {
@@ -146,7 +168,7 @@ public static class IlInspectorView
                                 }
                             }
                         },
-                        CollapseRow = index =>
+                        collapseRow: index =>
                         {
                             if (index >= 0 && index < treeRows.Count)
                             {
@@ -157,8 +179,8 @@ public static class IlInspectorView
                                     state.App.Invalidate();
                                 }
                             }
-                        }
-                    }.FillWidth().FillHeight()
+                        },
+                        captureNode: node => state.IlTreeListNode = node)
                     ).FillWidth().FillHeight()
                 ],
                 // Right pane: IL disassembly via EditorWidget
@@ -340,27 +362,31 @@ public static class IlInspectorView
         {
             if (state.IlSelectedField is { } field)
             {
-                var fieldInfo = $"// Field: {field.DeclaringType}::{field.Name}\n"
-                    + $"// Type: {field.Signature}\n"
-                    + $"// Attributes: {field.Attributes}\n"
-                    + $"// Token: 0x{field.Token:X8}\n"
-                    + "\n"
-                    + "// Fields do not have IL bodies.\n"
-                    + "// Press Esc to go back.";
-                var fieldDoc = new Hex1bDocument(fieldInfo);
-                state.IlEditorState = new EditorState(fieldDoc) { IsReadOnly = true };
-                state.IlEditorMethod = null;
-                state.IlEditorAnalyzer = null;
-                var fieldEditorKey = ("field", field.Token);
-                return
-                [
-                    new IlEditorHostWidget
-                    {
-                        EditorKey = fieldEditorKey,
-                        State = state.IlEditorState,
-                        AppState = state
-                    }.FillWidth().FillHeight()
-                ];
+                // Only recreate editor state when the field changes
+                if (state.IlEditorField?.Token != field.Token
+                    || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
+                {
+                    // Save outgoing editor to cache
+                    if (state.IlEditorKey is not null && state.IlEditorState is not null)
+                        state.IlCachedEditors[state.IlEditorKey] = state.IlEditorState;
+
+                    var fieldInfo = $"// Field: {field.DeclaringType}::{field.Name}\n"
+                        + $"// Type: {field.Signature}\n"
+                        + $"// Attributes: {field.Attributes}\n"
+                        + $"// Token: 0x{field.Token:X8}\n"
+                        + "\n"
+                        + "// Fields do not have IL bodies.\n"
+                        + "// Press Esc to go back.";
+                    var fieldDoc = new Hex1bDocument(fieldInfo);
+                    state.IlEditorState = new EditorState(fieldDoc) { IsReadOnly = true };
+                    state.IlEditorField = field;
+                    state.IlEditorMethod = null;
+                    state.IlEditorAnalyzer = state.Analyzer;
+                    state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, field.Token);
+                    state.IlCachedEditors.Remove(state.IlEditorKey);
+                }
+
+                return WrapInStatePanels(state);
             }
 
             return [ctx.Text("  Select a method to view IL disassembly").FillHeight()];
@@ -371,16 +397,23 @@ public static class IlInspectorView
         if (state.IlEditorMethod?.Token != method.Token
             || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
         {
+            // Save outgoing editor to cache
+            if (state.IlEditorKey is not null && state.IlEditorState is not null)
+                state.IlCachedEditors[state.IlEditorKey] = state.IlEditorState;
+
             var result = state.IlDisassembler!.DisassembleWithText(method);
             var disassembly = result?.Text ?? state.IlDisassembler.FormatDisassembly(method);
             var doc = new Hex1bDocument(disassembly);
             state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlEditorMethod = method;
+            state.IlEditorField = null;
             state.IlEditorAnalyzer = state.Analyzer;
             state.IlInstructions = result?.Instructions;
             state.IlHeaderLineCount = result?.HeaderLineCount ?? 0;
             state.IlNavigationProvider.Instructions = state.IlInstructions;
             state.IlNavigationProvider.HeaderLineCount = state.IlHeaderLineCount;
+            state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, method.Token);
+            state.IlCachedEditors.Remove(state.IlEditorKey);
         }
 
         // Consume pending cursor match (from search n/N navigation)
@@ -406,19 +439,64 @@ public static class IlInspectorView
         if (state.CurrentTab == TabId.IlInspector)
             AdjustWordSelectionCursorOneShot(state);
 
-        // The host composite forces a fresh EditorNode when the key changes
-        // (different method or analyzer reload), resetting native scroll to line 1.
-        // Same key across tab switches preserves the existing EditorNode and its scroll.
-        var editorKey = (state.Analyzer, method.Token);
+        return WrapInStatePanels(state);
+    }
+
+    /// <summary>
+    /// Wraps the current IL editor in nested <see cref="StatePanelWidget"/>s that cache
+    /// EditorNode instances by method/field identity. Hidden zero-height editors keep
+    /// back-stack and previously-visited editor nodes alive with preserved scroll.
+    /// </summary>
+    private static Hex1bWidget[] WrapInStatePanels(DotsiderState state)
+    {
+        if (state.IlEditorKey is null || state.IlEditorState is null)
+            return [new TextBlockWidget("  Select a method to view IL disassembly")];
 
         return
         [
-            new IlEditorHostWidget
+            new StatePanelWidget(state.IlEditorScopeKey, _ =>
             {
-                EditorKey = editorKey,
-                State = state.IlEditorState!,
-                AppState = state
-            }.FillWidth().FillHeight()
+                var children = new List<Hex1bWidget>
+                {
+                    // Current editor — full-size with all bindings and decorations
+                    new StatePanelWidget(state.IlEditorKey, _ =>
+                        IlEditorHost.Build(state.IlEditorState!, state))
+                        .FillWidth().FillHeight()
+                };
+
+                // Merge cached editors + back-stack entries → hidden StatePanelWidgets.
+                // These keep EditorNodes alive with preserved scroll for revisits.
+                var hidden = new Dictionary<object, EditorState>(ReferenceEqualityComparer.Instance);
+                foreach (var (key, es) in state.IlCachedEditors)
+                    hidden.TryAdd(key, es);
+                foreach (var entry in state.IlBackStack)
+                    if (entry.EditorKey is not null)
+                        hidden.TryAdd(entry.EditorKey, entry.EditorState);
+                hidden.Remove(state.IlEditorKey);
+
+                // Wrap hidden editors in a ResponsiveWidget with always-false conditions.
+                // ResponsiveNode reconciles ALL branches (keeping EditorNodes alive with
+                // preserved scroll) but GetFocusableNodes only yields from the active branch.
+                // With all conditions false, no branch is active → hidden editors are excluded
+                // from the focus ring, preventing stale focus after method switches.
+                if (hidden.Count > 0)
+                {
+                    var branches = new List<ConditionalWidget>();
+                    foreach (var (key, es) in hidden)
+                    {
+                        branches.Add(new ConditionalWidget((_, _) => false,
+                            new StatePanelWidget(key, _ =>
+                                new ThemePanelWidget(
+                                    t => t
+                                        .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                                        .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                                    new EditorWidget(es)))));
+                    }
+                    children.Add(new ResponsiveWidget(branches).FixedHeight(0));
+                }
+
+                return new VStackWidget([.. children]).FillWidth().FillHeight();
+            }).FillWidth().FillHeight()
         ];
     }
 
@@ -527,6 +605,15 @@ public static class IlInspectorView
     }
 
     /// <summary>
+    /// Simulates a search-driven method switch for testing. Exercises the same code path
+    /// as search n/N when the match is in a different method.
+    /// </summary>
+    internal static void NavigateToMatchForTest(DotsiderState state, MethodDefInfo method)
+    {
+        NavigateToMatch(state, new IlMatch(method, 1, 1, 1));
+    }
+
+    /// <summary>
     /// Navigates to a specific text match, switching methods and expanding tree nodes as needed.
     /// </summary>
     private static void NavigateToMatch(DotsiderState state, IlMatch match)
@@ -542,10 +629,14 @@ public static class IlInspectorView
                 ? typeDef.Namespace : "(global)";
             state.IlTreeExpansionState[$"ns:{ns}"] = true;
             state.IlTreeExpansionState[$"type:{match.Method.DeclaringType}"] = true;
+
+            // When method switches, the old editor moves to the hidden cache.
+            // Request focus on the visible editor so input stays on the displayed method.
+            state.App.RequestFocus(node => node is EditorNode);
         }
 
         // Focus the method row in the tree table
-        state.IlFocusedTreeKey = $"method:{match.Method.Token}";
+        state.SetIlFocusedTreeKey($"method:{match.Method.Token}");
 
         // Set pending cursor match — consumed by BuildEditorPane on next frame
         state.IlPendingCursorMatch = match;

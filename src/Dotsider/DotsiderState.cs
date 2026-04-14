@@ -206,6 +206,24 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Navigation decoration provider that underlines navigable IL operands.</summary>
     public IlNavigationDecorationProvider IlNavigationProvider { get; } = new();
 
+    /// <summary>Identity key for the current editor's StatePanelWidget (per-method/field, reference-equal).</summary>
+    internal object? IlEditorKey { get; set; }
+
+    /// <summary>Stable parent StatePanelWidget key for the editor scope.</summary>
+    internal object IlEditorScopeKey { get; } = new object();
+
+    /// <summary>Maps (analyzer, token) to stable key objects for StatePanelWidget identity.</summary>
+    internal Dictionary<(AssemblyAnalyzer, int), object> IlEditorKeyCache { get; } = [];
+
+    /// <summary>Cached editor states for editors not currently visible (analogous to old SavedEditors).</summary>
+    internal Dictionary<object, EditorState> IlCachedEditors { get; } = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The field currently loaded in the editor, for staleness detection.</summary>
+    internal FieldDefInfo? IlEditorField { get; set; }
+
+    /// <summary>Cached tree list node for per-render SelectedIndex sync.</summary>
+    internal ListNode? IlTreeListNode { get; set; }
+
     /// <summary>Whether the first key of a gd chord has been pressed.</summary>
     public bool IlGdPending { get; set; }
 
@@ -607,7 +625,7 @@ public sealed class DotsiderState : IDisposable
         IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
 
         IlSelectedMethod = method;
-        IlFocusedTreeKey = $"method:{method.Token}";
+        SetIlFocusedTreeKey($"method:{method.Token}");
 
         NavigateToTab(TabId.IlInspector);
         var ilSearch = Search[TabId.IlInspector];
@@ -659,7 +677,7 @@ public sealed class DotsiderState : IDisposable
                 IlSelectedMethod = method;
                 IlSelectedField = null;
                 ExpandIlTreeForMethod(method);
-                IlFocusedTreeKey = $"method:{method.Token}";
+                SetIlFocusedTreeKey($"method:{method.Token}");
                 App.RequestFocus(node => node is EditorNode);
                 App.Invalidate();
                 return true;
@@ -667,7 +685,7 @@ public sealed class DotsiderState : IDisposable
             case IlNavigationTarget.LocalType(var type):
                 PushIlBackEntry(false);
                 IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
-                IlFocusedTreeKey = $"type:{type.FullName}";
+                SetIlFocusedTreeKey($"type:{type.FullName}");
                 App.RequestFocus(node => node is ListNode);
                 App.Invalidate();
                 return true;
@@ -681,7 +699,7 @@ public sealed class DotsiderState : IDisposable
                 IlEditorAnalyzer = null;
                 IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
                 IlTreeExpansionState[$"type:{dt.FullName}"] = true;
-                IlFocusedTreeKey = $"type:{dt.FullName}";
+                SetIlFocusedTreeKey($"type:{dt.FullName}");
                 App.RequestFocus(node => node is ListNode);
                 App.Invalidate();
                 return true;
@@ -718,17 +736,37 @@ public sealed class DotsiderState : IDisposable
     /// <param name="entry">The back entry to restore from.</param>
     internal void RestoreFromIlBackEntry(IlBackEntry entry)
     {
+        // Save outgoing editor to cache before PopAssembly may clear it
+        if (IlEditorKey is not null && IlEditorState is not null)
+        {
+            IlCachedEditors[IlEditorKey] = IlEditorState;
+        }
+
         if (entry.CrossAssembly && NavigationStack.Count > 0)
-            PopAssembly();
+        {
+            PopAssembly(); // Calls ResetViewState → clears IlEditorKeyCache + IlCachedEditors
+        }
+        
         IlSelectedMethod = entry.Method;
         IlSelectedField = null;
         IlEditorState = entry.EditorState;
         IlEditorMethod = entry.EditorMethod;
         IlEditorAnalyzer = entry.EditorAnalyzer;
-        IlFocusedTreeKey = entry.FocusedTreeKey;
+        IlEditorField = null;
+        SetIlFocusedTreeKey(entry.FocusedTreeKey);
         IlTreeExpansionState.Clear();
         foreach (var (k, v) in entry.TreeExpansionState)
             IlTreeExpansionState[k] = v;
+
+        // Restore editor identity key and reseed the cache so future
+        // GetOrCreateEditorKey calls return the same key object.
+        IlEditorKey = entry.EditorKey;
+        if (entry.EditorKey is not null)
+        {
+            IlEditorKeyCache[(entry.EditorAnalyzer, entry.EditorMethod.Token)] = entry.EditorKey;
+            IlCachedEditors.Remove(entry.EditorKey);
+        }
+
         // Restore instruction list for navigation decorations
         if (IlDisassembler is not null)
         {
@@ -738,8 +776,35 @@ public sealed class DotsiderState : IDisposable
             IlNavigationProvider.Instructions = IlInstructions;
             IlNavigationProvider.HeaderLineCount = IlHeaderLineCount;
         }
+
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
+    }
+
+    /// <summary>
+    /// Sets <see cref="IlFocusedTreeKey"/> programmatically. Use this instead of direct
+    /// assignment at all non-user-driven mutation sites.
+    /// </summary>
+    internal void SetIlFocusedTreeKey(object? key)
+    {
+        IlFocusedTreeKey = key;
+    }
+
+    /// <summary>
+    /// Returns a stable identity key for the given method/field token within an analyzer.
+    /// Same (analyzer, token) pair always returns the same reference, which is required
+    /// by <see cref="StatePanelWidget"/> reference-equality matching.
+    /// </summary>
+    internal object GetOrCreateEditorKey(AssemblyAnalyzer analyzer, int token)
+    {
+        var cacheKey = (analyzer, token);
+        if (!IlEditorKeyCache.TryGetValue(cacheKey, out var key))
+        {
+            key = new object();
+            IlEditorKeyCache[cacheKey] = key;
+        }
+
+        return key;
     }
 
     /// <summary>
@@ -752,17 +817,26 @@ public sealed class DotsiderState : IDisposable
         var gen = ++TransientNoticeGeneration;
         _ = Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ =>
         {
-            if (TransientNoticeGeneration == gen) { TransientNotice = null; App.Invalidate(); }
+            if (TransientNoticeGeneration == gen)
+            {
+                TransientNotice = null;
+                App.Invalidate();
+            }
         }, TaskScheduler.Default);
     }
 
     private void PushIlBackEntry(bool crossAssembly)
     {
         if (IlSelectedMethod is null || IlEditorState is null
-            || IlEditorMethod is null || IlEditorAnalyzer is null) return;
+            || IlEditorMethod is null || IlEditorAnalyzer is null)
+        {
+            return;
+        }
+
         IlBackStack.Push(new IlBackEntry(
             IlSelectedMethod, IlEditorState, IlEditorMethod, IlEditorAnalyzer,
-            IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly));
+            IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly,
+            IlEditorKey));
     }
 
     private void ExpandIlTreeForMethod(MethodDefInfo method)
@@ -780,7 +854,12 @@ public sealed class DotsiderState : IDisposable
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, declaringType,
             Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
-        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        if (resolved is null)
+        {
+            ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
+            return false;
+        }
+
         AssemblyAnalyzer probe;
         try
         {
@@ -791,7 +870,11 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
+        catch
+        {
+            ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
+            return false;
+        }
 
         // Filter by declaring type first to avoid cross-type name collisions.
         // Always scope to declaring type when available — don't fall back to unscoped.
@@ -805,16 +888,23 @@ public sealed class DotsiderState : IDisposable
         {
             candidates = [.. probe.MethodDefs.Where(m => m.Name == memberName)];
         }
+
         MethodDefInfo? methodTarget = candidates.Count == 1 ? candidates[0]
             : candidates.Count > 1 && !string.IsNullOrEmpty(signature)
                 ? (candidates.FirstOrDefault(m => m.Signature == signature) ?? candidates[0])
             : candidates.Count > 0 ? candidates[0] : null;
-        if (methodTarget is null) { probe.Dispose(); ShowTransientNotice($"Method {memberName} not found in {assemblyName}"); return false; }
+        if (methodTarget is null)
+        {
+            probe.Dispose();
+            ShowTransientNotice($"Method {memberName} not found in {assemblyName}");
+            return false;
+        }
+
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
         IlSelectedMethod = methodTarget;
         ExpandIlTreeForMethod(methodTarget);
-        IlFocusedTreeKey = $"method:{methodTarget.Token}";
+        SetIlFocusedTreeKey($"method:{methodTarget.Token}");
         NavigateToTab(TabId.IlInspector);
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
@@ -826,7 +916,12 @@ public sealed class DotsiderState : IDisposable
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, typeRef.FullName,
             Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
-        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        if (resolved is null)
+        {
+            ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
+            return false;
+        }
+
         AssemblyAnalyzer probe;
         try
         {
@@ -837,13 +932,24 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
+        catch
+        {
+            ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
+            return false;
+        }
+
         var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName);
-        if (typeTarget is null) { probe.Dispose(); ShowTransientNotice($"Type {typeRef.Name} not found"); return false; }
+        if (typeTarget is null)
+        {
+            probe.Dispose();
+            ShowTransientNotice($"Type {typeRef.Name} not found");
+            return false;
+        }
+
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
         IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(typeTarget.Namespace) ? typeTarget.Namespace : "(global)")}"] = true;
-        IlFocusedTreeKey = $"type:{typeTarget.FullName}";
+        SetIlFocusedTreeKey($"type:{typeTarget.FullName}");
         NavigateToTab(TabId.IlInspector);
         App.RequestFocus(node => node is ListNode);
         App.Invalidate();
@@ -856,7 +962,12 @@ public sealed class DotsiderState : IDisposable
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, declaringType,
             Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
-        if (resolved is null) { ShowTransientNotice($"Cannot resolve assembly: {assemblyName}"); return false; }
+        if (resolved is null)
+        {
+            ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
+            return false;
+        }
+
         AssemblyAnalyzer probe;
         try
         {
@@ -867,7 +978,12 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch { ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}"); return false; }
+        catch
+        {
+            ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
+            return false;
+        }
+
         // Scope field lookup by declaring type when available
         FieldDefInfo? fieldTarget = null;
         if (declaringType is not null)
@@ -879,15 +995,27 @@ public sealed class DotsiderState : IDisposable
         {
             fieldTarget = probe.FieldDefs.FirstOrDefault(f => f.Name == fieldName);
         }
-        if (fieldTarget is null) { probe.Dispose(); ShowTransientNotice($"Field {fieldName} not found"); return false; }
+
+        if (fieldTarget is null)
+        {
+            probe.Dispose();
+            ShowTransientNotice($"Field {fieldName} not found");
+            return false;
+        }
+
         var dt = probe.TypeDefs.FirstOrDefault(t => t.FullName == fieldTarget.DeclaringType);
-        if (dt is null) { probe.Dispose(); return false; }
+        if (dt is null)
+        {
+            probe.Dispose();
+            return false;
+        }
+        
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
         IlSelectedField = fieldTarget;
         IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
         IlTreeExpansionState[$"type:{dt.FullName}"] = true;
-        IlFocusedTreeKey = $"type:{dt.FullName}";
+        SetIlFocusedTreeKey($"type:{dt.FullName}");
         NavigateToTab(TabId.IlInspector);
         App.RequestFocus(node => node is ListNode);
         App.Invalidate();
@@ -920,7 +1048,10 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public void NavigateBack()
     {
-        if (CrossViewBackTarget is not { } back) return;
+        if (CrossViewBackTarget is not { } back)
+        {
+             return;
+        }
 
         CrossViewBackTarget = null;
         NavigateToTab(back.Tab);
@@ -963,6 +1094,7 @@ public sealed class DotsiderState : IDisposable
             if (rva >= section.VirtualAddress && rva < section.VirtualAddress + section.VirtualSize)
                 return rva - section.VirtualAddress + section.RawDataOffset;
         }
+        
         return -1;
     }
 
@@ -1091,13 +1223,18 @@ public sealed class DotsiderState : IDisposable
         PeSubTab = 0;
         PeFocusedKey = null;
         PeDetailContent = null;
-        IlFocusedTreeKey = null;
+        SetIlFocusedTreeKey(null);
         IlSelectedMethod = null;
         IlSelectedField = null;
         IlTreeExpansionState.Clear();
         IlEditorState = null;
         IlEditorMethod = null;
         IlEditorAnalyzer = null;
+        IlEditorKey = null;
+        IlEditorField = null;
+        IlTreeListNode = null;
+        IlEditorKeyCache.Clear();
+        IlCachedEditors.Clear();
         IlPrevSelectionAnchor = null;
         IlPrevCursorPosition = null;
         IlSearchMatches = [];
