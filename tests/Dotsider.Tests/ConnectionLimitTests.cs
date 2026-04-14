@@ -58,6 +58,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         return _listener.SocketPath!;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -72,6 +75,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         if (_terminal is not null) await _terminal.DisposeAsync();
     }
 
+    /// <summary>
+    /// Verifies four connections all succeed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task FourConnections_AllSucceed()
     {
@@ -88,6 +94,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.All(responses, r => Assert.True(r.Success));
     }
 
+    /// <summary>
+    /// Verifies fifth connection is rejected.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task FifthConnection_IsRejected()
     {
@@ -131,6 +140,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         }
     }
 
+    /// <summary>
+    /// Verifies slot freed allows new connection.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SlotFreed_AllowsNewConnection()
     {
@@ -177,6 +189,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.True(response.Success);
     }
 
+    /// <summary>
+    /// Verifies stalled client times out.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StalledClient_TimesOut()
     {
@@ -197,6 +212,9 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.True(response.Success);
     }
 
+    /// <summary>
+    /// Verifies shutdown with active connections completes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ShutdownWithActiveConnections_Completes()
     {

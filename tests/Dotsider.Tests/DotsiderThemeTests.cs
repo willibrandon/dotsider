@@ -2,6 +2,9 @@ using Hex1b.Theming;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Dotsider Theme.
+/// </summary>
 public class DotsiderThemeTests
 {
     /// <summary>

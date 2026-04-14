@@ -109,6 +109,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         _app!.Invalidate();
     }
 
+    /// <summary>
+    /// Verifies navigate via socket changes dll tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Navigate_ViaSocket_ChangesDllTab()
     {
@@ -134,6 +137,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.Equal(TabId.Strings, _nugetState.SelectedDllState.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies get current view reflects navigated tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetCurrentView_ReflectsNavigatedTab()
     {
@@ -166,6 +172,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
             data.Value.GetProperty("selectedDll").GetString());
     }
 
+    /// <summary>
+    /// Verifies get current view before dll opened shows browsing package.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetCurrentView_BeforeDllOpened_ShowsBrowsingPackage()
     {
@@ -185,6 +194,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.False(data.Value.TryGetProperty("tab", out _));
     }
 
+    /// <summary>
+    /// Verifies search via socket succeeds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Search_ViaSocket_Succeeds()
     {
@@ -199,6 +211,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.True(searchResponse.Success);
     }
 
+    /// <summary>
+    /// Verifies start trace fails for library dll.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StartTrace_FailsForLibraryDll()
     {
@@ -214,6 +229,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.Contains("entry point", traceResponse.Error, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies navigate before dll opened fails.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Navigate_BeforeDllOpened_Fails()
     {
@@ -226,6 +244,9 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         Assert.False(navResponse.Success);
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

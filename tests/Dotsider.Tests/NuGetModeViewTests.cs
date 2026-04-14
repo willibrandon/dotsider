@@ -5,6 +5,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Nu Get Mode View.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -37,6 +40,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies nu get app launches shows package info.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task NuGetApp_Launches_ShowsPackageInfo()
     {
@@ -55,6 +61,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies nu get app shows file list.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task NuGetApp_ShowsFileList()
     {
@@ -75,6 +84,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies quit key exits nu get app.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task QuitKey_ExitsNuGetApp()
     {
@@ -94,6 +106,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
+    /// <summary>
+    /// Verifies enter on dll row opens dll inspector.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Enter_OnDllRow_OpensDllInspector()
     {
@@ -120,6 +135,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies search activates and dismisses.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Search_ActivatesAndDismisses()
     {
@@ -146,6 +164,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies dll inspector depth limit shows error in hints bar.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DllInspector_DepthLimit_ShowsErrorInHintsBar()
     {
@@ -190,6 +211,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

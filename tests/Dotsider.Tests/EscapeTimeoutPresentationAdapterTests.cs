@@ -7,6 +7,9 @@ using Hex1b.Input;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Escape Timeout Presentation Adapter.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples)
 {
@@ -107,6 +110,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     // Adapter integration tests
     // ========================================
 
+    /// <summary>
+    /// Verifies standalone escape produces escape event.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StandaloneEscape_ProducesEscapeEvent()
     {
@@ -148,6 +154,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.Contains("escape", events);
     }
 
+    /// <summary>
+    /// Verifies split escape sequence within timeout produces up arrow.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SplitEscapeSequence_WithinTimeout_ProducesUpArrow()
     {
@@ -192,6 +201,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.DoesNotContain("escape", events);
     }
 
+    /// <summary>
+    /// Verifies complete escape sequence single read produces up arrow.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task CompleteEscapeSequence_SingleRead_ProducesUpArrow()
     {
@@ -235,6 +247,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.DoesNotContain("escape", events);
     }
 
+    /// <summary>
+    /// Verifies coalesced prefix and esc i before escape.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task CoalescedPrefixAndEsc_IBeforeEscape()
     {
@@ -282,6 +297,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.True(iIndex < escIndex, $"Expected 'i' before 'escape', got i={iIndex} esc={escIndex}");
     }
 
+    /// <summary>
+    /// Verifies standalone esc then literal bracket not combined into csi.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StandaloneEsc_ThenLiteralBracket_NotCombinedIntoCsi()
     {
@@ -334,6 +352,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.DoesNotContain("up", events);
     }
 
+    /// <summary>
+    /// Verifies standalone escape followed by mouse event produces escape event.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StandaloneEscape_FollowedByMouseEvent_ProducesEscapeEvent()
     {
@@ -512,6 +533,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     // Raw-Escape user-path tests with real DotsiderApp
     // ========================================
 
+    /// <summary>
+    /// Verifies raw escape exits hex insert mode.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task RawEscape_ExitsHexInsertMode()
     {
@@ -566,6 +590,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.True(state.HexEditorState.IsReadOnly);
     }
 
+    /// <summary>
+    /// Verifies raw escape dismisses editing search.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task RawEscape_DismissesEditingSearch()
     {
@@ -618,6 +645,9 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         Assert.False(state.Search[state.CurrentTab].IsActive);
     }
 
+    /// <summary>
+    /// Verifies raw escape dismisses confirmed search.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task RawEscape_DismissesConfirmedSearch()
     {

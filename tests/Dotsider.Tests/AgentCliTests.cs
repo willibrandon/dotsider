@@ -24,6 +24,9 @@ public class AgentCliTests
         return "Debug";
     }
 
+    /// <summary>
+    /// Verifies agent init stdout writes skill content.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_Stdout_WritesSkillContent()
     {
@@ -36,6 +39,9 @@ public class AgentCliTests
         Assert.Contains("dotsider sessions", stdout);
     }
 
+    /// <summary>
+    /// Verifies agent init with path creates file.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_WithPath_CreatesFile()
     {
@@ -59,6 +65,9 @@ public class AgentCliTests
         }
     }
 
+    /// <summary>
+    /// Verifies agent init no force errors if exists.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_NoForce_ErrorsIfExists()
     {
@@ -84,6 +93,9 @@ public class AgentCliTests
         }
     }
 
+    /// <summary>
+    /// Verifies agent init force overwrites existing.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_Force_OverwritesExisting()
     {
@@ -110,6 +122,9 @@ public class AgentCliTests
         }
     }
 
+    /// <summary>
+    /// Verifies agent init with ai creates correct path.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_WithAi_CreatesCorrectPath()
     {
@@ -135,6 +150,9 @@ public class AgentCliTests
         }
     }
 
+    /// <summary>
+    /// Verifies agent init no args shows usage error.
+    /// </summary>
     [Fact]
     public async Task Agent_Init_NoArgs_ShowsUsageError()
     {
@@ -147,6 +165,9 @@ public class AgentCliTests
         Assert.Contains("--stdout", stderr);
     }
 
+    /// <summary>
+    /// Verifies agent help shows subcommands.
+    /// </summary>
     [Fact]
     public async Task Agent_Help_ShowsSubcommands()
     {

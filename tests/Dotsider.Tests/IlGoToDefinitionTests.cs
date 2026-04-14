@@ -7,6 +7,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Il Go To Definition.
+/// </summary>
 [Collection("SampleAssemblies")]
 public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -83,6 +86,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Resolver unit tests ---
 
+    /// <summary>
+    /// Verifies resolve method def returns local method.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Resolve_MethodDef_ReturnsLocalMethod()
     {
@@ -96,6 +102,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Equal("LocalTarget", localMethod.Method.Name);
     }
 
+    /// <summary>
+    /// Verifies resolve field def returns local field.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Resolve_FieldDef_ReturnsLocalField()
     {
@@ -108,6 +117,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             IlNavigationResolver.Resolve(analyzer, fieldInst.MetadataToken!.Value)).Field.Name);
     }
 
+    /// <summary>
+    /// Verifies disassemble with text header and instruction counts match.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void DisassembleWithText_HeaderAndInstructionCountsMatch()
     {
@@ -123,6 +135,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Full end-to-end UI tests ---
 
+    /// <summary>
+    /// Verifies go to def enter screen shows target method il.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task GoToDef_Enter_ScreenShowsTargetMethodIL()
     {
@@ -152,6 +167,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies esc back screen restores original method il.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task EscBack_ScreenRestoresOriginalMethodIL()
     {
@@ -188,6 +206,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies esc back cursor position restored exactly.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task EscBack_CursorPositionRestoredExactly()
     {
@@ -230,6 +251,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies esc back scroll works after restore.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task EscBack_ScrollWorksAfterRestore()
     {
@@ -269,6 +293,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies esc back tree state restored.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task EscBack_TreeStateRestored()
     {
@@ -305,6 +332,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         cts.Cancel();
         await runTask;
     }
+    /// <summary>
+    /// Verifies diagnostic escape handler fires state changes.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Diagnostic_EscapeHandlerFires_StateChanges()
     {
@@ -341,6 +371,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies cross assembly back stack survives reset view state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CrossAssembly_BackStackSurvivesResetViewState()
     {
@@ -383,6 +416,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         }
     }
 
+    /// <summary>
+    /// Verifies local field go to def clears selected method.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void LocalField_GoToDef_ClearsSelectedMethod()
     {
@@ -418,6 +454,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Equal("ReadInstanceField", state.IlSelectedMethod?.Name);
     }
 
+    /// <summary>
+    /// Verifies normal push assembly clears il back stack.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NormalPushAssembly_ClearsIlBackStack()
     {
@@ -449,6 +488,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Empty(state.IlBackStack);
     }
 
+    /// <summary>
+    /// Verifies external method filters by declaring type.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ExternalMethod_FiltersByDeclaringType()
     {
@@ -470,6 +512,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Contains("Console", extMethod.DeclaringType);
     }
 
+    /// <summary>
+    /// Verifies net fx external method navigates to mscorlib method.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NetFx_ExternalMethod_NavigatesToMscorlibMethod()
     {
@@ -510,6 +555,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Equal("System.Console", state.IlSelectedMethod.DeclaringType);
     }
 
+    /// <summary>
+    /// Verifies mscorlib resolver type forwarders find correct assembly.
+    /// </summary>
     [Theory(Timeout = 30_000)]
     [InlineData("System.Console", "System.Console")]
     [InlineData("System.Object", "System.Private.CoreLib")]
@@ -527,6 +575,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Contains(expectedAssembly, Path.GetFileNameWithoutExtension(fromFile.Path));
     }
 
+    /// <summary>
+    /// Verifies mscorlib resolver nested type forwarder follows parent chain.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MscorlibResolver_NestedTypeForwarder_FollowsParentChain()
     {
@@ -544,6 +595,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Equal(parent, nested);
     }
 
+    /// <summary>
+    /// Verifies external method navigates to correct declaring type.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ExternalMethod_NavigatesToCorrectDeclaringType()
     {
@@ -579,6 +633,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         }
     }
 
+    /// <summary>
+    /// Verifies external field navigation sets il selected field.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ExternalField_NavigationSetsIlSelectedField()
     {

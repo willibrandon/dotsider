@@ -24,7 +24,9 @@ public class IlDisassemblerBenchmarks
     private IlDisassembler _xmlDisasm = null!;
     private MethodDefInfo _representativeMethod = null!;
 
-    /// <summary>Opens BCL analyzers, wires up disassemblers, and picks a representative method with a non-trivial body.</summary>
+    /// <summary>
+    /// Opens BCL analyzers, wires up disassemblers, and picks a representative method with a non-trivial body.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -52,7 +54,9 @@ public class IlDisassemblerBenchmarks
         _representativeMethod ??= _coreLibAnalyzer.MethodDefs[0];
     }
 
-    /// <summary>Disposes the shared analyzers.</summary>
+    /// <summary>
+    /// Disposes the shared analyzers.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -60,7 +64,9 @@ public class IlDisassemblerBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
-    /// <summary>Disassembles every CoreLib method body to instruction streams, summing total instruction count.</summary>
+    /// <summary>
+    /// Disassembles every CoreLib method body to instruction streams, summing total instruction count.
+    /// </summary>
     [Benchmark(Description = "CoreLib DisassembleAll")]
     public int CoreLib_DisassembleAll()
     {
@@ -77,7 +83,9 @@ public class IlDisassemblerBenchmarks
         return count;
     }
 
-    /// <summary>Disassembles every Xml method body to instruction streams.</summary>
+    /// <summary>
+    /// Disassembles every Xml method body to instruction streams.
+    /// </summary>
     [Benchmark(Description = "Xml DisassembleAll")]
     public int Xml_DisassembleAll()
     {
@@ -94,7 +102,9 @@ public class IlDisassemblerBenchmarks
         return count;
     }
 
-    /// <summary>Adds full textual formatting on top of disassembly for every CoreLib method.</summary>
+    /// <summary>
+    /// Adds full textual formatting on top of disassembly for every CoreLib method.
+    /// </summary>
     [Benchmark(Description = "CoreLib FormatAll")]
     public int CoreLib_FormatAll()
     {
@@ -110,7 +120,9 @@ public class IlDisassemblerBenchmarks
         return totalLen;
     }
 
-    /// <summary>Full textual formatting across every Xml method.</summary>
+    /// <summary>
+    /// Full textual formatting across every Xml method.
+    /// </summary>
     [Benchmark(Description = "Xml FormatAll")]
     public int Xml_FormatAll()
     {
@@ -128,7 +140,9 @@ public class IlDisassemblerBenchmarks
 
     // --- Single-method benchmarks (used on every method selection in the UI) ---
 
-    /// <summary>Measures the DisassembleWithText hot path invoked on every UI method selection.</summary>
+    /// <summary>
+    /// Measures the DisassembleWithText hot path invoked on every UI method selection.
+    /// </summary>
     [Benchmark(Description = "CoreLib DisassembleWithText single method")]
     [BenchmarkCategory("SingleMethod")]
     public int CoreLib_DisassembleWithText_SingleMethod()
@@ -137,7 +151,9 @@ public class IlDisassemblerBenchmarks
         return result?.Text.Length ?? 0;
     }
 
-    /// <summary>Measures the GetHeaderLineCount fast path used for cursor positioning in the IL view.</summary>
+    /// <summary>
+    /// Measures the GetHeaderLineCount fast path used for cursor positioning in the IL view.
+    /// </summary>
     [Benchmark(Description = "CoreLib GetHeaderLineCount single method")]
     [BenchmarkCategory("SingleMethod")]
     public int CoreLib_GetHeaderLineCount_SingleMethod()

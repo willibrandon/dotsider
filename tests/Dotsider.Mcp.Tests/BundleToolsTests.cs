@@ -8,6 +8,9 @@ namespace Dotsider.Mcp.Tests;
 [Collection("SampleAssemblies")]
 public class BundleToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// get_bundle_info on a self-contained apphost surfaces bundle flag and file count.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetBundleInfo_ReturnsBundleMetadata()
     {
@@ -25,6 +28,9 @@ public class BundleToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(json.GetProperty("fileCount").GetInt32() > 0);
     }
 
+    /// <summary>
+    /// Non-bundle input returns false without false-positive bundle detection.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetBundleInfo_NonBundle_ReturnsFalse()
     {
@@ -41,6 +47,9 @@ public class BundleToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.False(json.GetProperty("isBundle").GetBoolean());
     }
 
+    /// <summary>
+    /// list_bundle_entries enumerates the files packed inside a single-file apphost.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListBundleEntries_ReturnsEntries()
     {
@@ -58,6 +67,9 @@ public class BundleToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(entries.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// Tool registry exposes both bundle tools by their expected identifiers.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListTools_IncludesBundleTools()
     {

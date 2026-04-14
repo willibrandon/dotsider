@@ -47,6 +47,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         return "Debug";
     }
 
+    /// <summary>
+    /// Prepares the fixture state before tests execute.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         _packageAnalyzer = new NuGetPackageAnalyzer(_samples.RichLibraryNupkg);
@@ -77,6 +80,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -86,6 +92,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
 
     // --- Session discovery tests ---
 
+    /// <summary>
+    /// Verifies sessions list finds nuget mode instance.
+    /// </summary>
     [Fact]
     public async Task SessionsList_FindsNugetModeInstance()
     {
@@ -101,6 +110,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.Contains(".nupkg", nugetSession.Value.GetProperty("fileName").GetString());
     }
 
+    /// <summary>
+    /// Verifies sessions list table output shows nuget mode.
+    /// </summary>
     [Fact]
     public async Task SessionsList_TableOutput_ShowsNugetMode()
     {
@@ -113,6 +125,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
 
     // --- Direct socket tests ---
 
+    /// <summary>
+    /// Verifies nuget listener responds with real package data.
+    /// </summary>
     [Fact]
     public async Task NugetListener_RespondsWithRealPackageData()
     {
@@ -133,6 +148,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.True(data.Value.GetProperty("dllCount").GetInt32() > 0);
     }
 
+    /// <summary>
+    /// Verifies nuget listener returns current view browsing package.
+    /// </summary>
     [Fact]
     public async Task NugetListener_ReturnsCurrentView_BrowsingPackage()
     {
@@ -151,6 +169,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.False(data.Value.TryGetProperty("tab", out _));
     }
 
+    /// <summary>
+    /// Verifies nuget listener returns current view dll selected.
+    /// </summary>
     [Fact]
     public async Task NugetListener_ReturnsCurrentView_DllSelected()
     {
@@ -174,6 +195,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.Equal("RichLibrary.dll", data.Value.GetProperty("selectedDll").GetString());
     }
 
+    /// <summary>
+    /// Verifies nuget listener rejects unsupported methods.
+    /// </summary>
     [Fact]
     public async Task NugetListener_RejectsUnsupportedMethods()
     {
@@ -188,6 +212,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
 
     // --- CLI sessions info/view tests ---
 
+    /// <summary>
+    /// Verifies sessions info returns nuget mode data.
+    /// </summary>
     [Fact]
     public async Task SessionsInfo_ReturnsNugetModeData()
     {
@@ -210,6 +237,9 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         Assert.True(view.TryGetProperty("isBrowsingPackage", out _));
     }
 
+    /// <summary>
+    /// Verifies sessions view returns nuget mode view state.
+    /// </summary>
     [Fact]
     public async Task SessionsView_ReturnsNugetModeViewState()
     {

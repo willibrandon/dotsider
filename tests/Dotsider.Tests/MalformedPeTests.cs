@@ -3,6 +3,9 @@ using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Malformed Pe.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class MalformedPeTests(SampleAssemblyFixture samples)
 {
@@ -247,6 +250,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         yield return ("bitrot/random-ranges", trailingBitRot);
     }
 
+    /// <summary>
+    /// Verifies all malformed binaries throw or construct never crash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllMalformedBinaries_ThrowOrConstruct_NeverCrash()
     {
@@ -278,6 +284,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies zero byte file throws bad image format.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ZeroByteFile_ThrowsBadImageFormat()
     {
@@ -296,6 +305,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies four byte junk throws bad image format.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FourByteJunk_ThrowsBadImageFormat()
     {
@@ -305,6 +317,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         });
     }
 
+    /// <summary>
+    /// Verifies truncated mz header throws bad image format.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void TruncatedMzHeader_ThrowsBadImageFormat()
     {
@@ -324,6 +339,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies valid pe header truncated before metadata throws bad image format.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ValidPeHeader_TruncatedBeforeMetadata_ThrowsBadImageFormat()
     {
@@ -346,6 +364,9 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies push assembly malformed file returns false and preserves state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_MalformedFile_ReturnsFalseAndPreservesState()
     {

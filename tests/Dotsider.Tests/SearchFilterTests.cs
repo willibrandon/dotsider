@@ -27,6 +27,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
+    /// <summary>
+    /// Verifies strings empty query returns all.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Strings_EmptyQuery_ReturnsAll()
     {
@@ -38,6 +41,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(all);
     }
 
+    /// <summary>
+    /// Verifies strings with query filters results.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Strings_WithQuery_FiltersResults()
     {
@@ -59,6 +65,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies strings no match returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Strings_NoMatch_ReturnsEmpty()
     {
@@ -71,6 +80,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(filtered);
     }
 
+    /// <summary>
+    /// Verifies strings case insensitive.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Strings_CaseInsensitive()
     {
@@ -88,6 +100,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies assembly refs filter by name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AssemblyRefs_FilterByName()
     {
@@ -106,6 +121,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies special characters no regex error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SpecialCharacters_NoRegexError()
     {
@@ -119,6 +137,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(filtered);
     }
 
+    /// <summary>
+    /// Verifies diff entries filter by type name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void DiffEntries_FilterByTypeName()
     {
@@ -138,6 +159,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _app?.Dispose();

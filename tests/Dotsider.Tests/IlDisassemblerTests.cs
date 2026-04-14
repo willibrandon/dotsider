@@ -2,9 +2,15 @@ using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Il Disassembler.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class IlDisassemblerTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies hello world main method contains call and ret.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_MainMethod_ContainsCallAndRet()
     {
@@ -17,6 +23,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains(instructions, i => i.OpCode.Contains("ret"));
     }
 
+    /// <summary>
+    /// Verifies rich library user service add disassembles successfully.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_UserServiceAdd_DisassemblesSuccessfully()
     {
@@ -29,6 +38,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
+    /// <summary>
+    /// Verifies native lib unsafe method has distinct opcodes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_UnsafeMethod_HasDistinctOpcodes()
     {
@@ -40,6 +52,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
+    /// <summary>
+    /// Verifies format disassembly returns readable text.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatDisassembly_ReturnsReadableText()
     {
@@ -52,6 +67,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains("IL_", text);
     }
 
+    /// <summary>
+    /// Verifies all rich library methods disassemble without throwing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllRichLibraryMethods_DisassembleWithoutThrowing()
     {
@@ -64,6 +82,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies method with no body returns empty list.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MethodWithNoBody_ReturnsEmptyList()
     {
@@ -78,6 +99,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies empty lib can construct no methods to disassemble.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLib_CanConstruct_NoMethodsToDisassemble()
     {
@@ -88,6 +112,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.True(methodsWithIl.Count <= 2);
     }
 
+    /// <summary>
+    /// Verifies complex app async method disassembles successfully.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_AsyncMethod_DisassemblesSuccessfully()
     {
@@ -101,6 +128,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies minimal api methods disassemble without throwing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MinimalApi_Methods_DisassembleWithoutThrowing()
     {
@@ -113,6 +143,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies disassemble instruction has offset.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Disassemble_InstructionHasOffset()
     {
@@ -125,6 +158,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Equal(0, instructions[0].Offset);
     }
 
+    /// <summary>
+    /// Verifies native lib stack alloc sum has instructions.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_StackAllocSum_HasInstructions()
     {
@@ -136,6 +172,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(instructions);
     }
 
+    /// <summary>
+    /// Verifies instruction has op code and operand.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Instruction_HasOpCodeAndOperand()
     {
@@ -151,6 +190,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies format disassembly contains hex offsets.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatDisassembly_ContainsHexOffsets()
     {
@@ -161,6 +203,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.Contains("IL_0000", text);
     }
 
+    /// <summary>
+    /// Verifies complex app all methods disassemble without throwing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_AllMethods_DisassembleWithoutThrowing()
     {
@@ -173,6 +218,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies rich library method with string operand contains ldstr.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodWithStringOperand_ContainsLdstr()
     {
@@ -191,6 +239,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies rich library method with branches contains br.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodWithBranches_ContainsBr()
     {
@@ -209,6 +260,9 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies rich library method call instructions resolve tokens.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodCallInstructions_ResolveTokens()
     {

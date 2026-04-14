@@ -3,18 +3,31 @@ using System.Runtime.InteropServices;
 
 namespace Dotsider.Website.Tests;
 
+/// <summary>
+/// Shared xUnit fixture that builds and exposes sample assemblies used across website tests.
+/// </summary>
 public class SampleAssemblyFixture : IAsyncLifetime
 {
     private string _repoRoot = null!;
 
+    /// <summary>
+    /// Path to the built RichLibrary.dll sample assembly.
+    /// </summary>
     public string RichLibraryDll { get; private set; } = null!;
 
-    /// <summary>Directory containing the published single-file Website and RichLibrary.dll.</summary>
+    /// <summary>
+    /// Directory containing the published single-file Website and RichLibrary.dll.
+    /// </summary>
     public string WebsitePublishedDir { get; private set; } = null!;
 
-    /// <summary>Path to the published single-file Website executable.</summary>
+    /// <summary>
+    /// Path to the published single-file Website executable.
+    /// </summary>
     public string WebsitePublishedExe { get; private set; } = null!;
 
+    /// <summary>
+    /// Builds the sample projects and publishes the website once per test collection.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         _repoRoot = GetRepoRoot();
@@ -35,6 +48,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
             Path.Combine(WebsitePublishedDir, "RichLibrary.dll"), overwrite: true);
     }
 
+    /// <summary>
+    /// Releases fixture resources; published artifacts are intentionally retained for inspection.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

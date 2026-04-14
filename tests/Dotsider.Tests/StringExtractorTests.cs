@@ -4,9 +4,15 @@ using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for String Extractor.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class StringExtractorTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies hello world user strings contain output text.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_UserStrings_ContainOutputText()
     {
@@ -18,6 +24,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Source == StringSource.UserStrings);
     }
 
+    /// <summary>
+    /// Verifies rich library metadata strings contain type names.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MetadataStrings_ContainTypeNames()
     {
@@ -28,6 +37,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("UserService"));
     }
 
+    /// <summary>
+    /// Verifies complex app user strings contain pipeline text.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_UserStrings_ContainPipelineText()
     {
@@ -37,6 +49,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(strings);
     }
 
+    /// <summary>
+    /// Verifies minimal api user strings contain endpoint paths.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MinimalApi_UserStrings_ContainEndpointPaths()
     {
@@ -47,6 +62,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("/hello") || s.Value.Contains("/echo"));
     }
 
+    /// <summary>
+    /// Verifies empty lib minimal strings.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLib_MinimalStrings()
     {
@@ -57,6 +75,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.True(userStrings.Count <= 5);
     }
 
+    /// <summary>
+    /// Verifies raw strings min length4 more than min length16.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RawStrings_MinLength4_MoreThanMinLength16()
     {
@@ -67,6 +88,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.True(raw4.Count >= raw16.Count);
     }
 
+    /// <summary>
+    /// Verifies raw strings default min length4.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RawStrings_Default_MinLength4()
     {
@@ -77,6 +101,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(raw, s => Assert.True(s.Value.Length >= 4));
     }
 
+    /// <summary>
+    /// Verifies metadata strings contain namespaces.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MetadataStrings_ContainNamespaces()
     {
@@ -86,6 +113,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("RichLibrary"));
     }
 
+    /// <summary>
+    /// Verifies user strings all have correct source.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void UserStrings_AllHaveCorrectSource()
     {
@@ -95,6 +125,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.UserStrings, s.Source));
     }
 
+    /// <summary>
+    /// Verifies metadata strings all have correct source.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MetadataStrings_AllHaveCorrectSource()
     {
@@ -104,6 +137,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.MetadataStrings, s.Source));
     }
 
+    /// <summary>
+    /// Verifies raw strings all have correct source.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RawStrings_AllHaveCorrectSource()
     {
@@ -113,6 +149,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(strings, s => Assert.Equal(StringSource.RawBinary, s.Source));
     }
 
+    /// <summary>
+    /// Verifies native lib has metadata strings.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_HasMetadataStrings()
     {
@@ -123,6 +162,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.Contains(strings, s => s.Value.Contains("NativeInterop") || s.Value.Contains("UnsafeOperations"));
     }
 
+    /// <summary>
+    /// Verifies raw strings min length8 all meet minimum.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RawStrings_MinLength8_AllMeetMinimum()
     {
@@ -133,6 +175,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(raw, s => Assert.True(s.Value.Length >= 8));
     }
 
+    /// <summary>
+    /// Verifies string entries have positive offsets.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void StringEntries_HavePositiveOffsets()
     {
@@ -144,6 +189,9 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
         Assert.All(metaStrings, s => Assert.True(s.Offset >= 0));
     }
 
+    /// <summary>
+    /// Verifies skipped counts zero for valid assembly.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SkippedCounts_ZeroForValidAssembly()
     {

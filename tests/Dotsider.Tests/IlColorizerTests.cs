@@ -18,12 +18,18 @@ public class IlColorizerTests
 
     // --- Passthrough cases ---
 
+    /// <summary>
+    /// Verifies empty line returns unchanged.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLine_ReturnsUnchanged()
     {
         Assert.Equal("", IlColorizer.ColorizeLine(""));
     }
 
+    /// <summary>
+    /// Verifies whitespace line returns unchanged.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void WhitespaceLine_ReturnsUnchanged()
     {
@@ -31,6 +37,9 @@ public class IlColorizerTests
         Assert.Equal(line, IlColorizer.ColorizeLine(line));
     }
 
+    /// <summary>
+    /// Verifies unrecognized line passes through.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void UnrecognizedLine_PassesThrough()
     {
@@ -40,6 +49,9 @@ public class IlColorizerTests
 
     // --- Comment coloring ---
 
+    /// <summary>
+    /// Verifies comment wrapped in comment color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Comment_WrappedInCommentColor()
     {
@@ -48,6 +60,9 @@ public class IlColorizerTests
         Assert.Equal($"{CommentFg}{line}{Reset}", result);
     }
 
+    /// <summary>
+    /// Verifies indented comment wrapped in comment color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IndentedComment_WrappedInCommentColor()
     {
@@ -58,6 +73,9 @@ public class IlColorizerTests
 
     // --- Instruction coloring ---
 
+    /// <summary>
+    /// Verifies opcode only colors address and opcode.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void OpcodeOnly_ColorsAddressAndOpcode()
     {
@@ -65,6 +83,9 @@ public class IlColorizerTests
         Assert.Equal($"{AddressFg}IL_0005:{Reset} {OpcodeFg}ret{Reset}", result);
     }
 
+    /// <summary>
+    /// Verifies opcode with non string operand preserves operand uncolored.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void OpcodeWithNonStringOperand_PreservesOperandUncolored()
     {
@@ -75,6 +96,9 @@ public class IlColorizerTests
         Assert.DoesNotContain(StringFg, result);
     }
 
+    /// <summary>
+    /// Verifies branch target preserves target label.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void BranchTarget_PreservesTargetLabel()
     {
@@ -83,6 +107,9 @@ public class IlColorizerTests
         Assert.Contains("IL_0010", result);
     }
 
+    /// <summary>
+    /// Verifies numeric operand preserves uncolored.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NumericOperand_PreservesUncolored()
     {
@@ -94,6 +121,9 @@ public class IlColorizerTests
 
     // --- String operand coloring ---
 
+    /// <summary>
+    /// Verifies string operand colored green.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void StringOperand_ColoredGreen()
     {
@@ -103,6 +133,9 @@ public class IlColorizerTests
         Assert.Contains($"{StringFg}\"hello world\"{Reset}", result);
     }
 
+    /// <summary>
+    /// Verifies escaped quotes stay single segment.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EscapedQuotes_StaySingleSegment()
     {
@@ -112,6 +145,9 @@ public class IlColorizerTests
         Assert.Equal(1, CountOccurrences(result, StringFg));
     }
 
+    /// <summary>
+    /// Verifies unmatched quote ends with reset.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void UnmatchedQuote_EndsWithReset()
     {
@@ -122,6 +158,9 @@ public class IlColorizerTests
 
     // --- Edge cases ---
 
+    /// <summary>
+    /// Verifies malformed il line no separator passes through.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MalformedIlLine_NoSeparator_PassesThrough()
     {
@@ -130,6 +169,9 @@ public class IlColorizerTests
         Assert.Equal(line, result);
     }
 
+    /// <summary>
+    /// Verifies empty body after separator colors address only.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyBodyAfterSeparator_ColorsAddressOnly()
     {
@@ -138,6 +180,9 @@ public class IlColorizerTests
         Assert.Equal("IL_0000:", result);
     }
 
+    /// <summary>
+    /// Verifies all resets paired instruction line.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllResetsPaired_InstructionLine()
     {
@@ -148,6 +193,9 @@ public class IlColorizerTests
         Assert.Equal(ansiOpens, resets);
     }
 
+    /// <summary>
+    /// Verifies all resets paired string operand.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllResetsPaired_StringOperand()
     {

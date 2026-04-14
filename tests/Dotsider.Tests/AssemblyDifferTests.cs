@@ -3,9 +3,15 @@ using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Assembly Differ.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class AssemblyDifferTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies rich library v1vs v2 has non empty diff.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryV1vsV2_HasNonEmptyDiff()
     {
@@ -16,6 +22,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(result.MethodDiffs);
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 type diffs i repository removed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_IRepositoryRemoved()
     {
@@ -26,6 +35,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left!.Name.Contains("IRepository"));
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 type diffs order added.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_OrderAdded()
     {
@@ -36,6 +48,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Added && d.Right!.Name == "Order");
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 ref diffs system text json removed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_RefDiffs_SystemTextJsonRemoved()
     {
@@ -46,6 +61,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left!.Name == "System.Text.Json");
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 summary has positive counts.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_Summary_HasPositiveCounts()
     {
@@ -57,6 +75,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.True(result.MetadataSummary.MethodsAdded > 0);
     }
 
+    /// <summary>
+    /// Verifies same assembly all unchanged.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SameAssembly_AllUnchanged()
     {
@@ -69,6 +90,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.DoesNotContain(result.MethodDiffs, d => d.Kind == DiffKind.Removed);
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 method diffs signature changes detected.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_MethodDiffs_SignatureChangesDetected()
     {
@@ -80,6 +104,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
                      result.MetadataSummary.MethodsAdded > 0);
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 ref diffs newtonsoft still present.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_RefDiffs_NewtonsoftStillPresent()
     {
@@ -91,6 +118,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
             d.Kind == DiffKind.Removed && d.Left?.Name == "Newtonsoft.Json");
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 size delta is non zero.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_SizeDelta_IsNonZero()
     {
@@ -100,6 +130,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.NotEqual(0, result.MetadataSummary.SizeDelta);
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 diff entries have correct kinds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_DiffEntries_HaveCorrectKinds()
     {
@@ -113,6 +146,9 @@ public class AssemblyDifferTests(SampleAssemblyFixture samples)
         Assert.Contains(DiffKind.Unchanged, kinds);
     }
 
+    /// <summary>
+    /// Verifies v1vs v2 type diffs audit log added.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void V1vsV2_TypeDiffs_AuditLogAdded()
     {

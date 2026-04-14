@@ -46,6 +46,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         return "Debug";
     }
 
+    /// <summary>
+    /// Prepares the fixture state before tests execute.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         _leftAnalyzer = new AssemblyAnalyzer(_samples.RichLibraryDll);
@@ -87,6 +90,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -97,6 +103,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
 
     // --- Session discovery tests ---
 
+    /// <summary>
+    /// Verifies sessions list finds diff mode instance.
+    /// </summary>
     [Fact]
     public async Task SessionsList_FindsDiffModeInstance()
     {
@@ -112,6 +121,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         Assert.Contains("\u2194", diffSession.Value.GetProperty("fileName").GetString());
     }
 
+    /// <summary>
+    /// Verifies sessions list table output shows diff mode.
+    /// </summary>
     [Fact]
     public async Task SessionsList_TableOutput_ShowsDiffMode()
     {
@@ -124,6 +136,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
 
     // --- Direct socket tests ---
 
+    /// <summary>
+    /// Verifies diff listener responds with real analyzer data.
+    /// </summary>
     [Fact]
     public async Task DiffListener_RespondsWithRealAnalyzerData()
     {
@@ -148,6 +163,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
             right.GetProperty("assemblyVersion").GetString());
     }
 
+    /// <summary>
+    /// Verifies diff listener returns current view.
+    /// </summary>
     [Fact]
     public async Task DiffListener_ReturnsCurrentView()
     {
@@ -169,6 +187,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         Assert.Equal("addedOnly", data.Value.GetProperty("filterMode").GetString());
     }
 
+    /// <summary>
+    /// Verifies diff listener rejects unsupported methods.
+    /// </summary>
     [Fact]
     public async Task DiffListener_RejectsUnsupportedMethods()
     {
@@ -183,6 +204,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
 
     // --- CLI sessions info/view tests ---
 
+    /// <summary>
+    /// Verifies sessions info returns diff mode data.
+    /// </summary>
     [Fact]
     public async Task SessionsInfo_ReturnsDiffModeData()
     {
@@ -206,6 +230,9 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         Assert.True(view.TryGetProperty("filterMode", out _));
     }
 
+    /// <summary>
+    /// Verifies sessions view returns diff mode view state.
+    /// </summary>
     [Fact]
     public async Task SessionsView_ReturnsDiffModeViewState()
     {

@@ -28,6 +28,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- Default analyze output ---
 
+    /// <summary>
+    /// Verifies analyze default lists types methods and references.
+    /// </summary>
     [Fact]
     public async Task Analyze_Default_ListsTypesMethodsAndReferences()
     {
@@ -45,6 +48,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- P1: --output safety ---
 
+    /// <summary>
+    /// Verifies analyze missing input does not truncate output file.
+    /// </summary>
     [Fact]
     public async Task Analyze_MissingInput_DoesNotTruncateOutputFile()
     {
@@ -66,6 +72,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         }
     }
 
+    /// <summary>
+    /// Verifies analyze same input and output rejects with error.
+    /// </summary>
     [Fact]
     public async Task Analyze_SameInputAndOutput_RejectsWithError()
     {
@@ -76,6 +85,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("Output path cannot be the same as the input file", stderr);
     }
 
+    /// <summary>
+    /// Verifies analyze invalid output path produces controlled error.
+    /// </summary>
     [Fact]
     public async Task Analyze_InvalidOutputPath_ProducesControlledError()
     {
@@ -86,6 +98,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("Error:", stderr);
     }
 
+    /// <summary>
+    /// Verifies analyze valid output writes to file.
+    /// </summary>
     [Fact]
     public async Task Analyze_ValidOutput_WritesToFile()
     {
@@ -111,6 +126,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- P2: TUI option ordering ---
 
+    /// <summary>
+    /// Verifies tui mode options before file routes to tui mode.
+    /// </summary>
     [Fact]
     public async Task TuiMode_OptionsBeforeFile_RoutesToTuiMode()
     {
@@ -126,6 +144,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Required command was not provided", stderr);
     }
 
+    /// <summary>
+    /// Verifies tui mode options after file still work.
+    /// </summary>
     [Fact]
     public async Task TuiMode_OptionsAfterFile_StillWork()
     {
@@ -139,6 +160,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- P2: --escape-timeout option routing ---
 
+    /// <summary>
+    /// Verifies tui mode escape timeout option routes to tui mode.
+    /// </summary>
     [Fact]
     public async Task TuiMode_EscapeTimeoutOption_RoutesToTuiMode()
     {
@@ -150,6 +174,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Required command was not provided", stderr);
     }
 
+    /// <summary>
+    /// Verifies tui mode short escape timeout alias routes to tui mode.
+    /// </summary>
     [Fact]
     public async Task TuiMode_ShortEscapeTimeoutAlias_RoutesToTuiMode()
     {
@@ -161,6 +188,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Required command was not provided", stderr);
     }
 
+    /// <summary>
+    /// Verifies diff mode escape timeout option accepted.
+    /// </summary>
     [Fact]
     public async Task DiffMode_EscapeTimeoutOption_Accepted()
     {
@@ -172,6 +202,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("Unrecognized", stderr);
     }
 
+    /// <summary>
+    /// Verifies diff mode short escape timeout alias accepted.
+    /// </summary>
     [Fact]
     public async Task DiffMode_ShortEscapeTimeoutAlias_Accepted()
     {
@@ -185,6 +218,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- No-args exit code (WinGet validation) ---
 
+    /// <summary>
+    /// Verifies no args shows help and returns zero.
+    /// </summary>
     [Fact]
     public async Task NoArgs_ShowsHelpAndReturnsZero()
     {
@@ -195,6 +231,9 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("Commands:", stdout);
     }
 
+    /// <summary>
+    /// Verifies json flag alone returns non zero.
+    /// </summary>
     [Fact]
     public async Task JsonFlagAlone_ReturnsNonZero()
     {
@@ -206,6 +245,9 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- Apphost Detection ---
 
+    /// <summary>
+    /// Verifies analyze apphost auto redirects to managed dll.
+    /// </summary>
     [Fact]
     public async Task Analyze_Apphost_AutoRedirectsToManagedDll()
     {

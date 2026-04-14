@@ -6,6 +6,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Standard Mode Yank Integration.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -88,6 +91,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- General tab ---
 
+    /// <summary>
+    /// Verifies general tab toggles focus between editor and table.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_TabTogglesFocusBetweenEditorAndTable()
     {
@@ -126,6 +132,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies general yank on focused row shows notification and flash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_YankOnFocusedRow_ShowsNotificationAndFlash()
     {
@@ -175,6 +184,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- PE/Metadata tab ---
 
+    /// <summary>
+    /// Verifies pe metadata tab cycles through headers and table.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_TabCyclesThroughHeadersAndTable()
     {
@@ -216,6 +228,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies pe metadata left right do not switch sub tabs when editor focused.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_LeftRightDoNotSwitchSubTabsWhenEditorFocused()
     {
@@ -250,6 +265,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies pe metadata detail popup is editor and esc closes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_DetailPopupIsEditorAndEscCloses()
     {
@@ -291,6 +309,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Strings tab ---
 
+    /// <summary>
+    /// Verifies strings yank on focused row copies string value.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_YankOnFocusedRow_CopiesStringValue()
     {
@@ -317,6 +338,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies strings left right do not switch tabs when popup open.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_LeftRightDoNotSwitchTabsWhenPopupOpen()
     {
@@ -353,6 +377,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Hex Dump tab ---
 
+    /// <summary>
+    /// Verifies hex dump selection yank copies uppercase hex bytes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_SelectionYank_CopiesUppercaseHexBytes()
     {
@@ -392,6 +419,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Focus restoration ---
 
+    /// <summary>
+    /// Verifies focus restoration after detail popup close lands on table.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task FocusRestoration_AfterDetailPopupClose_LandsOnTable()
     {
@@ -426,6 +456,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- PE/Metadata editor selection + yank ---
 
+    /// <summary>
+    /// Verifies pe headers selection yank copies text and flashes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeHeaders_SelectionYank_CopiesTextAndFlashes()
     {
@@ -465,6 +498,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies pe detail popup selection yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeDetailPopup_SelectionYank_Works()
     {
@@ -512,6 +548,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Strings detail popup selection + yank ---
 
+    /// <summary>
+    /// Verifies strings detail popup selection yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StringsDetailPopup_SelectionYank_Works()
     {
@@ -552,6 +591,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- General tab double-click word selection ---
 
+    /// <summary>
+    /// Verifies general double click word selection adjusts boundary and yanks.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task General_DoubleClickWordSelection_AdjustsBoundaryAndYanks()
     {
@@ -615,6 +657,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Size Map drill ---
 
+    /// <summary>
+    /// Verifies size map select then enter drills.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SizeMap_SelectThenEnterDrills()
     {
@@ -644,6 +689,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies size map enter without selection does nothing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SizeMap_EnterWithoutSelection_DoesNothing()
     {
@@ -674,6 +722,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Esc regression: nested cross-view + assembly stack ---
 
+    /// <summary>
+    /// Verifies esc back cross view takes priority over assembly stack.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task EscBack_CrossViewTakesPriorityOverAssemblyStack()
     {
@@ -780,6 +831,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Esc regression: Dynamic filter clears before assembly pop ---
 
+    /// <summary>
+    /// Verifies esc back dynamic filter clears before assembly pop.
+    /// </summary>
     [Fact(Timeout = 120_000)]
     public async Task EscBack_DynamicFilterClearsBeforeAssemblyPop()
     {
@@ -850,6 +904,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Size Map regression: zero-match search Enter is no-op ---
 
+    /// <summary>
+    /// Verifies size map enter after zero match search does not drill.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SizeMap_EnterAfterZeroMatchSearch_DoesNotDrill()
     {
@@ -892,6 +949,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Strings detail popup regression: content must be visible on screen ---
 
+    /// <summary>
+    /// Verifies strings detail popup shows string content on screen.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task StringsDetail_PopupShowsStringContentOnScreen()
     {
@@ -930,6 +990,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Yank notification auto-clear ---
 
+    /// <summary>
+    /// Verifies yank notification auto clears after1500ms.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task YankNotification_AutoClears_After1500ms()
     {
@@ -966,6 +1029,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Yank flash on table row ---
 
+    /// <summary>
+    /// Verifies general yank flash sets and clears.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_YankFlash_SetsAndClears()
     {
@@ -1001,6 +1067,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _cts?.Cancel();
@@ -1014,6 +1083,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Vim Text Object Tests ---
 
+    /// <summary>
+    /// Verifies general iw selects word in editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_IwSelectsWordInEditor()
     {
@@ -1054,6 +1126,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies general iw selects word in editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_IWSelectsWORDInEditor()
     {
@@ -1083,6 +1158,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies general yiw yanks word from editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_YiwYanksWordFromEditor()
     {
@@ -1129,6 +1207,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies general interrupted by global key does not select.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_InterruptedByGlobalKey_DoesNotSelect()
     {
@@ -1158,6 +1239,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies general random letter cancels.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_RandomLetterCancels()
     {
@@ -1189,6 +1273,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies hex dump y does not arm on hex normal.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_YDoesNotArmOnHexNormal()
     {
@@ -1216,6 +1303,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Triple-click line selection ---
 
+    /// <summary>
+    /// Verifies il inspector triple click selects only current line.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task IlInspector_TripleClickSelectsOnlyCurrentLine()
     {
@@ -1292,6 +1382,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies il inspector shift v selects current line.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task IlInspector_ShiftV_SelectsCurrentLine()
     {
@@ -1341,6 +1434,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies il inspector yy yanks current line.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task IlInspector_YY_YanksCurrentLine()
     {
@@ -1391,6 +1487,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
     // --- Hex Dump / Data Interpretation ---
 
+    /// <summary>
+    /// Verifies hex dump tab toggles focus between hex editor and data interp.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_TabTogglesFocusBetweenHexEditorAndDataInterp()
     {
@@ -1428,6 +1527,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies data interp selection yank copies text and flashes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DataInterp_SelectionYank_CopiesTextAndFlashes()
     {
@@ -1467,6 +1569,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies data interp word selection and yanks.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DataInterp_WordSelectionAndYanks()
     {
@@ -1502,6 +1607,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies hex dump insert mode only activates from hex editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_InsertModeOnlyActivatesFromHexEditor()
     {
@@ -1546,6 +1654,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies hex dump search refocuses to hex editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_SearchRefocusesToHexEditor()
     {
@@ -1605,6 +1716,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies hex dump data interp updates on cursor move and endian toggle.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_DataInterpUpdatesOnCursorMoveAndEndianToggle()
     {

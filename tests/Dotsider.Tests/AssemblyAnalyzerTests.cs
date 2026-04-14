@@ -3,11 +3,17 @@ using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Assembly Analyzer.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 {
     // --- HelloWorld (Exe, minimal) ---
 
+    /// <summary>
+    /// Verifies hello world has correct name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasCorrectName()
     {
@@ -16,6 +22,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("HelloWorld", a.AssemblyName);
     }
 
+    /// <summary>
+    /// Verifies hello world has metadata.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasMetadata()
     {
@@ -24,6 +33,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(a.GetMetadataReader());
     }
 
+    /// <summary>
+    /// Verifies hello world has target framework.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTargetFramework()
     {
@@ -32,6 +44,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("10.0", a.TargetFramework);
     }
 
+    /// <summary>
+    /// Verifies hello world has clr header with entry point.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasClrHeaderWithEntryPoint()
     {
@@ -40,6 +55,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.ClrHeader!.EntryPointToken > 0);
     }
 
+    /// <summary>
+    /// Verifies hello world has pe headers.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasPeHeaders()
     {
@@ -47,6 +65,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(a.PeHeaders);
     }
 
+    /// <summary>
+    /// Verifies hello world has text section.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTextSection()
     {
@@ -54,6 +75,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.Sections, s => s.Name == ".text");
     }
 
+    /// <summary>
+    /// Verifies hello world raw bytes match file size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_RawBytesMatchFileSize()
     {
@@ -61,6 +85,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(a.FileSize, a.RawBytes.Length);
     }
 
+    /// <summary>
+    /// Verifies hello world has type defs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasTypeDefs()
     {
@@ -68,6 +95,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(a.TypeDefs);
     }
 
+    /// <summary>
+    /// Verifies hello world has method defs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_HasMethodDefs()
     {
@@ -77,6 +107,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- RichLibrary (Library, NuGet deps) ---
 
+    /// <summary>
+    /// Verifies rich library has correct version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasCorrectVersion()
     {
@@ -85,6 +118,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("2.5.1", a.AssemblyVersion);
     }
 
+    /// <summary>
+    /// Verifies rich library has newton soft ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNewtonSoftRef()
     {
@@ -92,6 +128,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.AssemblyRefs, r => r.Name == "Newtonsoft.Json");
     }
 
+    /// <summary>
+    /// Verifies rich library has system text json ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasSystemTextJsonRef()
     {
@@ -99,6 +138,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.AssemblyRefs, r => r.Name == "System.Text.Json");
     }
 
+    /// <summary>
+    /// Verifies rich library has service types.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasServiceTypes()
     {
@@ -107,6 +149,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.TypeDefs, t => t.FullName == "RichLibrary.Services.ProductCatalog");
     }
 
+    /// <summary>
+    /// Verifies rich library has no entry point.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNoEntryPoint()
     {
@@ -115,6 +160,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(0, a.ClrHeader!.EntryPointToken);
     }
 
+    /// <summary>
+    /// Verifies rich library has many methods.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasManyMethods()
     {
@@ -124,6 +172,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- ComplexApp (Exe, embedded resources) ---
 
+    /// <summary>
+    /// Verifies complex app has embedded resources.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_HasEmbeddedResources()
     {
@@ -132,6 +183,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.Resources, r => r.Name.Contains("banner.txt"));
     }
 
+    /// <summary>
+    /// Verifies complex app has version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_HasVersion()
     {
@@ -142,6 +196,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- MinimalApi (Web SDK) ---
 
+    /// <summary>
+    /// Verifies minimal api has asp net refs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MinimalApi_HasAspNetRefs()
     {
@@ -150,6 +207,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.AssemblyRefs.Count > 0);
     }
 
+    /// <summary>
+    /// Verifies minimal api has record types.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MinimalApi_HasRecordTypes()
     {
@@ -160,6 +220,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- NativeLib (unsafe, P/Invoke) ---
 
+    /// <summary>
+    /// Verifies native lib has p invoke methods.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_HasPInvokeMethods()
     {
@@ -168,6 +231,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(a.TypeDefs, t => t.FullName == "NativeLib.UnsafeOperations");
     }
 
+    /// <summary>
+    /// Verifies native lib has fixed buffer struct.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_HasFixedBufferStruct()
     {
@@ -177,6 +243,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- EmptyLib (minimal) ---
 
+    /// <summary>
+    /// Verifies empty lib has minimal type defs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLib_HasMinimalTypeDefs()
     {
@@ -186,6 +255,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.TypeDefs.Count >= 1);
     }
 
+    /// <summary>
+    /// Verifies empty lib has metadata.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLib_HasMetadata()
     {
@@ -196,6 +268,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- RichLibraryV2 (same AssemblyName as V1) ---
 
+    /// <summary>
+    /// Verifies rich library v2 has same assembly name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasSameAssemblyName()
     {
@@ -203,6 +278,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("RichLibrary", a.AssemblyName);
     }
 
+    /// <summary>
+    /// Verifies rich library v2 has version3.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasVersion3()
     {
@@ -211,6 +289,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("3.0.0", a.AssemblyVersion);
     }
 
+    /// <summary>
+    /// Verifies rich library v2 has new types.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryV2_HasNewTypes()
     {
@@ -221,6 +302,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Cross-assembly metadata checks ---
 
+    /// <summary>
+    /// Verifies all samples have custom attributes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllSamples_HaveCustomAttributes()
     {
@@ -233,6 +317,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies all samples have positive file size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllSamples_HavePositiveFileSize()
     {
@@ -245,6 +332,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies all samples have clr header.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllSamples_HaveClrHeader()
     {
@@ -260,6 +350,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Edge cases ---
 
+    /// <summary>
+    /// Verifies get method body returns non null for method with il.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetMethodBody_ReturnsNonNull_ForMethodWithIl()
     {
@@ -269,6 +362,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(body);
     }
 
+    /// <summary>
+    /// Verifies Dispose can be called multiple times without side effects.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dispose_IsIdempotent()
     {
@@ -277,6 +373,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         a.Dispose(); // should not throw
     }
 
+    /// <summary>
+    /// Verifies invalid file path throws file not found.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void InvalidFilePath_ThrowsFileNotFound()
     {
@@ -284,12 +383,18 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<FileNotFoundException>(() => new AssemblyAnalyzer(path));
     }
 
+    /// <summary>
+    /// Verifies non dot net binary throws bad image format.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NonDotNetBinary_ThrowsBadImageFormat()
     {
         Assert.ThrowsAny<BadImageFormatException>(() => new AssemblyAnalyzer(samples.NonDotNetBinaryPath));
     }
 
+    /// <summary>
+    /// Verifies native apphost file constructor tolerates non pe binary.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeApphost_FileConstructor_ToleratesNonPeBinary()
     {
@@ -300,6 +405,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.False(a.RawBytes.IsEmpty);
     }
 
+    /// <summary>
+    /// Verifies native apphost byte array constructor tolerates non pe binary.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeApphost_ByteArrayConstructor_ToleratesNonPeBinary()
     {
@@ -311,6 +419,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.False(a.RawBytes.IsEmpty);
     }
 
+    /// <summary>
+    /// Verifies native aot byte array constructor tolerates non pe binary.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeAot_ByteArrayConstructor_ToleratesNonPeBinary()
     {
@@ -324,6 +435,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(bytes.Length, a.FileSize);
     }
 
+    /// <summary>
+    /// Verifies resolve token returns string.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ResolveToken_ReturnsString()
     {
@@ -334,6 +448,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(result);
     }
 
+    /// <summary>
+    /// Verifies architecture is not unknown.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Architecture_IsNotUnknown()
     {
@@ -341,6 +458,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEqual("Unknown", a.Architecture);
     }
 
+    /// <summary>
+    /// Verifies file properties are populated.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FileProperties_ArePopulated()
     {
@@ -351,6 +471,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
 
     // --- Additional coverage tests ---
 
+    /// <summary>
+    /// Verifies file path is absolute.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FilePath_IsAbsolute()
     {
@@ -359,6 +482,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(Path.IsPathRooted(a.FilePath));
     }
 
+    /// <summary>
+    /// Verifies rich library type refs non empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeRefs_NonEmpty()
     {
@@ -366,6 +492,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(a.TypeRefs);
     }
 
+    /// <summary>
+    /// Verifies rich library member refs non empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MemberRefs_NonEmpty()
     {
@@ -376,6 +505,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(first.DeclaringType);
     }
 
+    /// <summary>
+    /// Verifies complex app resources have offsets.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_Resources_HaveOffsets()
     {
@@ -387,6 +519,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies rich library culture is neutral.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_Culture_IsNeutral()
     {
@@ -394,6 +529,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("neutral", a.Culture);
     }
 
+    /// <summary>
+    /// Verifies hello world is read only is false.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_IsReadOnly_IsFalse()
     {
@@ -401,6 +539,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.False(a.IsReadOnly);
     }
 
+    /// <summary>
+    /// Verifies rich library type defs have properties.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeDefs_HaveProperties()
     {
@@ -411,6 +552,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(userService.Token > 0);
     }
 
+    /// <summary>
+    /// Verifies rich library method defs have signatures.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodDefs_HaveSignatures()
     {
@@ -424,6 +568,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies rich library type refs have properties.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeRefs_HaveProperties()
     {
@@ -435,6 +582,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies resolve token type def.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ResolveToken_TypeDef()
     {
@@ -444,6 +594,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(typeDef.Name, resolved);
     }
 
+    /// <summary>
+    /// Verifies resolve token type ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ResolveToken_TypeRef()
     {
@@ -453,6 +606,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(resolved);
     }
 
+    /// <summary>
+    /// Verifies resolve token member ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ResolveToken_MemberRef()
     {
@@ -462,6 +618,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(resolved);
     }
 
+    /// <summary>
+    /// Verifies resolve token invalid token returns hex string.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ResolveToken_InvalidToken_ReturnsHexString()
     {
@@ -470,6 +629,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains("0x", result);
     }
 
+    /// <summary>
+    /// Verifies rich library assembly refs have version and token.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_AssemblyRefs_HaveVersionAndToken()
     {
@@ -480,6 +642,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(newtonsoftRef.Culture);
     }
 
+    /// <summary>
+    /// Verifies rich library custom attributes have properties.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_CustomAttributes_HaveProperties()
     {
@@ -491,6 +656,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies hello world get method body returns non null body.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_GetMethodBody_ReturnsNonNullBody()
     {
@@ -501,6 +669,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(body!.GetILBytes()!.Length > 0);
     }
 
+    /// <summary>
+    /// Verifies rich library sections have properties.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_Sections_HaveProperties()
     {
@@ -510,6 +681,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(textSection.VirtualAddress > 0);
     }
 
+    /// <summary>
+    /// Verifies rich library pe headers have valid fields.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_PeHeaders_HaveValidFields()
     {
@@ -519,6 +693,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEqual((Characteristics)0, a.PeHeaders.Characteristics);
     }
 
+    /// <summary>
+    /// Verifies access after dispose assembly refs throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_AssemblyRefs_ThrowsInsteadOfCrashing()
     {
@@ -532,6 +709,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => _ = a.AssemblyRefs);
     }
 
+    /// <summary>
+    /// Verifies access after dispose type defs throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_TypeDefs_ThrowsInsteadOfCrashing()
     {
@@ -540,6 +720,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => _ = a.TypeDefs);
     }
 
+    /// <summary>
+    /// Verifies access after dispose method defs throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_MethodDefs_ThrowsInsteadOfCrashing()
     {
@@ -548,6 +731,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => _ = a.MethodDefs);
     }
 
+    /// <summary>
+    /// Verifies access after dispose field defs throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_FieldDefs_ThrowsInsteadOfCrashing()
     {
@@ -556,6 +742,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => _ = a.FieldDefs);
     }
 
+    /// <summary>
+    /// Verifies access after dispose get method body throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_GetMethodBody_ThrowsInsteadOfCrashing()
     {
@@ -565,6 +754,9 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => a.GetMethodBody(method));
     }
 
+    /// <summary>
+    /// Verifies access after dispose resolve token throws instead of crashing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AccessAfterDispose_ResolveToken_ThrowsInsteadOfCrashing()
     {

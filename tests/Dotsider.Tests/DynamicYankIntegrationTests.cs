@@ -116,6 +116,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState), TimeSpan.FromSeconds(5));
     }
 
+    /// <summary>
+    /// Verifies dynamic events yank on focused row copies payload and flashes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Events_YankOnFocusedRow_CopiesPayload_AndFlashes()
     {
@@ -139,6 +142,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic output yank on focused row copies payload and flashes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Output_YankOnFocusedRow_CopiesPayload_AndFlashes()
     {
@@ -170,6 +176,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic events yank flash during search.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Events_YankFlashDuringSearch()
     {
@@ -200,6 +209,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic counters selection yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Counters_SelectionYank_Works()
     {
@@ -222,6 +234,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic summary selection yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Summary_SelectionYank_Works()
     {
@@ -246,6 +261,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic left right navigate sub tabs from editor focus.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_LeftRightNavigateSubTabsFromEditorFocus()
     {
@@ -279,6 +297,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic tab from editor focuses subtab strip stays on sub tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_TabFromEditor_FocusesSubtabStrip_StaysOnSubTab()
     {
@@ -304,6 +325,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic rerun clears dynamic editor caches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dynamic_Rerun_ClearsDynamicEditorCaches()
     {
@@ -341,6 +365,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic counters live update preserves selection while focused.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Dynamic_Counters_LiveUpdate_PreservesSelectionWhileFocused()
     {
@@ -375,6 +402,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic summary live update preserves selection while focused.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Dynamic_Summary_LiveUpdate_PreservesSelectionWhileFocused()
     {
@@ -414,6 +444,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies dynamic summary post exit refresh updates while focused.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Dynamic_Summary_PostExitRefresh_UpdatesWhileFocused()
     {
@@ -467,6 +500,9 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Tracer?.Stop();

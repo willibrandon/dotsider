@@ -3,10 +3,16 @@ using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Apphost Detector.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
 {
     private readonly List<string> _tempFiles = [];
+    /// <summary>
+    /// Verifies find companion dll apphost returns companion dll path.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_Apphost_ReturnsCompanionDllPath()
     {
@@ -17,6 +23,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(File.Exists(result));
     }
 
+    /// <summary>
+    /// Verifies find companion dll managed dll returns null.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_ManagedDll_ReturnsNull()
     {
@@ -25,6 +34,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Verifies find companion dll native aot exe returns null.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_NativeAotExe_ReturnsNull()
     {
@@ -36,6 +48,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Verifies find companion dll non exe extension returns null.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_NonExeExtension_ReturnsNull()
     {
@@ -44,6 +59,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Verifies find companion dll non existent file returns null.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_NonExistentFile_ReturnsNull()
     {
@@ -53,6 +71,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Verifies find companion dll native exe with dll name but no hostfxr returns null.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_NativeExeWithDllNameButNoHostfxr_ReturnsNull()
     {
@@ -81,6 +102,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Verifies find companion dll dotted name apphost returns companion dll path.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindCompanionDll_DottedNameApphost_ReturnsCompanionDllPath()
     {
@@ -91,6 +115,9 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(File.Exists(result));
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         foreach (var path in _tempFiles)

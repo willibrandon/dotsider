@@ -4,9 +4,15 @@ using Dotsider.Views;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Treemap Layout.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class TreemapLayoutTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies layout produces rects within bounds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_ProducesRectsWithinBounds()
     {
@@ -22,6 +28,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies layout no negative dimensions.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_NoNegativeDimensions()
     {
@@ -34,6 +43,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         });
     }
 
+    /// <summary>
+    /// Verifies layout no overlapping rects.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_NoOverlappingRects()
     {
@@ -42,6 +54,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(rects);
     }
 
+    /// <summary>
+    /// Verifies layout single node fills entire space.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_SingleNode_FillsEntireSpace()
     {
@@ -57,6 +72,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Equal(30, rects[0].Height, 0.01);
     }
 
+    /// <summary>
+    /// Verifies layout empty input returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_EmptyInput_ReturnsEmpty()
     {
@@ -64,6 +82,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Empty(rects);
     }
 
+    /// <summary>
+    /// Verifies layout zero width or height returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_ZeroWidthOrHeight_ReturnsEmpty()
     {
@@ -72,6 +93,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Empty(TreemapLayout.Layout(nodes, 0, 0, 100, 0));
     }
 
+    /// <summary>
+    /// Verifies layout real size tree produces valid rects.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_RealSizeTree_ProducesValidRects()
     {
@@ -86,6 +110,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         });
     }
 
+    /// <summary>
+    /// Verifies layout many small nodes all fit within bounds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_ManySmallNodes_AllFitWithinBounds()
     {
@@ -101,6 +128,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies layout no overlapping rects real assembly.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_NoOverlappingRects_RealAssembly()
     {
@@ -111,6 +141,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(rects);
     }
 
+    /// <summary>
+    /// Verifies assert no overlaps detects known overlap.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AssertNoOverlaps_DetectsKnownOverlap()
     {
@@ -124,6 +157,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         Assert.Contains("overlap", ex.Message);
     }
 
+    /// <summary>
+    /// Verifies assert no overlaps allows adjacent rects.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AssertNoOverlaps_AllowsAdjacentRects()
     {
@@ -136,6 +172,9 @@ public class TreemapLayoutTests(SampleAssemblyFixture samples)
         AssertNoOverlaps(adjacent);
     }
 
+    /// <summary>
+    /// Verifies layout rects match input nodes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Layout_RectsMatchInputNodes()
     {

@@ -44,6 +44,9 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies events focused row category cell uses black foreground.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Events_FocusedRow_CategoryCellUsesBlackForeground()
     {
@@ -151,6 +154,9 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
     private static double Linearize(double c) =>
         c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

@@ -66,6 +66,9 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
         return (_app, _listener.SocketPath!);
     }
 
+    /// <summary>
+    /// Verifies navigate via socket changes active tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Navigate_ViaSocket_ChangesActiveTab()
     {
@@ -125,6 +128,9 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.Equal(TabId.General + 1, activeTab);
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

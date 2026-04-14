@@ -2,9 +2,15 @@ using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Nu Get Package Analyzer.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies rich library nupkg has correct package id.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryNupkg_HasCorrectPackageId()
     {
@@ -12,6 +18,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("RichLibrary", pkg.PackageId);
     }
 
+    /// <summary>
+    /// Verifies rich library nupkg has correct version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryNupkg_HasCorrectVersion()
     {
@@ -19,6 +28,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("2.5.1", pkg.PackageVersion);
     }
 
+    /// <summary>
+    /// Verifies rich library nupkg has files.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryNupkg_HasFiles()
     {
@@ -26,6 +38,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(pkg.Files);
     }
 
+    /// <summary>
+    /// Verifies rich library nupkg has dll files.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryNupkg_HasDllFiles()
     {
@@ -34,6 +49,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.All(pkg.DllFiles, f => Assert.True(f.IsDll));
     }
 
+    /// <summary>
+    /// Verifies rich library nupkg has nuspec file.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibraryNupkg_HasNuspecFile()
     {
@@ -41,6 +59,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(pkg.Files, f => f.Name.EndsWith(".nuspec"));
     }
 
+    /// <summary>
+    /// Verifies open dll returns working analyzer.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void OpenDll_ReturnsWorkingAnalyzer()
     {
@@ -52,6 +73,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal("RichLibrary", analyzer.AssemblyName);
     }
 
+    /// <summary>
+    /// Verifies open dll matches standalone assembly.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void OpenDll_MatchesStandaloneAssembly()
     {
@@ -63,6 +87,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(standalone.TypeDefs.Count, fromPkg.TypeDefs.Count);
     }
 
+    /// <summary>
+    /// Verifies has authors and description.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasAuthorsAndDescription()
     {
@@ -71,6 +98,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotNull(pkg.Description);
     }
 
+    /// <summary>
+    /// Verifies Dispose can be called multiple times without side effects.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dispose_IsIdempotent()
     {
@@ -79,6 +109,9 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
         pkg.Dispose(); // should not throw
     }
 
+    /// <summary>
+    /// Verifies invalid path throws.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void InvalidPath_Throws()
     {

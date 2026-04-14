@@ -6,6 +6,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Dynamic Tab Guard.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -52,6 +55,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();
@@ -62,6 +68,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Unit tests ---
 
+    /// <summary>
+    /// Verifies is net framework true for net fx console.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IsNetFramework_TrueForNetFxConsole()
     {
@@ -72,6 +81,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(".NETFramework", state.Analyzer.TargetFramework);
     }
 
+    /// <summary>
+    /// Verifies is net framework false for core apps.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IsNetFramework_FalseForCoreApps()
     {
@@ -84,6 +96,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies is native aot true for native aot console.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IsNativeAot_TrueForNativeAotConsole()
     {
@@ -94,6 +109,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Input sequence tests ---
 
+    /// <summary>
+    /// Verifies tab8 net framework shows guard message.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab8_NetFramework_ShowsGuardMessage()
     {
@@ -123,6 +141,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 native aot shows idle view not guard.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab8_NativeAot_ShowsIdleViewNotGuard()
     {
@@ -150,6 +171,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies native aot navigate all tabs no crash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task NativeAot_NavigateAllTabs_NoCrash()
     {

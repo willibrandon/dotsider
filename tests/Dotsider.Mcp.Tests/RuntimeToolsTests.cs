@@ -8,6 +8,9 @@ namespace Dotsider.Mcp.Tests;
 [Collection("SampleAssemblies")]
 public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// find_framework_assembly resolves System.Runtime to a path inside the shared framework pack.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task FindFrameworkAssembly_SystemRuntime_ReturnsPathAndPack()
     {
@@ -25,6 +28,9 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         Assert.Equal("Microsoft.NETCore.App", json.GetProperty("runtimePack").GetString());
     }
 
+    /// <summary>
+    /// Unknown framework assembly names yield a serialized null rather than an error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task FindFrameworkAssembly_Nonexistent_ReturnsNull()
     {
@@ -40,6 +46,9 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         Assert.Equal("null", text);
     }
 
+    /// <summary>
+    /// resolve_assembly routes a shared framework dependency to a file-kind resolution.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ResolveAssembly_Direct_SharedFramework()
     {
@@ -60,6 +69,9 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         Assert.Equal("file", json.GetProperty("kind").GetString());
     }
 
+    /// <summary>
+    /// Tool registry advertises the two runtime discovery tools by canonical name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListTools_IncludesRuntimeTools()
     {

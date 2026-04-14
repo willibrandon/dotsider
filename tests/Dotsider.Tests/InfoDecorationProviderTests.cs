@@ -3,8 +3,14 @@ using Hex1b.Documents;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Info Decoration Provider.
+/// </summary>
 public class InfoDecorationProviderTests
 {
+    /// <summary>
+    /// Verifies info label colors label before colon.
+    /// </summary>
     [Fact]
     public void InfoLabel_ColorsLabelBeforeColon()
     {
@@ -21,6 +27,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(2, spans[1].Start.Line);
     }
 
+    /// <summary>
+    /// Verifies info label ignores content lines with colons.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresContentLinesWithColons()
     {
@@ -38,6 +47,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(1, spans[0].Start.Line);
     }
 
+    /// <summary>
+    /// Verifies info label ignores colon beyond position25.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresColonBeyondPosition25()
     {
@@ -49,6 +61,9 @@ public class InfoDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies info label ignores empty lines.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresEmptyLines()
     {
@@ -61,6 +76,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(2, spans.Count);
     }
 
+    /// <summary>
+    /// Verifies info label colors hyphenated labels.
+    /// </summary>
     [Fact]
     public void InfoLabel_ColorsHyphenatedLabels()
     {
@@ -74,6 +92,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(2, spans[1].Start.Line);
     }
 
+    /// <summary>
+    /// Verifies strings detail only colors first line.
+    /// </summary>
     [Fact]
     public void StringsDetail_OnlyColorsFirstLine()
     {
@@ -86,6 +107,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(1, spans[0].Start.Line);
     }
 
+    /// <summary>
+    /// Verifies strings detail ignores when first line has no colon.
+    /// </summary>
     [Fact]
     public void StringsDetail_IgnoresWhenFirstLineHasNoColon()
     {
@@ -97,6 +121,9 @@ public class InfoDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies strings detail ignores when view starts beyond line1.
+    /// </summary>
     [Fact]
     public void StringsDetail_IgnoresWhenViewStartsBeyondLine1()
     {
@@ -108,6 +135,9 @@ public class InfoDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies info label colors jitted methods label.
+    /// </summary>
     [Fact]
     public void InfoLabel_ColorsJittedMethodsLabel()
     {
@@ -119,6 +149,9 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies info label ignores colons inside values.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresColonsInsideValues()
     {
@@ -131,6 +164,9 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies info label ignores trailing colon in value.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresTrailingColonInValue()
     {
@@ -142,6 +178,9 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies info label ignores colon after double space in value.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresColonAfterDoubleSpaceInValue()
     {
@@ -153,6 +192,9 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies info label ignores double colon in values.
+    /// </summary>
     [Fact]
     public void InfoLabel_IgnoresDoubleColonInValues()
     {
@@ -164,6 +206,9 @@ public class InfoDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies info label colors multiple labels per line.
+    /// </summary>
     [Fact]
     public void InfoLabel_ColorsMultipleLabelsPerLine()
     {
@@ -175,6 +220,9 @@ public class InfoDecorationProviderTests
         Assert.Equal(3, spans.Count);
     }
 
+    /// <summary>
+    /// Verifies info label colors threading labels.
+    /// </summary>
     [Fact]
     public void InfoLabel_ColorsThreadingLabels()
     {

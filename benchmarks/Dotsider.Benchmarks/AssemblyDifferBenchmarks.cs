@@ -15,7 +15,9 @@ public class AssemblyDifferBenchmarks
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
 
-    /// <summary>Opens CoreLib and Xml analyzers so comparisons have two fully-initialized assemblies on hand.</summary>
+    /// <summary>
+    /// Opens CoreLib and Xml analyzers so comparisons have two fully-initialized assemblies on hand.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -24,7 +26,9 @@ public class AssemblyDifferBenchmarks
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
     }
 
-    /// <summary>Disposes the shared analyzers.</summary>
+    /// <summary>
+    /// Disposes the shared analyzers.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -32,12 +36,16 @@ public class AssemblyDifferBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
-    /// <summary>Worst case: diffing two unrelated assemblies populates every add/remove bucket in the result.</summary>
+    /// <summary>
+    /// Worst case: diffing two unrelated assemblies populates every add/remove bucket in the result.
+    /// </summary>
     [Benchmark(Description = "CoreLib vs Xml (max diff)")]
     public AssemblyDiffResult Compare_CrossAssembly()
         => AssemblyDiffer.Compare(_coreLibAnalyzer, _xmlAnalyzer);
 
-    /// <summary>Compares an assembly against itself to characterize the identity-diff fast path.</summary>
+    /// <summary>
+    /// Compares an assembly against itself to characterize the identity-diff fast path.
+    /// </summary>
     [Benchmark(Description = "CoreLib vs CoreLib (identity)")]
     public AssemblyDiffResult Compare_Identity()
         => AssemblyDiffer.Compare(_coreLibAnalyzer, _coreLibAnalyzer);

@@ -5,6 +5,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Strings View.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -40,6 +43,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies strings enter opens detail popup.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_EnterOpensDetailPopup()
     {
@@ -64,6 +70,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings escape closes detail popup.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_EscapeClosesDetailPopup()
     {
@@ -91,6 +100,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings detail popup shows length.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_DetailPopupShowsLength()
     {
@@ -115,6 +127,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings arrow and enter work after detail dismissed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_ArrowAndEnterWorkAfterDetailDismissed()
     {
@@ -144,6 +159,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings enter works after search dismissed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_EnterWorksAfterSearchDismissed()
     {
@@ -172,6 +190,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings detail popup shows content.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_DetailPopupShowsContent()
     {
@@ -225,6 +246,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings escape during search does not crash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_EscapeDuringSearchDoesNotCrash()
     {
@@ -251,6 +275,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies strings detail popup shows string content.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_DetailPopupShowsStringContent()
     {
@@ -277,6 +304,9 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

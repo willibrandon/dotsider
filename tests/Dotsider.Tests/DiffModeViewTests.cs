@@ -5,6 +5,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Diff Mode View.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -37,6 +40,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies diff app launches shows both assemblies.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiffApp_Launches_ShowsBothAssemblies()
     {
@@ -58,6 +64,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies diff app shows diff entries.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsDiffEntries()
     {
@@ -79,6 +88,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies quit key exits diff app.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task QuitKey_ExitsDiffApp()
     {
@@ -98,6 +110,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
+    /// <summary>
+    /// Verifies arrow keys cycle tabs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ArrowKeys_CycleTabs()
     {
@@ -127,6 +142,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies search activates and filters.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Search_ActivatesAndFilters()
     {
@@ -152,6 +170,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies diff app shows references tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsReferencesTab()
     {
@@ -178,6 +199,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies diff app shows methods tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiffApp_ShowsMethodsTab()
     {
@@ -204,6 +228,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies left arrow does not go below zero.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LeftArrow_DoesNotGoBelowZero()
     {
@@ -227,6 +254,9 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

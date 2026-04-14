@@ -20,7 +20,9 @@ public class ApphostDetectorBenchmarks
     private string _fakeExePath = null!;
     private string _tempDir = null!;
 
-    /// <summary>Builds real apphost samples, publishes a self-contained bundle, and fabricates a non-apphost exe fixture.</summary>
+    /// <summary>
+    /// Builds real apphost samples, publishes a self-contained bundle, and fabricates a non-apphost exe fixture.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -61,7 +63,9 @@ public class ApphostDetectorBenchmarks
             throw new FileNotFoundException($"SelfContainedConsole not found: {_selfContainedExe}");
     }
 
-    /// <summary>Deletes the temporary directory holding the fake-apphost fixture.</summary>
+    /// <summary>
+    /// Deletes the temporary directory holding the fake-apphost fixture.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -69,37 +73,49 @@ public class ApphostDetectorBenchmarks
         catch { /* best effort */ }
     }
 
-    /// <summary>Measures companion DLL discovery on a real .NET apphost executable.</summary>
+    /// <summary>
+    /// Measures companion DLL discovery on a real .NET apphost executable.
+    /// </summary>
     [Benchmark(Description = "Real apphost (HelloWorld)")]
     [BenchmarkCategory("CompanionDll")]
     public string? FindCompanionDll_RealApphost()
         => ApphostDetector.FindCompanionDll(_helloWorldExe);
 
-    /// <summary>Verifies the dotted-name parser correctly extracts the companion DLL from a multi-segment apphost name.</summary>
+    /// <summary>
+    /// Verifies the dotted-name parser correctly extracts the companion DLL from a multi-segment apphost name.
+    /// </summary>
     [Benchmark(Description = "Dotted-name apphost (Dotted.Name.App)")]
     [BenchmarkCategory("CompanionDll")]
     public string? FindCompanionDll_DottedNameApphost()
         => ApphostDetector.FindCompanionDll(_dottedNameExe);
 
-    /// <summary>Worst case: scans the entire binary because the hostfxr marker is absent, so no companion can be confirmed.</summary>
+    /// <summary>
+    /// Worst case: scans the entire binary because the hostfxr marker is absent, so no companion can be confirmed.
+    /// </summary>
     [Benchmark(Description = "Fake exe full scan (no hostfxr)")]
     [BenchmarkCategory("CompanionDll")]
     public string? FindCompanionDll_FakeExeFullScan()
         => ApphostDetector.FindCompanionDll(_fakeExePath);
 
-    /// <summary>Baseline: a .dll input takes the early-exit path without any scanning.</summary>
+    /// <summary>
+    /// Baseline: a .dll input takes the early-exit path without any scanning.
+    /// </summary>
     [Benchmark(Description = ".dll early exit (baseline)")]
     [BenchmarkCategory("CompanionDll")]
     public string? FindCompanionDll_DllEarlyExit()
         => ApphostDetector.FindCompanionDll(_helloWorldDll);
 
-    /// <summary>Positive case: locates the entry assembly inside a real self-contained single-file bundle.</summary>
+    /// <summary>
+    /// Positive case: locates the entry assembly inside a real self-contained single-file bundle.
+    /// </summary>
     [Benchmark(Description = "Real single-file bundle (positive)")]
     [BenchmarkCategory("BundledEntry")]
     public object? FindBundledEntryAssembly_Bundle()
         => ApphostDetector.FindBundledEntryAssembly(_selfContainedExe);
 
-    /// <summary>Negative case: scans a framework-dependent apphost that has no bundle manifest.</summary>
+    /// <summary>
+    /// Negative case: scans a framework-dependent apphost that has no bundle manifest.
+    /// </summary>
     [Benchmark(Description = "Apphost not a bundle (negative scan)")]
     [BenchmarkCategory("BundledEntry")]
     public object? FindBundledEntryAssembly_Apphost()

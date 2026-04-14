@@ -8,6 +8,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Yank Helper.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -30,6 +33,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         return new DotsiderState(app, dllPath);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         foreach (var d in _disposables)
@@ -39,6 +45,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- GetYankText(DotsiderState) ---
 
+    /// <summary>
+    /// Verifies general focused ref returns tab separated row.
+    /// </summary>
     [Fact]
     public void General_FocusedRef_ReturnsTabSeparatedRow()
     {
@@ -55,6 +64,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("\t", text);
     }
 
+    /// <summary>
+    /// Verifies general no focused ref returns null.
+    /// </summary>
     [Fact]
     public void General_NoFocusedRef_ReturnsNull()
     {
@@ -65,6 +77,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies pe metadata sections returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_Sections_ReturnsFormattedRow()
     {
@@ -81,6 +96,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("0x", text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata type def returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_TypeDef_ReturnsFormattedRow()
     {
@@ -96,6 +114,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(typeDef.FullName, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata method def returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_MethodDef_ReturnsFormattedRow()
     {
@@ -112,6 +133,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(method.DeclaringType, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata type ref returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_TypeRef_ReturnsFormattedRow()
     {
@@ -127,6 +151,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(typeRef.FullName, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata member ref returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_MemberRef_ReturnsFormattedRow()
     {
@@ -142,6 +169,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(memberRef.Name, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata attributes returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_Attributes_ReturnsFormattedRow()
     {
@@ -157,6 +187,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(attr.Parent, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata resources returns formatted row.
+    /// </summary>
     [Fact]
     public void PeMetadata_Resources_ReturnsFormattedRow()
     {
@@ -173,6 +206,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(resource.Name, text);
     }
 
+    /// <summary>
+    /// Verifies pe metadata no focused key returns null.
+    /// </summary>
     [Fact]
     public void PeMetadata_NoFocusedKey_ReturnsNull()
     {
@@ -183,6 +219,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies strings focused entry returns string value.
+    /// </summary>
     [Fact]
     public void Strings_FocusedEntry_ReturnsStringValue()
     {
@@ -198,6 +237,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(entry.Value, text);
     }
 
+    /// <summary>
+    /// Verifies dep graph selected node returns node name.
+    /// </summary>
     [Fact]
     public void DepGraph_SelectedNode_ReturnsNodeName()
     {
@@ -208,6 +250,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("System.Runtime v10.0.0.0", YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dep graph selected index returns node name with version.
+    /// </summary>
     [Fact]
     public void DepGraph_SelectedIndex_ReturnsNodeNameWithVersion()
     {
@@ -223,6 +268,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(nodes[0].Name, text);
     }
 
+    /// <summary>
+    /// Verifies size map selected index returns item with size.
+    /// </summary>
     [Fact]
     public void SizeMap_SelectedIndex_ReturnsItemWithSize()
     {
@@ -239,6 +287,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(level.Children[0].FullPath, text);
     }
 
+    /// <summary>
+    /// Verifies size map hovered item returns hovered text.
+    /// </summary>
     [Fact]
     public void SizeMap_HoveredItem_ReturnsHoveredText()
     {
@@ -251,6 +302,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("RichLibrary.Models: 1.2 KB", text); // Trimmed
     }
 
+    /// <summary>
+    /// Verifies size map no selection returns null.
+    /// </summary>
     [Fact]
     public void SizeMap_NoSelection_ReturnsNull()
     {
@@ -262,6 +316,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dynamic no tracer returns null.
+    /// </summary>
     [Fact]
     public void Dynamic_NoTracer_ReturnsNull()
     {
@@ -272,6 +329,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dynamic events no focused key returns null.
+    /// </summary>
     [Fact]
     public void Dynamic_Events_NoFocusedKey_ReturnsNull()
     {
@@ -283,6 +343,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dynamic output no focused key returns null.
+    /// </summary>
     [Fact]
     public void Dynamic_Output_NoFocusedKey_ReturnsNull()
     {
@@ -294,6 +357,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dynamic counters returns null.
+    /// </summary>
     [Fact]
     public void Dynamic_Counters_ReturnsNull()
     {
@@ -304,6 +370,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies dynamic summary returns null.
+    /// </summary>
     [Fact]
     public void Dynamic_Summary_ReturnsNull()
     {
@@ -314,6 +383,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies il inspector returns null.
+    /// </summary>
     [Fact]
     public void IlInspector_ReturnsNull()
     {
@@ -323,6 +395,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies hex dump returns null.
+    /// </summary>
     [Fact]
     public void HexDump_ReturnsNull()
     {
@@ -334,6 +409,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- GetYankText(DiffState) ---
 
+    /// <summary>
+    /// Verifies diff types focused row returns formatted text.
+    /// </summary>
     [Fact]
     public void Diff_Types_FocusedRow_ReturnsFormattedText()
     {
@@ -354,6 +432,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(entry.Kind.ToString(), text);
     }
 
+    /// <summary>
+    /// Verifies diff methods focused row returns formatted text.
+    /// </summary>
     [Fact]
     public void Diff_Methods_FocusedRow_ReturnsFormattedText()
     {
@@ -373,6 +454,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(method.Name, text);
     }
 
+    /// <summary>
+    /// Verifies diff refs focused row returns formatted text.
+    /// </summary>
     [Fact]
     public void Diff_Refs_FocusedRow_ReturnsFormattedText()
     {
@@ -392,6 +476,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains(name, text);
     }
 
+    /// <summary>
+    /// Verifies diff summary returns null.
+    /// </summary>
     [Fact]
     public void Diff_Summary_ReturnsNull()
     {
@@ -405,6 +492,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.GetYankText(state));
     }
 
+    /// <summary>
+    /// Verifies diff no focused key returns null.
+    /// </summary>
     [Fact]
     public void Diff_NoFocusedKey_ReturnsNull()
     {
@@ -421,6 +511,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- GetHexSelectionText ---
 
+    /// <summary>
+    /// Verifies get hex selection text returns uppercase space separated hex.
+    /// </summary>
     [Fact]
     public void GetHexSelectionText_ReturnsUppercaseSpaceSeparatedHex()
     {
@@ -449,6 +542,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies get hex selection text no selection returns null.
+    /// </summary>
     [Fact]
     public void GetHexSelectionText_NoSelection_ReturnsNull()
     {
@@ -458,6 +554,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- FindYankProvider ---
 
+    /// <summary>
+    /// Verifies find yank provider dotsider state matches all editors.
+    /// </summary>
     [Fact]
     public void FindYankProvider_DotsiderState_MatchesAllEditors()
     {
@@ -505,6 +604,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(YankHelper.FindYankProvider(state, unknownState));
     }
 
+    /// <summary>
+    /// Verifies find yank provider nu get state matches package info and delegates.
+    /// </summary>
     [Fact]
     public void FindYankProvider_NuGetState_MatchesPackageInfoAndDelegates()
     {
@@ -533,6 +635,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- CursorColorHelper ---
 
+    /// <summary>
+    /// Verifies cursor color helper set sequence is osc12.
+    /// </summary>
     [Fact]
     public void CursorColorHelper_SetSequence_IsOsc12()
     {
@@ -541,12 +646,18 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         Assert.EndsWith("\x1b\\", CursorColorHelper.SetTealSequence);
     }
 
+    /// <summary>
+    /// Verifies cursor color helper reset sequence is osc112.
+    /// </summary>
     [Fact]
     public void CursorColorHelper_ResetSequence_IsOsc112()
     {
         Assert.Equal("\x1b]112\x1b\\", CursorColorHelper.ResetSequence);
     }
 
+    /// <summary>
+    /// Verifies cursor color helper reset cursor color writes to console.
+    /// </summary>
     [Fact]
     public void CursorColorHelper_ResetCursorColor_WritesToConsole()
     {
@@ -565,6 +676,9 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies cursor color helper set theme cursor color writes to console.
+    /// </summary>
     [Fact]
     public void CursorColorHelper_SetThemeCursorColor_WritesToConsole()
     {

@@ -15,7 +15,9 @@ public class SizeAnalyzerBenchmarks
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
 
-    /// <summary>Opens CoreLib and Xml analyzers so the size tree can be built without construction cost in scope.</summary>
+    /// <summary>
+    /// Opens CoreLib and Xml analyzers so the size tree can be built without construction cost in scope.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -24,7 +26,9 @@ public class SizeAnalyzerBenchmarks
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
     }
 
-    /// <summary>Disposes the shared analyzers.</summary>
+    /// <summary>
+    /// Disposes the shared analyzers.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -32,12 +36,16 @@ public class SizeAnalyzerBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
-    /// <summary>Walks every CoreLib type and method to build the treemap hierarchy.</summary>
+    /// <summary>
+    /// Walks every CoreLib type and method to build the treemap hierarchy.
+    /// </summary>
     [Benchmark(Description = "CoreLib BuildSizeTree")]
     public SizeNode CoreLib_BuildSizeTree()
         => SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer);
 
-    /// <summary>Walks every Xml type and method to build the treemap hierarchy.</summary>
+    /// <summary>
+    /// Walks every Xml type and method to build the treemap hierarchy.
+    /// </summary>
     [Benchmark(Description = "Xml BuildSizeTree")]
     public SizeNode Xml_BuildSizeTree()
         => SizeAnalyzer.BuildSizeTree(_xmlAnalyzer);

@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for the MCP assembly-inspection tool suite.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// Verifies get_assembly_info returns populated metadata for a simple console executable.
+    /// </summary>
     [Fact]
     public async Task GetAssemblyInfo_HelloWorld_ReturnsAssemblyMetadata()
     {
@@ -25,6 +34,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(json.GetProperty("methodCount").GetInt32() > 0);
     }
 
+    /// <summary>
+    /// Confirms get_assembly_info surfaces version data and external references for a richer library.
+    /// </summary>
     [Fact]
     public async Task GetAssemblyInfo_RichLibrary_IncludesVersion()
     {
@@ -43,6 +55,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(json.GetProperty("assemblyRefCount").GetInt32() > 0);
     }
 
+    /// <summary>
+    /// Invoking get_assembly_info without required arguments yields a descriptive error payload.
+    /// </summary>
     [Fact]
     public async Task GetAssemblyInfo_NoParams_ReturnsError()
     {
@@ -59,6 +74,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Contains("Error", text);
     }
 
+    /// <summary>
+    /// list_types enumerates defined types from a basic assembly.
+    /// </summary>
     [Fact]
     public async Task ListTypes_HelloWorld_ReturnsTypes()
     {
@@ -76,6 +94,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(types.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// A query filter narrows list_types output to name-matching results only.
+    /// </summary>
     [Fact]
     public async Task ListTypes_WithQuery_FiltersResults()
     {
@@ -101,6 +122,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         }
     }
 
+    /// <summary>
+    /// maxResults caps list_types output to protect clients from oversized payloads.
+    /// </summary>
     [Fact]
     public async Task ListTypes_WithMaxResults_LimitsOutput()
     {
@@ -122,6 +146,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(types.GetArrayLength() <= 3);
     }
 
+    /// <summary>
+    /// list_methods returns defined methods for a trivial assembly.
+    /// </summary>
     [Fact]
     public async Task ListMethods_HelloWorld_ReturnsMethods()
     {
@@ -139,6 +166,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(methods.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// typeName filter restricts list_methods to methods of the specified declaring type.
+    /// </summary>
     [Fact]
     public async Task ListMethods_FilterByTypeName_ReturnsFilteredMethods()
     {
@@ -165,6 +195,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         }
     }
 
+    /// <summary>
+    /// find_members returns a grouped payload of types and methods matching the query.
+    /// </summary>
     [Fact]
     public async Task FindMembers_SearchQuery_ReturnsMatchingMembers()
     {
@@ -186,6 +219,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(json.TryGetProperty("types", out _) || json.TryGetProperty("methods", out _));
     }
 
+    /// <summary>
+    /// A missing file surfaces as an IsError result with a clear not-found message.
+    /// </summary>
     [Fact]
     public async Task GetAssemblyInfo_NonexistentFile_ReturnsFileNotFoundError()
     {
@@ -204,6 +240,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Contains("/nonexistent/path.dll", text);
     }
 
+    /// <summary>
+    /// An effectively empty assembly still returns a valid JSON array from list_types.
+    /// </summary>
     [Fact]
     public async Task ListTypes_EmptyLib_ReturnsMinimalTypes()
     {
@@ -221,6 +260,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Equal(JsonValueKind.Array, types.ValueKind);
     }
 
+    /// <summary>
+    /// get_assembly_info exposes displayName, bundle flags, and preferred runtime pack.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetAssemblyInfo_IncludesNewProperties()
     {
@@ -240,6 +282,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Equal("Microsoft.NETCore.App", json.GetProperty("preferredRuntimePack").GetString());
     }
 
+    /// <summary>
+    /// A self-contained apphost is reported as bundle-backed with an in-bundle display name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetAssemblyInfo_BundleBacked_ShowsBundleInfo()
     {
@@ -259,6 +304,9 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.False(json.GetProperty("canSaveInPlace").GetBoolean());
     }
 
+    /// <summary>
+    /// ASP.NET Core apps report Microsoft.AspNetCore.App as their preferred runtime pack.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task GetAssemblyInfo_AspNetCore_PreferredPack()
     {

@@ -312,6 +312,9 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _cts?.Cancel();

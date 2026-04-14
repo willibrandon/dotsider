@@ -100,6 +100,9 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
         cts.Dispose();
     }
 
+    /// <summary>
+    /// Verifies diagnostics socket exists after tui start.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiagnosticsSocket_ExistsAfterTuiStart()
     {
@@ -115,6 +118,9 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies diagnostics socket removed after dispose.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DiagnosticsSocket_RemovedAfterDispose()
     {
@@ -127,6 +133,9 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
             $"Hex1b diagnostics socket was not cleaned up at {socketPath}");
     }
 
+    /// <summary>
+    /// Verifies sessions capture returns screen content via real socket.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SessionsCapture_ReturnsScreenContent_ViaRealSocket()
     {
@@ -153,6 +162,9 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies capture screen returns assembly content via real socket.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task CaptureScreen_ReturnsAssemblyContent_ViaRealSocket()
     {

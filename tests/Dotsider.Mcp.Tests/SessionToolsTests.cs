@@ -5,12 +5,21 @@ using Dotsider.Diagnostics;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for session discovery and introspection MCP tools backed by diagnostics sockets.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
     // Use PIDs that won't collide with real processes or other test classes
     private static int s_nextPid = 999_700;
 
+    /// <summary>
+    /// discover_dotsider_sessions picks up a simulated listening instance by PID.
+    /// </summary>
     [Fact]
     public async Task DiscoverDotsiderSessions_FindsRunningInstance()
     {
@@ -36,6 +45,9 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         Assert.Equal(999_999, testSession.GetProperty("pid").GetInt32());
     }
 
+    /// <summary>
+    /// get_session_info combines the remote assembly-info and current-view payloads into one response.
+    /// </summary>
     [Fact]
     public async Task GetSessionInfo_ReturnsAssemblyAndViewData()
     {
@@ -66,6 +78,9 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
 
     // --- Diff mode: real DotsiderDiagnosticsListener with real AssemblyAnalyzers ---
 
+    /// <summary>
+    /// Discovery surfaces a real diff-mode listener and exposes both left/right assembly metadata.
+    /// </summary>
     [Fact]
     public async Task DiscoverDotsiderSessions_FindsDiffModeInstance()
     {
@@ -95,6 +110,9 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         Assert.True(diffSession.GetProperty("info").TryGetProperty("right", out _));
     }
 
+    /// <summary>
+    /// Diff-mode session info carries left/right assembly names plus the current tab and filter mode.
+    /// </summary>
     [Fact]
     public async Task GetSessionInfo_DiffMode_ReturnsBothAssemblyAndView()
     {
@@ -130,6 +148,9 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
 
     // --- NuGet mode: real DotsiderDiagnosticsListener with real NuGetPackageAnalyzer ---
 
+    /// <summary>
+    /// Discovery surfaces a real NuGet-mode listener and includes its packageId in the info.
+    /// </summary>
     [Fact]
     public async Task DiscoverDotsiderSessions_FindsNugetModeInstance()
     {
@@ -159,6 +180,9 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             nugetSession.GetProperty("info").GetProperty("packageId").GetString());
     }
 
+    /// <summary>
+    /// NuGet-mode session info reports package metadata alongside the browsing-package view state.
+    /// </summary>
     [Fact]
     public async Task GetSessionInfo_NugetMode_ReturnsBothAssemblyAndView()
     {

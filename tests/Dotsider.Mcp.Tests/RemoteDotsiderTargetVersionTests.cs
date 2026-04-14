@@ -8,6 +8,9 @@ namespace Dotsider.Mcp.Tests;
 /// </summary>
 public class RemoteDotsiderTargetVersionTests
 {
+    /// <summary>
+    /// A pre-versioned server response is rejected because the protocol contract requires a 'v' field.
+    /// </summary>
     [Fact(Timeout = 10_000)]
     public async Task RejectsOldServerResponse()
     {
@@ -25,6 +28,9 @@ public class RemoteDotsiderTargetVersionTests
         Assert.Contains("server response", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Rejects a remote server whose advertised version differs from the client target.
+    /// </summary>
     [Fact(Timeout = 10_000)]
     public async Task RejectsWrongServerVersion()
     {

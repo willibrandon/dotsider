@@ -7,6 +7,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Standard Mode View.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -44,6 +47,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies app launches shows assembly name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task App_Launches_ShowsAssemblyName()
     {
@@ -62,6 +68,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab2 shows metadata.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab2_ShowsMetadata()
     {
@@ -82,6 +91,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab3 shows il inspector.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab3_ShowsIlInspector()
     {
@@ -102,6 +114,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab4 shows strings.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab4_ShowsStrings()
     {
@@ -122,6 +137,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 shows hex dump.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_ShowsHexDump()
     {
@@ -142,6 +160,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 starts in normal mode read only.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_StartsInNormalMode_ReadOnly()
     {
@@ -166,6 +187,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 i key enters insert mode.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_IKey_EntersInsertMode()
     {
@@ -192,6 +216,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 esc from insert returns to normal.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_EscFromInsert_ReturnsToNormal()
     {
@@ -219,6 +246,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 esc from insert with confirmed search exits insert first.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_EscFromInsert_WithConfirmedSearch_ExitsInsertFirst()
     {
@@ -258,6 +288,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 normal mode vim keys navigate.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_NormalMode_VimKeysNavigate()
     {
@@ -291,6 +324,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 insert mode s key does not toggle size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_SKey_DoesNotToggleSize()
     {
@@ -322,6 +358,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 insert mode q key does not quit.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_QKey_DoesNotQuit()
     {
@@ -348,6 +387,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 insert mode number keys do not switch tabs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_InsertMode_NumberKeys_DoNotSwitchTabs()
     {
@@ -373,6 +415,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 normal mode no insert indicator.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_NormalMode_NoInsertIndicator()
     {
@@ -397,6 +442,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab5 ctrl s saves with correct file name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab5_CtrlS_SavesWithCorrectFileName()
     {
@@ -453,6 +501,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies tab6 shows dep graph.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_ShowsDepGraph()
     {
@@ -473,6 +524,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 shows size map.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_ShowsSizeMap()
     {
@@ -493,6 +547,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 shows node and edge counts.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_ShowsNodeAndEdgeCounts()
     {
@@ -517,6 +574,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 search shows match count.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_SearchShowsMatchCount()
     {
@@ -545,6 +605,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 match navigation cycles graph selected node.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_MatchNavigation_CyclesGraphSelectedNode()
     {
@@ -593,6 +656,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 arrow keys work after search confirm.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_ArrowKeys_WorkAfterSearchConfirm()
     {
@@ -630,6 +696,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 arrow keys work after search confirm.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_ArrowKeys_WorkAfterSearchConfirm()
     {
@@ -667,6 +736,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 startup focus arrow keys work without tab switch.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
@@ -697,6 +769,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 startup focus arrow keys work without tab switch.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
@@ -727,6 +802,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab6 arrow keys cycle selected index.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab6_ArrowKeys_CycleSelectedIndex()
     {
@@ -777,6 +855,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 arrow keys cycle selected index.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_ArrowKeys_CycleSelectedIndex()
     {
@@ -827,6 +908,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 shows breadcrumb and total size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_ShowsBreadcrumbAndTotalSize()
     {
@@ -851,6 +935,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 escape pops breadcrumb.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_Escape_PopsBreadcrumb()
     {
@@ -898,6 +985,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 search match navigation updates hovered item.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_SearchMatchNavigation_UpdatesHoveredItem()
     {
@@ -936,6 +1026,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab7 enter prefers search match over stale selection.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab7_Enter_PrefersSearchMatchOverStaleSelection()
     {
@@ -1033,6 +1126,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 library shows no entry point.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab8_Library_ShowsNoEntryPoint()
     {
@@ -1053,6 +1149,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 exe shows launch prompt.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab8_Exe_ShowsLaunchPrompt()
     {
@@ -1073,6 +1172,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 exe idle view shows assembly info and providers.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab8_Exe_IdleView_ShowsAssemblyInfoAndProviders()
     {
@@ -1100,6 +1202,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 sub tab navigation arrow keys cycle.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
     {
@@ -1149,6 +1254,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 category filter keys update state.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_CategoryFilterKeys_UpdateState()
     {
@@ -1208,6 +1316,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 ctrl k stops running process.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_CtrlK_StopsRunningProcess()
     {
@@ -1241,6 +1352,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 enter reruns after exit.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_Enter_RerunsAfterExit()
     {
@@ -1284,6 +1398,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 search after process exit no global binding conflict.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
@@ -1313,6 +1430,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies general enter on reference drills into assembly.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task General_EnterOnReference_DrillsIntoAssembly()
     {
@@ -1336,6 +1456,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab3 arrow keys work immediately.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab3_ArrowKeysWorkImmediately()
     {
@@ -1360,6 +1483,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab3 disassembly pane scrolls.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab3_DisassemblyPaneScrolls()
     {
@@ -1402,6 +1528,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab4 arrow keys cycle sub tabs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab4_ArrowKeysCycleSubTabs()
     {
@@ -1452,6 +1581,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab4 arrow keys during search editing do not switch sub tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab4_ArrowKeysDuringSearchEditing_DoNotSwitchSubTab()
     {
@@ -1498,6 +1630,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 events s key filters socket not toggle size.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
     {
@@ -1530,6 +1665,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab3 scroll position preserved across tab switch.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Tab3_ScrollPositionPreservedAcrossTabSwitch()
     {
@@ -1592,6 +1730,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies quit key exits app.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task QuitKey_ExitsApp()
     {
@@ -1612,6 +1753,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(runTask, completed);
     }
 
+    /// <summary>
+    /// Verifies cross view back suppressed during search editing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task CrossViewBack_SuppressedDuringSearchEditing()
     {
@@ -1657,6 +1801,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 enter on jit event navigates to il inspector.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_Enter_OnJitEvent_NavigatesToIlInspector()
     {
@@ -1727,6 +1874,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 jit navigation hint updates and enter navigates without rerun.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_JitNavigation_HintUpdatesAndEnterNavigatesWithoutRerun()
     {
@@ -1800,6 +1950,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 search editing hint shows rerun not go to il.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_SearchEditing_HintShowsRerunNotGoToIl()
     {
@@ -1865,6 +2018,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies tab8 enter during search editing confirms search not navigates.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task Tab8_EnterDuringSearchEditing_ConfirmsSearchNotNavigates()
     {
@@ -1937,6 +2093,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Apphost Detection ---
 
+    /// <summary>
+    /// Verifies apphost exe shows dialog.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_ShowsDialog()
     {
@@ -1958,6 +2117,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies apphost exe enter navigates to managed dll.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Enter_NavigatesToManagedDll()
     {
@@ -1985,6 +2147,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies apphost exe escape dismisses dialog.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Escape_DismissesDialog()
     {
@@ -2010,6 +2175,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies apphost exe enter then back reshows dialog.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ApphostExe_Enter_ThenBack_ReshowsDialog()
     {
@@ -2047,6 +2215,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

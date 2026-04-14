@@ -7,6 +7,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Hex Save Stress.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -55,6 +58,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.RightArrow).Key(Hex1bKey.RightArrow)
             .Key(Hex1bKey.F).Key(Hex1bKey.F);
 
+    /// <summary>
+    /// Verifies locked file falls back to tmp path.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LockedFile_FallsBackToTmpPath()
     {
@@ -126,6 +132,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies invalid edit rejects corrupted pe.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task InvalidEdit_RejectsCorruptedPe()
     {
@@ -175,6 +184,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies double save no dirty state after first.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DoubleSave_NoDirtyStateAfterFirst()
     {
@@ -231,6 +243,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies native binary hex save succeeds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task NativeBinary_HexSave_Succeeds()
     {
@@ -278,6 +293,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies in memory analyzer functions without disk.
+    /// </summary>
     [Fact]
     public void InMemoryAnalyzer_FunctionsWithoutDisk()
     {
@@ -296,6 +314,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(analyzer.RawBytes.Length > 0);
     }
 
+    /// <summary>
+    /// Verifies in memory analyzer native binary save recovery path.
+    /// </summary>
     [Fact]
     public void InMemoryAnalyzer_NativeBinary_SaveRecoveryPath()
     {
@@ -317,6 +338,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(0xFF, analyzer.RawBytes.Span[4]);
     }
 
+    /// <summary>
+    /// Verifies reopen or fallback all candidates fail returns in memory analyzer.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ReopenOrFallback_AllCandidatesFail_ReturnsInMemoryAnalyzer()
     {
@@ -346,6 +370,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies save hex changes native binary memory fallback sets notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SaveHexChanges_NativeBinary_MemoryFallbackSetsNotification()
     {
@@ -392,6 +419,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

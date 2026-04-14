@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for the diff_assemblies MCP tool and its pagination limits.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// Comparing v1 to v2 of the same library produces a non-error diff payload.
+    /// </summary>
     [Fact]
     public async Task DiffAssemblies_V1VsV2_ReturnsDifferences()
     {
@@ -25,6 +34,9 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.DoesNotContain("Error", text);
     }
 
+    /// <summary>
+    /// Diffing an assembly against itself produces an empty, error-free diff.
+    /// </summary>
     [Fact]
     public async Task DiffAssemblies_SameAssembly_ReturnsNoDifferences()
     {
@@ -45,6 +57,9 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.DoesNotContain("Error", text);
     }
 
+    /// <summary>
+    /// maxTypeDiffs caps the typeDiffs array while metadataSummary retains full counts.
+    /// </summary>
     [Fact]
     public async Task DiffAssemblies_MaxTypeDiffs_LimitsTypeOutput()
     {
@@ -75,6 +90,9 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(totalTypes > 2, "Summary should reflect all diffs, not the limited output");
     }
 
+    /// <summary>
+    /// maxMethodDiffs caps the methodDiffs array without altering the aggregate summary.
+    /// </summary>
     [Fact]
     public async Task DiffAssemblies_MaxMethodDiffs_LimitsMethodOutput()
     {
@@ -105,6 +123,9 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(totalMethods > 5, "Summary should reflect all diffs, not the limited output");
     }
 
+    /// <summary>
+    /// Type and method limits compose independently on the same diff invocation.
+    /// </summary>
     [Fact]
     public async Task DiffAssemblies_BothLimits_LimitsBothOutputs()
     {

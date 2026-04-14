@@ -3,6 +3,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Diff State.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -24,6 +27,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
+    /// <summary>
+    /// Verifies construct both analyzers accessible.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Construct_BothAnalyzersAccessible()
     {
@@ -35,6 +41,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("RichLibrary", state.Right.AssemblyName);
     }
 
+    /// <summary>
+    /// Verifies construct diff result populated.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Construct_DiffResultPopulated()
     {
@@ -44,6 +53,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(state.DiffResult.TypeDiffs);
     }
 
+    /// <summary>
+    /// Verifies default filter mode is all.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void DefaultFilterMode_IsAll()
     {
@@ -52,6 +64,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(DiffFilterMode.All, state.FilterMode);
     }
 
+    /// <summary>
+    /// Verifies tab switching works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void TabSwitching_Works()
     {
@@ -61,6 +76,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(2, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies dispose cleans up.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dispose_CleansUp()
     {
@@ -70,6 +88,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
         state.Dispose(); // idempotent — should not throw
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _app?.Dispose();

@@ -32,6 +32,9 @@ public class SessionCliTests : IAsyncLifetime
         return "Debug";
     }
 
+    /// <summary>
+    /// Prepares the fixture state before tests execute.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         var dotsiderPath = SessionDiscovery.GetDotsiderSocketPath(TestPid);
@@ -116,6 +119,9 @@ public class SessionCliTests : IAsyncLifetime
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -123,6 +129,9 @@ public class SessionCliTests : IAsyncLifetime
         await _hex1bSocket.DisposeAsync();
     }
 
+    /// <summary>
+    /// Verifies sessions info returns assembly and view data.
+    /// </summary>
     [Fact]
     public async Task Sessions_Info_ReturnsAssemblyAndViewData()
     {
@@ -136,6 +145,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("PE/Metadata", stdout); // current tab name from numeric ID
     }
 
+    /// <summary>
+    /// Verifies sessions info json mode returns json.
+    /// </summary>
     [Fact]
     public async Task Sessions_Info_JsonMode_ReturnsJson()
     {
@@ -150,6 +162,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Equal(2, view.GetProperty("tab").GetInt32());
     }
 
+    /// <summary>
+    /// Verifies sessions view returns current view.
+    /// </summary>
     [Fact]
     public async Task Sessions_View_ReturnsCurrentView()
     {
@@ -161,6 +176,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("idle", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions navigate sends tab change.
+    /// </summary>
     [Fact]
     public async Task Sessions_Navigate_SendsTabChange()
     {
@@ -171,6 +189,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("tab 3", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions capture returns screen content.
+    /// </summary>
     [Fact]
     public async Task Sessions_Capture_ReturnsScreenContent()
     {
@@ -181,6 +202,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("[captured-text]", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions capture format option removed.
+    /// </summary>
     [Fact]
     public async Task Sessions_Capture_FormatOptionRemoved()
     {
@@ -191,6 +215,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("--format", stderr);
     }
 
+    /// <summary>
+    /// Verifies sessions trace events returns events.
+    /// </summary>
     [Fact]
     public async Task Sessions_TraceEvents_ReturnsEvents()
     {
@@ -203,6 +230,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("[gc]", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions trace counters returns counters.
+    /// </summary>
     [Fact]
     public async Task Sessions_TraceCounters_ReturnsCounters()
     {
@@ -213,6 +243,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("cpuUsage", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions trace output returns output.
+    /// </summary>
     [Fact]
     public async Task Sessions_TraceOutput_ReturnsOutput()
     {
@@ -224,6 +257,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("[err]", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions trace start queues trace.
+    /// </summary>
     [Fact]
     public async Task Sessions_TraceStart_QueuesTrace()
     {
@@ -234,6 +270,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("Trace start queued", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions trace stop stops trace.
+    /// </summary>
     [Fact]
     public async Task Sessions_TraceStop_StopsTrace()
     {
@@ -244,6 +283,9 @@ public class SessionCliTests : IAsyncLifetime
         Assert.Contains("Trace stopped", stdout);
     }
 
+    /// <summary>
+    /// Verifies sessions navigate out of range tab returns error.
+    /// </summary>
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
@@ -298,6 +340,9 @@ public class SessionCliTests : IAsyncLifetime
         });
     }
 
+    /// <summary>
+    /// Verifies sessions info invalid pid returns error.
+    /// </summary>
     [Fact]
     public async Task Sessions_Info_InvalidPid_ReturnsError()
     {

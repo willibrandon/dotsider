@@ -5,6 +5,9 @@ namespace Dotsider.Tests;
 /// </summary>
 public class SearchStateTests
 {
+    /// <summary>
+    /// Verifies initial is inactive.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Initial_IsInactive()
     {
@@ -15,6 +18,9 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies activate or cycle inactive to editing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_InactiveToEditing()
     {
@@ -24,6 +30,9 @@ public class SearchStateTests
         Assert.False(s.IsConfirmed);
     }
 
+    /// <summary>
+    /// Verifies activate or cycle editing to inactive.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_EditingToInactive()
     {
@@ -35,6 +44,9 @@ public class SearchStateTests
         Assert.Null(s.Query);
     }
 
+    /// <summary>
+    /// Verifies activate or cycle confirmed to editing.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_ConfirmedToEditing()
     {
@@ -49,6 +61,9 @@ public class SearchStateTests
         Assert.Equal("test", s.Query); // Query preserved
     }
 
+    /// <summary>
+    /// Verifies confirm sets is confirmed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Confirm_SetsIsConfirmed()
     {
@@ -60,6 +75,9 @@ public class SearchStateTests
         Assert.True(s.IsConfirmed);
     }
 
+    /// <summary>
+    /// Verifies dismiss clears all.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dismiss_ClearsAll()
     {
@@ -75,6 +93,9 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies reset clears all.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Reset_ClearsAll()
     {
@@ -90,6 +111,9 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies update query resets confirmation.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void UpdateQuery_ResetsConfirmation()
     {
@@ -104,6 +128,9 @@ public class SearchStateTests
         Assert.Equal(-1, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies set match count stores value.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SetMatchCount_StoresValue()
     {
@@ -112,6 +139,9 @@ public class SearchStateTests
         Assert.Equal(42, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies set match count zero means no matches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SetMatchCount_ZeroMeansNoMatches()
     {
@@ -120,6 +150,9 @@ public class SearchStateTests
         Assert.Equal(0, s.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies activate or cycle inactive to editing clears query.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ActivateOrCycle_InactiveToEditing_ClearsQuery()
     {

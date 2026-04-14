@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for assembly size-breakdown and largest-method MCP tools.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// get_size_breakdown produces an error-free hierarchical size payload for a real library.
+    /// </summary>
     [Fact]
     public async Task GetSizeBreakdown_RichLibrary_ReturnsSizeTree()
     {
@@ -21,6 +30,9 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.DoesNotContain("Error", text);
     }
 
+    /// <summary>
+    /// get_largest_methods honors maxResults and returns the top-N largest IL bodies.
+    /// </summary>
     [Fact]
     public async Task GetLargestMethods_RichLibrary_ReturnsSortedMethods()
     {
@@ -43,6 +55,9 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(methods.GetArrayLength() <= 5);
     }
 
+    /// <summary>
+    /// Without an explicit limit, get_largest_methods caps output at the 20-method default.
+    /// </summary>
     [Fact]
     public async Task GetLargestMethods_DefaultCount_Returns20OrFewer()
     {

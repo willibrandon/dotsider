@@ -18,6 +18,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
 
     // --- Diff mode: real listener with real AssemblyAnalyzers ---
 
+    /// <summary>
+    /// Diff-mode sessions expose both the active tab and the diff filter mode via get_current_view.
+    /// </summary>
     [Fact]
     public async Task GetCurrentView_DiffMode_ReturnsTabAndFilterMode()
     {
@@ -45,6 +48,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         Assert.Equal("addedOnly", doc.RootElement.GetProperty("filterMode").GetString());
     }
 
+    /// <summary>
+    /// When browsing a nupkg without a selected DLL, isBrowsingPackage is reported as true.
+    /// </summary>
     [Fact]
     public async Task GetCurrentView_NugetMode_BrowsingPackage()
     {
@@ -66,6 +72,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         Assert.True(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
     }
 
+    /// <summary>
+    /// Once a DLL is selected inside a nupkg, isBrowsingPackage flips false and the tab is reported.
+    /// </summary>
     [Fact]
     public async Task GetCurrentView_NugetMode_DllSelected()
     {
@@ -90,6 +99,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         Assert.Equal(4, doc.RootElement.GetProperty("tab").GetInt32());
     }
 
+    /// <summary>
+    /// Diff mode has no single DotsiderState, so navigate_to fails with a clear message.
+    /// </summary>
     [Fact]
     public async Task NavigateTo_DiffMode_FailsBecauseNoState()
     {
@@ -111,6 +123,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         Assert.Contains("No assembly is loaded", text);
     }
 
+    /// <summary>
+    /// Without a selected DLL, NuGet mode cannot satisfy navigate_to and returns an error.
+    /// </summary>
     [Fact]
     public async Task NavigateTo_NugetMode_NoDllSelected_Fails()
     {
@@ -131,6 +146,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
 
     // --- Live NuGet navigate: headless TUI + MCP ---
 
+    /// <summary>
+    /// Against a live headless NuGet TUI, navigate_to updates the current tab and get_current_view reflects it.
+    /// </summary>
     [Fact]
     public async Task NavigateTo_LiveNuget_OpenedDll_ChangesTabAndVerifiesView()
     {
@@ -190,6 +208,9 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
 
     // --- Disposal ---
 
+    /// <summary>
+    /// Disposes any listeners or TUI resources owned by the test before the base class tears down the server.
+    /// </summary>
     public override async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

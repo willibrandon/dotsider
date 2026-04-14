@@ -18,7 +18,9 @@ public class RuntimeTracerDataRetrievalBenchmarks
     private RuntimeTracer _tracer = null!;
     private string _helloWorldDll = null!;
 
-    /// <summary>Runs a real HelloWorld trace to completion so the ring buffer, summary, and output queues are populated.</summary>
+    /// <summary>
+    /// Runs a real HelloWorld trace to completion so the ring buffer, summary, and output queues are populated.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -45,7 +47,9 @@ public class RuntimeTracerDataRetrievalBenchmarks
         Thread.Sleep(500);
     }
 
-    /// <summary>Stops and disposes the shared tracer.</summary>
+    /// <summary>
+    /// Stops and disposes the shared tracer.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -53,25 +57,33 @@ public class RuntimeTracerDataRetrievalBenchmarks
         _tracer.Dispose();
     }
 
-    /// <summary>Reads all events from a populated ring buffer — characterizes the snapshot-copy hot path.</summary>
+    /// <summary>
+    /// Reads all events from a populated ring buffer — characterizes the snapshot-copy hot path.
+    /// </summary>
     [Benchmark(Description = "GetEvents (populated ring buffer)")]
     [BenchmarkCategory("DataRetrieval")]
     public IReadOnlyList<TraceEventEntry> GetEvents_Populated()
         => _tracer.GetEvents();
 
-    /// <summary>Reads the summary from populated per-provider accumulators.</summary>
+    /// <summary>
+    /// Reads the summary from populated per-provider accumulators.
+    /// </summary>
     [Benchmark(Description = "GetSummary (populated accumulators)")]
     [BenchmarkCategory("DataRetrieval")]
     public TraceSummary GetSummary_Populated()
         => _tracer.GetSummary();
 
-    /// <summary>Reads the populated stdout/stderr output queue.</summary>
+    /// <summary>
+    /// Reads the populated stdout/stderr output queue.
+    /// </summary>
     [Benchmark(Description = "GetOutput (populated queue)")]
     [BenchmarkCategory("DataRetrieval")]
     public IReadOnlyList<OutputLine> GetOutput_Populated()
         => _tracer.GetOutput();
 
-    /// <summary>Reads the latest counter snapshot after the run has produced one.</summary>
+    /// <summary>
+    /// Reads the latest counter snapshot after the run has produced one.
+    /// </summary>
     [Benchmark(Description = "GetLatestCounters (populated snapshot)")]
     [BenchmarkCategory("DataRetrieval")]
     public CounterSnapshot? GetLatestCounters_Populated()
@@ -91,7 +103,9 @@ public class RuntimeTracerThroughputBenchmarks
     private string _loadGenDll = null!;
     private string _loadGenDir = null!;
 
-    /// <summary>Builds a 30-second load-generator app and starts a live trace so readers contend with the write path.</summary>
+    /// <summary>
+    /// Builds a 30-second load-generator app and starts a live trace so readers contend with the write path.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -161,7 +175,9 @@ public class RuntimeTracerThroughputBenchmarks
         Thread.Sleep(2000);
     }
 
-    /// <summary>Stops the live tracer and deletes the load-generator workspace.</summary>
+    /// <summary>
+    /// Stops the live tracer and deletes the load-generator workspace.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -172,19 +188,25 @@ public class RuntimeTracerThroughputBenchmarks
         catch { /* best effort */ }
     }
 
-    /// <summary>Reads events while the write path is active — measures lock contention on the ring buffer.</summary>
+    /// <summary>
+    /// Reads events while the write path is active — measures lock contention on the ring buffer.
+    /// </summary>
     [Benchmark(Description = "GetEvents under load (lock contention)")]
     [BenchmarkCategory("Throughput")]
     public IReadOnlyList<TraceEventEntry> GetEvents_UnderLoad()
         => _tracer.GetEvents();
 
-    /// <summary>Reads the latest counters under load — characterizes the volatile-read path.</summary>
+    /// <summary>
+    /// Reads the latest counters under load — characterizes the volatile-read path.
+    /// </summary>
     [Benchmark(Description = "GetLatestCounters under load (volatile read)")]
     [BenchmarkCategory("Throughput")]
     public CounterSnapshot? GetLatestCounters_UnderLoad()
         => _tracer.GetLatestCounters();
 
-    /// <summary>Reads the summary under load — measures dictionary copy and aggregation while the writer is active.</summary>
+    /// <summary>
+    /// Reads the summary under load — measures dictionary copy and aggregation while the writer is active.
+    /// </summary>
     [Benchmark(Description = "GetSummary under load (dict copy + aggregation)")]
     [BenchmarkCategory("Throughput")]
     public TraceSummary GetSummary_UnderLoad()
@@ -205,7 +227,9 @@ public class RuntimeTracerWritePathBenchmarks
     private string _loadGenDir = null!;
     private RuntimeTracer? _lastTracer;
 
-    /// <summary>Builds HelloWorld for lifecycle runs and a 30-second load-generator for throughput runs.</summary>
+    /// <summary>
+    /// Builds HelloWorld for lifecycle runs and a 30-second load-generator for throughput runs.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -260,7 +284,9 @@ public class RuntimeTracerWritePathBenchmarks
         _loadGenDll = Path.Combine(_loadGenDir, "bin", "Release", "net10.0", "LoadGen.dll");
     }
 
-    /// <summary>Stops and disposes the per-iteration tracer so each run starts from a fresh EventPipe session.</summary>
+    /// <summary>
+    /// Stops and disposes the per-iteration tracer so each run starts from a fresh EventPipe session.
+    /// </summary>
     [IterationCleanup]
     public void IterationCleanup()
     {
@@ -269,7 +295,9 @@ public class RuntimeTracerWritePathBenchmarks
         _lastTracer = null;
     }
 
-    /// <summary>Ensures any remaining tracer is stopped and removes the load-generator workspace.</summary>
+    /// <summary>
+    /// Ensures any remaining tracer is stopped and removes the load-generator workspace.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -280,7 +308,9 @@ public class RuntimeTracerWritePathBenchmarks
         catch { /* best effort */ }
     }
 
-    /// <summary>Drives the full write path: EventPipe reader, CLR event handlers, and ring-buffer writes for two seconds.</summary>
+    /// <summary>
+    /// Drives the full write path: EventPipe reader, CLR event handlers, and ring-buffer writes for two seconds.
+    /// </summary>
     [Benchmark(Description = "Event collection throughput (2s trace)")]
     [BenchmarkCategory("WritePath")]
     public int EventCollectionThroughput()
@@ -302,7 +332,9 @@ public class RuntimeTracerWritePathBenchmarks
         return tracer.GetSummary().TotalEvents;
     }
 
-    /// <summary>Drives the counter pipeline end-to-end: dynamic event handling, counter parsing, and snapshot publication.</summary>
+    /// <summary>
+    /// Drives the counter pipeline end-to-end: dynamic event handling, counter parsing, and snapshot publication.
+    /// </summary>
     [Benchmark(Description = "Counter acquisition pipeline (3s trace)")]
     [BenchmarkCategory("WritePath")]
     public CounterSnapshot? CounterAcquisitionThroughput()
@@ -324,7 +356,9 @@ public class RuntimeTracerWritePathBenchmarks
         return tracer.GetLatestCounters();
     }
 
-    /// <summary>Measures end-to-end Start/Stop latency including EventPipe connect and shutdown on a short-lived process.</summary>
+    /// <summary>
+    /// Measures end-to-end Start/Stop latency including EventPipe connect and shutdown on a short-lived process.
+    /// </summary>
     [Benchmark(Description = "Start/Stop lifecycle (EventPipe connect latency)")]
     [BenchmarkCategory("Lifecycle")]
     public int StartStopLifecycle()

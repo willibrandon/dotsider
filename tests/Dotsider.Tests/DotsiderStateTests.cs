@@ -4,6 +4,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Dotsider State.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -25,6 +28,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
+    /// <summary>
+    /// Verifies construct from hello world has correct file name.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ConstructFromHelloWorld_HasCorrectFileName()
     {
@@ -33,6 +39,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("HelloWorld.dll", state.Analyzer.FileName);
     }
 
+    /// <summary>
+    /// Verifies has entry point true for exe.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasEntryPoint_TrueForExe()
     {
@@ -41,6 +50,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.HasEntryPoint);
     }
 
+    /// <summary>
+    /// Verifies has entry point false for library.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForLibrary()
     {
@@ -49,6 +61,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
+    /// <summary>
+    /// Verifies has entry point true for complex app.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasEntryPoint_TrueForComplexApp()
     {
@@ -57,6 +72,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.HasEntryPoint);
     }
 
+    /// <summary>
+    /// Verifies has entry point false for empty lib.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForEmptyLib()
     {
@@ -65,6 +83,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
+    /// <summary>
+    /// Verifies has entry point false for native lib.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HasEntryPoint_FalseForNativeLib()
     {
@@ -73,6 +94,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.False(state.HasEntryPoint);
     }
 
+    /// <summary>
+    /// Verifies is native aot false for all managed samples.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IsNativeAot_FalseForAllManagedSamples()
     {
@@ -86,6 +110,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies push assembly changes analyzer.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_ChangesAnalyzer()
     {
@@ -97,6 +124,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Single(state.NavigationStack);
     }
 
+    /// <summary>
+    /// Verifies pop assembly restores previous.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PopAssembly_RestoresPrevious()
     {
@@ -108,6 +138,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(state.NavigationStack);
     }
 
+    /// <summary>
+    /// Verifies push assembly invalid path returns false and sets error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_InvalidPath_ReturnsFalseAndSetsError()
     {
@@ -119,6 +152,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies push assembly depth limit returns false at max.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_DepthLimit_ReturnsFalseAtMax()
     {
@@ -135,6 +171,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("depth limit", state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies push assembly success clears error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_SuccessClearsError()
     {
@@ -148,6 +187,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies pop assembly clears navigation error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PopAssembly_ClearsNavigationError()
     {
@@ -161,6 +203,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies push assembly bad image returns false and preserves state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_BadImage_ReturnsFalseAndPreservesState()
     {
@@ -172,6 +217,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("Cannot open assembly", state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies push assembly unauthorized access returns false.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_UnauthorizedAccess_ReturnsFalse()
     {
@@ -184,6 +232,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.NavigationError);
     }
 
+    /// <summary>
+    /// Verifies pop assembly empty stack is no op.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PopAssembly_EmptyStack_IsNoOp()
     {
@@ -194,6 +245,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(state.NavigationStack);
     }
 
+    /// <summary>
+    /// Verifies get active strings returns non empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetActiveStrings_ReturnsNonEmpty()
     {
@@ -204,30 +258,45 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(strings);
     }
 
+    /// <summary>
+    /// Verifies format size zero.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatSize_Zero()
     {
         Assert.Equal("0 B", DotsiderState.FormatSize(0));
     }
 
+    /// <summary>
+    /// Verifies format size kb.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatSize_KB()
     {
         Assert.Equal("1.0 KB", DotsiderState.FormatSize(1024));
     }
 
+    /// <summary>
+    /// Verifies format size mb.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatSize_MB()
     {
         Assert.Equal("1.0 MB", DotsiderState.FormatSize(1048576));
     }
 
+    /// <summary>
+    /// Verifies format size bytes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FormatSize_Bytes()
     {
         Assert.Equal("500 B", DotsiderState.FormatSize(500));
     }
 
+    /// <summary>
+    /// Verifies construct from analyzer works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ConstructFromAnalyzer_Works()
     {
@@ -239,6 +308,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.StringExtractor);
     }
 
+    /// <summary>
+    /// Verifies all project types construct without error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void AllProjectTypes_ConstructWithoutError()
     {
@@ -256,6 +328,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Cross-View Navigation Tests ---
 
+    /// <summary>
+    /// Verifies navigate to tab switches current tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToTab_SwitchesCurrentTab()
     {
@@ -266,6 +341,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies navigate to tab same tab no op.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToTab_SameTab_NoOp()
     {
@@ -276,6 +354,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.HexDump, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies navigate to tab to il inspector switches tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToTab_ToIlInspector_SwitchesTab()
     {
@@ -286,6 +367,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies navigate to tab il round trip preserves editor state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToTab_IlRoundTrip_PreservesEditorState()
     {
@@ -330,6 +414,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies navigate to il method sets state and switches tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_SetsStateAndSwitchesTab()
     {
@@ -350,6 +437,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal($"method:{method.Token}", state.IlFocusedTreeKey);
     }
 
+    /// <summary>
+    /// Verifies navigate to il method expands tree nodes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ExpandsTreeNodes()
     {
@@ -366,6 +456,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.IlTreeExpansionState[$"type:{method.DeclaringType}"]);
     }
 
+    /// <summary>
+    /// Verifies navigate to il method clears stale il search.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ClearsStaleIlSearch()
     {
@@ -388,6 +481,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(-1, ilSearch.MatchCount);
     }
 
+    /// <summary>
+    /// Verifies rva to file offset returns correct offset.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RvaToFileOffset_ReturnsCorrectOffset()
     {
@@ -405,6 +501,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(foundSection, "File offset should be within a section's raw data");
     }
 
+    /// <summary>
+    /// Verifies rva to file offset invalid rva returns negative.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RvaToFileOffset_InvalidRva_ReturnsNegative()
     {
@@ -413,6 +512,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(-1, state.RvaToFileOffset(0x7FFFFFFF));
     }
 
+    /// <summary>
+    /// Verifies navigate to hex offset sets state and switches tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_SetsStateAndSwitchesTab()
     {
@@ -429,6 +531,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
     }
 
+    /// <summary>
+    /// Verifies navigate to hex offset sets cursor position.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_SetsCursorPosition()
     {
@@ -444,6 +549,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(expectedOffset, state.HexScrollTarget);
     }
 
+    /// <summary>
+    /// Verifies navigate to hex offset invalid rva no tab switch.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToHexOffset_InvalidRva_NoTabSwitch()
     {
@@ -455,6 +563,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
+    /// <summary>
+    /// Verifies navigate back restores previous tab.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateBack_RestoresPreviousTab()
     {
@@ -473,6 +584,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
+    /// <summary>
+    /// Verifies navigate back no target no op.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateBack_NoTarget_NoOp()
     {
@@ -483,6 +597,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
     }
 
+    /// <summary>
+    /// Verifies push assembly clears cross view back target.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_ClearsCrossViewBackTarget()
     {
@@ -500,6 +617,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
+    /// <summary>
+    /// Verifies pop assembly clears cross view back target.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PopAssembly_ClearsCrossViewBackTarget()
     {
@@ -518,6 +638,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.CrossViewBackTarget);
     }
 
+    /// <summary>
+    /// Verifies navigate to il method then hex then back restores il.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateToIlMethod_ThenHex_ThenBack_RestoresIl()
     {
@@ -543,6 +666,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Apphost Detection ---
 
+    /// <summary>
+    /// Verifies construct from apphost exe sets apphost dialog state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ConstructFromApphostExe_SetsApphostDialogState()
     {
@@ -555,6 +681,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.EndsWith(".dll", state.ApphostCompanionDllPath!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies construct from managed dll no apphost dialog.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ConstructFromManagedDll_NoApphostDialog()
     {
@@ -565,6 +694,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(state.ApphostCompanionDllPath);
     }
 
+    /// <summary>
+    /// Verifies push assembly from apphost to companion dll works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void PushAssembly_FromApphostToCompanionDll_Works()
     {
@@ -580,6 +712,9 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Single(state.NavigationStack);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _app?.Dispose();

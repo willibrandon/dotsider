@@ -3,10 +3,16 @@ using Hex1b.Documents;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Diff Decoration Provider.
+/// </summary>
 public class DiffDecorationProviderTests
 {
     // --- DiffSearchDecorationProvider ---
 
+    /// <summary>
+    /// Verifies diff search highlights all matches case insensitive.
+    /// </summary>
     [Fact]
     public void DiffSearch_HighlightsAllMatches_CaseInsensitive()
     {
@@ -21,6 +27,9 @@ public class DiffDecorationProviderTests
         Assert.Equal(3, spans[1].Start.Line);
     }
 
+    /// <summary>
+    /// Verifies diff search multiple matches on same line.
+    /// </summary>
     [Fact]
     public void DiffSearch_MultipleMatchesOnSameLine()
     {
@@ -32,6 +41,9 @@ public class DiffDecorationProviderTests
         Assert.Equal(3, spans.Count);
     }
 
+    /// <summary>
+    /// Verifies diff search null query returns empty.
+    /// </summary>
     [Fact]
     public void DiffSearch_NullQuery_ReturnsEmpty()
     {
@@ -41,6 +53,9 @@ public class DiffDecorationProviderTests
         Assert.Empty(provider.GetDecorations(1, 1, doc));
     }
 
+    /// <summary>
+    /// Verifies diff search empty query returns empty.
+    /// </summary>
     [Fact]
     public void DiffSearch_EmptyQuery_ReturnsEmpty()
     {
@@ -50,6 +65,9 @@ public class DiffDecorationProviderTests
         Assert.Empty(provider.GetDecorations(1, 1, doc));
     }
 
+    /// <summary>
+    /// Verifies diff search no match returns empty.
+    /// </summary>
     [Fact]
     public void DiffSearch_NoMatch_ReturnsEmpty()
     {
@@ -61,6 +79,9 @@ public class DiffDecorationProviderTests
 
     // --- DiffStatsDecorationProvider ---
 
+    /// <summary>
+    /// Verifies diff stats colors stats lines.
+    /// </summary>
     [Fact]
     public void DiffStats_ColorsStatsLines()
     {
@@ -73,6 +94,9 @@ public class DiffDecorationProviderTests
         Assert.Equal(6, spans.Count);
     }
 
+    /// <summary>
+    /// Verifies diff stats does not color size delta line.
+    /// </summary>
     [Fact]
     public void DiffStats_DoesNotColorSizeDeltaLine()
     {
@@ -85,6 +109,9 @@ public class DiffDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies diff stats ignores lines without tilde.
+    /// </summary>
     [Fact]
     public void DiffStats_IgnoresLinesWithoutTilde()
     {
@@ -96,6 +123,9 @@ public class DiffDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies diff stats requires digit after prefix.
+    /// </summary>
     [Fact]
     public void DiffStats_RequiresDigitAfterPrefix()
     {
@@ -108,6 +138,9 @@ public class DiffDecorationProviderTests
         Assert.Single(spans);
     }
 
+    /// <summary>
+    /// Verifies diff stats empty lines returns empty.
+    /// </summary>
     [Fact]
     public void DiffStats_EmptyLines_ReturnsEmpty()
     {

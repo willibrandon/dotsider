@@ -10,6 +10,9 @@ public class IlSyntaxDecorationProviderTests
 {
     private readonly IlSyntaxDecorationProvider _provider = new();
 
+    /// <summary>
+    /// Verifies comment line returns comment span.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CommentLine_ReturnsCommentSpan()
     {
@@ -26,6 +29,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.Equal(line.Length + 1, span.End.Column);
     }
 
+    /// <summary>
+    /// Verifies instruction line returns address and opcode spans.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void InstructionLine_ReturnsAddressAndOpcodeSpans()
     {
@@ -49,6 +55,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.Equal(13, opcode.End.Column);
     }
 
+    /// <summary>
+    /// Verifies instruction with operand includes opcode only.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void InstructionWithOperand_IncludesOpcodeOnly()
     {
@@ -75,6 +84,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.DoesNotContain(spans, s => Equals(s.Decoration.Foreground, IlColorizer.StringColor));
     }
 
+    /// <summary>
+    /// Verifies string operand returns string span.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void StringOperand_ReturnsStringSpan()
     {
@@ -102,6 +114,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.Equal(quoteEnd + 2, str.End.Column);      // exclusive end
     }
 
+    /// <summary>
+    /// Verifies blank line no spans.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void BlankLine_NoSpans()
     {
@@ -112,6 +127,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies viewport range respects start and end.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ViewportRange_RespectsStartAndEnd()
     {
@@ -132,6 +150,9 @@ public class IlSyntaxDecorationProviderTests
         Assert.DoesNotContain(spans, s => s.Start.Line == 4);
     }
 
+    /// <summary>
+    /// Verifies non il line comment metadata returns comment span.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NonIlLine_CommentMetadata_ReturnsCommentSpan()
     {

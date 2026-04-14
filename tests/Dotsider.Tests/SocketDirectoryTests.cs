@@ -54,6 +54,9 @@ public class SocketDirectoryTests(SampleAssemblyFixture samples) : IAsyncDisposa
         return _listener.SocketPath!;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -63,6 +66,9 @@ public class SocketDirectoryTests(SampleAssemblyFixture samples) : IAsyncDisposa
         if (_terminal is not null) await _terminal.DisposeAsync();
     }
 
+    /// <summary>
+    /// Verifies ensure socket directory sets mode0700.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     [Trait("Platform", "Unix")]
     public async Task EnsureSocketDirectory_SetsMode0700()
@@ -80,6 +86,9 @@ public class SocketDirectoryTests(SampleAssemblyFixture samples) : IAsyncDisposa
             mode);
     }
 
+    /// <summary>
+    /// Verifies existing weak directory gets tightened.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     [Trait("Platform", "Unix")]
     public async Task ExistingWeakDirectory_GetsTightened()
@@ -107,6 +116,9 @@ public class SocketDirectoryTests(SampleAssemblyFixture samples) : IAsyncDisposa
             mode);
     }
 
+    /// <summary>
+    /// Verifies windows directory has correct acl.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     [Trait("Platform", "Windows")]
     public async Task WindowsDirectory_HasCorrectAcl()
@@ -120,6 +132,9 @@ public class SocketDirectoryTests(SampleAssemblyFixture samples) : IAsyncDisposa
         VerifyWindowsDirectoryAcl(Path.GetDirectoryName(socketPath)!);
     }
 
+    /// <summary>
+    /// Verifies windows socket file inherits acl.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     [Trait("Platform", "Windows")]
     public async Task WindowsSocketFile_InheritsAcl()

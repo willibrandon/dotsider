@@ -5,6 +5,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Nu Get Mode Yank Integration.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -45,6 +48,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Package browser ---
 
+    /// <summary>
+    /// Verifies browser initial focus on first dll row.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Browser_InitialFocusOnFirstDllRow()
     {
@@ -65,6 +71,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies browser tab toggles focus.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Browser_TabTogglesFocus()
     {
@@ -103,6 +112,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies browser yank on dll row shows notification and flash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Browser_YankOnDllRow_ShowsNotificationAndFlash()
     {
@@ -152,6 +164,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- DLL inspector ---
 
+    /// <summary>
+    /// Verifies drill into saves focused key esc restores.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DrillInto_SavesFocusedKey_EscRestores()
     {
@@ -192,6 +207,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Child input routing ---
 
+    /// <summary>
+    /// Verifies child search digits do not switch tabs.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ChildSearch_DigitsDoNotSwitchTabs()
     {
@@ -233,6 +251,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Hex Escape chain ---
 
+    /// <summary>
+    /// Verifies hex dump esc from normal mode returns to package.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDump_EscFromNormalMode_ReturnsToPackage()
     {
@@ -293,6 +314,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Yank timer race ---
 
+    /// <summary>
+    /// Verifies yank timer race leave dll before flash clears no exception.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task YankTimerRace_LeaveDllBeforeFlashClears_NoException()
     {
@@ -333,6 +357,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Package Info editor yank ---
 
+    /// <summary>
+    /// Verifies package info selection yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PackageInfo_SelectionYank_Works()
     {
@@ -375,6 +402,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Package Info double-click selection + yank ---
 
+    /// <summary>
+    /// Verifies package info double click word selection yank works.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task PackageInfo_DoubleClickWordSelectionYank_Works()
     {
@@ -429,6 +459,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- DLL inspector editor yank ---
 
+    /// <summary>
+    /// Verifies dll inspector editor yank works.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DllInspector_EditorYank_Works()
     {
@@ -467,6 +500,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Hex jump dialog ---
 
+    /// <summary>
+    /// Verifies hex jump dialog digits go into input esc closes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexJumpDialog_DigitsGoIntoInput_EscCloses()
     {
@@ -518,6 +554,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Child input suppression: q/y ---
 
+    /// <summary>
+    /// Verifies child search q does not quit.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ChildSearch_QDoesNotQuit()
     {
@@ -559,6 +598,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Full hex Esc chain: insert → search dismiss → back to package ---
 
+    /// <summary>
+    /// Verifies hex esc chain insert then search then back.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexEscChain_InsertThenSearchThenBack()
     {
@@ -637,6 +679,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- Child input suppression: y ---
 
+    /// <summary>
+    /// Verifies child search y does not yank.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ChildSearch_YDoesNotYank()
     {
@@ -678,6 +723,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     // --- DLL inspector row yank flash ---
 
+    /// <summary>
+    /// Verifies dll inspector row yank flash sets and clears.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task DllInspector_RowYank_FlashSetsAndClears()
     {
@@ -711,6 +759,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies package info yy yanks current line.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PackageInfo_YY_YanksCurrentLine()
     {
@@ -748,6 +799,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _cts?.Cancel();

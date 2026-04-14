@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for the extract_strings MCP tool and its filter parameters.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// extract_strings returns user, metadata, and raw string categories in a single payload.
+    /// </summary>
     [Fact]
     public async Task ExtractStrings_RichLibrary_ReturnsStringCategories()
     {
@@ -24,6 +33,9 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(json.TryGetProperty("rawStrings", out _));
     }
 
+    /// <summary>
+    /// A query filter restricts extract_strings output to substring-matching entries.
+    /// </summary>
     [Fact]
     public async Task ExtractStrings_WithQuery_FiltersResults()
     {
@@ -45,6 +57,9 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(json.TryGetProperty("userStrings", out _));
     }
 
+    /// <summary>
+    /// maxResults caps each string category to avoid flooding the MCP client.
+    /// </summary>
     [Fact]
     public async Task ExtractStrings_WithMaxResults_LimitsOutput()
     {

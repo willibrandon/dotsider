@@ -8,6 +8,9 @@ namespace Dotsider.Mcp.Tests;
 [Collection("SampleAssemblies")]
 public class FieldToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// list_fields returns a non-empty JSON array of field entries for a real library.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListFields_ReturnsFields()
     {
@@ -25,6 +28,9 @@ public class FieldToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(fields.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// A query narrows list_fields to fields whose names match the substring.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListFields_WithQuery_Filters()
     {
@@ -48,6 +54,9 @@ public class FieldToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             Assert.Contains("_counter", field.GetProperty("name").GetString()!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// typeName restricts list_fields to members of the specified declaring type.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListFields_WithTypeName_Filters()
     {
@@ -69,6 +78,9 @@ public class FieldToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             Assert.Contains("IlNavigationFixture", field.GetProperty("declaringType").GetString()!);
     }
 
+    /// <summary>
+    /// Tool registry advertises list_fields alongside the other assembly tools.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListTools_IncludesFieldTools()
     {

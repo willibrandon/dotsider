@@ -45,6 +45,9 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies pe metadata scroll position preserved when popup opens.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ScrollPositionPreservedWhenPopupOpens()
     {
@@ -100,6 +103,9 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

@@ -6,6 +6,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Runtime Tracer.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -50,6 +53,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies launch hello world transitions to running.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_TransitionsToRunning()
     {
@@ -64,6 +70,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
             $"Expected Running or Exited but got {tracer.ProcessState}: {tracer.ErrorMessage}");
     }
 
+    /// <summary>
+    /// Verifies launch hello world exits successfully.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_ExitsSuccessfully()
     {
@@ -77,6 +86,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(0, tracer.ExitCode);
     }
 
+    /// <summary>
+    /// Verifies launch hello world captures events.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_CapturesEvents()
     {
@@ -88,6 +100,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(events);
     }
 
+    /// <summary>
+    /// Verifies launch hello world captures counters.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_CapturesCounters()
     {
@@ -103,6 +118,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(counters);
     }
 
+    /// <summary>
+    /// Verifies launch hello world captures output.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_CapturesOutput()
     {
@@ -114,6 +132,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(output);
     }
 
+    /// <summary>
+    /// Verifies launch hello world summary has events.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_SummaryHasEvents()
     {
@@ -125,6 +146,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(summary.TotalEvents > 0);
     }
 
+    /// <summary>
+    /// Verifies launch hello world process id is set.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_ProcessIdIsSet()
     {
@@ -136,6 +160,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(tracer.ProcessId);
     }
 
+    /// <summary>
+    /// Verifies launch hello world elapsed increases.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task LaunchHelloWorld_ElapsedIncreases()
     {
@@ -154,6 +181,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Verifies error message null on successful run.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ErrorMessage_NullOnSuccessfulRun()
     {
@@ -164,6 +194,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(tracer.ErrorMessage);
     }
 
+    /// <summary>
+    /// Verifies summary total exceptions matches event count.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_TotalExceptions_MatchesEventCount()
     {
@@ -177,6 +210,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal(exceptionEvents, summary.TotalExceptions);
     }
 
+    /// <summary>
+    /// Verifies complex app short lived still captures events.
+    /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task ComplexApp_ShortLived_StillCapturesEvents()
     {
@@ -194,6 +230,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Lifecycle edge cases ---
 
+    /// <summary>
+    /// Verifies stop during startup unblocks within five seconds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Stop_DuringStartup_UnblocksWithinFiveSeconds()
     {
@@ -205,6 +244,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
             TimeSpan.FromSeconds(10));
     }
 
+    /// <summary>
+    /// Verifies dispose while running cleans up.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Dispose_WhileRunning_CleansUp()
     {
@@ -218,6 +260,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         _tracer = null; // prevent double-dispose in test cleanup
     }
 
+    /// <summary>
+    /// Verifies dispose called twice no throw.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dispose_CalledTwice_NoThrow()
     {
@@ -227,6 +272,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         _tracer = null;
     }
 
+    /// <summary>
+    /// Verifies event categories contain expected types.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task EventCategories_ContainExpectedTypes()
     {
@@ -240,6 +288,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(categories.Count > 0);
     }
 
+    /// <summary>
+    /// Verifies jit events overloaded methods disambiguated by token.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task JitEvents_OverloadedMethods_DisambiguatedByToken()
     {
@@ -296,6 +347,9 @@ public class RuntimeTracerTests(SampleAssemblyFixture samples) : IDisposable
             m => m.DeclaringType == declType && m.Name == methName));
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _tracer?.Dispose();

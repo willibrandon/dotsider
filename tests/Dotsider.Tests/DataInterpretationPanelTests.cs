@@ -4,6 +4,9 @@ using Hex1b.Input;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Data Interpretation Panel.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -39,6 +42,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab shows interpretation labels.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsInterpretationLabels()
     {
@@ -60,6 +66,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab shows endian label.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsEndianLabel()
     {
@@ -79,6 +88,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab shows length matching file size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsLengthMatchingFileSize()
     {
@@ -101,6 +113,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab shows hex addresses.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_ShowsHexAddresses()
     {
@@ -120,6 +135,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab endian toggle updates values.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_EndianToggleUpdatesValues()
     {
@@ -148,6 +166,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Verifies hex dump tab cursor move updates interpretation.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task HexDumpTab_CursorMoveUpdatesInterpretation()
     {
@@ -183,6 +204,9 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
         await runTask.ContinueWith(_ => { }, ct);
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

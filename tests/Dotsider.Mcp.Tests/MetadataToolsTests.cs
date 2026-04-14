@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for the PE/CLR metadata inspection MCP tool suite.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// get_pe_headers returns parsed PE header info without errors for a valid assembly.
+    /// </summary>
     [Fact]
     public async Task GetPeHeaders_ValidAssembly_ReturnsHeaders()
     {
@@ -21,6 +30,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.DoesNotContain("Error", text);
     }
 
+    /// <summary>
+    /// get_clr_header returns CLR directory info without errors for a managed assembly.
+    /// </summary>
     [Fact]
     public async Task GetClrHeader_ValidAssembly_ReturnsClrInfo()
     {
@@ -37,6 +49,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.DoesNotContain("Error", text);
     }
 
+    /// <summary>
+    /// get_sections enumerates the PE section table as a non-empty JSON array.
+    /// </summary>
     [Fact]
     public async Task GetSections_ValidAssembly_ReturnsSections()
     {
@@ -54,6 +69,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(sections.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// get_custom_attributes returns at least one attribute for a real library.
+    /// </summary>
     [Fact]
     public async Task GetCustomAttributes_ValidAssembly_ReturnsAttributes()
     {
@@ -71,6 +89,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(attrs.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// By default, compiler-generated attributes like Nullable/CompilerGenerated are filtered out.
+    /// </summary>
     [Fact]
     public async Task GetCustomAttributes_DefaultFiltering_ExcludesCompilerGenerated()
     {
@@ -90,6 +111,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.DoesNotContain("DebuggerBrowsableAttribute", text);
     }
 
+    /// <summary>
+    /// Opting in via includeCompilerGenerated re-exposes the noisy compiler attributes.
+    /// </summary>
     [Fact]
     public async Task GetCustomAttributes_IncludeCompilerGenerated_ReturnsAll()
     {
@@ -111,6 +135,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Contains("CompilerGeneratedAttribute", text);
     }
 
+    /// <summary>
+    /// The advertised tool schema surfaces the includeCompilerGenerated parameter to clients.
+    /// </summary>
     [Fact]
     public async Task GetCustomAttributes_ToolSchema_IncludesFilterParameter()
     {
@@ -123,6 +150,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.Contains("includeCompilerGenerated", schema);
     }
 
+    /// <summary>
+    /// get_resources always returns a JSON array, even for assemblies with no embedded resources.
+    /// </summary>
     [Fact]
     public async Task GetResources_ValidAssembly_ReturnsResourceList()
     {
@@ -140,6 +170,9 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
             JsonSerializer.Deserialize<JsonElement>(text).ValueKind);
     }
 
+    /// <summary>
+    /// resolve_token turns a raw metadata token into a human-readable member name.
+    /// </summary>
     [Fact]
     public async Task ResolveToken_ValidToken_ReturnsResolvedName()
     {

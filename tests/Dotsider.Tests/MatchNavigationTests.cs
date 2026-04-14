@@ -6,6 +6,9 @@ namespace Dotsider.Tests;
 /// </summary>
 public class MatchNavigationTests
 {
+    /// <summary>
+    /// Verifies navigate next wraps around.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigateNext_WrapsAround()
     {
@@ -19,6 +22,9 @@ public class MatchNavigationTests
         index = (index + 1) % count; Assert.Equal(1, index);
     }
 
+    /// <summary>
+    /// Verifies navigate prev wraps around.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NavigatePrev_WrapsAround()
     {
@@ -34,6 +40,9 @@ public class MatchNavigationTests
         Assert.Equal(0, index);
     }
 
+    /// <summary>
+    /// Verifies single match stays on same.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SingleMatch_StaysOnSame()
     {
@@ -45,6 +54,9 @@ public class MatchNavigationTests
         Assert.Equal(0, index);
     }
 
+    /// <summary>
+    /// Verifies hex match navigation next wraps.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HexMatchNavigation_NextWraps()
     {
@@ -72,6 +84,9 @@ public class MatchNavigationTests
         Assert.Equal(0x100, offsets[currentIndex]);
     }
 
+    /// <summary>
+    /// Verifies hex match navigation prev wraps.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HexMatchNavigation_PrevWraps()
     {
@@ -84,6 +99,9 @@ public class MatchNavigationTests
         Assert.Equal(0x300, offsets[currentIndex]);
     }
 
+    /// <summary>
+    /// Verifies zero matches navigate is noop.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ZeroMatches_NavigateIsNoop()
     {
@@ -93,6 +111,9 @@ public class MatchNavigationTests
         Assert.Empty(offsets);
     }
 
+    /// <summary>
+    /// Verifies backwards navigation from middle.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void BackwardsNavigation_FromMiddle()
     {

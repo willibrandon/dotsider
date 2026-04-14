@@ -18,7 +18,9 @@ public class TreemapLayoutBenchmarks
     private IReadOnlyList<SizeNode> _coreLibChildren = null!;
     private IReadOnlyList<SizeNode> _xmlChildren = null!;
 
-    /// <summary>Opens BCL analyzers and pre-builds size trees so only layout cost is measured.</summary>
+    /// <summary>
+    /// Opens BCL analyzers and pre-builds size trees so only layout cost is measured.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -30,7 +32,9 @@ public class TreemapLayoutBenchmarks
         _xmlChildren = SizeAnalyzer.BuildSizeTree(_xmlAnalyzer).Children;
     }
 
-    /// <summary>Disposes the shared analyzers.</summary>
+    /// <summary>
+    /// Disposes the shared analyzers.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -38,17 +42,23 @@ public class TreemapLayoutBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
-    /// <summary>Squarifies CoreLib's size children into a typical terminal-sized 120x30 viewport.</summary>
+    /// <summary>
+    /// Squarifies CoreLib's size children into a typical terminal-sized 120x30 viewport.
+    /// </summary>
     [Benchmark(Description = "CoreLib layout (120x30)")]
     public IReadOnlyList<TreemapRect> Layout_CoreLib()
         => TreemapLayout.Layout(_coreLibChildren, 0, 0, 120, 30);
 
-    /// <summary>Squarifies Xml's size children into a 120x30 viewport.</summary>
+    /// <summary>
+    /// Squarifies Xml's size children into a 120x30 viewport.
+    /// </summary>
     [Benchmark(Description = "Xml layout (120x30)")]
     public IReadOnlyList<TreemapRect> Layout_Xml()
         => TreemapLayout.Layout(_xmlChildren, 0, 0, 120, 30);
 
-    /// <summary>Squarifies CoreLib at 240x60 to characterize how layout scales with viewport area.</summary>
+    /// <summary>
+    /// Squarifies CoreLib at 240x60 to characterize how layout scales with viewport area.
+    /// </summary>
     [Benchmark(Description = "CoreLib layout (240x60)")]
     public IReadOnlyList<TreemapRect> Layout_CoreLib_Large()
         => TreemapLayout.Layout(_coreLibChildren, 0, 0, 240, 60);

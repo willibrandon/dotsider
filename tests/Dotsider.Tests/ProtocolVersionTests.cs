@@ -57,6 +57,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         return _listener.SocketPath!;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -66,6 +69,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         if (_terminal is not null) await _terminal.DisposeAsync();
     }
 
+    /// <summary>
+    /// Verifies correct version succeeds.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task CorrectVersion_Succeeds()
     {
@@ -78,6 +84,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.True(response.Success);
     }
 
+    /// <summary>
+    /// Verifies missing version is rejected.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task MissingVersion_IsRejected()
     {
@@ -94,6 +103,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.Contains("JSON", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies wrong version is rejected.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task WrongVersion_IsRejected()
     {
@@ -109,6 +121,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.Contains("version mismatch", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies response contains version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Response_ContainsVersion()
     {
@@ -124,6 +139,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.Equal(1, v.GetInt32());
     }
 
+    /// <summary>
+    /// Verifies pre routing errors contain version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PreRoutingErrors_ContainVersion()
     {
@@ -146,6 +164,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         _listener.ForceRejectPeers = false;
     }
 
+    /// <summary>
+    /// Verifies dotsider client rejects old server response.
+    /// </summary>
     [Fact(Timeout = 10_000)]
     public async Task DotsiderClient_RejectsOldServerResponse()
     {
@@ -162,6 +183,9 @@ public class ProtocolVersionTests(SampleAssemblyFixture samples) : IAsyncDisposa
         Assert.Contains("server response", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies dotsider client rejects wrong server version.
+    /// </summary>
     [Fact(Timeout = 10_000)]
     public async Task DotsiderClient_RejectsWrongServerVersion()
     {

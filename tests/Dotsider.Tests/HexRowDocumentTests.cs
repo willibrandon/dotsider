@@ -2,8 +2,14 @@ using Hex1b.Documents;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Hex Row Document.
+/// </summary>
 public class HexRowDocumentTests
 {
+    /// <summary>
+    /// Verifies get line text binary content does not throw.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineText_BinaryContent_DoesNotThrow()
     {
@@ -16,6 +22,9 @@ public class HexRowDocumentTests
             hexDoc.GetLineText(line); // should not throw
     }
 
+    /// <summary>
+    /// Verifies get line length binary content does not throw.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineLength_BinaryContent_DoesNotThrow()
     {
@@ -28,6 +37,9 @@ public class HexRowDocumentTests
             hexDoc.GetLineLength(line); // should not throw
     }
 
+    /// <summary>
+    /// Verifies get line text last row binary content.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineText_LastRow_BinaryContent()
     {
@@ -42,6 +54,9 @@ public class HexRowDocumentTests
         Assert.NotNull(text);
     }
 
+    /// <summary>
+    /// Verifies get line length consistent with get line text.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineLength_ConsistentWithGetLineText()
     {
@@ -58,6 +73,9 @@ public class HexRowDocumentTests
         }
     }
 
+    /// <summary>
+    /// Verifies get line text empty document returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineText_EmptyDocument_ReturnsEmpty()
     {
@@ -68,6 +86,9 @@ public class HexRowDocumentTests
         Assert.Equal("", hexDoc.GetLineText(1));
     }
 
+    /// <summary>
+    /// Verifies get line text single byte.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineText_SingleByte()
     {
@@ -79,6 +100,9 @@ public class HexRowDocumentTests
         Assert.NotEmpty(text);
     }
 
+    /// <summary>
+    /// Verifies line count matches ceil division.
+    /// </summary>
     [Theory(Timeout = 30_000)]
     [InlineData(1, 1)]
     [InlineData(15, 1)]
@@ -95,6 +119,9 @@ public class HexRowDocumentTests
         Assert.Equal(expectedLines, hexDoc.LineCount);
     }
 
+    /// <summary>
+    /// Verifies get line text out of range throws.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineText_OutOfRange_Throws()
     {
@@ -105,6 +132,9 @@ public class HexRowDocumentTests
         Assert.Throws<ArgumentOutOfRangeException>(() => hexDoc.GetLineText(hexDoc.LineCount + 1));
     }
 
+    /// <summary>
+    /// Verifies get line length out of range throws.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetLineLength_OutOfRange_Throws()
     {

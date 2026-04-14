@@ -3,43 +3,100 @@ using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// xUnit fixture that builds and exposes paths to all sample assemblies shared across tests.
+/// </summary>
 public class SampleAssemblyFixture : IAsyncLifetime
 {
     private string _repoRoot = null!;
 
     // Exe samples (have both .dll and apphost binary)
+    /// <summary>
+    /// Path to the built HelloWorld.dll managed assembly.
+    /// </summary>
     public string HelloWorldDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built HelloWorld apphost executable.
+    /// </summary>
     public string HelloWorldExe { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built ComplexApp.dll sample assembly.
+    /// </summary>
     public string ComplexAppDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built ComplexApp apphost executable.
+    /// </summary>
     public string ComplexAppExe { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built MinimalApi.dll sample assembly.
+    /// </summary>
     public string MinimalApiDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built MinimalApi apphost executable.
+    /// </summary>
     public string MinimalApiExe { get; private set; } = null!;
 
     // Library samples
+    /// <summary>
+    /// Path to the built RichLibrary.dll sample assembly.
+    /// </summary>
     public string RichLibraryDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built RichLibrary v2 sample assembly.
+    /// </summary>
     public string RichLibraryV2Dll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built NativeLib.dll sample assembly.
+    /// </summary>
     public string NativeLibDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the built EmptyLib.dll sample assembly.
+    /// </summary>
     public string EmptyLibDll { get; private set; } = null!;
 
     // NuGet package
+    /// <summary>
+    /// Path to the built RichLibrary NuGet package.
+    /// </summary>
     public string RichLibraryNupkg { get; private set; } = null!;
 
     // .NET Framework sample (Windows only — net48 requires Windows)
+    /// <summary>
+    /// Path to the built .NET Framework sample executable (Windows only).
+    /// </summary>
     public string? NetFxConsoleExe { get; private set; }
 
     // Dotted assembly name sample (e.g., Company.Product.Tool)
+    /// <summary>
+    /// Path to the dotted-name sample assembly (Dotted.Name.App.dll).
+    /// </summary>
     public string DottedNameAppDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the dotted-name sample apphost executable.
+    /// </summary>
     public string DottedNameAppExe { get; private set; } = null!;
 
     // NativeAOT sample
+    /// <summary>
+    /// Path to the published NativeAOT sample executable.
+    /// </summary>
     public string? NativeAotConsoleExe { get; private set; }
 
     // Self-contained single-file sample
+    /// <summary>
+    /// Path to the published self-contained single-file sample executable.
+    /// </summary>
     public string? SelfContainedConsoleExe { get; private set; }
 
     // Non-.NET binary for error case testing
+    /// <summary>
+    /// Path to a small non-.NET binary used for BadImageFormatException scenarios.
+    /// </summary>
     public string NonDotNetBinaryPath { get; private set; } = null!;
 
+    /// <summary>
+    /// Builds all sample projects and materializes the fixture paths.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         _repoRoot = TestHelpers.GetRepoRoot();
@@ -120,6 +177,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
         Assert.True(File.Exists(DottedNameAppExe), $"Dotted.Name.App apphost not found at {DottedNameAppExe}");
     }
 
+    /// <summary>
+    /// Cleans up temporary files created by the fixture.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

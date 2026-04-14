@@ -4,6 +4,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Text Object Helper.
+/// </summary>
 public class TextObjectHelperTests
 {
     private static EditorState CreateEditor(string text, int cursorOffset = 0)
@@ -27,6 +30,9 @@ public class TextObjectHelperTests
 
     // --- SelectInnerWord ---
 
+    /// <summary>
+    /// Verifies select inner word on word chars selects contiguous run.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_OnWordChars_SelectsContiguousRun()
     {
@@ -35,6 +41,9 @@ public class TextObjectHelperTests
         Assert.Equal("hello_world", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word includes underscores.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_IncludesUnderscores()
     {
@@ -43,6 +52,9 @@ public class TextObjectHelperTests
         Assert.Equal("foo_bar", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word on punctuation selects punctuation run.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_OnPunctuation_SelectsPunctuationRun()
     {
@@ -51,6 +63,9 @@ public class TextObjectHelperTests
         Assert.Equal("::", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word on whitespace selects whitespace run.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_OnWhitespace_SelectsWhitespaceRun()
     {
@@ -59,6 +74,9 @@ public class TextObjectHelperTests
         Assert.Equal("   ", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word on tab selects tab run.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_OnTab_SelectsTabRun()
     {
@@ -67,6 +85,9 @@ public class TextObjectHelperTests
         Assert.Equal("\t\t", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word does not cross newline.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_DoesNotCrossNewline()
     {
@@ -75,6 +96,9 @@ public class TextObjectHelperTests
         Assert.Equal("abc", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word on newline no selection.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_OnNewline_NoSelection()
     {
@@ -85,6 +109,9 @@ public class TextObjectHelperTests
         Assert.Null(GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word at document start selects from start.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_AtDocumentStart_SelectsFromStart()
     {
@@ -93,6 +120,9 @@ public class TextObjectHelperTests
         Assert.Equal("hello", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word at document end selects to end.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_AtDocumentEnd_SelectsToEnd()
     {
@@ -101,6 +131,9 @@ public class TextObjectHelperTests
         Assert.Equal("world", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word empty document no selection.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_EmptyDocument_NoSelection()
     {
@@ -109,6 +142,9 @@ public class TextObjectHelperTests
         Assert.Null(GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word cursor at document length no selection.
+    /// </summary>
     [Fact]
     public void SelectInnerWord_CursorAtDocumentLength_NoSelection()
     {
@@ -119,6 +155,9 @@ public class TextObjectHelperTests
 
     // --- SelectInnerWORD ---
 
+    /// <summary>
+    /// Verifies select inner word on non whitespace selects to whitespace.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_OnNonWhitespace_SelectsToWhitespace()
     {
@@ -127,6 +166,9 @@ public class TextObjectHelperTests
         Assert.Equal("foo::bar", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word qualified name selects entire fqn.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_QualifiedName_SelectsEntireFQN()
     {
@@ -135,6 +177,9 @@ public class TextObjectHelperTests
         Assert.Equal("System.Runtime.CompilerServices.NullableAttribute", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word on whitespace selects whitespace run.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_OnWhitespace_SelectsWhitespaceRun()
     {
@@ -143,6 +188,9 @@ public class TextObjectHelperTests
         Assert.Equal("   ", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word does not cross newline.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_DoesNotCrossNewline()
     {
@@ -151,6 +199,9 @@ public class TextObjectHelperTests
         Assert.Equal("foo::bar", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word single token selects all.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_SingleToken_SelectsAll()
     {
@@ -159,6 +210,9 @@ public class TextObjectHelperTests
         Assert.Equal("abc", GetSelectedText(state));
     }
 
+    /// <summary>
+    /// Verifies select inner word empty document no selection.
+    /// </summary>
     [Fact]
     public void SelectInnerWORD_EmptyDocument_NoSelection()
     {

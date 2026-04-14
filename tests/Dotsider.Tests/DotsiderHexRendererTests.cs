@@ -2,10 +2,16 @@ using Dotsider.Views;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Dotsider Hex Renderer.
+/// </summary>
 public class DotsiderHexRendererTests
 {
     // --- CalculateLayout tests ---
 
+    /// <summary>
+    /// Verifies calculate layout snaps to expected bytes per row.
+    /// </summary>
     [Theory(Timeout = 30_000)]
     [InlineData(140, 32)]  // Wide terminal: max snap point (4*32+11=139)
     [InlineData(120, 16)]  // 120 cols: (120-11)/4=27, snaps to 16
@@ -19,6 +25,9 @@ public class DotsiderHexRendererTests
         Assert.Equal(expectedBytesPerRow, result);
     }
 
+    /// <summary>
+    /// Verifies calculate layout always returns snap point.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CalculateLayout_AlwaysReturnsSnapPoint()
     {
@@ -30,6 +39,9 @@ public class DotsiderHexRendererTests
         }
     }
 
+    /// <summary>
+    /// Verifies calculate layout never exceeds max32.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CalculateLayout_NeverExceedsMax32()
     {
@@ -37,6 +49,9 @@ public class DotsiderHexRendererTests
         Assert.Equal(32, result);
     }
 
+    /// <summary>
+    /// Verifies calculate layout monotonically increases.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CalculateLayout_MonotonicallyIncreases()
     {
@@ -51,6 +66,9 @@ public class DotsiderHexRendererTests
 
     // --- GetByteCategoryFgAnsi tests ---
 
+    /// <summary>
+    /// Verifies get byte category fg ansi null byte returns null color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_NullByte_ReturnsNullColor()
     {
@@ -59,6 +77,9 @@ public class DotsiderHexRendererTests
         Assert.Contains("\x1b[", result); // ANSI escape
     }
 
+    /// <summary>
+    /// Verifies get byte category fg ansi printable ascii returns printable color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_PrintableAscii_ReturnsPrintableColor()
     {
@@ -71,6 +92,9 @@ public class DotsiderHexRendererTests
         Assert.Equal(letterA, tilde);
     }
 
+    /// <summary>
+    /// Verifies get byte category fg ansi whitespace returns whitespace color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_Whitespace_ReturnsWhitespaceColor()
     {
@@ -82,6 +106,9 @@ public class DotsiderHexRendererTests
         Assert.Equal(tab, cr);
     }
 
+    /// <summary>
+    /// Verifies get byte category fg ansi control returns control color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_Control_ReturnsControlColor()
     {
@@ -92,6 +119,9 @@ public class DotsiderHexRendererTests
         Assert.Equal(bel, esc);
     }
 
+    /// <summary>
+    /// Verifies get byte category fg ansi high byte returns high byte color.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_HighByte_ReturnsHighByteColor()
     {
@@ -103,6 +133,9 @@ public class DotsiderHexRendererTests
         Assert.NotEqual(printable, result);
     }
 
+    /// <summary>
+    /// Verifies get byte category fg ansi all categories are distinct.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetByteCategoryFgAnsi_AllCategories_AreDistinct()
     {

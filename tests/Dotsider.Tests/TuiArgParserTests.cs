@@ -2,8 +2,14 @@ using Dotsider.Infrastructure;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Tui Arg Parser.
+/// </summary>
 public class TuiArgParserTests
 {
+    /// <summary>
+    /// Verifies parse file only returns defaults.
+    /// </summary>
     [Fact]
     public void Parse_FileOnly_ReturnsDefaults()
     {
@@ -14,6 +20,9 @@ public class TuiArgParserTests
         Assert.Equal(4, result.MinStringLength);
     }
 
+    /// <summary>
+    /// Verifies parse tab before file parses tab.
+    /// </summary>
     [Fact]
     public void Parse_TabBeforeFile_ParsesTab()
     {
@@ -22,6 +31,9 @@ public class TuiArgParserTests
         Assert.Equal(2, result.InitialTab); // 1-indexed input, 0-indexed output
     }
 
+    /// <summary>
+    /// Verifies parse tab after file parses tab.
+    /// </summary>
     [Fact]
     public void Parse_TabAfterFile_ParsesTab()
     {
@@ -30,6 +42,9 @@ public class TuiArgParserTests
         Assert.Equal(4, result.InitialTab);
     }
 
+    /// <summary>
+    /// Verifies parse short tab before file parses tab.
+    /// </summary>
     [Fact]
     public void Parse_ShortTabBeforeFile_ParsesTab()
     {
@@ -38,6 +53,9 @@ public class TuiArgParserTests
         Assert.Equal(1, result.InitialTab);
     }
 
+    /// <summary>
+    /// Verifies parse min len before file parses min len.
+    /// </summary>
     [Fact]
     public void Parse_MinLenBeforeFile_ParsesMinLen()
     {
@@ -46,6 +64,9 @@ public class TuiArgParserTests
         Assert.Equal(10, result.MinStringLength);
     }
 
+    /// <summary>
+    /// Verifies parse short min len before file parses min len.
+    /// </summary>
     [Fact]
     public void Parse_ShortMinLenBeforeFile_ParsesMinLen()
     {
@@ -54,6 +75,9 @@ public class TuiArgParserTests
         Assert.Equal(8, result.MinStringLength);
     }
 
+    /// <summary>
+    /// Verifies parse all options before file parses both.
+    /// </summary>
     [Fact]
     public void Parse_AllOptionsBeforeFile_ParsesBoth()
     {
@@ -63,6 +87,9 @@ public class TuiArgParserTests
         Assert.Equal(12, result.MinStringLength);
     }
 
+    /// <summary>
+    /// Verifies parse mixed ordering parses both.
+    /// </summary>
     [Fact]
     public void Parse_MixedOrdering_ParsesBoth()
     {
@@ -72,6 +99,9 @@ public class TuiArgParserTests
         Assert.Equal(6, result.MinStringLength);
     }
 
+    /// <summary>
+    /// Verifies parse tab out of range clamps.
+    /// </summary>
     [Fact]
     public void Parse_TabOutOfRange_Clamps()
     {
@@ -82,6 +112,9 @@ public class TuiArgParserTests
         Assert.Equal(0, low.InitialTab);  // clamped to min (index 0 = tab 1)
     }
 
+    /// <summary>
+    /// Verifies parse invalid tab value keeps default.
+    /// </summary>
     [Fact]
     public void Parse_InvalidTabValue_KeepsDefault()
     {
@@ -90,6 +123,9 @@ public class TuiArgParserTests
         Assert.Equal(0, result.InitialTab);
     }
 
+    /// <summary>
+    /// Verifies parse escape timeout parses.
+    /// </summary>
     [Fact]
     public void Parse_EscapeTimeout_Parses()
     {
@@ -98,6 +134,9 @@ public class TuiArgParserTests
         Assert.Equal(200, result.EscapeTimeoutMs);
     }
 
+    /// <summary>
+    /// Verifies parse short escape timeout parses.
+    /// </summary>
     [Fact]
     public void Parse_ShortEscapeTimeout_Parses()
     {
@@ -106,6 +145,9 @@ public class TuiArgParserTests
         Assert.Equal(75, result.EscapeTimeoutMs);
     }
 
+    /// <summary>
+    /// Verifies parse escape timeout below min clamps.
+    /// </summary>
     [Fact]
     public void Parse_EscapeTimeoutBelowMin_Clamps()
     {
@@ -114,6 +156,9 @@ public class TuiArgParserTests
         Assert.Equal(10, result.EscapeTimeoutMs);
     }
 
+    /// <summary>
+    /// Verifies parse escape timeout invalid ignores non numeric.
+    /// </summary>
     [Fact]
     public void Parse_EscapeTimeoutInvalid_IgnoresNonNumeric()
     {
@@ -122,6 +167,9 @@ public class TuiArgParserTests
         Assert.Equal(100, result.EscapeTimeoutMs);
     }
 
+    /// <summary>
+    /// Verifies parse file only escape timeout default.
+    /// </summary>
     [Fact]
     public void Parse_FileOnly_EscapeTimeoutDefault()
     {

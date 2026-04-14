@@ -16,6 +16,9 @@ public partial class McpCliTests
 
     private static readonly string s_buildConfig = DetectBuildConfig();
 
+    /// <summary>
+    /// --help prints usage text identifying the binary and exits with success.
+    /// </summary>
     [Fact]
     public async Task Help_ShowsUsageAndReturnsZero()
     {
@@ -26,6 +29,9 @@ public partial class McpCliTests
         Assert.Contains("MCP", stdout);
     }
 
+    /// <summary>
+    /// --version emits a non-empty version string and a zero exit code.
+    /// </summary>
     [Fact]
     public async Task Version_ReturnsZero()
     {
@@ -35,6 +41,9 @@ public partial class McpCliTests
         Assert.False(string.IsNullOrWhiteSpace(stdout));
     }
 
+    /// <summary>
+    /// Launched with no arguments, the CLI boots the MCP server and completes the client handshake.
+    /// </summary>
     [Fact]
     public async Task NoArgs_StartsServerAndCompletesHandshake()
     {

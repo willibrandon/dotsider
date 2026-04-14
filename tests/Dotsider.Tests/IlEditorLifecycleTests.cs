@@ -100,6 +100,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
     // ── State-level unit tests ────────────────────────────────
 
+    /// <summary>
+    /// Verifies get or create editor key same analyzer and token returns same reference.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetOrCreateEditorKey_SameAnalyzerAndToken_ReturnsSameReference()
     {
@@ -112,6 +115,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Same(key1, key2);
     }
 
+    /// <summary>
+    /// Verifies get or create editor key different tokens returns different references.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void GetOrCreateEditorKey_DifferentTokens_ReturnsDifferentReferences()
     {
@@ -124,6 +130,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotSame(key1, key2);
     }
 
+    /// <summary>
+    /// Verifies set il focused tree key updates focused tree key.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SetIlFocusedTreeKey_UpdatesFocusedTreeKey()
     {
@@ -135,6 +144,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("method:0x06000001", state.IlFocusedTreeKey);
     }
 
+    /// <summary>
+    /// Verifies restore from il back entry reseeds editor key cache.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RestoreFromIlBackEntry_ReseedsEditorKeyCache()
     {
@@ -163,6 +175,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Same(editorKey, restoredKey);
     }
 
+    /// <summary>
+    /// Verifies restore from il back entry saves outgoing editor.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RestoreFromIlBackEntry_SavesOutgoingEditor()
     {
@@ -192,6 +207,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Same(editorStateB, state.IlCachedEditors[keyB]);
     }
 
+    /// <summary>
+    /// Verifies back entry preserves editor key.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void BackEntry_PreservesEditorKey()
     {
@@ -405,6 +423,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _cts?.Cancel();

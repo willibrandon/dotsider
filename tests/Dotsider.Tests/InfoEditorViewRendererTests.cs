@@ -16,6 +16,9 @@ public class InfoEditorViewRendererTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
 
+    /// <summary>
+    /// Verifies info renderer never shows tilde in small document.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task InfoRenderer_NeverShowsTilde_InSmallDocument()
     {
@@ -85,6 +88,9 @@ public class InfoEditorViewRendererTests : IDisposable
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _hex1bApp?.Dispose();

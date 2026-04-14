@@ -5,6 +5,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Pe Metadata View.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -40,6 +43,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies pe metadata shows pe headers.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsPeHeaders()
     {
@@ -59,6 +65,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata shows sections table.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsSectionsTable()
     {
@@ -81,6 +90,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to type def.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToTypeDef()
     {
@@ -105,6 +117,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to method def.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToMethodDef()
     {
@@ -131,6 +146,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to type ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToTypeRef()
     {
@@ -160,6 +178,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to member ref.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToMemberRef()
     {
@@ -191,6 +212,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to attributes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToAttributes()
     {
@@ -224,6 +248,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata navigate to resources.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NavigateToResources()
     {
@@ -259,6 +286,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata shows clr header fields.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsClrHeaderFields()
     {
@@ -279,6 +309,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata shows pe header fields.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ShowsPeHeaderFields()
     {
@@ -299,6 +332,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata enter opens detail popup.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterOpensDetailPopup()
     {
@@ -325,6 +361,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata escape closes detail popup.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EscapeClosesDetailPopup()
     {
@@ -353,6 +392,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata type def detail popup.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_TypeDefDetailPopup()
     {
@@ -384,6 +426,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata escape during search does not crash.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EscapeDuringSearchDoesNotCrash()
     {
@@ -410,6 +455,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata arrow and enter work after detail dismissed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_ArrowAndEnterWorkAfterDetailDismissed()
     {
@@ -440,6 +488,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata enter works after search dismissed.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterWorksAfterSearchDismissed()
     {
@@ -469,6 +520,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata enter works after search with results.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_EnterWorksAfterSearchWithResults()
     {
@@ -501,6 +555,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata left arrow does not go below zero.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_LeftArrowDoesNotGoBelowZero()
     {
@@ -524,6 +581,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata section detail popup shows colored labels and hex values.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_SectionDetailPopup_ShowsColoredLabelsAndHexValues()
     {
@@ -552,6 +612,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata type def detail popup shows token and attributes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_TypeDefDetailPopup_ShowsTokenAndAttributes()
     {
@@ -580,6 +643,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata method def detail popup shows signature and rva.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_MethodDefDetailPopup_ShowsSignatureAndRva()
     {
@@ -611,6 +677,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

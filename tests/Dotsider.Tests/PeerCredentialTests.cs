@@ -63,6 +63,9 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         return _listener.SocketPath!;
     }
 
+    /// <summary>
+    /// Releases fixture state after tests complete.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -72,6 +75,9 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         if (_terminal is not null) await _terminal.DisposeAsync();
     }
 
+    /// <summary>
+    /// Verifies same user connection accepted.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task SameUser_ConnectionAccepted()
     {
@@ -85,6 +91,9 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         Assert.True(response.Success);
     }
 
+    /// <summary>
+    /// Verifies platform verifier returns true for same user.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PlatformVerifier_ReturnsTrueForSameUser()
     {
@@ -100,6 +109,9 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         }
     }
 
+    /// <summary>
+    /// Verifies peer rejection sends error response.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeerRejection_SendsErrorResponse()
     {
@@ -118,6 +130,9 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         Assert.Contains("peer", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Verifies peer rejection response contains version.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeerRejection_ResponseContainsVersion()
     {

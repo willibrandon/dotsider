@@ -3,21 +3,57 @@ using System.Runtime.InteropServices;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Shared xUnit fixture that builds and exposes sample assemblies used across MCP tool tests.
+/// </summary>
 public class SampleAssemblyFixture : IAsyncLifetime
 {
     private string _repoRoot = null!;
 
+    /// <summary>
+    /// Path to the built HelloWorld.dll sample assembly.
+    /// </summary>
     public string HelloWorldDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the HelloWorld apphost executable (platform-specific extension).
+    /// </summary>
     public string HelloWorldExe { get; private set; } = null!;
+    /// <summary>
+    /// Path to the ComplexApp.dll sample assembly exercising varied IL shapes.
+    /// </summary>
     public string ComplexAppDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the RichLibrary.dll sample assembly (v1) with attributes and references.
+    /// </summary>
     public string RichLibraryDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the RichLibrary v2 build used for assembly diff tests.
+    /// </summary>
     public string RichLibraryV2Dll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the EmptyLib.dll sample used for minimal-assembly edge cases.
+    /// </summary>
     public string EmptyLibDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the NativeLib.dll sample with P/Invoke declarations.
+    /// </summary>
     public string NativeLibDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the RichLibrary .nupkg used by NuGet package inspection tests.
+    /// </summary>
     public string RichLibraryNupkg { get; private set; } = null!;
+    /// <summary>
+    /// Path to the MinimalApi.dll sample, used to verify ASP.NET Core runtime pack detection.
+    /// </summary>
     public string MinimalApiDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the published self-contained single-file apphost used by bundle tests.
+    /// </summary>
     public string SelfContainedConsoleExe { get; private set; } = null!;
 
+    /// <summary>
+    /// Builds all sample projects once per collection and resolves their output paths.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         _repoRoot = GetRepoRoot();
@@ -60,6 +96,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
         Assert.True(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
     }
 
+    /// <summary>
+    /// No-op disposal; sample outputs are left on disk for subsequent runs.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

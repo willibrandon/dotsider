@@ -30,7 +30,9 @@ public class IlNavigationResolverBenchmarks
     private int _methodSpecToken;
     private int[] _batchTokens = null!;
 
-    /// <summary>Builds RichLibrary and captures one token per metadata table kind plus a batch of tokens from a method body.</summary>
+    /// <summary>
+    /// Builds RichLibrary and captures one token per metadata table kind plus a batch of tokens from a method body.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -55,53 +57,71 @@ public class IlNavigationResolverBenchmarks
             .Select(i => i.MetadataToken!.Value)];
     }
 
-    /// <summary>Disposes the shared analyzer.</summary>
+    /// <summary>
+    /// Disposes the shared analyzer.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup() => _analyzer.Dispose();
 
-    /// <summary>Resolves a MethodDef token — the local-method fast path.</summary>
+    /// <summary>
+    /// Resolves a MethodDef token — the local-method fast path.
+    /// </summary>
     [Benchmark(Description = "MethodDef")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_MethodDef()
         => IlNavigationResolver.Resolve(_analyzer, _methodDefToken);
 
-    /// <summary>Resolves a TypeDef token.</summary>
+    /// <summary>
+    /// Resolves a TypeDef token.
+    /// </summary>
     [Benchmark(Description = "TypeDef")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_TypeDef()
         => IlNavigationResolver.Resolve(_analyzer, _typeDefToken);
 
-    /// <summary>Resolves a FieldDef token.</summary>
+    /// <summary>
+    /// Resolves a FieldDef token.
+    /// </summary>
     [Benchmark(Description = "FieldDef")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_FieldDef()
         => IlNavigationResolver.Resolve(_analyzer, _fieldDefToken);
 
-    /// <summary>Resolves a MemberRef token pointing at a method — exercises cross-assembly lookup.</summary>
+    /// <summary>
+    /// Resolves a MemberRef token pointing at a method — exercises cross-assembly lookup.
+    /// </summary>
     [Benchmark(Description = "MemberRef (method)")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_MemberRef_Method()
         => IlNavigationResolver.Resolve(_analyzer, _memberRefMethodToken);
 
-    /// <summary>Resolves a MemberRef token pointing at a field.</summary>
+    /// <summary>
+    /// Resolves a MemberRef token pointing at a field.
+    /// </summary>
     [Benchmark(Description = "MemberRef (field)")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_MemberRef_Field()
         => IlNavigationResolver.Resolve(_analyzer, _memberRefFieldToken);
 
-    /// <summary>Resolves a TypeSpec token — exercises signature decoding for constructed types.</summary>
+    /// <summary>
+    /// Resolves a TypeSpec token — exercises signature decoding for constructed types.
+    /// </summary>
     [Benchmark(Description = "TypeSpec")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_TypeSpec()
         => IlNavigationResolver.Resolve(_analyzer, _typeSpecToken);
 
-    /// <summary>Resolves a MethodSpec token — exercises generic-method instantiation decoding.</summary>
+    /// <summary>
+    /// Resolves a MethodSpec token — exercises generic-method instantiation decoding.
+    /// </summary>
     [Benchmark(Description = "MethodSpec")]
     [BenchmarkCategory("SingleToken")]
     public IlNavigationTarget Resolve_MethodSpec()
         => IlNavigationResolver.Resolve(_analyzer, _methodSpecToken);
 
-    /// <summary>Resolves every token in a real method body to characterize bulk resolution cost.</summary>
+    /// <summary>
+    /// Resolves every token in a real method body to characterize bulk resolution cost.
+    /// </summary>
     [Benchmark(Description = "Batch method body")]
     [BenchmarkCategory("BatchResolve")]
     public int Resolve_BatchMethodBody()

@@ -10,6 +10,9 @@ namespace Dotsider.Tests;
 /// </summary>
 public class IlSearchDecorationProviderTests
 {
+    /// <summary>
+    /// Verifies null query returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NullQuery_ReturnsEmpty()
     {
@@ -21,6 +24,9 @@ public class IlSearchDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies empty query returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyQuery_ReturnsEmpty()
     {
@@ -32,6 +38,9 @@ public class IlSearchDecorationProviderTests
         Assert.Empty(spans);
     }
 
+    /// <summary>
+    /// Verifies single match returns match bg span.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SingleMatch_ReturnsMatchBgSpan()
     {
@@ -52,6 +61,9 @@ public class IlSearchDecorationProviderTests
         Assert.Null(span.Decoration.Foreground);
     }
 
+    /// <summary>
+    /// Verifies current match returns orange span.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CurrentMatch_ReturnsOrangeSpan()
     {
@@ -77,6 +89,9 @@ public class IlSearchDecorationProviderTests
         AssertColorEquals(Hex1bColor.Black, span.Decoration.Foreground.Value);
     }
 
+    /// <summary>
+    /// Verifies case insensitive finds match.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void CaseInsensitive_FindsMatch()
     {
@@ -91,6 +106,9 @@ public class IlSearchDecorationProviderTests
         Assert.Equal(new DocumentPosition(1, 6), span.End);
     }
 
+    /// <summary>
+    /// Verifies multiple matches per line returns all.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MultipleMatchesPerLine_ReturnsAll()
     {
@@ -117,6 +135,9 @@ public class IlSearchDecorationProviderTests
         Assert.Equal(10, spans[2].Priority);
     }
 
+    /// <summary>
+    /// Verifies no match returns empty.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NoMatch_ReturnsEmpty()
     {

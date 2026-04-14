@@ -1,7 +1,13 @@
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for the MCP prompts catalog and parameterized prompt retrieval.
+/// </summary>
 public class PromptTests : McpServerTestBase
 {
+    /// <summary>
+    /// ListPrompts returns every prompt the server advertises by canonical name.
+    /// </summary>
     [Fact]
     public async Task ListPrompts_ReturnsAllRegisteredPrompts()
     {
@@ -18,6 +24,9 @@ public class PromptTests : McpServerTestBase
         Assert.Contains("dependency_health", names);
     }
 
+    /// <summary>
+    /// The prompt catalog includes the bundle_analysis prompt registered alongside bundle tools.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ListPrompts_IncludesBundleAnalysis()
     {
@@ -27,6 +36,9 @@ public class PromptTests : McpServerTestBase
         Assert.Contains(prompts, p => p.Name == "bundle_analysis");
     }
 
+    /// <summary>
+    /// security_audit materializes at least one message when given an assembly path.
+    /// </summary>
     [Fact]
     public async Task GetPrompt_SecurityAudit_ReturnsPromptContent()
     {
@@ -42,6 +54,9 @@ public class PromptTests : McpServerTestBase
         Assert.True(result.Messages.Count > 0);
     }
 
+    /// <summary>
+    /// breaking_change_detection accepts both old and new assembly paths and produces messages.
+    /// </summary>
     [Fact]
     public async Task GetPrompt_BreakingChangeDetection_AcceptsTwoPaths()
     {

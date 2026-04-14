@@ -3,6 +3,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Nu Get State.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -24,6 +27,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         return _app;
     }
 
+    /// <summary>
+    /// Verifies construct package metadata populated.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Construct_PackageMetadataPopulated()
     {
@@ -33,6 +39,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Equal("2.5.1", state.Package.PackageVersion);
     }
 
+    /// <summary>
+    /// Verifies construct file list populated.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Construct_FileListPopulated()
     {
@@ -42,6 +51,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(state.Package.DllFiles);
     }
 
+    /// <summary>
+    /// Verifies is browsing package default true.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void IsBrowsingPackage_DefaultTrue()
     {
@@ -50,6 +62,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(state.IsBrowsingPackage);
     }
 
+    /// <summary>
+    /// Verifies drill into dll creates inspector state.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void DrillInto_DllCreatesInspectorState()
     {
@@ -64,6 +79,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(state.SelectedDllState);
     }
 
+    /// <summary>
+    /// Verifies dispose cleans up.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void Dispose_CleansUp()
     {
@@ -73,6 +91,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
         state.Dispose(); // idempotent
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _app?.Dispose();

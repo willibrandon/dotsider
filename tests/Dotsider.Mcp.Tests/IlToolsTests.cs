@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 
+/// <summary>
+/// Tests for IL disassembly and opcode search MCP tools.
+/// </summary>
+/// <summary>
+/// Creates the tests using the shared sample assembly fixture.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 {
+    /// <summary>
+    /// disassemble_method returns an instruction list for an existing method body.
+    /// </summary>
     [Fact]
     public async Task DisassembleMethod_ValidMethod_ReturnsIlInstructions()
     {
@@ -28,6 +37,9 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(instructions.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// Requesting IL for a method that does not exist yields a descriptive error.
+    /// </summary>
     [Fact]
     public async Task DisassembleMethod_NonExistentMethod_ReturnsError()
     {
@@ -49,6 +61,9 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.Contains("Error", text);
     }
 
+    /// <summary>
+    /// search_il_opcodes locates call-family instructions across the assembly's bodies.
+    /// </summary>
     [Fact]
     public async Task SearchIlOpcodes_CallInstruction_FindsMatches()
     {
@@ -71,6 +86,9 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.True(results.GetArrayLength() > 0);
     }
 
+    /// <summary>
+    /// search_il_opcodes surfaces newobj sites for identifying object allocations.
+    /// </summary>
     [Fact]
     public async Task SearchIlOpcodes_NewobjInstruction_FindsObjectCreation()
     {

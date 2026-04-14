@@ -207,6 +207,9 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         catch { }
     }
 
+    /// <summary>
+    /// Tears down the hosted app, cancels pending work, and disposes sockets and terminal state.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);

@@ -6,6 +6,9 @@ using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Diff Mode Yank Integration.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
 {
@@ -44,6 +47,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Summary tab ---
 
+    /// <summary>
+    /// Verifies summary tab cycles through editors.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_TabCyclesThroughEditors()
     {
@@ -96,6 +102,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies summary left right do not switch tabs when editor focused.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_LeftRightDoNotSwitchTabsWhenEditorFocused()
     {
@@ -130,6 +139,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Types/Methods/Refs tabs ---
 
+    /// <summary>
+    /// Verifies types yank on focused row shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Types_YankOnFocusedRow_ShowsNotification()
     {
@@ -188,6 +200,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies types search with navigation cycles matches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Types_SearchWithNavigation_CyclesMatches()
     {
@@ -254,6 +269,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies tab arrows work when editor not focused.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task TabArrows_WorkWhenEditorNotFocused()
     {
@@ -283,6 +301,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Summary editor selection + yank ---
 
+    /// <summary>
+    /// Verifies summary selection yank shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_SelectionYank_ShowsNotification()
     {
@@ -325,6 +346,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies summary right info yank shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_RightInfoYank_ShowsNotification()
     {
@@ -362,6 +386,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies summary change stats yank shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_ChangeStatsYank_ShowsNotification()
     {
@@ -414,6 +441,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Methods tab yank ---
 
+    /// <summary>
+    /// Verifies methods yank on focused row shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Methods_YankOnFocusedRow_ShowsNotification()
     {
@@ -444,6 +474,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Refs tab yank ---
 
+    /// <summary>
+    /// Verifies refs yank on focused row shows notification.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Refs_YankOnFocusedRow_ShowsNotification()
     {
@@ -474,6 +507,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Methods n/N search navigation ---
 
+    /// <summary>
+    /// Verifies methods search navigation cycles matches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Methods_SearchNavigation_CyclesMatches()
     {
@@ -528,6 +564,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Refs n/N search navigation ---
 
+    /// <summary>
+    /// Verifies refs search navigation cycles matches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Refs_SearchNavigation_CyclesMatches()
     {
@@ -582,6 +621,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
     // --- Yank flash set and clear ---
 
+    /// <summary>
+    /// Verifies types yank flash sets and clears.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Types_YankFlash_SetsAndClears()
     {
@@ -616,6 +658,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Verifies summary yy yanks current line.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Summary_YY_YanksCurrentLine()
     {
@@ -653,6 +698,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         try { await runTask; } catch (OperationCanceledException) { }
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _cts?.Cancel();

@@ -3,9 +3,15 @@ using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Size Analyzer.
+/// </summary>
 [Collection("SampleAssemblies")]
 public class SizeAnalyzerTests(SampleAssemblyFixture samples)
 {
+    /// <summary>
+    /// Verifies rich library root node is assembly.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_RootNodeIsAssembly()
     {
@@ -14,6 +20,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(SizeNodeKind.Assembly, tree.Kind);
     }
 
+    /// <summary>
+    /// Verifies rich library has namespace children.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_HasNamespaceChildren()
     {
@@ -23,6 +32,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(tree.Children, c => c.Kind == SizeNodeKind.Namespace);
     }
 
+    /// <summary>
+    /// Verifies rich library namespace has type children.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_NamespaceHasTypeChildren()
     {
@@ -33,6 +45,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(ns.Children, c => c.Kind == SizeNodeKind.Type);
     }
 
+    /// <summary>
+    /// Verifies rich library type has method children.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_TypeHasMethodChildren()
     {
@@ -45,6 +60,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(type.Children, c => c.Kind == SizeNodeKind.Method);
     }
 
+    /// <summary>
+    /// Verifies rich library method sizes positive.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_MethodSizesPositive()
     {
@@ -60,6 +78,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Contains(methods, m => m.Size > 0);
     }
 
+    /// <summary>
+    /// Verifies hello world simpler tree.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void HelloWorld_SimplerTree()
     {
@@ -69,6 +90,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(tree.Size > 0);
     }
 
+    /// <summary>
+    /// Verifies empty lib minimal tree.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void EmptyLib_MinimalTree()
     {
@@ -77,6 +101,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Equal(SizeNodeKind.Assembly, tree.Kind);
     }
 
+    /// <summary>
+    /// Verifies native lib methods with bodies have size.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void NativeLib_MethodsWithBodiesHaveSize()
     {
@@ -85,6 +112,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(tree.Size > 0);
     }
 
+    /// <summary>
+    /// Verifies rich library root size is positive.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void RichLibrary_RootSizeIsPositive()
     {
@@ -93,6 +123,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(tree.Size > 0);
     }
 
+    /// <summary>
+    /// Verifies complex app has namespaces.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ComplexApp_HasNamespaces()
     {
@@ -101,6 +134,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         Assert.NotEmpty(tree.Children);
     }
 
+    /// <summary>
+    /// Verifies method leaf nodes full path contains token.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MethodLeafNodes_FullPathContainsToken()
     {
@@ -120,6 +156,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
         });
     }
 
+    /// <summary>
+    /// Verifies method leaf nodes tokens are unique.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void MethodLeafNodes_TokensAreUnique()
     {

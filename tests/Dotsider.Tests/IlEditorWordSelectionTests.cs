@@ -33,6 +33,9 @@ public class IlEditorWordSelectionTests
         return state;
     }
 
+    /// <summary>
+    /// Verifies select word at dotted name cursor on last word char.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_DottedName_CursorOnLastWordChar()
     {
@@ -45,6 +48,9 @@ public class IlEditorWordSelectionTests
         Assert.Equal('m', text[state.Cursor.Position.Value]);
     }
 
+    /// <summary>
+    /// Verifies select word at dotted name yank copies full word.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_DottedName_YankCopiesFullWord()
     {
@@ -63,6 +69,9 @@ public class IlEditorWordSelectionTests
         Assert.Equal("System", yanked);
     }
 
+    /// <summary>
+    /// Verifies select word at dotted name yank cursor on last char.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_DottedName_YankCursorOnLastChar()
     {
@@ -79,6 +88,9 @@ public class IlEditorWordSelectionTests
         Assert.Equal('m', state.Document.GetText()[lastChar.Value]);
     }
 
+    /// <summary>
+    /// Verifies select word at dotted name second segment.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_DottedName_SecondSegment()
     {
@@ -88,6 +100,9 @@ public class IlEditorWordSelectionTests
         Assert.DoesNotContain(".", selected);
     }
 
+    /// <summary>
+    /// Verifies select word at middle of word.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_MiddleOfWord()
     {
@@ -98,6 +113,9 @@ public class IlEditorWordSelectionTests
         Assert.NotEqual('.', lineText[cursorPos.Column - 1]);
     }
 
+    /// <summary>
+    /// Verifies select word at il instruction stops at colon.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_IlInstruction_StopsAtColon()
     {
@@ -108,6 +126,9 @@ public class IlEditorWordSelectionTests
         Assert.StartsWith("cal", selected);
     }
 
+    /// <summary>
+    /// Verifies select word at on period cursor not on period.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_OnPeriod_CursorNotOnPeriod()
     {
@@ -118,6 +139,9 @@ public class IlEditorWordSelectionTests
         Assert.NotEqual('.', lineText[cursorPos.Column - 1]);
     }
 
+    /// <summary>
+    /// Verifies select word at cursor never on period after dotted selection.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void SelectWordAt_CursorNeverOnPeriod_AfterDottedSelection()
     {
@@ -147,6 +171,9 @@ public class IlEditorWordSelectionTests
         }
     }
 
+    /// <summary>
+    /// Verifies shift arrow selection crosses word boundary.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ShiftArrow_SelectionCrossesWordBoundary()
     {
@@ -182,6 +209,9 @@ public class IlEditorWordSelectionTests
         Assert.Equal("System.Runtim", selected);
     }
 
+    /// <summary>
+    /// Verifies one shot does not re fire on subsequent frames.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void OneShot_DoesNotReFireOnSubsequentFrames()
     {

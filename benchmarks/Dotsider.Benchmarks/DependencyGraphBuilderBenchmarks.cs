@@ -15,7 +15,9 @@ public class DependencyGraphBuilderBenchmarks
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
 
-    /// <summary>Opens CoreLib and Xml analyzers to supply assembly and type-ref data to the graph builder.</summary>
+    /// <summary>
+    /// Opens CoreLib and Xml analyzers to supply assembly and type-ref data to the graph builder.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -24,7 +26,9 @@ public class DependencyGraphBuilderBenchmarks
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
     }
 
-    /// <summary>Disposes the shared analyzers.</summary>
+    /// <summary>
+    /// Disposes the shared analyzers.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -32,12 +36,16 @@ public class DependencyGraphBuilderBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
-    /// <summary>Builds the positioned dependency graph for CoreLib — the widest typical graph shape.</summary>
+    /// <summary>
+    /// Builds the positioned dependency graph for CoreLib — the widest typical graph shape.
+    /// </summary>
     [Benchmark(Description = "CoreLib graph")]
     public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build_CoreLib()
         => DependencyGraphBuilder.Build(_coreLibAnalyzer);
 
-    /// <summary>Builds the dependency graph for Xml, which has a smaller AssemblyRef count than CoreLib.</summary>
+    /// <summary>
+    /// Builds the dependency graph for Xml, which has a smaller AssemblyRef count than CoreLib.
+    /// </summary>
     [Benchmark(Description = "Xml graph")]
     public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build_Xml()
         => DependencyGraphBuilder.Build(_xmlAnalyzer);

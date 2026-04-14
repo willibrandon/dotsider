@@ -8,6 +8,9 @@ namespace Dotsider.Tests;
 /// </summary>
 public class HexSearchTests
 {
+    /// <summary>
+    /// Verifies parse hex pattern valid bytes.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ParseHexPattern_ValidBytes()
     {
@@ -21,6 +24,9 @@ public class HexSearchTests
         Assert.Equal(0xE0, bytes[3]);
     }
 
+    /// <summary>
+    /// Verifies parse hex pattern no spaces.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ParseHexPattern_NoSpaces()
     {
@@ -30,6 +36,9 @@ public class HexSearchTests
         Assert.Equal(4, bytes!.Length);
     }
 
+    /// <summary>
+    /// Verifies parse hex pattern odd digits error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ParseHexPattern_OddDigits_Error()
     {
@@ -38,6 +47,9 @@ public class HexSearchTests
         Assert.Equal("Invalid hex: odd number of digits", error);
     }
 
+    /// <summary>
+    /// Verifies parse hex pattern invalid chars error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ParseHexPattern_InvalidChars_Error()
     {
@@ -46,6 +58,9 @@ public class HexSearchTests
         Assert.Equal("Invalid hex pattern", error);
     }
 
+    /// <summary>
+    /// Verifies parse hex pattern empty error.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void ParseHexPattern_Empty_Error()
     {
@@ -54,6 +69,9 @@ public class HexSearchTests
         Assert.Equal("Invalid hex: empty pattern", error);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern single match.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_SingleMatch()
     {
@@ -64,6 +82,9 @@ public class HexSearchTests
         Assert.Equal(2, offsets[0]);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern multiple matches.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_MultipleMatches()
     {
@@ -76,6 +97,9 @@ public class HexSearchTests
         Assert.Equal(4, offsets[2]);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern no match.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_NoMatch()
     {
@@ -85,6 +109,9 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern empty data.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_EmptyData()
     {
@@ -94,6 +121,9 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern empty pattern.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_EmptyPattern()
     {
@@ -103,6 +133,9 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern pattern longer than data.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_PatternLongerThanData()
     {
@@ -112,6 +145,9 @@ public class HexSearchTests
         Assert.Empty(offsets);
     }
 
+    /// <summary>
+    /// Verifies find byte pattern ascii text search.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public void FindBytePattern_AsciiTextSearch()
     {

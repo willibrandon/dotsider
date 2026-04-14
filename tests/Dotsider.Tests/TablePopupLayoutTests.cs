@@ -44,6 +44,9 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
         return (_terminal, _hex1bApp);
     }
 
+    /// <summary>
+    /// Verifies strings table bottom border does not move when popup opens.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task Strings_TableBottomBorderDoesNotMoveWhenPopupOpens()
     {
@@ -94,6 +97,9 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Verifies pe metadata table bottom border does not move when popup opens.
+    /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_TableBottomBorderDoesNotMoveWhenPopupOpens()
     {
@@ -143,6 +149,9 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>
+    /// Disposes test resources created during the run.
+    /// </summary>
     public void Dispose()
     {
         _state?.Dispose();

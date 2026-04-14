@@ -3,8 +3,14 @@ using Dotsider.Views;
 
 namespace Dotsider.Tests;
 
+/// <summary>
+/// Tests for Dynamic Analysis Accessibility.
+/// </summary>
 public class DynamicAnalysisAccessibilityTests
 {
+    /// <summary>
+    /// Verifies category colors all categories have entries.
+    /// </summary>
     [Fact]
     public void CategoryColors_AllCategoriesHaveEntries()
     {
@@ -13,6 +19,9 @@ public class DynamicAnalysisAccessibilityTests
                 $"Missing color for {category}");
     }
 
+    /// <summary>
+    /// Verifies category colors no duplicate colors.
+    /// </summary>
     [Fact]
     public void CategoryColors_NoDuplicateColors()
     {
@@ -31,6 +40,9 @@ public class DynamicAnalysisAccessibilityTests
         }
     }
 
+    /// <summary>
+    /// Verifies socket and http have different colors.
+    /// </summary>
     [Fact]
     public void SocketAndHttp_HaveDifferentColors()
     {
@@ -43,6 +55,9 @@ public class DynamicAnalysisAccessibilityTests
 
     // --- JIT detail parsing tests ---
 
+    /// <summary>
+    /// Verifies try parse jit detail valid format returns true with components.
+    /// </summary>
     [Theory]
     [InlineData("System.String.Concat", "System.String", "Concat")]
     [InlineData("MyApp.Services.UserService.GetUser", "MyApp.Services.UserService", "GetUser")]
@@ -55,6 +70,9 @@ public class DynamicAnalysisAccessibilityTests
         Assert.Equal(expectedMethod, methodName);
     }
 
+    /// <summary>
+    /// Verifies try parse jit detail invalid format returns false.
+    /// </summary>
     [Theory]
     [InlineData("")]
     [InlineData("NoDotHere")]
@@ -64,6 +82,9 @@ public class DynamicAnalysisAccessibilityTests
         Assert.False(DynamicAnalysisView.TryParseJitDetail(detail, out _, out _));
     }
 
+    /// <summary>
+    /// Verifies try parse jit detail trailing dot returns false.
+    /// </summary>
     [Fact]
     public void TryParseJitDetail_TrailingDot_ReturnsFalse()
     {
