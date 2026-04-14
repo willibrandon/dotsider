@@ -545,7 +545,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         // Press q — should go into search box, not quit
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("q")
-            .WaitUntil(_ => (dllState.Search[dllState.CurrentTab].Query ?? "").Contains("q"),
+            .WaitUntil(_ => (dllState.Search[dllState.CurrentTab].Query ?? "").Contains('q'),
                 TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);

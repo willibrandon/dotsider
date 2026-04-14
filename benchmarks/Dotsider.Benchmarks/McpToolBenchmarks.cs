@@ -41,6 +41,7 @@ public class McpToolBenchmarks
     // Real UDS listeners for session discovery benchmarks
     private readonly List<(Socket Listener, string Path, Task Loop, CancellationTokenSource Cts)> _sessionSockets = [];
 
+    /// <summary>Stands up an in-process MCP client/server pair over pipes and listens on a cluster of UDS sockets.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -117,6 +118,7 @@ public class McpToolBenchmarks
         }
     }
 
+    /// <summary>Tears down the MCP client, server task, socket listeners, and temp directory.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -145,6 +147,7 @@ public class McpToolBenchmarks
 
     // --- Direct-mode tools ---
 
+    /// <summary>Round-trips the get_assembly_info tool through the full MCP pipeline against CoreLib.</summary>
     [Benchmark(Description = "GetAssemblyInfo (CoreLib)")]
     public async Task<string> GetAssemblyInfo()
     {
@@ -154,6 +157,7 @@ public class McpToolBenchmarks
         return result.Content.OfType<TextContentBlock>().First().Text!;
     }
 
+    /// <summary>Round-trips the list_types tool to characterize bulk TypeDef serialization cost.</summary>
     [Benchmark(Description = "ListTypes (CoreLib)")]
     public async Task<string> ListTypes()
     {
@@ -163,6 +167,7 @@ public class McpToolBenchmarks
         return result.Content.OfType<TextContentBlock>().First().Text!;
     }
 
+    /// <summary>Round-trips the get_size_breakdown tool, which walks the full type/method tree.</summary>
     [Benchmark(Description = "GetSizeBreakdown (CoreLib)")]
     public async Task<string> GetSizeBreakdown()
     {
@@ -172,6 +177,7 @@ public class McpToolBenchmarks
         return result.Content.OfType<TextContentBlock>().First().Text!;
     }
 
+    /// <summary>Round-trips the disassemble_method tool for a single well-known method.</summary>
     [Benchmark(Description = "DisassembleMethod (single)")]
     public async Task<string> DisassembleMethod()
     {
@@ -186,6 +192,7 @@ public class McpToolBenchmarks
         return result.Content.OfType<TextContentBlock>().First().Text!;
     }
 
+    /// <summary>Round-trips the extract_strings tool across CoreLib's full string heap.</summary>
     [Benchmark(Description = "ExtractStrings (CoreLib)")]
     public async Task<string> ExtractStrings()
     {
@@ -197,6 +204,7 @@ public class McpToolBenchmarks
 
     // --- Session discovery (full path: scan + connect + probe) ---
 
+    /// <summary>Exercises the full session discovery path: socket scan, connect, probe, and stale cleanup across five listeners.</summary>
     [Benchmark(Description = "DiscoverSessions (5 sockets)")]
     public async Task<string> DiscoverSessions()
     {

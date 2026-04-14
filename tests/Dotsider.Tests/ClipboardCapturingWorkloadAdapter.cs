@@ -29,7 +29,7 @@ internal sealed class ClipboardCapturingWorkloadAdapter : IHex1bAppTerminalWorkl
     public void Write(string text)
     {
         // Intercept OSC 52 clipboard sequences: ESC ] 52 ; c ; <base64> BEL
-        if (text.StartsWith("\x1b]52;c;") && text.EndsWith("\x07"))
+        if (text.StartsWith("\x1b]52;c;") && text.EndsWith('\x07'))
         {
             var base64 = text["\x1b]52;c;".Length..^1];
             var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64));

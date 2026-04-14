@@ -18,6 +18,7 @@ public class DotNetRuntimeLocatorColdBenchmarks
     private FrameworkAssemblyInfo? _lastAssemblyResult;
     private string? _lastBasePath;
 
+    /// <summary>Warms JIT with a throwaway call and records the target framework used by the cold benchmarks.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -27,6 +28,7 @@ public class DotNetRuntimeLocatorColdBenchmarks
         _targetFramework = ".NETCoreApp,Version=v10.0";
     }
 
+    /// <summary>Clears caches before each iteration so first-call probing cost is measured.</summary>
     [IterationSetup]
     public void ClearBeforeIteration()
     {
@@ -35,12 +37,14 @@ public class DotNetRuntimeLocatorColdBenchmarks
         DotNetRuntimeLocator.ClearCache();
     }
 
+    /// <summary>Cold path: resolves System.Runtime against the shared framework with no cached base path.</summary>
     [Benchmark(Description = "FindAssembly (cold)")]
     [BenchmarkCategory("ColdPath")]
     public FrameworkAssemblyInfo? FindAssembly_ColdPath()
         => _lastAssemblyResult = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
             "System.Runtime", _targetFramework);
 
+    /// <summary>Cold path: discovers the .NET install base path from scratch.</summary>
     [Benchmark(Description = "FindBasePath (cold)")]
     [BenchmarkCategory("ColdPath")]
     public string? FindBasePath_Cold()
@@ -58,6 +62,7 @@ public class DotNetRuntimeLocatorWarmBenchmarks
 {
     private string _targetFramework = null!;
 
+    /// <summary>Populates the resolver cache so every benchmark invocation is a hit.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -67,6 +72,7 @@ public class DotNetRuntimeLocatorWarmBenchmarks
         _ = DotNetRuntimeLocator.FindAssemblyInSharedFramework("System.Runtime", _targetFramework);
     }
 
+    /// <summary>Warm path: characterizes the concurrent-dictionary cache hit cost.</summary>
     [Benchmark(Description = "FindAssembly (warm)")]
     [BenchmarkCategory("WarmCache")]
     public FrameworkAssemblyInfo? FindAssembly_WarmCache()

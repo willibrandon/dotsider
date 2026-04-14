@@ -21,6 +21,7 @@ public class AssemblyAnalyzerBenchmarks
     private int _resolveTokenTarget;
     private AssemblyAnalyzer? _lastAnalyzer;
 
+    /// <summary>Locates BCL assemblies, pre-reads CoreLib bytes, builds RichLibrary, and picks a known MethodDef token for resolution.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -50,6 +51,7 @@ public class AssemblyAnalyzerBenchmarks
     // IterationCleanup with no explicit InvocationCount/UnrollFactor
     // gives 1 invocation per iteration. Do not add those attributes to
     // Construction benchmarks without switching to a list-based cleanup.
+    /// <summary>Drops the analyzer created during each iteration so construction is measured from scratch.</summary>
     [IterationCleanup]
     public void CleanupConstruction()
     {
@@ -59,16 +61,19 @@ public class AssemblyAnalyzerBenchmarks
 
     // --- Construction ---
 
+    /// <summary>Measures cold analyzer construction for the ~16MB CoreLib assembly.</summary>
     [Benchmark(Description = "CoreLib (~16MB)")]
     [BenchmarkCategory("Construction")]
     public AssemblyAnalyzer ConstructCoreLib()
         => _lastAnalyzer = new AssemblyAnalyzer(_coreLibPath);
 
+    /// <summary>Measures cold analyzer construction for the ~8MB Xml assembly.</summary>
     [Benchmark(Description = "Xml (~8MB)")]
     [BenchmarkCategory("Construction")]
     public AssemblyAnalyzer ConstructXml()
         => _lastAnalyzer = new AssemblyAnalyzer(_xmlPath);
 
+    /// <summary>Exercises the byte[] constructor path used when an assembly is extracted from a single-file bundle.</summary>
     [Benchmark(Description = "CoreLib from byte[] (bundle model)")]
     [BenchmarkCategory("ByteConstructor")]
     public AssemblyAnalyzer ConstructFromBytes_CoreLib()
@@ -79,6 +84,7 @@ public class AssemblyAnalyzerBenchmarks
 
     // --- Existing metadata table enumeration (fresh analyzer per call) ---
 
+    /// <summary>First-touch enumeration of the CoreLib TypeDef table.</summary>
     [Benchmark(Description = "CoreLib TypeDefs")]
     [BenchmarkCategory("TypeDefs")]
     public int EnumerateTypeDefsCoreLib()
@@ -87,6 +93,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.TypeDefs.Count;
     }
 
+    /// <summary>First-touch enumeration of the Xml TypeDef table.</summary>
     [Benchmark(Description = "Xml TypeDefs")]
     [BenchmarkCategory("TypeDefs")]
     public int EnumerateTypeDefsXml()
@@ -95,6 +102,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.TypeDefs.Count;
     }
 
+    /// <summary>First-touch enumeration of the CoreLib MethodDef table.</summary>
     [Benchmark(Description = "CoreLib MethodDefs")]
     [BenchmarkCategory("MethodDefs")]
     public int EnumerateMethodDefsCoreLib()
@@ -103,6 +111,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.MethodDefs.Count;
     }
 
+    /// <summary>First-touch enumeration of the Xml MethodDef table.</summary>
     [Benchmark(Description = "Xml MethodDefs")]
     [BenchmarkCategory("MethodDefs")]
     public int EnumerateMethodDefsXml()
@@ -113,6 +122,7 @@ public class AssemblyAnalyzerBenchmarks
 
     // --- New lazy-initialized metadata properties (fresh analyzer = first-touch) ---
 
+    /// <summary>First-touch cost of materializing the AssemblyRef table.</summary>
     [Benchmark(Description = "CoreLib AssemblyRefs")]
     [BenchmarkCategory("AssemblyRefs")]
     public int AssemblyRefs_CoreLib()
@@ -121,6 +131,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.AssemblyRefs.Count;
     }
 
+    /// <summary>First-touch cost of materializing the TypeRef table.</summary>
     [Benchmark(Description = "CoreLib TypeRefs")]
     [BenchmarkCategory("TypeRefs")]
     public int TypeRefs_CoreLib()
@@ -129,6 +140,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.TypeRefs.Count;
     }
 
+    /// <summary>Exercises MemberRef enumeration, which decodes method and field signatures.</summary>
     [Benchmark(Description = "CoreLib MemberRefs (signature decoding)")]
     [BenchmarkCategory("MemberRefs")]
     public int MemberRefs_CoreLib()
@@ -137,6 +149,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.MemberRefs.Count;
     }
 
+    /// <summary>Exercises FieldDef enumeration including field signature decoding.</summary>
     [Benchmark(Description = "CoreLib FieldDefs (signature decoding)")]
     [BenchmarkCategory("FieldDefs")]
     public int FieldDefs_CoreLib()
@@ -145,6 +158,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.FieldDefs.Count;
     }
 
+    /// <summary>First-touch cost of materializing the CustomAttribute table.</summary>
     [Benchmark(Description = "CoreLib CustomAttributes")]
     [BenchmarkCategory("CustomAttributes")]
     public int CustomAttributes_CoreLib()
@@ -153,6 +167,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.CustomAttributes.Count;
     }
 
+    /// <summary>First-touch cost of materializing embedded manifest resource metadata.</summary>
     [Benchmark(Description = "CoreLib Resources")]
     [BenchmarkCategory("Resources")]
     public int Resources_CoreLib()
@@ -161,6 +176,7 @@ public class AssemblyAnalyzerBenchmarks
         return analyzer.Resources.Count;
     }
 
+    /// <summary>First-touch cost of enumerating PE sections.</summary>
     [Benchmark(Description = "CoreLib Sections")]
     [BenchmarkCategory("Sections")]
     public int Sections_CoreLib()
@@ -171,6 +187,7 @@ public class AssemblyAnalyzerBenchmarks
 
     // --- Token resolution ---
 
+    /// <summary>Resolves a MethodDef token to its display name via the token dispatch table.</summary>
     [Benchmark(Description = "ResolveToken (MethodDef → name)")]
     [BenchmarkCategory("ResolveToken")]
     public string ResolveToken_CoreLib()
@@ -181,12 +198,14 @@ public class AssemblyAnalyzerBenchmarks
 
     // --- Assembly resolution (exercises 6-step probe chain) ---
 
+    /// <summary>Hits step 2 of the probe chain: CoreLib is found in the running runtime directory.</summary>
     [Benchmark(Description = "ResolveAssembly step 2 (runtime dir)")]
     [BenchmarkCategory("ResolveAssembly")]
     public object? ResolveAssembly_RuntimeDir()
         => AssemblyAnalyzer.ResolveAssembly(
             _richLibraryDll, "System.Private.CoreLib");
 
+    /// <summary>Hits step 6 of the probe chain: resolution falls through to a shared ASP.NET runtime pack.</summary>
     [Benchmark(Description = "ResolveAssembly step 6 (shared framework)")]
     [BenchmarkCategory("ResolveAssembly")]
     public object? ResolveAssembly_SharedFramework()
@@ -195,6 +214,7 @@ public class AssemblyAnalyzerBenchmarks
             targetFramework: ".NETCoreApp,Version=v10.0",
             preferredRuntimePack: "Microsoft.AspNetCore.App");
 
+    /// <summary>Worst case: walks all six probe steps without finding the assembly.</summary>
     [Benchmark(Description = "ResolveAssembly miss (all 6 steps)")]
     [BenchmarkCategory("ResolveAssembly")]
     public object? ResolveAssembly_Miss()

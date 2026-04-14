@@ -20,6 +20,7 @@ public class NuGetPackageAnalyzerBenchmarks
     private string _tempDir = null!;
     private NuGetPackageAnalyzer? _lastAnalyzer;
 
+    /// <summary>Synthesizes a standard .nupkg and a 120+ entry large .nupkg so both shapes can be measured.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -96,6 +97,7 @@ public class NuGetPackageAnalyzerBenchmarks
         }
     }
 
+    /// <summary>Disposes the last analyzer and removes the synthetic package temp directory.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -104,6 +106,7 @@ public class NuGetPackageAnalyzerBenchmarks
         catch { /* best effort */ }
     }
 
+    /// <summary>Drops the per-iteration analyzer so construction is measured from scratch.</summary>
     [IterationCleanup]
     public void IterationCleanup()
     {
@@ -113,11 +116,13 @@ public class NuGetPackageAnalyzerBenchmarks
 
     // --- Standard package ---
 
+    /// <summary>Measures package open plus manifest read on a standard two-DLL .nupkg.</summary>
     [Benchmark(Description = "Construction (2 DLLs, ~24MB)")]
     [BenchmarkCategory("Standard")]
     public NuGetPackageAnalyzer Construct()
         => _lastAnalyzer = new NuGetPackageAnalyzer(_nupkgPath);
 
+    /// <summary>Measures extracting and analyzing the CoreLib DLL from inside a standard package.</summary>
     [Benchmark(Description = "OpenDll (CoreLib ~16MB)")]
     [BenchmarkCategory("Standard")]
     public AssemblyAnalyzer OpenDll()
@@ -131,11 +136,13 @@ public class NuGetPackageAnalyzerBenchmarks
 
     // --- Large package (120+ entries) ---
 
+    /// <summary>Measures construction on a package with 120+ zip entries to characterize enumeration at scale.</summary>
     [Benchmark(Description = "Construction (120+ entries)")]
     [BenchmarkCategory("LargePackage")]
     public NuGetPackageAnalyzer Construct_LargePackage()
         => _lastAnalyzer = new NuGetPackageAnalyzer(_largeNupkgPath);
 
+    /// <summary>Measures extracting and analyzing CoreLib from a package with many unrelated entries.</summary>
     [Benchmark(Description = "OpenDll from large package (CoreLib)")]
     [BenchmarkCategory("LargePackage")]
     public AssemblyAnalyzer OpenDll_LargePackage()

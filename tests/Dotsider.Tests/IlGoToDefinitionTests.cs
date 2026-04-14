@@ -27,11 +27,10 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                if (_state is null)
-                {
-                    _state = new DotsiderState(_hex1bApp!, samples.RichLibraryDll);
-                    _state.CurrentTab = TabId.IlInspector;
-                }
+                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                    {
+                        CurrentTab = TabId.IlInspector
+                    };
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },

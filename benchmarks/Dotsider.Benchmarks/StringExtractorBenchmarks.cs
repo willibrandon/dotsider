@@ -14,6 +14,7 @@ public class StringExtractorBenchmarks
     private AssemblyAnalyzer _coreLibAnalyzer = null!;
     private AssemblyAnalyzer _xmlAnalyzer = null!;
 
+    /// <summary>Opens CoreLib and Xml analyzers for reuse across all extraction benchmarks.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -22,6 +23,7 @@ public class StringExtractorBenchmarks
         _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
     }
 
+    /// <summary>Disposes the shared analyzers.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -29,26 +31,32 @@ public class StringExtractorBenchmarks
         _xmlAnalyzer.Dispose();
     }
 
+    /// <summary>Walks the CoreLib UserString heap — every ldstr-referenced literal.</summary>
     [Benchmark(Description = "CoreLib UserStrings")]
     public IReadOnlyList<StringEntry> CoreLib_UserStrings()
         => new StringExtractor(_coreLibAnalyzer).ExtractUserStrings();
 
+    /// <summary>Walks the CoreLib #Strings metadata heap — type/member names.</summary>
     [Benchmark(Description = "CoreLib MetadataStrings")]
     public IReadOnlyList<StringEntry> CoreLib_MetadataStrings()
         => new StringExtractor(_coreLibAnalyzer).ExtractMetadataStrings();
 
+    /// <summary>Scans the CoreLib PE for raw printable strings outside the metadata heaps.</summary>
     [Benchmark(Description = "CoreLib RawStrings")]
     public IReadOnlyList<StringEntry> CoreLib_RawStrings()
         => new StringExtractor(_coreLibAnalyzer).ExtractRawStrings();
 
+    /// <summary>Walks the Xml UserString heap.</summary>
     [Benchmark(Description = "Xml UserStrings")]
     public IReadOnlyList<StringEntry> Xml_UserStrings()
         => new StringExtractor(_xmlAnalyzer).ExtractUserStrings();
 
+    /// <summary>Walks the Xml #Strings metadata heap.</summary>
     [Benchmark(Description = "Xml MetadataStrings")]
     public IReadOnlyList<StringEntry> Xml_MetadataStrings()
         => new StringExtractor(_xmlAnalyzer).ExtractMetadataStrings();
 
+    /// <summary>Scans the Xml PE for raw printable strings.</summary>
     [Benchmark(Description = "Xml RawStrings")]
     public IReadOnlyList<StringEntry> Xml_RawStrings()
         => new StringExtractor(_xmlAnalyzer).ExtractRawStrings();

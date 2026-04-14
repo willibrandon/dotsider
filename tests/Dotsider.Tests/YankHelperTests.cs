@@ -87,7 +87,7 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
         using var state = CreateState(samples.RichLibraryDll);
         state.CurrentTab = TabId.PeMetadata;
         state.PeSubTab = PeSubTabId.TypeDef;
-        var typeDef = state.Analyzer.TypeDefs.First(t => !t.FullName.StartsWith("<"));
+        var typeDef = state.Analyzer.TypeDefs.First(t => !t.FullName.StartsWith('<'));
         state.PeFocusedKey = typeDef.Token;
 
         var text = YankHelper.GetYankText(state);
@@ -519,8 +519,10 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
             YankHelper.FindYankProvider(nugetState, nugetState.PackageInfoEditorState));
 
         // With a selected DLL state, delegates to DotsiderState lookup
-        nugetState.SelectedDllState = new DotsiderState(app, samples.RichLibraryDll);
-        nugetState.SelectedDllState.GeneralInfoEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true };
+        nugetState.SelectedDllState = new DotsiderState(app, samples.RichLibraryDll)
+        {
+            GeneralInfoEditorState = new EditorState(new Hex1bDocument("test")) { IsReadOnly = true }
+        };
         Assert.Same(nugetState.SelectedDllState.GeneralInfoYankProvider,
             YankHelper.FindYankProvider(nugetState, nugetState.SelectedDllState.GeneralInfoEditorState));
 

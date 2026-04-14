@@ -734,7 +734,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // RichLibrary has real types with methods
         var typeDef = _state.Analyzer.TypeDefs.FirstOrDefault(t =>
-            !t.FullName.StartsWith("<") && t.MethodCount > 0);
+            !t.FullName.StartsWith('<') && t.MethodCount > 0);
         Assert.NotNull(typeDef);
 
         _state.PeFocusedKey = typeDef.Token;

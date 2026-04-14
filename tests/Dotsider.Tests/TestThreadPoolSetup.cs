@@ -11,9 +11,7 @@ namespace Dotsider.Tests;
 /// </summary>
 internal static class TestThreadPoolSetup
 {
-#pragma warning disable CA2255 // ModuleInitializer is intentional — must run before any test
     [ModuleInitializer]
-#pragma warning restore CA2255
     internal static void Initialize()
     {
         ThreadPool.SetMinThreads(32, 32);

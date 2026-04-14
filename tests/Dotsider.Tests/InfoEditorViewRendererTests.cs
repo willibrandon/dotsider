@@ -68,7 +68,7 @@ public class InfoEditorViewRendererTests : IDisposable
                 {
                     var line = s.GetLine(row).TrimEnd();
                     // A tilde line from the default renderer starts with ~ after the border
-                    if (line.Contains("~") && !line.Contains("Info"))
+                    if (line.Contains('~') && !line.Contains("Info"))
                     {
                         foundTilde = true;
                         return true;

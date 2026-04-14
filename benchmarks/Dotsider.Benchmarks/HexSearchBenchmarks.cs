@@ -19,6 +19,7 @@ public class HexSearchBenchmarks
     private byte[] _longPattern = null!;
     private byte[] _noMatchPattern = null!;
 
+    /// <summary>Loads BCL assembly bytes and prepares short, long, and no-match search patterns.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -36,26 +37,32 @@ public class HexSearchBenchmarks
         _noMatchPattern = [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE];
     }
 
+    /// <summary>Search cost with a 2-byte pattern that matches at the PE header — dominated by per-match overhead.</summary>
     [Benchmark(Description = "CoreLib short pattern (2B)")]
     public List<long> CoreLib_ShortPattern()
         => HexDumpView.FindBytePattern(_coreLibBytes, _shortPattern);
 
+    /// <summary>Search cost with a 14-byte ASCII pattern common in metadata strings.</summary>
     [Benchmark(Description = "CoreLib long pattern (14B)")]
     public List<long> CoreLib_LongPattern()
         => HexDumpView.FindBytePattern(_coreLibBytes, _longPattern);
 
+    /// <summary>Worst case for CoreLib: a pattern guaranteed to miss forces a complete scan.</summary>
     [Benchmark(Description = "CoreLib no-match (full scan)")]
     public List<long> CoreLib_NoMatch()
         => HexDumpView.FindBytePattern(_coreLibBytes, _noMatchPattern);
 
+    /// <summary>Search cost against the smaller Xml assembly with a 2-byte header-matching pattern.</summary>
     [Benchmark(Description = "Xml short pattern (2B)")]
     public List<long> Xml_ShortPattern()
         => HexDumpView.FindBytePattern(_xmlBytes, _shortPattern);
 
+    /// <summary>Search cost against Xml with a 14-byte metadata-string pattern.</summary>
     [Benchmark(Description = "Xml long pattern (14B)")]
     public List<long> Xml_LongPattern()
         => HexDumpView.FindBytePattern(_xmlBytes, _longPattern);
 
+    /// <summary>Worst case for Xml: no-match pattern forces a complete scan.</summary>
     [Benchmark(Description = "Xml no-match (full scan)")]
     public List<long> Xml_NoMatch()
         => HexDumpView.FindBytePattern(_xmlBytes, _noMatchPattern);
