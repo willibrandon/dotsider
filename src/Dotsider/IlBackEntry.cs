@@ -15,6 +15,7 @@ namespace Dotsider;
 /// <param name="FocusedTreeKey">The focused row key in the IL tree table.</param>
 /// <param name="TreeExpansionState">Cloned snapshot of the tree expansion state.</param>
 /// <param name="CrossAssembly">Whether PushAssembly was called for this navigation (requires PopAssembly on back).</param>
+/// <param name="EditorKey">The editor identity key for StatePanelWidget matching on back-nav.</param>
 public sealed record IlBackEntry(
     MethodDefInfo Method,
     EditorState EditorState,
@@ -22,4 +23,5 @@ public sealed record IlBackEntry(
     AssemblyAnalyzer EditorAnalyzer,
     object? FocusedTreeKey,
     Dictionary<string, bool> TreeExpansionState,
-    bool CrossAssembly);
+    bool CrossAssembly,
+    object? EditorKey);
