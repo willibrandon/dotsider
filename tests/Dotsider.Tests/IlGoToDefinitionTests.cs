@@ -67,11 +67,12 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallLocalMethod");
         await auto.WaitUntilTextAsync("call RichLibrary.IlNavigationFixture::LocalTarget");
 
-        // Focus editor with 'l', then navigate down to the call line
+        // Focus editor with 'l', then navigate down to the call line.
+        // Cursor starts on the first IL instruction (IL_0000: nop), so 8 downs
+        // lands on IL_0010: call — independent of header line count.
         await auto.KeyAsync(Hex1bKey.L, ct);
         await Task.Delay(200, ct);
-        // 15 downs: 7 header lines + 8 instructions to reach IL_0010 call
-        for (var i = 0; i < 15; i++) await auto.DownAsync(ct);
+        for (var i = 0; i < 8; i++) await auto.DownAsync(ct);
         await Task.Delay(200, ct);
 
         return _state!.IlEditorState?.Cursor.Position.Value ?? -1;
