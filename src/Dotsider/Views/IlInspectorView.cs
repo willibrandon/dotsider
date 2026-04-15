@@ -414,6 +414,22 @@ public static class IlInspectorView
             state.IlNavigationProvider.HeaderLineCount = state.IlHeaderLineCount;
             state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, method.Token);
             state.IlCachedEditors.Remove(state.IlEditorKey);
+
+            if (state.IlHeaderLineCount > 0)
+            {
+                var offset = 0;
+                var newlines = 0;
+                for (var i = 0; i < disassembly.Length && newlines < state.IlHeaderLineCount; i++)
+                {
+                    if (disassembly[i] == '\n')
+                    {
+                        newlines++;
+                        offset = i + 1;
+                    }
+                }
+                
+                state.IlEditorState.SetCursorPosition(new DocumentOffset(offset));
+            }
         }
 
         // Consume pending cursor match (from search n/N navigation)
