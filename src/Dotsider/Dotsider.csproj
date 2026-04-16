@@ -17,7 +17,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotsider</ToolCommandName>
     <PackageId>Dotsider</PackageId>
-    <Version>0.11.1</Version>
+    <Version>0.12.0</Version>
     <Authors>willibrandon</Authors>
     <Description>A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, dependencies, and more.</Description>
     <PackageTags>dotnet;assembly;tui;il;metadata;pe;disassembler;nuget</PackageTags>
