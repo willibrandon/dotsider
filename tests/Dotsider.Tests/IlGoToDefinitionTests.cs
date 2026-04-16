@@ -1,3 +1,5 @@
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
@@ -680,5 +682,98 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.RestoreFromIlBackEntry(entry);
         Assert.Equal("GetStringEmpty", state.IlSelectedMethod?.Name);
         Assert.Null(state.IlSelectedField);
+    }
+
+    /// <summary>
+    /// Resolves a MethodSpec token (call to Enumerable.Where&lt;User&gt; from
+    /// UserService.FindByRole) and expects the underlying ExternalMethod target —
+    /// not a GenericInstantiation fallback.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_MethodSpec_ReturnsUnderlyingExternalMethod()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var dis = new IlDisassembler(analyzer);
+        var method = analyzer.MethodDefs.First(m =>
+            m.Name == "FindByRole" && m.DeclaringType.Contains("UserService"));
+        var callInst = dis.Disassemble(method).First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null
+            && MetadataTokens.EntityHandle(i.MetadataToken.Value).Kind
+                == HandleKind.MethodSpecification);
+
+        var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
+
+        var ext = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.Equal("Where", ext.MemberName);
+        Assert.Equal("System.Linq.Enumerable", ext.DeclaringType);
+        // Signature should encode the method generic parameter as !!0, proving
+        // we resolved the open-generic definition rather than coincidental match.
+        Assert.Contains("!!0", ext.Signature);
+    }
+
+    /// <summary>
+    /// Navigates from a MethodSpec call site to the open-generic definition in System.Linq.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToIlDefinition_MethodSpec_LandsOnOpenGenericDefinition()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        state.CurrentTab = TabId.IlInspector;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "FindByRole" && m.DeclaringType.Contains("UserService"));
+        state.IlSelectedMethod = method;
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var callInst = result.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null
+            && MetadataTokens.EntityHandle(i.MetadataToken.Value).Kind
+                == HandleKind.MethodSpecification);
+
+        var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
+
+        Assert.True(navigated, "MethodSpec navigation must succeed for Enumerable.Where");
+        Assert.True(state.NavigationStack.Count > 0, "Should have pushed System.Linq");
+        Assert.NotNull(state.IlSelectedMethod);
+        Assert.Equal("Where", state.IlSelectedMethod.Name);
+        Assert.Equal("System.Linq.Enumerable", state.IlSelectedMethod.DeclaringType);
+        Assert.Contains("!!0", state.IlSelectedMethod.Signature);
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+    }
+
+    /// <summary>
+    /// A malformed MethodSpec token must surface as GenericInstantiation with a
+    /// non-empty Reason, and the DotsiderState arm must report it via TransientNotice.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_InvalidMethodSpecToken_ReturnsGenericInstantiationWithReason()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        // HandleKind.MethodSpecification = 0x2B. Row 0xFFFFFF is well past any real row,
+        // so reader.GetMethodSpecification will throw BadImageFormatException.
+        var invalidToken = unchecked((int)0x2BFFFFFF);
+
+        var target = IlNavigationResolver.Resolve(analyzer, invalidToken);
+
+        var gi = Assert.IsType<IlNavigationTarget.GenericInstantiation>(target);
+        Assert.Equal(invalidToken, gi.Token);
+        Assert.False(string.IsNullOrEmpty(gi.Reason));
+
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        var navigated = state.NavigateToIlDefinition(invalidToken);
+        Assert.False(navigated);
+        Assert.NotNull(state.TransientNotice);
+        Assert.Contains("generic instantiation", state.TransientNotice, StringComparison.OrdinalIgnoreCase);
     }
 }

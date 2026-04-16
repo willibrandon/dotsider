@@ -25,8 +25,8 @@ public abstract record IlNavigationTarget
     public sealed record ExternalField(
         string FieldName, string DeclaringType, string AssemblyName) : IlNavigationTarget;
 
-    /// <summary>A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly.</summary>
-    public sealed record GenericInstantiation(int Token, string DisplayName) : IlNavigationTarget;
+    /// <summary>A MethodSpec whose metadata could not be decoded into a navigable target.</summary>
+    public sealed record GenericInstantiation(int Token, string Reason) : IlNavigationTarget;
 
     /// <summary>A token kind that is recognized but not supported for navigation.</summary>
     public sealed record Unsupported(int Token, string Reason) : IlNavigationTarget;

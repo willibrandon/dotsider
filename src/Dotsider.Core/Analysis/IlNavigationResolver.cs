@@ -267,15 +267,18 @@ public static class IlNavigationResolver
     private static IlNavigationTarget ResolveMethodSpec(
         AssemblyAnalyzer analyzer, MetadataReader reader, MethodSpecificationHandle handle, int token)
     {
+        int methodToken;
         try
         {
             var ms = reader.GetMethodSpecification(handle);
-            var methodToken = MetadataTokens.GetToken(ms.Method);
-            var underlying = Resolve(analyzer, methodToken);
-            if (underlying is IlNavigationTarget.LocalMethod) return underlying;
-            return new IlNavigationTarget.GenericInstantiation(token, analyzer.ResolveToken(token));
+            methodToken = MetadataTokens.GetToken(ms.Method);
         }
-        catch { return new IlNavigationTarget.GenericInstantiation(token, analyzer.ResolveToken(token)); }
+        catch (Exception ex) when (ex is BadImageFormatException or InvalidOperationException or ArgumentException)
+        {
+            return new IlNavigationTarget.GenericInstantiation(token, ex.Message);
+        }
+
+        return Resolve(analyzer, methodToken);
     }
 
     private static string GetAssemblyNameFromTypeRef(MetadataReader reader, TypeReferenceHandle handle)
