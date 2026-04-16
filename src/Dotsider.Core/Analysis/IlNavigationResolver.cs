@@ -252,7 +252,13 @@ public static class IlNavigationResolver
         var angleBracket = typeName.IndexOf('<');
         if (angleBracket < 0) return typeName;
         var baseName = typeName[..angleBracket];
-        // Count generic args to reconstruct the arity suffix
+        // If the base name already has a backtick+arity suffix from metadata
+        // (e.g., "Dictionary`2"), return it as-is to avoid a double suffix.
+        var lastBacktick = baseName.LastIndexOf('`');
+        if (lastBacktick >= 0 && lastBacktick < baseName.Length - 1
+            && int.TryParse(baseName[(lastBacktick + 1)..], out _))
+            return baseName;
+        // Otherwise, count generic args to reconstruct the arity suffix.
         var depth = 0;
         var count = 1;
         for (var i = angleBracket; i < typeName.Length; i++)
