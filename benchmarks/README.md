@@ -34,7 +34,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 |---|---|
 | `ApphostDetectorBenchmarks` | Apphost companion-DLL detection (real apphost, dotted-name, fake exe, early exit) and bundled-entry extraction |
 | `AssemblyAnalyzerBenchmarks` | Constructor (file and byte[]), lazy metadata properties (TypeDefs, MethodDefs, AssemblyRefs, TypeRefs, MemberRefs, FieldDefs, CustomAttributes, Resources, Sections), token resolution, and 6-step assembly resolution chain |
-| `AssemblyDifferBenchmarks` | Dictionary-based O(n) diff of two assemblies by type, method, and reference |
+| `AssemblyDifferBenchmarks` | Dictionary-based O(n) diff of two assemblies by type, method, and reference with normalized IL body comparison |
 | `DependencyGraphBuilderBenchmarks` | Positioned dependency graph construction from assembly refs and type ref counts |
 | `DotNetRuntimeLocatorColdBenchmarks` | Cold-path .NET runtime discovery: base path + shared framework resolution with cache cleared |
 | `DotNetRuntimeLocatorWarmBenchmarks` | Warm-cache ConcurrentDictionary hit for shared framework lookup |
@@ -105,8 +105,12 @@ Benchmarks that require real .NET executables (apphost, single-file bundle, runt
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| CoreLib vs Xml (max diff) | 38.57 ms | 8.81 MB |
-| CoreLib vs CoreLib (identity) | 32.78 ms | 8.58 MB |
+| CoreLib vs Xml (max diff) | 40.25 ms | 9.03 MB |
+| CoreLib vs CoreLib (identity) | 151.03 ms | 293.56 MB |
+| CoreLib vs CoreLib (distinct) | 155.46 ms | 293.56 MB |
+| RichLibrary v1 vs v2 (body diff) | 149.9 μs | 358 KB |
+
+Identity and distinct benchmarks are worst-case: every method matches, forcing normalized token resolution across 12K+ bodies. Cross-assembly is flat because few methods share keys. RichLibrary is a realistic version diff.
 
 #### DependencyGraphBuilder
 

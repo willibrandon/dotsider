@@ -44,4 +44,19 @@ public sealed class UserService
     /// <summary>Finds all users that have the specified tag.</summary>
     public IEnumerable<User> FindByTag(string tag) =>
         _users.Values.Where(u => u.Tags.Contains(tag));
+
+    /// <summary>Tries to find a user by ID, returning null on error.</summary>
+    public User? TryFindById(int id)
+    {
+        try { return GetById(id); }
+        catch (InvalidOperationException) { return null; }
+    }
+
+    /// <summary>Returns a summary of the user store.</summary>
+    public string SummarizeUsers()
+    {
+        int count = _users.Count;
+        int active = _users.Values.Count(u => u.Role != UserRole.Viewer);
+        return $"Total users: {count}, Active: {active}";
+    }
 }

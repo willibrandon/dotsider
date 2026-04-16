@@ -39,4 +39,18 @@ public sealed class UserService : IRepository<User>
     public User? FindByEmail(string email) =>
         _users.Values.FirstOrDefault(u =>
             string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Tries to find a user by ID, returning null on error.</summary>
+    public User? TryFindById(int id)
+    {
+        try { return GetById(id); }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>Returns a summary of the user store.</summary>
+    public string SummarizeUsers()
+    {
+        int count = _users.Count;
+        return $"Total users: {count}";
+    }
 }

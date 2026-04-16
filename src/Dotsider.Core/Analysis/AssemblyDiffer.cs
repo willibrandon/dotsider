@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
@@ -17,7 +20,7 @@ public static class AssemblyDiffer
     public static AssemblyDiffResult Compare(AssemblyAnalyzer left, AssemblyAnalyzer right)
     {
         var typeDiffs = CompareTypes(left.TypeDefs, right.TypeDefs);
-        var methodDiffs = CompareMethods(left.MethodDefs, right.MethodDefs);
+        var methodDiffs = CompareMethods(left.MethodDefs, right.MethodDefs, left, right);
         var refDiffs = CompareRefs(left.AssemblyRefs, right.AssemblyRefs);
 
         var summary = new DiffSummary(
@@ -80,7 +83,8 @@ public static class AssemblyDiffer
     }
 
     private static IReadOnlyList<DiffEntry<MethodDefInfo>> CompareMethods(
-        IReadOnlyList<MethodDefInfo> left, IReadOnlyList<MethodDefInfo> right)
+        IReadOnlyList<MethodDefInfo> left, IReadOnlyList<MethodDefInfo> right,
+        AssemblyAnalyzer leftAnalyzer, AssemblyAnalyzer rightAnalyzer)
     {
         // Tuple key avoids 60K+ string allocations from interpolation on large assemblies
         var leftByKey = new Dictionary<(string DeclaringType, string Name, string Signature), MethodDefInfo>(left.Count);
@@ -97,18 +101,23 @@ public static class AssemblyDiffer
         {
             if (rightByKey.TryGetValue(key, out var rm))
             {
-                string? detail = null;
-                if (lm.Attributes != rm.Attributes || lm.ImplAttributes != rm.ImplAttributes)
-                {
-                    var changes = new List<string>(2);
-                    if (lm.Attributes != rm.Attributes) changes.Add("attributes changed");
-                    if (lm.ImplAttributes != rm.ImplAttributes) changes.Add("impl changed");
-                    detail = string.Join(", ", changes);
-                }
+                bool attrsChanged = lm.Attributes != rm.Attributes;
+                bool implChanged = lm.ImplAttributes != rm.ImplAttributes;
+                bool bodyChanged = BodiesDiffer(lm, rm, leftAnalyzer, rightAnalyzer);
 
-                result.Add(detail is not null
-                    ? new DiffEntry<MethodDefInfo>(DiffKind.Changed, lm, rm, detail)
-                    : new DiffEntry<MethodDefInfo>(DiffKind.Unchanged, lm, rm, null));
+                if (attrsChanged || implChanged || bodyChanged)
+                {
+                    var changes = new List<string>(3);
+                    if (attrsChanged) changes.Add("attributes");
+                    if (implChanged) changes.Add("impl");
+                    if (bodyChanged) changes.Add("body");
+                    result.Add(new DiffEntry<MethodDefInfo>(
+                        DiffKind.Changed, lm, rm, string.Join(", ", changes)));
+                }
+                else
+                {
+                    result.Add(new DiffEntry<MethodDefInfo>(DiffKind.Unchanged, lm, rm, null));
+                }
             }
             else
             {
@@ -164,5 +173,258 @@ public static class AssemblyDiffer
         }
 
         return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.Name)];
+    }
+
+    private static bool BodiesDiffer(
+        MethodDefInfo leftMethod, MethodDefInfo rightMethod,
+        AssemblyAnalyzer leftAnalyzer, AssemblyAnalyzer rightAnalyzer)
+    {
+        // Tier 0: Both abstract/extern — no bodies to compare
+        if (leftMethod.Rva == 0 && rightMethod.Rva == 0)
+            return false;
+        if (leftMethod.Rva == 0 || rightMethod.Rva == 0)
+            return true;
+
+        // Tier 1: Retrieve method bodies
+        MethodBodyBlock? leftBody, rightBody;
+        try { leftBody = leftAnalyzer.GetMethodBody(leftMethod); }
+        catch (BadImageFormatException) { leftBody = null; }
+        try { rightBody = rightAnalyzer.GetMethodBody(rightMethod); }
+        catch (BadImageFormatException) { rightBody = null; }
+
+        if (leftBody is null && rightBody is null) return false;
+        if (leftBody is null || rightBody is null) return true;
+
+        // Tier 2: Structural checks
+        if (leftBody.MaxStack != rightBody.MaxStack) return true;
+        if (leftBody.LocalVariablesInitialized != rightBody.LocalVariablesInitialized) return true;
+
+        // Tier 3: Local variable signature comparison
+        if (LocalSignaturesDiffer(
+            leftAnalyzer.GetMetadataReader(), leftBody,
+            rightAnalyzer.GetMetadataReader(), rightBody))
+            return true;
+
+        // Tier 4: Exception region comparison
+        var leftRegions = leftBody.ExceptionRegions;
+        var rightRegions = rightBody.ExceptionRegions;
+        if (leftRegions.Length != rightRegions.Length) return true;
+
+        for (int i = 0; i < leftRegions.Length; i++)
+        {
+            var lr = leftRegions[i];
+            var rr = rightRegions[i];
+            if (lr.Kind != rr.Kind
+                || lr.TryOffset != rr.TryOffset
+                || lr.TryLength != rr.TryLength
+                || lr.HandlerOffset != rr.HandlerOffset
+                || lr.HandlerLength != rr.HandlerLength
+                || lr.FilterOffset != rr.FilterOffset)
+                return true;
+
+            if (!lr.CatchType.IsNil || !rr.CatchType.IsNil)
+            {
+                if (lr.CatchType.IsNil != rr.CatchType.IsNil) return true;
+                var leftCatch = leftAnalyzer.ResolveTokenForComparison(MetadataTokens.GetToken(lr.CatchType));
+                var rightCatch = rightAnalyzer.ResolveTokenForComparison(MetadataTokens.GetToken(rr.CatchType));
+                if (leftCatch != rightCatch) return true;
+            }
+        }
+
+        // Tier 5: Normalized IL instruction walk
+        var leftIl = leftBody.GetILBytes();
+        var rightIl = rightBody.GetILBytes();
+        if (leftIl is null && rightIl is null) return false;
+        if (leftIl is null || rightIl is null) return true;
+
+        return NormalizedIlDiffers(leftIl, rightIl, leftAnalyzer, rightAnalyzer);
+    }
+
+    /// <summary>
+    /// Compares local variable signatures by decoding both sides to type name arrays.
+    /// </summary>
+    /// <param name="leftReader">The metadata reader for the left assembly.</param>
+    /// <param name="leftBody">The left method body.</param>
+    /// <param name="rightReader">The metadata reader for the right assembly.</param>
+    /// <param name="rightBody">The right method body.</param>
+    /// <returns><see langword="true"/> if the local variable signatures differ.</returns>
+    internal static bool LocalSignaturesDiffer(
+        MetadataReader? leftReader, MethodBodyBlock leftBody,
+        MetadataReader? rightReader, MethodBodyBlock rightBody)
+    {
+        if (leftBody.LocalSignature.IsNil && rightBody.LocalSignature.IsNil)
+            return false;
+        if (leftBody.LocalSignature.IsNil != rightBody.LocalSignature.IsNil)
+            return true;
+
+        if (leftReader is null || rightReader is null)
+            return false;
+
+        ImmutableArray<string> leftLocals, rightLocals;
+        try
+        {
+            var leftSig = leftReader.GetStandaloneSignature(leftBody.LocalSignature);
+            leftLocals = leftSig.DecodeLocalSignature(
+                new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
+        }
+        catch { return false; }
+
+        try
+        {
+            var rightSig = rightReader.GetStandaloneSignature(rightBody.LocalSignature);
+            rightLocals = rightSig.DecodeLocalSignature(
+                new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
+        }
+        catch { return false; }
+
+        if (leftLocals.Length != rightLocals.Length) return true;
+
+        for (int i = 0; i < leftLocals.Length; i++)
+        {
+            if (leftLocals[i] != rightLocals[i]) return true;
+        }
+
+        return false;
+    }
+
+    private static bool NormalizedIlDiffers(
+        byte[] leftIl, byte[] rightIl,
+        AssemblyAnalyzer leftAnalyzer, AssemblyAnalyzer rightAnalyzer)
+    {
+        int leftOffset = 0, rightOffset = 0;
+
+        while (leftOffset < leftIl.Length && rightOffset < rightIl.Length)
+        {
+            // Read opcodes
+            var leftOpByte = leftIl[leftOffset++];
+            var rightOpByte = rightIl[rightOffset++];
+
+            ILOpCode leftOp, rightOp;
+            if (leftOpByte == 0xFE)
+            {
+                if (leftOffset >= leftIl.Length) return true;
+                leftOp = (ILOpCode)(0xFE00 | leftIl[leftOffset++]);
+            }
+            else
+            {
+                leftOp = (ILOpCode)leftOpByte;
+            }
+
+            if (rightOpByte == 0xFE)
+            {
+                if (rightOffset >= rightIl.Length) return true;
+                rightOp = (ILOpCode)(0xFE00 | rightIl[rightOffset++]);
+            }
+            else
+            {
+                rightOp = (ILOpCode)rightOpByte;
+            }
+
+            if (leftOp != rightOp) return true;
+
+            var operandKind = IlDisassembler.GetOperandType(leftOp);
+            switch (operandKind)
+            {
+                case IlDisassembler.OperandKind.None:
+                    break;
+
+                case IlDisassembler.OperandKind.ShortBranchTarget:
+                case IlDisassembler.OperandKind.ShortInlineI:
+                case IlDisassembler.OperandKind.ShortInlineVar:
+                    if (leftIl[leftOffset] != rightIl[rightOffset]) return true;
+                    leftOffset++;
+                    rightOffset++;
+                    break;
+
+                case IlDisassembler.OperandKind.InlineVar:
+                    if (leftIl[leftOffset] != rightIl[rightOffset]
+                        || leftIl[leftOffset + 1] != rightIl[rightOffset + 1])
+                        return true;
+                    leftOffset += 2;
+                    rightOffset += 2;
+                    break;
+
+                case IlDisassembler.OperandKind.BranchTarget:
+                case IlDisassembler.OperandKind.InlineI:
+                case IlDisassembler.OperandKind.ShortInlineR:
+                    if (!leftIl.AsSpan(leftOffset, 4).SequenceEqual(rightIl.AsSpan(rightOffset, 4)))
+                        return true;
+                    leftOffset += 4;
+                    rightOffset += 4;
+                    break;
+
+                case IlDisassembler.OperandKind.InlineI8:
+                case IlDisassembler.OperandKind.InlineR:
+                    if (!leftIl.AsSpan(leftOffset, 8).SequenceEqual(rightIl.AsSpan(rightOffset, 8)))
+                        return true;
+                    leftOffset += 8;
+                    rightOffset += 8;
+                    break;
+
+                case IlDisassembler.OperandKind.InlineMethod:
+                case IlDisassembler.OperandKind.InlineField:
+                case IlDisassembler.OperandKind.InlineType:
+                case IlDisassembler.OperandKind.InlineTok:
+                {
+                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                    var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
+                    var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
+                    if (leftResolved != rightResolved) return true;
+                    break;
+                }
+
+                case IlDisassembler.OperandKind.InlineString:
+                {
+                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                    var leftReader = leftAnalyzer.GetMetadataReader();
+                    var rightReader = rightAnalyzer.GetMetadataReader();
+                    if (leftReader is null || rightReader is null) return leftToken != rightToken;
+                    try
+                    {
+                        var leftStr = leftReader.GetUserString(
+                            MetadataTokens.UserStringHandle(leftToken & 0x00FFFFFF));
+                        var rightStr = rightReader.GetUserString(
+                            MetadataTokens.UserStringHandle(rightToken & 0x00FFFFFF));
+                        if (leftStr != rightStr) return true;
+                    }
+                    catch
+                    {
+                        if (leftToken != rightToken) return true;
+                    }
+                    break;
+                }
+
+                case IlDisassembler.OperandKind.InlineSig:
+                {
+                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                    var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
+                    var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
+                    if (leftResolved != rightResolved) return true;
+                    break;
+                }
+
+                case IlDisassembler.OperandKind.InlineSwitch:
+                {
+                    var leftCount = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                    var rightCount = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                    if (leftCount != rightCount) return true;
+                    var targetBytes = leftCount * 4;
+                    if (!leftIl.AsSpan(leftOffset, targetBytes)
+                        .SequenceEqual(rightIl.AsSpan(rightOffset, targetBytes)))
+                        return true;
+                    leftOffset += targetBytes;
+                    rightOffset += targetBytes;
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+
+        return leftOffset != leftIl.Length || rightOffset != rightIl.Length;
     }
 }
