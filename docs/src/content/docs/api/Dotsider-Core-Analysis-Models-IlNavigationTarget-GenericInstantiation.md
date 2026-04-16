@@ -1,6 +1,6 @@
 ---
 title: "IlNavigationTarget.GenericInstantiation"
-description: "A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly."
+description: "A MethodSpec whose metadata could not be decoded into a navigable target."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.genericinstantiation
 sidebar:
   order: 1
@@ -10,7 +10,7 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly.
+A MethodSpec whose metadata could not be decoded into a navigable target.
 
 ```csharp
 public sealed record IlNavigationTarget.GenericInstantiation : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.GenericInstantiation>
@@ -29,25 +29,25 @@ public sealed record IlNavigationTarget.GenericInstantiation : IlNavigationTarge
 
 ### GenericInstantiation(int, string)
 
-A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly.
+A MethodSpec whose metadata could not be decoded into a navigable target.
 
 **Parameters:**
 
 - `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `DisplayName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+- `Reason` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
 
 ```csharp
-public GenericInstantiation(int Token, string DisplayName)
+public GenericInstantiation(int Token, string Reason)
 ```
 
 ## Properties
 
-### DisplayName
+### Reason
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
-public string DisplayName { get; init; }
+public string Reason { get; init; }
 ```
 
 ### Token

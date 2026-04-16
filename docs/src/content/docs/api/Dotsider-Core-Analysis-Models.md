@@ -182,7 +182,7 @@ public sealed record IlNavigationTarget.ExternalType : IlNavigationTarget, IEqua
 
 ### [IlNavigationTarget.GenericInstantiation](/api/dotsider.core.analysis.models.ilnavigationtarget.genericinstantiation/)
 
-A generic instantiation (TypeSpec or MethodSpec) that cannot be navigated directly.
+A MethodSpec whose metadata could not be decoded into a navigable target.
 
 ```csharp
 public sealed record IlNavigationTarget.GenericInstantiation : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.GenericInstantiation>

@@ -713,8 +713,8 @@ public sealed class DotsiderState : IDisposable
             case IlNavigationTarget.ExternalField(var fieldName, var extFieldDeclType, var assemblyName):
                 return NavigateToExternalField(assemblyName, fieldName, extFieldDeclType);
 
-            case IlNavigationTarget.GenericInstantiation:
-                ShowTransientNotice("Generic instantiation — navigation not yet supported");
+            case IlNavigationTarget.GenericInstantiation(_, var reason):
+                ShowTransientNotice($"Cannot decode generic instantiation: {reason}");
                 return false;
 
             case IlNavigationTarget.Unsupported(_, var reason):
