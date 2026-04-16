@@ -750,6 +750,31 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     }
 
     /// <summary>
+    /// Resolves a MemberRef with a TypeSpec parent (generic type instantiation).
+    /// UserService.Update calls ConcurrentDictionary&lt;int, User&gt;.set_Item —
+    /// the parent is a TypeSpec, not a TypeRef. The resolver must still identify it as
+    /// an ExternalMethod, not return Unsupported.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_MemberRefWithTypeSpecParent_ReturnsExternalMethod()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var dis = new IlDisassembler(analyzer);
+
+        var method = analyzer.MethodDefs.First(m =>
+            m.Name == "Update" && m.DeclaringType.Contains("UserService"));
+        var callInst = dis.Disassemble(method).First(i =>
+            i.OpCode == "callvirt" && i.MetadataToken is not null
+            && i.Operand.Contains("set_Item"));
+
+        var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
+
+        var ext = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.Equal("set_Item", ext.MemberName);
+        Assert.Contains("ConcurrentDictionary", ext.DeclaringType);
+    }
+
+    /// <summary>
     /// A malformed MethodSpec token must surface as GenericInstantiation with a
     /// non-empty Reason, and the DotsiderState arm must report it via TransientNotice.
     /// </summary>
