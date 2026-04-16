@@ -210,40 +210,40 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     private static string FormatBranchTarget(int target) => $"IL_{target:X4}";
     private static string FormatOpCode(ILOpCode opCode) => opCode.ToString().ToLowerInvariant().Replace('_', '.');
 
-    private static sbyte ReadSByte(byte[] il, ref int offset) => (sbyte)il[offset++];
-    private static byte ReadByte(byte[] il, ref int offset) => il[offset++];
-    private static ushort ReadUInt16(byte[] il, ref int offset)
+    internal static sbyte ReadSByte(byte[] il, ref int offset) => (sbyte)il[offset++];
+    internal static byte ReadByte(byte[] il, ref int offset) => il[offset++];
+    internal static ushort ReadUInt16(byte[] il, ref int offset)
     {
         var v = BitConverter.ToUInt16(il, offset);
         offset += 2;
         return v;
     }
-    private static int ReadInt32(byte[] il, ref int offset)
+    internal static int ReadInt32(byte[] il, ref int offset)
     {
         var v = BitConverter.ToInt32(il, offset);
         offset += 4;
         return v;
     }
-    private static long ReadInt64(byte[] il, ref int offset)
+    internal static long ReadInt64(byte[] il, ref int offset)
     {
         var v = BitConverter.ToInt64(il, offset);
         offset += 8;
         return v;
     }
-    private static float ReadSingle(byte[] il, ref int offset)
+    internal static float ReadSingle(byte[] il, ref int offset)
     {
         var v = BitConverter.ToSingle(il, offset);
         offset += 4;
         return v;
     }
-    private static double ReadDouble(byte[] il, ref int offset)
+    internal static double ReadDouble(byte[] il, ref int offset)
     {
         var v = BitConverter.ToDouble(il, offset);
         offset += 8;
         return v;
     }
 
-    private enum OperandKind
+    internal enum OperandKind
     {
         None,
         ShortBranchTarget,
@@ -264,7 +264,7 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         InlineSwitch
     }
 
-    private static OperandKind GetOperandType(ILOpCode opCode) => opCode switch
+    internal static OperandKind GetOperandType(ILOpCode opCode) => opCode switch
     {
         ILOpCode.Nop or ILOpCode.Break or ILOpCode.Ldarg_0 or ILOpCode.Ldarg_1 or ILOpCode.Ldarg_2 or ILOpCode.Ldarg_3
             or ILOpCode.Ldloc_0 or ILOpCode.Ldloc_1 or ILOpCode.Ldloc_2 or ILOpCode.Ldloc_3
@@ -334,7 +334,8 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         ILOpCode.Ldfld or ILOpCode.Ldflda or ILOpCode.Stfld or ILOpCode.Ldsfld or ILOpCode.Ldsflda or ILOpCode.Stsfld
             => OperandKind.InlineField,
         ILOpCode.Castclass or ILOpCode.Isinst or ILOpCode.Newarr or ILOpCode.Box or ILOpCode.Unbox
-            or ILOpCode.Unbox_any or ILOpCode.Ldelem or ILOpCode.Stelem or ILOpCode.Ldobj or ILOpCode.Stobj
+            or ILOpCode.Unbox_any or ILOpCode.Ldelema or ILOpCode.Ldelem or ILOpCode.Stelem
+            or ILOpCode.Ldobj or ILOpCode.Stobj
             or ILOpCode.Cpobj or ILOpCode.Initobj or ILOpCode.Constrained or ILOpCode.Sizeof
             or ILOpCode.Mkrefany or ILOpCode.Refanyval
             => OperandKind.InlineType,

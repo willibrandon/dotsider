@@ -11,7 +11,7 @@ Core library for .NET assembly analysis. Provides analyzers, models, and the dia
 | `StringExtractor` | Extracts user strings, metadata strings, and raw binary strings from an assembly |
 | `SizeAnalyzer` | Builds a hierarchical size tree (namespace → type → method) by IL byte size |
 | `DependencyGraphBuilder` | Generates a dependency graph (nodes and edges) from assembly references |
-| `AssemblyDiffer` | Compares two assemblies and reports added, removed, and changed types, methods, and references |
+| `AssemblyDiffer` | Compares two assemblies and reports added, removed, and changed types, methods, and references. Method body comparison uses normalized IL instruction walks with semantic token resolution, deep local signature decoding, and exception region analysis |
 | `RuntimeTracer` | Launches a .NET process with EventPipe tracing for JIT, GC, exception, and counter events |
 | `NuGetPackageAnalyzer` | Reads `.nupkg` files for package metadata and DLL listing |
 | `SingleFileBundleReader` | Detects and reads .NET single-file bundles — parses the manifest and extracts individual entries |

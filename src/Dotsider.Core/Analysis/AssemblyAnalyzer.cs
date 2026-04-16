@@ -362,9 +362,146 @@ public sealed class AssemblyAnalyzer : IDisposable
                 _ => $"0x{token:X8}"
             };
         }
-        catch (ArgumentException)
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException)
         {
             return $"0x{token:X8}";
+        }
+    }
+
+    /// <summary>
+    /// Resolves a metadata token to a comparison-safe name that includes method/member
+    /// signatures, handles MethodSpec/TypeSpec, decodes StandaloneSig blobs, and returns
+    /// full untruncated user strings. Unlike <see cref="ResolveToken"/>, this produces
+    /// names suitable for semantic cross-assembly comparison.
+    /// </summary>
+    /// <param name="token">The metadata token to resolve.</param>
+    /// <returns>A comparison-safe string for the token.</returns>
+    internal string ResolveTokenForComparison(int token)
+    {
+        if (_metadataReader is null) return $"0x{token:X8}";
+
+        try
+        {
+            var handle = MetadataTokens.EntityHandle(token);
+            return handle.Kind switch
+            {
+                HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)handle),
+                HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)handle),
+                HandleKind.TypeSpecification => DecodeTypeSpec((TypeSpecificationHandle)handle),
+                HandleKind.MethodDefinition => ResolveMethodDefForComparison((MethodDefinitionHandle)handle),
+                HandleKind.MemberReference => ResolveMemberRefForComparison((MemberReferenceHandle)handle),
+                HandleKind.MethodSpecification => ResolveMethodSpecForComparison((MethodSpecificationHandle)handle),
+                HandleKind.FieldDefinition => GetFieldDefName((FieldDefinitionHandle)handle),
+                HandleKind.StandaloneSignature => ResolveStandaloneSigForComparison((StandaloneSignatureHandle)handle),
+                HandleKind.UserString => GetFullUserString(MetadataTokens.UserStringHandle(token & 0x00FFFFFF)),
+                _ => $"0x{token:X8}"
+            };
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException)
+        {
+            return $"0x{token:X8}";
+        }
+    }
+
+    private string ResolveMethodDefForComparison(MethodDefinitionHandle handle)
+    {
+        var md = _metadataReader!.GetMethodDefinition(handle);
+        var typeName = GetTypeDefName(md.GetDeclaringType());
+        var name = _metadataReader.GetString(md.Name);
+        var sig = DecodeMethodSignature(md);
+        return $"{typeName}::{name} {sig}";
+    }
+
+    private string ResolveMemberRefForComparison(MemberReferenceHandle handle)
+    {
+        var mr = _metadataReader!.GetMemberReference(handle);
+        var name = _metadataReader.GetString(mr.Name);
+        var parent = mr.Parent.Kind switch
+        {
+            HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)mr.Parent),
+            HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)mr.Parent),
+            HandleKind.TypeSpecification => DecodeTypeSpec((TypeSpecificationHandle)mr.Parent),
+            _ => "?"
+        };
+
+        try
+        {
+            var sig = mr.DecodeMethodSignature(new SignatureTypeProvider(), genericContext: default);
+            var paramTypes = string.Join(", ", sig.ParameterTypes);
+            return $"{parent}::{name} {sig.ReturnType}({paramTypes})";
+        }
+        catch
+        {
+            // Field reference — no method signature to decode
+            return $"{parent}::{name}";
+        }
+    }
+
+    private string ResolveMethodSpecForComparison(MethodSpecificationHandle handle)
+    {
+        var ms = _metadataReader!.GetMethodSpecification(handle);
+        var baseMethod = ResolveTokenForComparison(MetadataTokens.GetToken(ms.Method));
+        try
+        {
+            var typeArgs = ms.DecodeSignature(new SignatureTypeProvider(), genericContext: default);
+            return $"{baseMethod}<{string.Join(", ", typeArgs)}>";
+        }
+        catch
+        {
+            return baseMethod;
+        }
+    }
+
+    private string ResolveStandaloneSigForComparison(StandaloneSignatureHandle handle)
+    {
+        var sig = _metadataReader!.GetStandaloneSignature(handle);
+        try
+        {
+            var methodSig = sig.DecodeMethodSignature(new SignatureTypeProvider(), genericContext: default);
+            var paramTypes = string.Join(", ", methodSig.ParameterTypes);
+            var conv = FormatCallingConvention(methodSig.Header);
+            return $"method({conv}) {methodSig.ReturnType}({paramTypes})";
+        }
+        catch
+        {
+            try
+            {
+                var localTypes = sig.DecodeLocalSignature(new SignatureTypeProvider(), genericContext: default);
+                return $"locals({string.Join(", ", localTypes)})";
+            }
+            catch
+            {
+                return $"StandaloneSig(0x{MetadataTokens.GetToken(handle):X8})";
+            }
+        }
+    }
+
+    private static string FormatCallingConvention(SignatureHeader header)
+    {
+        var conv = header.CallingConvention switch
+        {
+            SignatureCallingConvention.Default => "default",
+            SignatureCallingConvention.CDecl => "cdecl",
+            SignatureCallingConvention.StdCall => "stdcall",
+            SignatureCallingConvention.ThisCall => "thiscall",
+            SignatureCallingConvention.FastCall => "fastcall",
+            SignatureCallingConvention.Unmanaged => "unmanaged",
+            _ => $"0x{(byte)header.CallingConvention:X2}"
+        };
+        if (header.IsInstance) conv = "instance " + conv;
+        if (header.HasExplicitThis) conv = "explicit " + conv;
+        return conv;
+    }
+
+    private string GetFullUserString(UserStringHandle handle)
+    {
+        try
+        {
+            return $"\"{_metadataReader!.GetUserString(handle)}\"";
+        }
+        catch
+        {
+            return $"0x{MetadataTokens.GetToken(handle):X8}";
         }
     }
 
@@ -985,12 +1122,25 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         /// <inheritdoc/>
-        public string GetFunctionPointerType(MethodSignature<string> signature) =>
-            "delegate*";
+        public string GetFunctionPointerType(MethodSignature<string> signature)
+        {
+            var conv = signature.Header.CallingConvention switch
+            {
+                SignatureCallingConvention.Default => "managed",
+                SignatureCallingConvention.CDecl => "unmanaged[Cdecl]",
+                SignatureCallingConvention.StdCall => "unmanaged[Stdcall]",
+                SignatureCallingConvention.ThisCall => "unmanaged[Thiscall]",
+                SignatureCallingConvention.FastCall => "unmanaged[Fastcall]",
+                SignatureCallingConvention.Unmanaged => "unmanaged",
+                _ => "managed"
+            };
+            var paramTypes = string.Join(", ", signature.ParameterTypes);
+            return $"delegate* {conv} {signature.ReturnType}({paramTypes})";
+        }
 
         /// <inheritdoc/>
         public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) =>
-            unmodifiedType;
+            isRequired ? $"modreq({modifier}) {unmodifiedType}" : $"modopt({modifier}) {unmodifiedType}";
     }
 
     /// <summary>

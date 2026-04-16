@@ -86,7 +86,7 @@ public static class DiffMethodsView
                     h.Cell("Declaring Type").Width(SizeHint.Fixed(30)),
                     h.Cell("Method").Width(SizeHint.Fixed(25)),
                     h.Cell("Signature").Width(SizeHint.Fill),
-                    h.Cell("Change").Width(SizeHint.Fixed(30))
+                    h.Cell("Change").Width(SizeHint.Fixed(35))
                 ])
                 .Row((r, entry, rowState) =>
                 {
