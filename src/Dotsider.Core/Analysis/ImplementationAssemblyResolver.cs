@@ -61,6 +61,32 @@ public static class ImplementationAssemblyResolver
     {
         var directResult = AssemblyAnalyzer.ResolveAssembly(
             referencingAssemblyPath, assemblyName, targetFramework, preferredRuntimePack, sourceBundlePath);
+
+        // Partial facades (e.g. System.Collections.dll) ship real IL for some types
+        // and forward others, so a whole-assembly signal like HasUsableMetadata
+        // cannot tell "owned here" from "forwarded elsewhere". When the declaring
+        // type is known, walk forwarders to the assembly that actually owns it.
+        if (directResult is not null && declaringType is not null)
+        {
+            var (outcome, home) = ResolveDeclaringTypeHome(
+                referencingAssemblyPath, assemblyName, directResult, declaringType,
+                targetFramework, preferredRuntimePack, sourceBundlePath);
+            switch (outcome)
+            {
+                case HomeOutcome.Found:
+                    return home;
+                case HomeOutcome.ChaseBroken:
+                    // directResult *did* reference the type (as a forwarder) but the
+                    // chain broke before hitting an owning TypeDef. Falling through
+                    // to HasUsableMetadata/KnownMappings here would hand callers a
+                    // non-owning facade and recreate the original "method not found"
+                    // failure downstream. Signal the miss explicitly instead.
+                    return null;
+                case HomeOutcome.NotFound:
+                    break; // type never referenced by directResult — fall through
+            }
+        }
+
         if (directResult is not null && HasUsableMetadata(directResult))
             return directResult;
 
@@ -71,67 +97,137 @@ public static class ImplementationAssemblyResolver
             if (implResult is not null) return implResult;
         }
 
-        // mscorlib is monolithic in .NET Framework but its types are spread across
-        // many assemblies in .NET Core. The stub mscorlib.dll in the runtime directory
-        // contains type forwarders that point each type to its real implementation
-        // assembly — read those to resolve the exact assembly for the declaring type.
-        if (directResult is not null && declaringType is not null)
-        {
-            var forwarded = ResolveViaTypeForwarders(
-                referencingAssemblyPath, directResult, declaringType,
-                targetFramework, preferredRuntimePack, sourceBundlePath);
-            if (forwarded is not null) return forwarded;
-        }
-
         return directResult;
     }
 
-    private static ResolvedAssembly? ResolveViaTypeForwarders(string referencingAssemblyPath,
-        ResolvedAssembly stubAssembly, string declaringType,
-        string? targetFramework, string? preferredRuntimePack, string? sourceBundlePath)
+    private enum HomeOutcome
     {
-        try
+        /// <summary>An assembly owning <c>declaringType</c> as a TypeDef was reached.</summary>
+        Found,
+
+        /// <summary>
+        /// <c>declaringType</c> is not referenced by the starting assembly at all —
+        /// neither as a TypeDef nor as an ExportedType forwarder. Safe to fall back
+        /// to other resolution strategies.
+        /// </summary>
+        NotFound,
+
+        /// <summary>
+        /// A forwarder for <c>declaringType</c> was found somewhere in the chain but
+        /// the target could not be reached (cycle, unresolvable assembly, or chain
+        /// terminated without a TypeDef match). Falling back would return a
+        /// non-owning assembly, so callers must treat this as a hard miss.
+        /// </summary>
+        ChaseBroken,
+    }
+
+    /// <summary>
+    /// Walks type forwarders starting at <paramref name="start"/> until we reach the
+    /// assembly that owns <paramref name="declaringType"/> as a TypeDef.
+    /// </summary>
+    /// <returns>
+    /// A tuple describing the outcome. <see cref="HomeOutcome.Found"/> returns the
+    /// owning assembly; <see cref="HomeOutcome.NotFound"/> and
+    /// <see cref="HomeOutcome.ChaseBroken"/> return <c>null</c> but carry different
+    /// semantics for <see cref="ResolveCore"/>.
+    /// </returns>
+    private static (HomeOutcome Outcome, ResolvedAssembly? Assembly) ResolveDeclaringTypeHome(
+        string referencingAssemblyPath, string startAssemblyName, ResolvedAssembly start,
+        string declaringType, string? targetFramework, string? preferredRuntimePack,
+        string? sourceBundlePath)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { startAssemblyName };
+        var current = start;
+        var chasing = false;
+
+        while (true)
         {
-            PEReader pe;
-            Stream? stream = null;
-            switch (stubAssembly)
+            bool ownsType;
+            string? nextAsmName;
+            try
             {
-                case ResolvedAssembly.FromFile(var path):
-                    stream = File.OpenRead(path);
-                    pe = new PEReader(stream);
-                    break;
-                case ResolvedAssembly.FromBundle(var bytes, _, _):
-                    stream = new MemoryStream(bytes, writable: false);
-                    pe = new PEReader(stream);
-                    break;
-                default:
-                    return null;
+                (ownsType, nextAsmName) = InspectForDeclaringType(current, declaringType);
+            }
+            catch
+            {
+                return (chasing ? HomeOutcome.ChaseBroken : HomeOutcome.NotFound, null);
             }
 
-            using (stream)
-            using (pe)
+            if (ownsType) return (HomeOutcome.Found, current);
+
+            if (nextAsmName is null)
+                return (chasing ? HomeOutcome.ChaseBroken : HomeOutcome.NotFound, null);
+
+            if (!visited.Add(nextAsmName))
+                return (HomeOutcome.ChaseBroken, null);
+
+            var next = AssemblyAnalyzer.ResolveAssembly(
+                referencingAssemblyPath, nextAsmName,
+                targetFramework, preferredRuntimePack, sourceBundlePath);
+                
+            if (next is null) return (HomeOutcome.ChaseBroken, null);
+
+            current = next;
+            chasing = true;
+        }
+    }
+
+    /// <summary>
+    /// Opens the assembly once and reports either "owns the type as a TypeDef" or
+    /// "forwards it to N" (or neither).
+    /// </summary>
+    private static (bool OwnsType, string? ForwardedTo) InspectForDeclaringType(
+        ResolvedAssembly resolved, string declaringType)
+    {
+        Stream stream = resolved switch
+        {
+            ResolvedAssembly.FromFile(var path) => File.OpenRead(path),
+            ResolvedAssembly.FromBundle(var bytes, _, _) => new MemoryStream(bytes, writable: false),
+            _ => null!
+        };
+
+        if (stream is null) return (false, null);
+
+        using (stream)
+        using (var pe = new PEReader(stream))
+        {
+            if (!pe.HasMetadata) return (false, null);
+            var reader = pe.GetMetadataReader();
+
+            foreach (var h in reader.TypeDefinitions)
             {
-                if (!pe.HasMetadata) return null;
-                var reader = pe.GetMetadataReader();
+                if (GetTypeDefFullName(reader, h) == declaringType)
+                    return (true, null);
+            }
 
-                foreach (var handle in reader.ExportedTypes)
-                {
-                    var fullName = GetExportedTypeFullName(reader, handle);
-                    if (fullName != declaringType) continue;
-
-                    var asmName = GetForwardedAssemblyName(reader, handle);
-                    if (asmName is null) continue;
-                    return AssemblyAnalyzer.ResolveAssembly(
-                        referencingAssemblyPath, asmName,
-                        targetFramework, preferredRuntimePack, sourceBundlePath);
-                }
+            foreach (var h in reader.ExportedTypes)
+            {
+                if (GetExportedTypeFullName(reader, h) != declaringType) continue;
+                var asmName = GetForwardedAssemblyName(reader, h);
+                if (asmName is not null) return (false, asmName);
             }
         }
-        catch
+
+        return (false, null);
+    }
+
+    /// <summary>
+    /// Builds the full name for a TypeDef, walking <see cref="TypeDefinition.GetDeclaringType"/>
+    /// for nested types. Uses '/' as the nesting separator to match the convention
+    /// produced by <see cref="GetExportedTypeFullName"/>.
+    /// </summary>
+    private static string GetTypeDefFullName(MetadataReader reader, TypeDefinitionHandle handle)
+    {
+        var td = reader.GetTypeDefinition(handle);
+        var name = reader.GetString(td.Name);
+        if (td.IsNested)
         {
-            // Stub might not be readable — fall through
+            var parent = GetTypeDefFullName(reader, td.GetDeclaringType());
+            return $"{parent}/{name}";
         }
-        return null;
+
+        var ns = reader.GetString(td.Namespace);
+        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
     }
 
     /// <summary>

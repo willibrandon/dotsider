@@ -85,6 +85,8 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     {
         _state?.Dispose();
         _terminal?.Dispose();
+        ImplementationAssemblyResolver.ClearCache();
+        DotNetRuntimeLocator.ClearCache();
     }
 
     // --- Resolver unit tests ---
@@ -800,5 +802,110 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.False(navigated);
         Assert.NotNull(state.TransientNotice);
         Assert.Contains("generic instantiation", state.TransientNotice, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Navigates to the ctor of a generic type forwarded through a partial-facade
+    /// BCL assembly. HelloWorld's MoveNext calls newobj List&lt;byte[]&gt;::.ctor —
+    /// the TypeRef scope is System.Collections (a partial facade), which forwards
+    /// List`1 to System.Private.CoreLib. The resolver must land there, not inside
+    /// the facade.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExternalMethod_ForwardedFromPartialFacade_Ctor_LandsInCoreLib()
+        => AssertForwardedListMemberLandsInCoreLib("newobj", ".ctor");
+
+    /// <summary>
+    /// Same partial-facade chase, but for the callvirt on List&lt;byte[]&gt;::Add.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExternalMethod_ForwardedFromPartialFacade_Add_LandsInCoreLib()
+        => AssertForwardedListMemberLandsInCoreLib("callvirt", "Add");
+
+    /// <summary>
+    /// Same partial-facade chase, but for the callvirt on List&lt;byte[]&gt;::Clear.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExternalMethod_ForwardedFromPartialFacade_Clear_LandsInCoreLib()
+        => AssertForwardedListMemberLandsInCoreLib("callvirt", "Clear");
+
+    private void AssertForwardedListMemberLandsInCoreLib(string opCode, string memberName)
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        state.CurrentTab = TabId.IlInspector;
+
+        var moveNext = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "MoveNext" && m.DeclaringType.Contains("<Main>$"));
+        state.IlSelectedMethod = moveNext;
+        var result = state.IlDisassembler!.DisassembleWithText(moveNext);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = moveNext;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var target = result.Value.Instructions
+            .Where(i => i.OpCode == opCode && i.MetadataToken is not null)
+            .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
+                state.Analyzer, i.MetadataToken!.Value)))
+            .First(x => x.nav is IlNavigationTarget.ExternalMethod em
+                && em.MemberName == memberName
+                && em.DeclaringType == "System.Collections.Generic.List`1");
+
+        var navigated = state.NavigateToIlDefinition(target.inst.MetadataToken!.Value);
+
+        Assert.True(navigated, $"Navigation must succeed for List`1::{memberName}");
+        Assert.Null(state.TransientNotice);
+        Assert.True(state.NavigationStack.Count > 0, "Should have pushed assembly");
+        Assert.NotNull(state.IlSelectedMethod);
+        Assert.Equal(memberName, state.IlSelectedMethod.Name);
+        Assert.Equal("System.Collections.Generic.List`1", state.IlSelectedMethod.DeclaringType);
+        Assert.Equal("System.Private.CoreLib.dll",
+            Path.GetFileName(state.Analyzer.FilePath));
+    }
+
+    /// <summary>
+    /// Navigates to a type locally owned in the partial facade. LinkedList`1 is one
+    /// of System.Collections.dll's real TypeDefs, not a forwarder — the resolver
+    /// must stay in the facade rather than over-chasing into CoreLib.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExternalMethod_LocallyOwnedInPartialFacade_StaysInFacade()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        state.CurrentTab = TabId.IlInspector;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CreateLinkedList" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.IlSelectedMethod = method;
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var target = result.Value.Instructions
+            .Where(i => i.OpCode == "newobj" && i.MetadataToken is not null)
+            .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
+                state.Analyzer, i.MetadataToken!.Value)))
+            .First(x => x.nav is IlNavigationTarget.ExternalMethod em
+                && em.MemberName == ".ctor"
+                && em.DeclaringType == "System.Collections.Generic.LinkedList`1");
+
+        var navigated = state.NavigateToIlDefinition(target.inst.MetadataToken!.Value);
+
+        Assert.True(navigated, "Navigation must succeed for LinkedList`1::.ctor");
+        Assert.Null(state.TransientNotice);
+        Assert.NotNull(state.IlSelectedMethod);
+        Assert.Equal("System.Collections.Generic.LinkedList`1", state.IlSelectedMethod.DeclaringType);
+        Assert.Equal("System.Collections.dll",
+            Path.GetFileName(state.Analyzer.FilePath));
     }
 }
