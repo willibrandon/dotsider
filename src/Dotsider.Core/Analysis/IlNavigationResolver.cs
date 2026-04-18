@@ -15,8 +15,14 @@ public static class IlNavigationResolver
     /// </summary>
     /// <param name="analyzer">The assembly analyzer containing the metadata.</param>
     /// <param name="token">The raw metadata token from an IL instruction operand.</param>
+    /// <param name="contextMethod">
+    /// The method whose IL body produced the token, when known. Needed to resolve
+    /// bare generic-parameter TypeSpecs (<c>ELEMENT_TYPE_VAR</c>/<c>ELEMENT_TYPE_MVAR</c>),
+    /// which do not encode their generic owner on their own.
+    /// </param>
     /// <returns>The resolved navigation target.</returns>
-    public static IlNavigationTarget Resolve(AssemblyAnalyzer analyzer, int token)
+    public static IlNavigationTarget Resolve(
+        AssemblyAnalyzer analyzer, int token, MethodDefInfo? contextMethod = null)
     {
         var reader = analyzer.GetMetadataReader();
         if (reader is null)
@@ -31,10 +37,10 @@ public static class IlNavigationResolver
             HandleKind.MethodDefinition => ResolveMethodDef(analyzer, token),
             HandleKind.TypeDefinition => ResolveTypeDef(analyzer, token),
             HandleKind.FieldDefinition => ResolveFieldDef(analyzer, token),
-            HandleKind.MemberReference => ResolveMemberRef(analyzer, reader, (MemberReferenceHandle)handle, token),
+            HandleKind.MemberReference => ResolveMemberRef(analyzer, reader, (MemberReferenceHandle)handle, token, contextMethod),
             HandleKind.TypeReference => ResolveTypeRef(analyzer, reader, (TypeReferenceHandle)handle, token),
-            HandleKind.TypeSpecification => ResolveTypeSpec(analyzer, reader, (TypeSpecificationHandle)handle, token),
-            HandleKind.MethodSpecification => ResolveMethodSpec(analyzer, reader, (MethodSpecificationHandle)handle, token),
+            HandleKind.TypeSpecification => ResolveTypeSpec(analyzer, reader, (TypeSpecificationHandle)handle, token, contextMethod),
+            HandleKind.MethodSpecification => ResolveMethodSpec(analyzer, reader, (MethodSpecificationHandle)handle, token, contextMethod),
             _ => new IlNavigationTarget.Unsupported(token, $"Unsupported handle kind: {handle.Kind}")
         };
     }
@@ -67,7 +73,8 @@ public static class IlNavigationResolver
     }
 
     private static IlNavigationTarget ResolveMemberRef(
-        AssemblyAnalyzer analyzer, MetadataReader reader, MemberReferenceHandle handle, int token)
+        AssemblyAnalyzer analyzer, MetadataReader reader, MemberReferenceHandle handle, int token,
+        MethodDefInfo? contextMethod)
     {
         MemberReference mr;
         try { mr = reader.GetMemberReference(handle); }
@@ -102,7 +109,7 @@ public static class IlNavigationResolver
             HandleKind.TypeReference => ResolveMemberRefExternalParent(
                 reader, (TypeReferenceHandle)mr.Parent, name, signature, kind),
             HandleKind.TypeSpecification => ResolveMemberRefWithTypeSpecParent(
-                analyzer, reader, (TypeSpecificationHandle)mr.Parent, name, signature, kind, token),
+                analyzer, reader, (TypeSpecificationHandle)mr.Parent, name, signature, kind, token, contextMethod),
             _ => new IlNavigationTarget.Unsupported(token, $"MemberRef parent kind: {mr.Parent.Kind}")
         };
     }
@@ -156,8 +163,19 @@ public static class IlNavigationResolver
     }
 
     private static IlNavigationTarget ResolveTypeSpec(
-        AssemblyAnalyzer analyzer, MetadataReader reader, TypeSpecificationHandle handle, int token)
+        AssemblyAnalyzer analyzer, MetadataReader reader, TypeSpecificationHandle handle, int token,
+        MethodDefInfo? contextMethod)
     {
+        // A bare ELEMENT_TYPE_VAR / ELEMENT_TYPE_MVAR TypeSpec names a generic
+        // parameter but does not encode its generic owner. Route through the
+        // enclosing method's context before trying to match TypeDefs/TypeRefs,
+        // since the decoded string ("!N"/"!!N") will not match anything.
+        var genericParam = TryReadGenericParameter(reader, handle);
+        if (genericParam is { } gp)
+        {
+            return ResolveGenericParameter(analyzer, gp.Kind, gp.Index, token, contextMethod);
+        }
+
         // Decode the TypeSpec to a string, then find the underlying open generic type
         // by matching the name prefix (before the generic arguments) against TypeDefs/TypeRefs.
         string decoded;
@@ -189,10 +207,102 @@ public static class IlNavigationResolver
         return new IlNavigationTarget.Unsupported(token, $"Cannot resolve TypeSpec: {decoded}");
     }
 
+    /// <summary>
+    /// Maps a bare generic-parameter TypeSpec to the closest navigable definition —
+    /// for <c>ELEMENT_TYPE_VAR</c> the enclosing type, for <c>ELEMENT_TYPE_MVAR</c>
+    /// the enclosing method.
+    /// </summary>
+    private static IlNavigationTarget ResolveGenericParameter(
+        AssemblyAnalyzer analyzer, GenericParamKind kind, int index, int token,
+        MethodDefInfo? contextMethod)
+    {
+        var label = kind == GenericParamKind.TypeParam ? $"!{index}" : $"!!{index}";
+        if (contextMethod is null)
+        {
+            return new IlNavigationTarget.Unsupported(token,
+                $"Generic parameter {label} requires method context for navigation");
+        }
+
+        if (kind == GenericParamKind.MethodParam)
+        {
+            // A method-level generic parameter's only definition site is the method
+            // signature the user is already reading. Routing to LocalMethod(self)
+            // would hit the "already selected" short-circuit in NavigateToIlDefinition
+            // and silently no-op, so surface an explicit transient notice instead.
+            return new IlNavigationTarget.Unsupported(token,
+                $"Generic method parameter {label} of {contextMethod.Name} — defined by this method's signature");
+        }
+
+        // ELEMENT_TYPE_VAR: navigate to the enclosing type. It is the one whose
+        // GenericParam rows define this index, so it's the only place the parameter
+        // exists as a definition in metadata.
+        var declaringTypeName = contextMethod.DeclaringType;
+        var localType = analyzer.TypeDefs.FirstOrDefault(t => t.FullName == declaringTypeName);
+        if (localType is not null)
+            return new IlNavigationTarget.LocalType(localType);
+
+        return new IlNavigationTarget.Unresolved(token,
+            $"Generic parameter {label} declaring type not found: {declaringTypeName}");
+    }
+
+    private enum GenericParamKind { TypeParam, MethodParam }
+
+    /// <summary>
+    /// Attempts to identify a TypeSpec whose signature is just a generic parameter
+    /// reference (<c>ELEMENT_TYPE_VAR</c> or <c>ELEMENT_TYPE_MVAR</c>), skipping any
+    /// leading CustomMod prefixes. Returns null for any other signature shape.
+    /// </summary>
+    private static (GenericParamKind Kind, int Index)? TryReadGenericParameter(
+        MetadataReader reader, TypeSpecificationHandle handle)
+    {
+        try
+        {
+            var ts = reader.GetTypeSpecification(handle);
+            var blob = reader.GetBlobReader(ts.Signature);
+            SignatureTypeCode code;
+            while (true)
+            {
+                if (blob.RemainingBytes <= 0) return null;
+                code = blob.ReadSignatureTypeCode();
+                if (code != SignatureTypeCode.OptionalModifier
+                    && code != SignatureTypeCode.RequiredModifier)
+                    break;
+                // Skip the coded TypeDefOrRefOrSpec index that follows a CMOD.
+                blob.ReadTypeHandle();
+            }
+            return code switch
+            {
+                SignatureTypeCode.GenericTypeParameter =>
+                    (GenericParamKind.TypeParam, blob.ReadCompressedInteger()),
+                SignatureTypeCode.GenericMethodParameter =>
+                    (GenericParamKind.MethodParam, blob.ReadCompressedInteger()),
+                _ => null,
+            };
+        }
+        catch { return null; }
+    }
+
     private static IlNavigationTarget ResolveMemberRefWithTypeSpecParent(
         AssemblyAnalyzer analyzer, MetadataReader reader, TypeSpecificationHandle typeSpecHandle,
-        string name, string signature, MemberRefKind kind, int token)
+        string name, string signature, MemberRefKind kind, int token,
+        MethodDefInfo? contextMethod)
     {
+        // MemberRef parent is a TypeSpec naming a generic parameter on its own —
+        // route through the context's declaring type so we don't try to match "!N"
+        // against TypeDefs/TypeRefs below.
+        var genericParam = TryReadGenericParameter(reader, typeSpecHandle);
+        if (genericParam is { } gp && contextMethod is not null
+            && gp.Kind == GenericParamKind.TypeParam)
+        {
+            var declType = analyzer.TypeDefs.FirstOrDefault(
+                t => t.FullName == contextMethod.DeclaringType);
+            if (declType is not null)
+            {
+                var localHandle = MetadataTokens.TypeDefinitionHandle(
+                    MetadataTokens.GetRowNumber(MetadataTokens.EntityHandle(declType.Token)));
+                return ResolveMemberRefLocalParent(analyzer, localHandle, name, signature, kind, token);
+            }
+        }
         // Decode the TypeSpec to find the underlying type name, then resolve the member.
         string decoded;
         try
@@ -271,7 +381,8 @@ public static class IlNavigationResolver
     }
 
     private static IlNavigationTarget ResolveMethodSpec(
-        AssemblyAnalyzer analyzer, MetadataReader reader, MethodSpecificationHandle handle, int token)
+        AssemblyAnalyzer analyzer, MetadataReader reader, MethodSpecificationHandle handle, int token,
+        MethodDefInfo? contextMethod)
     {
         int methodToken;
         try
@@ -284,7 +395,7 @@ public static class IlNavigationResolver
             return new IlNavigationTarget.GenericInstantiation(token, ex.Message);
         }
 
-        return Resolve(analyzer, methodToken);
+        return Resolve(analyzer, methodToken, contextMethod);
     }
 
     private static string GetAssemblyNameFromTypeRef(MetadataReader reader, TypeReferenceHandle handle)

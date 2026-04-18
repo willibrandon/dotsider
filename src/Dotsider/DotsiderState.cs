@@ -668,7 +668,11 @@ public sealed class DotsiderState : IDisposable
     /// <returns>True if navigation occurred.</returns>
     public bool NavigateToIlDefinition(int token)
     {
-        var target = IlNavigationResolver.Resolve(Analyzer, token);
+        // IlEditorMethod reflects the currently-open method body; fall back to the
+        // list selection when the editor hasn't loaded yet. The resolver needs this
+        // to tie bare generic-parameter TypeSpecs ("!N"/"!!N") back to their owner.
+        var target = IlNavigationResolver.Resolve(
+            Analyzer, token, IlEditorMethod ?? IlSelectedMethod);
         switch (target)
         {
             case IlNavigationTarget.LocalMethod(var method):
@@ -684,6 +688,15 @@ public sealed class DotsiderState : IDisposable
 
             case IlNavigationTarget.LocalType(var type):
                 PushIlBackEntry(false);
+                // Clear the method/editor selection so the right pane stops showing
+                // the IL we just left — otherwise tree focus moves but the editor
+                // still renders the previous method and the nav looks half-applied.
+                IlSelectedMethod = null;
+                IlSelectedField = null;
+                IlEditorState = null;
+                IlEditorMethod = null;
+                IlEditorAnalyzer = null;
+                IlEditorField = null;
                 IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
                 SetIlFocusedTreeKey($"type:{type.FullName}");
                 App.RequestFocus(node => node is ListNode);
