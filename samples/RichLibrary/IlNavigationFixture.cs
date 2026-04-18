@@ -42,4 +42,7 @@ public class IlNavigationFixture
 
     /// <summary>Accesses System.String.Empty (produces ldsfld MemberRef to external field).</summary>
     public string GetStringEmpty() { _counter++; return string.Empty; }
+
+    /// <summary>Constructs a type locally owned in the partial-facade System.Collections.dll.</summary>
+    public LinkedList<int> CreateLinkedList() { _counter++; return new LinkedList<int>(); }
 }
