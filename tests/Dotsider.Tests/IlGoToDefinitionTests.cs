@@ -58,8 +58,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilAlternateScreenAsync();
         await auto.WaitUntilTextAsync("Select a method");
 
-        // Navigate tree: 6 downs to IlNavigationFixture, expand, down to CallLocalMethod, select
-        for (var i = 0; i < 6; i++) await auto.DownAsync(ct);
+        // Navigate tree: 7 downs to IlNavigationFixture, expand, down to CallLocalMethod, select.
+        // GenericParamFixture`2 sorts before IlNavigationFixture under the RichLibrary namespace.
+        for (var i = 0; i < 7; i++) await auto.DownAsync(ct);
         await auto.EnterAsync(ct); // expand IlNavigationFixture
         await auto.WaitUntilTextAsync("CallLocalMethod");
         await auto.DownAsync(ct); // move to CallLocalMethod
@@ -907,5 +908,150 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         Assert.Equal("System.Collections.Generic.LinkedList`1", state.IlSelectedMethod.DeclaringType);
         Assert.Equal("System.Collections.dll",
             Path.GetFileName(state.Analyzer.FilePath));
+    }
+
+    /// <summary>
+    /// A TypeSpec whose signature is a bare ELEMENT_TYPE_VAR names a generic
+    /// parameter of the enclosing type. The resolver needs the current method
+    /// context to know which owner "!N" refers to; with that context it routes
+    /// to the enclosing type definition (where the GenericParam row lives).
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_TypeSpecGenericTypeParam_WithContext_ReturnsEnclosingType()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var dis = new IlDisassembler(analyzer);
+        var method = analyzer.MethodDefs.First(m =>
+            m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
+        var initobj = dis.Disassemble(method).First(i =>
+            i.OpCode == "initobj" && i.MetadataToken is not null);
+
+        var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value, method);
+
+        var local = Assert.IsType<IlNavigationTarget.LocalType>(target);
+        Assert.Equal("RichLibrary.GenericParamFixture`2", local.Type.FullName);
+    }
+
+    /// <summary>
+    /// A TypeSpec whose signature is a bare ELEMENT_TYPE_MVAR names a method-
+    /// level generic parameter. The only definition site is the current method's
+    /// signature, so the resolver reports it via Unsupported (a transient notice)
+    /// rather than a self-navigation that the UI would silently swallow.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_TypeSpecGenericMethodParam_WithContext_ReportsDefinedBySignature()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var dis = new IlDisassembler(analyzer);
+        var method = analyzer.MethodDefs.First(m =>
+            m.Name == "DefaultMethodParam" && m.DeclaringType.Contains("GenericParamFixture"));
+        var initobj = dis.Disassemble(method).First(i =>
+            i.OpCode == "initobj" && i.MetadataToken is not null);
+
+        var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value, method);
+
+        var unsupported = Assert.IsType<IlNavigationTarget.Unsupported>(target);
+        Assert.Contains("!!0", unsupported.Reason);
+        Assert.Contains("DefaultMethodParam", unsupported.Reason);
+    }
+
+    /// <summary>
+    /// End-to-end: pressing go-to-definition on initobj !!0 inside the method
+    /// raises a transient notice and does not change the selected method. The
+    /// UI gets a clear "there's nothing to navigate to" signal instead of a
+    /// silent no-op.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToIlDefinition_TypeSpecGenericMethodParam_RaisesNotice()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        state.CurrentTab = TabId.IlInspector;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "DefaultMethodParam" && m.DeclaringType.Contains("GenericParamFixture"));
+        state.IlSelectedMethod = method;
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var initobj = result.Value.Instructions.First(i =>
+            i.OpCode == "initobj" && i.MetadataToken is not null);
+
+        var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);
+
+        Assert.False(navigated);
+        Assert.NotNull(state.TransientNotice);
+        Assert.Contains("!!0", state.TransientNotice);
+        Assert.Same(method, state.IlSelectedMethod);
+    }
+
+    /// <summary>
+    /// Without a method context, a bare generic-parameter TypeSpec is not
+    /// resolvable. The resolver should surface a message that explains what's
+    /// missing rather than the opaque "Cannot resolve TypeSpec: !1".
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Resolve_TypeSpecGenericTypeParam_WithoutContext_ReportsMissingContext()
+    {
+        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var dis = new IlDisassembler(analyzer);
+        var method = analyzer.MethodDefs.First(m =>
+            m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
+        var initobj = dis.Disassemble(method).First(i =>
+            i.OpCode == "initobj" && i.MetadataToken is not null);
+
+        var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value);
+
+        var unsupported = Assert.IsType<IlNavigationTarget.Unsupported>(target);
+        Assert.Contains("!1", unsupported.Reason);
+        Assert.Contains("context", unsupported.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// End-to-end: pressing go-to-definition on initobj !1 in a generic method
+    /// lands on the enclosing type, clears the selected method, and raises no
+    /// transient notice.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToIlDefinition_TypeSpecGenericTypeParam_LandsOnEnclosingType()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        state.CurrentTab = TabId.IlInspector;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
+        state.IlSelectedMethod = method;
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var initobj = result.Value.Instructions.First(i =>
+            i.OpCode == "initobj" && i.MetadataToken is not null);
+
+        var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);
+
+        Assert.True(navigated, "Navigation to generic type parameter's owner must succeed");
+        Assert.Null(state.TransientNotice);
+        Assert.Equal(
+            "type:RichLibrary.GenericParamFixture`2",
+            state.IlFocusedTreeKey as string);
+        // Method/editor selection must be cleared so the right pane stops showing
+        // DefaultValue's IL. Without that the navigation only half-applies.
+        Assert.Null(state.IlSelectedMethod);
+        Assert.Null(state.IlEditorMethod);
+        Assert.Null(state.IlEditorState);
+        Assert.Null(state.IlEditorAnalyzer);
     }
 }
