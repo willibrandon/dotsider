@@ -1,5 +1,5 @@
 [Unit]
-Description=Check RichLibrary.dll integrity every minute
+Description=Check dotsider-website sample payload integrity every minute
 
 [Timer]
 OnBootSec=2min

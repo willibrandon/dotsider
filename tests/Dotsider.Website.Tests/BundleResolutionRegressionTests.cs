@@ -26,8 +26,6 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
         var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
 
-        var richLibPath = Path.Combine(samples.WebsitePublishedDir, "RichLibrary.dll");
-
         _serverProcess = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -41,7 +39,9 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
                 {
                     ["ASPNETCORE_URLS"] = $"http://localhost:{port}",
                     ["DOTNET_ENVIRONMENT"] = "Production",
-                    ["Demo__SampleAssembly"] = richLibPath,
+                    // Point at the published sample payload (RichLibrary.dll sits alongside
+                    // its .deps.json and Newtonsoft.Json.dll), exactly as systemd does in prod.
+                    ["Demo__SampleAssembly"] = samples.RichLibraryDll,
                     ["Demo__MaxSessions"] = "5",
                     ["Demo__SessionTimeoutMinutes"] = "1",
                     ["Demo__AllowedOrigins__0"] = "*"
@@ -155,6 +155,47 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
         // Title bar renders "System.Console.dll (depth 2)" — this exact format
         // from DotsiderApp.cs cannot appear in pre-navigation IL text.
         await WaitForOutputAsync(output, "System.Console.dll (depth 2)", TimeSpan.FromSeconds(5), ct);
+        drainCts.Cancel();
+    }
+
+    /// <summary>
+    /// Launches the published single-file Website, navigates to the Dep Graph tab, and
+    /// asserts that the sample's <c>Newtonsoft.Json</c> reference resolves — the node
+    /// renders without the <c>?</c> unresolved prefix. Catches the regression where
+    /// the deploy pipeline shipped only <c>RichLibrary.dll</c> and left the NuGet
+    /// dependencies behind. This test only passes when the sample is deployed as its
+    /// full published payload (<c>RichLibrary.dll</c> + <c>RichLibrary.deps.json</c>
+    /// + <c>Newtonsoft.Json.dll</c>, etc.) alongside the website.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task DepGraph_NewtonsoftResolvesFromPublishedSample()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var port = await StartWebsiteAsync(ct);
+
+        _ws = new ClientWebSocket();
+        await _ws.ConnectAsync(new Uri($"ws://localhost:{port}/ws"), ct);
+
+        var output = new StringBuilder();
+        var drainCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _ = DrainOutputAsync(_ws, output, drainCts.Token);
+
+        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(5), ct);
+
+        // Tab 6 is the Dep Graph. Wait for "Nodes:" in the status line — that means the
+        // graph has been built, cached, and the box layer has rendered at least once.
+        await SendKeysAsync("6", ct);
+        await WaitForOutputAsync(output, "Nodes:", TimeSpan.FromSeconds(10), ct);
+        // One extra frame so the node boxes are definitely drawn.
+        await Task.Delay(250, ct);
+
+        string captured;
+        lock (output) { captured = output.ToString(); }
+
+        Assert.Contains("Newtonsoft.Json", captured);
+        Assert.DoesNotContain("? Newtonsoft", captured);
+        Assert.DoesNotContain("! Newtonsoft", captured);
+
         drainCts.Cancel();
     }
 

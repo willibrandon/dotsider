@@ -11,12 +11,14 @@ public class SampleAssemblyFixture : IAsyncLifetime
     private string _repoRoot = null!;
 
     /// <summary>
-    /// Path to the built RichLibrary.dll sample assembly.
+    /// Path to the published RichLibrary.dll sitting inside the website payload's sample
+    /// directory. This is what the deployed server serves, so tests that reason about
+    /// production resolution behavior must read from here.
     /// </summary>
     public string RichLibraryDll { get; private set; } = null!;
 
     /// <summary>
-    /// Directory containing the published single-file Website and RichLibrary.dll.
+    /// Directory containing the published single-file Website executable.
     /// </summary>
     public string WebsitePublishedDir { get; private set; } = null!;
 
@@ -26,26 +28,24 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string WebsitePublishedExe { get; private set; } = null!;
 
     /// <summary>
+    /// Directory containing the published sample payload (RichLibrary.dll plus its
+    /// .deps.json and every NuGet dependency the sample resolves at runtime). Mirrors
+    /// <c>/opt/dotsider-website/sample/</c> on the deploy target.
+    /// </summary>
+    public string SamplePublishedDir { get; private set; } = null!;
+
+    /// <summary>
     /// Builds the sample projects and publishes the website once per test collection.
     /// </summary>
     public async ValueTask InitializeAsync()
     {
         _repoRoot = GetRepoRoot();
 
-        await BuildProject("samples/RichLibrary");
         await PublishWebsite();
-
-        const string config = "Debug";
-        const string tfm = "net10.0";
-
-        RichLibraryDll = Path.Combine(_repoRoot, "samples", "RichLibrary", "bin", config, tfm, "RichLibrary.dll");
+        await PublishSample();
 
         Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
         Assert.True(File.Exists(WebsitePublishedExe), $"Website not found at {WebsitePublishedExe}");
-
-        // Copy RichLibrary.dll into publish directory (mirrors deploy workflow)
-        File.Copy(RichLibraryDll,
-            Path.Combine(WebsitePublishedDir, "RichLibrary.dll"), overwrite: true);
     }
 
     /// <summary>
@@ -101,11 +101,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
         }
     }
 
-    private async Task BuildProject(string relativePath)
+    private async Task PublishSample()
     {
-        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        // Publish the sample project — not plain build + cp — so every runtime artifact
+        // the deployed website needs (RichLibrary.dll, RichLibrary.deps.json, and the
+        // NuGet package assemblies the manifest points at) lands in one directory as
+        // a unit. Place it under the website publish dir at sample/ to match the
+        // deploy layout exactly; tests then exercise the same shape production runs.
+        var rid = RuntimeInformation.RuntimeIdentifier;
+        SamplePublishedDir = Path.Combine(WebsitePublishedDir, "sample");
+        RichLibraryDll = Path.Combine(SamplePublishedDir, "RichLibrary.dll");
 
+        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-sample-publish.lock");
         FileStream lockFile;
         while (true)
         {
@@ -119,12 +126,19 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         try
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            // Clean the sample directory before publishing. `dotnet publish -o` is additive
+            // — it overwrites files it emits but does not remove anything left behind. If a
+            // previous run's Newtonsoft.Json.dll stays on disk after a regression that stops
+            // publishing it, the new website regression test would still find the adjacent
+            // DLL and report Newtonsoft as resolved, hiding a real break in the publish shape.
+            if (Directory.Exists(SamplePublishedDir))
+                Directory.Delete(SamplePublishedDir, recursive: true);
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "build --no-restore -c Debug -v q",
-                WorkingDirectory = projectDir,
+                Arguments = $"publish samples/RichLibrary/RichLibrary.csproj -c Release -r {rid} -o {SamplePublishedDir} -v q",
+                WorkingDirectory = _repoRoot,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -137,7 +151,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
-                    $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+                    $"Sample publish failed (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
         finally
         {

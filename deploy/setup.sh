@@ -66,7 +66,7 @@ RestartSec=5
 
 Environment=ASPNETCORE_URLS=http://localhost:5100
 Environment=DOTNET_ENVIRONMENT=Production
-Environment=Demo__SampleAssembly=/opt/dotsider-website/RichLibrary.dll
+Environment=Demo__SampleAssembly=/opt/dotsider-website/sample/RichLibrary.dll
 Environment=Demo__MaxSessions=50
 Environment=Demo__SessionTimeoutMinutes=10
 Environment=Demo__AllowedOrigins__0=https://dotsider.dev
@@ -184,39 +184,46 @@ systemctl start caddy-report.timer
 echo "── Installing integrity checker ──"
 cp /dev/stdin /opt/dotsider-website/integrity-check.sh << 'ICHK'
 #!/usr/bin/env bash
-# integrity-check.sh — Verify RichLibrary.dll hasn't been corrupted
+# integrity-check.sh — Verify the sample payload hasn't been corrupted
 #
-# Compares the current SHA256 against a known-good hash stored at deploy time.
-# If the hash doesn't match, restores from the backup copy and restarts the service.
+# The sample is shipped as a directory unit (RichLibrary.dll, RichLibrary.deps.json,
+# Newtonsoft.Json.dll, and any other files the publish output contains). A single
+# manifest of "<sha256>  <relative-path>" per file is written at deploy time and
+# verified each minute; on mismatch or missing entries the whole sample/ is
+# restored from the deploy-time backup and the service is restarted.
 set -euo pipefail
 
 DIR="/opt/dotsider-website"
-DLL="$DIR/RichLibrary.dll"
-BACKUP="$DIR/.RichLibrary.dll.bak"
-HASH_FILE="$DIR/.RichLibrary.dll.sha256"
+SAMPLE="$DIR/sample"
+BACKUP="$DIR/sample.bak"
+MANIFEST="$DIR/sample.sha256"
 LOG="/var/log/integrity-check.log"
 
-if [[ ! -f "$DLL" || ! -f "$BACKUP" || ! -f "$HASH_FILE" ]]; then
+if [[ ! -d "$SAMPLE" || ! -d "$BACKUP" || ! -f "$MANIFEST" ]]; then
     exit 0
 fi
 
-EXPECTED=$(cat "$HASH_FILE")
-ACTUAL=$(sha256sum "$DLL" | cut -d' ' -f1)
-
-if [[ "$ACTUAL" != "$EXPECTED" ]]; then
-    NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-    echo "$NOW | CORRUPTED expected=$EXPECTED actual=$ACTUAL — restoring from backup" >> "$LOG"
-    cp "$BACKUP" "$DLL"
-    systemctl reset-failed dotsider-website 2>/dev/null
-    systemctl restart dotsider-website
-    echo "$NOW | RESTORED and restarted dotsider-website" >> "$LOG"
+if (cd "$SAMPLE" && sha256sum --quiet -c "$MANIFEST") >/dev/null 2>&1; then
+    exit 0
 fi
+
+NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+echo "$NOW | CORRUPTED sample payload — restoring from backup" >> "$LOG"
+rm -rf "$SAMPLE"
+# cp -a preserves ownership. The backup was created during deploy as brandon,
+# so restoring with -a keeps sample/ owned by brandon. Plain cp -r would run
+# as root (the service user), leaving sample/ root-owned and blocking every
+# subsequent deploy's rsync (brandon cannot overwrite root-owned files).
+cp -a "$BACKUP" "$SAMPLE"
+systemctl reset-failed dotsider-website 2>/dev/null
+systemctl restart dotsider-website
+echo "$NOW | RESTORED sample/ and restarted dotsider-website" >> "$LOG"
 ICHK
 chmod +x /opt/dotsider-website/integrity-check.sh
 
 cat > /etc/systemd/system/integrity-check.service << 'SVC'
 [Unit]
-Description=Verify RichLibrary.dll integrity
+Description=Verify dotsider-website sample payload integrity
 After=dotsider-website.service
 
 [Service]
@@ -227,7 +234,7 @@ SVC
 
 cat > /etc/systemd/system/integrity-check.timer << 'TMR'
 [Unit]
-Description=Check RichLibrary.dll integrity every minute
+Description=Check dotsider-website sample payload integrity every minute
 
 [Timer]
 OnBootSec=2min

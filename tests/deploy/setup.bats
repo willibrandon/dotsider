@@ -155,9 +155,9 @@ load 'helpers/common'
         "ASPNETCORE_URLS=http://localhost:5100"
 }
 
-@test "dotsider-website.service points to RichLibrary.dll" {
+@test "dotsider-website.service points to the sample payload directory" {
     assert_file_contains /etc/systemd/system/dotsider-website.service \
-        "Demo__SampleAssembly=/opt/dotsider-website/RichLibrary.dll"
+        "Demo__SampleAssembly=/opt/dotsider-website/sample/RichLibrary.dll"
 }
 
 @test "dotsider-website.service restricts CORS to dotsider.dev" {

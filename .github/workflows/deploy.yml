@@ -60,16 +60,26 @@ jobs:
           -p:PublishSingleFile=true
           -o ./publish/website
 
-      - name: Build sample assembly
-        run: dotnet build samples/RichLibrary/RichLibrary.csproj -c Release
-
-      - name: Copy sample assembly
-        run: cp samples/RichLibrary/bin/Release/net10.0/RichLibrary.dll ./publish/website/
+      - name: Publish sample assembly
+        # Publish (not build) so the .deps.json and every NuGet dependency that
+        # RichLibrary resolves at runtime ship together as a unit. Hand-copying
+        # just RichLibrary.dll drifts every time the sample's package closure
+        # changes — Newtonsoft.Json, any future deps, etc.
+        run: >
+          dotnet publish samples/RichLibrary/RichLibrary.csproj
+          -c Release
+          -r linux-x64
+          -o ./publish/sample
 
       - uses: actions/upload-artifact@v7
         with:
           name: website-server
           path: publish/website/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: website-sample
+          path: publish/sample/
 
   preflight:
     needs: build
@@ -107,6 +117,11 @@ jobs:
           name: website-server
           path: website-server/
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: website-sample
+          path: website-sample/
+
       - name: Setup SSH
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -133,19 +148,34 @@ jobs:
           ssh -i ~/.ssh/deploy_key brandon@"$HOST" \
             'sudo systemctl stop integrity-check.timer integrity-check.service 2>/dev/null || true'
 
+          # Website binary. Exclude the sample payload and its backups/manifest
+          # so a website-only rsync doesn't wipe them out.
           rsync -avz --delete --chmod=F755 \
             --exclude='caddy-report.sh' \
             --exclude='integrity-check.sh' \
-            --exclude='.RichLibrary.dll.bak' \
-            --exclude='.RichLibrary.dll.sha256' \
+            --exclude='sample/' \
+            --exclude='sample.bak/' \
+            --exclude='sample.sha256' \
             -e "ssh -i ~/.ssh/deploy_key" \
             website-server/ \
             brandon@"$HOST":/opt/dotsider-website/
 
+          # Sample payload shipped as a directory unit. RichLibrary.dll,
+          # RichLibrary.deps.json, and Newtonsoft.Json.dll (plus any future
+          # package deps) travel together and are verified together.
+          rsync -avz --delete --chmod=F644 \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            website-sample/ \
+            brandon@"$HOST":/opt/dotsider-website/sample/
+
           ssh -i ~/.ssh/deploy_key brandon@"$HOST" bash -s << 'REMOTE'
             cd /opt/dotsider-website
-            cp RichLibrary.dll .RichLibrary.dll.bak
-            sha256sum RichLibrary.dll | cut -d' ' -f1 > .RichLibrary.dll.sha256
+            rm -rf sample.bak
+            cp -r sample sample.bak
+            # Manifest: one "<sha256>  <relative-path>" per file, sorted.
+            (cd sample && find . -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum) > sample.sha256
             sudo systemctl start integrity-check.timer
           REMOTE
 
