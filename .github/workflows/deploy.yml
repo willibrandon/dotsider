@@ -71,6 +71,19 @@ jobs:
           -r linux-x64
           -o ./publish/sample
 
+      - name: Stage deploy unit files and scripts
+        # The systemd units and helper scripts in deploy/ were only written to
+        # the server once by setup.sh during VM bootstrap. Any subsequent change
+        # (env vars, integrity logic, descriptions) has to be installed on the
+        # server by the deploy itself, or running state drifts from the repo.
+        run: |
+          mkdir -p publish/deploy
+          cp deploy/dotsider-website.service publish/deploy/
+          cp deploy/integrity-check.service publish/deploy/
+          cp deploy/integrity-check.timer publish/deploy/
+          cp deploy/integrity-check.sh publish/deploy/
+          cp deploy/caddy-report.sh publish/deploy/
+
       - uses: actions/upload-artifact@v7
         with:
           name: website-server
@@ -80,6 +93,11 @@ jobs:
         with:
           name: website-sample
           path: publish/sample/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deploy-files
+          path: publish/deploy/
 
   preflight:
     needs: build
@@ -121,6 +139,11 @@ jobs:
         with:
           name: website-sample
           path: website-sample/
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: deploy-files
+          path: deploy-files/
 
       - name: Setup SSH
         env:
@@ -168,14 +191,48 @@ jobs:
             website-sample/ \
             brandon@"$HOST":/opt/dotsider-website/sample/
 
+          # Deploy helper scripts into /opt/dotsider-website/ and the updated
+          # systemd units into /etc/systemd/system/. Without this step the
+          # running service keeps whatever env vars and scripts setup.sh wrote
+          # at VM bootstrap — any change here (new env var paths, integrity
+          # logic, timer descriptions) silently never reaches the server.
+          rsync -avz --chmod=F755 \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            deploy-files/integrity-check.sh \
+            deploy-files/caddy-report.sh \
+            brandon@"$HOST":/opt/dotsider-website/
+
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            deploy-files/dotsider-website.service \
+            deploy-files/integrity-check.service \
+            deploy-files/integrity-check.timer \
+            brandon@"$HOST":/tmp/
+
           ssh -i ~/.ssh/deploy_key brandon@"$HOST" bash -s << 'REMOTE'
+            set -euo pipefail
             cd /opt/dotsider-website
+
+            sudo install -m 0644 /tmp/dotsider-website.service /etc/systemd/system/
+            sudo install -m 0644 /tmp/integrity-check.service  /etc/systemd/system/
+            sudo install -m 0644 /tmp/integrity-check.timer    /etc/systemd/system/
+            rm -f /tmp/dotsider-website.service \
+                  /tmp/integrity-check.service \
+                  /tmp/integrity-check.timer
+            sudo systemctl daemon-reload
+
             rm -rf sample.bak
-            cp -r sample sample.bak
+            cp -a sample sample.bak
             # Manifest: one "<sha256>  <relative-path>" per file, sorted.
             (cd sample && find . -type f -print0 \
               | LC_ALL=C sort -z \
               | xargs -0 sha256sum) > sample.sha256
+
+            # Clear the legacy single-file hash guard from the previous
+            # deploy shape so the integrity checker doesn't trip on stale
+            # artifacts from the pre-sample-dir layout.
+            rm -f .RichLibrary.dll.bak .RichLibrary.dll.sha256
+
             sudo systemctl start integrity-check.timer
           REMOTE
 
