@@ -544,8 +544,8 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleGetDependencyGraph()
     {
         var analyzer = RequireAnalyzer();
-        var (nodes, edges) = DependencyGraphBuilder.Build(analyzer);
-        return DotsiderResponse.Ok(new { Nodes = nodes, Edges = edges });
+        var graph = DependencyGraphBuilder.Build(analyzer);
+        return DotsiderResponse.Ok(new { graph.Nodes, graph.Edges });
     }
 
     private DotsiderResponse HandleGetTypeRefs() =>

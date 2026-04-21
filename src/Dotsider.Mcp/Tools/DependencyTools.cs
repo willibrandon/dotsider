@@ -41,7 +41,11 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
     }
 
     /// <summary>
-    /// Builds the full dependency graph with nodes and edges for visualization.
+    /// Builds the full closure of direct and transitive assembly references, with per-edge
+    /// TypeRef counts grouped by full identity. Each node carries a stable opaque id, a depth
+    /// (zero for the root), and an unresolved flag for references that could not be located
+    /// or whose identity did not match any probe. Framework assemblies are included by default;
+    /// clients can filter them out by name or public key token.
     /// </summary>
     /// <param name="assemblyPath">Path to assembly file.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>
@@ -57,8 +61,8 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            var (nodes, edges) = DependencyGraphBuilder.Build(analyzer);
-            return JsonSerializer.Serialize(new { Nodes = nodes, Edges = edges },
+            var graph = DependencyGraphBuilder.Build(analyzer);
+            return JsonSerializer.Serialize(new { graph.Nodes, graph.Edges },
                 DotsiderJsonOptions.Default);
         }
 

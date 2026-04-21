@@ -258,7 +258,13 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
     {
         using var state = CreateState(samples.RichLibraryDll);
         state.CurrentTab = TabId.DepGraph;
-        var (nodes, _) = state.CachedGraph ??= DependencyGraphBuilder.Build(state.Analyzer);
+        if (state.CachedGraph is null)
+        {
+            var result = DependencyGraphBuilder.Build(state.Analyzer);
+            state.CachedGraph = (result.Nodes, result.Edges);
+            state.GraphNavigation = result.NavigationById;
+        }
+        var nodes = state.CachedGraph!.Value.Nodes;
         Assert.True(nodes.Count > 0);
         state.GraphSelectedIndex = 0;
 
@@ -266,6 +272,36 @@ public class YankHelperTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.NotNull(text);
         Assert.Contains(nodes[0].Name, text);
+    }
+
+    /// <summary>
+    /// Under <see cref="Views.DependencyGraphScope.DirectOnly"/>, yank at selection index 0
+    /// returns the first visible node (the root), not whatever node sits at index 0 in the
+    /// underlying cached graph. The selected-index-to-node mapping must follow the same
+    /// visible projection the view uses.
+    /// </summary>
+    [Fact]
+    public void DepGraph_Yank_UsesVisibleModel_UnderDirectOnlyScope()
+    {
+        using var state = CreateState(samples.RichLibraryDll);
+        state.CurrentTab = TabId.DepGraph;
+        var result = DependencyGraphBuilder.Build(state.Analyzer);
+        state.CachedGraph = (result.Nodes, result.Edges);
+        state.GraphNavigation = result.NavigationById;
+
+        state.DepGraphScope = Views.DependencyGraphScope.DirectOnly;
+
+        var visible = Views.DependencyGraphView.BuildVisibleModel(
+            result.Nodes, result.Edges, result.NavigationById,
+            state.DepGraphScope, state.DepGraphHideFramework);
+        Assert.True(visible.Nodes.Count >= 2,
+            "RichLibrary should have root plus at least one direct ref");
+
+        state.GraphSelectedIndex = 1;
+        var text = YankHelper.GetYankText(state);
+
+        Assert.NotNull(text);
+        Assert.Contains(visible.Nodes[1].Name, text);
     }
 
     /// <summary>

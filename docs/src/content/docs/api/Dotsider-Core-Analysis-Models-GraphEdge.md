@@ -1,6 +1,6 @@
 ---
 title: "GraphEdge"
-description: "An edge connecting two nodes in the dependency graph."
+description: "A directed edge from a referencing assembly to a referenced assembly in the transitive dependency graph. Edges are retained for cycles and diamonds: revisiting an already-seen target identity emits a new edge but does not re-expand the target's subtree."
 slug: api/dotsider.core.analysis.models.graphedge
 sidebar:
   order: 1
@@ -10,7 +10,9 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-An edge connecting two nodes in the dependency graph.
+A directed edge from a referencing assembly to a referenced assembly in the transitive
+dependency graph. Edges are retained for cycles and diamonds: revisiting an already-seen
+target identity emits a new edge but does not re-expand the target's subtree.
 
 ```csharp
 public sealed record GraphEdge : IEquatable<GraphEdge>
@@ -28,43 +30,49 @@ public sealed record GraphEdge : IEquatable<GraphEdge>
 
 ### GraphEdge(string, string, int)
 
-An edge connecting two nodes in the dependency graph.
+A directed edge from a referencing assembly to a referenced assembly in the transitive
+dependency graph. Edges are retained for cycles and diamonds: revisiting an already-seen
+target identity emits a new edge but does not re-expand the target's subtree.
 
 **Parameters:**
 
-- `SourceName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Name of the assembly that holds the reference.
-- `TargetName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Name of the referenced assembly.
-- `TypeRefCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): Number of type references from source to target.
+- `SourceId` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The [Id](/api/dotsider.core.analysis.models.graphnode.id/) of the referencing assembly.
+- `TargetId` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The [Id](/api/dotsider.core.analysis.models.graphnode.id/) of the referenced assembly.
+- `TypeRefCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The number of TypeRef entries in the referencing assembly whose resolution scope resolves
+to the exact full identity of the target (not merely its simple name). Zero when the target
+is referenced by the AssemblyRef table but no TypeRefs are scoped to it.
 
 ```csharp
-public GraphEdge(string SourceName, string TargetName, int TypeRefCount)
+public GraphEdge(string SourceId, string TargetId, int TypeRefCount)
 ```
 
 ## Properties
 
-### SourceName
+### SourceId
 
-Name of the assembly that holds the reference.
+The [Id](/api/dotsider.core.analysis.models.graphnode.id/) of the referencing assembly.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
-public string SourceName { get; init; }
+public string SourceId { get; init; }
 ```
 
-### TargetName
+### TargetId
 
-Name of the referenced assembly.
+The [Id](/api/dotsider.core.analysis.models.graphnode.id/) of the referenced assembly.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
-public string TargetName { get; init; }
+public string TargetId { get; init; }
 ```
 
 ### TypeRefCount
 
-Number of type references from source to target.
+The number of TypeRef entries in the referencing assembly whose resolution scope resolves
+to the exact full identity of the target (not merely its simple name). Zero when the target
+is referenced by the AssemblyRef table but no TypeRefs are scoped to it.
 
 **Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
 

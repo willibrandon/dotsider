@@ -23,7 +23,7 @@ public static class IlNavigationResolver
 
 ## Methods
 
-### Resolve(AssemblyAnalyzer, int)
+### Resolve(AssemblyAnalyzer, int, MethodDefInfo?)
 
 Resolves the given metadata token against the analyzer's metadata tables.
 
@@ -31,12 +31,15 @@ Resolves the given metadata token against the analyzer's metadata tables.
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The assembly analyzer containing the metadata.
 - `token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The raw metadata token from an IL instruction operand.
+- `contextMethod` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)): The method whose IL body produced the token, when known. Needed to resolve
+bare generic-parameter TypeSpecs (`ELEMENT_TYPE_VAR`/`ELEMENT_TYPE_MVAR`),
+which do not encode their generic owner on their own.
 
 **Returns:** [IlNavigationTarget](/api/dotsider.core.analysis.models.ilnavigationtarget/)
 
 The resolved navigation target.
 
 ```csharp
-public static IlNavigationTarget Resolve(AssemblyAnalyzer analyzer, int token)
+public static IlNavigationTarget Resolve(AssemblyAnalyzer analyzer, int token, MethodDefInfo? contextMethod = null)
 ```
 

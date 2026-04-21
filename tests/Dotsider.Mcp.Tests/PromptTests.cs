@@ -75,4 +75,30 @@ public class PromptTests : McpServerTestBase
         Assert.NotNull(result);
         Assert.True(result.Messages.Count > 0);
     }
+
+    /// <summary>
+    /// dependency_health's materialized prompt must describe the tool's actual capabilities —
+    /// transitive closure traversal including diamond dependencies, circular references, and
+    /// transitive depth — and must acknowledge that framework assemblies are included so
+    /// models don't expect the tool to filter them. Asserting content (not just registration)
+    /// catches future prompt/tool contract drift that was the original issue behind #149.
+    /// </summary>
+    [Fact]
+    public async Task GetPrompt_DependencyHealth_ContentMentionsTransitiveClosureAndFrameworkInclusion()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.GetPromptAsync(
+            "dependency_health",
+            new Dictionary<string, object?> { ["assemblyPath"] = "/test/path.dll" },
+            cancellationToken: TestCancellationToken);
+
+        Assert.NotNull(result);
+        var content = string.Join("\n", result.Messages.Select(m => m.Content.ToString()));
+        Assert.Contains("transitive", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("diamond", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("circular", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("framework", content, StringComparison.OrdinalIgnoreCase);
+    }
 }

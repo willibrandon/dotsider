@@ -66,7 +66,7 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 | Tool | Description |
 |------|-------------|
 | `get_assembly_refs` | Assembly references with version and public key token |
-| `get_dependency_graph` | Nodes and edges for visualization |
+| `get_dependency_graph` | Full transitive closure of assembly references with per-edge TypeRef counts |
 | `get_type_refs` | Types imported from other assemblies |
 
 ### Diff

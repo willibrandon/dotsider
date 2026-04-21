@@ -26,7 +26,7 @@ public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 
 ## Constructors
 
-### TypeRefInfo(int, string, string, string, string)
+### TypeRefInfo(int, string, string, string, string, string)
 
 Information about a referenced type from the TypeRef metadata table.
 
@@ -36,10 +36,18 @@ Information about a referenced type from the TypeRef metadata table.
 - `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The namespace of the referenced type.
 - `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The simple name of the referenced type.
 - `FullName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The fully qualified name (Namespace.Name).
-- `ResolutionScope` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The scope in which the type is defined (assembly name or module).
+- `ResolutionScope` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The scope in which the type is defined, rendered as a human-readable string — the
+referenced assembly's simple name, the enclosing type's full name, or the scope kind
+for module and module-reference scopes.
+- `ResolutionScopeId` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The full-identity identifier of the referenced assembly, when the resolution scope ultimately
+derives from an `AssemblyReference`. For TypeRefs whose scope is another TypeRef
+(nested-type scopes) this carries the enclosing type's resolution-scope id by walking the
+nested chain to its root. Empty for module or module-reference scopes, where no referenced
+assembly is involved. Used by the dependency-graph builder to group TypeRefs by full
+identity so per-edge counts are correct even when two references share a simple name.
 
 ```csharp
-public TypeRefInfo(int Token, string Namespace, string Name, string FullName, string ResolutionScope)
+public TypeRefInfo(int Token, string Namespace, string Name, string FullName, string ResolutionScope, string ResolutionScopeId)
 ```
 
 ## Properties
@@ -76,12 +84,29 @@ public string Namespace { get; init; }
 
 ### ResolutionScope
 
-The scope in which the type is defined (assembly name or module).
+The scope in which the type is defined, rendered as a human-readable string — the
+referenced assembly's simple name, the enclosing type's full name, or the scope kind
+for module and module-reference scopes.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
 ```csharp
 public string ResolutionScope { get; init; }
+```
+
+### ResolutionScopeId
+
+The full-identity identifier of the referenced assembly, when the resolution scope ultimately
+derives from an `AssemblyReference`. For TypeRefs whose scope is another TypeRef
+(nested-type scopes) this carries the enclosing type's resolution-scope id by walking the
+nested chain to its root. Empty for module or module-reference scopes, where no referenced
+assembly is involved. Used by the dependency-graph builder to group TypeRefs by full
+identity so per-edge counts are correct even when two references share a simple name.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string ResolutionScopeId { get; init; }
 ```
 
 ### Token

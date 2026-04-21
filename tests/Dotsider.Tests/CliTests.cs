@@ -365,6 +365,56 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.NotNull(json.GetProperty("preferredRuntimePack").GetString());
     }
 
+    /// <summary>
+    /// Verifies <c>analyze --deps --json</c> emits a transitive graph with nodes at depth
+    /// greater than zero and edges whose source is not always the root, and that no internal
+    /// navigation fields leak into the payload.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Deps_Json_EmitsTransitiveGraphWithoutNavigationLeak()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--deps", "--json");
+
+        Assert.Equal(0, exitCode);
+        var root = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.True(root.TryGetProperty("graph", out var graph));
+        Assert.True(graph.TryGetProperty("nodes", out var nodes));
+        Assert.True(graph.TryGetProperty("edges", out var edges));
+
+        string? rootId = null;
+        var anyDepthOverZero = false;
+        foreach (var n in nodes.EnumerateArray())
+        {
+            Assert.True(n.TryGetProperty("id", out var id));
+            foreach (var leak in new[]
+            {
+                "resolvedPath", "referencingFilePath", "referencingBundlePath",
+                "referencingTargetFramework", "referencingPreferredRuntimePack",
+                "candidateProbePath", "isFrameworkAssembly", "resolved",
+            })
+            {
+                Assert.False(n.TryGetProperty(leak, out _), $"node must not expose {leak}");
+            }
+
+            if (n.TryGetProperty("isRoot", out var isRoot) && isRoot.GetBoolean())
+                rootId = id.GetString();
+            if (n.TryGetProperty("depth", out var depth) && depth.GetInt32() > 0)
+                anyDepthOverZero = true;
+        }
+
+        Assert.True(anyDepthOverZero);
+        Assert.NotNull(rootId);
+
+        var anyNonRootSource = false;
+        foreach (var e in edges.EnumerateArray())
+        {
+            Assert.True(e.TryGetProperty("sourceId", out var src));
+            if (src.GetString() != rootId) anyNonRootSource = true;
+        }
+        Assert.True(anyNonRootSource);
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(

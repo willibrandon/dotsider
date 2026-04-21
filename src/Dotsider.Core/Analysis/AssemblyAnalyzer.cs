@@ -749,11 +749,42 @@ public sealed class AssemblyAnalyzer : IDisposable
                 _ => tr.ResolutionScope.Kind.ToString()
             };
 
+            var scopeId = ResolveScopeAssemblyIdentityId(tr.ResolutionScope);
+
             result.Add(new TypeRefInfo(
-                MetadataTokens.GetToken(handle), ns, name, fullName, scope));
+                MetadataTokens.GetToken(handle), ns, name, fullName, scope, scopeId));
         }
 
         return result;
+    }
+
+    private string ResolveScopeAssemblyIdentityId(EntityHandle scopeHandle)
+    {
+        if (_metadataReader is null) return string.Empty;
+
+        var current = scopeHandle;
+        while (current.Kind == HandleKind.TypeReference)
+        {
+            var parent = _metadataReader.GetTypeReference((TypeReferenceHandle)current);
+            current = parent.ResolutionScope;
+        }
+
+        if (current.Kind != HandleKind.AssemblyReference)
+            return string.Empty;
+
+        var ar = _metadataReader.GetAssemblyReference((AssemblyReferenceHandle)current);
+        var refName = _metadataReader.GetString(ar.Name);
+        var refVersion = ar.Version.ToString();
+        var refCulture = _metadataReader.GetString(ar.Culture);
+
+        string? refPkt = null;
+        var pktBytes = _metadataReader.GetBlobBytes(ar.PublicKeyOrToken);
+        if (pktBytes.Length > 0)
+        {
+            refPkt = Convert.ToHexStringLower(pktBytes);
+        }
+
+        return AssemblyIdentityFormat.Format(refName, refVersion, refCulture, refPkt);
     }
 
     private List<MemberRefInfo> ReadMemberRefs()
@@ -1174,7 +1205,12 @@ public sealed class AssemblyAnalyzer : IDisposable
         local = Path.Combine(directory, $"{assemblyName}.exe");
         if (File.Exists(local)) return new ResolvedAssembly.FromFile(local);
 
-        // 2. .NET runtime directory (BCL assemblies)
+        // 2. NuGet global packages folder via .deps.json — library projects do not copy
+        // NuGet dependencies into bin, so deps.json is the authoritative mapping.
+        var fromNuGet = NuGetDepsJsonResolver.TryResolve(referencingAssemblyPath, assemblyName);
+        if (fromNuGet is not null) return fromNuGet;
+
+        // 3. .NET runtime directory (BCL assemblies)
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
         var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
         if (File.Exists(runtimeDll)) return new ResolvedAssembly.FromFile(runtimeDll);
@@ -1207,6 +1243,227 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         var resolved = ResolveAssembly(referencingAssemblyPath, assemblyName);
         return resolved is ResolvedAssembly.FromFile(var path) ? path : null;
+    }
+
+    /// <summary>
+    /// Resolves a referenced assembly by full identity (name, version, culture, public key token).
+    /// Probes every stage of <see cref="ResolveAssembly"/> and accepts only candidates whose
+    /// manifest identity matches the requested identity exactly. If no probe produces a full
+    /// match but at least one probe produces a simple-name match whose identity differs,
+    /// returns <see cref="AssemblyProvenance.IdentityMismatch"/> with the path of that candidate —
+    /// the graph does not expand from mismatched files.
+    /// </summary>
+    /// <param name="referencingAssemblyPath">Path of the assembly that references the target.</param>
+    /// <param name="identity">The full identity the caller expects to resolve.</param>
+    /// <param name="targetFramework">Target framework moniker for shared-framework probing.</param>
+    /// <param name="preferredRuntimePack">Preferred runtime pack name.</param>
+    /// <param name="sourceBundlePath">Bundle path, when the referencing assembly came from a bundle.</param>
+    /// <returns>
+    /// A tuple of the resolved assembly (or <see langword="null"/>), the provenance classifying
+    /// how the node was located, and the path of a simple-name match whose identity did not
+    /// match (populated only when provenance is <see cref="AssemblyProvenance.IdentityMismatch"/>).
+    /// </returns>
+    public static (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath)
+        ResolveAssemblyByIdentity(
+            string referencingAssemblyPath,
+            AssemblyRefInfo identity,
+            string? targetFramework = null,
+            string? preferredRuntimePack = null,
+            string? sourceBundlePath = null)
+    {
+        var directory = sourceBundlePath is not null
+            ? Path.GetDirectoryName(sourceBundlePath)!
+            : Path.GetDirectoryName(referencingAssemblyPath)!;
+
+        string? mismatchPath = null;
+
+        (ResolvedAssembly?, AssemblyProvenance)? TryFile(string path, AssemblyProvenance provenance)
+        {
+            if (!File.Exists(path)) return null;
+            var actual = TryReadFileIdentity(path);
+            if (actual is null) return null;
+            if (IdentityEquals(identity, actual.Value))
+                return (new ResolvedAssembly.FromFile(path), provenance);
+            if (IsFrameworkRollForwardMatch(identity, actual.Value, provenance))
+                return (new ResolvedAssembly.FromFile(path), provenance);
+            mismatchPath ??= path;
+            return null;
+        }
+
+        (ResolvedAssembly?, AssemblyProvenance)? TryBundle(
+            ResolvedAssembly.FromBundle? candidate, AssemblyProvenance provenance)
+        {
+            if (candidate is null) return null;
+            var actual = TryReadBundleIdentity(candidate.Bytes);
+            if (actual is null) return null;
+            if (IdentityEquals(identity, actual.Value))
+                return (candidate, provenance);
+            if (IsFrameworkRollForwardMatch(identity, actual.Value, provenance))
+                return (candidate, provenance);
+            mismatchPath ??= $"{candidate.BundlePath}:{candidate.Name}";
+            return null;
+        }
+
+        (ResolvedAssembly?, AssemblyProvenance)? TryNuGet()
+        {
+            var resolved = NuGetDepsJsonResolver.TryResolve(referencingAssemblyPath, identity.Name);
+            if (resolved is ResolvedAssembly.FromFile f)
+                return TryFile(f.Path, AssemblyProvenance.NuGetPackageCache);
+            return null;
+        }
+
+        var hit = TryFile(Path.Combine(directory, $"{identity.Name}.dll"), AssemblyProvenance.AppLocal)
+                  ?? TryFile(Path.Combine(directory, $"{identity.Name}.exe"), AssemblyProvenance.AppLocal)
+                  ?? TryNuGet()
+                  ?? TryFile(Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), $"{identity.Name}.dll"),
+                             AssemblyProvenance.RuntimeDirectory)
+                  ?? TryBundle(TryResolveFromBundle(sourceBundlePath, identity.Name),
+                               AssemblyProvenance.SourceBundle)
+                  ?? TryBundle(TryResolveFromBundle(Environment.ProcessPath, identity.Name),
+                               AssemblyProvenance.HostBundle)
+                  ?? TryBundle(TryResolveFromAdjacentBundles(directory, identity.Name),
+                               AssemblyProvenance.AdjacentBundle);
+
+        if (hit is null)
+        {
+            var shared = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
+                identity.Name, targetFramework, preferredRuntimePack);
+            if (shared is not null)
+                hit = TryFile(shared.Path, AssemblyProvenance.SharedFramework);
+        }
+
+        if (hit is { } h)
+            return (h.Item1, h.Item2, null);
+
+        return mismatchPath is not null
+            ? (null, AssemblyProvenance.IdentityMismatch, mismatchPath)
+            : (null, AssemblyProvenance.Unresolved, null);
+    }
+
+    /// <summary>
+    /// Classifies whether an assembly belongs to the .NET framework surface regardless of
+    /// deployment model. Returns <see langword="true"/> when the node was located through the
+    /// shared framework or runtime directory, or when its identity matches a well-known
+    /// Microsoft framework public key token, or when the shared-framework locator recognizes
+    /// its simple name for the supplied target framework. This classification is used by the
+    /// TUI framework-filter toggle so framework assemblies shipped inside a self-contained
+    /// publish or single-file bundle are filtered consistently with framework assemblies
+    /// loaded from the shared runtime.
+    /// </summary>
+    /// <param name="provenance">How the node was located.</param>
+    /// <param name="identity">The resolved assembly's identity.</param>
+    /// <param name="targetFramework">The referencing assembly's target framework moniker.</param>
+    /// <param name="preferredRuntimePack">The referencing assembly's preferred runtime pack.</param>
+    /// <returns><see langword="true"/> if the node represents a framework assembly.</returns>
+    public static bool IsFrameworkAssembly(
+        AssemblyProvenance provenance,
+        AssemblyRefInfo identity,
+        string? targetFramework,
+        string? preferredRuntimePack)
+    {
+        if (provenance is AssemblyProvenance.SharedFramework or AssemblyProvenance.RuntimeDirectory)
+            return true;
+
+        if (identity.PublicKeyToken is string pkt && WellKnownFrameworkPublicKeyTokens.Contains(pkt))
+            return true;
+
+        var shared = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
+            identity.Name, targetFramework, preferredRuntimePack);
+        return shared is not null;
+    }
+
+    private static readonly HashSet<string> WellKnownFrameworkPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "b77a5c561934e089",
+        "b03f5f7f11d50a3a",
+        "31bf3856ad364e35",
+        "7cec85d7bea7798e",
+        "cc7b13ffcd2ddd51",
+        "adb9793829ddae60",
+    };
+
+    private static (string Name, string Version, string Culture, string? PublicKeyToken)? TryReadFileIdentity(string path)
+    {
+        try
+        {
+            using var analyzer = new AssemblyAnalyzer(path);
+            if (!analyzer.HasMetadata || analyzer.AssemblyName is null)
+                return null;
+            return (analyzer.AssemblyName,
+                    analyzer.AssemblyVersion ?? string.Empty,
+                    analyzer.Culture ?? "neutral",
+                    analyzer.PublicKeyToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static (string Name, string Version, string Culture, string? PublicKeyToken)? TryReadBundleIdentity(byte[] bytes)
+    {
+        try
+        {
+            using var analyzer = new AssemblyAnalyzer(bytes, filePath: "<bundle>");
+            if (!analyzer.HasMetadata || analyzer.AssemblyName is null)
+                return null;
+            return (analyzer.AssemblyName,
+                    analyzer.AssemblyVersion ?? string.Empty,
+                    analyzer.Culture ?? "neutral",
+                    analyzer.PublicKeyToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether a probe candidate qualifies as a .NET host-style framework roll-forward of the
+    /// requested reference. Matches the binding behavior the .NET host applies when a binary
+    /// compiled against an older framework version runs against a newer shared framework:
+    /// if the candidate came from the shared framework, runtime directory, or NuGet package
+    /// cache, shares the simple name and public key token, and carries a well-known Microsoft
+    /// framework public key token, accept the version difference. Without this, every
+    /// framework-referencing package (net6-targeted third-party libraries running on net10)
+    /// would fill the graph with identity-mismatched leaves even though the .NET host itself
+    /// binds them happily.
+    /// </summary>
+    private static bool IsFrameworkRollForwardMatch(
+        AssemblyRefInfo requested,
+        (string Name, string Version, string Culture, string? PublicKeyToken) actual,
+        AssemblyProvenance provenance)
+    {
+        if (provenance is not (AssemblyProvenance.SharedFramework
+                              or AssemblyProvenance.RuntimeDirectory
+                              or AssemblyProvenance.NuGetPackageCache))
+            return false;
+        if (!string.Equals(requested.Name, actual.Name, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (string.IsNullOrEmpty(requested.PublicKeyToken) || string.IsNullOrEmpty(actual.PublicKeyToken))
+            return false;
+        if (!string.Equals(requested.PublicKeyToken, actual.PublicKeyToken, StringComparison.OrdinalIgnoreCase))
+            return false;
+        return WellKnownFrameworkPublicKeyTokens.Contains(requested.PublicKeyToken);
+    }
+
+    private static bool IdentityEquals(
+        AssemblyRefInfo requested,
+        (string Name, string Version, string Culture, string? PublicKeyToken) actual)
+    {
+        if (!string.Equals(requested.Name, actual.Name, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (!string.Equals(requested.Version, actual.Version, StringComparison.Ordinal))
+            return false;
+
+        var requestedCulture = string.IsNullOrEmpty(requested.Culture) ? "neutral" : requested.Culture;
+        var actualCulture = string.IsNullOrEmpty(actual.Culture) ? "neutral" : actual.Culture;
+        if (!string.Equals(requestedCulture, actualCulture, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var requestedPkt = requested.PublicKeyToken ?? string.Empty;
+        var actualPkt = actual.PublicKeyToken ?? string.Empty;
+        return string.Equals(requestedPkt, actualPkt, StringComparison.OrdinalIgnoreCase);
     }
 
     private static ResolvedAssembly.FromBundle? TryResolveFromBundle(string? bundlePath, string assemblyName)

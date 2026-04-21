@@ -33,9 +33,9 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | Class | What it measures |
 |---|---|
 | `ApphostDetectorBenchmarks` | Apphost companion-DLL detection (real apphost, dotted-name, fake exe, early exit) and bundled-entry extraction |
-| `AssemblyAnalyzerBenchmarks` | Constructor (file and byte[]), lazy metadata properties (TypeDefs, MethodDefs, AssemblyRefs, TypeRefs, MemberRefs, FieldDefs, CustomAttributes, Resources, Sections), token resolution, and 6-step assembly resolution chain |
+| `AssemblyAnalyzerBenchmarks` | Constructor (file and byte[]), lazy metadata properties (TypeDefs, MethodDefs, AssemblyRefs, TypeRefs, MemberRefs, FieldDefs, CustomAttributes, Resources, Sections), token resolution, and 7-step assembly resolution chain (app-local, NuGet deps.json, runtime directory, source bundle, host bundle, adjacent bundles, shared framework) |
 | `AssemblyDifferBenchmarks` | Dictionary-based O(n) diff of two assemblies by type, method, and reference with normalized IL body comparison |
-| `DependencyGraphBuilderBenchmarks` | Positioned dependency graph construction from assembly refs and type ref counts |
+| `DependencyGraphBuilderBenchmarks` | Full transitive assembly dependency closure — BFS walk that resolves each AssemblyRef by full identity, opens it, and recurses (CoreLib has no outbound refs so this is pure builder overhead; Xml walks its full BCL/runtime-pack closure) |
 | `DotNetRuntimeLocatorColdBenchmarks` | Cold-path .NET runtime discovery: base path + shared framework resolution with cache cleared |
 | `DotNetRuntimeLocatorWarmBenchmarks` | Warm-cache ConcurrentDictionary hit for shared framework lookup |
 | `HexSearchBenchmarks` | `FindBytePattern` with short, long, and no-match patterns against real assemblies |
@@ -83,23 +83,25 @@ Benchmarks that require real .NET executables (apphost, single-file bundle, runt
 | Benchmark | Mean | Allocated |
 |---|---|---|
 | CoreLib Construction | 1.57 ms | 16.29 MB |
-| Xml Construction | 0.77 ms | 8.60 MB |
-| CoreLib from byte[] (bundle model) | 68.83 μs | 12.56 KB |
-| CoreLib TypeDefs | 2.50 ms | 17.90 MB |
-| Xml TypeDefs | 1.26 ms | 9.65 MB |
-| CoreLib MethodDefs | 25.51 ms | 61.22 MB |
-| Xml MethodDefs | 11.08 ms | 21.49 MB |
+| Xml Construction | 0.82 ms | 8.60 MB |
+| CoreLib from byte[] (bundle model) | 66.24 μs | 12.56 KB |
+| CoreLib TypeDefs | 2.57 ms | 17.90 MB |
+| Xml TypeDefs | 1.24 ms | 9.65 MB |
+| CoreLib MethodDefs | 25.50 ms | 61.25 MB |
+| Xml MethodDefs | 11.23 ms | 21.49 MB |
 | CoreLib AssemblyRefs | 1.55 ms | 16.29 MB |
-| CoreLib TypeRefs | 1.55 ms | 16.29 MB |
-| CoreLib MemberRefs (signature decoding) | 5.43 ms | 20.78 MB |
-| CoreLib FieldDefs (signature decoding) | 3.76 ms | 19.83 MB |
-| CoreLib CustomAttributes | 16.23 ms | 37.65 MB |
-| CoreLib Resources | 1.56 ms | 16.29 MB |
-| CoreLib Sections | 1.76 ms | 16.29 MB |
-| ResolveToken (MethodDef → name) | 1.70 ms | 16.29 MB |
-| ResolveAssembly step 2 (runtime dir) | 5.67 μs | 1.48 KB |
-| ResolveAssembly step 6 (shared framework) | 90.49 μs | 141 KB |
-| ResolveAssembly miss (all 6 steps) | 92.08 μs | 141 KB |
+| CoreLib TypeRefs | 1.52 ms | 16.29 MB |
+| CoreLib MemberRefs (signature decoding) | 5.23 ms | 20.80 MB |
+| CoreLib FieldDefs (signature decoding) | 3.45 ms | 19.85 MB |
+| CoreLib CustomAttributes | 17.11 ms | 37.65 MB |
+| CoreLib Resources | 1.43 ms | 16.29 MB |
+| CoreLib Sections | 1.37 ms | 16.29 MB |
+| ResolveToken (MethodDef → name) | 1.40 ms | 16.29 MB |
+| ResolveAssembly step 3 (runtime dir) | 28.84 μs | 3.53 KB |
+| ResolveAssembly step 7 (shared framework) | 203.30 μs | 5.28 KB |
+| ResolveAssembly miss (all 7 steps) | 203.79 μs | 5.40 KB |
+
+ResolveAssembly now includes a NuGet `.deps.json` probe between app-local and runtime-dir so library projects (RichLibrary, etc.) find their NuGet dependencies. The direct base-name lookup is a single `File.Exists` per resolve; when no manifest sits next to the referencing assembly the probe returns in microseconds. The ~23 μs delta vs. the prior baseline is the cost of that check on every resolve.
 
 #### AssemblyDiffer
 
@@ -116,8 +118,10 @@ Identity and distinct benchmarks are worst-case: every method matches, forcing n
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| CoreLib graph | 25.58 ns | 264 B |
-| Xml graph | 8,355.35 ns | 5,608 B |
+| CoreLib graph | 229.9 ns | 2 KB |
+| Xml graph | 20.24 ms | 78.60 MB |
+
+The builder now produces a full transitive closure: every AssemblyRef is resolved by full identity, opened, and recursed into. CoreLib has no outbound refs so its graph is a single root node (the baseline reflects pure BFS + layout overhead). Xml refs most of the BCL, so its closure walks ~dozens of additional assemblies — each one opened via `AssemblyAnalyzer`, which dominates both time and allocation. The prior 8 μs baseline measured only the root's direct-ref star without any resolution or traversal; the new number is the cost of doing the thing the name actually claims.
 
 #### DotNetRuntimeLocator
 

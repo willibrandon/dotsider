@@ -856,6 +856,141 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Pressing <c>f</c> on the Dep Graph toggles framework filtering. The status line
+    /// reports hidden counts, and the state flag flips. Root stays visible by contract —
+    /// verified by asserting the nodes cached for the filtered view still include the root id.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_FilterToggle_HidesFrameworkAssembliesAndKeepsRootVisible()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.False(_state!.DepGraphHideFramework);
+        Assert.NotNull(_state.CachedGraph);
+        var rootId = _state.CachedGraph!.Value.Nodes.First(n => n.IsRoot).Id;
+        Assert.NotNull(_state.GraphNavigation);
+        Assert.Contains(_state.CachedGraph.Value.Nodes, n => _state.GraphNavigation!.TryGetValue(n.Id, out var c) && c.IsFrameworkAssembly);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.F)
+            .WaitUntil(_ => _state!.DepGraphHideFramework, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Hidden:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.DepGraphHideFramework);
+        // Root id is still in the cached graph after toggle (underlying graph not rebuilt).
+        Assert.Contains(_state.CachedGraph.Value.Nodes, n => n.Id == rootId && n.IsRoot);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Pressing <c>d</c> on the Dep Graph tab toggles scope between <c>All</c> and
+    /// <c>DirectOnly</c>. The status line reflects the active scope and selection / match
+    /// indices reset on each change so stale indices cannot survive into a smaller view.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_ScopeToggle_SwitchesBetweenAllAndDirectOnly()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(Views.DependencyGraphScope.All, _state!.DepGraphScope);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D)
+            .WaitUntil(_ => _state!.DepGraphScope == Views.DependencyGraphScope.DirectOnly,
+                TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("scope: direct"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(Views.DependencyGraphScope.DirectOnly, _state.DepGraphScope);
+        Assert.Equal(-1, _state.GraphSelectedIndex);
+        Assert.Equal(-1, _state.GraphMatchIndex);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D)
+            .WaitUntil(_ => _state!.DepGraphScope == Views.DependencyGraphScope.All,
+                TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("d: scope all"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(Views.DependencyGraphScope.All, _state.DepGraphScope);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Pressing <c>End</c> on the Dep Graph must reach the bottom of the content even when
+    /// a node is currently selected. Previously a per-frame selection-follow rule pulled the
+    /// scroll back to the selected node's Y before the clamp, so <c>End</c> never actually
+    /// showed the last row. Regression test: select a node near the top, press <c>End</c>,
+    /// and assert the scroll offset matches the full <c>ContentHeight - viewport</c> range.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_End_ScrollsToBottom_EvenWhenNodeSelected()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.GraphSelectedIndex == 0, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        var layout = _state.CachedGraphRenderLayout!;
+        var key = _state.CachedGraphRenderLayoutKey!.Value;
+        var expectedMax = Math.Max(0, layout.ContentHeight - key.Height);
+        Assert.True(expectedMax > 0, "viewport must be smaller than content for this test");
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.End)
+            .WaitUntil(_ => _state!.DepGraphScrollY == expectedMax, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(expectedMax, _state.DepGraphScrollY);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Verifies tab7 arrow keys cycle selected index.
     /// </summary>
     [Fact(Timeout = 30_000)]

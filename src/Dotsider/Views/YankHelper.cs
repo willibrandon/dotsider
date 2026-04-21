@@ -141,18 +141,23 @@ public static class YankHelper
         if (state.GraphSelectedNode is not null)
             return state.GraphSelectedNode;
 
-        if (state.GraphSelectedIndex >= 0 && state.CachedGraph is { } graph)
-        {
-            var nodes = graph.Nodes;
-            if (state.GraphSelectedIndex < nodes.Count)
-            {
-                var node = nodes[state.GraphSelectedIndex];
-                var version = node.Version is not null ? $" v{node.Version}" : "";
-                return $"{node.Name}{version}";
-            }
-        }
+        if (state.GraphSelectedIndex < 0 || state.CachedGraph is not { } graph)
+            return null;
 
-        return null;
+        // Selection indices and the rendered label both come from the visible model the view
+        // computes each frame, so yank must use the same projection — otherwise a filtered
+        // view with selection index 1 would yank the underlying cached node at index 1,
+        // which is a hidden framework assembly, not the assembly the user sees.
+        var visible = DependencyGraphView.BuildVisibleModel(
+            graph.Nodes, graph.Edges, state.GraphNavigation,
+            state.DepGraphScope, state.DepGraphHideFramework);
+
+        if (state.GraphSelectedIndex >= visible.Nodes.Count)
+            return null;
+
+        var node = visible.Nodes[state.GraphSelectedIndex];
+        var disambig = DependencyGraphView.ComputeDisambiguation(visible.Nodes);
+        return DependencyGraphView.FormatLabel(node, disambig);
     }
 
     private static string? GetSizeTreemapYankText(DotsiderState state)

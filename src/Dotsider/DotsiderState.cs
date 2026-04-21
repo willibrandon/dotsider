@@ -449,8 +449,55 @@ public sealed class DotsiderState : IDisposable
 
     // --- Dependency Graph Tab State ---
 
-    /// <summary>Cached dependency graph (nodes + edges).</summary>
+    /// <summary>Cached dependency graph (nodes + edges) for the current analyzer.</summary>
     public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges)? CachedGraph { get; set; }
+
+    /// <summary>
+    /// Per-node navigation metadata for the cached graph, keyed by <see cref="GraphNode.Id"/>.
+    /// Populated alongside <see cref="CachedGraph"/>. Never serialized; TUI-only.
+    /// </summary>
+    public IReadOnlyDictionary<string, GraphNavigationContext>? GraphNavigation { get; set; }
+
+    /// <summary>
+    /// Whether the Dep Graph view currently hides framework assemblies. Toggled by the
+    /// <c>f</c> key. Applies to rendering, search, selection, yank, and Enter — not to
+    /// the underlying cached graph.
+    /// </summary>
+    public bool DepGraphHideFramework { get; set; }
+
+    /// <summary>
+    /// The dependency-scope narrowing currently applied to the Dep Graph view. Toggled by the
+    /// <c>d</c> key, separate from the framework filter. In <see cref="DependencyGraphScope.DirectOnly"/>
+    /// the view shows only the root and its depth-1 references; in <see cref="DependencyGraphScope.All"/>
+    /// the full transitive closure is visible.
+    /// </summary>
+    public DependencyGraphScope DepGraphScope { get; set; } = DependencyGraphScope.All;
+
+    /// <summary>
+    /// Cached render layout for the Dep Graph view, populated by the view each frame when
+    /// the underlying inputs are unchanged. Internal — view-layer geometry must not leak
+    /// across the public graph contract.
+    /// </summary>
+    internal GraphRenderLayout? CachedGraphRenderLayout { get; set; }
+
+    /// <summary>
+    /// Invalidation key for <see cref="CachedGraphRenderLayout"/>. When this key differs
+    /// from the current frame's computed key the layout is rebuilt; mouse moves alone do
+    /// not invalidate.
+    /// </summary>
+    internal GraphRenderLayoutKey? CachedGraphRenderLayoutKey { get; set; }
+
+    /// <summary>
+    /// True while the transitive dependency-graph build is in flight on a background task.
+    /// The view shows a status message while this is set.
+    /// </summary>
+    public bool GraphBuildInProgress { get; set; }
+
+    /// <summary>
+    /// Error message produced by the most recent Enter-to-open attempt on the Dep Graph,
+    /// or <see langword="null"/> when the last attempt succeeded or none has been made.
+    /// </summary>
+    public string? GraphNavigationError { get; set; }
 
     /// <summary>The currently hovered/selected node name in the graph view.</summary>
     public string? GraphSelectedNode { get; set; }
@@ -460,6 +507,14 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Keyboard-selected node index in the dependency graph, or -1 for none.</summary>
     public int GraphSelectedIndex { get; set; } = -1;
+
+    /// <summary>
+    /// Vertical scroll offset of the Dep Graph viewport, in character rows. The graph is
+    /// rendered with every Y shifted by this amount. Clamped each frame to the current
+    /// render-layout content height minus viewport height, so resizing or filter changes
+    /// can only shrink the valid scroll range, never strand the viewport off-content.
+    /// </summary>
+    public int DepGraphScrollY { get; set; }
 
     // --- Size Treemap Tab State ---
 
@@ -1288,9 +1343,17 @@ public sealed class DotsiderState : IDisposable
         CachedMetadataStrings = null;
         CachedRawStrings = null;
         CachedGraph = null;
+        GraphNavigation = null;
+        GraphBuildInProgress = false;
+        GraphNavigationError = null;
         GraphSelectedNode = null;
         GraphMatchIndex = -1;
         GraphSelectedIndex = -1;
+        DepGraphScope = DependencyGraphScope.All;
+        DepGraphHideFramework = false;
+        DepGraphScrollY = 0;
+        CachedGraphRenderLayout = null;
+        CachedGraphRenderLayoutKey = null;
         CachedSizeTree = null;
         TreemapCurrentLevel = null;
         TreemapBreadcrumb.Clear();
@@ -1391,5 +1454,42 @@ public sealed class DotsiderState : IDisposable
         }
 
         return CachedRawStrings;
+    }
+
+    /// <summary>
+    /// Kicks off a background build of the transitive dependency graph when the Dep Graph
+    /// view is first rendered for the current analyzer. While the build runs, the view
+    /// displays a placeholder message; when the build completes, the result is published
+    /// to <see cref="CachedGraph"/> and <see cref="GraphNavigation"/> and the UI is
+    /// invalidated to trigger a re-render. Calls made while a build is already in flight
+    /// or after the graph is cached are no-ops. If the analyzer changes before the build
+    /// completes, the stale result is discarded.
+    /// </summary>
+    public void EnsureCachedGraphAsync()
+    {
+        if (CachedGraph is not null || GraphBuildInProgress)
+            return;
+
+        GraphBuildInProgress = true;
+        var capturedAnalyzer = Analyzer;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var result = DependencyGraphBuilder.Build(capturedAnalyzer);
+
+                if (!ReferenceEquals(Analyzer, capturedAnalyzer))
+                    return;
+
+                GraphNavigation = result.NavigationById;
+                CachedGraph = (result.Nodes, result.Edges);
+            }
+            finally
+            {
+                GraphBuildInProgress = false;
+                App.Invalidate();
+            }
+        });
     }
 }
