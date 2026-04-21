@@ -1,5 +1,5 @@
 [Unit]
-Description=Verify RichLibrary.dll integrity
+Description=Verify dotsider-website sample payload integrity
 After=dotsider-website.service
 
 [Service]
