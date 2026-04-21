@@ -1,6 +1,6 @@
 ---
 title: "DependencyGraphBuilder"
-description: "Builds a dependency graph from an assembly's references and type refs. Uses a hierarchical tree layout with the root assembly at top center."
+description: "Builds the full transitive assembly dependency graph rooted at an analyzed assembly. Performs a breadth-first walk through each assembly's AssemblyRefs, resolving children by full identity, deduping on Id, preserving edges for cycles and diamonds, and classifying unresolvable and identity-mismatched references as non-expanding leaf nodes. Produces a DependencyGraphResult containing the public topology plus internal navigation metadata consumed only by the TUI."
 slug: api/dotsider.core.analysis.dependencygraphbuilder
 sidebar:
   order: 0
@@ -10,8 +10,12 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Builds a dependency graph from an assembly's references and type refs.
-Uses a hierarchical tree layout with the root assembly at top center.
+Builds the full transitive assembly dependency graph rooted at an analyzed assembly.
+Performs a breadth-first walk through each assembly's [AssemblyRefs](/api/dotsider.core.analysis.assemblyanalyzer.assemblyrefs/),
+resolving children by full identity, deduping on [Id](/api/dotsider.core.analysis.models.graphnode.id/), preserving edges
+for cycles and diamonds, and classifying unresolvable and identity-mismatched references as
+non-expanding leaf nodes. Produces a [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/) containing the
+public topology plus internal navigation metadata consumed only by the TUI.
 
 ```csharp
 public static class DependencyGraphBuilder
@@ -25,17 +29,18 @@ public static class DependencyGraphBuilder
 
 ### Build(AssemblyAnalyzer)
 
-Builds a graph of assembly references with positioned nodes and weighted edges.
+Builds the transitive dependency graph rooted at analyzer.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The assembly analyzer to read references from.
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The root assembly analyzer. The caller retains ownership and disposal
+    responsibility; the builder does not dispose it.
 
-**Returns:** [ValueTuple\<GraphNode\>, GraphEdge\>\>](https://learn.microsoft.com/dotnet/api/system.valuetuple-2)
+**Returns:** [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/)
 
-The graph nodes and edges for rendering.
+The computed nodes, edges, and per-node navigation metadata.
 
 ```csharp
-public static (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build(AssemblyAnalyzer analyzer)
+public static DependencyGraphResult Build(AssemblyAnalyzer analyzer)
 ```
 

@@ -339,8 +339,8 @@ internal static class AnalyzeCommand
     {
         if (fmt.JsonMode)
         {
-            var (nodes, edges) = DependencyGraphBuilder.Build(a);
-            fmt.WriteJson(new { a.AssemblyRefs, Graph = new { nodes, edges } });
+            var graph = DependencyGraphBuilder.Build(a);
+            fmt.WriteJson(new { a.AssemblyRefs, Graph = new { graph.Nodes, graph.Edges } });
             return 0;
         }
 

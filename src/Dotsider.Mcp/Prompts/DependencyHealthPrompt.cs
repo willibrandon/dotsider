@@ -28,10 +28,11 @@ public sealed partial class DependencyHealthPrompt
                - Note the version and whether it's a framework or third-party assembly
                - Flag any very old versions that may have known vulnerabilities
 
-            3. **Dependency Graph**: Use get_dependency_graph to visualize the full dependency tree:
+            3. **Dependency Graph**: Use get_dependency_graph to visualize the full transitive closure of references:
                - Identify diamond dependencies (same assembly referenced via multiple paths)
                - Look for circular references
                - Count total transitive dependency depth
+               - Framework assemblies (BCL, runtime pack) are included; ignore them client-side if the analysis is focused on third-party surface
 
             4. **Type References**: Use get_type_refs to understand which types are actually used from each dependency:
                - Identify dependencies with very few type usages (candidates for removal)

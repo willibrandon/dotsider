@@ -33,6 +33,16 @@ Uses dictionary-based O(n) matching by name.
 public static class AssemblyDiffer
 ```
 
+### [AssemblyIdentityFormat](/api/dotsider.core.analysis.assemblyidentityformat/)
+
+Formats an assembly's full identity into a stable opaque string used as a graph node
+identifier and as a key for grouping [TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/) entries by the
+full identity of their resolution scope.
+
+```csharp
+public static class AssemblyIdentityFormat
+```
+
 ### [AssemblyLoader](/api/dotsider.core.analysis.assemblyloader/)
 
 Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
@@ -46,8 +56,12 @@ public static class AssemblyLoader
 
 ### [DependencyGraphBuilder](/api/dotsider.core.analysis.dependencygraphbuilder/)
 
-Builds a dependency graph from an assembly's references and type refs.
-Uses a hierarchical tree layout with the root assembly at top center.
+Builds the full transitive assembly dependency graph rooted at an analyzed assembly.
+Performs a breadth-first walk through each assembly's [AssemblyRefs](/api/dotsider.core.analysis.assemblyanalyzer.assemblyrefs/),
+resolving children by full identity, deduping on [Id](/api/dotsider.core.analysis.models.graphnode.id/), preserving edges
+for cycles and diamonds, and classifying unresolvable and identity-mismatched references as
+non-expanding leaf nodes. Produces a [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/) containing the
+public topology plus internal navigation metadata consumed only by the TUI.
 
 ```csharp
 public static class DependencyGraphBuilder
@@ -85,6 +99,19 @@ assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
 public static class ImplementationAssemblyResolver
+```
+
+### [NuGetDepsJsonResolver](/api/dotsider.core.analysis.nugetdepsjsonresolver/)
+
+Resolves assembly references by consulting the referencing assembly's `.deps.json`
+file to locate its NuGet dependencies in the NuGet global packages folder. This is the
+probe step that makes library projects work — `dotnet build` does not copy NuGet
+package assemblies next to a library's `bin` output, but the `.deps.json`
+manifest records the exact resolved package version and runtime asset path, matching
+what the .NET host uses at runtime.
+
+```csharp
+public static class NuGetDepsJsonResolver
 ```
 
 ### [NuGetPackageAnalyzer](/api/dotsider.core.analysis.nugetpackageanalyzer/)

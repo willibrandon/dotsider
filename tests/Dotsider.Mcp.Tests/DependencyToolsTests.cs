@@ -32,10 +32,13 @@ public class DependencyToolsTests(SampleAssemblyFixture samples) : McpServerTest
     }
 
     /// <summary>
-    /// get_dependency_graph returns a graph with nodes and edges for reference visualization.
+    /// get_dependency_graph returns a transitive graph. Every node carries an opaque id,
+    /// at least one node lives at depth greater than zero, and at least one edge has a source
+    /// id that is not the root — proving the tool emits transitive child-to-child edges, not
+    /// only root-to-child edges. No internal navigation fields leak into the JSON payload.
     /// </summary>
     [Fact]
-    public async Task GetDependencyGraph_RichLibrary_ReturnsNodesAndEdges()
+    public async Task GetDependencyGraph_RichLibrary_ReturnsTransitiveGraphWithoutNavigationLeak()
     {
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -50,8 +53,41 @@ public class DependencyToolsTests(SampleAssemblyFixture samples) : McpServerTest
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.True(json.TryGetProperty("nodes", out var nodes));
         Assert.True(nodes.GetArrayLength() > 0);
-        Assert.True(json.TryGetProperty("edges", out _));
+        Assert.True(json.TryGetProperty("edges", out var edges));
+
+        string? rootId = null;
+        var anyDepthOverZero = false;
+        foreach (var n in nodes.EnumerateArray())
+        {
+            Assert.True(n.TryGetProperty("id", out var id));
+            Assert.False(string.IsNullOrEmpty(id.GetString()));
+            foreach (var leak in NavigationFieldsThatMustNotLeak)
+                Assert.False(n.TryGetProperty(leak, out _), $"node should not expose {leak}");
+            if (n.TryGetProperty("isRoot", out var isRoot) && isRoot.GetBoolean())
+                rootId = id.GetString();
+            if (n.TryGetProperty("depth", out var depth) && depth.GetInt32() > 0)
+                anyDepthOverZero = true;
+        }
+
+        Assert.True(anyDepthOverZero, "expected at least one node with depth > 0");
+        Assert.NotNull(rootId);
+
+        var anyNonRootSource = false;
+        foreach (var e in edges.EnumerateArray())
+        {
+            Assert.True(e.TryGetProperty("sourceId", out var src));
+            Assert.True(e.TryGetProperty("targetId", out _));
+            if (src.GetString() != rootId) anyNonRootSource = true;
+        }
+        Assert.True(anyNonRootSource, "expected at least one edge whose source is not the root");
     }
+
+    private static readonly string[] NavigationFieldsThatMustNotLeak =
+    {
+        "resolvedPath", "referencingFilePath", "referencingBundlePath",
+        "referencingTargetFramework", "referencingPreferredRuntimePack",
+        "candidateProbePath", "isFrameworkAssembly", "resolved",
+    };
 
     /// <summary>
     /// get_type_refs surfaces externally-referenced types imported by the assembly.

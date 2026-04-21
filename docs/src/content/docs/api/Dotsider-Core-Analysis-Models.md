@@ -100,6 +100,16 @@ Information about a custom attribute applied to a metadata entity.
 public sealed record CustomAttributeInfo : IEquatable<CustomAttributeInfo>
 ```
 
+### [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/)
+
+The result of building a transitive assembly dependency graph. Contains the public topology
+consumed by serializers ([Nodes](/api/dotsider.core.analysis.models.dependencygraphresult.nodes/), [Edges](/api/dotsider.core.analysis.models.dependencygraphresult.edges/)) and the internal navigation
+metadata consumed by the TUI ([NavigationById](/api/dotsider.core.analysis.models.dependencygraphresult.navigationbyid/)).
+
+```csharp
+public sealed record DependencyGraphResult : IEquatable<DependencyGraphResult>
+```
+
 ### [DiffEntry\<T\>](/api/dotsider.core.analysis.models.diffentry-1/)
 
 A single diff entry wrapping an item from either side.
@@ -126,15 +136,31 @@ public sealed record FieldDefInfo : IEquatable<FieldDefInfo>
 
 ### [GraphEdge](/api/dotsider.core.analysis.models.graphedge/)
 
-An edge connecting two nodes in the dependency graph.
+A directed edge from a referencing assembly to a referenced assembly in the transitive
+dependency graph. Edges are retained for cycles and diamonds: revisiting an already-seen
+target identity emits a new edge but does not re-expand the target's subtree.
 
 ```csharp
 public sealed record GraphEdge : IEquatable<GraphEdge>
 ```
 
+### [GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/)
+
+Internal per-node metadata describing how a dependency graph node was resolved and the
+context under which it was reached. Used by the TUI for Enter-to-open navigation and
+framework filtering. Never serialized — this data must not leak through CLI, diagnostics,
+or MCP surfaces that publish graph topology.
+
+```csharp
+public sealed record GraphNavigationContext : IEquatable<GraphNavigationContext>
+```
+
 ### [GraphNode](/api/dotsider.core.analysis.models.graphnode/)
 
-A node in the assembly dependency graph.
+A node in the transitive assembly dependency graph. Topology only — layout coordinates
+and rendered labels are the responsibility of the view layer, which projects the visible
+subgraph into a separate render model so filters and viewport changes rebalance without
+perturbing this record.
 
 ```csharp
 public sealed record GraphNode : IEquatable<GraphNode>
@@ -357,6 +383,14 @@ public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 ```
 
 ## Enums
+
+### [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+Describes how an assembly in the dependency graph was located — or why it could not be.
+
+```csharp
+public enum AssemblyProvenance
+```
 
 ### [BundleFileType](/api/dotsider.core.analysis.models.bundlefiletype/)
 

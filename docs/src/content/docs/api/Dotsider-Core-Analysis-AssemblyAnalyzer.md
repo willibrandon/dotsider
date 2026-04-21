@@ -417,6 +417,32 @@ The method body block, or null.
 public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
 ```
 
+### IsFrameworkAssembly(AssemblyProvenance, AssemblyRefInfo, string?, string?)
+
+Classifies whether an assembly belongs to the .NET framework surface regardless of
+deployment model. Returns true when the node was located through the
+shared framework or runtime directory, or when its identity matches a well-known
+Microsoft framework public key token, or when the shared-framework locator recognizes
+its simple name for the supplied target framework. This classification is used by the
+TUI framework-filter toggle so framework assemblies shipped inside a self-contained
+publish or single-file bundle are filtered consistently with framework assemblies
+loaded from the shared runtime.
+
+**Parameters:**
+
+- `provenance` ([AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)): How the node was located.
+- `identity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)): The resolved assembly's identity.
+- `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The referencing assembly's target framework moniker.
+- `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The referencing assembly's preferred runtime pack.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+true if the node represents a framework assembly.
+
+```csharp
+public static bool IsFrameworkAssembly(AssemblyProvenance provenance, AssemblyRefInfo identity, string? targetFramework, string? preferredRuntimePack)
+```
+
 ### ResolveAssembly(string, string, string?, string?, string?)
 
 Resolves a referenced assembly name to a file on disk or bytes from a bundle.
@@ -437,6 +463,33 @@ The resolved assembly, or `null` if not found.
 
 ```csharp
 public static ResolvedAssembly? ResolveAssembly(string referencingAssemblyPath, string assemblyName, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
+```
+
+### ResolveAssemblyByIdentity(string, AssemblyRefInfo, string?, string?, string?)
+
+Resolves a referenced assembly by full identity (name, version, culture, public key token).
+Probes every stage of String) and accepts only candidates whose
+manifest identity matches the requested identity exactly. If no probe produces a full
+match but at least one probe produces a simple-name match whose identity differs,
+returns [IdentityMismatch](/api/dotsider.core.analysis.models.assemblyprovenance.identitymismatch/) with the path of that candidate —
+the graph does not expand from mismatched files.
+
+**Parameters:**
+
+- `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path of the assembly that references the target.
+- `identity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)): The full identity the caller expects to resolve.
+- `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker for shared-framework probing.
+- `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Preferred runtime pack name.
+- `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Bundle path, when the referencing assembly came from a bundle.
+
+**Returns:** [ValueTuple\<ResolvedAssembly, AssemblyProvenance, String\>](https://learn.microsoft.com/dotnet/api/system.valuetuple-3)
+
+A tuple of the resolved assembly (or null), the provenance classifying
+how the node was located, and the path of a simple-name match whose identity did not
+match (populated only when provenance is [IdentityMismatch](/api/dotsider.core.analysis.models.assemblyprovenance.identitymismatch/)).
+
+```csharp
+public static (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath) ResolveAssemblyByIdentity(string referencingAssemblyPath, AssemblyRefInfo identity, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
 ```
 
 ### ResolveAssemblyPath(string, string)

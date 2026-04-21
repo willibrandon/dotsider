@@ -37,16 +37,16 @@ public class DependencyGraphBuilderBenchmarks
     }
 
     /// <summary>
-    /// Builds the positioned dependency graph for CoreLib — the widest typical graph shape.
+    /// Builds the transitive dependency graph rooted at CoreLib — the widest typical shape.
     /// </summary>
     [Benchmark(Description = "CoreLib graph")]
-    public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build_CoreLib()
+    public DependencyGraphResult Build_CoreLib()
         => DependencyGraphBuilder.Build(_coreLibAnalyzer);
 
     /// <summary>
-    /// Builds the dependency graph for Xml, which has a smaller AssemblyRef count than CoreLib.
+    /// Builds the transitive dependency graph rooted at Xml.
     /// </summary>
     [Benchmark(Description = "Xml graph")]
-    public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) Build_Xml()
+    public DependencyGraphResult Build_Xml()
         => DependencyGraphBuilder.Build(_xmlAnalyzer);
 }
