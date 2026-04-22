@@ -37,6 +37,6 @@ Transitive-only is intentionally not an option — hiding direct parents would p
 - `Home` / `End`: jump to the top or bottom of the graph.
 - `Enter`: open the selected node's resolved assembly in a new analysis context. Uses the resolution location recorded at traversal time, not a fresh probe from the root, so transitive nodes open correctly. Enter on the root is a no-op; Enter on an unresolved or identity-mismatched leaf surfaces an explanatory status message.
 - `Esc`: return to the prior analysis context.
-- `/`: search by name; `n` and `p` cycle through matches. Search always operates on the visible model, so hidden nodes (by scope or filter) are never matched or selected.
+- `/`: search by name; `n` jumps to the next match and `N` (shift + n) jumps to the previous. Search always operates on the visible model, so hidden nodes (by scope or filter) are never matched or selected.
 
 When the graph fits the viewport, depth bands spread through the available height. When it doesn't, bands pack tightly from the top and scroll reveals the rest.
