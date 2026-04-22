@@ -40,7 +40,11 @@ Sleep 2s
 Type "3"
 Sleep 4s
 
-# Navigate tree down to ProductCatalog (13 items from top — IlNavigationFixture added)
+# Navigate tree down to ProductCatalog (15 items from top — GenericParamFixture and FunctionPointerHelpers added)
+Down
+Sleep 200ms
+Down
+Sleep 200ms
 Down
 Sleep 200ms
 Down
