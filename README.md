@@ -242,12 +242,12 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**28 tools** across assembly analysis, IL disassembly, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, and runtime tracing. Tools work in two modes:
+**38 tools** across assembly analysis, IL disassembly, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
 
-**4 guided prompts** for common workflows: security audit, API surface review, breaking change detection, and dependency health analysis.
+**5 guided prompts** for common workflows: security audit, API surface review, breaking change detection, dependency health analysis, and single-file bundle inspection.
 
 ## Project structure
 
