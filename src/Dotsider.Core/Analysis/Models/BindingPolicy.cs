@@ -214,7 +214,7 @@ public sealed record BindingPolicy(
             CodeBases: codeBasesAll,
             PublisherPolicyDisabledFor: app.Disabled,
             PublisherPolicyDisabledGlobally: app.PublisherPolicyDisabledGlobally,
-            FrameworkUnificationTable: BuildFrameworkUnificationTable(architecture));
+            FrameworkUnificationTable: BuildFrameworkUnificationTable(architecture, gacRoots));
     }
 
     /// <summary>
@@ -258,11 +258,11 @@ public sealed record BindingPolicy(
         // bind in the AppDomain, including identities with no <dependentAssembly> block.
         if (PublisherPolicyDisabledGlobally) return true;
 
-        foreach (var d in PublisherPolicyDisabledFor)
+        foreach (var (Name, PublicKeyToken, Culture) in PublisherPolicyDisabledFor)
         {
-            if (string.Equals(d.Name, requested.Name, StringComparison.OrdinalIgnoreCase) &&
-                PktEquals(d.PublicKeyToken, requested.PublicKeyToken) &&
-                CultureEquals(d.Culture, requested.Culture))
+            if (string.Equals(Name, requested.Name, StringComparison.OrdinalIgnoreCase) &&
+                PktEquals(PublicKeyToken, requested.PublicKeyToken) &&
+                CultureEquals(Culture, requested.Culture))
                 return true;
         }
         return false;
@@ -324,22 +324,84 @@ public sealed record BindingPolicy(
     /// (<c>v4.0_10.0.0.0__b03f5f7f11d50a3a</c>) instead of falling back to the framework dir.
     /// </summary>
     private static Dictionary<(string Name, string PublicKeyToken), Version> BuildFrameworkUnificationTable(
-        NetFxArchitecture architecture)
+        NetFxArchitecture architecture, IReadOnlyList<string> gacRoots)
     {
         var table = new Dictionary<(string, string), Version>(
             new FrameworkUnificationKeyComparer());
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return table;
 
+        AddFrameworkRuntimeDirEntries(architecture, table);
+        // GAC scan picks up framework-PKT assemblies that aren't in Framework[64]\v4.0.30319 —
+        // notably the WPF set (System.Printing, PresentationCore, PresentationFramework, …)
+        // which lives only in the GAC. Live net48 unifies these the same as in-box assemblies:
+        // System.Printing v3.0.0.0 → v4.0.0.0 from GAC_64\System.Printing\v4.0_4.0.0.0__….
+        // Gate the scan on the canonical framework-assembly name set (the Reference Assemblies
+        // tree) so non-framework Microsoft-signed assemblies in the GAC — VS, SQL Server
+        // tooling, etc. — don't accidentally end up in the unification table.
+        var frameworkNames = LoadFrameworkAssemblyNames();
+        AddGacEntries(gacRoots, architecture, frameworkNames, table);
+        return table;
+    }
+
+    /// <summary>
+    /// Returns the set of assembly simple names that ship as part of .NET Framework, derived
+    /// from the Reference Assemblies tree at
+    /// <c>%ProgramFiles(x86)%\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.x</c>.
+    /// Walking that tree (top-level + <c>Facades\</c>) gives the canonical list of names
+    /// the CLR's framework unification table covers; anything outside it is third-party even
+    /// when signed with a Microsoft framework public key token.
+    /// </summary>
+    private static HashSet<string> LoadFrameworkAssemblyNames()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roots = new[]
+        {
+            Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+            Environment.GetEnvironmentVariable("ProgramFiles"),
+        };
+        foreach (var root in roots)
+        {
+            if (string.IsNullOrEmpty(root)) continue;
+            var refRoot = Path.Combine(root!, "Reference Assemblies", "Microsoft", "Framework", ".NETFramework");
+            if (!Directory.Exists(refRoot)) continue;
+            IEnumerable<string> versionDirs;
+            try { versionDirs = Directory.EnumerateDirectories(refRoot, "v4.*"); }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; }
+            foreach (var versionDir in versionDirs)
+            {
+                AddDllNamesFrom(versionDir, names);
+                var facades = Path.Combine(versionDir, "Facades");
+                if (Directory.Exists(facades)) AddDllNamesFrom(facades, names);
+            }
+        }
+        return names;
+    }
+
+    private static void AddDllNamesFrom(string dir, HashSet<string> names)
+    {
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(dir, "*.dll"); }
+        catch (UnauthorizedAccessException) { return; }
+        catch (IOException) { return; }
+        foreach (var file in files)
+            names.Add(Path.GetFileNameWithoutExtension(file));
+    }
+
+    private static void AddFrameworkRuntimeDirEntries(
+        NetFxArchitecture architecture,
+        Dictionary<(string Name, string PublicKeyToken), Version> table)
+    {
         var windir = Environment.GetEnvironmentVariable("WINDIR");
-        if (string.IsNullOrEmpty(windir)) return table;
+        if (string.IsNullOrEmpty(windir)) return;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
         var dir = Path.Combine(windir!, "Microsoft.NET", subdir, "v4.0.30319");
-        if (!Directory.Exists(dir)) return table;
+        if (!Directory.Exists(dir)) return;
 
         IEnumerable<string> files;
         try { files = Directory.EnumerateFiles(dir, "*.dll"); }
-        catch (UnauthorizedAccessException) { return table; }
-        catch (IOException) { return table; }
+        catch (UnauthorizedAccessException) { return; }
+        catch (IOException) { return; }
 
         foreach (var file in files)
         {
@@ -349,12 +411,88 @@ public sealed record BindingPolicy(
             if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.Value.PublicKeyToken!))
                 continue;
             if (!Version.TryParse(identity.Value.Version, out var v)) continue;
-            // Preserve the highest version when the dir somehow contains duplicates.
             var key = (identity.Value.Name, identity.Value.PublicKeyToken!);
             if (!table.TryGetValue(key, out var existing) || v > existing)
                 table[key] = v;
         }
-        return table;
+    }
+
+    private static void AddGacEntries(
+        IReadOnlyList<string> gacRoots,
+        NetFxArchitecture architecture,
+        HashSet<string> frameworkNames,
+        Dictionary<(string Name, string PublicKeyToken), Version> table)
+    {
+        // Walk only the architecture-compatible GAC buckets — GAC_MSIL plus the matching
+        // bitness slot — so a higher version installed for the wrong architecture doesn't end
+        // up in the unification table. The locate stage uses the same scan list, so anything
+        // we record here is reachable later.
+        var archSubdir = architecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
+        var subdirs = new[] { "GAC_MSIL", archSubdir };
+
+        foreach (var root in gacRoots)
+        {
+            if (!Directory.Exists(root)) continue;
+            foreach (var gacSubdir in subdirs)
+            {
+                var gacPath = Path.Combine(root, gacSubdir);
+                if (!Directory.Exists(gacPath)) continue;
+                IEnumerable<string> nameDirs;
+                try { nameDirs = Directory.EnumerateDirectories(gacPath); }
+                catch (UnauthorizedAccessException) { continue; }
+                catch (IOException) { continue; }
+
+                foreach (var nameDir in nameDirs)
+                {
+                    var simpleName = Path.GetFileName(nameDir);
+                    if (string.IsNullOrEmpty(simpleName)) continue;
+                    // Only assemblies that ship as part of .NET Framework — name must appear
+                    // in the Reference Assemblies tree. Drops VS, SQL Server, Office, and any
+                    // other Microsoft-signed assemblies that just happen to live in the GAC.
+                    if (!frameworkNames.Contains(simpleName)) continue;
+
+                    IEnumerable<string> tokenDirs;
+                    try { tokenDirs = Directory.EnumerateDirectories(nameDir); }
+                    catch (UnauthorizedAccessException) { continue; }
+                    catch (IOException) { continue; }
+
+                    foreach (var tokenDir in tokenDirs)
+                    {
+                        var token = Path.GetFileName(tokenDir);
+                        if (!TryParseGacToken(token, out var version, out var pkt)) continue;
+                        if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(pkt!)) continue;
+                        var key = (simpleName, pkt!);
+                        if (!table.TryGetValue(key, out var existing) || version > existing)
+                            table[key] = version;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses a .NET 4 GAC token directory name like <c>v4.0_4.0.0.0__31bf3856ad364e35</c>
+    /// (or culture-specific <c>v4.0_4.0.0.0_en-US_31bf3856ad364e35</c>) into version + PKT.
+    /// Returns <see langword="false"/> for non-neutral cultures (we don't unify satellites)
+    /// or any token that doesn't match the expected layout.
+    /// </summary>
+    private static bool TryParseGacToken(string token, out Version version, out string? publicKeyToken)
+    {
+        version = new Version(0, 0, 0, 0);
+        publicKeyToken = null;
+        if (!token.StartsWith("v4.0_", StringComparison.OrdinalIgnoreCase)) return false;
+        var rest = token.Substring(5);
+        var dunder = rest.IndexOf("__", StringComparison.Ordinal);
+        if (dunder < 0) return false;
+        var versionAndCulture = rest[..dunder];
+        var pkt = rest[(dunder + 2)..];
+        // Skip culture-specific tokens — they look like "<version>_<culture>" before the "__pkt".
+        if (versionAndCulture.Contains('_')) return false;
+        if (!Version.TryParse(versionAndCulture, out var v)) return false;
+        if (pkt.Length != 16) return false;
+        version = v;
+        publicKeyToken = pkt.ToLowerInvariant();
+        return true;
     }
 
     private sealed class FrameworkUnificationKeyComparer

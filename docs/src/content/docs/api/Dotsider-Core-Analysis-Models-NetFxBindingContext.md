@@ -168,6 +168,23 @@ Absolute paths to the GAC sub-directories the binder should scan, in order.
 public IReadOnlyList<string> GacScanList()
 ```
 
+### LegacyGacScanList()
+
+Returns the legacy CLR 2.0 GAC sub-directories — `%WINDIR%\assembly\GAC_MSIL`,
+the architecture-matching `GAC_64` or `GAC_32`, and the original
+`GAC` (CLR 1.x). Net4 fusion still consults this cache for COM PIAs and other
+2.0-registered assemblies (e.g. `stdole 7.0.3300.0`), so the binder probes
+these locations after the .NET 4 GAC scan misses. Token format here is
+`&lt;version&gt;__&lt;pkt&gt;` with no `v4.0_` prefix.
+
+**Returns:** [IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+Absolute paths to scan, in order; empty when not on Windows.
+
+```csharp
+public IReadOnlyList<string> LegacyGacScanList()
+```
+
 ### TryBuild(AssemblyAnalyzer)
 
 Builds a context for a .NET Framework root, or returns null for any

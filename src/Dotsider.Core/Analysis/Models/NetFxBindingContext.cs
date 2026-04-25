@@ -90,6 +90,31 @@ public sealed record NetFxBindingContext(
     }
 
     /// <summary>
+    /// Returns the legacy CLR 2.0 GAC sub-directories — <c>%WINDIR%\assembly\GAC_MSIL</c>,
+    /// the architecture-matching <c>GAC_64</c> or <c>GAC_32</c>, and the original
+    /// <c>GAC</c> (CLR 1.x). Net4 fusion still consults this cache for COM PIAs and other
+    /// 2.0-registered assemblies (e.g. <c>stdole 7.0.3300.0</c>), so the binder probes
+    /// these locations after the .NET 4 GAC scan misses. Token format here is
+    /// <c>&lt;version&gt;__&lt;pkt&gt;</c> with no <c>v4.0_</c> prefix.
+    /// </summary>
+    /// <returns>Absolute paths to scan, in order; empty when not on Windows.</returns>
+    public IReadOnlyList<string> LegacyGacScanList()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return [];
+        var windir = Environment.GetEnvironmentVariable("WINDIR");
+        if (string.IsNullOrEmpty(windir)) return [];
+        var root = Path.Combine(windir!, "assembly");
+        if (!Directory.Exists(root)) return [];
+        var arch = EffectiveArchitecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
+        return
+        [
+            Path.Combine(root, "GAC_MSIL"),
+            Path.Combine(root, arch),
+            Path.Combine(root, "GAC"),
+        ];
+    }
+
+    /// <summary>
     /// Returns the architecture-correct .NET Framework runtime directory:
     /// <c>%WINDIR%\Microsoft.NET\Framework64\v4.0.30319</c> for Amd64,
     /// <c>%WINDIR%\Microsoft.NET\Framework\v4.0.30319</c> for X86.

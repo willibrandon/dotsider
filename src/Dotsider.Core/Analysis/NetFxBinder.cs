@@ -190,16 +190,29 @@ public static class NetFxBinder
         if (string.IsNullOrEmpty(effective.PublicKeyToken)) return null;
         var pkt = effective.PublicKeyToken!.ToLowerInvariant();
         var version = effective.Version;
-        // GAC layout: v4.0_<version>_<culture>__<pkt> when culture is non-neutral,
+        // .NET 4 GAC layout: v4.0_<version>_<culture>__<pkt> when culture is non-neutral,
         // v4.0_<version>__<pkt> (no culture, double underscore separates version from PKT) when neutral.
         var isNeutral = string.IsNullOrEmpty(effective.Culture)
                      || string.Equals(effective.Culture, "neutral", StringComparison.OrdinalIgnoreCase);
-        var token = isNeutral
+        var net4Token = isNeutral
             ? $"v4.0_{version}__{pkt}"
             : $"v4.0_{version}_{effective.Culture}__{pkt}";
         foreach (var subdir in ctx.GacScanList())
         {
-            var candidate = Path.Combine(subdir, effective.Name, token, $"{effective.Name}.dll");
+            var candidate = Path.Combine(subdir, effective.Name, net4Token, $"{effective.Name}.dll");
+            caches.FilesystemProbeCount++;
+            if (File.Exists(candidate)) return candidate;
+        }
+        // Legacy CLR 2.0 GAC at C:\Windows\assembly. Net4 fusion still loads COM PIAs and other
+        // 2.0-registered assemblies from here (verified against live net48: stdole 7.0.3300.0
+        // resolves to C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll).
+        // Token format here is <version>__<pkt> with no v4.0_ prefix.
+        var legacyToken = isNeutral
+            ? $"{version}__{pkt}"
+            : $"{version}_{effective.Culture}__{pkt}";
+        foreach (var subdir in ctx.LegacyGacScanList())
+        {
+            var candidate = Path.Combine(subdir, effective.Name, legacyToken, $"{effective.Name}.dll");
             caches.FilesystemProbeCount++;
             if (File.Exists(candidate)) return candidate;
         }

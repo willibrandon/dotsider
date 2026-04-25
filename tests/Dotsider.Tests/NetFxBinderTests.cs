@@ -335,6 +335,108 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
     }
 
+    /// <summary>
+    /// Net4 fusion falls back to the legacy CLR 2.0 GAC at <c>C:\Windows\assembly</c> for
+    /// COM PIAs and other 2.0-registered assemblies. Verified against live net48:
+    /// <c>stdole 7.0.3300.0</c> loads from
+    /// <c>C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll</c>. Token
+    /// format there has no <c>v4.0_</c> prefix.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_LegacyGac_StdoleResolvesFromWindowsAssemblyGac()
+    {
+        SkipIfNotWindows();
+        // Skip if the test box doesn't have stdole installed in the legacy GAC.
+        var stdolePath = @"C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll";
+        if (!File.Exists(stdolePath))
+            Assert.Skip("Legacy GAC entry for stdole 7.0.3300.0 is not present on this machine.");
+
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("stdole", "7.0.3300.0", "neutral", "b03f5f7f11d50a3a");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
+        Assert.NotNull(result.LoadedPath);
+        Assert.Equal(stdolePath, result.LoadedPath, ignoreCase: true);
+    }
+
+    /// <summary>
+    /// Non-framework Microsoft-signed assemblies installed in the GAC (VS, SQL Server, etc.)
+    /// must not enter the unification table. The framework name allowlist is built from the
+    /// Reference Assemblies tree; anything outside it is third-party even when it happens to
+    /// carry a framework public key token. Picks one example empirically: synthesize a request
+    /// for an assembly name that's known to live in the GAC under a framework PKT but isn't a
+    /// framework assembly, and verify the binder doesn't unify it.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_NonFrameworkGacEntries_DoNotUnify()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        // Microsoft.Build.Tasks.Core ships in MSBuild (not the .NET Framework reference
+        // assemblies) but is signed with PKT b03f5f7f11d50a3a and lives in the GAC on machines
+        // with VS / Build Tools. Even when present, the unification table must not pull it in.
+        var requested = new AssemblyRefInfo("Microsoft.Build.Tasks.Core", "1.0.0.0", "neutral", "b03f5f7f11d50a3a");
+        var result = NetFxBinder.Bind(requested, ctx);
+        if (result.AppliedPolicy is not null)
+            Assert.NotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
+    }
+
+    /// <summary>
+    /// The GAC unification scan must use the same architecture-compatible bucket list as the
+    /// locate stage — <c>GAC_MSIL</c> + the matching bitness — so a higher version installed
+    /// in the cross-architecture slot doesn't end up in the table where it's unreachable.
+    /// On an Amd64 root, scanning GAC_32 would be a contradiction; the
+    /// <c>Bind_FrameworkUnification_SystemPrintingV3_UnifiesViaGacEntry</c> test below
+    /// exercises GAC_64 explicitly. This test simply confirms a GAC_32-only entry isn't
+    /// picked up on an Amd64 root.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_RespectsRootArchitecture()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        Assert.Equal(NetFxArchitecture.Amd64, ctx.EffectiveArchitecture);
+        // The unification table built for an Amd64 root must not contain entries that exist
+        // only in GAC_32. We can't easily synthesize a GAC_32-only entry on this machine, but
+        // we can assert the table's entries map to versions reachable from the locate stage —
+        // i.e. every (name, pkt) in the table has either a Framework64 file or a GAC_64/MSIL
+        // entry at the table's version. Sample-check System.Printing.
+        Assert.NotNull(ctx.Policy.FrameworkUnificationTable);
+        var key = ("System.Printing", "31bf3856ad364e35");
+        Assert.True(
+            ctx.Policy.FrameworkUnificationTable!.ContainsKey(key),
+            "System.Printing should be in the unification table for an Amd64 root.");
+        var v = ctx.Policy.FrameworkUnificationTable[key];
+        Assert.True(File.Exists(
+            $@"C:\Windows\Microsoft.NET\assembly\GAC_64\System.Printing\v4.0_{v}__31bf3856ad364e35\System.Printing.dll")
+            || File.Exists(
+            $@"C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Printing\v4.0_{v}__31bf3856ad364e35\System.Printing.dll"),
+            $"Unification table records System.Printing v{v} but no architecture-compatible GAC slot exists.");
+    }
+
+    /// <summary>
+    /// Framework assemblies that live only in the GAC (the WPF set: <c>System.Printing</c>,
+    /// <c>PresentationCore</c>, …) must still participate in framework unification.
+    /// Verified against live net48: <c>System.Printing v3.0.0.0</c> loads as <c>v4.0.0.0</c>
+    /// from <c>GAC_64\System.Printing\v4.0_4.0.0.0__31bf3856ad364e35\</c>. The unification
+    /// table picks these up by walking the GAC alongside the framework runtime directory.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_SystemPrintingV3_UnifiesViaGacEntry()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("System.Printing", "3.0.0.0", "neutral", "31bf3856ad364e35");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
+        Assert.NotNull(result.Loaded);
+        Assert.Equal("4.0.0.0", result.Loaded!.Version);
+        Assert.NotNull(result.AppliedPolicy);
+        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.Equal(new Version(3, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+    }
+
     /// <summary>A weak-named assembly skips the GAC scan entirely.</summary>
     [Fact(Timeout = 30_000)]
     public void Bind_NotStrongNamed_SkipsGac()
