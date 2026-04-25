@@ -82,6 +82,9 @@ public static class NetFxBinder
             // mscorlib is the bootstrap assembly: the CLR always loads it from the architecture-
             // correct .NET Framework runtime directory, even though a GAC copy exists. Probe the
             // runtime directory first for that one identity so we match real load behavior.
+            // mscorlib is the bootstrap assembly: the CLR always loads it from the architecture-
+            // correct .NET Framework runtime directory, even when a GAC copy exists. Probe the
+            // runtime directory first for that one identity so we match real load behavior.
             if (string.Equals(effective.Name, "mscorlib", StringComparison.OrdinalIgnoreCase) &&
                 TryFrameworkRuntimeDir(effective, ctx, caches) is { } mscorlibPath)
                 return Success(requested, effective, applied,

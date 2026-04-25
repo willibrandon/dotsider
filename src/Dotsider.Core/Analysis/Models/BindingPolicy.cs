@@ -32,6 +32,15 @@ namespace Dotsider.Core.Analysis.Models;
 /// <c>&lt;publisherPolicy apply="no"/&gt;</c>, suppressing publisher policy for every bind in
 /// the app domain — including identities that have no <c>&lt;dependentAssembly&gt;</c> block.
 /// </param>
+/// <param name="FrameworkUnificationTable">
+/// Per-identity unification table built by scanning <c>Framework[64]\v4.0.30319</c> at policy
+/// load time: maps <c>(Name, PublicKeyToken)</c> for in-box framework assemblies (PKT in
+/// <see cref="AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens"/>) to the version actually
+/// shipped in the runtime directory. <see cref="Apply"/> consults this map first; references
+/// at versions less than or equal to the table version unify to the table version, so a
+/// subsequent GAC lookup finds the file at its real GAC location instead of falling through to
+/// a post-hoc framework-directory match.
+/// </param>
 public sealed record BindingPolicy(
     IReadOnlyList<BindingRedirect> AppConfigRedirects,
     IReadOnlyList<BindingRedirect> PublisherPolicyRedirects,
@@ -39,7 +48,8 @@ public sealed record BindingPolicy(
     IReadOnlyList<BindingRedirect> FrameworkUnificationRedirects,
     IReadOnlyList<CodeBaseEntry> CodeBases,
     IReadOnlyCollection<(string Name, string? PublicKeyToken, string Culture)> PublisherPolicyDisabledFor,
-    bool PublisherPolicyDisabledGlobally = false)
+    bool PublisherPolicyDisabledGlobally = false,
+    IReadOnlyDictionary<(string Name, string PublicKeyToken), Version>? FrameworkUnificationTable = null)
 {
     /// <summary>An empty policy — no redirects, no codeBase, no publisher-policy bypasses.</summary>
     public static BindingPolicy Empty { get; } = new(
@@ -79,6 +89,29 @@ public sealed record BindingPolicy(
         var current = requested;
         var currentVersion = requestedVersion;
         BindingRedirect? lastWinner = null;
+        AppliedPolicy? unificationApplied = null;
+
+        // Framework unification: per-identity table built from the framework runtime directory.
+        // For in-box framework assemblies the CLR rewrites the request to whatever ships in
+        // Framework[64]\v4.0.30319 regardless of direction — verified against live net48:
+        //   Microsoft.VisualBasic 8.0.0.0 → 10.0.0.0 (rolls up)
+        //   System.IO.Compression 4.2.0.0 → 4.0.0.0 (rolls down)
+        //   mscorlib 8.0.0.0          → 4.0.0.0 (rolls down)
+        // Compatibility-pack PKTs (cc7b13ffcd2ddd51, adb9793829ddae60) are excluded from the
+        // unification PKT set, so System.ValueTuple 4.1.0.0 still fails as the CLR does.
+        if (FrameworkUnificationTable is not null
+            && !string.IsNullOrEmpty(requested.PublicKeyToken)
+            && FrameworkUnificationTable.TryGetValue((requested.Name, requested.PublicKeyToken!), out var unifiedVersion)
+            && requestedVersion != unifiedVersion)
+        {
+            current = current with { Version = unifiedVersion.ToString() };
+            currentVersion = unifiedVersion;
+            unificationApplied = new AppliedPolicy(
+                PolicyLayer.FrameworkUnification,
+                requestedVersion,
+                unifiedVersion,
+                CodeBaseHref: null);
+        }
 
         if (TryApplyLayer(FrameworkUnificationRedirects, current, currentVersion, architecture)
             is { } fu)
@@ -110,7 +143,7 @@ public sealed record BindingPolicy(
         }
 
         if (lastWinner is null)
-            return (requested, null);
+            return (current, unificationApplied);
 
         var applied = new AppliedPolicy(
             lastWinner.Source, requestedVersion, currentVersion, CodeBaseHref: null);
@@ -177,10 +210,11 @@ public sealed record BindingPolicy(
             AppConfigRedirects: app.Redirects,
             PublisherPolicyRedirects: publisherRedirects,
             MachineConfigRedirects: machine.Redirects,
-            FrameworkUnificationRedirects: BuildFrameworkUnificationRedirects(),
+            FrameworkUnificationRedirects: [],
             CodeBases: codeBasesAll,
             PublisherPolicyDisabledFor: app.Disabled,
-            PublisherPolicyDisabledGlobally: app.PublisherPolicyDisabledGlobally);
+            PublisherPolicyDisabledGlobally: app.PublisherPolicyDisabledGlobally,
+            FrameworkUnificationTable: BuildFrameworkUnificationTable(architecture));
     }
 
     /// <summary>
@@ -279,32 +313,76 @@ public sealed record BindingPolicy(
         };
     }
 
-    private static List<BindingRedirect> BuildFrameworkUnificationRedirects()
+    /// <summary>
+    /// Builds the per-identity framework unification table by reading every <c>*.dll</c> in
+    /// the architecture-correct .NET Framework runtime directory and recording the actual
+    /// version of each in-box framework assembly (PKT in
+    /// <see cref="AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens"/>). Captures the
+    /// CLR-accurate unification mapping — e.g. <c>Microsoft.VisualBasic</c> ships at
+    /// <c>10.0.0.0</c>, so a request at <c>8.0.0.0</c> rolls forward to <c>10.0.0.0</c>; the
+    /// later GAC scan then locates the file at its real GAC slot
+    /// (<c>v4.0_10.0.0.0__b03f5f7f11d50a3a</c>) instead of falling back to the framework dir.
+    /// </summary>
+    private static Dictionary<(string Name, string PublicKeyToken), Version> BuildFrameworkUnificationTable(
+        NetFxArchitecture architecture)
     {
-        // The CLR unifies references compiled against any 4.x version of well-known framework
-        // assemblies to 4.0.0.0 at runtime. This is the same effect as a 0.0.0.0–4.0.0.0 →
-        // 4.0.0.0 redirect across the well-known framework public key tokens.
-        var pkts = new[]
+        var table = new Dictionary<(string, string), Version>(
+            new FrameworkUnificationKeyComparer());
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return table;
+
+        var windir = Environment.GetEnvironmentVariable("WINDIR");
+        if (string.IsNullOrEmpty(windir)) return table;
+        var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
+        var dir = Path.Combine(windir!, "Microsoft.NET", subdir, "v4.0.30319");
+        if (!Directory.Exists(dir)) return table;
+
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(dir, "*.dll"); }
+        catch (UnauthorizedAccessException) { return table; }
+        catch (IOException) { return table; }
+
+        foreach (var file in files)
         {
-            "b77a5c561934e089",
-            "b03f5f7f11d50a3a",
-            "31bf3856ad364e35",
-            "7cec85d7bea7798e",
-        };
-        var result = new List<BindingRedirect>();
-        foreach (var pkt in pkts)
-        {
-            result.Add(new BindingRedirect(
-                PolicyLayer.FrameworkUnification,
-                Name: "*",
-                PublicKeyToken: pkt,
-                Culture: "neutral",
-                ProcessorArchitecture: null,
-                OldMin: new Version(0, 0, 0, 0),
-                OldMax: new Version(4, 0, 0, 0),
-                NewVersion: new Version(4, 0, 0, 0)));
+            var identity = TryReadAssemblyIdentity(file);
+            if (identity is null) continue;
+            if (string.IsNullOrEmpty(identity.Value.PublicKeyToken)) continue;
+            if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.Value.PublicKeyToken!))
+                continue;
+            if (!Version.TryParse(identity.Value.Version, out var v)) continue;
+            // Preserve the highest version when the dir somehow contains duplicates.
+            var key = (identity.Value.Name, identity.Value.PublicKeyToken!);
+            if (!table.TryGetValue(key, out var existing) || v > existing)
+                table[key] = v;
         }
-        return result;
+        return table;
+    }
+
+    private sealed class FrameworkUnificationKeyComparer
+        : IEqualityComparer<(string Name, string PublicKeyToken)>
+    {
+        public bool Equals((string Name, string PublicKeyToken) x, (string Name, string PublicKeyToken) y) =>
+            string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(x.PublicKeyToken, y.PublicKeyToken, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Name, string PublicKeyToken) obj) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Name),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.PublicKeyToken));
+    }
+
+    private static (string Name, string Version, string Culture, string? PublicKeyToken)?
+        TryReadAssemblyIdentity(string path)
+    {
+        try
+        {
+            using var analyzer = new AssemblyAnalyzer(path);
+            if (!analyzer.HasMetadata || analyzer.AssemblyName is null) return null;
+            return (analyzer.AssemblyName,
+                    analyzer.AssemblyVersion ?? string.Empty,
+                    analyzer.Culture ?? "neutral",
+                    analyzer.PublicKeyToken);
+        }
+        catch { return null; }
     }
 
     /// <summary>

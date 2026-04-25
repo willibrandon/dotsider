@@ -1417,7 +1417,13 @@ public sealed class AssemblyAnalyzer : IDisposable
         return shared is not null;
     }
 
-    private static readonly HashSet<string> WellKnownFrameworkPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Public key tokens that mark an assembly as a Microsoft framework or NuGet-shim assembly.
+    /// Used by <see cref="IsFrameworkAssembly"/> for the dep-graph framework-filter toggle so
+    /// BCL assemblies and the System.* / Microsoft.Extensions.* compatibility-pack shims are
+    /// hidden together. Broader than the unification set on purpose.
+    /// </summary>
+    internal static readonly HashSet<string> WellKnownFrameworkPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
     {
         "b77a5c561934e089",
         "b03f5f7f11d50a3a",
@@ -1425,6 +1431,22 @@ public sealed class AssemblyAnalyzer : IDisposable
         "7cec85d7bea7798e",
         "cc7b13ffcd2ddd51",
         "adb9793829ddae60",
+    };
+
+    /// <summary>
+    /// Public key tokens whose assemblies the .NET Framework unification table covers — the
+    /// in-box BCL and Microsoft tooling keys. The compatibility-pack tokens
+    /// <c>cc7b13ffcd2ddd51</c> (System.Memory family) and <c>adb9793829ddae60</c>
+    /// (Microsoft.Extensions.*) are deliberately excluded: the CLR does not unify those, so
+    /// references like <c>System.ValueTuple, Version=4.1.0.0</c> against the in-box
+    /// <c>4.0.0.0</c> file must still fail without an explicit binding redirect.
+    /// </summary>
+    internal static readonly HashSet<string> FrameworkUnificationPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "b77a5c561934e089",
+        "b03f5f7f11d50a3a",
+        "31bf3856ad364e35",
+        "7cec85d7bea7798e",
     };
 
     private static (string Name, string Version, string Culture, string? PublicKeyToken)? TryReadFileIdentity(string path)

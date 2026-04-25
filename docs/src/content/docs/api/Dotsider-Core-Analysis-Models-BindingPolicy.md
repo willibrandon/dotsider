@@ -30,7 +30,7 @@ public sealed record BindingPolicy : IEquatable<BindingPolicy>
 
 ## Constructors
 
-### BindingPolicy(IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<CodeBaseEntry\>, IReadOnlyCollection\<(string Name, string? PublicKeyToken, string Culture)\>, bool)
+### BindingPolicy(IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<CodeBaseEntry\>, IReadOnlyCollection\<(string Name, string? PublicKeyToken, string Culture)\>, bool, IReadOnlyDictionary\<(string Name, string PublicKeyToken), Version\>?)
 
 Aggregated .NET Framework binding policy assembled from framework unification, machine.config,
 publisher-policy assemblies, and the application configuration file. Layers are stored in
@@ -51,9 +51,16 @@ they target the same identity.
 - `PublisherPolicyDisabledGlobally` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): true when the application configuration set runtime-scoped
 `&lt;publisherPolicy apply="no"/&gt;`, suppressing publisher policy for every bind in
 the app domain — including identities that have no `&lt;dependentAssembly&gt;` block.
+- `FrameworkUnificationTable` ([IReadOnlyDictionary\<String, String\>, Version\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-3)): Per-identity unification table built by scanning `Framework[64]\v4.0.30319` at policy
+load time: maps `(Name, PublicKeyToken)` for in-box framework assemblies (PKT in
+FrameworkUnificationPublicKeyTokens) to the version actually
+shipped in the runtime directory. NetFxArchitecture) consults this map first; references
+at versions less than or equal to the table version unify to the table version, so a
+subsequent GAC lookup finds the file at its real GAC location instead of falling through to
+a post-hoc framework-directory match.
 
 ```csharp
-public BindingPolicy(IReadOnlyList<BindingRedirect> AppConfigRedirects, IReadOnlyList<BindingRedirect> PublisherPolicyRedirects, IReadOnlyList<BindingRedirect> MachineConfigRedirects, IReadOnlyList<BindingRedirect> FrameworkUnificationRedirects, IReadOnlyList<CodeBaseEntry> CodeBases, IReadOnlyCollection<(string Name, string? PublicKeyToken, string Culture)> PublisherPolicyDisabledFor, bool PublisherPolicyDisabledGlobally = false)
+public BindingPolicy(IReadOnlyList<BindingRedirect> AppConfigRedirects, IReadOnlyList<BindingRedirect> PublisherPolicyRedirects, IReadOnlyList<BindingRedirect> MachineConfigRedirects, IReadOnlyList<BindingRedirect> FrameworkUnificationRedirects, IReadOnlyList<CodeBaseEntry> CodeBases, IReadOnlyCollection<(string Name, string? PublicKeyToken, string Culture)> PublisherPolicyDisabledFor, bool PublisherPolicyDisabledGlobally = false, IReadOnlyDictionary<(string Name, string PublicKeyToken), Version>? FrameworkUnificationTable = null)
 ```
 
 ## Properties
@@ -96,6 +103,22 @@ Redirects produced by the CLR's built-in unification of well-known framework PKT
 
 ```csharp
 public IReadOnlyList<BindingRedirect> FrameworkUnificationRedirects { get; init; }
+```
+
+### FrameworkUnificationTable
+
+Per-identity unification table built by scanning `Framework[64]\v4.0.30319` at policy
+load time: maps `(Name, PublicKeyToken)` for in-box framework assemblies (PKT in
+FrameworkUnificationPublicKeyTokens) to the version actually
+shipped in the runtime directory. NetFxArchitecture) consults this map first; references
+at versions less than or equal to the table version unify to the table version, so a
+subsequent GAC lookup finds the file at its real GAC location instead of falling through to
+a post-hoc framework-directory match.
+
+**Returns:** [IReadOnlyDictionary\<String, String\>, Version\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-3)
+
+```csharp
+public IReadOnlyDictionary<(string Name, string PublicKeyToken), Version>? FrameworkUnificationTable { get; init; }
 ```
 
 ### MachineConfigRedirects

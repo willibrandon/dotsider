@@ -240,6 +240,101 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         Assert.Equal(codeBase.Href, result.CandidateProbePath);
     }
 
+    /// <summary>
+    /// The CLR's framework unification table covers in-box framework assemblies: a request for
+    /// <c>Microsoft.VisualBasic v8.0.0.0</c> unifies to the runtime's <c>v10.0.0.0</c> at the
+    /// policy stage, then locates from the GAC where the file actually lives — the stock GAC
+    /// slot <c>v4.0_10.0.0.0__b03f5f7f11d50a3a</c>. Provenance is <see cref="AssemblyProvenance.Gac"/>,
+    /// not the framework runtime directory, so the location dotsider reports matches the CLR.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_MicrosoftVisualBasicV8_UnifiesAndLoadsFromGac()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("Microsoft.VisualBasic", "8.0.0.0", "neutral", "b03f5f7f11d50a3a");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
+        Assert.NotNull(result.Loaded);
+        Assert.Equal("10.0.0.0", result.Loaded!.Version);
+        Assert.NotNull(result.LoadedPath);
+        Assert.Contains("GAC_MSIL", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(result.AppliedPolicy);
+        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.Equal(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.Equal(new Version(10, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+    }
+
+    /// <summary>
+    /// Compatibility-pack assemblies (PKT <c>cc7b13ffcd2ddd51</c>: System.ValueTuple,
+    /// System.Memory, System.Buffers, etc.) are <em>not</em> covered by the CLR's framework
+    /// unification table. A request for <c>System.ValueTuple v4.1.0.0</c> against the in-box
+    /// <c>v4.0.0.0</c> file must fail without an explicit binding redirect — same as the real
+    /// runtime — rather than silently rolling forward.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_CompatibilityPackPkt_DoesNotUnify()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("System.ValueTuple", "4.1.0.0", "neutral", "cc7b13ffcd2ddd51");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.NotEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.NotEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        // The framework unification layer must not have rewritten the version.
+        if (result.AppliedPolicy is not null)
+            Assert.NotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
+    }
+
+    /// <summary>
+    /// In-box framework assemblies unify in both directions. Verified against live net48
+    /// PowerShell: <c>System.IO.Compression v4.2.0.0</c> loads as <c>v4.0.0.0</c> from
+    /// <c>GAC_MSIL\System.IO.Compression\v4.0_4.0.0.0__b77a5c561934e089</c>, even though the
+    /// requested version is higher than the runtime's. The unification table rewrites the
+    /// effective identity, then the GAC scan finds the file at its real slot.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_HigherThanFramework_RollsDownToInBoxVersion()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("System.IO.Compression", "4.2.0.0", "neutral", "b77a5c561934e089");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
+        Assert.NotNull(result.Loaded);
+        Assert.Equal("4.0.0.0", result.Loaded!.Version);
+        Assert.NotNull(result.LoadedPath);
+        Assert.Contains("GAC_MSIL", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(result.AppliedPolicy);
+        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.Equal(new Version(4, 2, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+    }
+
+    /// <summary>
+    /// mscorlib unifies the same way: a request for <c>mscorlib v8.0.0.0</c> loads the
+    /// runtime's <c>v4.0.0.0</c> from <c>Framework[64]\v4.0.30319</c>. Verified against live
+    /// net48 PowerShell. The mscorlib fast path runs after unification, so the effective
+    /// identity already matches the in-box file and the strict identity check passes.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_FrameworkUnification_MscorlibV8_LoadsFrameworkV4()
+    {
+        SkipIfNotWindows();
+        var (ctx, _) = LoadFixture();
+        var requested = new AssemblyRefInfo("mscorlib", "8.0.0.0", "neutral", "b77a5c561934e089");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        Assert.NotNull(result.Loaded);
+        Assert.Equal("4.0.0.0", result.Loaded!.Version);
+        Assert.NotNull(result.LoadedPath);
+        Assert.Contains("v4.0.30319", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(result.AppliedPolicy);
+        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.Equal(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+    }
+
     /// <summary>A weak-named assembly skips the GAC scan entirely.</summary>
     [Fact(Timeout = 30_000)]
     public void Bind_NotStrongNamed_SkipsGac()
