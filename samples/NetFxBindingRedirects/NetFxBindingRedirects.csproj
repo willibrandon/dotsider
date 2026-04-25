@@ -1,0 +1,70 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!--
+  Root EXE for the NetFxBinder test suite. Targets net48 and exercises every code path:
+    - app-local NuGet binding redirect (Newtonsoft.Json 12 → 13)
+    - GAC-only references (System.Drawing, System.Windows.Forms)
+    - <probing privatePath="lib"/> (PrivatePathLib copied to lib/)
+    - <codeBase href="external/CodeBaseLib.dll"/> (CodeBaseLib copied to external/)
+    - deliberately broken <codeBase href="external/Missing.dll"/> for fail-fast test
+    - culture-aware probing via fr/CulturedLib.resources.dll
+  Program.cs (when invoked with the oracle switch) writes a JSON map of Assembly.FullName/Location for every
+  interesting load; tests use that as the runtime ground truth for the binder.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects</AssemblyName>
+    <AppConfig>app.config</AppConfig>
+    <Nullable>annotations</Nullable>
+    <NuGetAudit>false</NuGetAudit>
+    <!-- Disable automatic generation: the committed app.config is authoritative
+         (it carries the deliberately broken codeBase entry the test expects). -->
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetFxBindingRedirects.OldDep\NetFxBindingRedirects.OldDep.csproj" />
+    <ProjectReference Include="..\NetFxBindingRedirects.NewDep\NetFxBindingRedirects.NewDep.csproj" />
+    <!-- PrivatePathLib and CodeBaseLib are loaded *only* via app.config probing/codeBase,
+         so they cannot be project-referenced (which would copy them to bin app-local).
+         Build them explicitly and copy to the expected sub-directories below. -->
+  </ItemGroup>
+
+  <Target Name="CopyPrivatePathAndCodeBaseLibs" AfterTargets="Build">
+    <MSBuild Projects="..\NetFxBindingRedirects.PrivatePathLib\NetFxBindingRedirects.PrivatePathLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.CodeBaseLib\NetFxBindingRedirects.CodeBaseLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.CulturedLib\NetFxBindingRedirects.CulturedLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+
+    <MakeDir Directories="$(OutDir)lib" />
+    <MakeDir Directories="$(OutDir)external" />
+    <MakeDir Directories="$(OutDir)fr" />
+
+    <Copy SourceFiles="..\NetFxBindingRedirects.PrivatePathLib\bin\$(Configuration)\net48\NetFxBindingRedirects.PrivatePathLib.dll"
+          DestinationFolder="$(OutDir)lib" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CodeBaseLib\bin\$(Configuration)\net48\NetFxBindingRedirects.CodeBaseLib.dll"
+          DestinationFolder="$(OutDir)external" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\CulturedLib.dll"
+          DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\fr\CulturedLib.resources.dll"
+          DestinationFolder="$(OutDir)fr" />
+  </Target>
+</Project>

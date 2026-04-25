@@ -260,9 +260,14 @@ public static class DependencyGraphView
 
                     if (nctx.Resolved is null)
                     {
-                        state.GraphNavigationError = nctx.Provenance == AssemblyProvenance.IdentityMismatch
-                            ? $"{node.Name}: identity mismatch against {nctx.CandidateProbePath ?? "(unknown)"}"
-                            : $"{node.Name}: not resolvable";
+                        state.GraphNavigationError = nctx.Provenance switch
+                        {
+                            AssemblyProvenance.IdentityMismatch =>
+                                $"{node.Name}: identity mismatch against {nctx.CandidateProbePath ?? "(unknown)"}",
+                            AssemblyProvenance.CodeBaseMissing =>
+                                $"{node.Name}: codeBase href not found: {nctx.CandidateProbePath ?? "(unknown)"}",
+                            _ => $"{node.Name}: not resolvable",
+                        };
                         state.App.Invalidate();
                         return;
                     }
@@ -833,8 +838,14 @@ public static class DependencyGraphView
         GraphNavigationContext? ctx,
         IReadOnlyDictionary<string, IdentityDiscriminator> disambig)
     {
-        var prefix = ctx?.Provenance == AssemblyProvenance.IdentityMismatch ? "! " :
-                     node.Unresolved ? "? " : string.Empty;
+        var prefix = ctx?.Provenance switch
+        {
+            AssemblyProvenance.CodeBaseMissing => "x ",
+            AssemblyProvenance.IdentityMismatch => "! ",
+            _ when node.Unresolved => "? ",
+            _ when ctx?.AppliedPolicy is not null => "-> ",
+            _ => string.Empty,
+        };
         return prefix + FormatLabel(node, disambig);
     }
 }

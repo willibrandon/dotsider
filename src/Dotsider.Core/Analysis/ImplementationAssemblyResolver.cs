@@ -42,25 +42,47 @@ public static class ImplementationAssemblyResolver
     /// <param name="targetFramework">Target framework moniker for shared framework probing.</param>
     /// <param name="preferredRuntimePack">Preferred runtime pack to probe first.</param>
     /// <param name="sourceBundlePath">If the referencing assembly came from a bundle, the bundle path.</param>
+    /// <param name="netFxBindingContext">
+    /// Per-root .NET Framework binding context, or <see langword="null"/> for non-net48 roots.
+    /// When supplied alongside <paramref name="referencingAnalyzer"/>, the resolver looks up the
+    /// matching <see cref="AssemblyRefInfo"/> in the referencing analyzer's metadata and routes
+    /// the bind through <see cref="NetFxBinder"/> for CLR-accurate framework probing. .NET Core
+    /// / .NET 5+ callers pass <see langword="null"/> here and behavior is unchanged.
+    /// </param>
+    /// <param name="referencingAnalyzer">
+    /// The analyzer for the assembly that references the target, when available. Used together
+    /// with <paramref name="netFxBindingContext"/> to recover the requested AssemblyRef's full
+    /// identity (version + culture + PKT) for the binder.
+    /// </param>
     /// <returns>The resolved assembly, or null if not found.</returns>
     public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName,
         string? declaringType = null, string? targetFramework = null,
-        string? preferredRuntimePack = null, string? sourceBundlePath = null)
+        string? preferredRuntimePack = null, string? sourceBundlePath = null,
+        NetFxBindingContext? netFxBindingContext = null,
+        AssemblyAnalyzer? referencingAnalyzer = null)
     {
         var key = (referencingAssemblyPath, assemblyName, declaringType, sourceBundlePath);
-        if (Cache.TryGetValue(key, out var cached)) return cached;
+        if (netFxBindingContext is null && Cache.TryGetValue(key, out var cached)) return cached;
         var result = ResolveCore(referencingAssemblyPath, assemblyName, declaringType,
-            targetFramework, preferredRuntimePack, sourceBundlePath);
-        Cache.TryAdd(key, result);
+            targetFramework, preferredRuntimePack, sourceBundlePath,
+            netFxBindingContext, referencingAnalyzer);
+        // Don't cache netfx routes — the binder maintains its own cache keyed on the binding
+        // context and identity, and the simple-name key here would collide across two requested
+        // versions that redirect to the same loaded version.
+        if (netFxBindingContext is null)
+            Cache.TryAdd(key, result);
         return result;
     }
 
     private static ResolvedAssembly? ResolveCore(string referencingAssemblyPath, string assemblyName,
         string? declaringType, string? targetFramework, string? preferredRuntimePack,
-        string? sourceBundlePath)
+        string? sourceBundlePath,
+        NetFxBindingContext? netFxBindingContext,
+        AssemblyAnalyzer? referencingAnalyzer)
     {
-        var directResult = AssemblyAnalyzer.ResolveAssembly(
-            referencingAssemblyPath, assemblyName, targetFramework, preferredRuntimePack, sourceBundlePath);
+        var directResult = ResolveDirect(
+            referencingAssemblyPath, assemblyName, targetFramework, preferredRuntimePack,
+            sourceBundlePath, netFxBindingContext, referencingAnalyzer);
 
         // Partial facades (e.g. System.Collections.dll) ship real IL for some types
         // and forward others, so a whole-assembly signal like HasUsableMetadata
@@ -70,7 +92,8 @@ public static class ImplementationAssemblyResolver
         {
             var (outcome, home) = ResolveDeclaringTypeHome(
                 referencingAssemblyPath, assemblyName, directResult, declaringType,
-                targetFramework, preferredRuntimePack, sourceBundlePath);
+                targetFramework, preferredRuntimePack, sourceBundlePath,
+                netFxBindingContext);
             switch (outcome)
             {
                 case HomeOutcome.Found:
@@ -92,12 +115,44 @@ public static class ImplementationAssemblyResolver
 
         if (KnownMappings.TryGetValue(assemblyName, out var implName))
         {
-            var implResult = AssemblyAnalyzer.ResolveAssembly(
-                referencingAssemblyPath, implName, targetFramework, preferredRuntimePack, sourceBundlePath);
+            var implResult = ResolveDirect(
+                referencingAssemblyPath, implName, targetFramework, preferredRuntimePack,
+                sourceBundlePath, netFxBindingContext, referencingAnalyzer);
             if (implResult is not null) return implResult;
         }
 
         return directResult;
+    }
+
+    /// <summary>
+    /// Resolves a single simple-name reference. For .NET Framework roots this looks up the full
+    /// <see cref="AssemblyRefInfo"/> in <paramref name="referencingAnalyzer"/>'s metadata so the
+    /// bind routes through <see cref="NetFxBinder"/> with the requested identity intact.
+    /// .NET Core / .NET 5+ callers fall through to <see cref="AssemblyAnalyzer.ResolveAssembly"/>.
+    /// </summary>
+    private static ResolvedAssembly? ResolveDirect(
+        string referencingAssemblyPath, string assemblyName,
+        string? targetFramework, string? preferredRuntimePack, string? sourceBundlePath,
+        NetFxBindingContext? netFxBindingContext,
+        AssemblyAnalyzer? referencingAnalyzer)
+    {
+        if (netFxBindingContext is not null && referencingAnalyzer is not null)
+        {
+            var asmRef = referencingAnalyzer.HasMetadata
+                ? referencingAnalyzer.AssemblyRefs.FirstOrDefault(
+                    r => string.Equals(r.Name, assemblyName, StringComparison.OrdinalIgnoreCase))
+                : null;
+            if (asmRef is not null)
+            {
+                var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+                    referencingAssemblyPath, asmRef,
+                    targetFramework, preferredRuntimePack, sourceBundlePath, netFxBindingContext);
+                return resolution.Resolved;
+            }
+        }
+
+        return AssemblyAnalyzer.ResolveAssembly(
+            referencingAssemblyPath, assemblyName, targetFramework, preferredRuntimePack, sourceBundlePath);
     }
 
     private enum HomeOutcome
@@ -134,7 +189,8 @@ public static class ImplementationAssemblyResolver
     private static (HomeOutcome Outcome, ResolvedAssembly? Assembly) ResolveDeclaringTypeHome(
         string referencingAssemblyPath, string startAssemblyName, ResolvedAssembly start,
         string declaringType, string? targetFramework, string? preferredRuntimePack,
-        string? sourceBundlePath)
+        string? sourceBundlePath,
+        NetFxBindingContext? netFxBindingContext)
     {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { startAssemblyName };
         var current = start;
@@ -143,10 +199,10 @@ public static class ImplementationAssemblyResolver
         while (true)
         {
             bool ownsType;
-            string? nextAsmName;
+            AssemblyRefInfo? forwardedRef;
             try
             {
-                (ownsType, nextAsmName) = InspectForDeclaringType(current, declaringType);
+                (ownsType, forwardedRef) = InspectForDeclaringType(current, declaringType);
             }
             catch
             {
@@ -155,16 +211,32 @@ public static class ImplementationAssemblyResolver
 
             if (ownsType) return (HomeOutcome.Found, current);
 
-            if (nextAsmName is null)
+            if (forwardedRef is null)
                 return (chasing ? HomeOutcome.ChaseBroken : HomeOutcome.NotFound, null);
 
-            if (!visited.Add(nextAsmName))
+            if (!visited.Add(forwardedRef.Name))
                 return (HomeOutcome.ChaseBroken, null);
 
-            var next = AssemblyAnalyzer.ResolveAssembly(
-                referencingAssemblyPath, nextAsmName,
-                targetFramework, preferredRuntimePack, sourceBundlePath);
-                
+            // Resolve the next hop using the full identity recorded by *this* assembly's
+            // forwarder. For net48 roots that means routing through NetFxBinder with the
+            // forwarder's recorded version/PKT — not whatever AssemblyRef the original
+            // referencer happened to declare for the same simple name.
+            ResolvedAssembly? next;
+            if (netFxBindingContext is not null)
+            {
+                var currentPath = current is ResolvedAssembly.FromFile f ? f.Path : referencingAssemblyPath;
+                var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+                    currentPath, forwardedRef,
+                    targetFramework, preferredRuntimePack, sourceBundlePath, netFxBindingContext);
+                next = resolution.Resolved;
+            }
+            else
+            {
+                next = AssemblyAnalyzer.ResolveAssembly(
+                    referencingAssemblyPath, forwardedRef.Name,
+                    targetFramework, preferredRuntimePack, sourceBundlePath);
+            }
+
             if (next is null) return (HomeOutcome.ChaseBroken, null);
 
             current = next;
@@ -174,9 +246,19 @@ public static class ImplementationAssemblyResolver
 
     /// <summary>
     /// Opens the assembly once and reports either "owns the type as a TypeDef" or
-    /// "forwards it to N" (or neither).
+    /// "forwards it to AssemblyRef N" (or neither). The forwarded ref carries the *current*
+    /// assembly's full identity for the target — name, version, culture, PKT — so subsequent
+    /// netfx binds use full identity rather than re-looking-up against the original referencer.
     /// </summary>
-    private static (bool OwnsType, string? ForwardedTo) InspectForDeclaringType(
+    /// <param name="resolved">The assembly to inspect.</param>
+    /// <param name="declaringType">The type whose owning assembly is sought.</param>
+    /// <returns>
+    /// <c>OwnsType=true</c> when this assembly defines <paramref name="declaringType"/> as a
+    /// TypeDef. Otherwise <c>ForwardedTo</c> carries the full identity of the next-hop assembly
+    /// when this assembly forwards <paramref name="declaringType"/>; <see langword="null"/> when
+    /// the type is not referenced at all.
+    /// </returns>
+    private static (bool OwnsType, AssemblyRefInfo? ForwardedTo) InspectForDeclaringType(
         ResolvedAssembly resolved, string declaringType)
     {
         Stream stream = resolved switch
@@ -203,8 +285,8 @@ public static class ImplementationAssemblyResolver
             foreach (var h in reader.ExportedTypes)
             {
                 if (GetExportedTypeFullName(reader, h) != declaringType) continue;
-                var asmName = GetForwardedAssemblyName(reader, h);
-                if (asmName is not null) return (false, asmName);
+                var forwarded = GetForwardedAssemblyRef(reader, h);
+                if (forwarded is not null) return (false, forwarded);
             }
         }
 
@@ -250,17 +332,35 @@ public static class ImplementationAssemblyResolver
     }
 
     /// <summary>
-    /// Follows the Implementation chain from an exported type up to the root AssemblyReference.
-    /// Returns the assembly name, or null if the chain doesn't end at an AssemblyReference.
+    /// Follows the Implementation chain from an exported type up to the root AssemblyReference,
+    /// returning the full identity (name, version, culture, PKT) for that reference.
     /// </summary>
-    private static string? GetForwardedAssemblyName(MetadataReader reader, ExportedTypeHandle handle)
+    /// <param name="reader">Metadata reader for the assembly that owns the exported type.</param>
+    /// <param name="handle">The exported type handle whose forwarder target is sought.</param>
+    /// <returns>The forwarded reference's full identity, or <see langword="null"/>.</returns>
+    private static AssemblyRefInfo? GetForwardedAssemblyRef(MetadataReader reader, ExportedTypeHandle handle)
     {
         var impl = reader.GetExportedType(handle).Implementation;
         while (impl.Kind == HandleKind.ExportedType)
             impl = reader.GetExportedType((ExportedTypeHandle)impl).Implementation;
 
         if (impl.Kind != HandleKind.AssemblyReference) return null;
-        return reader.GetString(reader.GetAssemblyReference((AssemblyReferenceHandle)impl).Name);
+        var asmRef = reader.GetAssemblyReference((AssemblyReferenceHandle)impl);
+        var name = reader.GetString(asmRef.Name);
+        var version = asmRef.Version?.ToString() ?? string.Empty;
+        var culture = reader.GetString(asmRef.Culture);
+        if (string.IsNullOrEmpty(culture)) culture = "neutral";
+        string? pkt = null;
+        if (!asmRef.PublicKeyOrToken.IsNil)
+        {
+            var bytes = reader.GetBlobBytes(asmRef.PublicKeyOrToken);
+            if (bytes.Length == 8)
+                pkt = Convert.ToHexStringLower(bytes);
+            // .NET Framework AssemblyRefs always store a PKT (8 bytes), not a full public key,
+            // so we don't compute SHA1+truncate here. If a non-8-byte blob slips through, we
+            // intentionally leave PKT null and let the binder treat the ref as weak-named.
+        }
+        return new AssemblyRefInfo(name, version, culture, pkt);
     }
 
     private static bool HasUsableMetadata(ResolvedAssembly resolved)

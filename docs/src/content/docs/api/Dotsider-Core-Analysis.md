@@ -60,7 +60,10 @@ Builds the full transitive assembly dependency graph rooted at an analyzed assem
 Performs a breadth-first walk through each assembly's [AssemblyRefs](/api/dotsider.core.analysis.assemblyanalyzer.assemblyrefs/),
 resolving children by full identity, deduping on [Id](/api/dotsider.core.analysis.models.graphnode.id/), preserving edges
 for cycles and diamonds, and classifying unresolvable and identity-mismatched references as
-non-expanding leaf nodes. Produces a [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/) containing the
+non-expanding leaf nodes. For .NET Framework roots the resolution routes through
+[NetFxBinder](/api/dotsider.core.analysis.netfxbinder/) so that nodes are keyed on the *bound* identity (post-redirect),
+collapsing two distinct requested versions onto a single graph node when policy redirects them
+to the same loaded version. Produces a [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/) containing the
 public topology plus internal navigation metadata consumed only by the TUI.
 
 ```csharp
@@ -99,6 +102,21 @@ assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
 public static class ImplementationAssemblyResolver
+```
+
+### [NetFxBinder](/api/dotsider.core.analysis.netfxbinder/)
+
+CLR-accurate .NET Framework 4.x assembly binder. Consumes a [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)
+and produces a [NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/) matching what the actual .NET Framework binder
+would do at runtime: framework unification + machine.config + publisher policy + app config
+(in CLR walk order, with later layers overriding earlier ones), then locate against the GAC
+(architecture-prioritized, strong-named only), then the Framework[64] runtime directory, then
+configured codeBase href (fail-fast), then the application base + private paths with
+culture-aware probing. .NET Core / .NET 5+ roots never construct a binding context, so this
+type is never invoked for them and their probe chain is unchanged.
+
+```csharp
+public static class NetFxBinder
 ```
 
 ### [NuGetDepsJsonResolver](/api/dotsider.core.analysis.nugetdepsjsonresolver/)

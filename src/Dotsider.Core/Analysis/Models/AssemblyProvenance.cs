@@ -45,4 +45,32 @@ public enum AssemblyProvenance
     /// The graph does not expand from such candidates — the node is left as an unresolved leaf.
     /// </summary>
     IdentityMismatch,
+
+    /// <summary>
+    /// Resolved from the .NET Framework Global Assembly Cache at
+    /// <c>%WINDIR%\Microsoft.NET\assembly\GAC_*</c>. Only produced for .NET Framework roots.
+    /// </summary>
+    Gac,
+
+    /// <summary>
+    /// Resolved from the .NET Framework runtime directory at
+    /// <c>%WINDIR%\Microsoft.NET\Framework[64]\v4.0.30319</c>. Distinct from
+    /// <see cref="RuntimeDirectory"/>, which references the active .NET (Core) host directory
+    /// the analyzer process is itself running on.
+    /// </summary>
+    FrameworkRuntimeDirectory,
+
+    /// <summary>
+    /// Resolved by following a configured <c>&lt;codeBase href&gt;</c> entry from the .NET
+    /// Framework binding policy chain (app config, publisher policy, or machine.config).
+    /// </summary>
+    CodeBase,
+
+    /// <summary>
+    /// A <c>&lt;codeBase&gt;</c> entry for the effective identity was present in the binding
+    /// policy chain but its href pointed at a path that does not exist on disk. Reported as
+    /// fail-fast (the CLR does not fall back to probing in this case), distinct from generic
+    /// <see cref="Unresolved"/> so the UI can surface the configured href to the user.
+    /// </summary>
+    CodeBaseMissing,
 }

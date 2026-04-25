@@ -159,14 +159,17 @@ public static class GeneralView
                     .OnFocusChanged(key => state.GeneralFocusedDep = key)
                     .OnRowActivated((_, asmRef) =>
                     {
-                        var resolved = AssemblyAnalyzer.ResolveAssembly(
-                            state.Analyzer.FilePath, asmRef.Name,
+                        // Use full identity so net48 roots route through NetFxBinder and
+                        // produce the same answer as the Dep Graph and IL navigation.
+                        var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+                            state.Analyzer.FilePath, asmRef,
                             state.Analyzer.TargetFramework,
                             state.Analyzer.PreferredRuntimePack,
-                            state.Analyzer.SourceBundlePath);
-                        if (resolved is not null)
+                            state.Analyzer.SourceBundlePath,
+                            state.RootNetFxBindingContext);
+                        if (resolution.Resolved is not null)
                         {
-                            state.PushAssembly(resolved);
+                            state.PushAssembly(resolution.Resolved);
                             state.App.Invalidate();
                         }
                     })
@@ -179,18 +182,22 @@ public static class GeneralView
                         {
                             var focusedName = state.GeneralFocusedDep as string
                                 ?? (analyzer.AssemblyRefs.Count > 0 ? analyzer.AssemblyRefs[0].Name : null);
-                            if (focusedName is not null)
+                            if (focusedName is null) return;
+                            // Look up the AssemblyRef matching the focused simple name so the
+                            // bind has full identity. Net48 roots route through NetFxBinder.
+                            var asmRef = analyzer.AssemblyRefs.FirstOrDefault(
+                                r => string.Equals(r.Name, focusedName, StringComparison.OrdinalIgnoreCase));
+                            if (asmRef is null) return;
+                            var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+                                state.Analyzer.FilePath, asmRef,
+                                state.Analyzer.TargetFramework,
+                                state.Analyzer.PreferredRuntimePack,
+                                state.Analyzer.SourceBundlePath,
+                                state.RootNetFxBindingContext);
+                            if (resolution.Resolved is not null)
                             {
-                                var resolved = AssemblyAnalyzer.ResolveAssembly(
-                                    state.Analyzer.FilePath, focusedName,
-                                    state.Analyzer.TargetFramework,
-                                    state.Analyzer.PreferredRuntimePack,
-                                    state.Analyzer.SourceBundlePath);
-                                if (resolved is not null)
-                                {
-                                    state.PushAssembly(resolved);
-                                    state.App.Invalidate();
-                                }
+                                state.PushAssembly(resolution.Resolved);
+                                state.App.Invalidate();
                             }
                         }, "Drill into reference");
                     })

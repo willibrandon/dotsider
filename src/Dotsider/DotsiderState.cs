@@ -43,6 +43,8 @@ public sealed class DotsiderState : IDisposable
         if (Analyzer.HasMetadata)
             IlDisassembler = new IlDisassembler(Analyzer);
 
+        RootNetFxBindingContext = NetFxBindingContext.TryBuild(Analyzer);
+
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
@@ -60,6 +62,7 @@ public sealed class DotsiderState : IDisposable
         StringExtractor = new StringExtractor(Analyzer);
         if (Analyzer.HasMetadata)
             IlDisassembler = new IlDisassembler(Analyzer);
+        RootNetFxBindingContext = NetFxBindingContext.TryBuild(Analyzer);
         var hexDoc = new HexRowDocument(new Hex1bDocument(Analyzer.RawBytes.ToArray()));
         HexRowDoc = hexDoc;
         HexEditorState = new EditorState(hexDoc) { IsReadOnly = true };
@@ -77,6 +80,14 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The core assembly analyzer (current top of navigation stack).</summary>
     public AssemblyAnalyzer Analyzer { get; internal set; }
+
+    /// <summary>
+    /// The .NET Framework binding context for the *root* analyzed assembly, or
+    /// <see langword="null"/> for non-net48 roots. Cached so every resolution surface (Dep
+    /// Graph, IL navigation, General-tab drill-in, type-forwarder chase) uses the same context
+    /// and produces the same bind for any net48 reference.
+    /// </summary>
+    public NetFxBindingContext? RootNetFxBindingContext { get; private set; }
 
     /// <summary>The IL disassembler for method body inspection. Null for NativeAOT binaries.</summary>
     public IlDisassembler? IlDisassembler { get; internal set; }
@@ -921,7 +932,8 @@ public sealed class DotsiderState : IDisposable
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, declaringType,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
+            RootNetFxBindingContext, Analyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
@@ -983,7 +995,8 @@ public sealed class DotsiderState : IDisposable
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, typeRef.FullName,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
+            RootNetFxBindingContext, Analyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
@@ -1029,7 +1042,8 @@ public sealed class DotsiderState : IDisposable
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
             Analyzer.FilePath, assemblyName, declaringType,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath);
+            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
+            RootNetFxBindingContext, Analyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");

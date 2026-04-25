@@ -1258,19 +1258,28 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <param name="targetFramework">Target framework moniker for shared-framework probing.</param>
     /// <param name="preferredRuntimePack">Preferred runtime pack name.</param>
     /// <param name="sourceBundlePath">Bundle path, when the referencing assembly came from a bundle.</param>
+    /// <param name="netFxBindingContext">
+    /// Per-root .NET Framework binding context, or <see langword="null"/> for non-net48 roots.
+    /// When supplied, the resolution routes through <see cref="NetFxBinder.Bind"/> instead of the
+    /// .NET Core probe chain, faithfully modeling the CLR's framework unification + machine.config
+    /// + publisher policy + app config + GAC + Framework[64] runtime + codeBase + appBase order.
+    /// </param>
     /// <returns>
-    /// A tuple of the resolved assembly (or <see langword="null"/>), the provenance classifying
-    /// how the node was located, and the path of a simple-name match whose identity did not
-    /// match (populated only when provenance is <see cref="AssemblyProvenance.IdentityMismatch"/>).
+    /// An <see cref="AssemblyResolution"/> carrying the resolved assembly, provenance, optional
+    /// candidate-probe path, and (for net48 roots) the applied policy and loaded identity.
     /// </returns>
-    public static (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath)
+    public static AssemblyResolution
         ResolveAssemblyByIdentity(
             string referencingAssemblyPath,
             AssemblyRefInfo identity,
             string? targetFramework = null,
             string? preferredRuntimePack = null,
-            string? sourceBundlePath = null)
+            string? sourceBundlePath = null,
+            NetFxBindingContext? netFxBindingContext = null)
     {
+        if (netFxBindingContext is not null)
+            return BindViaNetFxBinder(identity, netFxBindingContext);
+
         var directory = sourceBundlePath is not null
             ? Path.GetDirectoryName(sourceBundlePath)!
             : Path.GetDirectoryName(referencingAssemblyPath)!;
@@ -1333,11 +1342,37 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         if (hit is { } h)
-            return (h.Item1, h.Item2, null);
+            return new AssemblyResolution(h.Item1, h.Item2, null);
 
         return mismatchPath is not null
-            ? (null, AssemblyProvenance.IdentityMismatch, mismatchPath)
-            : (null, AssemblyProvenance.Unresolved, null);
+            ? new AssemblyResolution(null, AssemblyProvenance.IdentityMismatch, mismatchPath)
+            : new AssemblyResolution(null, AssemblyProvenance.Unresolved, null);
+    }
+
+    /// <summary>
+    /// Routes an identity-based resolution through <see cref="NetFxBinder"/> for a .NET Framework
+    /// root and adapts its <see cref="NetFxBindResult"/> into an <see cref="AssemblyResolution"/>.
+    /// </summary>
+    /// <param name="identity">The identity exactly as named by the metadata reference.</param>
+    /// <param name="ctx">The binding context for the analyzed root.</param>
+    /// <returns>The resolution.</returns>
+    private static AssemblyResolution BindViaNetFxBinder(
+        AssemblyRefInfo identity, NetFxBindingContext ctx)
+    {
+        var bind = NetFxBinder.Bind(identity, ctx);
+        ResolvedAssembly? resolved = bind.LoadedPath is null ? null : new ResolvedAssembly.FromFile(bind.LoadedPath);
+        var candidate = bind.Provenance switch
+        {
+            AssemblyProvenance.IdentityMismatch => bind.CandidateProbePath,
+            AssemblyProvenance.CodeBaseMissing => bind.AppliedPolicy?.CodeBaseHref ?? bind.CandidateProbePath,
+            _ => null,
+        };
+        return new AssemblyResolution(
+            Resolved: resolved,
+            Provenance: bind.Provenance,
+            CandidateProbePath: candidate,
+            AppliedPolicy: bind.AppliedPolicy,
+            LoadedIdentity: bind.Loaded);
     }
 
     /// <summary>
@@ -1361,7 +1396,17 @@ public sealed class AssemblyAnalyzer : IDisposable
         string? targetFramework,
         string? preferredRuntimePack)
     {
-        if (provenance is AssemblyProvenance.SharedFramework or AssemblyProvenance.RuntimeDirectory)
+        if (provenance is AssemblyProvenance.SharedFramework
+                       or AssemblyProvenance.RuntimeDirectory
+                       or AssemblyProvenance.FrameworkRuntimeDirectory)
+            return true;
+
+        // The GAC also hosts third-party strong-named libraries — filtering all GAC hits as
+        // framework would hide user dependencies in the dep graph. Only treat a GAC node as
+        // framework when its PKT matches a well-known Microsoft framework key.
+        if (provenance is AssemblyProvenance.Gac
+            && identity.PublicKeyToken is string gacPkt
+            && WellKnownFrameworkPublicKeyTokens.Contains(gacPkt))
             return true;
 
         if (identity.PublicKeyToken is string pkt && WellKnownFrameworkPublicKeyTokens.Contains(pkt))

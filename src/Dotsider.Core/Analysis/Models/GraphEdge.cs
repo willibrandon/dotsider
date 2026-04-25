@@ -16,7 +16,17 @@ namespace Dotsider.Core.Analysis.Models;
 /// to the exact full identity of the target (not merely its simple name). Zero when the target
 /// is referenced by the AssemblyRef table but no TypeRefs are scoped to it.
 /// </param>
+/// <param name="RequestedIdentity">
+/// The identity exactly as it appeared in the referencing assembly's AssemblyRef metadata,
+/// before any .NET Framework binding policy was applied. May differ from the target node's
+/// identity when the target was keyed on the bound identity (e.g., two AssemblyRefs at
+/// different versions both redirected to the same loaded version collapse onto a single
+/// target node, but each edge preserves its own pre-redirect requested identity here).
+/// <see langword="null"/> when there was no policy rewrite — the requested identity is the
+/// same as the target node's identity in that case.
+/// </param>
 public sealed record GraphEdge(
     string SourceId,
     string TargetId,
-    int TypeRefCount);
+    int TypeRefCount,
+    AssemblyRefInfo? RequestedIdentity = null);

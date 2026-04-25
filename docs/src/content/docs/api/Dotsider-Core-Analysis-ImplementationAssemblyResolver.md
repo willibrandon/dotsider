@@ -23,7 +23,7 @@ public static class ImplementationAssemblyResolver
 
 ## Methods
 
-### Resolve(string, string, string?, string?, string?, string?)
+### Resolve(string, string, string?, string?, string?, string?, NetFxBindingContext?, AssemblyAnalyzer?)
 
 Resolves an assembly name to a path or bundle entry, falling back to the
 implementation assembly if the reference assembly has no IL.
@@ -36,12 +36,20 @@ implementation assembly if the reference assembly has no IL.
 - `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker for shared framework probing.
 - `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Preferred runtime pack to probe first.
 - `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): If the referencing assembly came from a bundle, the bundle path.
+- `netFxBindingContext` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)): Per-root .NET Framework binding context, or null for non-net48 roots.
+When supplied alongside referencingAnalyzer, the resolver looks up the
+matching [AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/) in the referencing analyzer's metadata and routes
+the bind through [NetFxBinder](/api/dotsider.core.analysis.netfxbinder/) for CLR-accurate framework probing. .NET Core
+/ .NET 5+ callers pass null here and behavior is unchanged.
+- `referencingAnalyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer for the assembly that references the target, when available. Used together
+with netFxBindingContext to recover the requested AssemblyRef's full
+identity (version + culture + PKT) for the binder.
 
 **Returns:** [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
 The resolved assembly, or null if not found.
 
 ```csharp
-public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
+public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null, NetFxBindingContext? netFxBindingContext = null, AssemblyAnalyzer? referencingAnalyzer = null)
 ```
 

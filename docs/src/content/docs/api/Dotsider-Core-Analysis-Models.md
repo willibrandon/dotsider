@@ -7,6 +7,18 @@ sidebar:
 
 ## Classes
 
+### [AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/)
+
+Records that a requested identity was rewritten by .NET Framework binding policy. Carried
+on [AppliedPolicy](/api/dotsider.core.analysis.models.graphnavigationcontext.appliedpolicy/) so the UI can render
+"↪ redirected 1.0.0.0 → 13.0.0.0 via app.config" without inventing new
+[AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/) values for redirected hits — a redirect-applied AppLocal
+hit is still [AppLocal](/api/dotsider.core.analysis.models.assemblyprovenance.applocal/), just with this annotation attached.
+
+```csharp
+public sealed record AppliedPolicy : IEquatable<AppliedPolicy>
+```
+
 ### [AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/)
 
 The complete diff result between two assemblies.
@@ -60,6 +72,49 @@ Information about a referenced assembly from the AssemblyRef metadata table.
 public sealed record AssemblyRefInfo : IEquatable<AssemblyRefInfo>
 ```
 
+### [AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/)
+
+Outcome of an identity-based assembly resolution. Carries everything the dependency-graph
+builder and UI need: the resolved file/bundle (or null on failure), the
+provenance classifying how the file was located, the candidate path of an identity-mismatched
+simple-name hit, and — for .NET Framework binds — the policy-layer attribution and the
+effective bound identity.
+
+```csharp
+public sealed record AssemblyResolution : IEquatable<AssemblyResolution>
+```
+
+### [BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/)
+
+Aggregated .NET Framework binding policy assembled from framework unification, machine.config,
+publisher-policy assemblies, and the application configuration file. Layers are stored in
+document order with first-match semantics — the same model the CLR applies — and later layers
+(machine.config &gt; publisher &gt; app &gt; framework unification) override earlier ones when
+they target the same identity.
+
+```csharp
+public sealed record BindingPolicy : IEquatable<BindingPolicy>
+```
+
+### [BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/)
+
+Output of PolicyLayer): the redirects, codeBase entries,
+per-identity publisher-policy disablements, probing privatePath segments, and the
+runtime-scoped publisher-policy bypass flag found in a single configuration file.
+
+```csharp
+public sealed record BindingPolicyParseResult : IEquatable<BindingPolicyParseResult>
+```
+
+### [BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/)
+
+One `&lt;bindingRedirect&gt;` entry parsed from a .NET Framework configuration file
+or a publisher-policy assembly's embedded XML resource.
+
+```csharp
+public sealed record BindingRedirect : IEquatable<BindingRedirect>
+```
+
 ### [BundleEntry](/api/dotsider.core.analysis.models.bundleentry/)
 
 Describes a single file entry within a .NET single-file bundle.
@@ -82,6 +137,16 @@ CLR (Common Language Runtime) header information from the PE file's COR20 header
 
 ```csharp
 public sealed record ClrHeader : IEquatable<ClrHeader>
+```
+
+### [CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/)
+
+One `&lt;codeBase&gt;` entry parsed from a .NET Framework configuration file or
+publisher-policy assembly. CodeBase entries are honored only for strong-named binds at
+the version specified.
+
+```csharp
+public sealed record CodeBaseEntry : IEquatable<CodeBaseEntry>
 ```
 
 ### [CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/)
@@ -254,6 +319,17 @@ A token kind that is recognized but not supported for navigation.
 public sealed record IlNavigationTarget.Unsupported : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.Unsupported>
 ```
 
+### [LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/)
+
+Per-loaded-identity entry interned in `LoadedAssemblyCache`. When two distinct requested
+identities redirect to the same loaded identity, both [Loaded](/api/dotsider.core.analysis.models.netfxbindresult.loaded/)
+values reference-equal this single entry, faithfully modeling the CLR's "already loaded"
+reuse: only one filesystem read per loaded identity.
+
+```csharp
+public sealed record LoadedAssemblyEntry : IEquatable<LoadedAssemblyEntry>
+```
+
 ### [MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/)
 
 Information about a referenced member (method or field) from the MemberRef metadata table.
@@ -268,6 +344,28 @@ Information about a method defined in the assembly's MethodDef metadata table.
 
 ```csharp
 public sealed record MethodDefInfo : IEquatable<MethodDefInfo>
+```
+
+### [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)
+
+Per-root metadata required to drive a CLR-accurate .NET Framework bind. Built once per
+analyzed root via [AssemblyAnalyzer)](/api/dotsider.core.analysis.models.netfxbindingcontext.trybuild(dotsider.core.analysis.assemblyanalyzer)/); carried alongside the analyzer through every
+resolution surface (Dep Graph, IL navigation, General-tab drill-in, type-forwarder chase)
+so that every code path produces the same answer for any net48 reference.
+
+```csharp
+public sealed record NetFxBindingContext : IEquatable<NetFxBindingContext>
+```
+
+### [NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/)
+
+Result of a single .NET Framework bind. Carries the requested identity, the effective identity
+after policy was applied, the loaded identity (when binding succeeded), the file path the CLR
+would load, the provenance classification, the policy-layer attribution, and (when binding
+failed) a human-readable reason for UI surfacing.
+
+```csharp
+public sealed record NetFxBindResult : IEquatable<NetFxBindResult>
 ```
 
 ### [NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/)
@@ -414,6 +512,28 @@ Distinguishes whether a MemberRef entry refers to a method or a field.
 
 ```csharp
 public enum MemberRefKind
+```
+
+### [NetFxArchitecture](/api/dotsider.core.analysis.models.netfxarchitecture/)
+
+Effective process bitness for a .NET Framework root assembly. Models actual runtime
+architecture, not the PE's compile-time descriptor — AnyCPU is a compile-time attribute
+that resolves to host bitness at load time, so there is no `MSIL` runtime arch.
+
+```csharp
+public enum NetFxArchitecture
+```
+
+### [PolicyLayer](/api/dotsider.core.analysis.models.policylayer/)
+
+Identifies which layer of .NET Framework binding policy rewrote a requested assembly
+identity. The CLR walks app config first, then publisher policy (unless bypassed by
+`&lt;publisherPolicy apply="no"/&gt;`), then machine.config; later layers override
+earlier ones, so the effective winner is machine.config &gt; publisher &gt; app &gt;
+framework unification.
+
+```csharp
+public enum PolicyLayer
 ```
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)

@@ -16,7 +16,11 @@ Identity is keyed on the full `(name, version, culture, public key token)` tuple
 
 ## Unresolved and identity-mismatched nodes
 
-References that cannot be located on disk or inside a bundle render as leaf nodes prefixed with `?`. When a probe produces a file whose simple name matches but whose manifest identity does not, the node renders with a `!` prefix and the graph does not expand from the mismatched file — the closure stays honest about what it actually contains.
+References that cannot be located on disk or inside a bundle render as leaf nodes prefixed with `?`. When a probe produces a file whose simple name matches but whose manifest identity does not, the node renders with a `!` prefix and the graph does not expand from the mismatched file — the closure stays honest about what it actually contains. A `↪` prefix marks a node where binding policy rewrote the requested version; a `×` prefix marks a configured `<codeBase>` whose `href` does not exist on disk.
+
+## .NET Framework targets
+
+For a `net48` (or other 4.x) root, resolution walks the .NET Framework binder rather than the .NET Core probe chain: framework unification, `app.config` and `machine.config` `<bindingRedirect>` entries, publisher-policy assemblies in the GAC, the GAC itself, the framework runtime directory under `Microsoft.NET\Framework[64]\v4.0.30319`, configured `<codeBase>` hrefs, then the application base and `<probing privatePath>`. Nodes are keyed on the bound identity, so two upstream references at different versions that both redirect to the same loaded version collapse onto a single node.
 
 ## Scope and filter
 
