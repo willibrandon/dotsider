@@ -195,6 +195,51 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
             AssemblyProvenance.Gac, thirdParty, ".NETFramework,Version=v4.8", null));
     }
 
+    /// <summary>
+    /// A <c>file://server/share/...</c> codeBase href must round-trip to the UNC path
+    /// <c>\\server\share\...</c> rather than dropping the leading slashes and looking relative.
+    /// We don't expect the share to exist on the test machine — the assertion is that the
+    /// failure reason names the original UNC href, proving the resolver kept the prefix and
+    /// hit a real file probe (which then missed) instead of silently misclassifying.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Bind_CodeBaseHref_UncFileUri_PreservesUncPrefix()
+    {
+        SkipIfNotWindows();
+
+        // Synthesize a binding context with one codeBase entry pointing at a UNC URI. We use
+        // a server name that almost certainly does not resolve, so the bind fails — but the
+        // failure must report the UNC href, which it can only do if the resolver kept \\.
+        var codeBase = new CodeBaseEntry(
+            PolicyLayer.AppConfig,
+            "Acme.UncLib", "1111111111111111", "neutral",
+            new Version(1, 0, 0, 0),
+            "file://dotsider-test-no-such-server/share/Acme.UncLib.dll");
+        var policy = new BindingPolicy(
+            AppConfigRedirects: [],
+            PublisherPolicyRedirects: [],
+            MachineConfigRedirects: [],
+            FrameworkUnificationRedirects: [],
+            CodeBases: [codeBase],
+            PublisherPolicyDisabledFor: []);
+        var ctx = new NetFxBindingContext(
+            EntryAssemblyPath: Path.Combine(Path.GetTempPath(), "no-such-root.exe"),
+            AppBaseDirectory: Path.GetTempPath(),
+            ConfigPath: null,
+            TargetFramework: ".NETFramework,Version=v4.8",
+            EffectiveArchitecture: NetFxArchitecture.Amd64,
+            Policy: policy,
+            PrivatePaths: [],
+            GacRoots: []);
+
+        var requested = new AssemblyRefInfo("Acme.UncLib", "1.0.0.0", "neutral", "1111111111111111");
+        var result = NetFxBinder.Bind(requested, ctx);
+        Assert.Equal(AssemblyProvenance.CodeBaseMissing, result.Provenance);
+        Assert.NotNull(result.AppliedPolicy);
+        Assert.Equal(codeBase.Href, result.AppliedPolicy!.CodeBaseHref);
+        Assert.Equal(codeBase.Href, result.CandidateProbePath);
+    }
+
     /// <summary>A weak-named assembly skips the GAC scan entirely.</summary>
     [Fact(Timeout = 30_000)]
     public void Bind_NotStrongNamed_SkipsGac()

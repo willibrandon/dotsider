@@ -280,6 +280,39 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
         Assert.Equal(PolicyLayer.FrameworkUnification, applied!.Source);
     }
 
+    /// <summary>
+    /// privatePath segments declared inside an &lt;assemblyBinding appliesTo="v2.0…"&gt; block
+    /// must not bleed into a net4 root's probe list.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void PrivatePaths_HonorAppliesToFilter_DropNonV4Blocks()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dotsider-privatepath-applies-to-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, "fake.exe.config");
+            File.WriteAllText(configPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <configuration>
+                  <runtime>
+                    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1" appliesTo="v2.0.50727">
+                      <probing privatePath="legacy" />
+                    </assemblyBinding>
+                    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+                      <probing privatePath="lib" />
+                    </assemblyBinding>
+                  </runtime>
+                </configuration>
+                """);
+            var parsed = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig);
+            Assert.DoesNotContain("legacy", parsed.PrivatePaths);
+            Assert.Contains("lib", parsed.PrivatePaths);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     /// <summary>Privatepath entries are read from app.config.</summary>
     [Fact(Timeout = 30_000)]
     public void PrivatePaths_ParsedAndRootedAtAppBase()

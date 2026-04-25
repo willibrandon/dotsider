@@ -1,7 +1,5 @@
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
-using System.Xml;
-using System.Xml.Linq;
 
 namespace Dotsider.Core.Analysis.Models;
 
@@ -58,7 +56,10 @@ public sealed record NetFxBindingContext(
         var gacRoots = DefaultGacRoots();
         var policy = BindingPolicy.LoadFrom(configPath, arch, gacRoots);
 
-        var privatePaths = ParsePrivatePaths(configPath);
+        // Reuse the parser that drives BindingPolicy: it already filters <assemblyBinding>
+        // blocks by appliesTo, so privatePath segments declared under non-v4 blocks (e.g.
+        // appliesTo="v2.0.50727") are excluded for net48 roots.
+        var privatePaths = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig).PrivatePaths;
 
         return new NetFxBindingContext(
             EntryAssemblyPath: entryPath,
@@ -102,33 +103,6 @@ public sealed record NetFxBindingContext(
         var subdir = EffectiveArchitecture == NetFxArchitecture.Amd64 ? "Framework64" : "Framework";
         var path = Path.Combine(windir!, "Microsoft.NET", subdir, "v4.0.30319");
         return Directory.Exists(path) ? path : null;
-    }
-
-    private static List<string> ParsePrivatePaths(string? configPath)
-    {
-        var result = new List<string>();
-        if (configPath is null) return result;
-        try
-        {
-            var doc = XDocument.Load(configPath);
-            if (doc.Root is not { } root) return result;
-            if (!string.Equals(root.Name.LocalName, "configuration", StringComparison.Ordinal))
-                return result;
-
-            foreach (var runtime in root.Elements().Where(e => e.Name.LocalName == "runtime"))
-            foreach (var binding in runtime.Elements().Where(e => e.Name.LocalName == "assemblyBinding"))
-            foreach (var probing in binding.Elements().Where(e => e.Name.LocalName == "probing"))
-            {
-                var pp = probing.Attribute("privatePath")?.Value;
-                if (string.IsNullOrEmpty(pp)) continue;
-                foreach (var seg in pp.Split([';'], StringSplitOptions.RemoveEmptyEntries))
-                    result.Add(seg.Trim());
-            }
-        }
-        catch (XmlException) { }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-        return result;
     }
 
     private static string[] DefaultGacRoots()

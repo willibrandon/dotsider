@@ -278,11 +278,18 @@ public static class NetFxBinder
         if (Path.IsPathRooted(href)) return href;
         if (href.Contains("://"))
         {
-            if (href.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-                return Uri.UnescapeDataString(href[8..]).Replace('/', Path.DirectorySeparatorChar);
-            if (href.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
-                return Uri.UnescapeDataString(href[7..]).Replace('/', Path.DirectorySeparatorChar);
-            return null;
+            if (!href.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                return null;
+            // Use Uri.LocalPath so UNC hrefs like file://server/share/lib.dll round-trip to
+            // \\server\share\lib.dll instead of dropping the leading \\ and looking relative.
+            try
+            {
+                return new Uri(href).LocalPath;
+            }
+            catch (UriFormatException)
+            {
+                return null;
+            }
         }
         return Path.Combine(appBase, href.Replace('/', Path.DirectorySeparatorChar));
     }
