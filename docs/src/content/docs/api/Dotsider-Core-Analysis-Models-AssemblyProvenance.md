@@ -38,6 +38,54 @@ Resolved from the referencing assembly's directory on disk.
 AppLocal = 1
 ```
 
+### CodeBase
+
+Resolved by following a configured `&lt;codeBase href&gt;` entry from the .NET
+Framework binding policy chain (app config, publisher policy, or machine.config).
+
+**Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+```csharp
+CodeBase = 12
+```
+
+### CodeBaseMissing
+
+A `&lt;codeBase&gt;` entry for the effective identity was present in the binding
+policy chain but its href pointed at a path that does not exist on disk. Reported as
+fail-fast (the CLR does not fall back to probing in this case), distinct from generic
+[Unresolved](/api/dotsider.core.analysis.models.assemblyprovenance.unresolved/) so the UI can surface the configured href to the user.
+
+**Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+```csharp
+CodeBaseMissing = 13
+```
+
+### FrameworkRuntimeDirectory
+
+Resolved from the .NET Framework runtime directory at
+`%WINDIR%\Microsoft.NET\Framework[64]\v4.0.30319`. Distinct from
+[RuntimeDirectory](/api/dotsider.core.analysis.models.assemblyprovenance.runtimedirectory/), which references the active .NET (Core) host directory
+the analyzer process is itself running on.
+
+**Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+```csharp
+FrameworkRuntimeDirectory = 11
+```
+
+### Gac
+
+Resolved from the .NET Framework Global Assembly Cache at
+`%WINDIR%\Microsoft.NET\assembly\GAC_*`. Only produced for .NET Framework roots.
+
+**Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+```csharp
+Gac = 10
+```
+
 ### HostBundle
 
 Extracted from the host process bundle (when dotsider itself is bundled).

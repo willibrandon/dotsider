@@ -31,6 +31,21 @@ namespace Dotsider.Core.Analysis.Models;
 /// <param name="CandidateProbePath">
 /// The file path of a simple-name match whose identity did not match the requested reference,
 /// populated only when <see cref="Provenance"/> is <see cref="AssemblyProvenance.IdentityMismatch"/>.
+/// For <see cref="AssemblyProvenance.CodeBaseMissing"/> this carries the configured
+/// <c>codeBase</c> href the CLR would have loaded but couldn't find.
+/// </param>
+/// <param name="AppliedPolicy">
+/// When the .NET Framework binder rewrote the requested identity (binding redirect, publisher
+/// policy, machine.config, or framework unification), records the requested → bound version
+/// transition and the policy layer that produced it. <see langword="null"/> for non-redirected
+/// resolutions and for all .NET Core / .NET 5+ resolutions.
+/// </param>
+/// <param name="LoadedIdentity">
+/// The identity the binder actually loaded after applying policy. May differ from the
+/// requesting <see cref="GraphNode"/>'s identity when the node was keyed on the bound
+/// identity (so multiple distinct requested versions that redirect to the same loaded version
+/// collapse onto a single graph node). <see langword="null"/> when no bound identity exists
+/// (Unresolved, IdentityMismatch, CodeBaseMissing).
 /// </param>
 public sealed record GraphNavigationContext(
     ResolvedAssembly? Resolved,
@@ -40,4 +55,6 @@ public sealed record GraphNavigationContext(
     string? ReferencingPreferredRuntimePack,
     AssemblyProvenance Provenance,
     bool IsFrameworkAssembly,
-    string? CandidateProbePath);
+    string? CandidateProbePath,
+    AppliedPolicy? AppliedPolicy = null,
+    AssemblyRefInfo? LoadedIdentity = null);

@@ -286,9 +286,15 @@ samples/
   NetFxConsole/       .NET Framework 4.8 console app (Dynamic tab guard testing)
   NativeAotConsole/   NativeAOT-published console app (Dynamic tab tracing tests)
   SelfContainedConsole/ Self-contained single-file bundle (bundle reading, resolution tests)
+  Dotted.Name.App/    Console app with a dotted assembly name (apphost detection)
+  NetFxBindingRedirects/  .NET Framework 4.8 fixture for the netfx binder — GAC, framework
+                      runtime dir, binding redirects, codeBase, privatePath, satellite culture.
+                      Five sibling projects (OldDep, NewDep, PrivatePathLib, CodeBaseLib,
+                      CulturedLib) supply the references the root EXE deploys and resolves.
 
 tests/Dotsider.Tests/
-  SampleAssemblyFixture.cs   Builds all 10 samples once, shared across tests
+  SampleAssemblyFixture.cs   Builds every sample once and runs the netfx oracle EXE,
+                             shared across tests
   *Tests.cs                  Integration tests against real assemblies
 
 tests/Dotsider.Mcp.Tests/

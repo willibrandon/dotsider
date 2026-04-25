@@ -148,7 +148,7 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
     public void UnresolvedRef_AddedAsLeafWithUnresolvedFlag()
     {
         using var scope = SyntheticAssemblyScope.Create();
-        var rootPath = scope.WriteAssembly("RootUnres", refs: new[] { ("NonExistentTarget_ZZZ", new Version(1, 0, 0, 0)) });
+        var rootPath = scope.WriteAssembly("RootUnres", refs: [("NonExistentTarget_ZZZ", new Version(1, 0, 0, 0))]);
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -173,13 +173,13 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         // Place a "MisIdent" assembly on disk with version 9.9.9.9 and a child ref to "ChildOfMis".
         scope.WriteAssembly(
             "MisIdent", new Version(9, 9, 9, 9),
-            refs: new[] { ("ChildOfMis", new Version(1, 0, 0, 0)) });
+            refs: [("ChildOfMis", new Version(1, 0, 0, 0))]);
         // Also place the child so, if the mismatch were silently expanded, ChildOfMis would appear.
         scope.WriteAssembly("ChildOfMis", new Version(1, 0, 0, 0));
         // Root requests "MisIdent" version 1.0.0.0 — identity mismatch.
         var rootPath = scope.WriteAssembly(
             "RootMis",
-            refs: new[] { ("MisIdent", new Version(1, 0, 0, 0)) });
+            refs: [("MisIdent", new Version(1, 0, 0, 0))]);
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -202,11 +202,11 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         using var scope = SyntheticAssemblyScope.Create();
         var rootPath = scope.WriteAssembly(
             "RootDupVersion",
-            refs: new[]
-            {
+            refs:
+            [
                 ("TargetLib", new Version(1, 0, 0, 0)),
                 ("TargetLib", new Version(2, 0, 0, 0)),
-            });
+            ]);
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -225,11 +225,11 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         using var scope = SyntheticAssemblyScope.Create();
         var rootPath = scope.WriteAssembly(
             "RootDupPkt",
-            refs: new[]
-            {
-                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }),
-                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)new byte[] { 9, 9, 9, 9, 9, 9, 9, 9 }),
-            });
+            refs:
+            [
+                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)[1, 2, 3, 4, 5, 6, 7, 8]),
+                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)[9, 9, 9, 9, 9, 9, 9, 9]),
+            ]);
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -250,17 +250,17 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
         using var scope = SyntheticAssemblyScope.Create();
         var rootPath = scope.WriteAssembly(
             "RootCountCheck",
-            refs: new[]
-            {
+            refs:
+            [
                 ("TargetCountLib", new Version(1, 0, 0, 0)),
                 ("TargetCountLib", new Version(2, 0, 0, 0)),
-            },
-            typeRefs: new[]
-            {
+            ],
+            typeRefs:
+            [
                 ("Sample.T1", 0),
                 ("Sample.T2", 0),
                 ("Sample.T3", 1),
-            });
+            ]);
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -284,8 +284,8 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
     public void Cycle_EdgeEmittedButNotRecursed()
     {
         using var scope = SyntheticAssemblyScope.Create();
-        scope.WriteAssembly("CycA", refs: new[] { ("CycB", new Version(1, 0, 0, 0)) });
-        scope.WriteAssembly("CycB", refs: new[] { ("CycA", new Version(1, 0, 0, 0)) });
+        scope.WriteAssembly("CycA", refs: [("CycB", new Version(1, 0, 0, 0))]);
+        scope.WriteAssembly("CycB", refs: [("CycA", new Version(1, 0, 0, 0))]);
         var rootPath = Path.Combine(scope.Directory, "CycA.dll");
 
         using var a = new AssemblyAnalyzer(rootPath);
@@ -308,13 +308,13 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
     public void Diamond_MergedOnIdentity()
     {
         using var scope = SyntheticAssemblyScope.Create();
-        scope.WriteAssembly("DiaRoot", refs: new[]
-        {
+        scope.WriteAssembly("DiaRoot", refs:
+        [
             ("DiaLeftBranch", new Version(1, 0, 0, 0)),
             ("DiaRightBranch", new Version(1, 0, 0, 0)),
-        });
-        scope.WriteAssembly("DiaLeftBranch", refs: new[] { ("DiaCommon", new Version(1, 0, 0, 0)) });
-        scope.WriteAssembly("DiaRightBranch", refs: new[] { ("DiaCommon", new Version(1, 0, 0, 0)) });
+        ]);
+        scope.WriteAssembly("DiaLeftBranch", refs: [("DiaCommon", new Version(1, 0, 0, 0))]);
+        scope.WriteAssembly("DiaRightBranch", refs: [("DiaCommon", new Version(1, 0, 0, 0))]);
         scope.WriteAssembly("DiaCommon");
 
         var rootPath = Path.Combine(scope.Directory, "DiaRoot.dll");

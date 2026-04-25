@@ -7,7 +7,10 @@ namespace Dotsider.Core.Analysis;
 /// Performs a breadth-first walk through each assembly's <see cref="AssemblyAnalyzer.AssemblyRefs"/>,
 /// resolving children by full identity, deduping on <see cref="GraphNode.Id"/>, preserving edges
 /// for cycles and diamonds, and classifying unresolvable and identity-mismatched references as
-/// non-expanding leaf nodes. Produces a <see cref="DependencyGraphResult"/> containing the
+/// non-expanding leaf nodes. For .NET Framework roots the resolution routes through
+/// <see cref="NetFxBinder"/> so that nodes are keyed on the *bound* identity (post-redirect),
+/// collapsing two distinct requested versions onto a single graph node when policy redirects them
+/// to the same loaded version. Produces a <see cref="DependencyGraphResult"/> containing the
 /// public topology plus internal navigation metadata consumed only by the TUI.
 /// </summary>
 public static class DependencyGraphBuilder
@@ -25,8 +28,11 @@ public static class DependencyGraphBuilder
         var navById = new Dictionary<string, GraphNavigationContext>(StringComparer.Ordinal);
         var depthById = new Dictionary<string, int>(StringComparer.Ordinal);
         var parentOrderById = new Dictionary<string, int>(StringComparer.Ordinal);
-        var resolutionCache = new Dictionary<(string ParentId, string ChildId),
-            (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath)>();
+        var resolutionCache = new Dictionary<(string ParentId, string ChildId), AssemblyResolution>();
+
+        // The root's NetFxBindingContext is shared by every subsequent bind in the graph,
+        // matching the CLR's app-domain-wide binding policy semantics.
+        var netFxContext = NetFxBindingContext.TryBuild(analyzer);
 
         var rootIdentity = IdentityFromAnalyzer(analyzer);
         var rootId = AssemblyIdentityFormat.Format(
@@ -72,33 +78,44 @@ public static class DependencyGraphBuilder
 
                 foreach (var asmRef in refs)
                 {
-                    var childId = AssemblyIdentityFormat.Format(
+                    var requestedId = AssemblyIdentityFormat.Format(
                         asmRef.Name, asmRef.Version, asmRef.Culture, asmRef.PublicKeyToken);
 
-                    counts.TryGetValue(childId, out var count);
+                    // Resolve first so that net48 nodes get keyed on the bound (post-redirect)
+                    // identity instead of the requested one. Two parents whose distinct requested
+                    // versions both redirect to the same loaded version therefore land on a single
+                    // graph node, while each edge still records its own requested identity below.
+                    var resolution = ResolveOnce(current, currentId, asmRef, requestedId,
+                        netFxContext, resolutionCache);
+                    var (childId, childIdentity) = SelectChildId(asmRef, resolution, requestedId);
+
+                    counts.TryGetValue(requestedId, out var count);
+                    var requestedDifferent = !string.Equals(childId, requestedId, StringComparison.Ordinal);
 
                     if (byId.TryGetValue(childId, out var existing))
                     {
-                        edges.Add(new GraphEdge(currentId, childId, count));
+                        edges.Add(new GraphEdge(
+                            currentId, childId, count,
+                            RequestedIdentity: requestedDifferent ? asmRef : null));
 
-                        if (existing.Unresolved)
+                        if (existing.Unresolved && resolution.Resolved is not null)
                         {
-                            var retry = ResolveAndQueueNew(
-                                current, currentId, asmRef, childId,
-                                resolutionCache, byId, navById, depthById, parentOrderById,
-                                queue, ref parentCounter, currentDepth, upgrade: existing);
-                            _ = retry;
+                            UpgradeAndQueue(
+                                current, asmRef, childId, resolution,
+                                byId, navById, queue, existing);
                         }
 
                         continue;
                     }
 
-                    edges.Add(new GraphEdge(currentId, childId, count));
+                    edges.Add(new GraphEdge(
+                        currentId, childId, count,
+                        RequestedIdentity: requestedDifferent ? asmRef : null));
 
-                    ResolveAndQueueNew(
-                        current, currentId, asmRef, childId,
-                        resolutionCache, byId, navById, depthById, parentOrderById,
-                        queue, ref parentCounter, currentDepth, upgrade: null);
+                    AddNewNodeAndQueue(
+                        current, asmRef, childId, childIdentity, resolution,
+                        byId, navById, depthById, parentOrderById,
+                        queue, ref parentCounter, currentDepth);
                 }
             }
             finally
@@ -108,9 +125,6 @@ public static class DependencyGraphBuilder
             }
         }
 
-        // Preserve sibling order from traversal so toggling view-layer filters does not
-        // cause jitter in the rendered graph — the view layer keys its row packing off
-        // this stable ordering.
         var orderedNodes = byId.Values
             .OrderBy(n => n.Depth)
             .ThenBy(n => parentOrderById.TryGetValue(n.Id, out var o) ? o : int.MaxValue)
@@ -120,37 +134,55 @@ public static class DependencyGraphBuilder
         return new DependencyGraphResult(orderedNodes, edges, navById);
     }
 
-    private static bool ResolveAndQueueNew(
+    private static AssemblyResolution ResolveOnce(
         AssemblyAnalyzer parent,
         string parentId,
         AssemblyRefInfo asmRef,
+        string requestedId,
+        NetFxBindingContext? netFxContext,
+        Dictionary<(string ParentId, string ChildId), AssemblyResolution> cache)
+    {
+        if (cache.TryGetValue((parentId, requestedId), out var cached)) return cached;
+        var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+            parent.FilePath, asmRef,
+            parent.TargetFramework, parent.PreferredRuntimePack, parent.SourceBundlePath,
+            netFxContext);
+        cache[(parentId, requestedId)] = resolution;
+        return resolution;
+    }
+
+    private static (string ChildId, AssemblyRefInfo Identity) SelectChildId(
+        AssemblyRefInfo asmRef, AssemblyResolution resolution, string requestedId)
+    {
+        // Net48 success cases carry a LoadedIdentity that may differ from the requested identity
+        // (binding redirect collapsed two requested versions onto one bound version). In that
+        // case key the node on the bound identity so both edges land on the same node.
+        if (resolution.LoadedIdentity is { } loaded)
+        {
+            var boundId = AssemblyIdentityFormat.Format(
+                loaded.Name, loaded.Version, loaded.Culture, loaded.PublicKeyToken);
+            return (boundId, loaded);
+        }
+        return (requestedId, asmRef);
+    }
+
+    private static void AddNewNodeAndQueue(
+        AssemblyAnalyzer parent,
+        AssemblyRefInfo asmRef,
         string childId,
-        Dictionary<(string ParentId, string ChildId),
-            (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath)> cache,
+        AssemblyRefInfo childIdentity,
+        AssemblyResolution resolution,
         Dictionary<string, GraphNode> byId,
         Dictionary<string, GraphNavigationContext> navById,
         Dictionary<string, int> depthById,
         Dictionary<string, int> parentOrderById,
         Queue<(AssemblyAnalyzer Analyzer, string NodeId, bool OwnsDispose)> queue,
         ref int parentCounter,
-        int parentDepth,
-        GraphNode? upgrade)
+        int parentDepth)
     {
-        if (!cache.TryGetValue((parentId, childId), out var resolution))
-        {
-            resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
-                parent.FilePath, asmRef,
-                parent.TargetFramework, parent.PreferredRuntimePack, parent.SourceBundlePath);
-            cache[(parentId, childId)] = resolution;
-        }
-
-        // Classify from the requested AssemblyRef identity so unresolved and identity-mismatched
-        // framework refs (common when a net6-targeted package runs against net10) are still
-        // filtered by the framework toggle — otherwise the filter leaves a pile of BCL leaves
-        // visible and defeats its purpose on real package graphs.
+        var childDepth = parentDepth + 1;
         var isFramework = AssemblyAnalyzer.IsFrameworkAssembly(
             resolution.Provenance, asmRef, parent.TargetFramework, parent.PreferredRuntimePack);
-
         var childNav = new GraphNavigationContext(
             Resolved: resolution.Resolved,
             ReferencingFilePath: parent.FilePath,
@@ -159,38 +191,65 @@ public static class DependencyGraphBuilder
             ReferencingPreferredRuntimePack: parent.PreferredRuntimePack,
             Provenance: resolution.Provenance,
             IsFrameworkAssembly: isFramework,
-            CandidateProbePath: resolution.CandidateProbePath);
+            CandidateProbePath: resolution.CandidateProbePath,
+            AppliedPolicy: resolution.AppliedPolicy,
+            LoadedIdentity: resolution.LoadedIdentity);
 
-        var childDepth = parentDepth + 1;
+        depthById[childId] = childDepth;
+        parentOrderById[childId] = parentCounter++;
+        byId[childId] = new GraphNode(
+            Id: childId,
+            Name: childIdentity.Name,
+            Version: NullIfEmpty(childIdentity.Version),
+            Culture: string.IsNullOrEmpty(childIdentity.Culture) ? "neutral" : childIdentity.Culture,
+            PublicKeyToken: childIdentity.PublicKeyToken,
+            IsRoot: false,
+            Depth: childDepth,
+            Unresolved: resolution.Resolved is null);
+        navById[childId] = childNav;
 
-        if (upgrade is null)
-        {
-            depthById[childId] = childDepth;
-            parentOrderById[childId] = parentCounter++;
-            byId[childId] = new GraphNode(
-                Id: childId,
-                Name: asmRef.Name,
-                Version: NullIfEmpty(asmRef.Version),
-                Culture: string.IsNullOrEmpty(asmRef.Culture) ? "neutral" : asmRef.Culture,
-                PublicKeyToken: asmRef.PublicKeyToken,
-                IsRoot: false,
-                Depth: childDepth,
-                Unresolved: resolution.Resolved is null);
-            navById[childId] = childNav;
-        }
-        else if (resolution.Resolved is not null)
-        {
-            byId[childId] = upgrade with { Unresolved = false };
-            navById[childId] = childNav;
-        }
-        else
-        {
-            return false;
-        }
+        EnqueueChildAnalyzerIfResolved(resolution, childId, byId, navById, queue, childNav);
+    }
 
-        if (resolution.Resolved is null)
-            return false;
+    private static void UpgradeAndQueue(
+        AssemblyAnalyzer parent,
+        AssemblyRefInfo asmRef,
+        string childId,
+        AssemblyResolution resolution,
+        Dictionary<string, GraphNode> byId,
+        Dictionary<string, GraphNavigationContext> navById,
+        Queue<(AssemblyAnalyzer Analyzer, string NodeId, bool OwnsDispose)> queue,
+        GraphNode previousUnresolvedNode)
+    {
+        var isFramework = AssemblyAnalyzer.IsFrameworkAssembly(
+            resolution.Provenance, asmRef, parent.TargetFramework, parent.PreferredRuntimePack);
+        var childNav = new GraphNavigationContext(
+            Resolved: resolution.Resolved,
+            ReferencingFilePath: parent.FilePath,
+            ReferencingBundlePath: parent.SourceBundlePath,
+            ReferencingTargetFramework: parent.TargetFramework,
+            ReferencingPreferredRuntimePack: parent.PreferredRuntimePack,
+            Provenance: resolution.Provenance,
+            IsFrameworkAssembly: isFramework,
+            CandidateProbePath: resolution.CandidateProbePath,
+            AppliedPolicy: resolution.AppliedPolicy,
+            LoadedIdentity: resolution.LoadedIdentity);
 
+        byId[childId] = previousUnresolvedNode with { Unresolved = false };
+        navById[childId] = childNav;
+
+        EnqueueChildAnalyzerIfResolved(resolution, childId, byId, navById, queue, childNav);
+    }
+
+    private static void EnqueueChildAnalyzerIfResolved(
+        AssemblyResolution resolution,
+        string childId,
+        Dictionary<string, GraphNode> byId,
+        Dictionary<string, GraphNavigationContext> navById,
+        Queue<(AssemblyAnalyzer Analyzer, string NodeId, bool OwnsDispose)> queue,
+        GraphNavigationContext childNav)
+    {
+        if (resolution.Resolved is null) return;
         try
         {
             AssemblyAnalyzer childAnalyzer = resolution.Resolved switch
@@ -201,7 +260,6 @@ public static class DependencyGraphBuilder
                 _ => throw new InvalidOperationException("Unknown ResolvedAssembly variant."),
             };
             queue.Enqueue((childAnalyzer, childId, OwnsDispose: true));
-            return true;
         }
         catch
         {
@@ -211,7 +269,6 @@ public static class DependencyGraphBuilder
                 Resolved = null,
                 Provenance = AssemblyProvenance.Unresolved,
             };
-            return false;
         }
     }
 
@@ -236,5 +293,4 @@ public static class DependencyGraphBuilder
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
-
 }

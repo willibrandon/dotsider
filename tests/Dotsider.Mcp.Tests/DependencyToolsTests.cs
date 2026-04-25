@@ -83,11 +83,11 @@ public class DependencyToolsTests(SampleAssemblyFixture samples) : McpServerTest
     }
 
     private static readonly string[] NavigationFieldsThatMustNotLeak =
-    {
+    [
         "resolvedPath", "referencingFilePath", "referencingBundlePath",
         "referencingTargetFramework", "referencingPreferredRuntimePack",
         "candidateProbePath", "isFrameworkAssembly", "resolved",
-    };
+    ];
 
     /// <summary>
     /// get_type_refs surfaces externally-referenced types imported by the assembly.

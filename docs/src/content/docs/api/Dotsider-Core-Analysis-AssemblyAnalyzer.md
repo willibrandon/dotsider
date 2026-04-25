@@ -465,7 +465,7 @@ The resolved assembly, or `null` if not found.
 public static ResolvedAssembly? ResolveAssembly(string referencingAssemblyPath, string assemblyName, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
 ```
 
-### ResolveAssemblyByIdentity(string, AssemblyRefInfo, string?, string?, string?)
+### ResolveAssemblyByIdentity(string, AssemblyRefInfo, string?, string?, string?, NetFxBindingContext?)
 
 Resolves a referenced assembly by full identity (name, version, culture, public key token).
 Probes every stage of String) and accepts only candidates whose
@@ -481,15 +481,18 @@ the graph does not expand from mismatched files.
 - `targetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Target framework moniker for shared-framework probing.
 - `preferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Preferred runtime pack name.
 - `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Bundle path, when the referencing assembly came from a bundle.
+- `netFxBindingContext` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)): Per-root .NET Framework binding context, or null for non-net48 roots.
+When supplied, the resolution routes through NetFxBindingContext) instead of the
+.NET Core probe chain, faithfully modeling the CLR's framework unification + machine.config
++ publisher policy + app config + GAC + Framework[64] runtime + codeBase + appBase order.
 
-**Returns:** [ValueTuple\<ResolvedAssembly, AssemblyProvenance, String\>](https://learn.microsoft.com/dotnet/api/system.valuetuple-3)
+**Returns:** [AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/)
 
-A tuple of the resolved assembly (or null), the provenance classifying
-how the node was located, and the path of a simple-name match whose identity did not
-match (populated only when provenance is [IdentityMismatch](/api/dotsider.core.analysis.models.assemblyprovenance.identitymismatch/)).
+An [AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/) carrying the resolved assembly, provenance, optional
+candidate-probe path, and (for net48 roots) the applied policy and loaded identity.
 
 ```csharp
-public static (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath) ResolveAssemblyByIdentity(string referencingAssemblyPath, AssemblyRefInfo identity, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null)
+public static AssemblyResolution ResolveAssemblyByIdentity(string referencingAssemblyPath, AssemblyRefInfo identity, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null, NetFxBindingContext? netFxBindingContext = null)
 ```
 
 ### ResolveAssemblyPath(string, string)

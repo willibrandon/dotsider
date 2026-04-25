@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -66,6 +67,19 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string? NetFxConsoleExe { get; private set; }
 
+    /// <summary>
+    /// Path to the built NetFxBindingRedirects sample executable (Windows only).
+    /// </summary>
+    public string? NetFxBindingRedirectsExe { get; private set; }
+
+    /// <summary>
+    /// Map of interesting assembly references in the NetFxBindingRedirects sample to the
+    /// runtime oracle entry recording what the actual .NET Framework CLR loaded for them.
+    /// Tests use this dictionary to enforce literal CLR accuracy on dotsider's NetFxBinder.
+    /// <see langword="null"/> on non-Windows.
+    /// </summary>
+    public IReadOnlyDictionary<string, NetFxOracleEntry>? NetFxBindingRedirectsOracle { get; private set; }
+
     // Dotted assembly name sample (e.g., Company.Product.Tool)
     /// <summary>
     /// Path to the dotted-name sample assembly (Dotted.Name.App.dll).
@@ -116,7 +130,13 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         // net48 needs Windows; NativeAOT builds on all platforms.
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
             builds.Add(BuildProject("samples/NetFxConsole"));
+            // Build only the EXE — its csproj's AfterTargets runs MSBuild on the five helper
+            // projects and copies their outputs into lib/, external/, fr/. Building the helpers
+            // separately would race with the EXE's post-build copy.
+            builds.Add(BuildProject("samples/NetFxBindingRedirects"));
+        }
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
         builds.Add(PublishSelfContainedProject("samples/SelfContainedConsole"));
@@ -144,6 +164,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
         {
             NetFxConsoleExe = Path.Combine(_repoRoot, "samples", "NetFxConsole",
                 "bin", config, "net48", "NetFxConsole.exe");
+
+            NetFxBindingRedirectsExe = Path.Combine(_repoRoot, "samples", "NetFxBindingRedirects",
+                "bin", config, "net48", "NetFxBindingRedirects.exe");
+
+            NetFxBindingRedirectsOracle = await CaptureNetFxOracleAsync(NetFxBindingRedirectsExe);
         }
 
         var rid = RuntimeInformation.RuntimeIdentifier;
@@ -166,6 +191,21 @@ public class SampleAssemblyFixture : IAsyncLifetime
         Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
         if (NetFxConsoleExe is not null)
             Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
+        if (NetFxBindingRedirectsExe is not null)
+        {
+            Assert.True(File.Exists(NetFxBindingRedirectsExe),
+                $"NetFxBindingRedirects.exe not found at {NetFxBindingRedirectsExe}");
+            var binDir = Path.GetDirectoryName(NetFxBindingRedirectsExe)!;
+            Assert.True(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.exe.config")),
+                "NetFxBindingRedirects.exe.config missing — app.config did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "lib")),
+                "lib/ subdir missing — privatePath helper did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "external")),
+                "external/ subdir missing — codeBase helper did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "fr")),
+                "fr/ subdir missing — culture satellite did not deploy");
+            Assert.NotNull(NetFxBindingRedirectsOracle);
+        }
         if (NativeAotConsoleExe is not null)
             Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
         if (SelfContainedConsoleExe is not null)
@@ -343,4 +383,64 @@ public class SampleAssemblyFixture : IAsyncLifetime
             lockFile.Dispose();
         }
     }
+
+    /// <summary>
+    /// Runs <c>NetFxBindingRedirects.exe --oracle &lt;temp.json&gt;</c> on Windows under the
+    /// real .NET Framework CLR, captures the JSON document, and returns it as a typed map.
+    /// Used as the runtime ground truth for NetFxBinder oracle-parity tests.
+    /// </summary>
+    /// <param name="exePath">Absolute path to the built sample executable.</param>
+    /// <returns>The parsed oracle map.</returns>
+    private static async Task<IReadOnlyDictionary<string, NetFxOracleEntry>> CaptureNetFxOracleAsync(string exePath)
+    {
+        var oraclePath = Path.Combine(Path.GetTempPath(),
+            $"netfx-binder-oracle-{Guid.NewGuid():N}.json");
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = "--oracle \"" + oraclePath + "\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = Path.GetDirectoryName(exePath)!,
+            };
+            var process = Process.Start(psi)!;
+            var stdout = await process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0 || !File.Exists(oraclePath))
+                throw new InvalidOperationException(
+                    $"NetFxBindingRedirects oracle run failed (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+
+            var json = await File.ReadAllTextAsync(oraclePath);
+            using var doc = JsonDocument.Parse(json);
+            var map = new Dictionary<string, NetFxOracleEntry>(StringComparer.Ordinal);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                var fullName = prop.Value.GetProperty("fullName").GetString() ?? string.Empty;
+                var location = prop.Value.GetProperty("location").GetString() ?? string.Empty;
+                var loaded = prop.Value.GetProperty("loaded").GetBoolean();
+                var error = prop.Value.GetProperty("error").GetString();
+                map[prop.Name] = new NetFxOracleEntry(fullName, location, loaded, error);
+            }
+            return map;
+        }
+        finally
+        {
+            try { File.Delete(oraclePath); } catch { /* best effort */ }
+        }
+    }
 }
+
+/// <summary>
+/// One entry in the NetFxBindingRedirects runtime oracle JSON: what the actual .NET Framework
+/// CLR loaded for a particular reference.
+/// </summary>
+/// <param name="FullName">The bound assembly's <c>Assembly.FullName</c>, or empty on failure.</param>
+/// <param name="Location">The bound assembly's <c>Assembly.Location</c>, or empty on failure.</param>
+/// <param name="Loaded">Whether the load succeeded.</param>
+/// <param name="Error">Type-name + message of the load exception, or <see langword="null"/> on success.</param>
+public sealed record NetFxOracleEntry(string FullName, string Location, bool Loaded, string? Error);

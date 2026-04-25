@@ -19,6 +19,12 @@
     <Project Path="samples/NativeAotConsole/NativeAotConsole.csproj" />
     <Project Path="samples/Dotted.Name.App/Dotted.Name.App.csproj" />
     <Project Path="samples/SelfContainedConsole/SelfContainedConsole.csproj" />
+    <Project Path="samples/NetFxBindingRedirects/NetFxBindingRedirects.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.OldDep/NetFxBindingRedirects.OldDep.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.NewDep/NetFxBindingRedirects.NewDep.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.PrivatePathLib/NetFxBindingRedirects.PrivatePathLib.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.CodeBaseLib/NetFxBindingRedirects.CodeBaseLib.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.CulturedLib/NetFxBindingRedirects.CulturedLib.csproj" />
   </Folder>
 
   <Folder Name="/tests/">

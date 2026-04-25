@@ -29,7 +29,7 @@ public sealed record GraphNavigationContext : IEquatable<GraphNavigationContext>
 
 ## Constructors
 
-### GraphNavigationContext(ResolvedAssembly?, string?, string?, string?, string?, AssemblyProvenance, bool, string?)
+### GraphNavigationContext(ResolvedAssembly?, string?, string?, string?, string?, AssemblyProvenance, bool, string?, AppliedPolicy?, AssemblyRefInfo?)
 
 Internal per-node metadata describing how a dependency graph node was resolved and the
 context under which it was reached. Used by the TUI for Enter-to-open navigation and
@@ -50,17 +50,43 @@ provenance so that framework assemblies shipped inside a self-contained publish 
 bundle are still identified correctly.
 - `CandidateProbePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The file path of a simple-name match whose identity did not match the requested reference,
 populated only when [Provenance](/api/dotsider.core.analysis.models.graphnavigationcontext.provenance/) is [IdentityMismatch](/api/dotsider.core.analysis.models.assemblyprovenance.identitymismatch/).
+For [CodeBaseMissing](/api/dotsider.core.analysis.models.assemblyprovenance.codebasemissing/) this carries the configured
+`codeBase` href the CLR would have loaded but couldn't find.
+- `AppliedPolicy` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/)): When the .NET Framework binder rewrote the requested identity (binding redirect, publisher
+policy, machine.config, or framework unification), records the requested → bound version
+transition and the policy layer that produced it. null for non-redirected
+resolutions and for all .NET Core / .NET 5+ resolutions.
+- `LoadedIdentity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)): The identity the binder actually loaded after applying policy. May differ from the
+requesting [GraphNode](/api/dotsider.core.analysis.models.graphnode/)'s identity when the node was keyed on the bound
+identity (so multiple distinct requested versions that redirect to the same loaded version
+collapse onto a single graph node). null when no bound identity exists
+(Unresolved, IdentityMismatch, CodeBaseMissing).
 
 ```csharp
-public GraphNavigationContext(ResolvedAssembly? Resolved, string? ReferencingFilePath, string? ReferencingBundlePath, string? ReferencingTargetFramework, string? ReferencingPreferredRuntimePack, AssemblyProvenance Provenance, bool IsFrameworkAssembly, string? CandidateProbePath)
+public GraphNavigationContext(ResolvedAssembly? Resolved, string? ReferencingFilePath, string? ReferencingBundlePath, string? ReferencingTargetFramework, string? ReferencingPreferredRuntimePack, AssemblyProvenance Provenance, bool IsFrameworkAssembly, string? CandidateProbePath, AppliedPolicy? AppliedPolicy = null, AssemblyRefInfo? LoadedIdentity = null)
 ```
 
 ## Properties
+
+### AppliedPolicy
+
+When the .NET Framework binder rewrote the requested identity (binding redirect, publisher
+policy, machine.config, or framework unification), records the requested → bound version
+transition and the policy layer that produced it. null for non-redirected
+resolutions and for all .NET Core / .NET 5+ resolutions.
+
+**Returns:** [AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/)
+
+```csharp
+public AppliedPolicy? AppliedPolicy { get; init; }
+```
 
 ### CandidateProbePath
 
 The file path of a simple-name match whose identity did not match the requested reference,
 populated only when [Provenance](/api/dotsider.core.analysis.models.graphnavigationcontext.provenance/) is [IdentityMismatch](/api/dotsider.core.analysis.models.assemblyprovenance.identitymismatch/).
+For [CodeBaseMissing](/api/dotsider.core.analysis.models.assemblyprovenance.codebasemissing/) this carries the configured
+`codeBase` href the CLR would have loaded but couldn't find.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -78,6 +104,20 @@ bundle are still identified correctly.
 
 ```csharp
 public bool IsFrameworkAssembly { get; init; }
+```
+
+### LoadedIdentity
+
+The identity the binder actually loaded after applying policy. May differ from the
+requesting [GraphNode](/api/dotsider.core.analysis.models.graphnode/)'s identity when the node was keyed on the bound
+identity (so multiple distinct requested versions that redirect to the same loaded version
+collapse onto a single graph node). null when no bound identity exists
+(Unresolved, IdentityMismatch, CodeBaseMissing).
+
+**Returns:** [AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)
+
+```csharp
+public AssemblyRefInfo? LoadedIdentity { get; init; }
 ```
 
 ### Provenance

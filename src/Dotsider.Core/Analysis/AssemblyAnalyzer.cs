@@ -1258,19 +1258,28 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <param name="targetFramework">Target framework moniker for shared-framework probing.</param>
     /// <param name="preferredRuntimePack">Preferred runtime pack name.</param>
     /// <param name="sourceBundlePath">Bundle path, when the referencing assembly came from a bundle.</param>
+    /// <param name="netFxBindingContext">
+    /// Per-root .NET Framework binding context, or <see langword="null"/> for non-net48 roots.
+    /// When supplied, the resolution routes through <see cref="NetFxBinder.Bind"/> instead of the
+    /// .NET Core probe chain, faithfully modeling the CLR's framework unification + machine.config
+    /// + publisher policy + app config + GAC + Framework[64] runtime + codeBase + appBase order.
+    /// </param>
     /// <returns>
-    /// A tuple of the resolved assembly (or <see langword="null"/>), the provenance classifying
-    /// how the node was located, and the path of a simple-name match whose identity did not
-    /// match (populated only when provenance is <see cref="AssemblyProvenance.IdentityMismatch"/>).
+    /// An <see cref="AssemblyResolution"/> carrying the resolved assembly, provenance, optional
+    /// candidate-probe path, and (for net48 roots) the applied policy and loaded identity.
     /// </returns>
-    public static (ResolvedAssembly? Resolved, AssemblyProvenance Provenance, string? CandidateProbePath)
+    public static AssemblyResolution
         ResolveAssemblyByIdentity(
             string referencingAssemblyPath,
             AssemblyRefInfo identity,
             string? targetFramework = null,
             string? preferredRuntimePack = null,
-            string? sourceBundlePath = null)
+            string? sourceBundlePath = null,
+            NetFxBindingContext? netFxBindingContext = null)
     {
+        if (netFxBindingContext is not null)
+            return BindViaNetFxBinder(identity, netFxBindingContext);
+
         var directory = sourceBundlePath is not null
             ? Path.GetDirectoryName(sourceBundlePath)!
             : Path.GetDirectoryName(referencingAssemblyPath)!;
@@ -1333,11 +1342,37 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         if (hit is { } h)
-            return (h.Item1, h.Item2, null);
+            return new AssemblyResolution(h.Item1, h.Item2, null);
 
         return mismatchPath is not null
-            ? (null, AssemblyProvenance.IdentityMismatch, mismatchPath)
-            : (null, AssemblyProvenance.Unresolved, null);
+            ? new AssemblyResolution(null, AssemblyProvenance.IdentityMismatch, mismatchPath)
+            : new AssemblyResolution(null, AssemblyProvenance.Unresolved, null);
+    }
+
+    /// <summary>
+    /// Routes an identity-based resolution through <see cref="NetFxBinder"/> for a .NET Framework
+    /// root and adapts its <see cref="NetFxBindResult"/> into an <see cref="AssemblyResolution"/>.
+    /// </summary>
+    /// <param name="identity">The identity exactly as named by the metadata reference.</param>
+    /// <param name="ctx">The binding context for the analyzed root.</param>
+    /// <returns>The resolution.</returns>
+    private static AssemblyResolution BindViaNetFxBinder(
+        AssemblyRefInfo identity, NetFxBindingContext ctx)
+    {
+        var bind = NetFxBinder.Bind(identity, ctx);
+        ResolvedAssembly? resolved = bind.LoadedPath is null ? null : new ResolvedAssembly.FromFile(bind.LoadedPath);
+        var candidate = bind.Provenance switch
+        {
+            AssemblyProvenance.IdentityMismatch => bind.CandidateProbePath,
+            AssemblyProvenance.CodeBaseMissing => bind.AppliedPolicy?.CodeBaseHref ?? bind.CandidateProbePath,
+            _ => null,
+        };
+        return new AssemblyResolution(
+            Resolved: resolved,
+            Provenance: bind.Provenance,
+            CandidateProbePath: candidate,
+            AppliedPolicy: bind.AppliedPolicy,
+            LoadedIdentity: bind.Loaded);
     }
 
     /// <summary>
@@ -1361,7 +1396,17 @@ public sealed class AssemblyAnalyzer : IDisposable
         string? targetFramework,
         string? preferredRuntimePack)
     {
-        if (provenance is AssemblyProvenance.SharedFramework or AssemblyProvenance.RuntimeDirectory)
+        if (provenance is AssemblyProvenance.SharedFramework
+                       or AssemblyProvenance.RuntimeDirectory
+                       or AssemblyProvenance.FrameworkRuntimeDirectory)
+            return true;
+
+        // The GAC also hosts third-party strong-named libraries — filtering all GAC hits as
+        // framework would hide user dependencies in the dep graph. Only treat a GAC node as
+        // framework when its PKT matches a well-known Microsoft framework key.
+        if (provenance is AssemblyProvenance.Gac
+            && identity.PublicKeyToken is string gacPkt
+            && WellKnownFrameworkPublicKeyTokens.Contains(gacPkt))
             return true;
 
         if (identity.PublicKeyToken is string pkt && WellKnownFrameworkPublicKeyTokens.Contains(pkt))
@@ -1372,7 +1417,13 @@ public sealed class AssemblyAnalyzer : IDisposable
         return shared is not null;
     }
 
-    private static readonly HashSet<string> WellKnownFrameworkPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Public key tokens that mark an assembly as a Microsoft framework or NuGet-shim assembly.
+    /// Used by <see cref="IsFrameworkAssembly"/> for the dep-graph framework-filter toggle so
+    /// BCL assemblies and the System.* / Microsoft.Extensions.* compatibility-pack shims are
+    /// hidden together. Broader than the unification set on purpose.
+    /// </summary>
+    internal static readonly HashSet<string> WellKnownFrameworkPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
     {
         "b77a5c561934e089",
         "b03f5f7f11d50a3a",
@@ -1380,6 +1431,22 @@ public sealed class AssemblyAnalyzer : IDisposable
         "7cec85d7bea7798e",
         "cc7b13ffcd2ddd51",
         "adb9793829ddae60",
+    };
+
+    /// <summary>
+    /// Public key tokens whose assemblies the .NET Framework unification table covers — the
+    /// in-box BCL and Microsoft tooling keys. The compatibility-pack tokens
+    /// <c>cc7b13ffcd2ddd51</c> (System.Memory family) and <c>adb9793829ddae60</c>
+    /// (Microsoft.Extensions.*) are deliberately excluded: the CLR does not unify those, so
+    /// references like <c>System.ValueTuple, Version=4.1.0.0</c> against the in-box
+    /// <c>4.0.0.0</c> file must still fail without an explicit binding redirect.
+    /// </summary>
+    internal static readonly HashSet<string> FrameworkUnificationPublicKeyTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "b77a5c561934e089",
+        "b03f5f7f11d50a3a",
+        "31bf3856ad364e35",
+        "7cec85d7bea7798e",
     };
 
     private static (string Name, string Version, string Culture, string? PublicKeyToken)? TryReadFileIdentity(string path)

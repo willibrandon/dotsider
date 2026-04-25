@@ -848,7 +848,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.IlEditorMethod = moveNext;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var target = result.Value.Instructions
+        var (inst, nav) = result.Value.Instructions
             .Where(i => i.OpCode == opCode && i.MetadataToken is not null)
             .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
                 state.Analyzer, i.MetadataToken!.Value)))
@@ -856,7 +856,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
                 && em.MemberName == memberName
                 && em.DeclaringType == "System.Collections.Generic.List`1");
 
-        var navigated = state.NavigateToIlDefinition(target.inst.MetadataToken!.Value);
+        var navigated = state.NavigateToIlDefinition(inst.MetadataToken!.Value);
 
         Assert.True(navigated, $"Navigation must succeed for List`1::{memberName}");
         Assert.Null(state.TransientNotice);
@@ -892,7 +892,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var target = result.Value.Instructions
+        var (inst, nav) = result.Value.Instructions
             .Where(i => i.OpCode == "newobj" && i.MetadataToken is not null)
             .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
                 state.Analyzer, i.MetadataToken!.Value)))
@@ -900,7 +900,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
                 && em.MemberName == ".ctor"
                 && em.DeclaringType == "System.Collections.Generic.LinkedList`1");
 
-        var navigated = state.NavigateToIlDefinition(target.inst.MetadataToken!.Value);
+        var navigated = state.NavigateToIlDefinition(inst.MetadataToken!.Value);
 
         Assert.True(navigated, "Navigation must succeed for LinkedList`1::.ctor");
         Assert.Null(state.TransientNotice);

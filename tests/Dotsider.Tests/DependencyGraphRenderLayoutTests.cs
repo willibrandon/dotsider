@@ -70,7 +70,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         using var scope = SyntheticAssemblyScope.Create();
         var pkt = new byte[] { 0xb7, 0x7a, 0x5c, 0x56, 0x19, 0x34, 0xe0, 0x89 };
         scope.WriteAssembly("IslandRoot",
-            refs: new[] { ("mscorlib", new Version(4, 0, 0, 0), (byte[]?)pkt) });
+            refs: [("mscorlib", new Version(4, 0, 0, 0), (byte[]?)pkt)]);
         var rootPath = Path.Combine(scope.Directory, "IslandRoot.dll");
 
         using var a = new AssemblyAnalyzer(rootPath);
