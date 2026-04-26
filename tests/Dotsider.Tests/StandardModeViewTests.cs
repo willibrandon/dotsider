@@ -19,6 +19,33 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private DotsiderState? _state;
 
     private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
+        => CreateDotsiderAppCore(dllPath, initialTab, enableMouse: false, enableInputCoalescing: false);
+
+    /// <summary>
+    /// Variant of <see cref="CreateDotsiderApp"/> that turns on mouse support, matching the
+    /// production <c>EnableMouse = true</c> knob set at <c>Program.cs:209/319/376</c>. Used
+    /// by tests that drive mouse wheel, track click, or thumb drag input — without mouse mode
+    /// those events would not exercise the production code path.
+    /// </summary>
+    /// <param name="dllPath">The sample assembly to open.</param>
+    /// <param name="initialTab">Optional starting tab id.</param>
+    /// <param name="enableInputCoalescing">
+    /// Whether to enable input coalescing. Defaults to <see langword="false"/> for
+    /// deterministic event-per-frame ordering (the simplest model for most assertions).
+    /// Tests that need to exercise the production race where a key arrives in the same
+    /// coalesced batch as the click that grabbed scrollbar focus
+    /// (<c>Tab6_AfterScrollbarDrag_RightArrow_AdvancesSelection</c>,
+    /// <c>Tab6_NoOpScrollbarClick_RightArrow_AdvancesSelection</c>) opt in by passing
+    /// <see langword="true"/>, which matches the
+    /// <see cref="Hex1b.Hex1bAppOptions.EnableInputCoalescing"/> production default.
+    /// </param>
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderAppWithMouse(
+        string dllPath, int? initialTab = null, bool enableInputCoalescing = false)
+        => CreateDotsiderAppCore(dllPath, initialTab, enableMouse: true,
+            enableInputCoalescing: enableInputCoalescing);
+
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderAppCore(
+        string dllPath, int? initialTab, bool enableMouse, bool enableInputCoalescing)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -42,7 +69,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             new Hex1bAppOptions
             {
                 WorkloadAdapter = _workload,
-                EnableInputCoalescing = false
+                EnableInputCoalescing = enableInputCoalescing,
+                EnableMouse = enableMouse,
             });
         return (_terminal, _hex1bApp);
     }
@@ -985,6 +1013,627 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(expectedMax, _state.DepGraphScrollY);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Pure helper test: with no cached layout the inputs are <c>(0, 1, 0)</c> so the
+    /// scrollbar widget can be constructed on the very first frame without a null check.
+    /// <see cref="Hex1b.Nodes.ScrollbarNode.IsScrollable"/> returns <see langword="false"/>
+    /// for this shape and the bar renders nothing.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ComputeScrollbarInputs_BeforeLayoutReady_ReturnsSafeDefaults()
+    {
+        var (_, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        Assert.Null(state.CachedGraphRenderLayout);
+        Assert.Null(state.CachedGraphRenderLayoutKey);
+
+        var inputs = DependencyGraphView.ComputeScrollbarInputs(state);
+
+        Assert.Equal((0, 1, 0), inputs);
+    }
+
+    /// <summary>
+    /// Pure helper test: <c>End</c> queues <c>int.MaxValue</c> into <c>DepGraphScrollY</c>;
+    /// once a layout is cached the helper clamps that to <c>ContentHeight - Height</c> so the
+    /// scrollbar receives a valid offset rather than an out-of-range stub.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ComputeScrollbarInputs_ClampsScrollYToMax_AfterEnd()
+    {
+        var (_, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        const int contentHeight = 200;
+        const int viewportHeight = 25;
+        state.CachedGraphRenderLayout = new GraphRenderLayout(
+            [], [], new Dictionary<string, int>(StringComparer.Ordinal), contentHeight);
+        state.CachedGraphRenderLayoutKey = new GraphRenderLayoutKey(
+            NodesRef: null,
+            Scope: DependencyGraphScope.All,
+            HideFramework: false,
+            Width: 100,
+            Height: viewportHeight);
+        state.DepGraphScrollY = int.MaxValue;
+
+        var (c, v, o) = DependencyGraphView.ComputeScrollbarInputs(state);
+
+        Assert.Equal(contentHeight, c);
+        Assert.Equal(viewportHeight, v);
+        Assert.Equal(contentHeight - viewportHeight, o);
+    }
+
+    /// <summary>
+    /// The scrollbar replaces the textual <c>Scroll: N/M</c> suffix the status line used to
+    /// carry. Asserts the suffix is gone so reviewers don't have to grep for it.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_StatusLine_DoesNotContainScrollSuffix()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var snapshot = terminal.CreateSnapshot();
+        Assert.False(snapshot.ContainsText("Scroll:"),
+            "Status line should not carry a textual Scroll: suffix anymore.");
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// When the laid-out graph is taller than the viewport, the scrollbar's thumb glyph
+    /// (<c>▉</c>) renders at least once in the rightmost column inside the graph viewport.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_Scrollbar_RendersAtRightEdge_WhenContentExceedsViewport()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.CachedGraphRenderLayout is not null
+                && _state.CachedGraphRenderLayoutKey is { } k
+                && _state.CachedGraphRenderLayout.ContentHeight > k.Height,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Wait for the scrollbar widget to actually paint a thumb cell in the rightmost
+        // column. Polled because the snapshot-and-invalidate path may need one extra frame
+        // after the first layout build.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s =>
+            {
+                for (int y = 0; y < s.Height; y++)
+                {
+                    if (s.GetCell(s.Width - 1, y).Character == "▉") return true;
+                }
+                return false;
+            }, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var snapshot = terminal.CreateSnapshot();
+        var rightCol = snapshot.Width - 1;
+        var hasThumb = false;
+        for (int y = 0; y < snapshot.Height; y++)
+        {
+            if (snapshot.GetCell(rightCol, y).Character == "▉")
+            {
+                hasThumb = true;
+                break;
+            }
+        }
+        Assert.True(hasThumb, "Expected at least one scrollbar thumb cell in the rightmost column.");
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// When the laid-out graph fits inside the viewport, the scrollbar's gutter is reserved
+    /// (FixedWidth(1)) but renders no thumb glyphs — <see cref="Hex1b.Nodes.ScrollbarNode"/>
+    /// paints nothing when <c>ContentSize &lt;= ViewportSize</c>.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_Scrollbar_HiddenWhenContentFits()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.CachedGraphRenderLayout is not null
+                && _state.CachedGraphRenderLayoutKey is { } k
+                && _state.CachedGraphRenderLayout.ContentHeight <= k.Height,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var snapshot = terminal.CreateSnapshot();
+        var rightCol = snapshot.Width - 1;
+        for (int y = 0; y < snapshot.Height; y++)
+        {
+            var ch = snapshot.GetCell(rightCol, y).Character;
+            Assert.NotEqual("▉", ch);
+        }
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Mouse wheel down over the graph surface advances <see cref="DotsiderState.DepGraphScrollY"/>
+    /// via the new <c>MouseButton.ScrollDown</c> binding.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_MouseWheelDown_AdvancesScrollY()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.DepGraphScrollY);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .MouseMoveTo(40, 10)
+            .ScrollDown()
+            .WaitUntil(_ => _state.DepGraphScrollY > 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.DepGraphScrollY > 0);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Wheel up at the top is clamped to zero by <c>SetScroll</c>'s lower bound.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_MouseWheelUp_AtTop_StaysAtZero()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .MouseMoveTo(40, 10)
+            .ScrollUp()
+            .ScrollUp()
+            .Wait(TimeSpan.FromMilliseconds(100))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.DepGraphScrollY);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Wheel down at the bottom is clamped to <c>max</c> by <c>SetScroll</c>'s upper bound.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_MouseWheelDown_AtBottom_DoesNotExceedMax()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.End)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        var max = Math.Max(0,
+            _state.CachedGraphRenderLayout!.ContentHeight - _state.CachedGraphRenderLayoutKey!.Value.Height);
+        Assert.True(max > 0, "viewport must be smaller than content for this test");
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.DepGraphScrollY == max, TimeSpan.FromSeconds(5))
+            .MouseMoveTo(40, 10)
+            .ScrollDown()
+            .ScrollDown()
+            .Wait(TimeSpan.FromMilliseconds(100))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(max, _state.DepGraphScrollY);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Track click below the thumb pages forward by <c>viewportSize - 1</c>, hex1b's
+    /// <see cref="Hex1b.Nodes.ScrollbarNode"/> step. Assert exact equality on the page size,
+    /// which is determined by hex1b alone.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_TrackClick_PagesScrollY_ByViewportMinusOne()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        var viewport = _state.CachedGraphRenderLayoutKey!.Value.Height;
+        var max = Math.Max(0, _state.CachedGraphRenderLayout!.ContentHeight - viewport);
+        Assert.True(max >= viewport - 1, "viewport must allow at least one page step");
+        Assert.Equal(0, _state.DepGraphScrollY);
+
+        // Click near the bottom of the rightmost column — likely below the thumb when the
+        // thumb is at the top.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .MouseMoveTo(119, 25)
+            .Click()
+            .WaitUntil(_ => _state.DepGraphScrollY > 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(viewport - 1, _state.DepGraphScrollY);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Thumb drag mutates <see cref="DotsiderState.DepGraphScrollY"/>. Specifically guards
+    /// the composition fix: if the scrollbar were nested inside the Interactable, drag events
+    /// would never reach <see cref="Hex1b.Nodes.ScrollbarNode"/> and this test would fail.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_ThumbDrag_UpdatesScrollY()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.DepGraphScrollY);
+
+        var sbCol = 119;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Drag(sbCol, 6, sbCol, 18)
+            .WaitUntil(_ => _state.DepGraphScrollY > 0, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state.DepGraphScrollY > 0);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Regression for the focus-return contract: after a thumb drag, the next
+    /// <c>RightArrow</c> keystroke advances <see cref="DotsiderState.GraphSelectedIndex"/>.
+    /// Exercises the production race by enabling input coalescing (matching the hex1b
+    /// default production uses) and sending the RightArrow with no inter-step wait — the
+    /// drag's mouse-down/move/up and the RightArrow all coalesce into the same processing
+    /// batch. If focus restoration were deferred (e.g. via <c>RequestFocus</c>) the
+    /// RightArrow would route to the still-focused <c>ScrollbarNode</c> before the next
+    /// render runs, and selection would not advance. Synchronous bounce inside
+    /// <c>VScrollbar.OnScroll</c> via <c>FocusWhere</c> is what makes this test pass.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_AfterScrollbarDrag_RightArrow_AdvancesSelection()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll, enableInputCoalescing: true);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        var beforeIndex = _state.GraphSelectedIndex;
+
+        var sbCol = 119;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Drag(sbCol, 8, sbCol, 14)
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.GraphSelectedIndex != beforeIndex, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotEqual(beforeIndex, _state.GraphSelectedIndex);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// No-op click case: the user clicks the thumb at its current position so
+    /// <c>ScrollbarWidget.OnScroll</c> never fires (the offset doesn't change). The OnScroll
+    /// path's synchronous bounce can't help — only the build-time scrollbar focus bounce at
+    /// the top of the dep-graph view's widget builder can. This test pins down the scenario
+    /// concretely: locate a painted thumb cell from the rendered right-edge gutter, confirm
+    /// the live <see cref="Hex1b.Nodes.ScrollbarNode"/>'s bounds contain that cell (so the
+    /// click hit-tests to the scrollbar and focuses it), click without moving, then press
+    /// <c>RightArrow</c>. If selection advances and scroll position is unchanged, the
+    /// build-time bounce restored focus to the graph between the no-op click and the
+    /// keypress.
+    /// <para>
+    /// Coalescing is OFF for this test on purpose: the build-time bounce runs at the start
+    /// of the next render frame, so it needs at least one frame to elapse between the click
+    /// and the RightArrow. Without coalescing, every input event triggers a render, which
+    /// gives the bounce a frame. Closing the residual same-batch race (no-op click + key
+    /// arriving inside one coalesced batch under 5ms) requires a hex1b API surface change —
+    /// either an OnFocusChanged hook on <c>ScrollbarNode</c> or public access to the current
+    /// hovered node — neither of which is available today. Real-user reaction times leave
+    /// dozens of frames between the click and the next key, so this test exercises the
+    /// production path users actually hit.
+    /// </para>
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_NoOpScrollbarClick_RightArrow_AdvancesSelection()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.CachedGraphRenderLayout is not null
+                && _state.CachedGraphRenderLayoutKey is { } k
+                && _state.CachedGraphRenderLayout.ContentHeight > k.Height,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Wait for an actually-painted scrollbar cell at the rightmost column. Glyphs are
+        // either the thumb (▉) or the track (│). Need a thumb cell specifically because a
+        // click on the thumb starts a drag-grab without changing the offset (no OnScroll); a
+        // track click pages forward by viewport-1 (would fire OnScroll, defeating the test).
+        var sbCol = terminal.CreateSnapshot().Width - 1;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s =>
+            {
+                for (int y = 0; y < s.Height; y++)
+                {
+                    if (s.GetCell(sbCol, y).Character == "▉") return true;
+                }
+                return false;
+            }, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Locate the topmost thumb cell so the click hits the thumb (no-op when at offset 0).
+        var snapshot = terminal.CreateSnapshot();
+        int sbRow = -1;
+        for (int y = 0; y < snapshot.Height; y++)
+        {
+            if (snapshot.GetCell(sbCol, y).Character == "▉")
+            {
+                sbRow = y;
+                break;
+            }
+        }
+        Assert.True(sbRow >= 0, "could not find a scrollbar thumb cell at the rightmost column");
+
+        // Verify that the live ScrollbarNode's bounds actually contain the click target —
+        // so the input router's hit-test will route the click to the scrollbar (and not, say,
+        // a status-row text cell that happens to draw a │). This is the key check the review
+        // called out: without it, the test could pass for the wrong reason.
+        var scrollbar = _hex1bApp!.Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault();
+        Assert.NotNull(scrollbar);
+        var bounds = scrollbar!.Bounds;
+        Assert.True(
+            sbCol >= bounds.X && sbCol < bounds.X + bounds.Width &&
+            sbRow >= bounds.Y && sbRow < bounds.Y + bounds.Height,
+            $"ScrollbarNode bounds {bounds} do not contain target cell ({sbCol}, {sbRow}).");
+
+        var beforeIndex = _state!.GraphSelectedIndex;
+        var beforeScrollY = _state.DepGraphScrollY;
+        Assert.Equal(0, beforeScrollY);
+
+        // Click the thumb at its current position. Mouse-down → Focus(scrollbar) →
+        // ScrollbarNode.HandleDrag returns a thumb-grab handler. Mouse-up at the same spot
+        // → drag ends with no movement → no offset change → OnScroll never fires. Without
+        // the build-time bounce, focus would stay on the scrollbar and the RightArrow that
+        // arrives next in the coalesced batch would not advance graph selection.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .MouseMoveTo(sbCol, sbRow)
+            .Click()
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state.GraphSelectedIndex != beforeIndex, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        // Scroll position is unchanged → confirms the click was a true no-op (OnScroll never
+        // fired). Selection advanced → confirms the build-time bounce restored focus to the
+        // graph before the RightArrow routed.
+        Assert.Equal(beforeScrollY, _state.DepGraphScrollY);
+        Assert.NotEqual(beforeIndex, _state.GraphSelectedIndex);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Pins the assumption behind the <c>OnScroll → FocusWhere(n => n is InteractableNode)</c>
+    /// predicate: the dep-graph view contains exactly one <see cref="Hex1b.Nodes.InteractableNode"/>
+    /// in the focus ring (the search bar uses TextBox, not Interactable). If a future change
+    /// introduces a second Interactable to this view, this test fails and the predicate must
+    /// be tightened before merging.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_DepGraphView_ContainsExactlyOneInteractable()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var interactableCount = app.Focusables.Count(n => n is Hex1b.Nodes.InteractableNode);
+        Assert.Equal(1, interactableCount);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Toggling the framework filter forces a layout rebuild with a different
+    /// <c>ContentHeight</c>. The snapshot-and-invalidate path in
+    /// <c>GetOrBuildRenderLayout</c> must surface the new geometry to the scrollbar within
+    /// two frames; otherwise a stale thumb size lingers indefinitely.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_LayoutRebuild_ScrollbarReflectsNewContentHeight_WithinTwoFrames()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        var beforeHeight = _state.CachedGraphRenderLayout!.ContentHeight;
+
+        // Toggle framework filter → layout key changes → next render rebuilds.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.F)
+            .WaitUntil(_ => _state.CachedGraphRenderLayout is not null
+                && _state.CachedGraphRenderLayout.ContentHeight != beforeHeight,
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var afterHeight = _state.CachedGraphRenderLayout!.ContentHeight;
+        Assert.NotEqual(beforeHeight, afterHeight);
+
+        // The snapshot-and-invalidate path schedules one extra frame so the next builder
+        // sees the new layout. ComputeScrollbarInputs is what the widget builder uses,
+        // so reading it here confirms the scrollbar input matches the new geometry.
+        var (c, _, _) = DependencyGraphView.ComputeScrollbarInputs(_state);
+        Assert.Equal(afterHeight, c);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Pre-layout <c>End</c> is a no-op (<c>SetScroll</c> drops scroll-down requests when no
+    /// clamp data is available). Post-layout <c>End</c> still scrolls to the bottom. Documents
+    /// the deliberate behavior change called out in the plan.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_End_PreLayout_IsNoOp_PostLayout_ScrollsToBottom()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: (int)TabId.DepGraph);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        // Press End immediately, before "Nodes:" appears (i.e. before a layout was built).
+        // SetScroll's pre-layout branch keeps DepGraphScrollY at 0.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.End)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(0, _state!.DepGraphScrollY);
+
+        // Now wait for layout, press End again, and confirm it scrolls to the bottom.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.ContainsText("Nodes:"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.NotNull(_state.CachedGraphRenderLayout);
+        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        var max = Math.Max(0,
+            _state.CachedGraphRenderLayout!.ContentHeight - _state.CachedGraphRenderLayoutKey!.Value.Height);
+        Assert.True(max > 0, "viewport must be smaller than content for this test");
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.End)
+            .WaitUntil(_ => _state.DepGraphScrollY == max, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(max, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;

@@ -39,6 +39,7 @@ Transitive-only is intentionally not an option — hiding direct parents would p
 - `↑` / `↓`: scroll the viewport up or down one row at a time.
 - `PageUp` / `PageDown`: scroll by one viewport height.
 - `Home` / `End`: jump to the top or bottom of the graph.
+- Mouse wheel over the graph scrolls the viewport vertically; the vertical scrollbar at the right edge can be dragged or track-clicked when the graph overflows.
 - `Enter`: open the selected node's resolved assembly in a new analysis context. Uses the resolution location recorded at traversal time, not a fresh probe from the root, so transitive nodes open correctly. Enter on the root is a no-op; Enter on an unresolved or identity-mismatched leaf surfaces an explanatory status message.
 - `Esc`: return to the prior analysis context.
 - `/`: search by name; `n` jumps to the next match and `N` (shift + n) jumps to the previous. Search always operates on the visible model, so hidden nodes (by scope or filter) are never matched or selected.

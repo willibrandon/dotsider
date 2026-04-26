@@ -527,6 +527,17 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public int DepGraphScrollY { get; set; }
 
+    /// <summary>
+    /// Snapshot of (Width, Height, ContentHeight) the Dep Graph scrollbar widget was last
+    /// constructed against. <see cref="Views.DependencyGraphView"/> writes this every frame
+    /// from the current cached layout before constructing the scrollbar; <c>DrawGraph</c>
+    /// compares the post-rebuild layout against this snapshot and calls
+    /// <see cref="Hex1bApp.Invalidate"/> exactly once on change so the next frame renders the
+    /// scrollbar against the freshly-cached layout. The per-frame builder write is the
+    /// reset — no explicit clearing needed.
+    /// </summary>
+    internal (int Width, int Height, int ContentHeight)? DepGraphScrollbarSnapshot { get; set; }
+
     // --- Size Treemap Tab State ---
 
     /// <summary>Cached size tree for treemap visualization.</summary>
