@@ -2,6 +2,7 @@ using System.Text;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Surfaces;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -109,18 +110,11 @@ public static class DependencyGraphView
                 ? $"Nodes: {nodes.Count}/{totalNodes}  Edges: {edges.Count}/{totalEdges}  Hidden: {hiddenNodes}"
                 : $"Nodes: {nodes.Count}  Edges: {edges.Count}";
 
-            string scrollSuffix = string.Empty;
-            if (ready && state.CachedGraphRenderLayout is { } laidOut
-                && state.CachedGraphRenderLayoutKey is { } laidOutKey)
-            {
-                var maxScroll = Math.Max(0, laidOut.ContentHeight - laidOutKey.Height);
-                if (maxScroll > 0)
-                    scrollSuffix = $"  Scroll: {Math.Clamp(state.DepGraphScrollY, 0, maxScroll)}/{maxScroll}";
-            }
-
+            // Scroll position now lives in the vertical scrollbar widget composed with the
+            // graph surface below; the status line no longer carries a Scroll: N/M suffix.
             var statusLeft = !ready
                 ? " Building dependency graph..."
-                : $" {baseCounts}{scrollSuffix}";
+                : $" {baseCounts}";
 
             string scopeSuffix, filterSuffix;
             if (!ready)
@@ -151,137 +145,176 @@ public static class DependencyGraphView
 
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
-            widgets.Add(outer.Interactable(ic =>
-                ic.Surface(s =>
-                [
-                    s.Layer(surface => DrawGraph(surface, visible, nav, disambig,
-                        state, s.MouseX, s.MouseY, query))
-                ]).Fill()
-            ).WithInputBindings(bindings =>
-            {
-                bindings.Key(Hex1bKey.RightArrow).Action(_ =>
+            // Build-time scrollbar focus bounce. Catches the no-op-click case the synchronous
+            // OnScroll path can't see: clicking the thumb at its current position grabs focus
+            // (mouse-down → Focus(scrollbar) → drag handler set up) but never changes the
+            // offset, so ScrollbarWidget.OnScroll never fires and the synchronous bounce
+            // doesn't run. This check picks that up on the very next render — one frame after
+            // the click but before the user can react. Scoped to ScrollbarNode so legitimate
+            // focus moves (e.g. search activation focusing a TextBoxNode via deferred
+            // RequestFocus) aren't fought.
+            if (state.App.FocusedNode is ScrollbarNode)
+                state.App.FocusWhere(n => n is InteractableNode);
+
+            // Snapshot the layout fields the scrollbar widget is about to be constructed
+            // against, so DrawGraph can detect a stale scrollbar after a layout rebuild and
+            // schedule one extra frame. The per-frame overwrite is the reset.
+            var (sbContent, sbViewport, sbOffset) = ComputeScrollbarInputs(state);
+            state.DepGraphScrollbarSnapshot = (
+                state.CachedGraphRenderLayoutKey?.Width ?? 0,
+                state.CachedGraphRenderLayoutKey?.Height ?? 0,
+                state.CachedGraphRenderLayout?.ContentHeight ?? 0);
+
+            widgets.Add(outer.HStack(row =>
+            [
+                row.Interactable(ic =>
+                    ic.Surface(s =>
+                    [
+                        s.Layer(surface => DrawGraph(surface, visible, nav, disambig,
+                            state, s.MouseX, s.MouseY, query))
+                    ]).Fill()
+                ).WithInputBindings(bindings =>
                 {
-                    if (nodes.Count > 0)
+                    bindings.Key(Hex1bKey.RightArrow).Action(_ =>
                     {
-                        state.GraphSelectedIndex = (state.GraphSelectedIndex + 1) % nodes.Count;
-                        ScrollSelectionIntoView(state);
-                        state.App.Invalidate();
-                    }
-                }, "Next node");
-
-                bindings.Key(Hex1bKey.LeftArrow).Action(_ =>
-                {
-                    if (nodes.Count > 0)
-                    {
-                        state.GraphSelectedIndex = state.GraphSelectedIndex <= 0
-                            ? nodes.Count - 1
-                            : state.GraphSelectedIndex - 1;
-                        ScrollSelectionIntoView(state);
-                        state.App.Invalidate();
-                    }
-                }, "Previous node");
-
-                bindings.Key(Hex1bKey.UpArrow).Action(_ =>
-                {
-                    state.DepGraphScrollY = Math.Max(0, state.DepGraphScrollY - 1);
-                    state.App.Invalidate();
-                }, "Scroll up");
-
-                bindings.Key(Hex1bKey.DownArrow).Action(_ =>
-                {
-                    state.DepGraphScrollY += 1;
-                    state.App.Invalidate();
-                }, "Scroll down");
-
-                bindings.Key(Hex1bKey.PageUp).Action(_ =>
-                {
-                    var page = Math.Max(1, state.CachedGraphRenderLayoutKey?.Height ?? 20);
-                    state.DepGraphScrollY = Math.Max(0, state.DepGraphScrollY - page);
-                    state.App.Invalidate();
-                }, "Scroll up one page");
-
-                bindings.Key(Hex1bKey.PageDown).Action(_ =>
-                {
-                    var page = Math.Max(1, state.CachedGraphRenderLayoutKey?.Height ?? 20);
-                    state.DepGraphScrollY += page;
-                    state.App.Invalidate();
-                }, "Scroll down one page");
-
-                bindings.Key(Hex1bKey.Home).Action(_ =>
-                {
-                    state.DepGraphScrollY = 0;
-                    state.App.Invalidate();
-                }, "Scroll to top");
-
-                bindings.Key(Hex1bKey.End).Action(_ =>
-                {
-                    state.DepGraphScrollY = int.MaxValue;
-                    state.App.Invalidate();
-                }, "Scroll to bottom");
-
-                bindings.Key(Hex1bKey.F).Action(_ =>
-                {
-                    state.DepGraphHideFramework = !state.DepGraphHideFramework;
-                    state.GraphSelectedIndex = -1;
-                    state.GraphMatchIndex = -1;
-                    state.GraphNavigationError = null;
-                    state.DepGraphScrollY = 0;
-                    state.App.Invalidate();
-                }, "Toggle framework filter");
-
-                bindings.Key(Hex1bKey.D).Action(_ =>
-                {
-                    state.DepGraphScope = state.DepGraphScope == DependencyGraphScope.DirectOnly
-                        ? DependencyGraphScope.All
-                        : DependencyGraphScope.DirectOnly;
-                    state.GraphSelectedIndex = -1;
-                    state.GraphMatchIndex = -1;
-                    state.GraphNavigationError = null;
-                    state.DepGraphScrollY = 0;
-                    state.App.Invalidate();
-                }, "Toggle scope (all / direct)");
-
-                bindings.Key(Hex1bKey.Enter).Action(_ =>
-                {
-                    if (state.GraphSelectedIndex < 0 || state.GraphSelectedIndex >= nodes.Count)
-                        return;
-
-                    var node = nodes[state.GraphSelectedIndex];
-
-                    if (node.IsRoot)
-                        return;
-
-                    if (nav is null || !nav.TryGetValue(node.Id, out var nctx))
-                    {
-                        state.GraphNavigationError = $"{node.Name}: navigation context missing";
-                        state.App.Invalidate();
-                        return;
-                    }
-
-                    if (nctx.Resolved is null)
-                    {
-                        state.GraphNavigationError = nctx.Provenance switch
+                        if (nodes.Count > 0)
                         {
-                            AssemblyProvenance.IdentityMismatch =>
-                                $"{node.Name}: identity mismatch against {nctx.CandidateProbePath ?? "(unknown)"}",
-                            AssemblyProvenance.CodeBaseMissing =>
-                                $"{node.Name}: codeBase href not found: {nctx.CandidateProbePath ?? "(unknown)"}",
-                            _ => $"{node.Name}: not resolvable",
-                        };
-                        state.App.Invalidate();
-                        return;
-                    }
+                            state.GraphSelectedIndex = (state.GraphSelectedIndex + 1) % nodes.Count;
+                            ScrollSelectionIntoView(state);
+                            state.App.Invalidate();
+                        }
+                    }, "Next node");
 
-                    if (state.PushAssembly(nctx.Resolved))
+                    bindings.Key(Hex1bKey.LeftArrow).Action(_ =>
                     {
+                        if (nodes.Count > 0)
+                        {
+                            state.GraphSelectedIndex = state.GraphSelectedIndex <= 0
+                                ? nodes.Count - 1
+                                : state.GraphSelectedIndex - 1;
+                            ScrollSelectionIntoView(state);
+                            state.App.Invalidate();
+                        }
+                    }, "Previous node");
+
+                    bindings.Key(Hex1bKey.UpArrow).Action(_ =>
+                        SetScroll(state, state.DepGraphScrollY - 1), "Scroll up");
+
+                    bindings.Key(Hex1bKey.DownArrow).Action(_ =>
+                        SetScroll(state, state.DepGraphScrollY + 1), "Scroll down");
+
+                    bindings.Key(Hex1bKey.PageUp).Action(_ =>
+                    {
+                        var page = Math.Max(1, state.CachedGraphRenderLayoutKey?.Height ?? 20);
+                        SetScroll(state, state.DepGraphScrollY - page);
+                    }, "Scroll up one page");
+
+                    bindings.Key(Hex1bKey.PageDown).Action(_ =>
+                    {
+                        var page = Math.Max(1, state.CachedGraphRenderLayoutKey?.Height ?? 20);
+                        SetScroll(state, state.DepGraphScrollY + page);
+                    }, "Scroll down one page");
+
+                    bindings.Key(Hex1bKey.Home).Action(_ =>
+                        SetScroll(state, 0), "Scroll to top");
+
+                    bindings.Key(Hex1bKey.End).Action(_ =>
+                        SetScroll(state, int.MaxValue), "Scroll to bottom");
+
+                    // Mouse-wheel scrolling on the graph surface. Step size 3 matches hex1b's
+                    // ScrollPanel default. Wheel events route by hit-test, so the binding fires
+                    // only when the cursor is over the Interactable's bounds — the 1-column
+                    // scrollbar gutter is excluded by design (ScrollbarNode binds drag/click,
+                    // not wheel).
+                    bindings.Mouse(MouseButton.ScrollUp).Action(_ =>
+                        SetScroll(state, state.DepGraphScrollY - 3), "Scroll up");
+
+                    bindings.Mouse(MouseButton.ScrollDown).Action(_ =>
+                        SetScroll(state, state.DepGraphScrollY + 3), "Scroll down");
+
+                    bindings.Key(Hex1bKey.F).Action(_ =>
+                    {
+                        state.DepGraphHideFramework = !state.DepGraphHideFramework;
+                        state.GraphSelectedIndex = -1;
+                        state.GraphMatchIndex = -1;
                         state.GraphNavigationError = null;
-                        state.NavigateToTab(TabId.General);
-                        state.App.RequestFocus(n =>
-                            n.GetType().Name.StartsWith("TableNode"));
-                        state.App.Invalidate();
-                    }
-                }, "Open assembly");
-            }).Fill());
+                        SetScroll(state, 0);
+                    }, "Toggle framework filter");
+
+                    bindings.Key(Hex1bKey.D).Action(_ =>
+                    {
+                        state.DepGraphScope = state.DepGraphScope == DependencyGraphScope.DirectOnly
+                            ? DependencyGraphScope.All
+                            : DependencyGraphScope.DirectOnly;
+                        state.GraphSelectedIndex = -1;
+                        state.GraphMatchIndex = -1;
+                        state.GraphNavigationError = null;
+                        SetScroll(state, 0);
+                    }, "Toggle scope (all / direct)");
+
+                    bindings.Key(Hex1bKey.Enter).Action(_ =>
+                    {
+                        if (state.GraphSelectedIndex < 0 || state.GraphSelectedIndex >= nodes.Count)
+                            return;
+
+                        var node = nodes[state.GraphSelectedIndex];
+
+                        if (node.IsRoot)
+                            return;
+
+                        if (nav is null || !nav.TryGetValue(node.Id, out var nctx))
+                        {
+                            state.GraphNavigationError = $"{node.Name}: navigation context missing";
+                            state.App.Invalidate();
+                            return;
+                        }
+
+                        if (nctx.Resolved is null)
+                        {
+                            state.GraphNavigationError = nctx.Provenance switch
+                            {
+                                AssemblyProvenance.IdentityMismatch =>
+                                    $"{node.Name}: identity mismatch against {nctx.CandidateProbePath ?? "(unknown)"}",
+                                AssemblyProvenance.CodeBaseMissing =>
+                                    $"{node.Name}: codeBase href not found: {nctx.CandidateProbePath ?? "(unknown)"}",
+                                _ => $"{node.Name}: not resolvable",
+                            };
+                            state.App.Invalidate();
+                            return;
+                        }
+
+                        if (state.PushAssembly(nctx.Resolved))
+                        {
+                            state.GraphNavigationError = null;
+                            state.NavigateToTab(TabId.General);
+                            state.App.RequestFocus(n =>
+                                n.GetType().Name.StartsWith("TableNode"));
+                            state.App.Invalidate();
+                        }
+                    }, "Open assembly");
+                }).Fill(),
+                row.VScrollbar(sbContent, sbViewport, sbOffset)
+                    .OnScroll(offset =>
+                    {
+                        SetScroll(state, offset);
+                        // Synchronous focus bounce. <see cref="Hex1bApp.FocusWhere"/> mutates
+                        // the focus ring directly inside the input event handler call stack,
+                        // so a key pressed in the same coalesced batch (mouse-down →
+                        // mouse-move → mouse-up → Right) routes to the graph rather than the
+                        // scrollbar. <see cref="Hex1bApp.RequestFocus"/> would defer to the
+                        // next render's Step 5.5, opening the same race the review called
+                        // out. FocusWhere is correct here because the InteractableNode is
+                        // already in the focus ring — it was focused at the start of the
+                        // gesture. Safe mid-drag: hex1b captures the active drag node at
+                        // mouse-down independent of focus, so the drag continues to receive
+                        // OnMove events until the user releases. Predicate is
+                        // `n is InteractableNode` because the dep-graph view contains exactly
+                        // one InteractableNode today (search uses TextBox); the regression
+                        // test Tab6_DepGraphView_ContainsExactlyOneInteractable pins this.
+                        state.App.FocusWhere(n => n is InteractableNode);
+                    })
+                    .FixedWidth(1)
+            ]).Fill());
 
             return [.. widgets];
         })
@@ -472,6 +505,51 @@ public static class DependencyGraphView
             state.DepGraphScrollY = sel.Y + sel.Height - key.Height;
     }
 
+    /// <summary>
+    /// Computes the three values the Dep Graph scrollbar widget needs every frame —
+    /// total content size, current viewport size, and the clamped scroll offset.
+    /// Pure: no side effects, no app-context dependency. Returns safe defaults
+    /// (<c>(0, 1, 0)</c>) when the layout cache hasn't been populated yet so the scrollbar
+    /// can be constructed on the very first frame without a null check —
+    /// <see cref="ScrollbarNode.IsScrollable"/> returns <see langword="false"/> for that
+    /// shape and the bar renders nothing.
+    /// </summary>
+    /// <param name="state">The shared application state.</param>
+    /// <returns>The content size, viewport size, and clamped offset for the scrollbar.</returns>
+    internal static (int ContentSize, int ViewportSize, int Offset) ComputeScrollbarInputs(
+        DotsiderState state)
+    {
+        var contentSize = state.CachedGraphRenderLayout?.ContentHeight ?? 0;
+        var viewportSize = state.CachedGraphRenderLayoutKey?.Height ?? 1;
+        var maxScroll = Math.Max(0, contentSize - viewportSize);
+        var offset = Math.Clamp(state.DepGraphScrollY, 0, maxScroll);
+        return (contentSize, viewportSize, offset);
+    }
+
+    /// <summary>
+    /// Single source of truth for mutating <see cref="DotsiderState.DepGraphScrollY"/>.
+    /// Clamps to the layout's <c>[0, max]</c> range when it's available; falls back to
+    /// scroll-up-only when it isn't, so a pre-layout <c>End</c>/<c>PageDown</c>/wheel-down
+    /// can't store an unbounded value that no clamp data exists to validate.
+    /// </summary>
+    /// <param name="state">The shared application state.</param>
+    /// <param name="newY">The requested scroll offset.</param>
+    private static void SetScroll(DotsiderState state, int newY)
+    {
+        if (state.CachedGraphRenderLayout is { } layout
+            && state.CachedGraphRenderLayoutKey is { } key)
+        {
+            var max = Math.Max(0, layout.ContentHeight - key.Height);
+            state.DepGraphScrollY = Math.Clamp(newY, 0, max);
+        }
+        else
+        {
+            // Layout not ready — accept resets and scroll-up only, drop scroll-down requests.
+            state.DepGraphScrollY = Math.Max(0, Math.Min(newY, state.DepGraphScrollY));
+        }
+        state.App.Invalidate();
+    }
+
     private static GraphRenderLayout GetOrBuildRenderLayout(
         DotsiderState state,
         VisibleGraphModel visible,
@@ -494,6 +572,19 @@ public static class DependencyGraphView
         var built = BuildRenderLayout(visible, nav, disambig, width, height);
         state.CachedGraphRenderLayout = built;
         state.CachedGraphRenderLayoutKey = key;
+
+        // The widget tree (including the scrollbar) was already constructed for this frame
+        // against the pre-rebuild snapshot. Compare the new geometry against what the
+        // scrollbar saw and schedule one extra frame on change so the next render reflects
+        // the new ContentHeight/viewport. The snapshot guard prevents an invalidation loop:
+        // we invalidate only when the geometry actually moved.
+        var newSnapshot = (key.Width, key.Height, built.ContentHeight);
+        if (state.DepGraphScrollbarSnapshot != newSnapshot)
+        {
+            state.DepGraphScrollbarSnapshot = newSnapshot;
+            state.App.Invalidate();
+        }
+
         return built;
     }
 
