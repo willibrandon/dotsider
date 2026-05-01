@@ -2,6 +2,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
@@ -492,6 +493,279 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // because entries reference the old analyzer's state
         state.PushAssembly(samples.HelloWorldDll);
         Assert.Empty(state.IlBackStack);
+    }
+
+    // --- Issue #159: Esc on IL Inspector loses Size Map back target after gd into external ---
+
+    /// <summary>
+    /// Verifies the cross-view back target survives a cross-assembly method gd
+    /// round-trip (Size Map → IL Inspector → external method → Esc back).
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromCrossAssemblyMethodGd_RestoresSizeMapCrossViewBackTarget()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var callInst = result.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
+
+        Assert.True(navigated);
+        Assert.Single(state.IlBackStack);
+        Assert.True(state.NavigationStack.Count > 0);
+        Assert.Null(state.CrossViewBackTarget);
+
+        var entry = state.IlBackStack.Pop();
+        state.RestoreFromIlBackEntry(entry);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Empty(state.NavigationStack);
+        Assert.Empty(state.IlBackStack);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.Null(state.CrossViewBackTarget);
+    }
+
+    /// <summary>
+    /// Verifies the cross-view back target survives a cross-assembly field gd round-trip.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromCrossAssemblyFieldGd_RestoresSizeMapCrossViewBackTarget()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // GetStringEmpty has body `ldsfld string.Empty` — external FieldRef
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "GetStringEmpty" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var ldsInst = result.Value.Instructions.First(i =>
+            i.OpCode == "ldsfld" && i.MetadataToken is not null);
+        var navigated = state.NavigateToIlDefinition(ldsInst.MetadataToken!.Value);
+
+        Assert.True(navigated);
+        Assert.Single(state.IlBackStack);
+        Assert.True(state.NavigationStack.Count > 0);
+        Assert.Null(state.CrossViewBackTarget);
+
+        var entry = state.IlBackStack.Pop();
+        state.RestoreFromIlBackEntry(entry);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Empty(state.NavigationStack);
+        Assert.Empty(state.IlBackStack);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.Null(state.CrossViewBackTarget);
+    }
+
+    /// <summary>
+    /// Verifies the cross-view back target survives a cross-assembly type gd round-trip.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromCrossAssemblyTypeGd_RestoresSizeMapCrossViewBackTarget()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // CastToExternalStream has body `castclass System.IO.Stream` — external TypeRef
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CastToExternalStream" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var castInst = result.Value.Instructions.First(i =>
+            i.OpCode == "castclass" && i.MetadataToken is not null);
+        var navigated = state.NavigateToIlDefinition(castInst.MetadataToken!.Value);
+
+        Assert.True(navigated);
+        Assert.Single(state.IlBackStack);
+        Assert.True(state.NavigationStack.Count > 0);
+        Assert.Null(state.CrossViewBackTarget);
+
+        var entry = state.IlBackStack.Pop();
+        state.RestoreFromIlBackEntry(entry);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Empty(state.NavigationStack);
+        Assert.Empty(state.IlBackStack);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.Null(state.CrossViewBackTarget);
+    }
+
+    /// <summary>
+    /// Regression guard: local-method gd from Size Map preserves the cross-view
+    /// back target without going through the snapshot/restore round-trip,
+    /// because the local path never calls PushAssemblyDirect → ResetViewState.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromLocalGd_PreservesSizeMapCrossViewBackTarget()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        var result = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(result);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var callInst = result.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
+        var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
+
+        Assert.True(navigated);
+        Assert.Single(state.IlBackStack);
+        Assert.Empty(state.NavigationStack);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+    }
+
+    /// <summary>
+    /// End-to-end: from Size Map, drill into IL, gd into Console.WriteLine,
+    /// and confirm two REAL Esc presses return to Size Map. Pre-fix the second
+    /// Esc binding de-registers and the user is stuck on IL Inspector.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task EscBack_FromSizeMapToExternalCall_TwoRealEscapesReturnToSizeMap()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp();
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Select a method");
+
+        // Programmatic Size Map → IL drill-down (mirrors SizeTreemapView.cs:157).
+        // The bug is independent of how CrossViewBackTarget got set; we drive
+        // the gd round-trip with real keys.
+        var callExternal = _state!.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        _state.CurrentTab = TabId.SizeMap;
+        _state.NavigateToIlMethod(callExternal);
+        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+        await auto.WaitUntilTextAsync("call System.Console::WriteLine");
+
+        // Focus editor with 'l' — cursor lands on the first IL instruction.
+        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await Task.Delay(200, cts.Token);
+
+        // Move down callIndex times to land on the WriteLine call instruction.
+        var instructions = _state.IlInstructions!.ToList();
+        var callIndex = instructions.FindIndex(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        Assert.True(callIndex >= 0, "WriteLine call instruction must exist in CallExternal body");
+        for (var i = 0; i < callIndex; i++)
+            await auto.DownAsync(cts.Token);
+        await Task.Delay(200, cts.Token);
+
+        var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
+            _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
+        Assert.NotNull(instAtCursor);
+        Assert.Equal("call", instAtCursor!.OpCode);
+        Assert.Contains("WriteLine", instAtCursor.Operand);
+
+        // Real gd via Enter — crosses into System.Console.dll.
+        await auto.EnterAsync(cts.Token);
+
+        // The IlDisassembler emits "// Method: System.Console::WriteLine" only
+        // in the destination's IL header — unique landing marker.
+        await auto.WaitUntilTextAsync("// Method: System.Console::WriteLine");
+        Assert.True(_state.NavigationStack.Count > 0);
+        Assert.Single(_state.IlBackStack);
+        Assert.Null(_state.CrossViewBackTarget);
+
+        // First REAL Esc — pops IL back entry, returns to CallExternal IL.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+
+        // Hints bar must still show "Esc: Back" — proves the unified Esc
+        // binding is registered for the second press. Pre-fix all three back
+        // signals are zero/null and the binding de-registers.
+        await auto.WaitUntilTextAsync("Esc: Back");
+        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
+        Assert.Empty(_state.IlBackStack);
+        Assert.Empty(_state.NavigationStack);
+
+        // Second REAL Esc — drives cross-view return to Size Map.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Total:");
+        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
+        Assert.Null(_state.CrossViewBackTarget);
+
+        cts.Cancel();
+        await runTask;
     }
 
     /// <summary>

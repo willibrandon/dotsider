@@ -834,9 +834,10 @@ public sealed class DotsiderState : IDisposable
 
         if (entry.CrossAssembly && NavigationStack.Count > 0)
         {
-            PopAssembly(); // Calls ResetViewState → clears IlEditorKeyCache + IlCachedEditors
+            PopAssembly(); // Calls ResetViewState → clears IlEditorKeyCache + IlCachedEditors + CrossViewBackTarget
+            CrossViewBackTarget = entry.PreviousCrossViewBackTarget;
         }
-        
+
         IlSelectedMethod = entry.Method;
         IlSelectedField = null;
         IlEditorState = entry.EditorState;
@@ -926,7 +927,8 @@ public sealed class DotsiderState : IDisposable
         IlBackStack.Push(new IlBackEntry(
             IlSelectedMethod, IlEditorState, IlEditorMethod, IlEditorAnalyzer,
             IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly,
-            IlEditorKey));
+            IlEditorKey,
+            CrossViewBackTarget));
     }
 
     private void ExpandIlTreeForMethod(MethodDefInfo method)
