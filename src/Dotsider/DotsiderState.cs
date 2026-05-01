@@ -834,8 +834,20 @@ public sealed class DotsiderState : IDisposable
 
         if (entry.CrossAssembly && NavigationStack.Count > 0)
         {
-            PopAssembly(); // Calls ResetViewState → clears IlEditorKeyCache + IlCachedEditors + CrossViewBackTarget
+            PopAssembly(); // Calls ResetViewState → clears IlEditor*Cache + CrossViewBackTarget + Treemap* + Search
             CrossViewBackTarget = entry.PreviousCrossViewBackTarget;
+            if (entry.PreviousTreemapState is { } tm)
+            {
+                CachedSizeTree = tm.CachedTree;
+                TreemapCurrentLevel = tm.CurrentLevel;
+                TreemapBreadcrumb.Clear();
+                for (var i = tm.BreadcrumbTopFirst.Count - 1; i >= 0; i--)
+                    TreemapBreadcrumb.Push(tm.BreadcrumbTopFirst[i]);
+                TreemapSelectedIndex = tm.SelectedIndex;
+                TreemapMatchIndex = tm.MatchIndex;
+                Search[TabId.SizeMap].RestoreFrom(
+                    tm.SearchQuery, tm.SearchIsActive, tm.SearchIsConfirmed, tm.SearchMatchCount);
+            }
         }
 
         IlSelectedMethod = entry.Method;
@@ -924,11 +936,28 @@ public sealed class DotsiderState : IDisposable
             return;
         }
 
+        TreemapBackState? treemapSnapshot = null;
+        if (crossAssembly)
+        {
+            var smSearch = Search[TabId.SizeMap];
+            treemapSnapshot = new TreemapBackState(
+                TreemapCurrentLevel,
+                [.. TreemapBreadcrumb],
+                TreemapSelectedIndex,
+                TreemapMatchIndex,
+                CachedSizeTree,
+                smSearch.Query,
+                smSearch.IsActive,
+                smSearch.IsConfirmed,
+                smSearch.MatchCount);
+        }
+
         IlBackStack.Push(new IlBackEntry(
             IlSelectedMethod, IlEditorState, IlEditorMethod, IlEditorAnalyzer,
             IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly,
             IlEditorKey,
-            CrossViewBackTarget));
+            CrossViewBackTarget,
+            treemapSnapshot));
     }
 
     private void ExpandIlTreeForMethod(MethodDefInfo method)
