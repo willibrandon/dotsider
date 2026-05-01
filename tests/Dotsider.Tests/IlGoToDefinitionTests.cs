@@ -716,18 +716,37 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
         await auto.WaitUntilTextAsync("call System.Console::WriteLine");
 
-        // Focus editor with 'l' — cursor lands on the first IL instruction.
+        // Focus editor with 'l' and wait until focus shift settles (cursor on
+        // first IL instruction). Per hex1b testing guide, poll on state rather
+        // than Task.Delay — Linux/macOS CI rendered slower than Windows and
+        // raced the down loop below.
         await auto.KeyAsync(Hex1bKey.L, cts.Token);
-        await Task.Delay(200, cts.Token);
+        await auto.WaitUntilAsync(_ =>
+        {
+            if (_state!.IlEditorState is null || _state.IlInstructions is null
+                || _state.IlInstructions.Count == 0) return false;
+            var inst = IlNavigationHelper.GetInstructionAtCursor(
+                _state.IlEditorState, _state.IlInstructions, _state.IlHeaderLineCount);
+            return inst is not null && inst.Offset == _state.IlInstructions[0].Offset;
+        });
 
-        // Move down callIndex times to land on the WriteLine call instruction.
-        var instructions = _state.IlInstructions!.ToList();
+        // Step cursor down to the WriteLine call, polling for cursor advance
+        // after each Down so a slow render doesn't drop a keypress.
+        var instructions = _state!.IlInstructions!.ToList();
         var callIndex = instructions.FindIndex(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.True(callIndex >= 0, "WriteLine call instruction must exist in CallExternal body");
         for (var i = 0; i < callIndex; i++)
+        {
+            var expected = instructions[i + 1];
             await auto.DownAsync(cts.Token);
-        await Task.Delay(200, cts.Token);
+            await auto.WaitUntilAsync(_ =>
+            {
+                var inst = IlNavigationHelper.GetInstructionAtCursor(
+                    _state!.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
+                return inst is not null && inst.Offset == expected.Offset;
+            });
+        }
 
         var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
             _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
