@@ -45,4 +45,7 @@ public class IlNavigationFixture
 
     /// <summary>Constructs a type locally owned in the partial-facade System.Collections.dll.</summary>
     public LinkedList<int> CreateLinkedList() { _counter++; return new LinkedList<int>(); }
+
+    /// <summary>Casts to an external type (produces castclass with TypeRef to System.IO.Stream).</summary>
+    public Stream CastToExternalStream(object o) { _counter++; return (Stream)o; }
 }

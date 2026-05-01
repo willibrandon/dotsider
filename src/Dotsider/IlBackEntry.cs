@@ -16,6 +16,7 @@ namespace Dotsider;
 /// <param name="TreeExpansionState">Cloned snapshot of the tree expansion state.</param>
 /// <param name="CrossAssembly">Whether PushAssembly was called for this navigation (requires PopAssembly on back).</param>
 /// <param name="EditorKey">The editor identity key for StatePanelWidget matching on back-nav.</param>
+/// <param name="PreviousCrossViewBackTarget">Snapshot of <c>CrossViewBackTarget</c> taken before the push, so cross-assembly back can restore the originating tab (e.g. Size Map) after PopAssembly clears it.</param>
 public sealed record IlBackEntry(
     MethodDefInfo Method,
     EditorState EditorState,
@@ -24,4 +25,5 @@ public sealed record IlBackEntry(
     object? FocusedTreeKey,
     Dictionary<string, bool> TreeExpansionState,
     bool CrossAssembly,
-    object? EditorKey);
+    object? EditorKey,
+    (int Tab, int SubTab)? PreviousCrossViewBackTarget);
