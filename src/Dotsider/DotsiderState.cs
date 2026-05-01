@@ -663,9 +663,20 @@ public sealed class DotsiderState : IDisposable
     // --- Cross-View Navigation ---
 
     /// <summary>
-    /// Saved source tab for cross-view back navigation, or null if no cross-view jump has occurred.
+    /// Stack of cross-view back targets, top-first. Pushed by
+    /// <see cref="NavigateToIlMethod"/> / <see cref="NavigateToHexOffset"/>, popped by
+    /// <see cref="NavigateBack"/>, cleared by <c>ResetViewState</c>. Each frame stores
+    /// the originating <c>(Tab, SubTab)</c> so chained jumps unwind one step at a time.
     /// </summary>
-    public (int Tab, int SubTab)? CrossViewBackTarget { get; set; }
+    public Stack<(int Tab, int SubTab)> CrossViewBackStack { get; } = new();
+
+    /// <summary>
+    /// Top of <see cref="CrossViewBackStack"/>, or null if the stack is empty. Used by
+    /// the unified Esc binding gate, the hint bar, and existing tests as the "current
+    /// back target" projection.
+    /// </summary>
+    public (int Tab, int SubTab)? CrossViewBackTarget =>
+        CrossViewBackStack.Count > 0 ? CrossViewBackStack.Peek() : null;
 
     /// <summary>
     /// Switches to the specified tab, finalizing any in-progress search on the current tab.
@@ -692,7 +703,7 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public void NavigateToIlMethod(MethodDefInfo method)
     {
-        CrossViewBackTarget = (CurrentTab, PeSubTab);
+        CrossViewBackStack.Push((CurrentTab, PeSubTab));
 
         // Expand namespace and type in the IL tree
         var typeDef = Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
@@ -719,7 +730,7 @@ public sealed class DotsiderState : IDisposable
         var fileOffset = RvaToFileOffset(rva);
         if (fileOffset < 0) return;
 
-        CrossViewBackTarget = (CurrentTab, PeSubTab);
+        CrossViewBackStack.Push((CurrentTab, PeSubTab));
 
         // Set cursor position + scroll target (mirrors HexDumpView.NavigateToOffset)
         var doc = HexEditorState.Document;
@@ -834,8 +845,10 @@ public sealed class DotsiderState : IDisposable
 
         if (entry.CrossAssembly && NavigationStack.Count > 0)
         {
-            PopAssembly(); // Calls ResetViewState → clears IlEditor*Cache + CrossViewBackTarget + Treemap* + Search
-            CrossViewBackTarget = entry.PreviousCrossViewBackTarget;
+            PopAssembly(); // Calls ResetViewState → clears IlEditor*Cache + CrossViewBackStack + Treemap* + Search
+            CrossViewBackStack.Clear();
+            for (var i = entry.PreviousCrossViewBackStack.Count - 1; i >= 0; i--)
+                CrossViewBackStack.Push(entry.PreviousCrossViewBackStack[i]);
             if (entry.PreviousTreemapState is { } tm)
             {
                 CachedSizeTree = tm.CachedTree;
@@ -956,7 +969,7 @@ public sealed class DotsiderState : IDisposable
             IlSelectedMethod, IlEditorState, IlEditorMethod, IlEditorAnalyzer,
             IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState), crossAssembly,
             IlEditorKey,
-            CrossViewBackTarget,
+            [.. CrossViewBackStack],
             treemapSnapshot));
     }
 
@@ -1172,12 +1185,9 @@ public sealed class DotsiderState : IDisposable
     /// </summary>
     public void NavigateBack()
     {
-        if (CrossViewBackTarget is not { } back)
-        {
-             return;
-        }
+        if (CrossViewBackStack.Count == 0) return;
 
-        CrossViewBackTarget = null;
+        var back = CrossViewBackStack.Pop();
         NavigateToTab(back.Tab);
         if (back.Tab == TabId.PeMetadata)
             PeSubTab = back.SubTab;
@@ -1342,7 +1352,7 @@ public sealed class DotsiderState : IDisposable
         foreach (var s in Search) s.Reset();
         NavigateNextMatch = null;
         NavigatePrevMatch = null;
-        CrossViewBackTarget = null;
+        CrossViewBackStack.Clear();
         GeneralFocusedDep = Analyzer.AssemblyRefs.Count > 0 ? Analyzer.AssemblyRefs[0].Name : null;
         PeSubTab = 0;
         PeFocusedKey = null;

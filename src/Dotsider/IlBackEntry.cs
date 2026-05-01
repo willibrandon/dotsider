@@ -16,7 +16,7 @@ namespace Dotsider;
 /// <param name="TreeExpansionState">Cloned snapshot of the tree expansion state.</param>
 /// <param name="CrossAssembly">Whether PushAssembly was called for this navigation (requires PopAssembly on back).</param>
 /// <param name="EditorKey">The editor identity key for StatePanelWidget matching on back-nav.</param>
-/// <param name="PreviousCrossViewBackTarget">Snapshot of <c>CrossViewBackTarget</c> taken before the push, so cross-assembly back can restore the originating tab (e.g. Size Map) after PopAssembly clears it.</param>
+/// <param name="PreviousCrossViewBackStack">Top-first snapshot of <c>CrossViewBackStack</c> taken before the push, so cross-assembly back can restore the full chain of originating tabs after PopAssembly clears the stack.</param>
 /// <param name="PreviousTreemapState">Snapshot of the Size Map navigation state (cached tree, current level, breadcrumb, selection, search) taken before the cross-assembly push so the user lands back at the original drilled level after Esc. Null on local-gd entries since the local path never clears treemap state.</param>
 public sealed record IlBackEntry(
     MethodDefInfo Method,
@@ -27,5 +27,5 @@ public sealed record IlBackEntry(
     Dictionary<string, bool> TreeExpansionState,
     bool CrossAssembly,
     object? EditorKey,
-    (int Tab, int SubTab)? PreviousCrossViewBackTarget,
+    IReadOnlyList<(int Tab, int SubTab)> PreviousCrossViewBackStack,
     TreemapBackState? PreviousTreemapState);

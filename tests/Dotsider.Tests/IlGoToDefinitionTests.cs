@@ -1118,6 +1118,243 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    // --- Issue #162: Esc on IL Inspector loses Size Map back target after x to Hex Dump ---
+
+    /// <summary>
+    /// Verifies that two NavigateBack calls unwind the Size Map → IL → Hex chain
+    /// to the original Size Map drill — chained cross-view jumps must each store
+    /// their own back frame instead of overwriting one another.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromSizeMapIlHexChain_TwoEscsReturnToSizeMap()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
+        var origTree = state.CachedSizeTree;
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        var (root, ns, type, methodIdx) = FindSizeMapPath(origTree, method);
+
+        state.TreemapBreadcrumb.Push(root);
+        state.TreemapCurrentLevel = ns;
+        state.TreemapBreadcrumb.Push(ns);
+        state.TreemapCurrentLevel = type;
+        state.TreemapSelectedIndex = methodIdx;
+
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        state.NavigateToHexOffset(method.Rva);
+        Assert.Equal(TabId.HexDump, state.CurrentTab);
+        Assert.Equal((TabId.IlInspector, 0), state.CrossViewBackTarget);
+
+        // First Esc — Hex → IL Inspector. Pre-fix the back target is null after
+        // this because the Hex push clobbered the SizeMap frame.
+        state.NavigateBack();
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        // Second Esc — IL → Size Map.
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.Null(state.CrossViewBackTarget);
+
+        // Breadcrumb survives end-to-end (NavigateToHexOffset never calls ResetViewState).
+        Assert.Same(origTree, state.CachedSizeTree);
+        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+    }
+
+    /// <summary>
+    /// Verifies that the PE → IL → Hex chain unwinds to the originating PE
+    /// Metadata sub-tab, proving both Tab and SubTab are stored per frame.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromPeIlHexChain_RestoresPeWithExactSubTab()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CurrentTab = TabId.PeMetadata;
+        state.PeSubTab = PeSubTabId.MethodDef;
+
+        var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        state.NavigateToIlMethod(method);
+        Assert.Equal((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
+
+        state.NavigateToHexOffset(method.Rva);
+        // The Hex frame captures (CurrentTab, PeSubTab) — PeSubTab is unchanged
+        // since the user was on IL Inspector, but the SubTab value is unused
+        // when NavigateBack returns to a non-PE tab. Only assert the Tab here.
+        Assert.Equal(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.Equal((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
+
+        state.NavigateBack();
+        Assert.Equal(TabId.PeMetadata, state.CurrentTab);
+        Assert.Equal(PeSubTabId.MethodDef, state.PeSubTab);
+        Assert.Null(state.CrossViewBackTarget);
+    }
+
+    /// <summary>
+    /// End-to-end: from a deep Size Map drill, IL Inspector → real x key →
+    /// Hex Dump → real Esc → real Esc must land back on Size Map at the
+    /// originating breadcrumb (proves the chain works through real input).
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task EscBack_FromSizeMapIlHexChain_RealKeysReturnToSizeMap()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp();
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Select a method");
+
+        _state!.CachedSizeTree = SizeAnalyzer.BuildSizeTree(_state.Analyzer);
+        var origTree = _state.CachedSizeTree;
+        var callExternal = _state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        var (root, ns, type, methodIdx) = FindSizeMapPath(origTree, callExternal);
+
+        _state.TreemapBreadcrumb.Push(root);
+        _state.TreemapCurrentLevel = ns;
+        _state.TreemapBreadcrumb.Push(ns);
+        _state.TreemapCurrentLevel = type;
+        _state.TreemapSelectedIndex = methodIdx;
+
+        _state.CurrentTab = TabId.SizeMap;
+        _state.NavigateToIlMethod(callExternal);
+        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+
+        // Real x key → NavigateToHexOffset (DllInspectorBindings.cs:221).
+        await auto.KeyAsync(Hex1bKey.X, cts.Token);
+        await auto.WaitUntilAsync(_ => _state!.CurrentTab == TabId.HexDump);
+        Assert.Equal((TabId.IlInspector, 0), _state.CrossViewBackTarget);
+
+        // First REAL Esc — Hex → IL Inspector.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+        await auto.WaitUntilTextAsync("Esc: Back");
+
+        // Second REAL Esc — IL → Size Map.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Total:");
+
+        var expectedCrumb = $" {origTree.Name} > {ns.Name} > {type.Name} ";
+        await auto.WaitUntilTextAsync(expectedCrumb);
+
+        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
+        Assert.Same(type, _state.TreemapCurrentLevel);
+        Assert.Null(_state.CrossViewBackTarget);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// ResetViewState (triggered by PushAssembly's dependency drill) clears the
+    /// entire cross-view back stack, not just the top frame.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ResetViewState_ClearsEntireBackStack()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+        state.NavigateToHexOffset(method.Rva);
+        Assert.Equal(2, state.CrossViewBackStack.Count);
+
+        // PushAssembly → ResetViewState clears everything
+        state.PushAssembly(samples.HelloWorldDll);
+
+        Assert.Empty(state.CrossViewBackStack);
+        Assert.Null(state.CrossViewBackTarget);
+    }
+
+    /// <summary>
+    /// Cross-assembly gd snapshots and restores the full multi-frame back stack,
+    /// not just the top tuple. Seeds a 2-deep stack before the gd push so a
+    /// single-tuple snapshot implementation would fail the count assertion.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void CrossAssemblyGd_SnapshotsAndRestoresMultiFrameStack()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // Seed a multi-frame stack — bottom: PE/TypeDef, top: SizeMap.
+        state.CrossViewBackStack.Push((TabId.PeMetadata, PeSubTabId.TypeDef));
+        state.CrossViewBackStack.Push((TabId.SizeMap, 0));
+        state.CurrentTab = TabId.IlInspector;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.IlSelectedMethod = method;
+        var dis = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(dis);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var callInst = dis.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+
+        // Cross-assembly push cleared the stack mid-flight.
+        Assert.Empty(state.CrossViewBackStack);
+
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+
+        // Whole stack is restored in correct top-first order.
+        var arr = state.CrossViewBackStack.ToArray();
+        Assert.Equal(2, arr.Length);
+        Assert.Equal((TabId.SizeMap, 0), arr[0]);
+        Assert.Equal((TabId.PeMetadata, PeSubTabId.TypeDef), arr[1]);
+    }
+
+    /// <summary>
+    /// NavigateToHexOffset bails out early on an invalid RVA without mutating
+    /// the back stack — the early return precedes the push.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToHexOffset_InvalidRva_DoesNotMutateBackStack()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CrossViewBackStack.Push((TabId.SizeMap, 0));
+        Assert.Single(state.CrossViewBackStack);
+
+        // RvaToFileOffset returns -1 for an out-of-range RVA — early return fires.
+        state.NavigateToHexOffset(int.MaxValue);
+
+        Assert.Single(state.CrossViewBackStack);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+    }
+
     /// <summary>
     /// Verifies external method filters by declaring type.
     /// </summary>

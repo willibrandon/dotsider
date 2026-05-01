@@ -2558,7 +2558,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Programmatically set a cross-view back target (simulating a g/x navigation)
-        _state!.CrossViewBackTarget = (TabId.PeMetadata, PeSubTabId.TypeDef);
+        _state!.CrossViewBackStack.Push((TabId.PeMetadata, PeSubTabId.TypeDef));
         _hex1bApp!.Invalidate();
 
         // Wait for "Esc: Back" hint to appear

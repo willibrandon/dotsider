@@ -212,6 +212,61 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the NuGet DLL inspector unwinds the PE → IL → Hex chain on
+    /// two Esc presses without ejecting back to the package browser. Mirrors
+    /// the behavior already covered for standalone dotsider in
+    /// <see cref="DotsiderStateTests.NavigateToIlMethod_ThenHex_ThenBack_RestoresIl"/>.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task NuGet_EscBack_FromPeIlHexChain_TwoEscsReturnToPe()
+    {
+        var (terminal, app) = CreateNuGetApp();
+        var ct = TestContext.Current.CancellationToken;
+        var runTask = app.RunAsync(ct);
+        await Task.Delay(100, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("RichLibrary.dll"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.DownArrow)
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => !_state!.IsBrowsingPackage, TimeSpan.FromSeconds(10))
+            .WaitUntil(s =>
+            {
+                // Set up a PE → IL → Hex chain on the inner DLL state, then drive
+                // real Esc keys through the NuGet Escape handler.
+                var dllState = _state!.SelectedDllState!;
+                dllState.CurrentTab = TabId.PeMetadata;
+                dllState.PeSubTab = PeSubTabId.MethodDef;
+                var method = dllState.Analyzer.MethodDefs.First(m => m.Rva > 0);
+                dllState.NavigateToIlMethod(method);
+                dllState.NavigateToHexOffset(method.Rva);
+                _state.App.Invalidate();
+                return dllState.CurrentTab == TabId.HexDump;
+            }, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.SelectedDllState!.CurrentTab == TabId.IlInspector,
+                TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => _state!.SelectedDllState!.CurrentTab == TabId.PeMetadata,
+                TimeSpan.FromSeconds(10))
+            .Ctrl().Key(Hex1bKey.C)
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Two Escs landed back on PE Metadata with the original sub-tab — and
+        // the user is still inside the DLL inspector (not ejected to the package
+        // browser, which is the pre-fix fall-through branch in NuGet's Esc handler).
+        Assert.NotNull(_state!.SelectedDllState);
+        Assert.False(_state.IsBrowsingPackage);
+        Assert.Equal(TabId.PeMetadata, _state.SelectedDllState.CurrentTab);
+        Assert.Equal(PeSubTabId.MethodDef, _state.SelectedDllState.PeSubTab);
+        Assert.Null(_state.SelectedDllState.CrossViewBackTarget);
+
+        await runTask.ContinueWith(_ => { }, ct);
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()

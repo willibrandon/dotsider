@@ -163,7 +163,8 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         var entry = new IlBackEntry(
             method, state.IlEditorState, method, state.Analyzer,
-            $"method:{method.Token}", [], false, editorKey, null, null);
+            $"method:{method.Token}", [], false, editorKey,
+            [], null);
 
         // Simulate what ResetViewState does (called by PopAssembly on cross-assembly back)
         state.IlEditorKeyCache.Clear();
@@ -199,7 +200,8 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         var editorStateA = new EditorState(new Hex1bDocument("method A")) { IsReadOnly = true };
         var entry = new IlBackEntry(
             methodA, editorStateA, methodA, state.Analyzer,
-            $"method:{methodA.Token}", [], false, keyA, null, null);
+            $"method:{methodA.Token}", [], false, keyA,
+            [], null);
 
         state.RestoreFromIlBackEntry(entry);
 

@@ -647,6 +647,7 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         var app = CreateApp();
         using var state = new DotsiderState(app, samples.RichLibraryDll);
         state.CurrentTab = TabId.PeMetadata;
+        state.PeSubTab = PeSubTabId.MethodDef;
 
         // PE → IL Inspector
         var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
@@ -662,6 +663,11 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         // Back → IL Inspector
         state.NavigateBack();
         Assert.Equal(TabId.IlInspector, state.CurrentTab);
+
+        // The PE Metadata frame underneath must remain reachable via a second
+        // Esc — chained cross-view jumps unwind one frame at a time, with the
+        // exact origin sub-tab preserved.
+        Assert.Equal((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
     }
 
     // --- Apphost Detection ---

@@ -239,6 +239,7 @@ public sealed class NuGetApp(NuGetState state)
                                 _state.App.Invalidate();
                                 return;
                             }
+                            
                             if (dllState.StringsDetailContent is not null)
                             {
                                 dllState.StringsDetailContent = null;
@@ -253,6 +254,12 @@ public sealed class NuGetApp(NuGetState state)
                             {
                                 var entry = dllState.IlBackStack.Pop();
                                 dllState.RestoreFromIlBackEntry(entry);
+                                return;
+                            }
+
+                            if (dllState.CrossViewBackTarget is not null)
+                            {
+                                dllState.NavigateBack();
                                 return;
                             }
                         }
