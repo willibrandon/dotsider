@@ -787,6 +787,337 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await runTask;
     }
 
+    // --- Issue #159 (reopened): Esc loses Size Map drill state after cross-assembly gd ---
+
+    /// <summary>
+    /// Walks the real Size Map tree to find the path that drills down to a method.
+    /// </summary>
+    private static (SizeNode Root, SizeNode Namespace, SizeNode Type, int MethodChildIndex)
+        FindSizeMapPath(SizeNode root, MethodDefInfo method)
+    {
+        var ns = method.DeclaringType.Contains('.')
+            ? method.DeclaringType[..method.DeclaringType.LastIndexOf('.')]
+            : "(global)";
+        var nsNode = root.Children.First(c => c.FullPath == ns);
+        var typeNode = nsNode.Children.First(c => c.FullPath == method.DeclaringType);
+        var methodIdx = typeNode.Children.ToList().FindIndex(c =>
+            c.FullPath == $"{method.DeclaringType}::{method.Name}@0x{method.Token:X8}");
+        Assert.True(methodIdx >= 0,
+            $"Method {method.DeclaringType}::{method.Name} not found in size tree");
+        return (root, nsNode, typeNode, methodIdx);
+    }
+
+    /// <summary>
+    /// Verifies the full Size Map drill state (cached tree, current level, breadcrumb,
+    /// selection, search) is restored after a cross-assembly gd round-trip. Parameterized
+    /// across the three external dispatch paths: method, field, type.
+    /// </summary>
+    [Theory(Timeout = 30_000)]
+    [InlineData("CallExternal", "call", "WriteLine")]
+    [InlineData("GetStringEmpty", "ldsfld", "")]
+    [InlineData("CastToExternalStream", "castclass", "")]
+    public void EscBack_FromCrossAssemblyGd_RestoresFullSizeMapDrillState(
+        string methodName, string opCode, string operandSubstring)
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
+        var origTree = state.CachedSizeTree;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == methodName && m.DeclaringType.Contains("IlNavigationFixture"));
+        var (root, ns, type, methodIdx) = FindSizeMapPath(origTree, method);
+
+        state.TreemapBreadcrumb.Push(root);
+        state.TreemapCurrentLevel = ns;
+        state.TreemapBreadcrumb.Push(ns);
+        state.TreemapCurrentLevel = type;
+        state.TreemapSelectedIndex = methodIdx;
+        state.TreemapMatchIndex = -1;
+
+        var smSearch = state.Search[TabId.SizeMap];
+        smSearch.ActivateOrCycle();
+        smSearch.UpdateQuery("Call");
+        smSearch.SetMatchCount(2);
+        smSearch.Confirm();
+
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+
+        var dis = state.IlDisassembler!.DisassembleWithText(method);
+        Assert.NotNull(dis);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+
+        var inst = dis.Value.Instructions.First(i =>
+            i.OpCode == opCode && i.MetadataToken is not null
+            && (operandSubstring.Length == 0 || i.Operand.Contains(operandSubstring)));
+        Assert.True(state.NavigateToIlDefinition(inst.MetadataToken!.Value));
+
+        // Mid-flight: ResetViewState wiped everything.
+        Assert.Null(state.TreemapCurrentLevel);
+        Assert.Empty(state.TreemapBreadcrumb);
+        Assert.Null(state.CachedSizeTree);
+        Assert.False(state.Search[TabId.SizeMap].IsActive);
+
+        // First Esc — pop the cross-assembly entry and restore.
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+
+        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.Same(origTree, state.CachedSizeTree);
+        Assert.Same(type, state.TreemapCurrentLevel);
+        var stack = state.TreemapBreadcrumb.ToArray();
+        Assert.Equal(2, stack.Length);
+        Assert.Same(ns, stack[0]);
+        Assert.Same(root, stack[1]);
+        Assert.Equal(methodIdx, state.TreemapSelectedIndex);
+        Assert.Same(
+            type.Children[methodIdx],
+            state.TreemapCurrentLevel!.Children[state.TreemapSelectedIndex]);
+
+        var s = state.Search[TabId.SizeMap];
+        Assert.True(s.IsActive);
+        Assert.True(s.IsConfirmed);
+        Assert.Equal("Call", s.Query);
+        Assert.Equal(2, s.MatchCount);
+
+        // Second Esc — back to Size Map at the drilled level.
+        state.NavigateBack();
+        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.Same(type, state.TreemapCurrentLevel);
+    }
+
+    /// <summary>
+    /// Regression guard: when the user never drilled (TreemapCurrentLevel == null,
+    /// breadcrumb empty), the snapshot/restore round-trip must not invent a breadcrumb.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_NoDrill_NullCurrentLevelStaysNull()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        // No drill: TreemapCurrentLevel left null, breadcrumb empty, no cached tree.
+        Assert.Null(state.TreemapCurrentLevel);
+        Assert.Empty(state.TreemapBreadcrumb);
+        Assert.Null(state.CachedSizeTree);
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        var dis = state.IlDisassembler!.DisassembleWithText(method);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+        var callInst = dis.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+
+        Assert.Null(state.TreemapCurrentLevel);
+        Assert.Empty(state.TreemapBreadcrumb);
+        Assert.Equal(-1, state.TreemapSelectedIndex);
+        Assert.False(state.Search[TabId.SizeMap].IsActive);
+    }
+
+    /// <summary>
+    /// Verifies that the "drilled then popped back to root" state (TreemapCurrentLevel
+    /// equal to the cached root, breadcrumb empty) survives the cross-assembly round-trip.
+    /// Pre-fix this fails because ResetViewState zeros TreemapCurrentLevel and nothing puts
+    /// the root reference back.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_DrilledToRoot_RestoresRootIdentity()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
+        var origTree = state.CachedSizeTree;
+        state.TreemapCurrentLevel = origTree; // user drilled then popped back to root
+        Assert.Empty(state.TreemapBreadcrumb);
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        var dis = state.IlDisassembler!.DisassembleWithText(method);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+        var callInst = dis.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+
+        Assert.Same(origTree, state.CachedSizeTree);
+        Assert.Same(origTree, state.TreemapCurrentLevel);
+        Assert.Empty(state.TreemapBreadcrumb);
+    }
+
+    /// <summary>
+    /// Regression guard: local-method gd does not go through PushAssemblyDirect, so
+    /// the treemap state survives without snapshot/restore. After a local gd round-trip
+    /// the original drill state must still be present (object identity preserved).
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EscBack_FromLocalGd_PreservesBreadcrumb()
+    {
+        var app = new Hex1bApp(
+            _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
+            new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
+        using var state = new DotsiderState(app, samples.RichLibraryDll);
+
+        state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
+        var origTree = state.CachedSizeTree;
+
+        var method = state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
+        var (root, ns, type, methodIdx) = FindSizeMapPath(origTree, method);
+
+        state.TreemapBreadcrumb.Push(root);
+        state.TreemapCurrentLevel = ns;
+        state.TreemapBreadcrumb.Push(ns);
+        state.TreemapCurrentLevel = type;
+        state.TreemapSelectedIndex = methodIdx;
+
+        state.CurrentTab = TabId.SizeMap;
+        state.NavigateToIlMethod(method);
+
+        var dis = state.IlDisassembler!.DisassembleWithText(method);
+        state.IlEditorState = new EditorState(
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+        state.IlEditorMethod = method;
+        state.IlEditorAnalyzer = state.Analyzer;
+        var callInst = dis.Value.Instructions.First(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
+        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+
+        // Local path: ResetViewState was NEVER called — drill state intact.
+        Assert.Same(origTree, state.CachedSizeTree);
+        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+
+        state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
+
+        Assert.Same(origTree, state.CachedSizeTree);
+        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+        Assert.Equal(methodIdx, state.TreemapSelectedIndex);
+    }
+
+    /// <summary>
+    /// End-to-end: from a deeply drilled Size Map (root → namespace → type), drill
+    /// into a method, gd into a cross-assembly call, and confirm two real Esc presses
+    /// land back on Size Map at the original drilled type level — proven by waiting
+    /// for the rendered breadcrumb to include the type name.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task EscBack_FromSizeMapDeepDrill_TwoRealEscapesShowBreadcrumb()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp();
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Select a method");
+
+        // Build a real deep drill state for CallExternal.
+        _state!.CachedSizeTree = SizeAnalyzer.BuildSizeTree(_state.Analyzer);
+        var origTree = _state.CachedSizeTree;
+        var callExternal = _state.Analyzer.MethodDefs.First(m =>
+            m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
+        var (root, ns, type, methodIdx) = FindSizeMapPath(origTree, callExternal);
+
+        _state.TreemapBreadcrumb.Push(root);
+        _state.TreemapCurrentLevel = ns;
+        _state.TreemapBreadcrumb.Push(ns);
+        _state.TreemapCurrentLevel = type;
+        _state.TreemapSelectedIndex = methodIdx;
+
+        // CRITICAL: NavigateToIlMethod reads CurrentTab to set CrossViewBackTarget,
+        // so we must be on Size Map at call time — otherwise the back target lands
+        // on the wrong tab and the test wouldn't prove the reopened bug.
+        _state.CurrentTab = TabId.SizeMap;
+        _state.NavigateToIlMethod(callExternal);
+        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+
+        // Focus editor and walk to the WriteLine call (PR #160's polling pattern).
+        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await auto.WaitUntilAsync(_ =>
+        {
+            if (_state!.IlEditorState is null || _state.IlInstructions is null
+                || _state.IlInstructions.Count == 0) return false;
+            var i0 = IlNavigationHelper.GetInstructionAtCursor(
+                _state.IlEditorState, _state.IlInstructions, _state.IlHeaderLineCount);
+            return i0 is not null && i0.Offset == _state.IlInstructions[0].Offset;
+        });
+
+        var instructions = _state!.IlInstructions!.ToList();
+        var callIndex = instructions.FindIndex(i =>
+            i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
+        Assert.True(callIndex >= 0);
+        for (var i = 0; i < callIndex; i++)
+        {
+            var expected = instructions[i + 1];
+            await auto.DownAsync(cts.Token);
+            await auto.WaitUntilAsync(_ =>
+            {
+                var inst = IlNavigationHelper.GetInstructionAtCursor(
+                    _state!.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
+                return inst is not null && inst.Offset == expected.Offset;
+            });
+        }
+
+        // Real gd via Enter — cross-assembly into System.Console.dll.
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilTextAsync("// Method: System.Console::WriteLine");
+
+        // First REAL Esc — pop IL back entry, return to CallExternal IL.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
+        await auto.WaitUntilTextAsync("Esc: Back");
+
+        // Second REAL Esc — back to Size Map.
+        await auto.EscapeAsync(cts.Token);
+        await auto.WaitUntilTextAsync("Total:");
+
+        // The breadcrumb is built from SizeNode.Name (not FullPath) joined by " > ",
+        // wrapped in single spaces by the row at SizeTreemapView.cs:81.
+        var expectedCrumb = $" {origTree.Name} > {ns.Name} > {type.Name} ";
+        await auto.WaitUntilTextAsync(expectedCrumb);
+
+        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
+        Assert.Same(type, _state.TreemapCurrentLevel);
+        Assert.Same(origTree, _state.CachedSizeTree);
+
+        cts.Cancel();
+        await runTask;
+    }
+
     /// <summary>
     /// Verifies external method filters by declaring type.
     /// </summary>

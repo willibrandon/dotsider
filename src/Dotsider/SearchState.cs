@@ -77,4 +77,21 @@ public sealed class SearchState
         IsConfirmed = false;
         MatchCount = -1;
     }
+
+    /// <summary>
+    /// Restores all four backing fields from a snapshot. Used by the IL back-entry
+    /// restore path to put Size Map search state back after a cross-assembly gd
+    /// round-trip cleared it via <see cref="Reset"/>.
+    /// </summary>
+    /// <param name="query">The query text to restore.</param>
+    /// <param name="isActive">Whether the search was active.</param>
+    /// <param name="isConfirmed">Whether the search was confirmed.</param>
+    /// <param name="matchCount">The match count to restore.</param>
+    internal void RestoreFrom(string? query, bool isActive, bool isConfirmed, int matchCount)
+    {
+        Query = query;
+        IsActive = isActive;
+        IsConfirmed = isConfirmed;
+        MatchCount = matchCount;
+    }
 }
