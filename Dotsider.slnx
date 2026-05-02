@@ -25,6 +25,14 @@
     <Project Path="samples/NetFxBindingRedirects.PrivatePathLib/NetFxBindingRedirects.PrivatePathLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.CodeBaseLib/NetFxBindingRedirects.CodeBaseLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.CulturedLib/NetFxBindingRedirects.CulturedLib.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2/NetFxBindingRedirects.Clr2.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.SharedDep.V1/NetFxBindingRedirects.Clr2.SharedDep.V1.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.SharedDep.V2/NetFxBindingRedirects.Clr2.SharedDep.V2.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.UsesSharedV1/NetFxBindingRedirects.Clr2.UsesSharedV1.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.UsesSharedV2/NetFxBindingRedirects.Clr2.UsesSharedV2.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.PrivatePathLib/NetFxBindingRedirects.Clr2.PrivatePathLib.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.CodeBaseLib/NetFxBindingRedirects.Clr2.CodeBaseLib.csproj" />
+    <Project Path="samples/NetFxBindingRedirects.Clr2.CulturedLib/NetFxBindingRedirects.Clr2.CulturedLib.csproj" />
   </Folder>
 
   <Folder Name="/tests/">

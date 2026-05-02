@@ -70,7 +70,7 @@ public static class GeneralView
         var infoText = string.Join("\n",
             $"  Assembly Name:    {analyzer.AssemblyName ?? "(none)"}",
             $"  Version:          {analyzer.AssemblyVersion ?? "(none)"}",
-            $"  Target Framework: {analyzer.TargetFramework ?? "(unknown)"}",
+            $"  Target Framework: {state.EffectiveTargetFrameworkDisplay}",
             $"  Culture:          {analyzer.Culture ?? "neutral"}",
             $"  Public Key Token: {analyzer.PublicKeyToken ?? "(none)"}",
             "",

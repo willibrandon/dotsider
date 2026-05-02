@@ -630,8 +630,30 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Whether the assembly appears to be NativeAOT (no CLR metadata).</summary>
     public bool IsNativeAot => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
 
-    /// <summary>Whether the assembly targets .NET Framework (not .NET Core / .NET 5+).</summary>
-    public bool IsNetFramework => Analyzer.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true;
+    /// <summary>
+    /// Whether the assembly targets .NET Framework (not .NET Core / .NET 5+). True when the
+    /// <c>TargetFrameworkAttribute</c> says so OR the binder built a
+    /// <see cref="NetFxBindingContext"/> for it (catches CLR 2 roots that carry no TFA).
+    /// </summary>
+    public bool IsNetFramework =>
+        Analyzer.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true
+        || RootNetFxBindingContext is not null;
+
+    /// <summary>
+    /// Human display string for the General-tab "Target Framework" line and the Dynamic-tab
+    /// "Detected target" message. Falls back through:
+    /// <list type="bullet">
+    ///   <item>The real <c>TargetFrameworkAttribute</c> value if present.</item>
+    ///   <item>An inferred-CLR2 label when the binder detected CLR 2 from the mscorlib reference
+    ///     and the assembly carries no TFA.</item>
+    ///   <item><c>"(unknown)"</c> otherwise.</item>
+    /// </list>
+    /// </summary>
+    public string EffectiveTargetFrameworkDisplay =>
+        Analyzer.TargetFramework
+        ?? (RootNetFxBindingContext is { IsRuntimeVersionInferred: true, RuntimeVersion: NetFxRuntimeVersion.Clr2 }
+            ? "CLR v2.0 (.NET Framework 2.0–3.5, inferred from mscorlib reference)"
+            : "(unknown)");
 
     /// <summary>The runtime tracer instance, created on first launch.</summary>
     public RuntimeTracer? Tracer { get; set; }

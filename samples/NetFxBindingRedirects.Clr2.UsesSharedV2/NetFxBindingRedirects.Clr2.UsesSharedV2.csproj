@@ -1,0 +1,25 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!--
+  Holds a metadata reference to SharedDep v2.0.0.0. See the V1 sibling for the binding-redirect
+  collapse story. Private="false" prevents transitive copy-local of the v2 build through this
+  project graph; the root EXE's AfterTargets is the sole authority for staging V2 app-local.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.UsesSharedV2</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.UsesSharedV2</AssemblyName>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.SharedDep.V2\NetFxBindingRedirects.Clr2.SharedDep.V2.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

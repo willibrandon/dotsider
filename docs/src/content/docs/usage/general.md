@@ -22,6 +22,8 @@ On the dependency table, focus a row and press `y` to copy it as tab-separated v
 
 ## Drill into references
 
-Select any row in the dependency table and press `Enter`. For .NET Core / .NET 5+ assemblies, dotsider searches the app directory, the .NET shared framework, and any single-file bundles in scope. For `net48` targets it walks the .NET Framework binder — `app.config` redirects, GAC, the framework runtime directory, configured `<codeBase>`, then the application base and `<probing privatePath>` — so drill-in lands on the same file the runtime would load. Press `Esc` to return.
+Select any row in the dependency table and press `Enter`. For .NET Core / .NET 5+ assemblies, dotsider searches the app directory, the .NET shared framework, and any single-file bundles in scope. For .NET Framework targets it walks the framework binder — `app.config` redirects, GAC, the framework runtime directory, configured `<codeBase>`, then the application base and `<probing privatePath>` — so drill-in lands on the same file the runtime would load. CLR 4 roots (net40 – net48) bind out of `Microsoft.NET\assembly\GAC_*` and the `v4.0.30319` runtime; CLR 2 roots (.NET Framework 2.0 / 3.0 / 3.5 SP1, detected from the `mscorlib` v2 reference) bind out of `%WINDIR%\assembly` and the `v2.0.50727` runtime. Press `Esc` to return.
 
 This lets you walk an entire dependency chain without leaving the TUI — into framework assemblies like `System.Runtime` or `mscorlib`, into assemblies bundled inside a self-contained single-file executable, or into a redirected dependency whose loaded version differs from the version its metadata recorded.
+
+For CLR 2 roots the assembly's `TargetFrameworkAttribute` is typically absent (the attribute didn't exist before .NET 4.0), so the General tab shows an inferred-runtime label rather than `(unknown)`, and the Dynamic tab correctly identifies the assembly as .NET Framework so EventPipe tracing isn't offered.

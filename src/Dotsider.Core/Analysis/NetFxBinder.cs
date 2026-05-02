@@ -190,10 +190,25 @@ public static class NetFxBinder
         if (string.IsNullOrEmpty(effective.PublicKeyToken)) return null;
         var pkt = effective.PublicKeyToken!.ToLowerInvariant();
         var version = effective.Version;
-        // .NET 4 GAC layout: v4.0_<version>_<culture>__<pkt> when culture is non-neutral,
-        // v4.0_<version>__<pkt> (no culture, double underscore separates version from PKT) when neutral.
         var isNeutral = string.IsNullOrEmpty(effective.Culture)
                      || string.Equals(effective.Culture, "neutral", StringComparison.OrdinalIgnoreCase);
+
+        if (ctx.RuntimeVersion == NetFxRuntimeVersion.Clr2)
+        {
+            // CLR 2 token layout: <version>__<pkt> for neutral, <version>_<culture>__<pkt> for
+            // satellites. The scan list already covers GAC_MSIL + arch + bare GAC.
+            var token = BuildClr2Token(version, effective.Culture, pkt, isNeutral);
+            foreach (var subdir in ctx.GacScanList())
+            {
+                var candidate = Path.Combine(subdir, effective.Name, token, $"{effective.Name}.dll");
+                caches.FilesystemProbeCount++;
+                if (File.Exists(candidate)) return candidate;
+            }
+            return null;
+        }
+
+        // .NET 4 GAC layout: v4.0_<version>_<culture>__<pkt> when culture is non-neutral,
+        // v4.0_<version>__<pkt> (no culture, double underscore separates version from PKT) when neutral.
         var net4Token = isNeutral
             ? $"v4.0_{version}__{pkt}"
             : $"v4.0_{version}_{effective.Culture}__{pkt}";
@@ -207,9 +222,7 @@ public static class NetFxBinder
         // 2.0-registered assemblies from here (verified against live net48: stdole 7.0.3300.0
         // resolves to C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll).
         // Token format here is <version>__<pkt> with no v4.0_ prefix.
-        var legacyToken = isNeutral
-            ? $"{version}__{pkt}"
-            : $"{version}_{effective.Culture}__{pkt}";
+        var legacyToken = BuildClr2Token(version, effective.Culture, pkt, isNeutral);
         foreach (var subdir in ctx.LegacyGacScanList())
         {
             var candidate = Path.Combine(subdir, effective.Name, legacyToken, $"{effective.Name}.dll");
@@ -218,6 +231,9 @@ public static class NetFxBinder
         }
         return null;
     }
+
+    private static string BuildClr2Token(string version, string? culture, string pkt, bool isNeutral) =>
+        isNeutral ? $"{version}__{pkt}" : $"{version}_{culture}__{pkt}";
 
     private static string? TryFrameworkRuntimeDir(
         AssemblyRefInfo effective, NetFxBindingContext ctx, BindCaches caches)

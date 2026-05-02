@@ -1,0 +1,92 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!-- Emits a culture-neutral Clr2.CulturedLib.dll plus a French satellite under
+     fr/Clr2.CulturedLib.resources.dll.
+
+     Cross-platform note: this project is in Dotsider.slnx, so `dotnet build` of the full
+     solution runs everywhere — Linux/macOS, Windows hosts without .NET Framework 3.5, and
+     the developer machine that has every legacy SDK. The satellite-build pipeline depends on
+     framework ResGen.exe + the v3.5 framework csc.exe, neither of which exists outside
+     Windows-with-.NET-3.5. So the two custom targets below are guarded with
+     Condition="Exists(...)" and the .resources files are committed as fallback artifacts:
+
+       * RegenResX skips when ResGen.exe is missing → the committed .resources files are
+         embedded as-is. (If a developer edits the .resx, they must regenerate the .resources
+         on a Windows host with the .NET Framework 4.8 SDK; otherwise the .resources stay
+         stale.)
+       * BuildFrSatellite skips when the v3.5 framework csc.exe is missing → the satellite
+         doesn't appear in fr/, but the live-runtime CLR 2 tests are gated on
+         Clr2RuntimePresent and skip cleanly. The neutral CulturedLib.dll always builds.
+
+     Net effect: the project compiles on every host that runs `dotnet build`; only the runtime
+     oracle and culture-aware probing tests need the framework toolchain. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.CulturedLib</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.CulturedLib</AssemblyName>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The SDK's default item glob picks up .resx and routes them through GenerateResource,
+         which on .NET Core MSBuild calls the framework ResGen.exe and fails. Remove them from
+         the default item set; the RegenResX target below generates the .resources files by
+         invoking framework ResGen.exe directly. -->
+    <EmbeddedResource Remove="**\*.resx" />
+    <None Include="Strings.resx;Strings.fr.resx" />
+    <!-- Exclude the satellite stub from the main compile — it carries [AssemblyCulture("fr")]
+         and is compiled separately by the v3.5 csc in BuildFrSatellite. -->
+    <Compile Remove="SatelliteStub.fr.cs" />
+    <None Include="SatelliteStub.fr.cs" />
+    <!-- Embed the neutral-culture .resources into the main assembly. The fr satellite is built
+         and staged separately by the BuildFrSatellite target. -->
+    <EmbeddedResource Include="NetFxBindingRedirects.Clr2.CulturedLib.Strings.resources">
+      <LogicalName>NetFxBindingRedirects.Clr2.CulturedLib.Strings.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <PropertyGroup>
+    <_NetFxToolsDir>$(MSBuildProgramFiles32)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\</_NetFxToolsDir>
+    <_ResGenExe>$(_NetFxToolsDir)ResGen.exe</_ResGenExe>
+    <_AlExe>$(_NetFxToolsDir)al.exe</_AlExe>
+    <_NeutralResources>$(MSBuildThisFileDirectory)NetFxBindingRedirects.Clr2.CulturedLib.Strings.resources</_NeutralResources>
+    <_FrResources>$(MSBuildThisFileDirectory)NetFxBindingRedirects.Clr2.CulturedLib.Strings.fr.resources</_FrResources>
+    <!-- v3.5 framework csc.exe — the only csc that emits CLR2-runtime metadata. The SDK's
+         csc and the v4.x framework csc both emit CLR4 metadata, which the CLR2 loader rejects
+         with BadImageFormatException. Resolves to an empty/invalid path on Linux/macOS or on
+         Windows hosts without .NET Framework 3.5; the BuildFrSatellite target's Exists()
+         condition guards the Exec invocation so those builds skip cleanly. -->
+    <_WindowsRoot>$([System.Environment]::GetEnvironmentVariable("WINDIR"))</_WindowsRoot>
+    <_Clr2Csc Condition="'$(_WindowsRoot)' != ''">$(_WindowsRoot)\Microsoft.NET\Framework64\v3.5\csc.exe</_Clr2Csc>
+  </PropertyGroup>
+  <Target Name="RegenResX"
+          BeforeTargets="CoreCompile"
+          Inputs="Strings.resx;Strings.fr.resx"
+          Outputs="$(_NeutralResources);$(_FrResources)"
+          Condition="Exists('$(_ResGenExe)')">
+    <Exec Command="&quot;$(_ResGenExe)&quot; &quot;$(MSBuildThisFileDirectory)Strings.resx&quot; &quot;$(_NeutralResources)&quot;" />
+    <Exec Command="&quot;$(_ResGenExe)&quot; &quot;$(MSBuildThisFileDirectory)Strings.fr.resx&quot; &quot;$(_FrResources)&quot;" />
+  </Target>
+  <Target Name="BuildFrSatellite" AfterTargets="Build" Condition="Exists('$(_Clr2Csc)') And Exists('$(_FrResources)')">
+    <!-- The .NET 4.x SDK's al.exe always emits CLR4-targeted metadata, so a satellite built
+         that way fails to load under CLR 2 with BadImageFormatException. Instead, compile a
+         tiny C# stub via the v3.5 framework csc.exe — it emits genuine CLR2 metadata — and
+         embed the fr .resources file as a managed resource. The result lands at
+         $(OutDir)fr\NetFxBindingRedirects.Clr2.CulturedLib.resources.dll, the path the CLR's
+         culture-aware probing expects. Skips on hosts without the v3.5 framework toolchain. -->
+    <PropertyGroup>
+      <_FrSatelliteDir>$(OutDir)fr\</_FrSatelliteDir>
+      <_FrSatellitePath>$(_FrSatelliteDir)NetFxBindingRedirects.Clr2.CulturedLib.resources.dll</_FrSatellitePath>
+      <_SatelliteStub>$(MSBuildThisFileDirectory)SatelliteStub.fr.cs</_SatelliteStub>
+    </PropertyGroup>
+    <MakeDir Directories="$(_FrSatelliteDir)" />
+    <Exec Command="&quot;$(_Clr2Csc)&quot; /nologo /target:library /out:&quot;$(_FrSatellitePath)&quot; /resource:&quot;$(_FrResources)&quot;,NetFxBindingRedirects.Clr2.CulturedLib.Strings.fr.resources &quot;$(_SatelliteStub)&quot;" />
+  </Target>
+</Project>

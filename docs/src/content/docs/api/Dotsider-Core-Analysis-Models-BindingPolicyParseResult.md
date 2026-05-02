@@ -1,6 +1,6 @@
 ---
 title: "BindingPolicyParseResult"
-description: "Output of PolicyLayer): the redirects, codeBase entries, per-identity publisher-policy disablements, probing privatePath segments, and the runtime-scoped publisher-policy bypass flag found in a single configuration file."
+description: "Output of NetFxRuntimeVersion): the redirects, codeBase entries, per-identity publisher-policy disablements, probing privatePath segments, and the runtime-scoped publisher-policy bypass flag found in a single configuration file."
 slug: api/dotsider.core.analysis.models.bindingpolicyparseresult
 sidebar:
   order: 1
@@ -10,7 +10,7 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Output of PolicyLayer): the redirects, codeBase entries,
+Output of NetFxRuntimeVersion): the redirects, codeBase entries,
 per-identity publisher-policy disablements, probing privatePath segments, and the
 runtime-scoped publisher-policy bypass flag found in a single configuration file.
 
@@ -30,7 +30,7 @@ public sealed record BindingPolicyParseResult : IEquatable<BindingPolicyParseRes
 
 ### BindingPolicyParseResult(IReadOnlyList\<BindingRedirect\>, IReadOnlyList\<CodeBaseEntry\>, IReadOnlyCollection\<(string Name, string? PublicKeyToken, string Culture)\>, IReadOnlyList\<string\>, bool)
 
-Output of PolicyLayer): the redirects, codeBase entries,
+Output of NetFxRuntimeVersion): the redirects, codeBase entries,
 per-identity publisher-policy disablements, probing privatePath segments, and the
 runtime-scoped publisher-policy bypass flag found in a single configuration file.
 

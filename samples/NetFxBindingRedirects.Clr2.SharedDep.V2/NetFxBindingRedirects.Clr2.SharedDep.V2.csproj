@@ -1,0 +1,28 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!--
+  v2 build of the strong-named "NetFxBindingRedirects.Clr2.SharedDep" identity. Same
+  AssemblyName + same .snk as the V1 sibling, AssemblyVersion bumped to 2.0.0.0. This is the
+  build the root EXE stages app-local; the bindingRedirect collapses 0.0.0.0-2.0.0.0 → 2.0.0.0.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.SharedDep</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.SharedDep</AssemblyName>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <SignAssembly>true</SignAssembly>
+    <!-- Reference the V1 sibling's .snk on disk directly so the two builds always share the
+         same key without drift. -->
+    <AssemblyOriginatorKeyFile>..\NetFxBindingRedirects.Clr2.SharedDep.V1\Clr2.SharedDep.snk</AssemblyOriginatorKeyFile>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
