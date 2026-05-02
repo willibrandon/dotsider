@@ -83,8 +83,13 @@
           DestinationFolder="$(OutDir)external" />
     <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.CulturedLib.dll"
           DestinationFolder="$(OutDir)" />
+    <!-- The fr satellite is produced by CulturedLib's BuildFrSatellite target, which skips on
+         hosts without the v3.5 framework csc.exe (Linux/macOS, Windows-without-.NET-3.5). The
+         live-runtime CLR 2 tests are gated on Clr2RuntimePresent and skip cleanly on those
+         hosts, so leave this copy conditional on the satellite actually existing. -->
     <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\fr\NetFxBindingRedirects.Clr2.CulturedLib.resources.dll"
-          DestinationFolder="$(OutDir)fr" />
+          DestinationFolder="$(OutDir)fr"
+          Condition="Exists('..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\fr\NetFxBindingRedirects.Clr2.CulturedLib.resources.dll')" />
     <!-- Stage SharedDep V2 (the redirect target) app-local. -->
     <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.SharedDep.V2\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.SharedDep.dll"
           DestinationFolder="$(OutDir)" />

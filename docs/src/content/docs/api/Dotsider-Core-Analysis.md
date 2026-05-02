@@ -106,14 +106,13 @@ public static class ImplementationAssemblyResolver
 
 ### [NetFxBinder](/api/dotsider.core.analysis.netfxbinder/)
 
-CLR-accurate .NET Framework 4.x assembly binder. Consumes a [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)
-and produces a [NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/) matching what the actual .NET Framework binder
-would do at runtime: framework unification + machine.config + publisher policy + app config
-(in CLR walk order, with later layers overriding earlier ones), then locate against the GAC
-(architecture-prioritized, strong-named only), then the Framework[64] runtime directory, then
-configured codeBase href (fail-fast), then the application base + private paths with
-culture-aware probing. .NET Core / .NET 5+ roots never construct a binding context, so this
-type is never invoked for them and their probe chain is unchanged.
+CLR-accurate .NET Framework assembly binder for both CLR generations. Consumes a
+[NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/) and produces a [NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/) matching
+what the actual .NET Framework binder would do at runtime: framework unification +
+machine.config + publisher policy + app config (in CLR walk order, with later layers
+overriding earlier ones), then locate against the GAC (architecture-prioritized,
+strong-named only), then the framework runtime directory, then configured codeBase href
+(fail-fast), then the application base + private paths with culture-aware probing.
 
 ```csharp
 public static class NetFxBinder

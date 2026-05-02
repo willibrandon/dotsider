@@ -5,15 +5,28 @@ using Dotsider.Core.Analysis.Models;
 namespace Dotsider.Core.Analysis;
 
 /// <summary>
-/// CLR-accurate .NET Framework 4.x assembly binder. Consumes a <see cref="NetFxBindingContext"/>
-/// and produces a <see cref="NetFxBindResult"/> matching what the actual .NET Framework binder
-/// would do at runtime: framework unification + machine.config + publisher policy + app config
-/// (in CLR walk order, with later layers overriding earlier ones), then locate against the GAC
-/// (architecture-prioritized, strong-named only), then the Framework[64] runtime directory, then
-/// configured codeBase href (fail-fast), then the application base + private paths with
-/// culture-aware probing. .NET Core / .NET 5+ roots never construct a binding context, so this
-/// type is never invoked for them and their probe chain is unchanged.
+/// CLR-accurate .NET Framework assembly binder for both CLR generations. Consumes a
+/// <see cref="NetFxBindingContext"/> and produces a <see cref="NetFxBindResult"/> matching
+/// what the actual .NET Framework binder would do at runtime: framework unification +
+/// machine.config + publisher policy + app config (in CLR walk order, with later layers
+/// overriding earlier ones), then locate against the GAC (architecture-prioritized,
+/// strong-named only), then the framework runtime directory, then configured codeBase href
+/// (fail-fast), then the application base + private paths with culture-aware probing.
 /// </summary>
+/// <remarks>
+/// The probe locations and GAC token format switch on <see cref="NetFxRuntimeVersion"/>:
+/// <list type="bullet">
+///   <item><see cref="NetFxRuntimeVersion.Clr4"/> (.NET Framework 4.0 – 4.8.x) — GAC at
+///     <c>%WINDIR%\Microsoft.NET\assembly\GAC_*</c> with <c>v4.0_&lt;version&gt;__&lt;pkt&gt;</c>
+///     tokens; runtime directory <c>v4.0.30319</c>. The bare <c>%WINDIR%\assembly\GAC</c> is
+///     consulted as a COM-PIA fallback after the .NET 4 GAC misses.</item>
+///   <item><see cref="NetFxRuntimeVersion.Clr2"/> (.NET Framework 2.0 / 3.0 / 3.5) — GAC at
+///     <c>%WINDIR%\assembly\{GAC_MSIL, GAC_&lt;arch&gt;, GAC}</c> with no-prefix
+///     <c>&lt;version&gt;__&lt;pkt&gt;</c> tokens; runtime directory <c>v2.0.50727</c>.</item>
+/// </list>
+/// .NET Core / .NET 5+ roots never construct a binding context, so this type is never invoked
+/// for them and their probe chain is unchanged.
+/// </remarks>
 public static class NetFxBinder
 {
     private sealed class BindCaches
@@ -80,11 +93,10 @@ public static class NetFxBinder
         if (isStrongNamed)
         {
             // mscorlib is the bootstrap assembly: the CLR always loads it from the architecture-
-            // correct .NET Framework runtime directory, even though a GAC copy exists. Probe the
-            // runtime directory first for that one identity so we match real load behavior.
-            // mscorlib is the bootstrap assembly: the CLR always loads it from the architecture-
             // correct .NET Framework runtime directory, even when a GAC copy exists. Probe the
             // runtime directory first for that one identity so we match real load behavior.
+            // The runtime directory is v4.0.30319 for Clr4 contexts and v2.0.50727 for Clr2,
+            // selected by NetFxBindingContext.FrameworkRuntimeDirectory().
             if (string.Equals(effective.Name, "mscorlib", StringComparison.OrdinalIgnoreCase) &&
                 TryFrameworkRuntimeDir(effective, ctx, caches) is { } mscorlibPath)
                 return Success(requested, effective, applied,
