@@ -207,7 +207,7 @@ A matching [CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/), o
 public CodeBaseEntry? FindCodeBaseFor(AssemblyRefInfo effective)
 ```
 
-### LoadFrom(string?, NetFxArchitecture, IReadOnlyList\<string\>)
+### LoadFrom(string?, NetFxArchitecture, IReadOnlyList\<string\>, NetFxRuntimeVersion)
 
 Loads policy from the analyzer's app/exe config plus machine.config and any publisher-policy
 assemblies discovered in the supplied GAC roots. Errors are handled per CLR semantics:
@@ -220,16 +220,19 @@ dropped and the rest of the file continues to apply.
 - `appConfigPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path to the application configuration file, or null.
 - `architecture` ([NetFxArchitecture](/api/dotsider.core.analysis.models.netfxarchitecture/)): Effective process bitness, controls which `machine.config` to read.
 - `gacRoots` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): GAC root directories to scan for publisher-policy assemblies.
+- `runtimeVersion` ([NetFxRuntimeVersion](/api/dotsider.core.analysis.models.netfxruntimeversion/)): CLR generation the policy targets. Switches the machine.config path, GAC token format,
+reference-assemblies tree, and `appliesTo` filter between
+[Clr2](/api/dotsider.core.analysis.models.netfxruntimeversion.clr2/) and [Clr4](/api/dotsider.core.analysis.models.netfxruntimeversion.clr4/).
 
 **Returns:** [BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/)
 
 A populated [BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/).
 
 ```csharp
-public static BindingPolicy LoadFrom(string? appConfigPath, NetFxArchitecture architecture, IReadOnlyList<string> gacRoots)
+public static BindingPolicy LoadFrom(string? appConfigPath, NetFxArchitecture architecture, IReadOnlyList<string> gacRoots, NetFxRuntimeVersion runtimeVersion = NetFxRuntimeVersion.Clr4)
 ```
 
-### ParseConfigFile(string?, PolicyLayer)
+### ParseConfigFile(string?, PolicyLayer, NetFxRuntimeVersion)
 
 Parses a single configuration file (app config, machine.config, or a publisher-policy
 assembly's embedded XML resource) into a [BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/).
@@ -239,12 +242,16 @@ Exposed so callers that already have the file path can avoid re-parsing.
 
 - `path` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path to the configuration file, or null.
 - `source` ([PolicyLayer](/api/dotsider.core.analysis.models.policylayer/)): Policy layer to attribute parsed entries to.
+- `runtimeVersion` ([NetFxRuntimeVersion](/api/dotsider.core.analysis.models.netfxruntimeversion/)): CLR generation the parse targets. Filters `&lt;assemblyBinding appliesTo="..."&gt;`
+blocks: [Clr2](/api/dotsider.core.analysis.models.netfxruntimeversion.clr2/) accepts `v2`/`v2.0`/`v2.0.50727`;
+[Clr4](/api/dotsider.core.analysis.models.netfxruntimeversion.clr4/) accepts `v4`/`v4.*`; an empty
+`appliesTo` matches both.
 
 **Returns:** [BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/)
 
 The parsed result; an empty result on missing file or malformed XML.
 
 ```csharp
-public static BindingPolicyParseResult ParseConfigFile(string? path, PolicyLayer source)
+public static BindingPolicyParseResult ParseConfigFile(string? path, PolicyLayer source, NetFxRuntimeVersion runtimeVersion = NetFxRuntimeVersion.Clr4)
 ```
 

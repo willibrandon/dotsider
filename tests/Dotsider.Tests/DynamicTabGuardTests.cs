@@ -82,6 +82,28 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// CLR 2 root carries no <c>TargetFrameworkAttribute</c>, but the binder still detects
+    /// .NET Framework via the mscorlib v2 reference. Both <c>IsNetFramework</c> (the Dynamic-tab
+    /// gate) and <c>EffectiveTargetFrameworkDisplay</c> (the General-tab line) must reflect the
+    /// inferred state — otherwise EventPipe tracing would be wrongly enabled and the General tab
+    /// would show "(unknown)".
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void IsNetFramework_TrueForClr2RootWithoutTfa_AndDisplayShowsInferredLabel()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net35 sample is Windows-only");
+        Assert.NotNull(samples.NetFxBindingRedirectsClr2Exe);
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.NetFxBindingRedirectsClr2Exe!);
+
+        Assert.True(state.IsNetFramework);
+        Assert.Null(state.Analyzer.TargetFramework); // no TFA on the assembly
+        var display = state.EffectiveTargetFrameworkDisplay;
+        Assert.Contains("CLR v2.0", display);
+        Assert.Contains("inferred", display, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Verifies is net framework false for core apps.
     /// </summary>
     [Fact(Timeout = 30_000)]

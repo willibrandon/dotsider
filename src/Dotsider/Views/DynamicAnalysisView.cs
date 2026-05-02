@@ -63,7 +63,7 @@ public static class DynamicAnalysisView
             return BuildMessageView(ctx,
                 "This assembly targets .NET Framework.",
                 "EventPipe tracing requires .NET Core 3.0 or later.",
-                $"Detected target: {state.Analyzer.TargetFramework}");
+                $"Detected target: {state.EffectiveTargetFrameworkDisplay}");
 
         // Library DLL — no entry point (but allow NativeAOT executables through)
         if (!state.HasEntryPoint && !state.IsNativeAot)

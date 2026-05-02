@@ -1,0 +1,97 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!--
+  Root EXE for the CLR 2.0 / .NET Framework 3.5 binder test suite. Targets net35 (CLR 2)
+  and exercises every CLR2 code path:
+    - same-name/same-key bindingRedirect (SharedDep 1.0.0.0 → 2.0.0.0) collapsing two
+      transitive metadata edges (UsesSharedV1 → SharedDep v1, UsesSharedV2 → SharedDep v2)
+    - GAC-only references (System.Drawing, System.Windows.Forms)
+    - WindowsBase, a v3.0 reference-assemblies framework name (proves the v3.0 allowlist)
+    - <probing privatePath="lib"/> (PrivatePathLib copied to lib/)
+    - <codeBase href="external/CodeBaseLib.dll"/> (CodeBaseLib copied to external/)
+    - deliberately broken <codeBase href="external/Missing.dll"/> for fail-fast test
+    - culture-aware probing via fr/Clr2.CulturedLib.resources.dll, forced via ResourceManager
+  Program.cs writes a JSON oracle of Assembly.FullName/Location for every interesting load.
+  GenerateTargetFrameworkAttribute=false reproduces the issue shape: CLR 2 roots in the wild
+  carry no TargetFrameworkAttribute (the attribute didn't exist before .NET 4.0).
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2</AssemblyName>
+    <AppConfig>app.config</AppConfig>
+    <Nullable>annotations</Nullable>
+    <NuGetAudit>false</NuGetAudit>
+    <!-- The committed app.config is authoritative (it carries the deliberately broken codeBase
+         entry the test expects, plus the explicit <supportedRuntime> CLR2 pin). -->
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <!-- Critical for reproducing the issue: real CLR 2 roots have no TargetFrameworkAttribute.
+         Without this, the SDK emits a TFA and the bug doesn't reproduce. -->
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <!-- The poison v4-only assemblyBinding block in app.config is intentional (the
+         AppliesTo_v4_NotApplied test asserts the binder excludes it). MSBuild's build-time
+         binding-redirect resolver doesn't know that and reports MSB3277 about the conflict.
+         Demote it to a message — the runtime CLR2 binder handles the redirect correctly. -->
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <!-- v3.0 framework reference; proves the v3.0 allowlist branch in
+         BindingPolicy.LoadFrameworkAssemblyNames keeps WindowsBase classified as framework. -->
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The UsesShared* helpers ARE root-ProjectReferenced (the EXE calls their methods at
+         runtime, so their DLLs must land app-local). The Private=false guard sits one level
+         deeper — inside each UsesShared* csproj, where the transitive ref to SharedDep.V*
+         is suppressed. The root EXE then explicitly stages SharedDep.V2 app-local from the
+         AfterTargets below.
+         PrivatePathLib / CodeBaseLib / CulturedLib are NOT project-referenced (would auto-stage
+         app-local in bin/, defeating the privatePath / codeBase / satellite probing the binder
+         is supposed to exercise). They are built and staged from AfterTargets. -->
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.UsesSharedV1\NetFxBindingRedirects.Clr2.UsesSharedV1.csproj" />
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.UsesSharedV2\NetFxBindingRedirects.Clr2.UsesSharedV2.csproj" />
+  </ItemGroup>
+
+  <Target Name="StageClr2BindingFixtures" AfterTargets="Build">
+    <MSBuild Projects="..\NetFxBindingRedirects.Clr2.PrivatePathLib\NetFxBindingRedirects.Clr2.PrivatePathLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.Clr2.CodeBaseLib\NetFxBindingRedirects.Clr2.CodeBaseLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.Clr2.CulturedLib\NetFxBindingRedirects.Clr2.CulturedLib.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+
+    <MakeDir Directories="$(OutDir)lib" />
+    <MakeDir Directories="$(OutDir)external" />
+    <MakeDir Directories="$(OutDir)fr" />
+
+    <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.PrivatePathLib\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.PrivatePathLib.dll"
+          DestinationFolder="$(OutDir)lib" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.CodeBaseLib\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.CodeBaseLib.dll"
+          DestinationFolder="$(OutDir)external" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.CulturedLib.dll"
+          DestinationFolder="$(OutDir)" />
+    <!-- The fr satellite is produced by CulturedLib's BuildFrSatellite target, which skips on
+         hosts without the v3.5 framework csc.exe (Linux/macOS, Windows-without-.NET-3.5). The
+         live-runtime CLR 2 tests are gated on Clr2RuntimePresent and skip cleanly on those
+         hosts, so leave this copy conditional on the satellite actually existing. -->
+    <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\fr\NetFxBindingRedirects.Clr2.CulturedLib.resources.dll"
+          DestinationFolder="$(OutDir)fr"
+          Condition="Exists('..\NetFxBindingRedirects.Clr2.CulturedLib\bin\$(Configuration)\net35\fr\NetFxBindingRedirects.Clr2.CulturedLib.resources.dll')" />
+    <!-- Stage SharedDep V2 (the redirect target) app-local. -->
+    <Copy SourceFiles="..\NetFxBindingRedirects.Clr2.SharedDep.V2\bin\$(Configuration)\net35\NetFxBindingRedirects.Clr2.SharedDep.dll"
+          DestinationFolder="$(OutDir)" />
+  </Target>
+</Project>

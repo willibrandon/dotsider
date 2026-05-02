@@ -1,0 +1,19 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!-- Output is staged into the root EXE's bin/.../lib/ subdirectory and reached only via
+     <probing privatePath="lib"/> in app.config. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.PrivatePathLib</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.PrivatePathLib</AssemblyName>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

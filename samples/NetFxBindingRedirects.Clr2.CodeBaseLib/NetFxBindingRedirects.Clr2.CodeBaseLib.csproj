@@ -1,0 +1,24 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!-- Output is staged into the root EXE's bin/.../external/ subdirectory and reached only via
+     <codeBase href> in app.config. CodeBase is honored only for strong-named binds, so the
+     assembly is signed with its own .snk. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.CodeBaseLib</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.CodeBaseLib</AssemblyName>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>Clr2.CodeBaseLib.snk</AssemblyOriginatorKeyFile>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

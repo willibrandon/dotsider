@@ -180,22 +180,28 @@ public sealed record BindingPolicy(
     /// <param name="appConfigPath">Path to the application configuration file, or <see langword="null"/>.</param>
     /// <param name="architecture">Effective process bitness, controls which <c>machine.config</c> to read.</param>
     /// <param name="gacRoots">GAC root directories to scan for publisher-policy assemblies.</param>
+    /// <param name="runtimeVersion">
+    /// CLR generation the policy targets. Switches the machine.config path, GAC token format,
+    /// reference-assemblies tree, and <c>appliesTo</c> filter between
+    /// <see cref="NetFxRuntimeVersion.Clr2"/> and <see cref="NetFxRuntimeVersion.Clr4"/>.
+    /// </param>
     /// <returns>A populated <see cref="BindingPolicy"/>.</returns>
     public static BindingPolicy LoadFrom(
         string? appConfigPath,
         NetFxArchitecture architecture,
-        IReadOnlyList<string> gacRoots)
+        IReadOnlyList<string> gacRoots,
+        NetFxRuntimeVersion runtimeVersion = NetFxRuntimeVersion.Clr4)
     {
-        var app = ParseConfigFile(appConfigPath, PolicyLayer.AppConfig);
+        var app = ParseConfigFile(appConfigPath, PolicyLayer.AppConfig, runtimeVersion);
 
-        var machineConfigPath = MachineConfigPathFor(architecture);
-        var machine = ParseConfigFile(machineConfigPath, PolicyLayer.MachineConfig);
+        var machineConfigPath = MachineConfigPathFor(architecture, runtimeVersion);
+        var machine = ParseConfigFile(machineConfigPath, PolicyLayer.MachineConfig, runtimeVersion);
 
         var publisherRedirects = new List<BindingRedirect>();
         var publisherCodeBases = new List<CodeBaseEntry>();
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            foreach (var (rs, cs) in EnumeratePublisherPolicies(gacRoots, architecture))
+            foreach (var (rs, cs) in EnumeratePublisherPolicies(gacRoots, architecture, runtimeVersion))
             {
                 publisherRedirects.AddRange(rs);
                 publisherCodeBases.AddRange(cs);
@@ -214,7 +220,7 @@ public sealed record BindingPolicy(
             CodeBases: codeBasesAll,
             PublisherPolicyDisabledFor: app.Disabled,
             PublisherPolicyDisabledGlobally: app.PublisherPolicyDisabledGlobally,
-            FrameworkUnificationTable: BuildFrameworkUnificationTable(architecture, gacRoots));
+            FrameworkUnificationTable: BuildFrameworkUnificationTable(architecture, gacRoots, runtimeVersion));
     }
 
     /// <summary>
@@ -224,8 +230,17 @@ public sealed record BindingPolicy(
     /// </summary>
     /// <param name="path">Path to the configuration file, or <see langword="null"/>.</param>
     /// <param name="source">Policy layer to attribute parsed entries to.</param>
+    /// <param name="runtimeVersion">
+    /// CLR generation the parse targets. Filters <c>&lt;assemblyBinding appliesTo="..."&gt;</c>
+    /// blocks: <see cref="NetFxRuntimeVersion.Clr2"/> accepts <c>v2</c>/<c>v2.0</c>/<c>v2.0.50727</c>;
+    /// <see cref="NetFxRuntimeVersion.Clr4"/> accepts <c>v4</c>/<c>v4.*</c>; an empty
+    /// <c>appliesTo</c> matches both.
+    /// </param>
     /// <returns>The parsed result; an empty result on missing file or malformed XML.</returns>
-    public static BindingPolicyParseResult ParseConfigFile(string? path, PolicyLayer source)
+    public static BindingPolicyParseResult ParseConfigFile(
+        string? path,
+        PolicyLayer source,
+        NetFxRuntimeVersion runtimeVersion = NetFxRuntimeVersion.Clr4)
     {
         var redirects = new List<BindingRedirect>();
         var codeBases = new List<CodeBaseEntry>();
@@ -248,7 +263,8 @@ public sealed record BindingPolicy(
         if (doc.Root is null || !string.Equals(doc.Root.Name.LocalName, "configuration", StringComparison.Ordinal))
             return new BindingPolicyParseResult(redirects, codeBases, disabled, privatePaths, globallyDisabled);
 
-        globallyDisabled = ParseRuntimeElement(doc.Root, source, redirects, codeBases, disabled, privatePaths);
+        globallyDisabled = ParseRuntimeElement(
+            doc.Root, source, runtimeVersion, redirects, codeBases, disabled, privatePaths);
         return new BindingPolicyParseResult(redirects, codeBases, disabled, privatePaths, globallyDisabled);
     }
 
@@ -320,38 +336,54 @@ public sealed record BindingPolicy(
     /// <see cref="AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens"/>). Captures the
     /// CLR-accurate unification mapping — e.g. <c>Microsoft.VisualBasic</c> ships at
     /// <c>10.0.0.0</c>, so a request at <c>8.0.0.0</c> rolls forward to <c>10.0.0.0</c>; the
-    /// later GAC scan then locates the file at its real GAC slot
-    /// (<c>v4.0_10.0.0.0__b03f5f7f11d50a3a</c>) instead of falling back to the framework dir.
+    /// later GAC scan then locates the file at its real GAC slot instead of falling back to the
+    /// framework dir.
     /// </summary>
     private static Dictionary<(string Name, string PublicKeyToken), Version> BuildFrameworkUnificationTable(
-        NetFxArchitecture architecture, IReadOnlyList<string> gacRoots)
+        NetFxArchitecture architecture,
+        IReadOnlyList<string> gacRoots,
+        NetFxRuntimeVersion runtimeVersion)
     {
         var table = new Dictionary<(string, string), Version>(
             new FrameworkUnificationKeyComparer());
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return table;
 
-        AddFrameworkRuntimeDirEntries(architecture, table);
-        // GAC scan picks up framework-PKT assemblies that aren't in Framework[64]\v4.0.30319 —
+        AddFrameworkRuntimeDirEntries(architecture, runtimeVersion, table);
+        // GAC scan picks up framework-PKT assemblies that aren't in the framework runtime dir —
         // notably the WPF set (System.Printing, PresentationCore, PresentationFramework, …)
         // which lives only in the GAC. Live net48 unifies these the same as in-box assemblies:
         // System.Printing v3.0.0.0 → v4.0.0.0 from GAC_64\System.Printing\v4.0_4.0.0.0__….
         // Gate the scan on the canonical framework-assembly name set (the Reference Assemblies
         // tree) so non-framework Microsoft-signed assemblies in the GAC — VS, SQL Server
         // tooling, etc. — don't accidentally end up in the unification table.
-        var frameworkNames = LoadFrameworkAssemblyNames();
-        AddGacEntries(gacRoots, architecture, frameworkNames, table);
+        var frameworkNames = LoadFrameworkAssemblyNames(runtimeVersion);
+        AddGacEntries(gacRoots, architecture, runtimeVersion, frameworkNames, table);
         return table;
     }
 
     /// <summary>
     /// Returns the set of assembly simple names that ship as part of .NET Framework, derived
-    /// from the Reference Assemblies tree at
-    /// <c>%ProgramFiles(x86)%\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.x</c>.
-    /// Walking that tree (top-level + <c>Facades\</c>) gives the canonical list of names
+    /// from the Reference Assemblies tree. Walking those trees gives the canonical list of names
     /// the CLR's framework unification table covers; anything outside it is third-party even
     /// when signed with a Microsoft framework public key token.
     /// </summary>
-    private static HashSet<string> LoadFrameworkAssemblyNames()
+    /// <remarks>
+    /// Roots scanned:
+    /// <list type="bullet">
+    ///   <item><see cref="NetFxRuntimeVersion.Clr4"/>:
+    ///     <c>...\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.*</c>
+    ///     plus each <c>Facades\</c> subdir.
+    ///   </item>
+    ///   <item><see cref="NetFxRuntimeVersion.Clr2"/>:
+    ///     <c>...\Reference Assemblies\Microsoft\Framework\v3.5</c> (top-level + <c>Profile\Client\</c>),
+    ///     <c>...\Reference Assemblies\Microsoft\Framework\v3.0</c> (covers WindowsBase /
+    ///     PresentationCore / PresentationFramework / System.ServiceModel / System.Workflow.*),
+    ///     and <c>...\Reference Assemblies\Microsoft\Framework\.NETFramework\v3.5</c>. The
+    ///     HashSet collapses duplicates.
+    ///   </item>
+    /// </list>
+    /// </remarks>
+    private static HashSet<string> LoadFrameworkAssemblyNames(NetFxRuntimeVersion runtimeVersion)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var roots = new[]
@@ -362,17 +394,39 @@ public sealed record BindingPolicy(
         foreach (var root in roots)
         {
             if (string.IsNullOrEmpty(root)) continue;
-            var refRoot = Path.Combine(root!, "Reference Assemblies", "Microsoft", "Framework", ".NETFramework");
-            if (!Directory.Exists(refRoot)) continue;
-            IEnumerable<string> versionDirs;
-            try { versionDirs = Directory.EnumerateDirectories(refRoot, "v4.*"); }
-            catch (UnauthorizedAccessException) { continue; }
-            catch (IOException) { continue; }
-            foreach (var versionDir in versionDirs)
+            var frameworkRoot = Path.Combine(root!, "Reference Assemblies", "Microsoft", "Framework");
+            if (!Directory.Exists(frameworkRoot)) continue;
+
+            if (runtimeVersion == NetFxRuntimeVersion.Clr4)
             {
-                AddDllNamesFrom(versionDir, names);
-                var facades = Path.Combine(versionDir, "Facades");
-                if (Directory.Exists(facades)) AddDllNamesFrom(facades, names);
+                var refRoot = Path.Combine(frameworkRoot, ".NETFramework");
+                if (!Directory.Exists(refRoot)) continue;
+                IEnumerable<string> versionDirs;
+                try { versionDirs = Directory.EnumerateDirectories(refRoot, "v4.*"); }
+                catch (UnauthorizedAccessException) { continue; }
+                catch (IOException) { continue; }
+                foreach (var versionDir in versionDirs)
+                {
+                    AddDllNamesFrom(versionDir, names);
+                    var facades = Path.Combine(versionDir, "Facades");
+                    if (Directory.Exists(facades)) AddDllNamesFrom(facades, names);
+                }
+            }
+            else
+            {
+                // Three legacy locations for the Clr2 surface: v3.5 (with optional Client
+                // profile), v3.0, and the .NETFramework\v3.5 mirror added when 4.0 shipped.
+                var v35 = Path.Combine(frameworkRoot, "v3.5");
+                if (Directory.Exists(v35))
+                {
+                    AddDllNamesFrom(v35, names);
+                    var clientProfile = Path.Combine(v35, "Profile", "Client");
+                    if (Directory.Exists(clientProfile)) AddDllNamesFrom(clientProfile, names);
+                }
+                var v30 = Path.Combine(frameworkRoot, "v3.0");
+                if (Directory.Exists(v30)) AddDllNamesFrom(v30, names);
+                var netFxV35 = Path.Combine(frameworkRoot, ".NETFramework", "v3.5");
+                if (Directory.Exists(netFxV35)) AddDllNamesFrom(netFxV35, names);
             }
         }
         return names;
@@ -390,12 +444,14 @@ public sealed record BindingPolicy(
 
     private static void AddFrameworkRuntimeDirEntries(
         NetFxArchitecture architecture,
+        NetFxRuntimeVersion runtimeVersion,
         Dictionary<(string Name, string PublicKeyToken), Version> table)
     {
         var windir = Environment.GetEnvironmentVariable("WINDIR");
         if (string.IsNullOrEmpty(windir)) return;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
-        var dir = Path.Combine(windir!, "Microsoft.NET", subdir, "v4.0.30319");
+        var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
+        var dir = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir);
         if (!Directory.Exists(dir)) return;
 
         IEnumerable<string> files;
@@ -420,15 +476,19 @@ public sealed record BindingPolicy(
     private static void AddGacEntries(
         IReadOnlyList<string> gacRoots,
         NetFxArchitecture architecture,
+        NetFxRuntimeVersion runtimeVersion,
         HashSet<string> frameworkNames,
         Dictionary<(string Name, string PublicKeyToken), Version> table)
     {
         // Walk only the architecture-compatible GAC buckets — GAC_MSIL plus the matching
         // bitness slot — so a higher version installed for the wrong architecture doesn't end
         // up in the unification table. The locate stage uses the same scan list, so anything
-        // we record here is reachable later.
+        // we record here is reachable later. Clr2 also includes the bare "GAC" bucket
+        // (CLR 1.x carryover, still consulted by CLR2 fusion).
         var archSubdir = architecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
-        var subdirs = new[] { "GAC_MSIL", archSubdir };
+        var subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
+            ? new[] { "GAC_MSIL", archSubdir, "GAC" }
+            : new[] { "GAC_MSIL", archSubdir };
 
         foreach (var root in gacRoots)
         {
@@ -459,7 +519,7 @@ public sealed record BindingPolicy(
                     foreach (var tokenDir in tokenDirs)
                     {
                         var token = Path.GetFileName(tokenDir);
-                        if (!TryParseGacToken(token, out var version, out var pkt)) continue;
+                        if (!TryParseGacToken(token, runtimeVersion, out var version, out var pkt)) continue;
                         if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(pkt!)) continue;
                         var key = (simpleName, pkt!);
                         if (!table.TryGetValue(key, out var existing) || version > existing)
@@ -471,17 +531,39 @@ public sealed record BindingPolicy(
     }
 
     /// <summary>
-    /// Parses a .NET 4 GAC token directory name like <c>v4.0_4.0.0.0__31bf3856ad364e35</c>
-    /// (or culture-specific <c>v4.0_4.0.0.0_en-US_31bf3856ad364e35</c>) into version + PKT.
-    /// Returns <see langword="false"/> for non-neutral cultures (we don't unify satellites)
-    /// or any token that doesn't match the expected layout.
+    /// Parses a GAC token directory name into version + PKT. The token format differs by CLR:
+    /// <list type="bullet">
+    ///   <item><see cref="NetFxRuntimeVersion.Clr4"/>: <c>v4.0_4.0.0.0__31bf3856ad364e35</c>
+    ///     (or culture-specific <c>v4.0_4.0.0.0_en-US_31bf3856ad364e35</c>).</item>
+    ///   <item><see cref="NetFxRuntimeVersion.Clr2"/>: <c>2.0.0.0__b77a5c561934e089</c> — no
+    ///     <c>v4.0_</c> prefix.</item>
+    /// </list>
+    /// Returns <see langword="false"/> for non-neutral cultures (satellites aren't unified) or
+    /// any token that doesn't match the expected layout.
     /// </summary>
-    private static bool TryParseGacToken(string token, out Version version, out string? publicKeyToken)
+    private static bool TryParseGacToken(
+        string token,
+        NetFxRuntimeVersion runtimeVersion,
+        out Version version,
+        out string? publicKeyToken)
     {
         version = new Version(0, 0, 0, 0);
         publicKeyToken = null;
-        if (!token.StartsWith("v4.0_", StringComparison.OrdinalIgnoreCase)) return false;
-        var rest = token.Substring(5);
+
+        string rest;
+        if (runtimeVersion == NetFxRuntimeVersion.Clr4)
+        {
+            if (!token.StartsWith("v4.0_", StringComparison.OrdinalIgnoreCase)) return false;
+            rest = token.Substring(5);
+        }
+        else
+        {
+            // Clr2 tokens are not prefixed; reject any v4.0_ leftover so a mixed-cache directory
+            // never feeds Clr4-shaped tokens into the Clr2 unification table.
+            if (token.StartsWith("v4.0_", StringComparison.OrdinalIgnoreCase)) return false;
+            rest = token;
+        }
+
         var dunder = rest.IndexOf("__", StringComparison.Ordinal);
         if (dunder < 0) return false;
         var versionAndCulture = rest[..dunder];
@@ -533,6 +615,7 @@ public sealed record BindingPolicy(
     private static bool ParseRuntimeElement(
         XElement configRoot,
         PolicyLayer source,
+        NetFxRuntimeVersion runtimeVersion,
         List<BindingRedirect> redirects,
         List<CodeBaseEntry> codeBases,
         List<(string, string?, string)> disabled,
@@ -557,7 +640,7 @@ public sealed record BindingPolicy(
             foreach (var binding in runtime.Elements().Where(e => e.Name.LocalName == "assemblyBinding"))
             {
                 var appliesTo = binding.Attribute("appliesTo")?.Value;
-                if (!AppliesToMatchesV4(appliesTo)) continue;
+                if (!AppliesToMatches(appliesTo, runtimeVersion)) continue;
 
                 foreach (var child in binding.Elements())
                 {
@@ -650,33 +733,53 @@ public sealed record BindingPolicy(
         return true;
     }
 
-    private static bool AppliesToMatchesV4(string? appliesTo)
+    private static bool AppliesToMatches(string? appliesTo, NetFxRuntimeVersion runtimeVersion)
     {
+        // Empty/missing appliesTo applies to every CLR (CLR semantics: an unscoped
+        // <assemblyBinding> matches any runtime).
         if (string.IsNullOrEmpty(appliesTo)) return true;
-        return appliesTo.StartsWith("v4.", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(appliesTo, "v4", StringComparison.OrdinalIgnoreCase);
+        return runtimeVersion switch
+        {
+            NetFxRuntimeVersion.Clr2 =>
+                appliesTo.StartsWith("v2.", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(appliesTo, "v2", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(appliesTo, "v2.0", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(appliesTo, "v2.0.50727", StringComparison.OrdinalIgnoreCase),
+            NetFxRuntimeVersion.Clr4 =>
+                appliesTo.StartsWith("v4.", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(appliesTo, "v4", StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
     }
 
-    private static string? MachineConfigPathFor(NetFxArchitecture architecture)
+    private static string? MachineConfigPathFor(NetFxArchitecture architecture, NetFxRuntimeVersion runtimeVersion)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
         var windir = Environment.GetEnvironmentVariable("WINDIR");
         if (string.IsNullOrEmpty(windir)) return null;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
-        var path = Path.Combine(windir!, "Microsoft.NET", subdir, "v4.0.30319", "Config", "machine.config");
+        var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
+        var path = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir, "Config", "machine.config");
         return File.Exists(path) ? path : null;
     }
 
     private static IEnumerable<(IReadOnlyList<BindingRedirect>, IReadOnlyList<CodeBaseEntry>)>
-        EnumeratePublisherPolicies(IReadOnlyList<string> gacRoots, NetFxArchitecture architecture)
+        EnumeratePublisherPolicies(
+            IReadOnlyList<string> gacRoots,
+            NetFxArchitecture architecture,
+            NetFxRuntimeVersion runtimeVersion)
     {
         // Discover policy.<major>.<minor>.<simpleName> assemblies in the supplied GAC roots and
         // parse the .config siblings that carry their <bindingRedirect> payload. Architecture-
         // prioritized: an x86 process never loads policies from GAC_64 and an amd64 process
         // never loads them from GAC_32, so first-match semantics on the policy redirects can't
         // pick up an architecture-incompatible publisher policy.
+        // The CLR2 GAC also has a bare "GAC" bucket (CLR 1.x carryover); CLR2 fusion still
+        // consults it, so include it in the publisher-policy scan for Clr2 contexts.
         var archSubdir = architecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
-        var subdirs = new[] { "GAC_MSIL", archSubdir };
+        var subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
+            ? new[] { "GAC_MSIL", archSubdir, "GAC" }
+            : new[] { "GAC_MSIL", archSubdir };
         foreach (var root in gacRoots)
         {
             if (!Directory.Exists(root)) continue;
@@ -708,7 +811,7 @@ public sealed record BindingPolicy(
 
                         foreach (var configFile in files)
                         {
-                            var parsed = ParseConfigFile(configFile, PolicyLayer.PublisherPolicy);
+                            var parsed = ParseConfigFile(configFile, PolicyLayer.PublisherPolicy, runtimeVersion);
                             if (parsed.Redirects.Count > 0 || parsed.CodeBases.Count > 0)
                                 yield return (parsed.Redirects, parsed.CodeBases);
                         }

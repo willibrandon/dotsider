@@ -80,6 +80,30 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public IReadOnlyDictionary<string, NetFxOracleEntry>? NetFxBindingRedirectsOracle { get; private set; }
 
+    /// <summary>
+    /// Path to the built NetFxBindingRedirects.Clr2 sample executable (Windows only). The CLR 2 /
+    /// .NET Framework 3.5 sibling of <see cref="NetFxBindingRedirectsExe"/>; exercises the GAC
+    /// at <c>%WINDIR%\assembly</c>, framework runtime <c>v2.0.50727</c>, no-prefix GAC tokens,
+    /// and the v3.0 reference-assemblies allowlist via WindowsBase.
+    /// </summary>
+    public string? NetFxBindingRedirectsClr2Exe { get; private set; }
+
+    /// <summary>
+    /// Map of interesting assembly references in the NetFxBindingRedirects.Clr2 sample to the
+    /// runtime oracle entry recording what the actual CLR 2.0 runtime loaded for them.
+    /// <see langword="null"/> when CLR 2 isn't present on the host (see <see cref="Clr2RuntimePresent"/>)
+    /// or on non-Windows.
+    /// </summary>
+    public IReadOnlyDictionary<string, NetFxOracleEntry>? NetFxBindingRedirectsClr2Oracle { get; private set; }
+
+    /// <summary>
+    /// <see langword="true"/> when <c>mscorlib.dll</c> exists under the architecture-correct
+    /// <c>%WINDIR%\Microsoft.NET\Framework[64]\v2.0.50727</c> directory, i.e. the .NET Framework
+    /// 3.5 runtime is installed. Tests that probe live CLR 2 paths gate on this; synthetic
+    /// temp-tree tests do not.
+    /// </summary>
+    public bool Clr2RuntimePresent { get; private set; }
+
     // Dotted assembly name sample (e.g., Company.Product.Tool)
     /// <summary>
     /// Path to the dotted-name sample assembly (Dotted.Name.App.dll).
@@ -136,6 +160,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
             // projects and copies their outputs into lib/, external/, fr/. Building the helpers
             // separately would race with the EXE's post-build copy.
             builds.Add(BuildProject("samples/NetFxBindingRedirects"));
+            // CLR 2 sibling — same shape, AfterTargets stages its own helpers.
+            builds.Add(BuildProject("samples/NetFxBindingRedirects.Clr2"));
         }
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
@@ -169,6 +195,26 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 "bin", config, "net48", "NetFxBindingRedirects.exe");
 
             NetFxBindingRedirectsOracle = await CaptureNetFxOracleAsync(NetFxBindingRedirectsExe);
+
+            NetFxBindingRedirectsClr2Exe = Path.Combine(_repoRoot, "samples", "NetFxBindingRedirects.Clr2",
+                "bin", config, "net35", "NetFxBindingRedirects.Clr2.exe");
+
+            // CLR 2 runtime detection: arch-aware. Either Framework64 or Framework slot may host
+            // the v2.0.50727 mscorlib. Test the architecture-correct slot first; accept the other
+            // as a fallback for x86-only hosts.
+            var windir = Environment.GetEnvironmentVariable("WINDIR");
+            if (!string.IsNullOrEmpty(windir))
+            {
+                Clr2RuntimePresent =
+                    File.Exists(Path.Combine(windir!, "Microsoft.NET", "Framework64", "v2.0.50727", "mscorlib.dll"))
+                    || File.Exists(Path.Combine(windir!, "Microsoft.NET", "Framework", "v2.0.50727", "mscorlib.dll"));
+            }
+
+            // Run the runtime oracle only when CLR 2 is installed; otherwise the EXE either
+            // shims to CLR 4 (defeating the test) or fails to start. CLR 2 runtime-dependent
+            // tests skip when the oracle map is null.
+            if (Clr2RuntimePresent)
+                NetFxBindingRedirectsClr2Oracle = await CaptureNetFxOracleAsync(NetFxBindingRedirectsClr2Exe);
         }
 
         var rid = RuntimeInformation.RuntimeIdentifier;
@@ -205,6 +251,30 @@ public class SampleAssemblyFixture : IAsyncLifetime
             Assert.True(Directory.Exists(Path.Combine(binDir, "fr")),
                 "fr/ subdir missing — culture satellite did not deploy");
             Assert.NotNull(NetFxBindingRedirectsOracle);
+        }
+        if (NetFxBindingRedirectsClr2Exe is not null)
+        {
+            Assert.True(File.Exists(NetFxBindingRedirectsClr2Exe),
+                $"NetFxBindingRedirects.Clr2.exe not found at {NetFxBindingRedirectsClr2Exe}");
+            var binDir = Path.GetDirectoryName(NetFxBindingRedirectsClr2Exe)!;
+            Assert.True(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.Clr2.exe.config")),
+                "NetFxBindingRedirects.Clr2.exe.config missing — app.config did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "lib")),
+                "lib/ subdir missing — Clr2 privatePath helper did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "external")),
+                "external/ subdir missing — Clr2 codeBase helper did not deploy");
+            Assert.True(Directory.Exists(Path.Combine(binDir, "fr")),
+                "fr/ subdir missing — Clr2 culture satellite did not deploy");
+
+            // Identity-based copy-local guard: V1 and V2 emit the same filename, so a path
+            // check can't disambiguate. Reject silently re-introduced V1 by reading the staged
+            // assembly's version. The redirect collapses on V2; any other value means the
+            // wrong build leaked app-local through the project graph.
+            var stagedSharedDep = Path.Combine(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
+            Assert.True(File.Exists(stagedSharedDep),
+                $"SharedDep V2 was not staged app-local at {stagedSharedDep}");
+            var stagedVersion = System.Reflection.AssemblyName.GetAssemblyName(stagedSharedDep).Version?.ToString();
+            Assert.Equal("2.0.0.0", stagedVersion);
         }
         if (NativeAotConsoleExe is not null)
             Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");

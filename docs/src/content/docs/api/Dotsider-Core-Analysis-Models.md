@@ -98,7 +98,7 @@ public sealed record BindingPolicy : IEquatable<BindingPolicy>
 
 ### [BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/)
 
-Output of PolicyLayer): the redirects, codeBase entries,
+Output of NetFxRuntimeVersion): the redirects, codeBase entries,
 per-identity publisher-policy disablements, probing privatePath segments, and the
 runtime-scoped publisher-policy bypass flag found in a single configuration file.
 
@@ -351,7 +351,7 @@ public sealed record MethodDefInfo : IEquatable<MethodDefInfo>
 Per-root metadata required to drive a CLR-accurate .NET Framework bind. Built once per
 analyzed root via [AssemblyAnalyzer)](/api/dotsider.core.analysis.models.netfxbindingcontext.trybuild(dotsider.core.analysis.assemblyanalyzer)/); carried alongside the analyzer through every
 resolution surface (Dep Graph, IL navigation, General-tab drill-in, type-forwarder chase)
-so that every code path produces the same answer for any net48 reference.
+so that every code path produces the same answer for any .NET Framework reference.
 
 ```csharp
 public sealed record NetFxBindingContext : IEquatable<NetFxBindingContext>
@@ -522,6 +522,19 @@ that resolves to host bitness at load time, so there is no `MSIL` runtime arch.
 
 ```csharp
 public enum NetFxArchitecture
+```
+
+### [NetFxRuntimeVersion](/api/dotsider.core.analysis.models.netfxruntimeversion/)
+
+.NET Framework CLR version a [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/) targets. The CLR version (not
+the product TFM) drives the binding pipeline because the GAC layout, machine.config path,
+framework runtime directory, reference-assemblies tree, and `appliesTo` filter all switch
+on the CLR generation: [Clr2](/api/dotsider.core.analysis.models.netfxruntimeversion.clr2/) covers .NET Framework 2.0 / 3.0 / 3.5 SP1 (process
+runs on `v2.0.50727`); [Clr4](/api/dotsider.core.analysis.models.netfxruntimeversion.clr4/) covers .NET Framework 4.0 through 4.8.x
+(process runs on `v4.0.30319`).
+
+```csharp
+public enum NetFxRuntimeVersion
 ```
 
 ### [PolicyLayer](/api/dotsider.core.analysis.models.policylayer/)

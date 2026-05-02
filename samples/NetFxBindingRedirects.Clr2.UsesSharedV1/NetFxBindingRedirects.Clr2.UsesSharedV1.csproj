@@ -1,0 +1,27 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!--
+  Holds a metadata reference to SharedDep v1.0.0.0. The Private="false" on the ProjectReference
+  prevents MSBuild from propagating the v1 DLL through the project graph — only the root EXE's
+  AfterTargets stages V2 app-local. The Accessor type below lets the runtime oracle force a
+  transitive bind through this assembly's metadata edge, so the captured Assembly reflects the
+  redirect-applied resolution rather than a standalone Assembly.Load.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>NetFxBindingRedirects.Clr2.UsesSharedV1</RootNamespace>
+    <AssemblyName>NetFxBindingRedirects.Clr2.UsesSharedV1</AssemblyName>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.SharedDep.V1\NetFxBindingRedirects.Clr2.SharedDep.V1.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

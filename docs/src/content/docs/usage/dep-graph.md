@@ -20,7 +20,12 @@ References that cannot be located on disk or inside a bundle render as leaf node
 
 ## .NET Framework targets
 
-For a `net48` (or other 4.x) root, resolution walks the .NET Framework binder rather than the .NET Core probe chain: framework unification, `app.config` and `machine.config` `<bindingRedirect>` entries, publisher-policy assemblies in the GAC, the GAC itself, the framework runtime directory under `Microsoft.NET\Framework[64]\v4.0.30319`, configured `<codeBase>` hrefs, then the application base and `<probing privatePath>`. Nodes are keyed on the bound identity, so two upstream references at different versions that both redirect to the same loaded version collapse onto a single node.
+For a .NET Framework root, resolution walks the framework binder rather than the .NET Core probe chain: framework unification, `app.config` and `machine.config` `<bindingRedirect>` entries, publisher-policy assemblies in the GAC, the GAC itself, the framework runtime directory, configured `<codeBase>` hrefs, then the application base and `<probing privatePath>`. Nodes are keyed on the bound identity, so two upstream references at different versions that both redirect to the same loaded version collapse onto a single node.
+
+The binder switches paths and GAC-token format on the root's CLR generation:
+
+- **CLR 4** (net40 through net48) — `%WINDIR%\Microsoft.NET\assembly\GAC_*` with `v4.0_<version>__<pkt>` tokens; runtime directory `v4.0.30319`.
+- **CLR 2** (.NET Framework 2.0 / 3.0 / 3.5 SP1) — `%WINDIR%\assembly\{GAC_MSIL, GAC_<arch>, GAC}` with no-prefix `<version>__<pkt>` tokens; runtime directory `v2.0.50727`. Detected from the `mscorlib` v2 reference because pre-4.0 assemblies don't carry a `TargetFrameworkAttribute`.
 
 ## Scope and filter
 
