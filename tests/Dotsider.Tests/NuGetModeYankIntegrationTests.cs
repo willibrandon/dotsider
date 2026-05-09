@@ -706,13 +706,15 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Press y — should go into search box, not yank
+        // Press y — should go into search box, not yank. Wait deterministically for
+        // the typed character to land in the search query so a slow-to-process input
+        // event cannot leave the assertion racing the search-bar TextBox update.
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
+            .WaitUntil(_ => (dllState.Search[dllState.CurrentTab].Query ?? "").Contains('y'),
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await Task.Delay(200, ct);
 
         Assert.Contains("y", dllState.Search[dllState.CurrentTab].Query ?? "");
         Assert.Null(_state.YankNotification);

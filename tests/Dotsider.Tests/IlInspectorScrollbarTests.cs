@@ -112,14 +112,22 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     private static async Task<ScrollPanelNode> WaitForPanelAsync(
         Hex1bTerminalAutomator auto, Hex1bApp app)
     {
-        await auto.WaitUntilAsync(_ => FindPanel(app) is not null,
-            description: "ScrollPanelNode to enter focus ring");
-        await auto.WaitUntilAsync(_ => app.FocusedNode is ScrollPanelNode,
-            description: "ScrollPanelNode to receive keyboard focus");
-        var sp = FindPanel(app)!;
-        await auto.WaitUntilAsync(_ => sp.ViewportSize > 0,
-            description: "ScrollPanelNode to be arranged");
-        return sp;
+        // Single predicate that re-evaluates the panel reference on every poll, so
+        // a brief stretch where the focus ring rebuilds (e.g. tab switch reconciles
+        // the panel out and back in) cannot leave a captured `sp` null between two
+        // sequential WaitUntilAsync calls. The reference is only published to the
+        // caller once all three conditions hold simultaneously on the same poll.
+        ScrollPanelNode? captured = null;
+        await auto.WaitUntilAsync(_ =>
+        {
+            var current = FindPanel(app);
+            if (current is null || current.ViewportSize <= 0) return false;
+            if (app.FocusedNode is not ScrollPanelNode focused
+                || !ReferenceEquals(focused, current)) return false;
+            captured = current;
+            return true;
+        }, description: "ScrollPanelNode focused, arranged, and stable");
+        return captured!;
     }
 
     private static int FirstThumbY(Hex1bTerminalSnapshot snapshot, int sbCol, int yStart, int yEnd)
@@ -752,13 +760,13 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// a zero-row tree must be a complete no-op — no exception, no key change, no
     /// offset change.
     /// </summary>
-    public static IEnumerable<object[]> NoMatchKeyVariants() =>
+    public static TheoryData<Hex1bKey> NoMatchKeyVariants() =>
     [
-        [Hex1bKey.UpArrow], [Hex1bKey.DownArrow],
-        [Hex1bKey.Home], [Hex1bKey.End],
-        [Hex1bKey.PageUp], [Hex1bKey.PageDown],
-        [Hex1bKey.Enter], [Hex1bKey.Spacebar],
-        [Hex1bKey.LeftArrow], [Hex1bKey.RightArrow],
+        Hex1bKey.UpArrow, Hex1bKey.DownArrow,
+        Hex1bKey.Home, Hex1bKey.End,
+        Hex1bKey.PageUp, Hex1bKey.PageDown,
+        Hex1bKey.Enter, Hex1bKey.Spacebar,
+        Hex1bKey.LeftArrow, Hex1bKey.RightArrow,
     ];
 
     /// <summary>
@@ -1116,23 +1124,30 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
 
-        // Wheel down enough times to push row 0 offscreen.
+        // Wheel down enough times to push row 0 offscreen. Each tick advances Offset
+        // by 3 (hex1b's ScrollPanelNode default). Send all five ticks in a single
+        // sequence and wait until every tick has been applied — only then is it safe
+        // to capture the post-wheel offset, because in-flight events finishing during
+        // a later Task.Delay would otherwise bump it further and break the
+        // "did not snap back" equality below.
         var bodyX = sp.Bounds.X + 5;
         var bodyY = sp.Bounds.Y + 5;
-        for (var i = 0; i < 5; i++)
-        {
-            await new Hex1bTerminalInputSequenceBuilder()
-                .MouseMoveTo(bodyX, bodyY)
-                .ScrollDown()
-                .Build()
-                .ApplyAsync(terminal, ct);
-        }
-        await auto.WaitUntilAsync(_ => sp.Offset > 0, description: "offset advanced via wheel");
+        const int ticks = 5;
+        const int expectedAdvance = 3 * ticks;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .MouseMoveTo(bodyX, bodyY)
+            .ScrollDown(ticks)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await auto.WaitUntilAsync(_ => sp.Offset >= Math.Min(expectedAdvance, sp.MaxOffset),
+            description: "all wheel ticks applied to Offset");
         var offsetAfterWheel = sp.Offset;
 
-        // Force a repaint.
+        // Force a repaint and wait one render cycle. The repaint must NOT trigger any
+        // EnsureSelectionVisible-style snap-back; the wheel-only path leaves the
+        // pending-scroll flag clear, so Offset stays where the wheel left it.
         _state!.App.Invalidate();
-        await Task.Delay(50, ct);
+        await auto.WaitUntilAsync(_ => true, description: "render frame elapses");
 
         Assert.Equal(rows[0].Key, _state!.IlFocusedTreeKey as string);
         Assert.Equal(offsetAfterWheel, sp.Offset);
