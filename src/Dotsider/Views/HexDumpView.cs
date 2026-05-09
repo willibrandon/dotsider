@@ -89,7 +89,7 @@ public static class HexDumpView
 
                 // Hex editor with custom renderer
                 widgets.Add(outer.Editor(state.HexEditorState)
-                    .WithViewRenderer(new DotsiderHexRenderer(state))
+                    .ViewRenderer(new DotsiderHexRenderer(state))
                     .FillWidth()
                     .FillHeight());
 
@@ -98,7 +98,7 @@ public static class HexDumpView
 
                 return [.. widgets];
             })
-            .WithInputBindings(bindings =>
+            .InputBindings(bindings =>
             {
                 bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                 {
@@ -183,7 +183,7 @@ public static class HexDumpView
                             dlg.Text("  Enter: Jump | Esc: Cancel")
                         ])
                     ).Title(" Jump to Byte ").FixedWidth(40).FixedHeight(7)
-                    .WithInputBindings(bindings =>
+                    .InputBindings(bindings =>
                     {
                         bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                         {

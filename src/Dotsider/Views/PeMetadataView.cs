@@ -155,10 +155,10 @@ public static class PeMetadataView
                                 .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                             left.Editor(state.PeHeadersEditorState!)
-                                .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                                .ViewRenderer(InfoEditorViewRenderer.Instance)
                                 .Decorations(new InfoLabelDecorationProvider())
                                 .Decorations(state.PeHeadersYankProvider)
-                                .WithInputBindings(bindings =>
+                                .InputBindings(bindings =>
                                 {
                                     TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                         bindings,
@@ -181,10 +181,10 @@ public static class PeMetadataView
                                 .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                             right.Editor(state.ClrHeaderEditorState!)
-                                .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                                .ViewRenderer(InfoEditorViewRenderer.Instance)
                                 .Decorations(new InfoLabelDecorationProvider())
                                 .Decorations(state.ClrHeaderYankProvider)
-                                .WithInputBindings(bindings =>
+                                .InputBindings(bindings =>
                                 {
                                     TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                         bindings,
@@ -250,7 +250,7 @@ public static class PeMetadataView
 
                 return [.. widgets];
             })
-            .WithInputBindings(bindings =>
+            .InputBindings(bindings =>
             {
                 var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
@@ -367,10 +367,10 @@ public static class PeMetadataView
                             .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                             .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                         z.Editor(state.PeDetailEditorState)
-                            .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                            .ViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(state.PeDetailYankProvider)
-                            .WithInputBindings(bindings =>
+                            .InputBindings(bindings =>
                             {
                                 TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                     bindings,

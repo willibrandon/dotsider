@@ -38,7 +38,7 @@ public sealed class DiffApp(DiffState state)
                 bar.Section(" dotsider diff ").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(200, 200, 80))),
-                bar.Separator(" "),
+                bar.Divider(" "),
                 bar.Section(_state.Left.FileName).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Section(" <> "),
@@ -87,7 +87,7 @@ public sealed class DiffApp(DiffState state)
             // Hints bar
             BuildHintsBar(outer)
         ])
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             var currentSearch = _state.Search[_state.CurrentTab];
             var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
@@ -292,12 +292,12 @@ public sealed class DiffApp(DiffState state)
             {
                 hints.Add(s.Section(_state.YankNotification).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             hints.Add(s.Section("q: Quit"));
             return hints;
-        }).WithDefaultSeparator(" | ");
+        }).Divider(" | ");
 
     /// <summary>
     /// Performs a neovim-style yank on the focused diff editor's selection.

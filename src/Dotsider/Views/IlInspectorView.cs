@@ -189,7 +189,7 @@ public static class IlInspectorView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             // Escape: search dismiss OR IL back navigation (local binding, not global)
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>

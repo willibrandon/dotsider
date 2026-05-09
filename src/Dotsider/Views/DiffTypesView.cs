@@ -114,7 +114,7 @@ public static class DiffTypesView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {

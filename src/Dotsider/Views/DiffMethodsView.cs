@@ -120,7 +120,7 @@ public static class DiffMethodsView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {

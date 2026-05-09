@@ -117,7 +117,7 @@ public static class DiffRefsView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
             {

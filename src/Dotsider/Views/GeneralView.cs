@@ -106,10 +106,10 @@ public static class GeneralView
                         .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                         .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                     outer.Editor(state.GeneralInfoEditorState!)
-                        .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                        .ViewRenderer(InfoEditorViewRenderer.Instance)
                         .Decorations(new InfoLabelDecorationProvider())
                         .Decorations(state.GeneralInfoYankProvider)
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                 bindings,
@@ -176,7 +176,7 @@ public static class GeneralView
                     .Compact()
                     .Empty(e => e.Text("  No assembly references"))
                     .Fill()
-                    .WithInputBindings(bindings =>
+                    .InputBindings(bindings =>
                     {
                         bindings.Key(Hex1bKey.Enter).Action(_ =>
                         {
@@ -205,7 +205,7 @@ public static class GeneralView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
             {

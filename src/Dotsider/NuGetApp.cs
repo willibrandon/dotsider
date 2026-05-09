@@ -46,13 +46,13 @@ public sealed class NuGetApp(NuGetState state)
                 bar.Section(" dotsider nupkg ").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(160, 100, 200))),
-                bar.Separator(" "),
+                bar.Divider(" "),
                 bar.Section(_state.Package.FileName).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.IsBrowsingPackage ? "Package Browser" : "DLL Inspector").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(130, 110, 30))),
-                bar.Separator(" | "),
+                bar.Divider(" | "),
                 bar.Section($"{_state.Package.DllFiles.Count} DLLs").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(130, 110, 30)))
             ]),
@@ -111,7 +111,7 @@ public sealed class NuGetApp(NuGetState state)
                 {
                     hints.Add(s.Section(yankNotification).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
-                    hints.Add(s.Separator(" "));
+                    hints.Add(s.Divider(" "));
                 }
 
                 // Navigation error in DLL inspector (right side)
@@ -119,14 +119,14 @@ public sealed class NuGetApp(NuGetState state)
                 {
                     hints.Add(s.Section(navError).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
-                    hints.Add(s.Separator(" "));
+                    hints.Add(s.Divider(" "));
                 }
 
                 hints.Add(s.Section("q: Quit"));
                 return hints;
-            }).WithDefaultSeparator(" | ")
+            }).Divider(" | ")
         ])
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             // VimReset wraps all Global bindings to cancel pending vim text-object sequences
             Action<InputBindingActionContext> VimReset(Action<InputBindingActionContext> action)

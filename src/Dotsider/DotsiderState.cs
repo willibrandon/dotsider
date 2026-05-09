@@ -1209,10 +1209,10 @@ public sealed class DotsiderState : IDisposable
     {
         if (CrossViewBackStack.Count == 0) return;
 
-        var back = CrossViewBackStack.Pop();
-        NavigateToTab(back.Tab);
-        if (back.Tab == TabId.PeMetadata)
-            PeSubTab = back.SubTab;
+        var (Tab, SubTab) = CrossViewBackStack.Pop();
+        NavigateToTab(Tab);
+        if (Tab == TabId.PeMetadata)
+            PeSubTab = SubTab;
         App.RequestFocus(node =>
             node is ListNode or TreeNode or InteractableNode
             || node.GetType().Name.StartsWith("TableNode"));
