@@ -129,7 +129,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
@@ -173,7 +173,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
@@ -220,7 +220,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
@@ -266,7 +266,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.I).Global().Action(_ => events.Enqueue("i"), "I");
@@ -316,7 +316,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
@@ -372,7 +372,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
@@ -496,7 +496,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 {
                     return ctx.TextBox()
                         .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
                             bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");

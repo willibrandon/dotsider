@@ -38,7 +38,7 @@ public class InfoEditorViewRendererTests : IDisposable
             {
                 var widget = ctx.Border(
                     ctx.Editor(editorState)
-                        .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                        .ViewRenderer(InfoEditorViewRenderer.Instance)
                         .FillWidth().FillHeight()
                 ).Title(" Info ").Fill();
                 return Task.FromResult<Hex1bWidget>(widget);

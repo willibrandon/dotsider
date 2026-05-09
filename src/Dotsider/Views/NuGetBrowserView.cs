@@ -78,10 +78,10 @@ public static class NuGetBrowserView
                         .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                         .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                     outer.Editor(state.PackageInfoEditorState!)
-                        .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                        .ViewRenderer(InfoEditorViewRenderer.Instance)
                         .Decorations(new InfoLabelDecorationProvider())
                         .Decorations(state.PackageInfoYankProvider)
-                        .WithInputBindings(bindings =>
+                        .InputBindings(bindings =>
                         {
                             TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                 bindings,
@@ -166,7 +166,7 @@ public static class NuGetBrowserView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             // Tab toggles focus between Package Info editor and DLL table
             bindings.Key(Hex1b.Input.Hex1bKey.Tab).Global().Action(_ =>

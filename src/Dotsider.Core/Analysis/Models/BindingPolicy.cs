@@ -486,9 +486,9 @@ public sealed record BindingPolicy(
         // we record here is reachable later. Clr2 also includes the bare "GAC" bucket
         // (CLR 1.x carryover, still consulted by CLR2 fusion).
         var archSubdir = architecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
-        var subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
-            ? new[] { "GAC_MSIL", archSubdir, "GAC" }
-            : new[] { "GAC_MSIL", archSubdir };
+        string[] subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
+            ? ["GAC_MSIL", archSubdir, "GAC"]
+            : ["GAC_MSIL", archSubdir];
 
         foreach (var root in gacRoots)
         {
@@ -554,7 +554,7 @@ public sealed record BindingPolicy(
         if (runtimeVersion == NetFxRuntimeVersion.Clr4)
         {
             if (!token.StartsWith("v4.0_", StringComparison.OrdinalIgnoreCase)) return false;
-            rest = token.Substring(5);
+            rest = token[5..];
         }
         else
         {
@@ -777,9 +777,9 @@ public sealed record BindingPolicy(
         // The CLR2 GAC also has a bare "GAC" bucket (CLR 1.x carryover); CLR2 fusion still
         // consults it, so include it in the publisher-policy scan for Clr2 contexts.
         var archSubdir = architecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
-        var subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
-            ? new[] { "GAC_MSIL", archSubdir, "GAC" }
-            : new[] { "GAC_MSIL", archSubdir };
+        string[] subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
+            ? ["GAC_MSIL", archSubdir, "GAC"]
+            : ["GAC_MSIL", archSubdir];
         foreach (var root in gacRoots)
         {
             if (!Directory.Exists(root)) continue;

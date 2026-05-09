@@ -50,7 +50,7 @@ internal static class IlTreeList
             captureNode?.Invoke(e.Node);
             itemActivated?.Invoke(e.ActivatedIndex);
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.RightArrow).Action(_ =>
             {

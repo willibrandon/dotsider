@@ -62,7 +62,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 bar.Section($" dotsider ").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(0, 200, 180))),
-                bar.Separator(" "),
+                bar.Divider(" "),
                 bar.Section(_state.NavigationStack.Count > 0
                     ? $"{_state.Analyzer.DisplayName} (depth {_state.NavigationStack.Count + 1})"
                     : _state.Analyzer.DisplayName).Theme(t => t
@@ -70,7 +70,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 bar.Spacer(),
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40))),
-                bar.Separator(" | "),
+                bar.Divider(" | "),
                 bar.Section(_state.FormatSizeToggleable(_state.Analyzer.FileSize)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40)))
             ]),
@@ -112,7 +112,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // Keybinding hints bar
             BuildHintsBar(outer)
         ])
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             var currentSearch = _state.Search[_state.CurrentTab];
             var isSearchEditing = currentSearch.IsActive && !currentSearch.IsConfirmed;
@@ -434,7 +434,7 @@ public sealed class DotsiderApp(DotsiderState state)
                             dlg.Text("  Enter: Yes | Esc: No, keep .exe")
                         ])
                     ).Title(" Apphost Detected ").FixedWidth(55).FixedHeight(12)
-                    .WithInputBindings(bindings =>
+                    .InputBindings(bindings =>
                     {
                         bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
                         {
@@ -518,7 +518,7 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section("-- INSERT --").Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 120, 80))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             hints.Add(s.Section("1-8: Tabs"));
@@ -636,7 +636,7 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section(_state.YankNotification).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             // Transient notice (right side, all tabs)
@@ -644,7 +644,7 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section(_state.TransientNotice).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             // General tab: navigation error (right side)
@@ -652,7 +652,7 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section(_state.NavigationError).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             // Hex tab: vim-style save notification (right side)
@@ -660,12 +660,12 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 hints.Add(s.Section(_state.HexNotification).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 110, 30))));
-                hints.Add(s.Separator(" "));
+                hints.Add(s.Divider(" "));
             }
 
             hints.Add(s.Section("q: Quit"));
             return hints;
-        }).WithDefaultSeparator(" | ");
+        }).Divider(" | ");
 
     /// <summary>Delegate for the reopen-or-fallback step, injectable for testing.</summary>
     internal delegate (AssemblyAnalyzer Analyzer, string? ResolvedPath) ReopenFunc(

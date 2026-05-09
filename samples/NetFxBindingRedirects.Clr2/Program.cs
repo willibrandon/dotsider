@@ -85,8 +85,8 @@ namespace NetFxBindingRedirects.Clr2
 
                 var fr = new CultureInfo("fr");
                 var culturedType = neutral.GetType("NetFxBindingRedirects.Clr2.CulturedLib.CulturedClass", true);
-                var greetingMethod = culturedType.GetMethod("Greeting", new[] { typeof(CultureInfo) });
-                var greeting = (string)greetingMethod.Invoke(null, new object[] { fr });
+                var greetingMethod = culturedType.GetMethod("Greeting", [typeof(CultureInfo)]);
+                var greeting = (string)greetingMethod.Invoke(null, [fr]);
 
                 if (string.IsNullOrEmpty(greeting))
                 {

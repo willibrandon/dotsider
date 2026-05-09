@@ -90,10 +90,10 @@ public static class DiffSummaryView
                             .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                             .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                         left.Editor(state.LeftInfoEditorState!)
-                            .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                            .ViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(leftSearchProvider)
-                            .WithInputBindings(bindings =>
+                            .InputBindings(bindings =>
                             {
                                 TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                     bindings,
@@ -116,10 +116,10 @@ public static class DiffSummaryView
                             .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                             .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                         right.Editor(state.RightInfoEditorState!)
-                            .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                            .ViewRenderer(InfoEditorViewRenderer.Instance)
                             .Decorations(new InfoLabelDecorationProvider())
                             .Decorations(rightSearchProvider)
-                            .WithInputBindings(bindings =>
+                            .InputBindings(bindings =>
                             {
                                 TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                     bindings,
@@ -143,11 +143,11 @@ public static class DiffSummaryView
                     .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                     .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                 outer.Editor(state.ChangeStatsEditorState!)
-                    .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                    .ViewRenderer(InfoEditorViewRenderer.Instance)
                     .Decorations(new InfoLabelDecorationProvider())
                     .Decorations(new DiffStatsDecorationProvider())
                     .Decorations(statsSearchProvider)
-                    .WithInputBindings(bindings =>
+                    .InputBindings(bindings =>
                     {
                         TextObjectHelper.ConfigureReadOnlyEditorBindings(
                             bindings,
@@ -165,7 +165,7 @@ public static class DiffSummaryView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             // Tab cycles focus: Left Info → Right Info → Change Stats → Left Info
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>

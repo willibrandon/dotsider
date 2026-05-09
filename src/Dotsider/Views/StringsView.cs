@@ -138,7 +138,7 @@ public static class StringsView
 
                 return [.. widgets];
             })
-            .WithInputBindings(bindings =>
+            .InputBindings(bindings =>
             {
                 var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
@@ -235,10 +235,10 @@ public static class StringsView
                                     .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                                     .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
                                 outer.Editor(state.StringsDetailEditorState)
-                                    .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                                    .ViewRenderer(InfoEditorViewRenderer.Instance)
                                     .Decorations(new StringsDetailDecorationProvider())
                                     .Decorations(state.StringsDetailYankProvider)
-                                    .WithInputBindings(bindings =>
+                                    .InputBindings(bindings =>
                                     {
                                         TextObjectHelper.ConfigureReadOnlyEditorBindings(
                                             bindings,

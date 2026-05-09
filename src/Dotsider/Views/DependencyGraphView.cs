@@ -173,7 +173,7 @@ public static class DependencyGraphView
                         s.Layer(surface => DrawGraph(surface, visible, nav, disambig,
                             state, s.MouseX, s.MouseY, query))
                     ]).Fill()
-                ).WithInputBindings(bindings =>
+                ).InputBindings(bindings =>
                 {
                     bindings.Key(Hex1bKey.RightArrow).Action(_ =>
                     {
@@ -318,7 +318,7 @@ public static class DependencyGraphView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {

@@ -118,7 +118,7 @@ public static class DynamicAnalysisView
             outer.Text("    System.Runtime — Performance Counters (1s interval)"),
             outer.Text("    System.Net.Http, System.Net.Sockets")
         ])
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
             {
@@ -192,7 +192,7 @@ public static class DynamicAnalysisView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
@@ -413,7 +413,7 @@ public static class DynamicAnalysisView
                 .FillWidth()
                 .FillHeight()
         ])
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.G).Action(_ => SetFilter(state, TraceEventCategory.GC), "Filter GC");
             bindings.Key(Hex1bKey.J).Action(_ => SetFilter(state, TraceEventCategory.JIT), "Filter JIT");
@@ -682,10 +682,10 @@ public static class DynamicAnalysisView
                 .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             ctx.Editor(editorState)
-                .WithViewRenderer(InfoEditorViewRenderer.Instance)
+                .ViewRenderer(InfoEditorViewRenderer.Instance)
                 .Decorations(new InfoLabelDecorationProvider())
                 .Decorations(yankProvider)
-                .WithInputBindings(bindings =>
+                .InputBindings(bindings =>
                 {
                     TextObjectHelper.ConfigureReadOnlyEditorBindings(
                         bindings,

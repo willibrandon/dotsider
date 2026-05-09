@@ -157,7 +157,7 @@ public static class SizeTreemapView
                             state.NavigateToIlMethod(method);
                     }
                 }
-            }).WithInputBindings(bindings =>
+            }).InputBindings(bindings =>
             {
                 // Esc pops the treemap breadcrumb (when no search is active)
                 var treemapSearch = state.Search[TabId.SizeMap];
@@ -221,7 +221,7 @@ public static class SizeTreemapView
 
             return [.. widgets];
         })
-        .WithInputBindings(bindings =>
+        .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
             {

@@ -112,9 +112,9 @@ public static class DataInterpretationPanel
                 .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             ctx.Editor(state.DataInterpEditorState!)
-                .WithViewRenderer(DataInterpViewRenderer.Instance)
+                .ViewRenderer(DataInterpViewRenderer.Instance)
                 .Decorations(state.DataInterpYankProvider)
-                .WithInputBindings(bindings =>
+                .InputBindings(bindings =>
                 {
                     TextObjectHelper.ConfigureReadOnlyEditorBindings(
                         bindings,

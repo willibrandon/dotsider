@@ -29,7 +29,7 @@ internal static class IlEditorHost
                 .Decorations(state.IlSearchProvider)
                 .Decorations(state.IlYankProvider)
                 .Decorations(state.IlNavigationProvider)
-                .WithInputBindings(bindings =>
+                .InputBindings(bindings =>
                 {
                     // Escape: IL back navigation takes priority over vim cancel.
                     // Must be registered BEFORE TextObjectHelper which also binds Escape.
