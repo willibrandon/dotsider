@@ -91,7 +91,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilTextAsync("IL_0000");
         await auto.WaitUntilAsync(_ =>
             {
-                try { return _state!.App.FocusedNode is ListNode; }
+                try { return _state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode; }
                 catch (NullReferenceException) { return false; }
             },
             description: "focus to return to tree");
@@ -167,7 +167,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilTextAsync("IL_");
         await auto.WaitUntilAsync(_ =>
             {
-                try { return _state!.App.FocusedNode is ListNode; }
+                try { return _state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode; }
                 catch (NullReferenceException) { return false; }
             },
             description: "focus to return to tree");
@@ -185,11 +185,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             "Jumped-to method's type must be expanded");
 
         // Verify focus landed on the tree (not the editor) after the jump.
-        // We already confirmed FocusedNode is ListNode above via WaitUntilAsync.
+        // We already confirmed FocusedNode is ScrollPanelNode above via WaitUntilAsync.
         // The Tab3_TreeFocusedOnReturn_AfterEditorHadFocus test covers the
         // DownArrow-consumed-by-tree behavior separately; here we just verify
         // the jump set up the correct tree state and focus target.
-        Assert.True(_state.App.FocusedNode is ListNode,
+        Assert.True(_state.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode,
             "Focus must be on the tree after cross-view jump");
 
         _cts!.Cancel();

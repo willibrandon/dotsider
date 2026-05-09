@@ -803,7 +803,8 @@ public sealed class DotsiderApp(DotsiderState state)
         state.SetIlFocusedTreeKey(null);
         state.IlEditorKey = null;
         state.IlEditorField = null;
-        state.IlTreeListNode = null;
+        state.IlScrollPanelNode = null;
+        state.IlScrollSelectionIntoViewPending = false;
         state.IlEditorKeyCache.Clear();
         state.IlCachedEditors.Clear();
         state.IlInstructions = null;

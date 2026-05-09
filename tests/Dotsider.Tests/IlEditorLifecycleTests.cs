@@ -378,8 +378,11 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// PushAssemblyDirect calls ResetViewState which must clear all new IL lifecycle
     /// properties — the same path CommitAnalyzer exercises when re-opening an assembly
-    /// after hex save. Verifies IlEditorKey, IlEditorField, IlTreeListNode,
-    /// IlEditorKeyCache, and IlCachedEditors are all reset.
+    /// after hex save. Verifies IlEditorKey, IlEditorField, IlScrollPanelNode,
+    /// IlScrollSelectionIntoViewPending, IlEditorKeyCache, and IlCachedEditors are all
+    /// reset. The assertion runs synchronously after PushAssemblyDirect with no awaits
+    /// in between, so the render loop cannot tick and re-capture the panel before the
+    /// check sees the cleared field.
     /// </summary>
     [Fact(Timeout = 60_000)]
     public async Task ResetViewState_ClearsAllLifecycleProperties()
@@ -410,6 +413,12 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(_state.IlEditorKeyCache.Count > 0);
         Assert.True(_state.IlCachedEditors.Count > 0);
 
+        // Stop the render loop before mutating state so no concurrent render can
+        // re-populate IlScrollPanelNode (or any other field re-captured per render)
+        // between ResetViewState and the assertions below.
+        _cts!.Cancel();
+        await runTask;
+
         // PushAssemblyDirect calls ResetViewState (same path as CommitAnalyzer)
         using var otherAnalyzer = new AssemblyAnalyzer(samples.HelloWorldDll);
         _state.PushAssemblyDirect(otherAnalyzer);
@@ -417,12 +426,10 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         // All lifecycle properties must be cleared
         Assert.Null(_state.IlEditorKey);
         Assert.Null(_state.IlEditorField);
-        Assert.Null(_state.IlTreeListNode);
+        Assert.Null(_state.IlScrollPanelNode);
+        Assert.False(_state.IlScrollSelectionIntoViewPending);
         Assert.Empty(_state.IlEditorKeyCache);
         Assert.Empty(_state.IlCachedEditors);
-
-        _cts!.Cancel();
-        await runTask;
     }
 
     /// <summary>

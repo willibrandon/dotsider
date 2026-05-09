@@ -232,8 +232,17 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The field currently loaded in the editor, for staleness detection.</summary>
     internal FieldDefInfo? IlEditorField { get; set; }
 
-    /// <summary>Cached tree list node for per-render SelectedIndex sync.</summary>
-    internal ListNode? IlTreeListNode { get; set; }
+    /// <summary>Cached scroll-panel node hosting the IL tree. Captured each render via
+    /// the <see cref="Hex1bApp.Focusables"/> scan in <see cref="Views.IlInspectorView"/>.</summary>
+    internal ScrollPanelNode? IlScrollPanelNode { get; set; }
+
+    /// <summary>One-shot flag set by <see cref="SetIlFocusedTreeKey"/> so the next IL
+    /// Inspector render scrolls the focused row into view. Cleared by the consumer in
+    /// <see cref="Views.IlInspectorView.Build"/> once the panel is captured and the layout
+    /// reflects the current rows. Internal tree key bindings assign
+    /// <see cref="IlFocusedTreeKey"/> directly and never set the flag, so mouse-wheel
+    /// scrolls that push the selection offscreen are not snapped back.</summary>
+    internal bool IlScrollSelectionIntoViewPending { get; set; }
 
     /// <summary>Whether the first key of a gd chord has been pressed.</summary>
     public bool IlGdPending { get; set; }
@@ -740,7 +749,7 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.IlInspector);
         var ilSearch = Search[TabId.IlInspector];
         ilSearch.Reset();
-        App.RequestFocus(node => node is ListNode);
+        App.RequestFocus(node => node is ScrollPanelNode);
         App.Invalidate();
     }
 
@@ -809,7 +818,7 @@ public sealed class DotsiderState : IDisposable
                 IlEditorField = null;
                 IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
                 SetIlFocusedTreeKey($"type:{type.FullName}");
-                App.RequestFocus(node => node is ListNode);
+                App.RequestFocus(node => node is ScrollPanelNode);
                 App.Invalidate();
                 return true;
 
@@ -823,7 +832,7 @@ public sealed class DotsiderState : IDisposable
                 IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
                 IlTreeExpansionState[$"type:{dt.FullName}"] = true;
                 SetIlFocusedTreeKey($"type:{dt.FullName}");
-                App.RequestFocus(node => node is ListNode);
+                App.RequestFocus(node => node is ScrollPanelNode);
                 App.Invalidate();
                 return true;
 
@@ -920,12 +929,19 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
-    /// Sets <see cref="IlFocusedTreeKey"/> programmatically. Use this instead of direct
-    /// assignment at all non-user-driven mutation sites.
+    /// Sets <see cref="IlFocusedTreeKey"/> programmatically, arms a one-shot
+    /// scroll-into-view for the next IL Inspector render, and wakes the render loop
+    /// so the consumer in <see cref="Views.IlInspectorView.Build"/> runs. Use this
+    /// at every non-user-driven mutation site (cross-view jumps, search match
+    /// navigation, navigation back). Keyboard handlers inside the tree assign
+    /// <see cref="IlFocusedTreeKey"/> directly so wheel-scrolled selections do not
+    /// snap back into the viewport on repaint.
     /// </summary>
     internal void SetIlFocusedTreeKey(object? key)
     {
         IlFocusedTreeKey = key;
+        IlScrollSelectionIntoViewPending = true;
+        App.Invalidate();
     }
 
     /// <summary>
@@ -1109,7 +1125,7 @@ public sealed class DotsiderState : IDisposable
         IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(typeTarget.Namespace) ? typeTarget.Namespace : "(global)")}"] = true;
         SetIlFocusedTreeKey($"type:{typeTarget.FullName}");
         NavigateToTab(TabId.IlInspector);
-        App.RequestFocus(node => node is ListNode);
+        App.RequestFocus(node => node is ScrollPanelNode);
         App.Invalidate();
         return true;
     }
@@ -1176,7 +1192,7 @@ public sealed class DotsiderState : IDisposable
         IlTreeExpansionState[$"type:{dt.FullName}"] = true;
         SetIlFocusedTreeKey($"type:{dt.FullName}");
         NavigateToTab(TabId.IlInspector);
-        App.RequestFocus(node => node is ListNode);
+        App.RequestFocus(node => node is ScrollPanelNode);
         App.Invalidate();
         return true;
     }
@@ -1213,9 +1229,9 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(Tab);
         if (Tab == TabId.PeMetadata)
             PeSubTab = SubTab;
-        App.RequestFocus(node =>
-            node is ListNode or TreeNode or InteractableNode
-            || node.GetType().Name.StartsWith("TableNode"));
+        // Route through RequestContentFocus so each tab's content focusable stays the
+        // single source of truth — IL → ScrollPanelNode, Hex → EditorNode, etc.
+        RequestContentFocus();
         App.Invalidate();
     }
 
@@ -1227,7 +1243,7 @@ public sealed class DotsiderState : IDisposable
     public void RequestContentFocus()
     {
         if (CurrentTab == TabId.IlInspector)
-            App.RequestFocus(node => node is ListNode);
+            App.RequestFocus(node => node is ScrollPanelNode);
         else if (CurrentTab == TabId.HexDump)
             App.RequestFocus(node => node is EditorNode e && e.State == HexEditorState);
         else if (CurrentTab == TabId.Dynamic
@@ -1388,7 +1404,8 @@ public sealed class DotsiderState : IDisposable
         IlEditorAnalyzer = null;
         IlEditorKey = null;
         IlEditorField = null;
-        IlTreeListNode = null;
+        IlScrollPanelNode = null;
+        IlScrollSelectionIntoViewPending = false;
         IlEditorKeyCache.Clear();
         IlCachedEditors.Clear();
         IlPrevSelectionAnchor = null;
