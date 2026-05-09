@@ -89,12 +89,23 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(s => s.ContainsText("User Strings") || s.ContainsText("Metadata"));
         await auto.KeyAsync(Hex1bKey.D3, ct: ct);
         await auto.WaitUntilTextAsync("IL_0000");
+        // Wait for focus to STABILIZE on the panel — three consecutive polls must
+        // see ScrollPanelNode focused. A single-poll wait can return on a transient
+        // frame where RequestContentFocus has applied but a subsequent deferred
+        // focus callback briefly lands on the editor before settling, which used to
+        // race the DownArrow below into the editor and move the cursor.
+        var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                try { return _state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode; }
-                catch (NullReferenceException) { return false; }
+                try
+                {
+                    if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode) stableCount++;
+                    else stableCount = 0;
+                }
+                catch (NullReferenceException) { stableCount = 0; }
+                return stableCount >= 3;
             },
-            description: "focus to return to tree");
+            description: "focus stable on ScrollPanelNode across consecutive frames");
 
         // Selected method must be preserved after tab round-trip
         var selectedBefore = _state!.IlSelectedMethod;

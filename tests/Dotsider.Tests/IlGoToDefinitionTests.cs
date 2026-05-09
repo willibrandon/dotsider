@@ -279,16 +279,25 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallLocalMethod");
 
+        // RestoreFromIlBackEntry queues focus on the EditorNode. The actual focus shift
+        // applies on a later frame; without an explicit wait, Down/Up below can race
+        // a frame where focus is still on the tree and the cursor never moves.
+        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is Hex1b.EditorNode,
+            description: "editor focused after Esc back");
+        var cursorBeforeScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
+
         // SCROLL: press Down arrow to scroll — this must work (not be frozen)
         await auto.DownAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
-
-        // Verify cursor moved (scroll not frozen)
-        var cursorAfterScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
+        await auto.WaitUntilAsync(
+            _ => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorBeforeScroll,
+            description: "Down moved editor cursor");
+        var cursorAfterScroll = _state.IlEditorState?.Cursor.Position.Value ?? -1;
 
         // Press Up arrow back
         await auto.UpAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
+        await auto.WaitUntilAsync(
+            _ => (_state.IlEditorState?.Cursor.Position.Value ?? -1) != cursorAfterScroll,
+            description: "Up moved editor cursor");
 
         var cursorAfterUp = _state.IlEditorState?.Cursor.Position.Value ?? -1;
         Assert.NotEqual(cursorAfterScroll, cursorAfterUp);
