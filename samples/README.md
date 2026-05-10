@@ -15,6 +15,7 @@ Sample .NET projects used as test fixtures for dotsider's analysis, diff, and tr
 | [NativeAotConsole](NativeAotConsole/) | Console app (NativeAOT) | NativeAOT-published binary for Dynamic tab tracing tests |
 | [Dotted.Name.App](Dotted.Name.App/) | Console app | Dotted assembly name for cross-platform apphost detection testing |
 | [SelfContainedConsole](SelfContainedConsole/) | Console app (single-file) | Self-contained single-file bundle for bundle reading and resolution testing |
+| [AppLocalRollForward](AppLocalRollForward/) | Library | Reproduces the AppLocal framework-PKT roll-forward scenario: TraceEvent's stale `AssemblyRef` to `Microsoft.Diagnostics.NETCore.Client v0.2.10.10501` paired with a higher app-local deployment (`v0.2.13.11903`) under the same well-known framework PKT |
 | [NetFxBindingRedirects](NetFxBindingRedirects/) | Console app (.NET Fx) | Runtime oracle for `NetFxBinder`: GAC + framework runtime + binding redirects + `<probing privatePath>` + `<codeBase>` (success and missing) + culture-aware probing |
 | [NetFxBindingRedirects.OldDep](NetFxBindingRedirects.OldDep/) | Library (.NET Fx) | Compiled against Newtonsoft.Json 12.0.1 — drives transitive binding-redirect tests |
 | [NetFxBindingRedirects.NewDep](NetFxBindingRedirects.NewDep/) | Library (.NET Fx) | Compiled against Newtonsoft.Json 13.0.3 — pairs with OldDep to prove two requested versions collapse to one bound graph node |

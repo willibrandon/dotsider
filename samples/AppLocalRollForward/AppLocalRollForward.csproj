@@ -1,0 +1,30 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Version>1.0.0</Version>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <Description>
+      Reproduces the AppLocal framework-PKT roll-forward scenario for the dependency graph
+      resolver. Microsoft.Diagnostics.Tracing.TraceEvent 3.2.2 has a stale AssemblyRef to
+      Microsoft.Diagnostics.NETCore.Client v0.2.10.10501, while the package restore deploys
+      v0.2.13.11903 next to it. Both share PKT 31bf3856ad364e35 (a well-known framework key),
+      so the resolver must roll the AppLocal probe forward to the deployed version rather
+      than reporting AssemblyProvenance.IdentityMismatch.
+    </Description>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- TraceEvent's compiled AssemblyRef targets NETCore.Client 0.2.10.10501 (PKT
+         31bf3856ad364e35). The direct PackageReference below floats NuGet to a higher
+         build of the same package, so the deployed app-local DLL has the same simple
+         name and PKT but a strictly greater assembly version. That divergence is the
+         scenario the resolver fix exists to handle. -->
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.2" />
+    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
+  </ItemGroup>
+</Project>

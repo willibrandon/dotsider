@@ -55,6 +55,15 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string EmptyLibDll { get; private set; } = null!;
 
+    /// <summary>
+    /// Path to the built AppLocalRollForward.dll sample assembly. Reproduces the AppLocal
+    /// framework-PKT roll-forward scenario: Microsoft.Diagnostics.Tracing.TraceEvent's
+    /// compiled AssemblyRef targets <c>Microsoft.Diagnostics.NETCore.Client v0.2.10.10501</c>,
+    /// while the package-restored runtime asset on disk is a strictly higher build of the
+    /// same simple name and PKT.
+    /// </summary>
+    public string AppLocalRollForwardDll { get; private set; } = null!;
+
     // NuGet package
     /// <summary>
     /// Path to the built RichLibrary NuGet package.
@@ -150,6 +159,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
             BuildProject("samples/NativeLib"),
             BuildProject("samples/EmptyLib"),
             BuildProject("samples/Dotted.Name.App"),
+            BuildProject("samples/AppLocalRollForward"),
         };
 
         // net48 needs Windows; NativeAOT builds on all platforms.
@@ -183,6 +193,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
         RichLibraryV2Dll = SamplePath("RichLibraryV2", config, tfm, "RichLibrary.dll");
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
         EmptyLibDll = SamplePath("EmptyLib", config, tfm, "EmptyLib.dll");
+        AppLocalRollForwardDll = SamplePath(
+            "AppLocalRollForward", config, tfm, "AppLocalRollForward.dll");
         DottedNameAppDll = SamplePath("Dotted.Name.App", config, tfm, "Dotted.Name.App.dll");
         DottedNameAppExe = SamplePath("Dotted.Name.App", config, tfm, $"Dotted.Name.App{apphostExt}");
 
@@ -235,6 +247,13 @@ public class SampleAssemblyFixture : IAsyncLifetime
         Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
         Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
         Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
+        Assert.True(File.Exists(AppLocalRollForwardDll),
+            $"AppLocalRollForward.dll not found at {AppLocalRollForwardDll}");
+        var rollForwardBin = Path.GetDirectoryName(AppLocalRollForwardDll)!;
+        Assert.True(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.NETCore.Client.dll")),
+            "AppLocalRollForward must deploy NETCore.Client.dll app-local for the roll-forward probe");
+        Assert.True(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.Tracing.TraceEvent.dll")),
+            "AppLocalRollForward must deploy TraceEvent.dll app-local for its stale AssemblyRef to drive the test");
         if (NetFxConsoleExe is not null)
             Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
         if (NetFxBindingRedirectsExe is not null)

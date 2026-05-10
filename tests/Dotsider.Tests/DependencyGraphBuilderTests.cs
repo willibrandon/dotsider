@@ -277,6 +277,41 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
+    /// AppLocal probe finds a strong-named Microsoft framework assembly whose deployed version
+    /// is a strict roll-forward of a stale AssemblyRef in a transitive dependency. The graph
+    /// keys the node on the loaded (deployed) identity and records the original requested
+    /// identity on the edge — no IdentityMismatch leaf, no duplicate node. Reproduced with the
+    /// AppLocalRollForward sample where Microsoft.Diagnostics.Tracing.TraceEvent 3.2.2's
+    /// AssemblyRef points at Microsoft.Diagnostics.NETCore.Client v0.2.10.10501 while NuGet
+    /// restored v0.2.13.11903 next to it.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void AppLocalRollForward_FrameworkPkt_HigherVersion_ResolvesAndRecordsRequestedIdentity()
+    {
+        using var a = new AssemblyAnalyzer(samples.AppLocalRollForwardDll);
+        var graph = DependencyGraphBuilder.Build(a);
+
+        var nodes = graph.Nodes
+            .Where(n => n.Name == "Microsoft.Diagnostics.NETCore.Client")
+            .ToList();
+        var node = Assert.Single(nodes);
+        Assert.False(node.Unresolved);
+
+        var nav = graph.NavigationById[node.Id];
+        Assert.Equal(AssemblyProvenance.AppLocal, nav.Provenance);
+        Assert.NotNull(nav.LoadedIdentity);
+        Assert.Equal(node.Version, nav.LoadedIdentity!.Version);
+
+        var traceEventNode = graph.Nodes.Single(
+            n => n.Name == "Microsoft.Diagnostics.Tracing.TraceEvent");
+        var edge = graph.Edges.Single(
+            e => e.SourceId == traceEventNode.Id && e.TargetId == node.Id);
+        Assert.NotNull(edge.RequestedIdentity);
+        Assert.NotEqual(node.Version, edge.RequestedIdentity!.Version);
+        Assert.Equal("31bf3856ad364e35", edge.RequestedIdentity.PublicKeyToken);
+    }
+
+    /// <summary>
     /// When a reference forms a cycle back to an ancestor, the cycle-closing edge is emitted but
     /// the ancestor is not re-expanded.
     /// </summary>
