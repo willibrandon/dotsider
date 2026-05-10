@@ -1286,34 +1286,34 @@ public sealed class AssemblyAnalyzer : IDisposable
 
         string? mismatchPath = null;
 
-        (ResolvedAssembly?, AssemblyProvenance)? TryFile(string path, AssemblyProvenance provenance)
+        (ResolvedAssembly?, AssemblyProvenance, AssemblyRefInfo?)? TryFile(string path, AssemblyProvenance provenance)
         {
             if (!File.Exists(path)) return null;
             var actual = TryReadFileIdentity(path);
             if (actual is null) return null;
             if (IdentityEquals(identity, actual.Value))
-                return (new ResolvedAssembly.FromFile(path), provenance);
+                return (new ResolvedAssembly.FromFile(path), provenance, null);
             if (IsFrameworkRollForwardMatch(identity, actual.Value, provenance))
-                return (new ResolvedAssembly.FromFile(path), provenance);
+                return (new ResolvedAssembly.FromFile(path), provenance, ToAssemblyRefInfo(actual.Value));
             mismatchPath ??= path;
             return null;
         }
 
-        (ResolvedAssembly?, AssemblyProvenance)? TryBundle(
+        (ResolvedAssembly?, AssemblyProvenance, AssemblyRefInfo?)? TryBundle(
             ResolvedAssembly.FromBundle? candidate, AssemblyProvenance provenance)
         {
             if (candidate is null) return null;
             var actual = TryReadBundleIdentity(candidate.Bytes);
             if (actual is null) return null;
             if (IdentityEquals(identity, actual.Value))
-                return (candidate, provenance);
+                return (candidate, provenance, null);
             if (IsFrameworkRollForwardMatch(identity, actual.Value, provenance))
-                return (candidate, provenance);
+                return (candidate, provenance, ToAssemblyRefInfo(actual.Value));
             mismatchPath ??= $"{candidate.BundlePath}:{candidate.Name}";
             return null;
         }
 
-        (ResolvedAssembly?, AssemblyProvenance)? TryNuGet()
+        (ResolvedAssembly?, AssemblyProvenance, AssemblyRefInfo?)? TryNuGet()
         {
             var resolved = NuGetDepsJsonResolver.TryResolve(referencingAssemblyPath, identity.Name);
             if (resolved is ResolvedAssembly.FromFile f)
@@ -1342,7 +1342,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         if (hit is { } h)
-            return new AssemblyResolution(h.Item1, h.Item2, null);
+            return new AssemblyResolution(h.Item1, h.Item2, null, LoadedIdentity: h.Item3);
 
         return mismatchPath is not null
             ? new AssemblyResolution(null, AssemblyProvenance.IdentityMismatch, mismatchPath)
@@ -1489,19 +1489,19 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Whether a probe candidate qualifies as a .NET host-style framework roll-forward of the
     /// requested reference. Matches the binding behavior the .NET host applies when a binary
     /// compiled against an older framework version runs against a newer shared framework:
-    /// if the candidate came from the shared framework, runtime directory, or NuGet package
-    /// cache, shares the simple name and public key token, and carries a well-known Microsoft
-    /// framework public key token, accept the version difference. Without this, every
-    /// framework-referencing package (net6-targeted third-party libraries running on net10)
-    /// would fill the graph with identity-mismatched leaves even though the .NET host itself
-    /// binds them happily.
+    /// if the candidate came from app-local, the shared framework, runtime directory, or NuGet
+    /// package cache, shares the simple name and public key token, carries a well-known Microsoft
+    /// framework public key token, and is at an equal-or-higher assembly version, accept the
+    /// version difference. The version floor matches the default <c>AssemblyLoadContext</c>
+    /// equal-or-higher rule; downgrades remain a true <see cref="AssemblyProvenance.IdentityMismatch"/>.
     /// </summary>
     private static bool IsFrameworkRollForwardMatch(
         AssemblyRefInfo requested,
         (string Name, string Version, string Culture, string? PublicKeyToken) actual,
         AssemblyProvenance provenance)
     {
-        if (provenance is not (AssemblyProvenance.SharedFramework
+        if (provenance is not (AssemblyProvenance.AppLocal
+                              or AssemblyProvenance.SharedFramework
                               or AssemblyProvenance.RuntimeDirectory
                               or AssemblyProvenance.NuGetPackageCache))
             return false;
@@ -1511,8 +1511,17 @@ public sealed class AssemblyAnalyzer : IDisposable
             return false;
         if (!string.Equals(requested.PublicKeyToken, actual.PublicKeyToken, StringComparison.OrdinalIgnoreCase))
             return false;
-        return WellKnownFrameworkPublicKeyTokens.Contains(requested.PublicKeyToken);
+        if (!WellKnownFrameworkPublicKeyTokens.Contains(requested.PublicKeyToken))
+            return false;
+        return ParseVersionOrZero(actual.Version) >= ParseVersionOrZero(requested.Version);
     }
+
+    private static Version ParseVersionOrZero(string s) =>
+        Version.TryParse(s, out var v) ? v : new Version(0, 0, 0, 0);
+
+    private static AssemblyRefInfo ToAssemblyRefInfo(
+        (string Name, string Version, string Culture, string? PublicKeyToken) actual)
+        => new(actual.Name, actual.Version, actual.Culture, actual.PublicKeyToken);
 
     private static bool IdentityEquals(
         AssemblyRefInfo requested,

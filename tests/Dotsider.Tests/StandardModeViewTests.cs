@@ -553,6 +553,46 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Opening the AppLocalRollForward sample on the Dep Graph tab must not render the
+    /// <c>! </c> IdentityMismatch marker for <c>Microsoft.Diagnostics.NETCore.Client</c>.
+    /// The sample's transitive AssemblyRef from <c>Microsoft.Diagnostics.Tracing.TraceEvent</c>
+    /// targets v0.2.10.10501 while NuGet deploys v0.2.13.11903 next to it, so the AppLocal
+    /// probe must roll forward (same well-known framework PKT, equal-or-higher version) and
+    /// the cached graph must collapse onto a single resolved node keyed at the deployed version.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab6_AppLocalRollForward_NoIdentityMismatchMarker()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.AppLocalRollForwardDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D6)
+            .WaitUntil(s => s.ContainsText("Microsoft.Diagnostics.NETCore.Client"),
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        var snapshot = terminal.CreateSnapshot();
+        Assert.False(snapshot.ContainsText("! Microsoft.Diagnostics.NETCore.Client"),
+            "AppLocal roll-forward must suppress the IdentityMismatch marker on the Dep Graph tab.");
+
+        Assert.NotNull(_state!.CachedGraph);
+        var clientNodes = _state.CachedGraph!.Value.Nodes
+            .Where(n => n.Name == "Microsoft.Diagnostics.NETCore.Client")
+            .ToList();
+        var clientNode = Assert.Single(clientNodes);
+        Assert.False(clientNode.Unresolved);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Verifies tab7 shows size map.
     /// </summary>
     [Fact(Timeout = 30_000)]
