@@ -26,6 +26,8 @@ public class ToolRegistrationTests : McpServerTestBase
 
         // IL tools
         Assert.Contains("disassemble_method", names);
+        Assert.Contains("get_method_debug_info", names);
+        Assert.Contains("get_source_link", names);
         Assert.Contains("search_il_opcodes", names);
 
         // Metadata tools

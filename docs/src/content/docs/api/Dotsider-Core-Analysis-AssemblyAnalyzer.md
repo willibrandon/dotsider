@@ -152,6 +152,16 @@ Gets the custom attributes applied to metadata entities.
 public IReadOnlyList<CustomAttributeInfo> CustomAttributes { get; }
 ```
 
+### DebugDirectory
+
+Gets the PE debug directory entries.
+
+**Returns:** [IReadOnlyList\<DebugDirectoryInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<DebugDirectoryInfo> DebugDirectory { get; }
+```
+
 ### DisplayName
 
 Logical display name for the analyzed artifact. For bundle-backed analyzers this is
@@ -214,6 +224,16 @@ Whether the PE file contains .NET metadata.
 public bool HasMetadata { get; }
 ```
 
+### HasPortablePdb
+
+Gets whether a portable PDB was opened.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool HasPortablePdb { get; }
+```
+
 ### IsBundleBacked
 
 Whether this analyzer was created from bytes extracted from a single-file bundle.
@@ -273,6 +293,16 @@ Gets the MethodDef metadata table entries.
 
 ```csharp
 public IReadOnlyList<MethodDefInfo> MethodDefs { get; }
+```
+
+### PdbProvenance
+
+Portable PDB provenance for the analyzed assembly.
+
+**Returns:** [PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/)
+
+```csharp
+public PdbProvenance PdbProvenance { get; }
 ```
 
 ### PeHeaders
@@ -349,6 +379,16 @@ Used as resolution context when probing for referenced assemblies.
 public string? SourceBundlePath { get; }
 ```
 
+### SourceLink
+
+Gets decoded Source Link information from the portable PDB.
+
+**Returns:** [SourceLinkInfo](/api/dotsider.core.analysis.models.sourcelinkinfo/)
+
+```csharp
+public SourceLinkInfo SourceLink { get; }
+```
+
 ### TargetFramework
 
 The target framework moniker (e.g., ".NETCoreApp,Version=v10.0"), or null.
@@ -389,6 +429,38 @@ Performs application-defined tasks associated with freeing, releasing, or resett
 public void Dispose()
 ```
 
+### GetEmbeddedSource(MethodDefInfo)
+
+Gets the first embedded source document referenced by a method's sequence points.
+
+**Parameters:**
+
+- `method` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)): The method whose source should be resolved.
+
+**Returns:** [EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/)
+
+The decoded embedded source, or null when none is available.
+
+```csharp
+public EmbeddedSourceInfo? GetEmbeddedSource(MethodDefInfo method)
+```
+
+### GetEmbeddedSource(string)
+
+Gets embedded source for a portable PDB document path.
+
+**Parameters:**
+
+- `documentPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The document path from the portable PDB.
+
+**Returns:** [EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/)
+
+The decoded embedded source, or null when the document has none.
+
+```csharp
+public EmbeddedSourceInfo? GetEmbeddedSource(string documentPath)
+```
+
 ### GetMetadataReader()
 
 Gets the underlying [MetadataReader](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.metadatareader) for advanced queries.
@@ -415,6 +487,32 @@ The method body block, or null.
 
 ```csharp
 public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
+```
+
+### GetMethodDebugInfo(MethodDefInfo)
+
+Gets portable PDB debug information for a method definition.
+
+**Parameters:**
+
+- `method` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)): The method definition to inspect.
+
+**Returns:** [MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/)
+
+Decoded portable PDB information, or an empty result when no portable PDB is available.
+
+```csharp
+public MethodDebugInfo GetMethodDebugInfo(MethodDefInfo method)
+```
+
+### GetPdbReader()
+
+Gets the portable PDB [MetadataReader](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.metadatareader), or null when no portable PDB is available.
+
+**Returns:** [MetadataReader](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.metadatareader)
+
+```csharp
+public MetadataReader? GetPdbReader()
 ```
 
 ### IsFrameworkAssembly(AssemblyProvenance, AssemblyRefInfo, string?, string?)
@@ -509,6 +607,22 @@ Returns `null` for bundle-backed results.
 
 ```csharp
 public static string? ResolveAssemblyPath(string referencingAssemblyPath, string assemblyName)
+```
+
+### ResolveSourceLinkUrl(string)
+
+Resolves a portable PDB document path through Source Link mappings.
+
+**Parameters:**
+
+- `documentPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The document path from the portable PDB.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+The resolved Source Link URL, or null when no mapping applies.
+
+```csharp
+public string? ResolveSourceLinkUrl(string documentPath)
 ```
 
 ### ResolveToken(int)

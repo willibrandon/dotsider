@@ -26,7 +26,7 @@ public sealed record IlInstruction : IEquatable<IlInstruction>
 
 ## Constructors
 
-### IlInstruction(int, string, string, int?)
+### IlInstruction(int, string, string, int?, string?, int?, int?, int?, int?, bool, string?, bool, int?, string?, int?)
 
 A single decoded IL (Intermediate Language) instruction.
 
@@ -36,12 +36,63 @@ A single decoded IL (Intermediate Language) instruction.
 - `OpCode` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The IL opcode mnemonic (e.g., "ldstr", "call", "ret").
 - `Operand` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The decoded operand as a display string, or empty if the opcode takes no operand.
 - `MetadataToken` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The raw metadata token for token-bearing operands (methods, fields, types), or null.
+- `SequenceDocument` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The source document for a sequence point starting at this instruction, or null.
+- `SequenceStartLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The sequence point start line, or null.
+- `SequenceStartColumn` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The sequence point start column, or null.
+- `SequenceEndLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The sequence point end line, or null.
+- `SequenceEndColumn` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The sequence point end column, or null.
+- `SequenceHidden` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the sequence point is hidden.
+- `SourceLinkUrl` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The Source Link URL resolved for the sequence point document, or null.
+- `HasEmbeddedSource` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the sequence point document has embedded source.
+- `LocalSlot` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The local variable slot referenced by this instruction, or null.
+- `LocalName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The active PDB local variable name for LocalSlot, or null.
+- `DisplayLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The 1-based rendered line number in formatted disassembly, or null.
 
 ```csharp
-public IlInstruction(int Offset, string OpCode, string Operand, int? MetadataToken = null)
+public IlInstruction(int Offset, string OpCode, string Operand, int? MetadataToken = null, string? SequenceDocument = null, int? SequenceStartLine = null, int? SequenceStartColumn = null, int? SequenceEndLine = null, int? SequenceEndColumn = null, bool SequenceHidden = false, string? SourceLinkUrl = null, bool HasEmbeddedSource = false, int? LocalSlot = null, string? LocalName = null, int? DisplayLine = null)
 ```
 
 ## Properties
+
+### DisplayLine
+
+The 1-based rendered line number in formatted disassembly, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? DisplayLine { get; init; }
+```
+
+### HasEmbeddedSource
+
+Whether the sequence point document has embedded source.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool HasEmbeddedSource { get; init; }
+```
+
+### LocalName
+
+The active PDB local variable name for LocalSlot, or null.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? LocalName { get; init; }
+```
+
+### LocalSlot
+
+The local variable slot referenced by this instruction, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? LocalSlot { get; init; }
+```
 
 ### MetadataToken
 
@@ -81,5 +132,75 @@ The decoded operand as a display string, or empty if the opcode takes no operand
 
 ```csharp
 public string Operand { get; init; }
+```
+
+### SequenceDocument
+
+The source document for a sequence point starting at this instruction, or null.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? SequenceDocument { get; init; }
+```
+
+### SequenceEndColumn
+
+The sequence point end column, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? SequenceEndColumn { get; init; }
+```
+
+### SequenceEndLine
+
+The sequence point end line, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? SequenceEndLine { get; init; }
+```
+
+### SequenceHidden
+
+Whether the sequence point is hidden.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool SequenceHidden { get; init; }
+```
+
+### SequenceStartColumn
+
+The sequence point start column, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? SequenceStartColumn { get; init; }
+```
+
+### SequenceStartLine
+
+The sequence point start line, or null.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? SequenceStartLine { get; init; }
+```
+
+### SourceLinkUrl
+
+The Source Link URL resolved for the sequence point document, or null.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? SourceLinkUrl { get; init; }
 ```
 

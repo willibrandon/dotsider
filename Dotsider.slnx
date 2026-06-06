@@ -20,6 +20,7 @@
     <Project Path="samples/Dotted.Name.App/Dotted.Name.App.csproj" />
     <Project Path="samples/SelfContainedConsole/SelfContainedConsole.csproj" />
     <Project Path="samples/AppLocalRollForward/AppLocalRollForward.csproj" />
+    <Project Path="samples/EmbeddedSourceLib/EmbeddedSourceLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects/NetFxBindingRedirects.csproj" />
     <Project Path="samples/NetFxBindingRedirects.OldDep/NetFxBindingRedirects.OldDep.csproj" />
     <Project Path="samples/NetFxBindingRedirects.NewDep/NetFxBindingRedirects.NewDep.csproj" />

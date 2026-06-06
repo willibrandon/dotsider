@@ -15,6 +15,7 @@ The **PE / Metadata** tab (`2`) exposes the raw structure of the Portable Execut
 - **AssemblyRefs** — referenced assembly metadata
 - **Custom attributes** — applied attributes with decoded arguments
 - **Resources** — embedded resources with names and sizes
+- **Debug Directory** — CodeView, embedded portable PDB, checksum, and reproducible-build entries
 
 ## Text selection and copy
 

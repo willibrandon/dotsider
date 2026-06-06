@@ -30,9 +30,11 @@ All models live in `Analysis/Models/` and are plain records or enums suitable fo
 
 **Metadata:** `TypeDefInfo`, `MethodDefInfo`, `MemberRefInfo`, `MemberRefKind`, `TypeRefInfo`, `FieldDefInfo`, `AssemblyRefInfo`, `CustomAttributeInfo`, `ResourceInfo`
 
-**PE / CLR:** `PeHeaders`, `ClrHeader`, `SectionInfo`
+**PE / CLR:** `PeHeaders`, `ClrHeader`, `SectionInfo`, `DebugDirectoryInfo`
 
-**IL:** `IlInstruction`, `IlNavigationTarget`
+**IL:** `IlInstruction`, `IlNavigationTarget`, `MethodDebugInfo`, `SequencePointInfo`, `LocalSlotInfo`
+
+**Portable PDB:** `PdbProvenance`, `PdbProvenanceKind`, `SourceLinkInfo`, `SourceLinkMapping`, `EmbeddedSourceInfo`
 
 **Size:** `SizeNode`, `SizeNodeKind`
 
@@ -81,7 +83,9 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `get-resources` | — | Manifest resources |
 | `resolve-token` | Token | Resolve a metadata token |
 | `read-bytes` | Offset, Length | Raw bytes from the loaded image |
-| `disassemble` | TypeName, MethodName | IL bytecode for a method |
+| `disassemble` | TypeName, MethodName, IncludeDebugInfo? | IL bytecode for a method |
+| `get-method-debug-info` | TypeName, MethodName | Portable PDB sequence points and local names for a method |
+| `get-source-link` | — | Source Link mappings decoded from the portable PDB |
 | `search-il-opcodes` | Query, MaxResults? | Find methods containing an opcode |
 | `get-size-tree` | — | Hierarchical size tree |
 | `get-largest-methods` | MaxResults? | Top methods by IL size |

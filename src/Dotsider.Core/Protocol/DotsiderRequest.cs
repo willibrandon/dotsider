@@ -58,4 +58,7 @@ public sealed class DotsiderRequest
 
     /// <summary>Assembly name to resolve (e.g. "System.Runtime"), used by resolve-assembly and push-assembly.</summary>
     public string? AssemblyName { get; set; }
+
+    /// <summary>Whether IL responses should include portable PDB debug information.</summary>
+    public bool IncludeDebugInfo { get; set; }
 }

@@ -287,6 +287,46 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies pe metadata navigate to debug directory.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NavigateToDebugDirectory()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAsync(
+            s => s.InAlternateScreen && s.ContainsText("Sections"),
+            description: "PE metadata renders");
+
+        for (var expected = PeSubTabId.TypeDef; expected <= PeSubTabId.DebugDirectory; expected++)
+        {
+            await auto.KeyAsync(Hex1bKey.RightArrow, ct: cts.Token);
+            var expectedSubTab = expected;
+            await auto.WaitUntilAsync(
+                _ => _state!.PeSubTab == expectedSubTab,
+                description: $"PE sub-tab {expectedSubTab} selected");
+        }
+
+        await auto.WaitUntilAsync(
+            s => s.ContainsText("Debug Directory") && s.ContainsText("CodeView"),
+            description: "Debug Directory table renders");
+        await auto.EnterAsync(cts.Token);
+        await auto.WaitUntilAsync(
+            _ => _state!.PeDetailContent?.Contains("Debug Directory", StringComparison.Ordinal) == true,
+            description: "Debug Directory detail opens");
+
+        Assert.Equal(PeSubTabId.DebugDirectory, _state!.PeSubTab);
+        Assert.Contains("Payload:", _state.PeDetailContent);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Verifies pe metadata shows clr header fields.
     /// </summary>
     [Fact(Timeout = 30_000)]

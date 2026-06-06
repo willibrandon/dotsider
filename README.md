@@ -46,8 +46,8 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you
 | Tab | What you see |
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
-| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Select a method, read its bytecode. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
+| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, and debug directory rows. Press `g` on a TypeDef or MethodDef to jump to its IL. |
+| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
 | **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -99,6 +99,7 @@ dotsider analyze MyLib.dll                      # assembly info (default)
 dotsider analyze MyLib.dll --types              # list type definitions
 dotsider analyze MyLib.dll --methods            # list method definitions
 dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
+dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps               # assembly references
 dotsider analyze MyLib.dll --strings            # extract strings
 dotsider analyze MyLib.dll --fields             # list field definitions
@@ -242,7 +243,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**38 tools** across assembly analysis, IL disassembly, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**40 tools** across assembly analysis, IL disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
@@ -278,6 +279,7 @@ src/Dotsider.Mcp/
 samples/
   HelloWorld/         Minimal console app
   ComplexApp/         Async pipeline with embedded resources
+  EmbeddedSourceLib/  Embedded portable PDB source fixture
   RichLibrary/        Library with NuGet deps (Newtonsoft.Json, System.Text.Json)
   RichLibraryV2/      Same library with deliberate API changes (for diff testing)
   MinimalApi/         ASP.NET Core minimal API (web SDK, hosted entry point)

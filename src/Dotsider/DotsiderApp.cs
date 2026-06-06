@@ -539,6 +539,9 @@ public sealed class DotsiderApp(DotsiderState state)
                 hints.Add(s.Section("l: Focus IL"));
                 if (_state.IlSelectedMethod is { Rva: > 0 })
                     hints.Add(s.Section("x: Hex"));
+                if (_state.IlSelectedMethod is { } method
+                    && _state.Analyzer.GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
+                    hints.Add(s.Section("o: Source"));
                 if (_state.IlEditorState?.Cursor.HasSelection == true)
                     hints.Add(s.Section("y: Yank (IL)"));
             }

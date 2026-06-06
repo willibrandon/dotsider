@@ -51,13 +51,13 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**38 tools** across:
+**40 tools** across:
 
 | Category | Tools |
 |----------|-------|
 | Assembly analysis | `get_assembly_info`, `list_types`, `list_methods`, `find_members` |
 | Field analysis | `list_fields` |
-| IL disassembly | `disassemble_method`, `search_il_opcodes` |
+| IL disassembly | `disassemble_method`, `get_method_debug_info`, `get_source_link`, `search_il_opcodes` |
 | Metadata inspection | `get_pe_headers`, `get_clr_header`, `get_sections`, `get_custom_attributes`, `get_resources`, `resolve_token` |
 | Dependencies | `get_assembly_refs`, `get_dependency_graph`, `get_type_refs` |
 | Size analysis | `get_size_breakdown`, `get_largest_methods` |
@@ -75,7 +75,7 @@ Tools work in two modes:
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI via Unix domain socket for live state, tracing, and navigation
 
-Single-file executables and native apphosts are handled transparently in direct mode — the server extracts the entry assembly from bundles and redirects apphosts to their companion DLLs, matching CLI and TUI behavior.
+Single-file executables and native apphosts are handled transparently in direct mode — the server extracts the entry assembly from bundles and redirects apphosts to their companion DLLs, matching CLI and TUI behavior. Portable PDB data is exposed when present, including provenance, Source Link mappings, sequence points, and local names.
 
 Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
 

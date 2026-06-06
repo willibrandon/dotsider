@@ -33,6 +33,7 @@ dotsider analyze MyLib.dll                    # assembly info (default)
 dotsider analyze MyLib.dll --types            # list type definitions
 dotsider analyze MyLib.dll --methods          # list method definitions
 dotsider analyze MyLib.dll --il Type.Method   # disassemble a method
+dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps             # assembly references
 dotsider analyze MyLib.dll --strings          # extract strings
 dotsider analyze MyLib.dll --fields           # list field definitions
@@ -46,11 +47,14 @@ dotsider analyze MyApp                        # single-file bundle → extracts 
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
 
+When portable PDB data is available, default output reports where it came from, and `--il` includes source spans, local names, and Source Link markers. Use `--json` when you need the exact URLs. `--embedded-source` prints source embedded in the PDB.
+
 | Option | Description |
 |--------|-------------|
 | `--types` | List type definitions |
 | `--methods` | List method definitions |
 | `--il <name>` | Disassemble a specific method |
+| `--embedded-source <name>` | Print embedded source for a method |
 | `--deps` | Show assembly references |
 | `--strings` | Extract strings |
 | `--fields` | List field definitions |

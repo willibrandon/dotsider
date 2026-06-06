@@ -28,6 +28,10 @@ public static class IlNavigationHelper
             if (text[i] == '\n') cursorLine++;
         }
 
+        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine);
+        if (instruction is not null)
+            return instruction;
+
         var instructionIndex = cursorLine - headerLineCount - 1;
         if (instructionIndex >= 0 && instructionIndex < instructions.Count)
             return instructions[instructionIndex];

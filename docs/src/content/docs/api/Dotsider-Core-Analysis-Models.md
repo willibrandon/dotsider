@@ -165,6 +165,14 @@ Information about a custom attribute applied to a metadata entity.
 public sealed record CustomAttributeInfo : IEquatable<CustomAttributeInfo>
 ```
 
+### [DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/)
+
+Display-ready PE debug directory entry information.
+
+```csharp
+public sealed record DebugDirectoryInfo : IEquatable<DebugDirectoryInfo>
+```
+
 ### [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/)
 
 The result of building a transitive assembly dependency graph. Contains the public topology
@@ -189,6 +197,14 @@ Summary statistics for the diff.
 
 ```csharp
 public sealed record DiffSummary : IEquatable<DiffSummary>
+```
+
+### [EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/)
+
+Embedded source decoded from a portable PDB document.
+
+```csharp
+public sealed record EmbeddedSourceInfo : IEquatable<EmbeddedSourceInfo>
 ```
 
 ### [FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/)
@@ -330,12 +346,28 @@ reuse: only one filesystem read per loaded identity.
 public sealed record LoadedAssemblyEntry : IEquatable<LoadedAssemblyEntry>
 ```
 
+### [LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/)
+
+A PDB local variable slot and the IL range where its name is active.
+
+```csharp
+public sealed record LocalSlotInfo : IEquatable<LocalSlotInfo>
+```
+
 ### [MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/)
 
 Information about a referenced member (method or field) from the MemberRef metadata table.
 
 ```csharp
 public sealed record MemberRefInfo : IEquatable<MemberRefInfo>
+```
+
+### [MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/)
+
+Portable PDB debug information for a method.
+
+```csharp
+public sealed record MethodDebugInfo : IEquatable<MethodDebugInfo>
 ```
 
 ### [MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/)
@@ -382,6 +414,14 @@ A line of output captured from the traced process's stdout or stderr.
 
 ```csharp
 public sealed record OutputLine : IEquatable<OutputLine>
+```
+
+### [PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/)
+
+Describes where portable PDB information was found, or why it could not be used.
+
+```csharp
+public sealed record PdbProvenance : IEquatable<PdbProvenance>
 ```
 
 ### [PeHeaders](/api/dotsider.core.analysis.models.peheaders/)
@@ -432,12 +472,36 @@ Information about a single PE section (e.g., .text, .rsrc, .reloc).
 public sealed record SectionInfo : IEquatable<SectionInfo>
 ```
 
+### [SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/)
+
+A source sequence point decoded from a portable PDB.
+
+```csharp
+public sealed record SequencePointInfo : IEquatable<SequencePointInfo>
+```
+
 ### [SizeNode](/api/dotsider.core.analysis.models.sizenode/)
 
 A node in the size treemap hierarchy. Can be assembly, namespace, type, or method.
 
 ```csharp
 public sealed record SizeNode : IEquatable<SizeNode>
+```
+
+### [SourceLinkInfo](/api/dotsider.core.analysis.models.sourcelinkinfo/)
+
+Source Link mappings decoded from portable PDB custom debug information.
+
+```csharp
+public sealed record SourceLinkInfo : IEquatable<SourceLinkInfo>
+```
+
+### [SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/)
+
+A single Source Link document mapping.
+
+```csharp
+public sealed record SourceLinkMapping : IEquatable<SourceLinkMapping>
 ```
 
 ### [StringEntry](/api/dotsider.core.analysis.models.stringentry/)
@@ -535,6 +599,14 @@ runs on `v2.0.50727`); [Clr4](/api/dotsider.core.analysis.models.netfxruntimever
 
 ```csharp
 public enum NetFxRuntimeVersion
+```
+
+### [PdbProvenanceKind](/api/dotsider.core.analysis.models.pdbprovenancekind/)
+
+Portable PDB discovery outcomes that are meaningful to .NET developers.
+
+```csharp
+public enum PdbProvenanceKind
 ```
 
 ### [PolicyLayer](/api/dotsider.core.analysis.models.policylayer/)

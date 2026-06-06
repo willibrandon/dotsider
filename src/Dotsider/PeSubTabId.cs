@@ -26,6 +26,9 @@ public static class PeSubTabId
     /// <summary>Resources sub-tab.</summary>
     public const int Resources = 6;
 
+    /// <summary>Debug Directory sub-tab.</summary>
+    public const int DebugDirectory = 7;
+
     /// <summary>Total number of PE/Metadata sub-tabs.</summary>
-    public const int Count = 7;
+    public const int Count = 8;
 }

@@ -39,6 +39,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 analyzer.PreferredRuntimePack,
                 analyzer.LaunchPath,
                 analyzer.CanSaveInPlace,
+                analyzer.PdbProvenance,
+                analyzer.SourceLink,
                 TypeCount = analyzer.TypeDefs.Count,
                 MethodCount = analyzer.MethodDefs.Count,
                 AssemblyRefCount = analyzer.AssemblyRefs.Count

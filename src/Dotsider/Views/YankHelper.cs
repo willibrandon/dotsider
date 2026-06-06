@@ -124,6 +124,7 @@ public static class YankHelper
             PeSubTabId.MemberRef => FormatMemberRef(analyzer.MemberRefs, state.PeFocusedKey),
             PeSubTabId.Attributes => FormatAttribute(analyzer.CustomAttributes, state.PeFocusedKey),
             PeSubTabId.Resources => FormatResource(analyzer.Resources, state.PeFocusedKey),
+            PeSubTabId.DebugDirectory => FormatDebugDirectory(analyzer.DebugDirectory, state.PeFocusedKey),
             _ => null
         };
     }
@@ -264,6 +265,16 @@ public static class YankHelper
         var r = resources.FirstOrDefault(x => (object)x.Name == key || x.Name.Equals(key));
         return r is null ? null
             : $"{r.Name}\t{r.Visibility}\t0x{r.Offset:X8}\t{r.Size}\t{(r.IsLinked ? "Yes" : "No")}";
+    }
+
+    private static string? FormatDebugDirectory(IReadOnlyList<DebugDirectoryInfo> entries, object key)
+    {
+        if (key is not string compositeKey) return null;
+        var entry = entries.FirstOrDefault(x =>
+            $"{x.Type}:{x.AddressOfRawData:X8}:{x.PointerToRawData:X8}" == compositeKey);
+        return entry is null ? null
+            : $"{entry.Type}\t0x{entry.Stamp:X8}\t{entry.MajorVersion}\t{entry.MinorVersion}\t{entry.DataSize}\t"
+                + $"0x{entry.AddressOfRawData:X8}\t0x{entry.PointerToRawData:X8}\t{entry.Payload}";
     }
 
     private static string? FormatDiffTypesRow(DiffState state, string key)

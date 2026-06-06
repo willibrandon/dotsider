@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
@@ -36,6 +37,51 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
         Assert.NotNull(method);
         var instructions = disasm.Disassemble(method);
         Assert.NotEmpty(instructions);
+    }
+
+    /// <summary>
+    /// Verifies formatted IL includes portable PDB annotations.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_UserServiceAdd_FormatIncludesPortablePdbAnnotations()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var method = FindMethod(a, "RichLibrary.Services.UserService", "Add");
+
+        var text = disasm.FormatDisassembly(method);
+
+        Assert.Contains("// PDB: Sidecar", text);
+        Assert.Contains("// Source Link: present", text);
+        Assert.Contains(".locals init", text);
+        Assert.Contains("UserService.cs", text);
+        Assert.Contains("[source link]", text);
+        Assert.Contains("// id", text);
+        Assert.Contains("// user", text);
+        Assert.DoesNotContain("raw.githubusercontent.com", text);
+    }
+
+    /// <summary>
+    /// Verifies decoded IL instructions carry sequence point and local variable metadata.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_UserServiceAdd_InstructionsIncludeDebugMetadata()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var method = FindMethod(a, "RichLibrary.Services.UserService", "Add");
+
+        var result = disasm.DisassembleWithText(method);
+
+        Assert.NotNull(result);
+        Assert.Contains(result.Value.Instructions,
+            instruction => instruction.SequenceDocument?.EndsWith("UserService.cs",
+                StringComparison.OrdinalIgnoreCase) == true
+                && instruction.SourceLinkUrl is not null);
+        Assert.Contains(result.Value.Instructions, instruction => instruction.LocalName == "id");
+        Assert.Contains(result.Value.Instructions, instruction => instruction.LocalName == "user");
+        Assert.All(result.Value.Instructions,
+            instruction => Assert.True(instruction.DisplayLine is null or > 0));
     }
 
     /// <summary>
@@ -281,5 +327,15 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
                 return;
             }
         }
+    }
+
+    private static MethodDefInfo FindMethod(AssemblyAnalyzer analyzer, string typeName, string methodName)
+    {
+        var method = analyzer.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType == typeName
+            && m.Name == methodName);
+
+        Assert.NotNull(method);
+        return method;
     }
 }

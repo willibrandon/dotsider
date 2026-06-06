@@ -62,6 +62,16 @@ Trace event category filter.
 public string? CategoryFilter { get; set; }
 ```
 
+### IncludeDebugInfo
+
+Whether IL responses should include portable PDB debug information.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IncludeDebugInfo { get; set; }
+```
+
 ### LeftPath
 
 Left assembly path for diff.

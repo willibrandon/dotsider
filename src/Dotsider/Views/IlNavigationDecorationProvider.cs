@@ -40,9 +40,14 @@ public sealed class IlNavigationDecorationProvider : ITextDecorationProvider
         var spans = new List<TextDecorationSpan>();
         for (var line = startLine; line <= endLine && line <= document.LineCount; line++)
         {
-            var idx = line - HeaderLineCount - 1;
-            if (idx < 0 || idx >= Instructions.Count) continue;
-            var inst = Instructions[idx];
+            var inst = Instructions.FirstOrDefault(i => i.DisplayLine == line);
+            if (inst is null)
+            {
+                var idx = line - HeaderLineCount - 1;
+                if (idx < 0 || idx >= Instructions.Count) continue;
+                inst = Instructions[idx];
+            }
+
             if (inst.MetadataToken is null || string.IsNullOrEmpty(inst.Operand)
                 || !NavigableOpcodes.Contains(inst.OpCode)) continue;
 

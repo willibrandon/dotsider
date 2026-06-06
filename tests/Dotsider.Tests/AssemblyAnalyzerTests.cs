@@ -1,5 +1,6 @@
 using System.Reflection.PortableExecutable;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 
@@ -170,6 +171,62 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.True(a.MethodDefs.Count > 10);
     }
 
+    /// <summary>
+    /// Verifies rich library opens its matching portable PDB sidecar.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_OpensPortablePdbSidecar()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+
+        Assert.True(a.HasPortablePdb);
+        Assert.Equal(PdbProvenanceKind.Sidecar, a.PdbProvenance.Kind);
+        Assert.NotNull(a.PdbProvenance.Path);
+        Assert.NotNull(a.GetPdbReader());
+        Assert.Contains(a.DebugDirectory, entry => entry.Type == DebugDirectoryEntryType.CodeView);
+    }
+
+    /// <summary>
+    /// Verifies rich library source link mappings resolve method documents.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_SourceLink_ResolvesMethodDocument()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var method = FindMethod(a, "RichLibrary.Services.UserService", "Add");
+        var debugInfo = a.GetMethodDebugInfo(method);
+        var document = debugInfo.SequencePoints
+            .First(point => point.Document?.EndsWith("UserService.cs", StringComparison.OrdinalIgnoreCase) == true)
+            .Document!;
+
+        var url = a.ResolveSourceLinkUrl(document);
+
+        Assert.True(a.SourceLink.IsPresent);
+        Assert.NotEmpty(a.SourceLink.Mappings);
+        Assert.NotNull(url);
+        Assert.Contains("raw.githubusercontent.com", url);
+        Assert.EndsWith("UserService.cs", url, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Verifies method debug info exposes sequence points and PDB local names.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_MethodDebugInfo_IncludesSequencePointsAndLocals()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var method = FindMethod(a, "RichLibrary.Services.UserService", "Add");
+
+        var debugInfo = a.GetMethodDebugInfo(method);
+
+        Assert.Equal(PdbProvenanceKind.Sidecar, debugInfo.Pdb.Kind);
+        Assert.Contains(debugInfo.SequencePoints,
+            point => point.Document?.EndsWith("UserService.cs", StringComparison.OrdinalIgnoreCase) == true
+                && point.SourceLinkUrl is not null);
+        Assert.Contains(debugInfo.Locals, local => local.Name == "id");
+        Assert.Contains(debugInfo.Locals, local => local.Name == "user");
+    }
+
     // --- ComplexApp (Exe, embedded resources) ---
 
     /// <summary>
@@ -264,6 +321,27 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         using var a = new AssemblyAnalyzer(samples.EmptyLibDll);
         Assert.True(a.HasMetadata);
         Assert.NotNull(a.ClrHeader);
+    }
+
+    /// <summary>
+    /// Verifies embedded source can be decoded from an embedded portable PDB.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void EmbeddedSourceLib_DecodesEmbeddedSource()
+    {
+        using var a = new AssemblyAnalyzer(samples.EmbeddedSourceLibDll);
+        var method = FindMethod(a, "EmbeddedSourceLib.EmbeddedSourceFixture", "Compute");
+
+        var debugInfo = a.GetMethodDebugInfo(method);
+        var source = a.GetEmbeddedSource(method);
+
+        Assert.True(a.HasPortablePdb);
+        Assert.Equal(PdbProvenanceKind.Embedded, a.PdbProvenance.Kind);
+        Assert.Contains(a.DebugDirectory, entry => entry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
+        Assert.Contains(debugInfo.SequencePoints, point => point.HasEmbeddedSource);
+        Assert.NotNull(source);
+        Assert.Contains("return doubled + 1;", source.Text);
+        Assert.NotEmpty(source.Bytes);
     }
 
     // --- RichLibraryV2 (same AssemblyName as V1) ---
@@ -764,5 +842,15 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         var token = a.MethodDefs.First(m => m.Rva > 0).Token;
         a.Dispose();
         Assert.Throws<ObjectDisposedException>(() => a.ResolveToken(token));
+    }
+
+    private static MethodDefInfo FindMethod(AssemblyAnalyzer analyzer, string typeName, string methodName)
+    {
+        var method = analyzer.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType == typeName
+            && m.Name == methodName);
+
+        Assert.NotNull(method);
+        return method;
     }
 }
