@@ -75,9 +75,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // Focus the editor, then place the cursor on the call line by searching
         // the rendered document. Portable PDB comments can add lines before the
         // instruction, so fixed arrow counts are intentionally avoided here.
-        await auto.KeyAsync(Hex1bKey.L, ct);
-        await auto.WaitUntilAsync(_ => _state!.IlEditorState is not null,
-            description: "IL editor state is ready");
+        await FocusIlEditorAsync(auto, ct);
 
         const string callText = "call RichLibrary.IlNavigationFixture::LocalTarget";
         var text = _state!.IlEditorState!.Document.GetText();
@@ -99,6 +97,15 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilAsync(
             _ => _state.IlEditorState?.Cursor.Position.Value == offset,
             description: description);
+    }
+
+    private async Task FocusIlEditorAsync(Hex1bTerminalAutomator auto, CancellationToken ct)
+    {
+        await auto.KeyAsync(Hex1bKey.L, ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+                && ReferenceEquals(editorState, _state.IlEditorState),
+            description: "IL editor focused");
     }
 
     private async Task SetIlCursorOnInstructionAsync(
@@ -318,7 +325,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // RestoreFromIlBackEntry queues focus on the EditorNode. The actual focus shift
         // applies on a later frame; without an explicit wait, Down/Up below can race
         // a frame where focus is still on the tree and the cursor never moves.
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is Hex1b.EditorNode,
+        await auto.WaitUntilAsync(
+            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+                && ReferenceEquals(editorState, _state.IlEditorState),
             description: "editor focused after Esc back");
         var cursorBeforeScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
 
@@ -765,7 +774,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // first IL instruction). Per hex1b testing guide, poll on state rather
         // than Task.Delay — Linux/macOS CI rendered slower than Windows and
         // raced the down loop below.
-        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await FocusIlEditorAsync(auto, cts.Token);
         await auto.WaitUntilAsync(_ =>
         {
             if (_state!.IlEditorState is null || _state.IlInstructions is null
@@ -1101,7 +1110,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
 
         // Focus editor and walk to the WriteLine call (PR #160's polling pattern).
-        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await FocusIlEditorAsync(auto, cts.Token);
         await auto.WaitUntilAsync(_ =>
         {
             if (_state!.IlEditorState is null || _state.IlInstructions is null
