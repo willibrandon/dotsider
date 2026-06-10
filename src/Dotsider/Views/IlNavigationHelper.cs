@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Hex1b.Documents;
 using Hex1b.Widgets;
 
 namespace Dotsider.Views;
@@ -58,6 +59,32 @@ public static class IlNavigationHelper
             return null;
 
         return instruction.SourceLinkUrl;
+    }
+
+    /// <summary>
+    /// Returns the rendered marker range for a Source Link source comment at the cursor, or null.
+    /// </summary>
+    /// <param name="editorState">The IL editor state containing cursor position.</param>
+    /// <param name="instructions">The instruction list for the current method.</param>
+    /// <returns>The rendered marker range for the Source Link marker, or null.</returns>
+    public static (DocumentPosition Start, DocumentPosition End)? GetSourceLinkMarkerRangeAtCursor(
+        EditorState editorState,
+        IReadOnlyList<IlInstruction> instructions)
+    {
+        var cursorLine = GetCursorLine(editorState);
+        var lineText = editorState.Document.GetLineText(cursorLine);
+        var markerStart = lineText.IndexOf(
+            IlSourceLinkDecorationProvider.SourceLinkMarker,
+            StringComparison.Ordinal);
+        if (markerStart < 0
+            || GetSourceLinkUrlAtCursor(editorState, instructions) is null)
+            return null;
+
+        return (
+            new DocumentPosition(cursorLine, markerStart + 1),
+            new DocumentPosition(
+                cursorLine,
+                markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1));
     }
 
     private static int GetCursorLine(EditorState editorState)

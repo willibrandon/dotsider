@@ -35,6 +35,37 @@ public sealed class IlNavigationHelperTests
     }
 
     /// <summary>
+    /// Verifies a source comment line resolves the rendered Source Link marker range.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void GetSourceLinkMarkerRangeAtCursor_SourceCommentLine_ReturnsMarkerRange()
+    {
+        const string line = "// UserService.cs(1,1)-(1,2) [source link]";
+        var editorState = CreateEditorState($"{line}\nIL_0000: nop");
+        var instructions = new[]
+        {
+            new IlInstruction(
+                0,
+                "nop",
+                "",
+                SequenceStartLine: 1,
+                SourceLinkUrl: "https://example.test/UserService.cs",
+                DisplayLine: 2)
+        };
+
+        var actual = IlNavigationHelper.GetSourceLinkMarkerRangeAtCursor(editorState, instructions);
+
+        var markerStart = line.IndexOf(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal);
+        Assert.NotNull(actual);
+        Assert.Equal(new DocumentPosition(1, markerStart + 1), actual.Value.Start);
+        Assert.Equal(
+            new DocumentPosition(
+                1,
+                markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1),
+            actual.Value.End);
+    }
+
+    /// <summary>
     /// Verifies source comment lines do not resolve as instruction lines for go-to-definition.
     /// </summary>
     [Fact(Timeout = 30_000)]

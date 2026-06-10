@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -121,7 +122,22 @@ internal static class IlEditorHost
         }
 
         ctx.CopyToClipboard(url);
+        if (IlNavigationHelper.GetSourceLinkMarkerRangeAtCursor(editorState, instructions) is { } range)
+            FlashSourceLinkMarker(state, range);
         state.ShowTransientNotice("Yanked Source Link URL");
+    }
+
+    private static void FlashSourceLinkMarker(
+        DotsiderState state,
+        (DocumentPosition Start, DocumentPosition End) range)
+    {
+        state.IlYankProvider.HighlightRange = range;
+        state.App.Invalidate();
+        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+        {
+            state.IlYankProvider.HighlightRange = null;
+            state.App.Invalidate();
+        }, TaskScheduler.Default);
     }
 
     private static void OpenEmbeddedSource(DotsiderState state)
