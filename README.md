@@ -47,7 +47,7 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, and debug directory rows. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
+| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `u` on a `[source link]` marker to copy its resolved URL. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
 | **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -157,6 +157,7 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 | `Tab` | Cycle focus between info panels and tables |
 | `Enter` / `gd` | Go to definition (IL Inspector tab, cursor on a token-bearing instruction) |
 | `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |
+| `u` | Copy Source Link URL from a `[source link]` marker in the IL Inspector |
 | `x` | Jump to method body in Hex Dump (IL Inspector tab, when a method with RVA is selected) |
 | `/` | Search (highlights matches inline) |
 | `n` / `N` | Next / previous search match |

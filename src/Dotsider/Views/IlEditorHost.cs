@@ -27,6 +27,7 @@ internal static class IlEditorHost
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             new EditorWidget(editorState)
                 .Decorations(state.IlSyntaxProvider)
+                .Decorations(state.IlSourceLinkProvider)
                 .Decorations(state.IlSearchProvider)
                 .Decorations(state.IlYankProvider)
                 .Decorations(state.IlNavigationProvider)
@@ -63,6 +64,7 @@ internal static class IlEditorHost
 
                     bindings.Key(Hex1bKey.Enter).Action(_ => PerformGoToDefinition(state), "Go to definition");
                     bindings.Key(Hex1bKey.O).Action(_ => OpenEmbeddedSource(state), "Open embedded source");
+                    bindings.Key(Hex1bKey.U).Action(ctx => YankSourceLinkUrl(state, ctx), "Yank source URL");
 
                     bindings.Key(Hex1bKey.G).Action(_ =>
                     {
@@ -103,6 +105,23 @@ internal static class IlEditorHost
                 state.App.Invalidate();
             }
         }
+    }
+
+    private static void YankSourceLinkUrl(DotsiderState state, InputBindingActionContext ctx)
+    {
+        if (state.IlInstructions is not { } instructions
+            || state.IlEditorState is not { } editorState)
+            return;
+
+        var url = IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions);
+        if (url is null)
+        {
+            state.ShowTransientNotice("No Source Link URL at cursor");
+            return;
+        }
+
+        ctx.CopyToClipboard(url);
+        state.ShowTransientNotice("Yanked Source Link URL");
     }
 
     private static void OpenEmbeddedSource(DotsiderState state)

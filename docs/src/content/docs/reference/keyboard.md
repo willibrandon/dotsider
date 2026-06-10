@@ -38,6 +38,7 @@ description: All keyboard shortcuts for navigating dotsider.
 | `Esc` | Go back from go-to-definition |
 | `x` | Jump to method body in Hex Dump |
 | `o` | Open embedded source for the selected method, when available |
+| `u` | Copy Source Link URL from a `[source link]` marker |
 | `l` | Focus the IL disassembly editor |
 
 ## Hex Dump tab — Normal mode

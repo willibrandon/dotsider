@@ -20,6 +20,48 @@ public static class IlNavigationHelper
         IReadOnlyList<IlInstruction> instructions,
         int headerLineCount)
     {
+        var cursorLine = GetCursorLine(editorState);
+
+        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine);
+        if (instruction is not null)
+            return instruction;
+
+        var lineText = editorState.Document.GetLineText(cursorLine);
+        if (!lineText.StartsWith("IL_", StringComparison.Ordinal))
+            return null;
+
+        var instructionIndex = cursorLine - headerLineCount - 1;
+        if (instructionIndex >= 0 && instructionIndex < instructions.Count)
+            return instructions[instructionIndex];
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the resolved Source Link URL represented by the source comment line
+    /// at the current cursor position, or null.
+    /// </summary>
+    /// <param name="editorState">The IL editor state containing cursor position.</param>
+    /// <param name="instructions">The instruction list for the current method.</param>
+    /// <returns>The resolved Source Link URL for the source-span line, or null.</returns>
+    public static string? GetSourceLinkUrlAtCursor(
+        EditorState editorState,
+        IReadOnlyList<IlInstruction> instructions)
+    {
+        var cursorLine = GetCursorLine(editorState);
+        var lineText = editorState.Document.GetLineText(cursorLine);
+        if (!lineText.Contains(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal))
+            return null;
+
+        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine + 1);
+        if (instruction?.SequenceStartLine is null
+            || string.IsNullOrWhiteSpace(instruction.SourceLinkUrl))
+            return null;
+
+        return instruction.SourceLinkUrl;
+    }
+
+    private static int GetCursorLine(EditorState editorState)
+    {
         var cursorOffset = editorState.Cursor.Position.Value;
         var text = editorState.Document.GetText();
         var cursorLine = 1;
@@ -28,13 +70,6 @@ public static class IlNavigationHelper
             if (text[i] == '\n') cursorLine++;
         }
 
-        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine);
-        if (instruction is not null)
-            return instruction;
-
-        var instructionIndex = cursorLine - headerLineCount - 1;
-        if (instructionIndex >= 0 && instructionIndex < instructions.Count)
-            return instructions[instructionIndex];
-        return null;
+        return cursorLine;
     }
 }

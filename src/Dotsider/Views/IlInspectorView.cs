@@ -448,24 +448,15 @@ public static class IlInspectorView
             state.IlHeaderLineCount = result?.HeaderLineCount ?? 0;
             state.IlNavigationProvider.Instructions = state.IlInstructions;
             state.IlNavigationProvider.HeaderLineCount = state.IlHeaderLineCount;
+            state.IlSourceLinkProvider.Instructions = state.IlInstructions;
             state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, method.Token);
             state.IlCachedEditors.Remove(state.IlEditorKey);
 
-            if (state.IlHeaderLineCount > 0)
-            {
-                var offset = 0;
-                var newlines = 0;
-                for (var i = 0; i < disassembly.Length && newlines < state.IlHeaderLineCount; i++)
-                {
-                    if (disassembly[i] == '\n')
-                    {
-                        newlines++;
-                        offset = i + 1;
-                    }
-                }
-                
-                state.IlEditorState.SetCursorPosition(new DocumentOffset(offset));
-            }
+            var firstInstructionLine = state.IlInstructions?
+                .FirstOrDefault(i => i.DisplayLine is not null)
+                ?.DisplayLine;
+            var targetLine = firstInstructionLine ?? state.IlHeaderLineCount + 1;
+            state.IlEditorState.SetCursorPosition(new DocumentOffset(GetLineStartOffset(disassembly, targetLine)));
         }
 
         // Consume pending cursor match (from search n/N navigation)
@@ -550,6 +541,25 @@ public static class IlInspectorView
                 return new VStackWidget([.. children]).FillWidth().FillHeight();
             }).FillWidth().FillHeight()
         ];
+    }
+
+    private static int GetLineStartOffset(string text, int lineNumber)
+    {
+        if (lineNumber <= 1)
+            return 0;
+
+        var line = 1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\n')
+                continue;
+
+            line++;
+            if (line == lineNumber)
+                return i + 1;
+        }
+
+        return 0;
     }
 
     /// <summary>

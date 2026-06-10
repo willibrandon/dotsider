@@ -13,7 +13,7 @@ Each instruction shows:
 - **Opcode** — the IL instruction
 - **Operand** — decoded metadata tokens, string literals, branch targets
 
-When a portable PDB is available, the disassembly also shows PDB provenance, source spans, Source Link markers, and local variable names. Embedded source documents can be opened from selected methods.
+When a portable PDB is available, the disassembly also shows PDB provenance, source spans, Source Link markers, and local variable names. Press `u` on a `[source link]` marker to copy the resolved URL. Embedded source documents can be opened from selected methods.
 
 ## Go to definition
 

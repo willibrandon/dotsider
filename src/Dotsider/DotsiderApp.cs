@@ -542,6 +542,8 @@ public sealed class DotsiderApp(DotsiderState state)
                 if (_state.IlSelectedMethod is { } method
                     && _state.Analyzer.GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
                     hints.Add(s.Section("o: Source"));
+                if (HasSourceLinkUrlAtIlCursor(_state))
+                    hints.Add(s.Section("u: Source URL"));
                 if (_state.IlEditorState?.Cursor.HasSelection == true)
                     hints.Add(s.Section("y: Yank (IL)"));
             }
@@ -813,6 +815,7 @@ public sealed class DotsiderApp(DotsiderState state)
         state.IlInstructions = null;
         state.IlHeaderLineCount = 0;
         state.IlNavigationProvider.Instructions = null;
+        state.IlSourceLinkProvider.Instructions = null;
         state.IlBackStack.Clear();
         state.IlGdPending = false;
         state.TransientNotice = null;
@@ -828,6 +831,13 @@ public sealed class DotsiderApp(DotsiderState state)
 
     private IlYankDecorationProvider? FindYankProvider(EditorState editorState) =>
         YankHelper.FindYankProvider(_state, editorState);
+
+    private static bool HasSourceLinkUrlAtIlCursor(DotsiderState state) =>
+        state.IlEditorState is { } editorState
+        && state.IlInstructions is { } instructions
+        && state.App.FocusedNode is EditorNode { State: var focusedState }
+        && ReferenceEquals(focusedState, editorState)
+        && IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions) is not null;
 
     /// <summary>
     /// Performs a neovim-style yank on the focused editor's selection or current text-object range.

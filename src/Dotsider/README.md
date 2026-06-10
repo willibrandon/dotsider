@@ -4,7 +4,7 @@
 
 ## Modes
 
-- **TUI mode** — `dotsider MyApp.dll` opens an interactive terminal UI with tabbed navigation
+- **TUI mode** — `dotsider MyApp.dll` opens an interactive terminal UI with tabbed navigation. The IL Inspector shows portable PDB source spans, local names, and compact Source Link markers when available.
 - **Diff mode** — `dotsider diff Left.dll Right.dll` compares two assemblies side-by-side
 - **NuGet mode** — `dotsider MyPackage.nupkg` inspects package contents and embedded assemblies
 - **CLI mode** — `dotsider analyze`, `dotsider sessions`, `dotsider agent` for headless scripting
@@ -20,6 +20,7 @@ dotsider analyze MyApp.dll                  # assembly info
 dotsider analyze MyApp.dll --types          # type definitions
 dotsider analyze MyApp.dll --methods        # method definitions
 dotsider analyze MyApp.dll --il Type.Method # disassemble a method
+dotsider analyze MyApp.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyApp.dll --deps           # assembly references
 dotsider analyze MyApp.dll --strings        # extract strings
 dotsider analyze MyApp.dll --fields         # field definitions
