@@ -118,10 +118,14 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 
         var headerLineCount = lines.Count;
         var renderedInstructions = new List<IlInstruction>(instructions.Count);
+        var seenSourceLinkUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var inst in instructions)
         {
             if (inst.SequenceStartLine is not null)
-                lines.Add(FormatSequencePointComment(inst));
+            {
+                var showSourceLinkMarker = ShouldShowSourceLinkMarker(inst, seenSourceLinkUrls);
+                lines.Add(FormatSequencePointComment(inst, showSourceLinkMarker));
+            }
 
             var operandPart = string.IsNullOrEmpty(inst.Operand) ? "" : $" {inst.Operand}";
             var displayLine = lines.Count + 1;
@@ -129,6 +133,15 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
             renderedInstructions.Add(inst with { DisplayLine = displayLine });
         }
         return (string.Join('\n', lines), renderedInstructions, headerLineCount);
+    }
+
+    private static bool ShouldShowSourceLinkMarker(
+        IlInstruction instruction,
+        HashSet<string> seenSourceLinkUrls)
+    {
+        return !instruction.SequenceHidden
+            && !string.IsNullOrEmpty(instruction.SourceLinkUrl)
+            && seenSourceLinkUrls.Add(instruction.SourceLinkUrl);
     }
 
     /// <summary>
@@ -207,7 +220,9 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         }
     }
 
-    private static string FormatSequencePointComment(IlInstruction instruction)
+    private static string FormatSequencePointComment(
+        IlInstruction instruction,
+        bool showSourceLinkMarker)
     {
         if (instruction.SequenceHidden)
             return "// (hidden)";
@@ -217,7 +232,7 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
             : "(unknown)";
         var line = $"// {document}({instruction.SequenceStartLine},{instruction.SequenceStartColumn})"
             + $"-({instruction.SequenceEndLine},{instruction.SequenceEndColumn})";
-        if (!string.IsNullOrEmpty(instruction.SourceLinkUrl))
+        if (showSourceLinkMarker)
             line += " [source link]";
         if (instruction.HasEmbeddedSource)
             line += " [embedded source]";

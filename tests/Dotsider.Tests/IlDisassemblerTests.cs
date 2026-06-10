@@ -85,6 +85,55 @@ public class IlDisassemblerTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
+    /// Verifies formatted IL prints one Source Link marker per distinct URL.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RichLibrary_UserServiceAdd_FormatDeduplicatesSourceLinkMarkers()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var disasm = new IlDisassembler(a);
+        var method = FindMethod(a, "RichLibrary.Services.UserService", "Add");
+
+        var result = disasm.DisassembleWithText(method);
+
+        Assert.NotNull(result);
+        var markerCount = result.Value.Text
+            .Split('\n')
+            .Count(line => line.Contains("[source link]", StringComparison.Ordinal));
+        var distinctUrlCount = result.Value.Instructions
+            .Where(instruction => !instruction.SequenceHidden)
+            .Select(instruction => instruction.SourceLinkUrl)
+            .Where(url => !string.IsNullOrEmpty(url))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        Assert.True(distinctUrlCount > 0);
+        Assert.Equal(distinctUrlCount, markerCount);
+    }
+
+    /// <summary>
+    /// Verifies hidden sequence points do not consume the first visible Source Link marker.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Dotsider_IlInspectorViewMethod_HiddenPointDoesNotConsumeSourceLinkMarker()
+    {
+        using var a = new AssemblyAnalyzer(typeof(DotsiderApp).Assembly.Location);
+        var disasm = new IlDisassembler(a);
+        var method = FindMethod(a, "Dotsider.Views.IlInspectorView", "IsMethodInNamespace");
+
+        var result = disasm.DisassembleWithText(method);
+
+        Assert.NotNull(result);
+        var lines = result.Value.Text.Split('\n');
+        Assert.Contains(lines, line => line == "// (hidden)");
+
+        var firstVisibleSourceLine = lines.First(line =>
+            line.Contains("IlInspectorView.cs(", StringComparison.Ordinal));
+        Assert.Contains("[source link]", firstVisibleSourceLine);
+        Assert.DoesNotContain("[source link]", lines.First(line => line == "// (hidden)"));
+    }
+
+    /// <summary>
     /// Verifies native lib unsafe method has distinct opcodes.
     /// </summary>
     [Fact(Timeout = 30_000)]

@@ -48,43 +48,63 @@ public static class IlNavigationHelper
         EditorState editorState,
         IReadOnlyList<IlInstruction> instructions)
     {
-        var cursorLine = GetCursorLine(editorState);
-        var lineText = editorState.Document.GetLineText(cursorLine);
-        if (!lineText.Contains(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal))
-            return null;
-
-        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine + 1);
-        if (instruction?.SequenceStartLine is null
-            || string.IsNullOrWhiteSpace(instruction.SourceLinkUrl))
-            return null;
-
-        return instruction.SourceLinkUrl;
+        return GetSourceLinkInstructionAtCursor(editorState, instructions)?.SourceLinkUrl;
     }
 
     /// <summary>
-    /// Returns the rendered marker range for a Source Link source comment at the cursor, or null.
+    /// Returns the rendered range to flash for a Source Link source comment at the cursor, or null.
     /// </summary>
     /// <param name="editorState">The IL editor state containing cursor position.</param>
     /// <param name="instructions">The instruction list for the current method.</param>
-    /// <returns>The rendered marker range for the Source Link marker, or null.</returns>
-    public static (DocumentPosition Start, DocumentPosition End)? GetSourceLinkMarkerRangeAtCursor(
+    /// <returns>The rendered range to flash for the Source Link source comment, or null.</returns>
+    public static (DocumentPosition Start, DocumentPosition End)? GetSourceLinkYankRangeAtCursor(
         EditorState editorState,
         IReadOnlyList<IlInstruction> instructions)
     {
         var cursorLine = GetCursorLine(editorState);
         var lineText = editorState.Document.GetLineText(cursorLine);
+        if (GetSourceLinkInstructionAtCursor(editorState, instructions) is null)
+            return null;
+
         var markerStart = lineText.IndexOf(
             IlSourceLinkDecorationProvider.SourceLinkMarker,
             StringComparison.Ordinal);
-        if (markerStart < 0
-            || GetSourceLinkUrlAtCursor(editorState, instructions) is null)
+        if (markerStart >= 0)
+        {
+            return (
+                new DocumentPosition(cursorLine, markerStart + 1),
+                new DocumentPosition(
+                    cursorLine,
+                    markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1));
+        }
+
+        var rangeStart = lineText.StartsWith("// ", StringComparison.Ordinal) ? 3 : 0;
+        var rangeEnd = lineText.IndexOf(" [", rangeStart, StringComparison.Ordinal);
+        if (rangeEnd < 0)
+            rangeEnd = lineText.Length;
+
+        return rangeEnd > rangeStart
+            ? (new DocumentPosition(cursorLine, rangeStart + 1),
+                new DocumentPosition(cursorLine, rangeEnd + 1))
+            : null;
+    }
+
+    private static IlInstruction? GetSourceLinkInstructionAtCursor(
+        EditorState editorState,
+        IReadOnlyList<IlInstruction> instructions)
+    {
+        var cursorLine = GetCursorLine(editorState);
+        var lineText = editorState.Document.GetLineText(cursorLine);
+        if (!lineText.StartsWith("// ", StringComparison.Ordinal))
             return null;
 
-        return (
-            new DocumentPosition(cursorLine, markerStart + 1),
-            new DocumentPosition(
-                cursorLine,
-                markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1));
+        var instruction = instructions.FirstOrDefault(i => i.DisplayLine == cursorLine + 1);
+        if (instruction?.SequenceStartLine is null
+            || instruction.SequenceHidden
+            || string.IsNullOrWhiteSpace(instruction.SourceLinkUrl))
+            return null;
+
+        return instruction;
     }
 
     private static int GetCursorLine(EditorState editorState)

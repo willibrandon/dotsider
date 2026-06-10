@@ -122,7 +122,7 @@ internal static class IlEditorHost
         }
 
         ctx.CopyToClipboard(url);
-        if (IlNavigationHelper.GetSourceLinkMarkerRangeAtCursor(editorState, instructions) is { } range)
+        if (IlNavigationHelper.GetSourceLinkYankRangeAtCursor(editorState, instructions) is { } range)
             FlashSourceLinkMarker(state, range);
         state.ShowTransientNotice("Yanked Source Link URL");
     }
