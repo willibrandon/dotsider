@@ -1,6 +1,7 @@
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Widgets;
+using Dotsider.Views;
 
 namespace Dotsider;
 
@@ -256,6 +257,11 @@ public static class DllInspectorBindings
             hints.Add(s.Section("l: Focus IL"));
             if (state.IlSelectedMethod is { Rva: > 0 })
                 hints.Add(s.Section("x: Hex"));
+            if (state.IlSelectedMethod is { } method
+                && state.Analyzer.GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
+                hints.Add(s.Section("o: Source"));
+            if (HasSourceLinkUrlAtIlCursor(state))
+                hints.Add(s.Section("u: Source URL"));
             if (state.IlEditorState?.Cursor.HasSelection == true)
                 hints.Add(s.Section("y: Yank (IL)"));
         }
@@ -301,4 +307,11 @@ public static class DllInspectorBindings
         if (yankable)
             hints.Add(s.Section("y: Yank"));
     }
+
+    private static bool HasSourceLinkUrlAtIlCursor(DotsiderState state) =>
+        state.IlEditorState is { } editorState
+        && state.IlInstructions is { } instructions
+        && state.App.FocusedNode is EditorNode { State: var focusedState }
+        && ReferenceEquals(focusedState, editorState)
+        && IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions) is not null;
 }

@@ -67,6 +67,8 @@ public static class PeMetadataView
                     PeSubTabId.Attributes when analyzer.CustomAttributes.Count > 0 =>
                         $"{analyzer.CustomAttributes[0].Parent}|{analyzer.CustomAttributes[0].Constructor}",
                     PeSubTabId.Resources when analyzer.Resources.Count > 0 => analyzer.Resources[0].Name,
+                    PeSubTabId.DebugDirectory when analyzer.DebugDirectory.Count > 0 =>
+                        GetDebugDirectoryKey(analyzer.DebugDirectory[0]),
                     _ => null
                 };
         }
@@ -222,7 +224,9 @@ public static class PeMetadataView
                     tp.Tab("Attributes", t => [BuildAttributesTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Attributes),
                     tp.Tab("Resources", t => [BuildResourcesTable(t, state)])
-                        .Selected(state.PeSubTab == PeSubTabId.Resources)
+                        .Selected(state.PeSubTab == PeSubTabId.Resources),
+                    tp.Tab("Debug Directory", t => [BuildDebugDirectoryTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.DebugDirectory)
                 ])
                 .OnSelectionChanged(e =>
                 {
@@ -435,6 +439,59 @@ public static class PeMetadataView
                     $"Raw Offset: 0x{s.RawDataOffset:X8}",
                     $"Raw Size: {s.RawDataSize} (0x{s.RawDataSize:X})",
                     $"Characteristics: {s.Characteristics}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<DebugDirectoryInfo> BuildDebugDirectoryTable(
+        WidgetContext<VStackWidget> ctx,
+        DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.DebugDirectory, query,
+            d => $"{d.Type} {d.Stamp:X8} {d.Payload}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetDebugDirectoryKey)
+            .Header(h =>
+            [
+                h.Cell("Type").Width(SizeHint.Fixed(20)),
+                h.Cell("Stamp").Width(SizeHint.Fixed(12)),
+                h.Cell("Major").Width(SizeHint.Fixed(7)),
+                h.Cell("Minor").Width(SizeHint.Fixed(7)),
+                h.Cell("Size").Width(SizeHint.Fixed(10)),
+                h.Cell("RVA").Width(SizeHint.Fixed(12)),
+                h.Cell("Pointer").Width(SizeHint.Fixed(12)),
+                h.Cell("Payload").Width(SizeHint.Fill)
+            ])
+            .Row((r, d, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c,d.Type.ToString(), query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.Stamp:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,c.Text(d.MajorVersion.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,c.Text(d.MinorVersion.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,c.Text(FormatSize(d.DataSize, state)), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.AddressOfRawData:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.PointerToRawData:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c,d.Payload, query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, d) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "Debug Directory",
+                    $"Type: {d.Type}",
+                    $"Stamp: 0x{d.Stamp:X8}",
+                    $"Major Version: {d.MajorVersion}",
+                    $"Minor Version: {d.MinorVersion}",
+                    $"Data Size: {d.DataSize} (0x{d.DataSize:X})",
+                    $"Address Of Raw Data: 0x{d.AddressOfRawData:X8}",
+                    $"Pointer To Raw Data: 0x{d.PointerToRawData:X8}",
+                    $"Payload: {d.Payload}");
                 state.App.RequestFocus(node => node is EditorNode);
                 state.App.Invalidate();
             })
@@ -739,9 +796,14 @@ public static class PeMetadataView
                 a => $"{a.Parent} {a.Constructor} {a.Value}").Select(a => (object)$"{a.Parent}|{a.Constructor}")],
             PeSubTabId.Resources => [.. ApplySearch(analyzer.Resources, query,
                 r => $"{r.Name} {r.Visibility}").Select(r => (object)r.Name)],
+            PeSubTabId.DebugDirectory => [.. ApplySearch(analyzer.DebugDirectory, query,
+                d => $"{d.Type} {d.Stamp:X8} {d.Payload}").Select(d => (object)GetDebugDirectoryKey(d))],
             _ => []
         };
     }
+
+    private static string GetDebugDirectoryKey(DebugDirectoryInfo info) =>
+        $"{info.Type}:{info.AddressOfRawData:X8}:{info.PointerToRawData:X8}";
 
     private static int FindKeyIndex(IReadOnlyList<object> keys, object? focusedKey)
     {

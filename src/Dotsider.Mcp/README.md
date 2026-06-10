@@ -45,7 +45,9 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `disassemble_method` | IL bytecode for a specific method |
+| `disassemble_method` | IL bytecode for a specific method, with optional portable PDB details |
+| `get_method_debug_info` | Portable PDB sequence points and local names for a method |
+| `get_source_link` | Source Link mappings decoded from the portable PDB |
 | `search_il_opcodes` | Find methods containing a specific opcode (e.g., `calli`, `newobj`) |
 
 ### Size

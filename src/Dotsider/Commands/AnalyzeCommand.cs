@@ -30,6 +30,11 @@ internal static class AnalyzeCommand
         Description = "Disassemble a method (format: Type.Method)"
     };
 
+    private static readonly Option<string?> s_embeddedSourceOption = new("--embedded-source")
+    {
+        Description = "Print embedded source for a method (format: Type.Method)"
+    };
+
     private static readonly Option<bool> s_depsOption = new("--deps")
     {
         Description = "Show assembly references and dependency graph"
@@ -71,6 +76,7 @@ internal static class AnalyzeCommand
             s_typesOption,
             s_methodsOption,
             s_ilOption,
+            s_embeddedSourceOption,
             s_depsOption,
             s_stringsOption,
             s_sizeOption,
@@ -176,6 +182,9 @@ internal static class AnalyzeCommand
                     return Task.FromResult(PrintIl(analyzer, disassembler, ilTarget, formatter));
                 }
 
+                if (parseResult.GetValue(s_embeddedSourceOption) is { } embeddedSourceTarget)
+                    return Task.FromResult(PrintEmbeddedSource(analyzer, embeddedSourceTarget, formatter));
+
                 if (parseResult.GetValue(s_depsOption))
                     return Task.FromResult(PrintDeps(analyzer, formatter));
 
@@ -213,6 +222,7 @@ internal static class AnalyzeCommand
                 a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
                 a.TargetFramework, a.Architecture, a.HasMetadata,
                 a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
+                a.PdbProvenance, a.SourceLink, a.DebugDirectory,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -224,6 +234,8 @@ internal static class AnalyzeCommand
             fmt.WriteLine($"Version:    {a.AssemblyVersion ?? "(none)"}");
             fmt.WriteLine($"Framework:  {a.TargetFramework ?? "(none)"}");
             fmt.WriteLine($"Arch:       {a.Architecture}");
+            fmt.WriteLine($"PDB:        {a.PdbProvenance}");
+            fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
             if (a.IsBundleBacked)
             {
                 fmt.WriteLine($"Display:    {a.DisplayName} (from bundle)");
@@ -321,18 +333,81 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new { Method = method, Instructions = instructions });
+            fmt.WriteJson(new
+            {
+                Method = method,
+                Pdb = a.PdbProvenance,
+                a.SourceLink,
+                DebugInfo = a.GetMethodDebugInfo(method),
+                Instructions = instructions
+            });
             return 0;
         }
 
-        fmt.WriteLine($"// {method.DeclaringType}.{method.Name}{method.Signature}");
-        fmt.WriteLine($"// IL size: {instructions.Count} instructions");
-        fmt.WriteLine("");
-
-        foreach (var il in instructions)
-            fmt.WriteLine($"  IL_{il.Offset:X4}: {il.OpCode,-12} {il.Operand}");
+        fmt.WriteLine(dis.FormatDisassembly(method));
 
         return 0;
+    }
+
+    private static int PrintEmbeddedSource(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        if (!a.HasMetadata)
+        {
+            OutputFormatter.WriteError("Error: --embedded-source requires a .NET assembly with metadata");
+            return 1;
+        }
+
+        if (!TryFindMethod(a, target, out var method, out var error))
+        {
+            OutputFormatter.WriteError(error!);
+            return 1;
+        }
+
+        var source = a.GetEmbeddedSource(method!);
+        if (source is null)
+        {
+            OutputFormatter.WriteError($"Error: Embedded source not found for {target}");
+            return 1;
+        }
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(source);
+            return 0;
+        }
+
+        fmt.WriteLine(source.Text);
+        return 0;
+    }
+
+    private static bool TryFindMethod(
+        AssemblyAnalyzer a,
+        string target,
+        out MethodDefInfo? method,
+        out string? error)
+    {
+        method = null;
+        error = null;
+
+        var sep = target.Contains("::") ? "::" : ".";
+        var lastDot = target.LastIndexOf(sep, StringComparison.Ordinal);
+        if (lastDot < 0)
+        {
+            error = $"Error: Invalid method format '{target}'. Use Type.Method or Type::Method";
+            return false;
+        }
+
+        var typeName = target[..lastDot];
+        var methodName = target[(lastDot + sep.Length)..];
+
+        method = a.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType.EndsWith(typeName, StringComparison.OrdinalIgnoreCase)
+            && m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase));
+
+        if (method is not null) return true;
+
+        error = $"Error: Method not found: {target}";
+        return false;
     }
 
     private static int PrintDeps(AssemblyAnalyzer a, OutputFormatter fmt)

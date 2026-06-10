@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -19,6 +20,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
     /// <param name="methodName">Exact method name (case-insensitive).</param>
     /// <param name="assemblyPath">Path to assembly file.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>
+    /// <param name="includeDebugInfo">Include method-level portable PDB sequence points and locals.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with method metadata and IL instruction listing.</returns>
     [McpServerTool(ReadOnly = true, OpenWorld = false)]
@@ -27,6 +29,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
         string methodName,
         string? assemblyPath = null,
         int? sessionId = null,
+        bool includeDebugInfo = false,
         CancellationToken ct = default)
     {
         if (assemblyPath is not null)
@@ -43,14 +46,99 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                 return $"Error: Method not found: {typeName}.{methodName}";
 
             var instructions = disassembler.Disassemble(method);
-            return JsonSerializer.Serialize(new { Method = method, Instructions = instructions },
+            return JsonSerializer.Serialize(new
+            {
+                Method = method,
+                Pdb = analyzer.PdbProvenance,
+                analyzer.SourceLink,
+                DebugInfo = includeDebugInfo ? analyzer.GetMethodDebugInfo(method) : null,
+                Instructions = instructions
+            },
                 DotsiderJsonOptions.Default);
         }
 
         if (sessionId is not null)
         {
             return await sessionManager.GetTarget(sessionId.Value)
-                .SendAndUnwrapAsync(new DotsiderRequest { Method = "disassemble", TypeName = typeName, MethodName = methodName }, ct);
+                .SendAndUnwrapAsync(new DotsiderRequest
+                {
+                    Method = "disassemble",
+                    TypeName = typeName,
+                    MethodName = methodName,
+                    IncludeDebugInfo = includeDebugInfo
+                }, ct);
+        }
+
+        return "Error: Either assemblyPath or sessionId is required.";
+    }
+
+    /// <summary>
+    /// Gets portable PDB sequence points and local names for a method.
+    /// </summary>
+    /// <param name="typeName">Full or partial declaring type name (matched with EndsWith).</param>
+    /// <param name="methodName">Exact method name (case-insensitive).</param>
+    /// <param name="assemblyPath">Path to assembly file.</param>
+    /// <param name="sessionId">PID of a running dotsider instance.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON with method debug information.</returns>
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
+    public async partial Task<string> GetMethodDebugInfo(
+        string typeName,
+        string methodName,
+        string? assemblyPath = null,
+        int? sessionId = null,
+        CancellationToken ct = default)
+    {
+        if (assemblyPath is not null)
+        {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
+            var method = FindMethod(analyzer, typeName, methodName);
+            if (method is null)
+                return $"Error: Method not found: {typeName}.{methodName}";
+
+            return JsonSerializer.Serialize(analyzer.GetMethodDebugInfo(method),
+                DotsiderJsonOptions.Default);
+        }
+
+        if (sessionId is not null)
+        {
+            return await sessionManager.GetTarget(sessionId.Value)
+                .SendAndUnwrapAsync(new DotsiderRequest
+                {
+                    Method = "get-method-debug-info",
+                    TypeName = typeName,
+                    MethodName = methodName
+                }, ct);
+        }
+
+        return "Error: Either assemblyPath or sessionId is required.";
+    }
+
+    /// <summary>
+    /// Gets Source Link mappings decoded from the portable PDB.
+    /// </summary>
+    /// <param name="assemblyPath">Path to assembly file.</param>
+    /// <param name="sessionId">PID of a running dotsider instance.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON with Source Link mapping information.</returns>
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
+    public async partial Task<string> GetSourceLink(
+        string? assemblyPath = null,
+        int? sessionId = null,
+        CancellationToken ct = default)
+    {
+        if (assemblyPath is not null)
+        {
+            ToolHelpers.ValidateAssemblyPath(assemblyPath);
+            using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
+            return JsonSerializer.Serialize(analyzer.SourceLink, DotsiderJsonOptions.Default);
+        }
+
+        if (sessionId is not null)
+        {
+            return await sessionManager.GetTarget(sessionId.Value)
+                .SendAndUnwrapAsync(new DotsiderRequest { Method = "get-source-link" }, ct);
         }
 
         return "Error: Either assemblyPath or sessionId is required.";
@@ -112,4 +200,11 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Skipping method {Type}.{Method} — cannot disassemble")]
     private static partial void LogSkipMethod(ILogger logger, Exception exception, string type, string method);
+
+    private static MethodDefInfo? FindMethod(AssemblyAnalyzer analyzer, string typeName, string methodName)
+    {
+        return analyzer.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType.EndsWith(typeName, StringComparison.OrdinalIgnoreCase)
+            && m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase));
+    }
 }

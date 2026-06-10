@@ -10,6 +10,7 @@ The **General** tab (`1`) is the first thing you see when opening an assembly. I
 - **Assembly identity** — name, version, culture, public key token
 - **Target framework** — which .NET version the assembly targets
 - **Architecture** — AnyCPU, x64, ARM64, etc.
+- **PDB summary** — whether portable debug information came from a sidecar, an embedded PDB, or was unavailable
 - **Dependency table** — all referenced assemblies with their versions
 
 ## Text selection and copy

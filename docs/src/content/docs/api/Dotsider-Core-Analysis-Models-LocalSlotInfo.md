@@ -1,0 +1,96 @@
+---
+title: "LocalSlotInfo"
+description: "A PDB local variable slot and the IL range where its name is active."
+slug: api/dotsider.core.analysis.models.localslotinfo
+sidebar:
+  order: 1
+---
+
+**Namespace:** `Dotsider.Core.Analysis.Models`
+
+**Assembly:** Dotsider.Core.dll
+
+A PDB local variable slot and the IL range where its name is active.
+
+```csharp
+public sealed record LocalSlotInfo : IEquatable<LocalSlotInfo>
+```
+
+## Inheritance
+
+[Object](https://learn.microsoft.com/dotnet/api/system.object) → **LocalSlotInfo**
+
+## Implements
+
+- [IEquatable\<LocalSlotInfo\>](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
+
+## Constructors
+
+### LocalSlotInfo(int, string, int, int, bool)
+
+A PDB local variable slot and the IL range where its name is active.
+
+**Parameters:**
+
+- `Slot` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The local variable slot index.
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The local variable name.
+- `StartOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The first IL offset where the name is active.
+- `EndOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The exclusive end IL offset for the local scope.
+- `IsDebuggerHidden` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the local is marked debugger-hidden.
+
+```csharp
+public LocalSlotInfo(int Slot, string Name, int StartOffset, int EndOffset, bool IsDebuggerHidden)
+```
+
+## Properties
+
+### EndOffset
+
+The exclusive end IL offset for the local scope.
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public int EndOffset { get; init; }
+```
+
+### IsDebuggerHidden
+
+Whether the local is marked debugger-hidden.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IsDebuggerHidden { get; init; }
+```
+
+### Name
+
+The local variable name.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string Name { get; init; }
+```
+
+### Slot
+
+The local variable slot index.
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public int Slot { get; init; }
+```
+
+### StartOffset
+
+The first IL offset where the name is active.
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public int StartOffset { get; init; }
+```
+

@@ -13,6 +13,8 @@ Each instruction shows:
 - **Opcode** — the IL instruction
 - **Operand** — decoded metadata tokens, string literals, branch targets
 
+When a portable PDB is available, the disassembly also shows PDB provenance, source spans, Source Link markers, and local variable names. Press `u` on a `[source link]` marker to copy the resolved URL. Embedded source documents can be opened from selected methods.
+
 ## Go to definition
 
 Press `Enter` or `gd` while the cursor is on a token-bearing instruction (`call`, `callvirt`, `newobj`, `ldfld`, `castclass`, etc.) to navigate to the target. Navigable operands are underlined.
@@ -27,6 +29,7 @@ Press `Esc` to go back. The previous IL bytecode, cursor position, tree expansio
 ## Cross-tab navigation
 
 - Press `x` on a selected method to jump to its body in the **Hex Dump** tab. The hex view scrolls to the method's RVA.
+- Press `o` on a selected method to open embedded source when the PDB carries it.
 - Press `Esc` to return to where you came from.
 
 ## Copy

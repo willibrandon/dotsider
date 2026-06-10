@@ -5,6 +5,7 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Widgets;
 
@@ -71,15 +72,56 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallLocalMethod");
         await auto.WaitUntilTextAsync("call RichLibrary.IlNavigationFixture::LocalTarget");
 
-        // Focus editor with 'l', then navigate down to the call line.
-        // Cursor starts on the first IL instruction (IL_0000: nop), so 8 downs
-        // lands on IL_0010: call — independent of header line count.
-        await auto.KeyAsync(Hex1bKey.L, ct);
-        await Task.Delay(200, ct);
-        for (var i = 0; i < 8; i++) await auto.DownAsync(ct);
-        await Task.Delay(200, ct);
+        // Focus the editor, then place the cursor on the call line by searching
+        // the rendered document. Portable PDB comments can add lines before the
+        // instruction, so fixed arrow counts are intentionally avoided here.
+        await FocusIlEditorAsync(auto, ct);
+
+        const string callText = "call RichLibrary.IlNavigationFixture::LocalTarget";
+        var text = _state!.IlEditorState!.Document.GetText();
+        var callOffset = text.IndexOf(callText, StringComparison.Ordinal);
+        Assert.True(callOffset >= 0, $"Expected rendered IL to contain '{callText}'.");
+
+        await SetIlCursorAsync(auto, callOffset, "cursor moved to local call instruction");
 
         return _state!.IlEditorState?.Cursor.Position.Value ?? -1;
+    }
+
+    private async Task SetIlCursorAsync(
+        Hex1bTerminalAutomator auto,
+        int offset,
+        string description)
+    {
+        _state!.IlEditorState!.SetCursorPosition(new DocumentOffset(offset));
+        _state.App.Invalidate();
+        await auto.WaitUntilAsync(
+            _ => _state.IlEditorState?.Cursor.Position.Value == offset,
+            description: description);
+    }
+
+    private async Task FocusIlEditorAsync(Hex1bTerminalAutomator auto, CancellationToken ct)
+    {
+        await auto.KeyAsync(Hex1bKey.L, ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+                && ReferenceEquals(editorState, _state.IlEditorState),
+            description: "IL editor focused");
+    }
+
+    private async Task SetIlCursorOnInstructionAsync(
+        Hex1bTerminalAutomator auto,
+        IlInstruction instruction)
+    {
+        var marker = $"IL_{instruction.Offset:X4}:";
+        var text = _state!.IlEditorState!.Document.GetText();
+        var offset = text.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(offset >= 0, $"Expected rendered IL to contain '{marker}'.");
+
+        await SetIlCursorAsync(auto, offset, $"cursor moved to {marker}");
+        var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
+            _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
+        Assert.NotNull(instAtCursor);
+        Assert.Equal(instruction.Offset, instAtCursor!.Offset);
     }
 
     /// <inheritdoc/>
@@ -136,7 +178,8 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         var result = dis.DisassembleWithText(method);
         Assert.NotNull(result);
-        Assert.Equal(result.Value.HeaderLineCount + result.Value.Instructions.Count,
+        var sequenceCommentCount = result.Value.Instructions.Count(i => i.SequenceStartLine is not null);
+        Assert.Equal(result.Value.HeaderLineCount + result.Value.Instructions.Count + sequenceCommentCount,
             result.Value.Text.Split('\n').Length);
     }
 
@@ -282,7 +325,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // RestoreFromIlBackEntry queues focus on the EditorNode. The actual focus shift
         // applies on a later frame; without an explicit wait, Down/Up below can race
         // a frame where focus is still on the tree and the cursor never moves.
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is Hex1b.EditorNode,
+        await auto.WaitUntilAsync(
+            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+                && ReferenceEquals(editorState, _state.IlEditorState),
             description: "editor focused after Esc back");
         var cursorBeforeScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
 
@@ -729,7 +774,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // first IL instruction). Per hex1b testing guide, poll on state rather
         // than Task.Delay — Linux/macOS CI rendered slower than Windows and
         // raced the down loop below.
-        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await FocusIlEditorAsync(auto, cts.Token);
         await auto.WaitUntilAsync(_ =>
         {
             if (_state!.IlEditorState is null || _state.IlInstructions is null
@@ -745,17 +790,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var callIndex = instructions.FindIndex(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.True(callIndex >= 0, "WriteLine call instruction must exist in CallExternal body");
-        for (var i = 0; i < callIndex; i++)
-        {
-            var expected = instructions[i + 1];
-            await auto.DownAsync(cts.Token);
-            await auto.WaitUntilAsync(_ =>
-            {
-                var inst = IlNavigationHelper.GetInstructionAtCursor(
-                    _state!.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
-                return inst is not null && inst.Offset == expected.Offset;
-            });
-        }
+        await SetIlCursorOnInstructionAsync(auto, instructions[callIndex]);
 
         var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
             _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
@@ -1075,7 +1110,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
 
         // Focus editor and walk to the WriteLine call (PR #160's polling pattern).
-        await auto.KeyAsync(Hex1bKey.L, cts.Token);
+        await FocusIlEditorAsync(auto, cts.Token);
         await auto.WaitUntilAsync(_ =>
         {
             if (_state!.IlEditorState is null || _state.IlInstructions is null
@@ -1089,17 +1124,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var callIndex = instructions.FindIndex(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.True(callIndex >= 0);
-        for (var i = 0; i < callIndex; i++)
-        {
-            var expected = instructions[i + 1];
-            await auto.DownAsync(cts.Token);
-            await auto.WaitUntilAsync(_ =>
-            {
-                var inst = IlNavigationHelper.GetInstructionAtCursor(
-                    _state!.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
-                return inst is not null && inst.Offset == expected.Offset;
-            });
-        }
+        await SetIlCursorOnInstructionAsync(auto, instructions[callIndex]);
 
         // Real gd via Enter — cross-assembly into System.Console.dll.
         await auto.EnterAsync(cts.Token);

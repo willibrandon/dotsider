@@ -219,6 +219,8 @@ internal sealed class DotsiderDiagnosticsListener(
 
                 // IL
                 "disassemble" => HandleDisassemble(request),
+                "get-method-debug-info" => HandleGetMethodDebugInfo(request),
+                "get-source-link" => HandleGetSourceLink(),
                 "search-il-opcodes" => HandleSearchIlOpcodes(request),
 
                 // Metadata
@@ -322,6 +324,8 @@ internal sealed class DotsiderDiagnosticsListener(
             a.LaunchPath,
             a.CanSaveInPlace,
             a.PreferredRuntimePack,
+            a.PdbProvenance,
+            a.SourceLink,
             TypeCount = a.TypeDefs.Count,
             MethodCount = a.MethodDefs.Count,
             AssemblyRefCount = a.AssemblyRefs.Count
@@ -413,8 +417,33 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail($"Method not found: {request.TypeName}.{request.MethodName}");
 
         var instructions = state.IlDisassembler!.Disassemble(method);
-        return DotsiderResponse.Ok(new { Method = method, Instructions = instructions });
+        return DotsiderResponse.Ok(new
+        {
+            Method = method,
+            Pdb = state.Analyzer.PdbProvenance,
+            state.Analyzer.SourceLink,
+            DebugInfo = request.IncludeDebugInfo ? state.Analyzer.GetMethodDebugInfo(method) : null,
+            Instructions = instructions
+        });
     }
+
+    private DotsiderResponse HandleGetMethodDebugInfo(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.TypeName) || string.IsNullOrEmpty(request.MethodName))
+            return DotsiderResponse.Fail("TypeName and MethodName are required for get-method-debug-info");
+
+        var state = RequireState();
+        var method = state.Analyzer.MethodDefs.FirstOrDefault(m =>
+            m.DeclaringType.EndsWith(request.TypeName, StringComparison.OrdinalIgnoreCase)
+            && m.Name.Equals(request.MethodName, StringComparison.OrdinalIgnoreCase));
+
+        return method is null
+            ? DotsiderResponse.Fail($"Method not found: {request.TypeName}.{request.MethodName}")
+            : DotsiderResponse.Ok(state.Analyzer.GetMethodDebugInfo(method));
+    }
+
+    private DotsiderResponse HandleGetSourceLink() =>
+        DotsiderResponse.Ok(RequireAnalyzer().SourceLink);
 
     private DotsiderResponse HandleSearchIlOpcodes(DotsiderRequest request)
     {

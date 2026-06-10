@@ -18,6 +18,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private readonly Stream _stream;
     private readonly PEReader? _peReader;
     private readonly MetadataReader? _metadataReader;
+    private MetadataReaderProvider? _pdbReaderProvider;
+    private MetadataReader? _pdbReader;
     private readonly byte[] _rawBytes;
     private volatile bool _disposed;
 
@@ -30,6 +32,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<CustomAttributeInfo>? _customAttributes;
     private IReadOnlyList<ResourceInfo>? _resources;
     private IReadOnlyList<SectionInfo>? _sections;
+    private IReadOnlyList<DebugDirectoryInfo>? _debugDirectory;
+    private SourceLinkInfo? _sourceLink;
     private string? _preferredRuntimePack;
 
     /// <summary>
@@ -65,6 +69,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             ReadPeHeaders();
             ReadClrHeader();
+            ReadDebugInformation();
         }
         catch (BadImageFormatException) when (IsNativeExecutable(_rawBytes))
         {
@@ -126,6 +131,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             ReadPeHeaders();
             ReadClrHeader();
+            ReadDebugInformation();
         }
         catch (BadImageFormatException) when (IsNativeExecutable(_rawBytes))
         {
@@ -192,6 +198,13 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <summary>Whether the PE file contains .NET metadata.</summary>
     public bool HasMetadata => _metadataReader is not null;
 
+    /// <summary>Portable PDB provenance for the analyzed assembly.</summary>
+    public PdbProvenance PdbProvenance { get; private set; } =
+        new(PdbProvenanceKind.NoDebugDirectory);
+
+    /// <summary>Gets whether a portable PDB was opened.</summary>
+    public bool HasPortablePdb => _pdbReader is not null;
+
     /// <summary>
     /// If this assembly was loaded from a single-file bundle, the path to the bundle file.
     /// Used as resolution context when probing for referenced assemblies.
@@ -228,6 +241,26 @@ public sealed class AssemblyAnalyzer : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             return _sections ??= ReadSections();
+        }
+    }
+
+    /// <summary>Gets the PE debug directory entries.</summary>
+    public IReadOnlyList<DebugDirectoryInfo> DebugDirectory
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _debugDirectory ??= ReadDebugDirectory();
+        }
+    }
+
+    /// <summary>Gets decoded Source Link information from the portable PDB.</summary>
+    public SourceLinkInfo SourceLink
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _sourceLink ??= PortablePdbUtilities.ReadSourceLink(_pdbReader);
         }
     }
 
@@ -335,6 +368,84 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _metadataReader;
+    }
+
+    /// <summary>
+    /// Gets the portable PDB <see cref="MetadataReader"/>, or null when no portable PDB is available.
+    /// </summary>
+    public MetadataReader? GetPdbReader()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _pdbReader;
+    }
+
+    /// <summary>
+    /// Gets portable PDB debug information for a method definition.
+    /// </summary>
+    /// <param name="method">The method definition to inspect.</param>
+    /// <returns>Decoded portable PDB information, or an empty result when no portable PDB is available.</returns>
+    public MethodDebugInfo GetMethodDebugInfo(MethodDefInfo method)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_pdbReader is null)
+            return new MethodDebugInfo(method.Token, PdbProvenance, [], []);
+
+        try
+        {
+            var methodHandle = (MethodDefinitionHandle)MetadataTokens.EntityHandle(method.Token);
+            var methodDebug = _pdbReader.GetMethodDebugInformation(methodHandle);
+            var sequencePoints = ReadSequencePoints(methodDebug);
+            var locals = ReadLocalSlots(methodHandle);
+            return new MethodDebugInfo(method.Token, PdbProvenance, sequencePoints, locals);
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException)
+        {
+            return new MethodDebugInfo(method.Token, PdbProvenance, [], []);
+        }
+    }
+
+    /// <summary>
+    /// Resolves a portable PDB document path through Source Link mappings.
+    /// </summary>
+    /// <param name="documentPath">The document path from the portable PDB.</param>
+    /// <returns>The resolved Source Link URL, or null when no mapping applies.</returns>
+    public string? ResolveSourceLinkUrl(string documentPath)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return PortablePdbUtilities.ResolveSourceLinkUrl(SourceLink, documentPath);
+    }
+
+    /// <summary>
+    /// Gets embedded source for a portable PDB document path.
+    /// </summary>
+    /// <param name="documentPath">The document path from the portable PDB.</param>
+    /// <returns>The decoded embedded source, or null when the document has none.</returns>
+    public EmbeddedSourceInfo? GetEmbeddedSource(string documentPath)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return PortablePdbUtilities.ReadEmbeddedSource(_pdbReader, documentPath);
+    }
+
+    /// <summary>
+    /// Gets the first embedded source document referenced by a method's sequence points.
+    /// </summary>
+    /// <param name="method">The method whose source should be resolved.</param>
+    /// <returns>The decoded embedded source, or null when none is available.</returns>
+    public EmbeddedSourceInfo? GetEmbeddedSource(MethodDefInfo method)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var debugInfo = GetMethodDebugInfo(method);
+        foreach (var sequencePoint in debugInfo.SequencePoints)
+        {
+            if (sequencePoint.Document is { Length: > 0 } document
+                && sequencePoint.HasEmbeddedSource
+                && GetEmbeddedSource(document) is { } source)
+            {
+                return source;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -509,6 +620,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _pdbReaderProvider?.Dispose();
         _peReader?.Dispose();
         _stream.Dispose();
     }
@@ -624,6 +736,336 @@ public sealed class AssemblyAnalyzer : IDisposable
             ResourcesSize: corHeader.ResourcesDirectory.Size,
             StrongNameSignatureRva: corHeader.StrongNameSignatureDirectory.RelativeVirtualAddress,
             StrongNameSignatureSize: corHeader.StrongNameSignatureDirectory.Size);
+    }
+
+    private void ReadDebugInformation()
+    {
+        if (_peReader is null)
+        {
+            _debugDirectory = [];
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        _debugDirectory = ReadDebugDirectory();
+        OpenPortablePdb();
+        _sourceLink = PortablePdbUtilities.ReadSourceLink(_pdbReader);
+    }
+
+    private List<DebugDirectoryInfo> ReadDebugDirectory()
+    {
+        if (_peReader is null) return [];
+
+        var entries = _peReader.ReadDebugDirectory();
+        return [.. entries.Select(entry => new DebugDirectoryInfo(
+            Type: entry.Type,
+            Stamp: entry.Stamp,
+            MajorVersion: entry.MajorVersion,
+            MinorVersion: entry.MinorVersion,
+            DataSize: entry.DataSize,
+            AddressOfRawData: entry.DataRelativeVirtualAddress,
+            PointerToRawData: entry.DataPointer,
+            Payload: FormatDebugDirectoryPayload(entry)))];
+    }
+
+    private string FormatDebugDirectoryPayload(DebugDirectoryEntry entry)
+    {
+        if (_peReader is null) return "";
+
+        try
+        {
+            return entry.Type switch
+            {
+                DebugDirectoryEntryType.CodeView => FormatCodeViewPayload(entry),
+                DebugDirectoryEntryType.Reproducible => "present",
+                DebugDirectoryEntryType.PdbChecksum => FormatPdbChecksumPayload(entry),
+                DebugDirectoryEntryType.EmbeddedPortablePdb => FormatEmbeddedPortablePdbPayload(entry),
+                _ => ""
+            };
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or IOException)
+        {
+            return $"unreadable: {ex.Message}";
+        }
+    }
+
+    private string FormatCodeViewPayload(DebugDirectoryEntry entry)
+    {
+        var data = _peReader!.ReadCodeViewDebugDirectoryData(entry);
+        var format = entry.IsPortableCodeView ? "Portable PDB" : "Windows/non-portable PDB";
+        return $"{format}; PDB GUID: {data.Guid}; age: {data.Age}; path: {data.Path}";
+    }
+
+    private string FormatPdbChecksumPayload(DebugDirectoryEntry entry)
+    {
+        var data = _peReader!.ReadPdbChecksumDebugDirectoryData(entry);
+        return $"Algorithm: {data.AlgorithmName}; checksum: {Convert.ToHexString([.. data.Checksum])}";
+    }
+
+    private string FormatEmbeddedPortablePdbPayload(DebugDirectoryEntry entry)
+    {
+        var uncompressedSize = entry.DataPointer >= 0 && entry.DataPointer + 4 <= _rawBytes.Length
+            ? BitConverter.ToInt32(_rawBytes, entry.DataPointer)
+            : -1;
+        return uncompressedSize >= 0
+            ? $"present; uncompressed size: {uncompressedSize} bytes"
+            : "present";
+    }
+
+    private void OpenPortablePdb()
+    {
+        if (_peReader is null)
+        {
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        var entries = _peReader.ReadDebugDirectory();
+        if (entries.Length == 0)
+        {
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        if (!IsBundleBacked && TryOpenAssociatedPortablePdb())
+            return;
+
+        var embeddedEntry = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
+        if (embeddedEntry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb
+            && TryOpenEmbeddedPortablePdb(embeddedEntry))
+        {
+            return;
+        }
+
+        var codeViewEntry = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.CodeView);
+        if (codeViewEntry.Type != DebugDirectoryEntryType.CodeView)
+        {
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        CodeViewDebugDirectoryData codeViewData;
+        try
+        {
+            codeViewData = _peReader.ReadCodeViewDebugDirectoryData(codeViewEntry);
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or IOException)
+        {
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.UnsupportedWindowsPdb,
+                Details: $"UnsupportedWindowsPdb ({ex.Message})");
+            return;
+        }
+
+        if (!codeViewEntry.IsPortableCodeView)
+        {
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.UnsupportedWindowsPdb,
+                codeViewData.Path,
+                $"UnsupportedWindowsPdb ({codeViewData.Path})");
+            return;
+        }
+
+        if (IsBundleBacked)
+        {
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.BundleSidecarSkipped,
+                codeViewData.Path,
+                "BundleSidecarSkipped (sidecar probing skipped for bundle-backed assembly)");
+            return;
+        }
+
+        var probePaths = GetSidecarProbePaths(codeViewData.Path);
+        var foundPath = probePaths.FirstOrDefault(File.Exists);
+        if (foundPath is null)
+        {
+            var expected = probePaths.Count > 0 ? probePaths[0] : codeViewData.Path;
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.CodeViewSidecarMissing,
+                expected,
+                $"CodeViewSidecarMissing ({expected})");
+            return;
+        }
+
+        if (!TryOpenPortablePdbFile(foundPath, codeViewData.Guid, codeViewData.Age, out var mismatch))
+        {
+            PdbProvenance = mismatch
+                ? new PdbProvenance(
+                    PdbProvenanceKind.CodeViewSidecarMismatched,
+                    foundPath,
+                    $"CodeViewSidecarMismatched ({foundPath})")
+                : new PdbProvenance(
+                    PdbProvenanceKind.UnsupportedWindowsPdb,
+                    foundPath,
+                    $"UnsupportedWindowsPdb ({foundPath})");
+        }
+    }
+
+    private bool TryOpenAssociatedPortablePdb()
+    {
+        if (_peReader is null) return false;
+
+        try
+        {
+            if (!_peReader.TryOpenAssociatedPortablePdb(
+                    FilePath,
+                    path => File.Exists(path) ? File.OpenRead(path) : null,
+                    out var provider,
+                    out var pdbPath))
+            {
+                return false;
+            }
+
+            _pdbReaderProvider = provider;
+            if (_pdbReaderProvider is null)
+                return false;
+
+            _pdbReader = _pdbReaderProvider.GetMetadataReader();
+            PdbProvenance = pdbPath is null
+                ? new PdbProvenance(PdbProvenanceKind.Embedded)
+                : new PdbProvenance(PdbProvenanceKind.Sidecar, pdbPath);
+            return true;
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or IOException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryOpenEmbeddedPortablePdb(DebugDirectoryEntry entry)
+    {
+        if (_peReader is null) return false;
+
+        try
+        {
+            _pdbReaderProvider = _peReader.ReadEmbeddedPortablePdbDebugDirectoryData(entry);
+            _pdbReader = _pdbReaderProvider.GetMetadataReader();
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.Embedded);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryOpenPortablePdbFile(string path, Guid expectedGuid, int expectedAge, out bool mismatched)
+    {
+        mismatched = false;
+        FileStream? stream = null;
+        MetadataReaderProvider? provider = null;
+        try
+        {
+            stream = File.OpenRead(path);
+            provider = MetadataReaderProvider.FromPortablePdbStream(stream);
+            var reader = provider.GetMetadataReader();
+            if (!PortablePdbUtilities.PortablePdbIdMatches(reader, expectedGuid, expectedAge))
+            {
+                mismatched = true;
+                provider.Dispose();
+                return false;
+            }
+
+            _pdbReaderProvider = provider;
+            _pdbReader = reader;
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.Sidecar, path);
+            return true;
+        }
+        catch (BadImageFormatException)
+        {
+            provider?.Dispose();
+            stream?.Dispose();
+            return false;
+        }
+        catch (IOException)
+        {
+            provider?.Dispose();
+            stream?.Dispose();
+            return false;
+        }
+    }
+
+    private List<string> GetSidecarProbePaths(string codeViewPath)
+    {
+        var paths = new List<string>();
+        var assemblyDirectory = Path.GetDirectoryName(FilePath);
+        var codeViewFileName = Path.GetFileName(codeViewPath);
+
+        if (!string.IsNullOrEmpty(assemblyDirectory) && !string.IsNullOrEmpty(codeViewFileName))
+            paths.Add(Path.Combine(assemblyDirectory, codeViewFileName));
+
+        var defaultPath = Path.ChangeExtension(FilePath, ".pdb");
+        if (!paths.Contains(defaultPath, StringComparer.OrdinalIgnoreCase))
+            paths.Add(defaultPath);
+
+        if (Path.IsPathFullyQualified(codeViewPath)
+            && !paths.Contains(codeViewPath, StringComparer.OrdinalIgnoreCase))
+        {
+            paths.Add(codeViewPath);
+        }
+
+        return paths;
+    }
+
+    private List<SequencePointInfo> ReadSequencePoints(MethodDebugInformation methodDebug)
+    {
+        if (_pdbReader is null) return [];
+
+        var points = new List<SequencePointInfo>();
+        foreach (var point in methodDebug.GetSequencePoints())
+        {
+            var documentHandle = point.Document.IsNil ? methodDebug.Document : point.Document;
+            string? documentPath = null;
+            if (!documentHandle.IsNil)
+            {
+                var document = _pdbReader.GetDocument(documentHandle);
+                documentPath = _pdbReader.GetString(document.Name);
+            }
+
+            var sourceLinkUrl = documentPath is null ? null : ResolveSourceLinkUrl(documentPath);
+            var hasEmbeddedSource = PortablePdbUtilities.HasEmbeddedSource(_pdbReader, documentPath);
+            points.Add(new SequencePointInfo(
+                Offset: point.Offset,
+                Document: documentPath,
+                StartLine: point.StartLine,
+                StartColumn: point.StartColumn,
+                EndLine: point.EndLine,
+                EndColumn: point.EndColumn,
+                IsHidden: point.IsHidden,
+                SourceLinkUrl: sourceLinkUrl,
+                HasEmbeddedSource: hasEmbeddedSource));
+        }
+
+        return points;
+    }
+
+    private IReadOnlyList<LocalSlotInfo> ReadLocalSlots(MethodDefinitionHandle methodHandle)
+    {
+        if (_pdbReader is null) return [];
+
+        var locals = new List<LocalSlotInfo>();
+        foreach (var scopeHandle in _pdbReader.GetLocalScopes(methodHandle))
+        {
+            var scope = _pdbReader.GetLocalScope(scopeHandle);
+            foreach (var variableHandle in scope.GetLocalVariables())
+            {
+                var variable = _pdbReader.GetLocalVariable(variableHandle);
+                var name = _pdbReader.GetString(variable.Name);
+                if (string.IsNullOrEmpty(name)) continue;
+
+                locals.Add(new LocalSlotInfo(
+                    Slot: variable.Index,
+                    Name: name,
+                    StartOffset: scope.StartOffset,
+                    EndOffset: scope.StartOffset + scope.Length,
+                    IsDebuggerHidden: variable.Attributes.HasFlag(LocalVariableAttributes.DebuggerHidden)));
+            }
+        }
+
+        return [.. locals
+            .OrderBy(local => local.Slot)
+            .ThenBy(local => local.EndOffset - local.StartOffset)
+            .ThenBy(local => local.StartOffset)];
     }
 
     private List<SectionInfo> ReadSections()

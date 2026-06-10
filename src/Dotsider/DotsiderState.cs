@@ -187,6 +187,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Yank flash decoration provider for the IL editor.</summary>
     public IlYankDecorationProvider IlYankProvider { get; } = new();
 
+    /// <summary>Source Link marker decoration provider for the IL editor.</summary>
+    public IlSourceLinkDecorationProvider IlSourceLinkProvider { get; } = new();
+
     /// <summary>All text-level search matches across method disassemblies, computed on search confirm.</summary>
     public List<IlMatch> IlSearchMatches { get; set; } = [];
 
@@ -922,6 +925,7 @@ public sealed class DotsiderState : IDisposable
             IlHeaderLineCount = r?.HeaderLineCount ?? 0;
             IlNavigationProvider.Instructions = IlInstructions;
             IlNavigationProvider.HeaderLineCount = IlHeaderLineCount;
+            IlSourceLinkProvider.Instructions = IlInstructions;
         }
 
         App.RequestFocus(node => node is EditorNode);
@@ -969,6 +973,7 @@ public sealed class DotsiderState : IDisposable
     {
         TransientNotice = message;
         var gen = ++TransientNoticeGeneration;
+        App.Invalidate();
         _ = Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ =>
         {
             if (TransientNoticeGeneration == gen)
@@ -1421,6 +1426,7 @@ public sealed class DotsiderState : IDisposable
         IlInstructions = null;
         IlHeaderLineCount = 0;
         IlNavigationProvider.Instructions = null;
+        IlSourceLinkProvider.Instructions = null;
         IlGdPending = false;
         TransientNotice = null;
         IlYankProvider.HighlightRange = null;

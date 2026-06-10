@@ -1,6 +1,7 @@
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Widgets;
 
@@ -1480,6 +1481,67 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Verify: no newline, no bleed into next line
         Assert.True(yankedText.Length > 0);
         Assert.DoesNotContain("\n", yankedText);
+
+        _cts!.Cancel();
+        try { await runTask; } catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Verifies il inspector source link yank copies the resolved URL.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task IlInspector_SourceLinkUrlYank_CopiesResolvedUrl()
+    {
+        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var method = _state!.Analyzer.MethodDefs.First(m =>
+            m.DeclaringType == "RichLibrary.Services.UserService" && m.Name == "Add");
+        _state.NavigateToIlMethod(method);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.IlEditorState?.Document.GetText()
+                .Contains(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal) == true,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("l")
+            .WaitUntil(_ => IsFocusedOnEditor(_state.IlEditorState), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var documentText = _state.IlEditorState!.Document.GetText();
+        var markerOffset = documentText.IndexOf(
+            IlSourceLinkDecorationProvider.SourceLinkMarker,
+            StringComparison.Ordinal);
+        Assert.True(markerOffset >= 0, "Expected rendered IL to contain a Source Link marker.");
+
+        _state.IlEditorState.SetCursorPosition(new DocumentOffset(markerOffset));
+        _state.App.Invalidate();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => IlNavigationHelper.GetSourceLinkUrlAtCursor(
+                _state.IlEditorState,
+                _state.IlInstructions!) is not null,
+                TimeSpan.FromSeconds(5))
+            .Type("u")
+            .WaitUntil(snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _),
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+        Assert.StartsWith("https://raw.githubusercontent.com/willibrandon/dotsider/", yankedText);
+        Assert.EndsWith("samples/RichLibrary/Services/UserService.cs", yankedText);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }

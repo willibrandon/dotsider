@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -26,6 +28,7 @@ internal static class IlEditorHost
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             new EditorWidget(editorState)
                 .Decorations(state.IlSyntaxProvider)
+                .Decorations(state.IlSourceLinkProvider)
                 .Decorations(state.IlSearchProvider)
                 .Decorations(state.IlYankProvider)
                 .Decorations(state.IlNavigationProvider)
@@ -61,6 +64,8 @@ internal static class IlEditorHost
                         () => state.App.Invalidate());
 
                     bindings.Key(Hex1bKey.Enter).Action(_ => PerformGoToDefinition(state), "Go to definition");
+                    bindings.Key(Hex1bKey.O).Action(_ => OpenEmbeddedSource(state), "Open embedded source");
+                    bindings.Key(Hex1bKey.U).Action(ctx => YankSourceLinkUrl(state, ctx), "Yank source URL");
 
                     bindings.Key(Hex1bKey.G).Action(_ =>
                     {
@@ -101,5 +106,144 @@ internal static class IlEditorHost
                 state.App.Invalidate();
             }
         }
+    }
+
+    private static void YankSourceLinkUrl(DotsiderState state, InputBindingActionContext ctx)
+    {
+        if (state.IlInstructions is not { } instructions
+            || state.IlEditorState is not { } editorState)
+            return;
+
+        var url = IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions);
+        if (url is null)
+        {
+            state.ShowTransientNotice("No Source Link URL at cursor");
+            return;
+        }
+
+        ctx.CopyToClipboard(url);
+        if (IlNavigationHelper.GetSourceLinkMarkerRangeAtCursor(editorState, instructions) is { } range)
+            FlashSourceLinkMarker(state, range);
+        state.ShowTransientNotice("Yanked Source Link URL");
+    }
+
+    private static void FlashSourceLinkMarker(
+        DotsiderState state,
+        (DocumentPosition Start, DocumentPosition End) range)
+    {
+        state.IlYankProvider.HighlightRange = range;
+        state.App.Invalidate();
+        _ = Task.Delay(TimeSpan.FromMilliseconds(150)).ContinueWith(_ =>
+        {
+            state.IlYankProvider.HighlightRange = null;
+            state.App.Invalidate();
+        }, TaskScheduler.Default);
+    }
+
+    private static void OpenEmbeddedSource(DotsiderState state)
+    {
+        if (state.IlSelectedMethod is null)
+            return;
+
+        var source = state.Analyzer.GetEmbeddedSource(state.IlSelectedMethod);
+        if (source is null)
+        {
+            state.ShowTransientNotice("No embedded source for this method");
+            return;
+        }
+
+        var tempPath = WriteEmbeddedSourceToTemp(state.IlSelectedMethod.Name, source.Document, source.Bytes);
+        if (TryLaunchEditor(tempPath))
+        {
+            state.ShowTransientNotice($"Opened embedded source: {Path.GetFileName(tempPath)}");
+            return;
+        }
+
+        state.ShowTransientNotice($"Embedded source: {tempPath}");
+    }
+
+    private static string WriteEmbeddedSourceToTemp(string methodName, string documentPath, byte[] bytes)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "dotsider", "embedded-source");
+        Directory.CreateDirectory(directory);
+
+        var extension = Path.GetExtension(documentPath);
+        if (string.IsNullOrEmpty(extension))
+            extension = ".txt";
+
+        var documentName = Path.GetFileNameWithoutExtension(documentPath);
+        if (string.IsNullOrWhiteSpace(documentName))
+            documentName = methodName;
+
+        var fileName = $"{SanitizeFileName(documentName)}-{Guid.NewGuid():N}{extension}";
+        var tempPath = Path.Combine(directory, fileName);
+        File.WriteAllBytes(tempPath, bytes);
+        return tempPath;
+    }
+
+    private static bool TryLaunchEditor(string path)
+    {
+        var editor = Environment.GetEnvironmentVariable("VISUAL");
+        if (string.IsNullOrWhiteSpace(editor))
+            editor = Environment.GetEnvironmentVariable("EDITOR");
+
+        if (!string.IsNullOrWhiteSpace(editor) && TryStartEditorCommand(editor, path))
+            return true;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryStartEditorCommand(string editor, string path)
+    {
+        try
+        {
+            using var process = Process.Start(CreateEditorStartInfo(editor, path));
+            process?.WaitForExit();
+            return process is not null && process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static ProcessStartInfo CreateEditorStartInfo(string editor, string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var startInfo = new ProcessStartInfo("cmd.exe")
+            {
+                UseShellExecute = false
+            };
+            startInfo.ArgumentList.Add("/d");
+            startInfo.ArgumentList.Add("/s");
+            startInfo.ArgumentList.Add("/c");
+            startInfo.ArgumentList.Add($"{editor} \"{path}\"");
+            return startInfo;
+        }
+
+        var shellInfo = new ProcessStartInfo("/bin/sh")
+        {
+            UseShellExecute = false
+        };
+        shellInfo.ArgumentList.Add("-c");
+        shellInfo.ArgumentList.Add($"{editor} \"$1\"");
+        shellInfo.ArgumentList.Add("dotsider-editor");
+        shellInfo.ArgumentList.Add(path);
+        return shellInfo;
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return new string([.. value.Select(ch => invalid.Contains(ch) ? '_' : ch)]);
     }
 }

@@ -26,6 +26,10 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         var instructions = new List<IlInstruction>();
         var ilBytes = body.GetILBytes();
         if (ilBytes is null) return [];
+        var debugInfo = analyzer.GetMethodDebugInfo(method);
+        var sequencePointsByOffset = debugInfo.SequencePoints
+            .GroupBy(point => point.Offset)
+            .ToDictionary(group => group.Key, group => group.First());
 
         var offset = 0;
         while (offset < ilBytes.Length)
@@ -47,6 +51,12 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 
             var operandStart = offset;
             var operand = DecodeOperand(ilBytes, ref offset, opCode);
+            var localSlot = TryGetLocalSlot(opCode, ilBytes, operandStart);
+            var localName = localSlot is null
+                ? null
+                : ResolveLocalName(debugInfo.Locals, localSlot.Value, instructionOffset);
+            if (!string.IsNullOrEmpty(localName))
+                operand = string.IsNullOrEmpty(operand) ? $"// {localName}" : $"{operand} // {localName}";
 
             int? metadataToken = null;
             var operandKind = GetOperandType(opCode);
@@ -57,11 +67,22 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
                 metadataToken = BitConverter.ToInt32(ilBytes, operandStart);
             }
 
+            sequencePointsByOffset.TryGetValue(instructionOffset, out var sequencePoint);
             instructions.Add(new IlInstruction(
                 Offset: instructionOffset,
                 OpCode: FormatOpCode(opCode),
                 Operand: operand,
-                MetadataToken: metadataToken));
+                MetadataToken: metadataToken,
+                SequenceDocument: sequencePoint?.Document,
+                SequenceStartLine: sequencePoint?.StartLine,
+                SequenceStartColumn: sequencePoint?.StartColumn,
+                SequenceEndLine: sequencePoint?.EndLine,
+                SequenceEndColumn: sequencePoint?.EndColumn,
+                SequenceHidden: sequencePoint?.IsHidden == true,
+                SourceLinkUrl: sequencePoint?.SourceLinkUrl,
+                HasEmbeddedSource: sequencePoint?.HasEmbeddedSource == true,
+                LocalSlot: localSlot,
+                LocalName: localName));
         }
 
         return instructions;
@@ -74,31 +95,8 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     /// <returns>A multi-line string with the full disassembly listing.</returns>
     public string FormatDisassembly(MethodDefInfo method)
     {
-        var body = analyzer.GetMethodBody(method);
-        if (body is null) return "// No IL body (abstract, extern, or native method)";
-
-        var lines = new List<string>
-        {
-            $"// Method: {method.DeclaringType}::{method.Name}",
-            $"// Signature: {method.Signature}",
-            $"// RVA: 0x{method.Rva:X8}",
-            $"// Code size: {body.GetILBytes()?.Length ?? 0} bytes",
-            $"// Max stack: {body.MaxStack}",
-        };
-        if (body.LocalSignature.IsNil is false)
-        {
-            lines.Add($"// Locals init: {!body.LocalVariablesInitialized}");
-        }
-        lines.Add("");
-
-        var instructions = Disassemble(method);
-        foreach (var inst in instructions)
-        {
-            var operandPart = string.IsNullOrEmpty(inst.Operand) ? "" : $" {inst.Operand}";
-            lines.Add($"IL_{inst.Offset:X4}: {inst.OpCode}{operandPart}");
-        }
-
-        return string.Join('\n', lines);
+        return DisassembleWithText(method)?.Text
+            ?? "// No IL body (abstract, extern, or native method)";
     }
 
     /// <summary>
@@ -113,25 +111,24 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         if (body is null) return null;
 
         var instructions = Disassemble(method);
-        var lines = new List<string>
-        {
-            $"// Method: {method.DeclaringType}::{method.Name}",
-            $"// Signature: {method.Signature}",
-            $"// RVA: 0x{method.Rva:X8}",
-            $"// Code size: {body.GetILBytes()?.Length ?? 0} bytes",
-            $"// Max stack: {body.MaxStack}",
-        };
-        if (body.LocalSignature.IsNil is false)
-            lines.Add($"// Locals init: {!body.LocalVariablesInitialized}");
+        var debugInfo = analyzer.GetMethodDebugInfo(method);
+        var localTypes = DecodeLocalTypes(body.LocalSignature);
+        var lines = BuildHeaderLines(method, body, debugInfo, localTypes);
         lines.Add("");
 
         var headerLineCount = lines.Count;
+        var renderedInstructions = new List<IlInstruction>(instructions.Count);
         foreach (var inst in instructions)
         {
+            if (inst.SequenceStartLine is not null)
+                lines.Add(FormatSequencePointComment(inst));
+
             var operandPart = string.IsNullOrEmpty(inst.Operand) ? "" : $" {inst.Operand}";
+            var displayLine = lines.Count + 1;
             lines.Add($"IL_{inst.Offset:X4}: {inst.OpCode}{operandPart}");
+            renderedInstructions.Add(inst with { DisplayLine = displayLine });
         }
-        return (string.Join('\n', lines), instructions, headerLineCount);
+        return (string.Join('\n', lines), renderedInstructions, headerLineCount);
     }
 
     /// <summary>
@@ -143,10 +140,117 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     {
         var body = analyzer.GetMethodBody(method);
         if (body is null) return 0;
-        var count = 5;
-        if (body.LocalSignature.IsNil is false) count++;
-        count++;
-        return count;
+        var debugInfo = analyzer.GetMethodDebugInfo(method);
+        var localTypes = DecodeLocalTypes(body.LocalSignature);
+        return BuildHeaderLines(method, body, debugInfo, localTypes).Count + 1;
+    }
+
+    private List<string> BuildHeaderLines(
+        MethodDefInfo method,
+        MethodBodyBlock body,
+        MethodDebugInfo debugInfo,
+        IReadOnlyList<string> localTypes)
+    {
+        var lines = new List<string>
+        {
+            $"// Method: {method.DeclaringType}::{method.Name}",
+            $"// Signature: {method.Signature}",
+            $"// RVA: 0x{method.Rva:X8}",
+            $"// Code size: {body.GetILBytes()?.Length ?? 0} bytes",
+            $"// Max stack: {body.MaxStack}",
+            $"// PDB: {analyzer.PdbProvenance}",
+        };
+
+        if (analyzer.SourceLink.IsPresent)
+            lines.Add($"// Source Link: present, {analyzer.SourceLink.Mappings.Count} mappings");
+
+        AddLocalSignatureLines(lines, body, debugInfo.Locals, localTypes);
+        return lines;
+    }
+
+    private static void AddLocalSignatureLines(
+        List<string> lines,
+        MethodBodyBlock body,
+        IReadOnlyList<LocalSlotInfo> locals,
+        IReadOnlyList<string> localTypes)
+    {
+        var highestPdbSlot = locals.Count == 0 ? -1 : locals.Max(local => local.Slot);
+        var localCount = Math.Max(localTypes.Count, highestPdbSlot + 1);
+        if (body.LocalSignature.IsNil && localCount == 0)
+            return;
+
+        lines.Add(body.LocalVariablesInitialized ? ".locals init (" : ".locals (");
+        for (var slot = 0; slot < localCount; slot++)
+        {
+            var type = slot < localTypes.Count ? localTypes[slot] : "?";
+            var name = locals.FirstOrDefault(local => local.Slot == slot)?.Name ?? $"V_{slot}";
+            var comma = slot == localCount - 1 ? "" : ",";
+            lines.Add($"    [{slot}] {type} {name}{comma}");
+        }
+        lines.Add(")");
+    }
+
+    private IReadOnlyList<string> DecodeLocalTypes(StandaloneSignatureHandle localSignature)
+    {
+        if (localSignature.IsNil) return [];
+
+        try
+        {
+            var signature = _reader.GetStandaloneSignature(localSignature);
+            return [.. signature.DecodeLocalSignature(
+                new AssemblyAnalyzer.SignatureTypeProvider(),
+                genericContext: default)];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static string FormatSequencePointComment(IlInstruction instruction)
+    {
+        if (instruction.SequenceHidden)
+            return "// (hidden)";
+
+        var document = instruction.SequenceDocument is { Length: > 0 }
+            ? Path.GetFileName(instruction.SequenceDocument)
+            : "(unknown)";
+        var line = $"// {document}({instruction.SequenceStartLine},{instruction.SequenceStartColumn})"
+            + $"-({instruction.SequenceEndLine},{instruction.SequenceEndColumn})";
+        if (!string.IsNullOrEmpty(instruction.SourceLinkUrl))
+            line += " [source link]";
+        if (instruction.HasEmbeddedSource)
+            line += " [embedded source]";
+        return line;
+    }
+
+    private static string? ResolveLocalName(IReadOnlyList<LocalSlotInfo> locals, int slot, int offset)
+    {
+        return locals
+            .Where(local => local.Slot == slot
+                && local.StartOffset <= offset
+                && offset < local.EndOffset
+                && !local.IsDebuggerHidden)
+            .OrderBy(local => local.EndOffset - local.StartOffset)
+            .ThenByDescending(local => local.StartOffset)
+            .Select(local => local.Name)
+            .FirstOrDefault();
+    }
+
+    private static int? TryGetLocalSlot(ILOpCode opCode, byte[] ilBytes, int operandStart)
+    {
+        return opCode switch
+        {
+            ILOpCode.Ldloc_0 or ILOpCode.Stloc_0 => 0,
+            ILOpCode.Ldloc_1 or ILOpCode.Stloc_1 => 1,
+            ILOpCode.Ldloc_2 or ILOpCode.Stloc_2 => 2,
+            ILOpCode.Ldloc_3 or ILOpCode.Stloc_3 => 3,
+            ILOpCode.Ldloc_s or ILOpCode.Ldloca_s or ILOpCode.Stloc_s
+                when operandStart < ilBytes.Length => ilBytes[operandStart],
+            ILOpCode.Ldloc or ILOpCode.Ldloca or ILOpCode.Stloc
+                when operandStart + 2 <= ilBytes.Length => BitConverter.ToUInt16(ilBytes, operandStart),
+            _ => null
+        };
     }
 
     private string DecodeOperand(byte[] ilBytes, ref int offset, ILOpCode opCode)
@@ -317,10 +421,12 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
             or ILOpCode.Leave
             => OperandKind.BranchTarget,
 
-        ILOpCode.Ldc_i4_s or ILOpCode.Ldarg_s or ILOpCode.Ldarga_s or ILOpCode.Starg_s
-            or ILOpCode.Ldloc_s or ILOpCode.Ldloca_s or ILOpCode.Stloc_s
-            or ILOpCode.Unaligned
+        ILOpCode.Ldc_i4_s or ILOpCode.Unaligned
             => OperandKind.ShortInlineI,
+
+        ILOpCode.Ldarg_s or ILOpCode.Ldarga_s or ILOpCode.Starg_s
+            or ILOpCode.Ldloc_s or ILOpCode.Ldloca_s or ILOpCode.Stloc_s
+            => OperandKind.ShortInlineVar,
 
         ILOpCode.Ldc_i4 => OperandKind.InlineI,
         ILOpCode.Ldc_i8 => OperandKind.InlineI8,

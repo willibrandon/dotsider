@@ -46,6 +46,70 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("System.Runtime", stdout);
     }
 
+    /// <summary>
+    /// Verifies analyze default output includes portable PDB summary lines.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Default_ShowsPortablePdbSummary()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("PDB:", stdout);
+        Assert.Contains("Sidecar(", stdout);
+        Assert.Contains("SourceLink: present", stdout);
+    }
+
+    /// <summary>
+    /// Verifies analyze default JSON includes portable PDB metadata.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Default_Json_IncludesPortablePdbMetadata()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.Equal("sidecar", json.GetProperty("pdbProvenance").GetProperty("kind").GetString());
+        Assert.True(json.GetProperty("sourceLink").GetProperty("isPresent").GetBoolean());
+        Assert.True(json.GetProperty("debugDirectory").GetArrayLength() > 0);
+    }
+
+    /// <summary>
+    /// Verifies analyze IL output includes portable PDB annotations.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Il_ShowsPortablePdbAnnotations()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--il", "RichLibrary.Services.UserService.Add");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("// PDB: Sidecar", stdout);
+        Assert.Contains("// Source Link: present", stdout);
+        Assert.Contains("UserService.cs", stdout);
+        Assert.Contains("[source link]", stdout);
+        Assert.Contains("// id", stdout);
+        Assert.DoesNotContain("raw.githubusercontent.com", stdout);
+    }
+
+    /// <summary>
+    /// Verifies analyze embedded source prints source text from an embedded portable PDB.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_EmbeddedSource_PrintsEmbeddedSource()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.EmbeddedSourceLibDll, "--embedded-source",
+            "EmbeddedSourceLib.EmbeddedSourceFixture.Compute");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("internal static class EmbeddedSourceFixture", stdout);
+        Assert.Contains("return doubled + 1;", stdout);
+    }
+
     // --- P1: --output safety ---
 
     /// <summary>

@@ -79,7 +79,9 @@ public static class GeneralView
             $"  Last Modified:    {analyzer.LastModified:yyyy-MM-dd HH:mm:ss UTC}",
             $"  Created:          {analyzer.CreatedTime:yyyy-MM-dd HH:mm:ss UTC}",
             $"  Read-Only:        {(analyzer.IsReadOnly ? "Yes" : "No")}",
-            $"  Has Metadata:     {(analyzer.HasMetadata ? "Yes" : "No")}");
+            $"  Has Metadata:     {(analyzer.HasMetadata ? "Yes" : "No")}",
+            $"  PDB:              {analyzer.PdbProvenance}",
+            $"  Source Link:      {(analyzer.SourceLink.IsPresent ? $"present, {analyzer.SourceLink.Mappings.Count} mappings" : "not present")}");
 
         if (state.GeneralInfoEditorText != infoText)
         {
@@ -123,7 +125,7 @@ public static class GeneralView
                                 () => state.App.Invalidate());
                         })
                         .FillWidth().FillHeight())
-                ).Title(" Assembly Info ").FixedHeight(14)
+                ).Title(" Assembly Info ").FixedHeight(16)
             };
 
             // Search bar
