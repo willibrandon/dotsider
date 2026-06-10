@@ -18,12 +18,16 @@ public static class IlColorizer
     /// <summary>Opcodes — muted teal, slightly softer than the primary theme accent.</summary>
     public static readonly Hex1bColor OpcodeColor = Hex1bColor.FromRgb(0, 170, 160);
 
+    /// <summary>IL directives such as .locals init — muted blue-gray.</summary>
+    public static readonly Hex1bColor DirectiveColor = Hex1bColor.FromRgb(125, 130, 170);
+
     /// <summary>String operands ("...") — muted green.</summary>
     public static readonly Hex1bColor StringColor = Hex1bColor.FromRgb(100, 180, 100);
 
     private static readonly string AddressFg = AddressColor.ToForegroundAnsi();
     private static readonly string CommentFg = CommentColor.ToForegroundAnsi();
     private static readonly string OpcodeFg = OpcodeColor.ToForegroundAnsi();
+    private static readonly string DirectiveFg = DirectiveColor.ToForegroundAnsi();
     private static readonly string StringFg = StringColor.ToForegroundAnsi();
     // Reset to default terminal color
     private const string Reset = "\x1b[0m";
@@ -43,7 +47,30 @@ public static class IlColorizer
         if (line.StartsWith("IL_"))
             return ColorizeInstruction(line);
 
+        if (TryGetLocalsInitSpan(line, out var startIndex, out var length))
+            return line[..startIndex] + DirectiveFg + line.Substring(startIndex, length) + Reset + line[(startIndex + length)..];
+
         return line;
+    }
+
+    internal static bool TryGetLocalsInitSpan(string line, out int startIndex, out int length)
+    {
+        startIndex = 0;
+        length = 0;
+
+        const string directive = ".locals init";
+        while (startIndex < line.Length && char.IsWhiteSpace(line[startIndex]))
+            startIndex++;
+
+        if (!line.AsSpan(startIndex).StartsWith(directive, StringComparison.Ordinal))
+            return false;
+
+        var endIndex = startIndex + directive.Length;
+        if (endIndex < line.Length && !char.IsWhiteSpace(line[endIndex]) && line[endIndex] != '(')
+            return false;
+
+        length = directive.Length;
+        return true;
     }
 
     // Parse "IL_XXXX: opcode operand", color the address and opcode,

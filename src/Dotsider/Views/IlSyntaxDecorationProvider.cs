@@ -12,6 +12,7 @@ public sealed class IlSyntaxDecorationProvider : ITextDecorationProvider
     private static readonly TextDecoration AddressDecoration = new() { Foreground = IlColorizer.AddressColor };
     private static readonly TextDecoration CommentDecoration = new() { Foreground = IlColorizer.CommentColor };
     private static readonly TextDecoration OpcodeDecoration = new() { Foreground = IlColorizer.OpcodeColor };
+    private static readonly TextDecoration DirectiveDecoration = new() { Foreground = IlColorizer.DirectiveColor };
     private static readonly TextDecoration StringDecoration = new() { Foreground = IlColorizer.StringColor };
 
     /// <inheritdoc />
@@ -40,6 +41,15 @@ public sealed class IlSyntaxDecorationProvider : ITextDecorationProvider
             if (text.StartsWith("IL_"))
             {
                 ParseInstruction(spans, text, line);
+                continue;
+            }
+
+            if (IlColorizer.TryGetLocalsInitSpan(text, out var startIndex, out var length))
+            {
+                spans.Add(new TextDecorationSpan(
+                    new DocumentPosition(line, startIndex + 1),
+                    new DocumentPosition(line, startIndex + length + 1),
+                    DirectiveDecoration));
             }
         }
 

@@ -115,6 +115,23 @@ public class IlSyntaxDecorationProviderTests
     }
 
     /// <summary>
+    /// Verifies locals init line returns directive span.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void LocalsInitLine_ReturnsDirectiveSpan()
+    {
+        var line = "    .locals init (";
+        var doc = new Hex1bDocument(line);
+
+        var spans = _provider.GetDecorations(1, 1, doc);
+
+        var span = Assert.Single(spans);
+        Assert.Equal(IlColorizer.DirectiveColor, span.Decoration.Foreground);
+        Assert.Equal(5, span.Start.Column);
+        Assert.Equal(17, span.End.Column);
+    }
+
+    /// <summary>
     /// Verifies blank line no spans.
     /// </summary>
     [Fact(Timeout = 30_000)]

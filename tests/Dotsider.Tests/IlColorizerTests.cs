@@ -14,6 +14,7 @@ public class IlColorizerTests
     private static readonly string AddressFg = Hex1bColor.FromRgb(100, 100, 130).ToForegroundAnsi();
     private static readonly string CommentFg = Hex1bColor.FromRgb(90, 90, 110).ToForegroundAnsi();
     private static readonly string OpcodeFg = Hex1bColor.FromRgb(0, 170, 160).ToForegroundAnsi();
+    private static readonly string DirectiveFg = Hex1bColor.FromRgb(125, 130, 170).ToForegroundAnsi();
     private static readonly string StringFg = Hex1bColor.FromRgb(100, 180, 100).ToForegroundAnsi();
 
     // --- Passthrough cases ---
@@ -69,6 +70,16 @@ public class IlColorizerTests
         var line = "  // RVA: 0x00002050";
         var result = IlColorizer.ColorizeLine(line);
         Assert.Equal($"{CommentFg}{line}{Reset}", result);
+    }
+
+    /// <summary>
+    /// Verifies locals init directive is colored without coloring the rest of the line.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void LocalsInit_ColorsDirectiveOnly()
+    {
+        var result = IlColorizer.ColorizeLine("    .locals init (");
+        Assert.Equal($"    {DirectiveFg}.locals init{Reset} (", result);
     }
 
     // --- Instruction coloring ---
