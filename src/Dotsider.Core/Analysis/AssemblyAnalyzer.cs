@@ -35,6 +35,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<DebugDirectoryInfo>? _debugDirectory;
     private SourceLinkInfo? _sourceLink;
     private string? _preferredRuntimePack;
+    private NativeAotInfo? _nativeAotInfo;
+    private bool _nativeAotProbed;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -78,6 +80,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             // for hex dump; PE-specific analysis will be empty.
             _peReader?.Dispose();
             _peReader = null;
+            Architecture = GetNativeArchitecture(_rawBytes);
         }
         catch
         {
@@ -137,6 +140,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         {
             _peReader?.Dispose();
             _peReader = null;
+            Architecture = GetNativeArchitecture(_rawBytes);
         }
         catch
         {
@@ -197,6 +201,33 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>Whether the PE file contains .NET metadata.</summary>
     public bool HasMetadata => _metadataReader is not null;
+
+    /// <summary>
+    /// Facts from the embedded ReadyToRun header when this is a Native AOT binary,
+    /// or null. Only probed for metadata-less files — a managed ReadyToRun assembly
+    /// also embeds the header, but there it accompanies metadata rather than
+    /// replacing it.
+    /// </summary>
+    public NativeAotInfo? NativeAotInfo
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_nativeAotProbed)
+            {
+                _nativeAotInfo = HasMetadata ? null : NativeAotDetector.Detect(_rawBytes);
+                _nativeAotProbed = true;
+            }
+
+            return _nativeAotInfo;
+        }
+    }
+
+    /// <summary>Coarse classification of the analyzed binary.</summary>
+    public BinaryKind BinaryKind =>
+        HasMetadata ? BinaryKind.Managed
+        : NativeAotInfo is not null ? BinaryKind.NativeAot
+        : BinaryKind.Native;
 
     /// <summary>Portable PDB provenance for the analyzed assembly.</summary>
     public PdbProvenance PdbProvenance { get; private set; } =
@@ -641,6 +672,49 @@ public sealed class AssemblyAnalyzer : IDisposable
         // Mach-O: four known magic values (big/little endian, 32/64-bit)
         uint magic = (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
         return magic is 0xFEEDFACE or 0xFEEDFACF or 0xCEFAEDFE or 0xCFFAEDFE;
+    }
+
+    /// <summary>
+    /// Reads the target architecture from an ELF or Mach-O header. The bytes have
+    /// already passed <see cref="IsNativeExecutable"/>.
+    /// </summary>
+    private static string GetNativeArchitecture(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length < 8) return "Unknown";
+
+        // ELF: e_machine is a u16 at offset 18; EI_DATA at offset 5 selects endianness
+        if (bytes[0] == 0x7F && bytes[1] == 0x45 && bytes[2] == 0x4C && bytes[3] == 0x46)
+        {
+            if (bytes.Length < 20) return "Unknown";
+            var bigEndian = bytes[5] == 2;
+            int machine = bigEndian
+                ? bytes[18] << 8 | bytes[19]
+                : bytes[19] << 8 | bytes[18];
+            return machine switch
+            {
+                0x3E => "x64",
+                0xB7 => "ARM64",
+                0x03 => "x86",
+                0x28 => "ARM",
+                0xF3 => "RISC-V",
+                _ => "Unknown",
+            };
+        }
+
+        // Mach-O: cputype is an i32 at offset 4; 0xCxFAEDFE magics are byte-swapped
+        uint magic = (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
+        var swapped = magic is 0xCEFAEDFE or 0xCFFAEDFE;
+        uint cpuType = swapped
+            ? (uint)(bytes[7] << 24 | bytes[6] << 16 | bytes[5] << 8 | bytes[4])
+            : (uint)(bytes[4] << 24 | bytes[5] << 16 | bytes[6] << 8 | bytes[7]);
+        return cpuType switch
+        {
+            0x01000007 => "x64",
+            0x0100000C => "ARM64",
+            0x00000007 => "x86",
+            0x0000000C => "ARM",
+            _ => "Unknown",
+        };
     }
 
     private void ReadAssemblyIdentity()
