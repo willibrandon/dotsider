@@ -146,6 +146,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The item being shown in the detail popup, or null.</summary>
     public string? PeDetailContent { get; set; }
 
+    /// <summary>The why-chain shown in the Size Map popup, or null when the popup is closed.</summary>
+    public string? SizeMapWhyContent { get; set; }
+
     /// <summary>The focused row key in the current PE metadata table.</summary>
     public object? PeFocusedKey { get; set; }
 
@@ -358,6 +361,15 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Yank flash decoration provider for the PE detail popup editor.</summary>
     public IlYankDecorationProvider PeDetailYankProvider { get; } = new();
+
+    /// <summary>Read-only editor for the Size Map why-chain popup overlay.</summary>
+    public EditorState? SizeMapWhyEditorState { get; set; }
+
+    /// <summary>Source text used to build <see cref="SizeMapWhyEditorState"/>, for staleness detection.</summary>
+    public string? SizeMapWhyEditorText { get; set; }
+
+    /// <summary>Yank flash decoration provider for the why-chain popup editor.</summary>
+    public IlYankDecorationProvider SizeMapWhyYankProvider { get; } = new();
 
     /// <summary>Read-only editor for the Strings detail popup overlay.</summary>
     public EditorState? StringsDetailEditorState { get; set; }
@@ -1416,6 +1428,7 @@ public sealed class DotsiderState : IDisposable
         PeSubTab = 0;
         PeFocusedKey = null;
         PeDetailContent = null;
+        SizeMapWhyContent = null;
         SetIlFocusedTreeKey(null);
         IlSelectedMethod = null;
         IlSelectedField = null;
@@ -1461,6 +1474,8 @@ public sealed class DotsiderState : IDisposable
         DataInterpEditorText = null;
         PeDetailEditorState = null;
         PeDetailEditorText = null;
+        SizeMapWhyEditorState = null;
+        SizeMapWhyEditorText = null;
         StringsDetailEditorState = null;
         StringsDetailEditorText = null;
         StringsSourceTab = 0;
