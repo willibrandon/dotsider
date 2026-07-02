@@ -844,6 +844,108 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Throws<ObjectDisposedException>(() => a.ResolveToken(token));
     }
 
+    /// <summary>
+    /// Verifies the analyzer finds and parses the mstat and DGML sidecars published next to
+    /// the Native AOT sample, preferring the codegen graph.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Sidecars_NativeAotExe_ProbeAndParse()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        Assert.Equal(samples.NativeAotConsoleMstat, a.MstatPath);
+        Assert.NotNull(a.Mstat);
+        Assert.NotEmpty(a.Mstat.Methods);
+
+        if (samples.NativeAotConsoleDgml is not null)
+        {
+            Assert.Equal(samples.NativeAotConsoleDgml, a.DgmlPath);
+            Assert.NotNull(a.Dgml);
+            Assert.NotEmpty(a.Dgml.Nodes);
+        }
+    }
+
+    /// <summary>
+    /// Verifies an AOT binary with no sidecars beside it probes to null without throwing.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Sidecars_NativeAotExeWithoutSidecars_ReturnNull()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-nosidecar-");
+        try
+        {
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
+            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            using var a = new AssemblyAnalyzer(exeCopy);
+
+            Assert.Null(a.MstatPath);
+            Assert.Null(a.Mstat);
+            Assert.Null(a.DgmlPath);
+            Assert.Null(a.Dgml);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a managed assembly never probes for sidecars, even when a stray mstat sits
+    /// next to it — the binary-kind gate short-circuits first.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Sidecars_ManagedAssemblyWithStrayMstat_ReturnsNull()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-stray-");
+        try
+        {
+            var dllCopy = Path.Combine(dir.FullName, "RichLibrary.dll");
+            File.Copy(samples.RichLibraryDll, dllCopy);
+            File.Copy(samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, "RichLibrary.mstat"));
+            using var a = new AssemblyAnalyzer(dllCopy);
+
+            Assert.Null(a.MstatPath);
+            Assert.Null(a.Mstat);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a corrupt sidecar reads as null rather than throwing.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Sidecars_CorruptMstat_ReturnsNull()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-corrupt-");
+        try
+        {
+            var name = Path.GetFileName(samples.NativeAotConsoleExe!);
+            var exeCopy = Path.Combine(dir.FullName, name);
+            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+            File.WriteAllBytes(Path.Combine(dir.FullName, stem + ".mstat"), [0xDE, 0xAD]);
+            using var a = new AssemblyAnalyzer(exeCopy);
+
+            Assert.NotNull(a.MstatPath);
+            Assert.Null(a.Mstat);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
     private static MethodDefInfo FindMethod(AssemblyAnalyzer analyzer, string typeName, string methodName)
     {
         var method = analyzer.MethodDefs.FirstOrDefault(m =>
