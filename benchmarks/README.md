@@ -195,9 +195,9 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| Detect NativeAOT exe (positive) | — | — |
-| Detect CoreLib (R2R negative) | — | — |
-| Detect apphost (negative) | — | — |
+| Detect NativeAOT exe (positive) | 63.80 μs | 4,752 B |
+| Detect CoreLib (R2R negative) | 470.87 μs | — |
+| Detect apphost (negative) | 3.63 μs | — |
 
 #### NuGetPackageAnalyzer
 
@@ -212,10 +212,10 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| NativeAOT Imports | — | — |
-| NativeAOT Exports | — | — |
-| NativeAOT LoadConfig | — | — |
-| CoreLib Imports | — | — |
+| NativeAOT Imports | 127.4 μs | 1.20 MB |
+| NativeAOT Exports | 122.8 μs | 1.19 MB |
+| NativeAOT LoadConfig | 121.9 μs | 1.18 MB |
+| CoreLib Imports | 1.20 ms | 16.30 MB |
 
 #### RuntimeTracer — Data Retrieval (populated)
 
@@ -263,8 +263,8 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | Xml UserStrings | 62.56 μs | 375 KB |
 | Xml MetadataStrings | 1.02 ms | 1,519 KB |
 | Xml RawStrings | 14.97 ms | 3,962 KB |
-| CoreLib RawUtf16Strings | — | — |
-| Xml RawUtf16Strings | — | — |
+| CoreLib RawUtf16Strings | 26.99 ms | 689 KB |
+| Xml RawUtf16Strings | 15.05 ms | 613 KB |
 
 #### SizeAnalyzer
 
