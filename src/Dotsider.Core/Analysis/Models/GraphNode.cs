@@ -29,6 +29,10 @@ namespace Dotsider.Core.Analysis.Models;
 /// manifest identity did not match — the latter is further distinguished by the node's
 /// navigation-context provenance.
 /// </param>
+/// <param name="Kind">
+/// What the node represents. Defaults to <see cref="GraphNodeKind.Assembly"/> and is omitted
+/// from serialized output at that default, so managed graph JSON is unchanged.
+/// </param>
 public sealed record GraphNode(
     string Id,
     string Name,
@@ -37,4 +41,7 @@ public sealed record GraphNode(
     string? PublicKeyToken,
     bool IsRoot,
     int Depth,
-    bool Unresolved);
+    bool Unresolved,
+    [property: System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    GraphNodeKind Kind = GraphNodeKind.Assembly);

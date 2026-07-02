@@ -480,6 +480,37 @@ public class CliTests(SampleAssemblyFixture fixture)
     }
 
     /// <summary>
+    /// Verifies <c>analyze --deps --json</c> on a Native AOT binary emits the compiled-in
+    /// assemblies and the native import modules, with only non-default node kinds serialized.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Deps_NativeAot_Json_EmitsAssembliesAndImports()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--deps", "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("System.Private.CoreLib", stdout);
+        Assert.Contains("\"nativeImport\"", stdout);
+    }
+
+    /// <summary>
+    /// Verifies managed <c>analyze --deps --json</c> output is byte-compatible with the
+    /// pre-AOT shape: the default assembly kind is never serialized.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Deps_Managed_Json_OmitsDefaultKind()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--deps", "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.DoesNotContain("\"kind\"", stdout);
+    }
+
+    /// <summary>
     /// Verifies <c>analyze --size</c> on a Native AOT binary with an mstat sidecar prints the
     /// per-assembly breakdown and the data categories instead of an empty tree.
     /// </summary>
