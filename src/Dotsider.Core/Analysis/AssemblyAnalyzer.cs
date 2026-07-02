@@ -41,6 +41,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<ExportedFunctionInfo>? _exports;
     private LoadConfigInfo? _loadConfig;
     private bool _loadConfigProbed;
+    private NativeAddressSpace? _addressSpace;
+    private bool _addressSpaceProbed;
+    private IReadOnlyList<RtrSection>? _readyToRunSections;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -232,6 +235,44 @@ public sealed class AssemblyAnalyzer : IDisposable
         HasMetadata ? BinaryKind.Managed
         : NativeAotInfo is not null ? BinaryKind.NativeAot
         : BinaryKind.Native;
+
+    /// <summary>
+    /// The ReadyToRun section table of a Native AOT binary, or an empty list when this is
+    /// not a Native AOT binary or the table cannot be parsed.
+    /// </summary>
+    public IReadOnlyList<RtrSection> ReadyToRunSections
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_readyToRunSections is not null) return _readyToRunSections;
+
+            if (NativeAotInfo is { } info && AddressSpace is { } space)
+                _readyToRunSections = ReadyToRunReader.ReadSections(_rawBytes, info, space);
+            else
+                _readyToRunSections = [];
+
+            return _readyToRunSections;
+        }
+    }
+
+    /// <summary>
+    /// The virtual-address to file-offset map for a native image, or null when the format
+    /// is unrecognized. Shared by the Native AOT section and object readers.
+    /// </summary>
+    private NativeAddressSpace? AddressSpace
+    {
+        get
+        {
+            if (!_addressSpaceProbed)
+            {
+                _addressSpace = NativeAddressSpace.Create(_rawBytes);
+                _addressSpaceProbed = true;
+            }
+
+            return _addressSpace;
+        }
+    }
 
     /// <summary>Portable PDB provenance for the analyzed assembly.</summary>
     public PdbProvenance PdbProvenance { get; private set; } =
