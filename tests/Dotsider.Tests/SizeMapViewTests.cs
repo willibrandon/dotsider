@@ -327,7 +327,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         _state.TreemapCurrentLevel = frozen;
         _state.TreemapSelectedIndex = 0;
         _state.App.Invalidate();
-        await auto.WaitUntilTextAsync("Frozen Objects");
+        await auto.WaitUntilTextAsync("> Frozen Objects");
 
         await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
         await auto.WaitUntilAsync(s => s.ContainsText("Why in binary"),
@@ -375,7 +375,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
             _state.TreemapCurrentLevel = frozen;
             _state.TreemapSelectedIndex = 0;
             _state.App.Invalidate();
-            await auto.WaitUntilTextAsync("Frozen Objects");
+            await auto.WaitUntilTextAsync("> Frozen Objects");
 
             await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
             await auto.WaitUntilAsync(s => s.ContainsText("No DGML dependency graph"),
