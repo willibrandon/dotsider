@@ -20,7 +20,10 @@ Opening a Native AOT executable adds a block below the standard fields. ILC stri
 - **Binary kind** — `Native AOT (.NET)`
 - **ILC / RTR format** — the ReadyToRun format version, section count, and header offset
 - **Runtime version** — recovered from a version string the runtime pack embeds; shown as `(not detected)` when the layout doesn't match (a heuristic, never a guess)
-- **Native imports** — module and function counts from the PE import table (the full table lives in the PE/Metadata tab)
+- **Native imports** — module and function counts from the native import table (the full table lives in the PE/Metadata tab)
+- **R2R sections** — how many ReadyToRun runtime sections the header describes (the table is in the PE/Metadata tab)
+- **Recovered types** — type and method counts recovered from the embedded metadata (the list is in the PE/Metadata tab)
+- **Frozen strings** — how many frozen string literals were recovered (the list is in the Strings tab)
 
 ## Text selection and copy
 

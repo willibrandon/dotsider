@@ -97,7 +97,7 @@ public IReadOnlyList<StringEntry> ExtractRawStrings(int minLength = 4)
 Extracts printable UTF-16LE character sequences from the binary file. Scans for
 runs of little-endian code units in the printable ASCII range (0x20–0x7E stored
 as two bytes), which is how managed string literals freeze in Native AOT images.
-The scan restarts at every byte position, so runs at odd offsets are found too.
+The file is scanned once per byte parity, so runs at odd offsets are found too.
 Accepting the full BMP instead would drown the results in noise — most random
 16-bit values decode to a printable character.
 

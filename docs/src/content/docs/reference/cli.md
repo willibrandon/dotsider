@@ -48,7 +48,7 @@ dotsider analyze MyAotApp.exe                 # Native AOT → binary kind, RTR 
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
 
-If the file is a Native AOT executable (a validated ReadyToRun header with no CLR metadata), the default output adds `Kind`, `RTR Format`, `Runtime`, and `Imports` lines, and JSON output gains `binaryKind` and `nativeAotInfo` fields. `--strings` falls back to the raw ASCII and UTF-16 scans, since AOT binaries have no metadata string heaps.
+If the file is a Native AOT executable (a validated ReadyToRun header with no CLR metadata), the default output adds `Kind`, `RTR Format`, `Runtime`, `Imports`, `R2R`, `Recovered`, and `Frozen` lines, and JSON output gains `binaryKind`, `nativeAotInfo`, `readyToRunSections`, `recoveredTypeCount`, and `frozenStringCount`. `--types` falls back to the types recovered from the embedded metadata, `--strings` adds the raw ASCII and UTF-16 scans plus the frozen string literals, since AOT binaries have no metadata string heaps.
 
 When portable PDB data is available, default output reports where it came from, and `--il` includes source spans, local names, and Source Link markers. Use `--json` when you need the exact URLs. `--embedded-source` prints source embedded in the PDB.
 

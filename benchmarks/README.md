@@ -48,6 +48,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
 | `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
+| `ReadyToRunReaderBenchmarks` | Native AOT ReadyToRun section walk, frozen string recovery, and NativeFormat type/method name recovery |
 | `RuntimeTracerDataRetrievalBenchmarks` | Ring buffer snapshot, summary aggregation, output materialization, and counter read with populated trace data |
 | `RuntimeTracerThroughputBenchmarks` | Data retrieval under concurrent event-processing load (lock contention, volatile reads) |
 | `RuntimeTracerWritePathBenchmarks` | Full write pipeline throughput: event collection, counter acquisition, and Start/Stop lifecycle with EventPipe connect latency |
@@ -216,6 +217,14 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | NativeAOT Exports | 122.8 μs | 1.19 MB |
 | NativeAOT LoadConfig | 121.9 μs | 1.18 MB |
 | CoreLib Imports | 1.20 ms | 16.30 MB |
+
+#### ReadyToRunReader
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| ReadyToRun sections | — | — |
+| Frozen strings | — | — |
+| Recovered types | — | — |
 
 #### RuntimeTracer — Data Retrieval (populated)
 

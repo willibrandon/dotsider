@@ -489,6 +489,16 @@ Aggregated PE header information for a .NET assembly.
 public sealed record PeHeaders : IEquatable<PeHeaders>
 ```
 
+### [RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/)
+
+A type recovered from a Native AOT binary's embedded NativeFormat metadata. ILC strips
+ECMA-335 metadata, but the reflection and stack-trace metadata it keeps still names the
+binary's own types and methods, so a stripped binary can describe itself.
+
+```csharp
+public sealed record RecoveredType : IEquatable<RecoveredType>
+```
+
 ### [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
 The result of resolving an assembly reference — either a file on disk or bytes from a bundle.
@@ -519,6 +529,16 @@ Information about a managed resource embedded in the assembly.
 
 ```csharp
 public sealed record ResourceInfo : IEquatable<ResourceInfo>
+```
+
+### [RtrSection](/api/dotsider.core.analysis.models.rtrsection/)
+
+One entry in a Native AOT binary's ReadyToRun section table. Each section describes a
+runtime data region — frozen objects, GC statics, dehydrated data, or a readonly blob
+such as the embedded metadata — the way an ECMA-335 table describes a managed assembly.
+
+```csharp
+public sealed record RtrSection : IEquatable<RtrSection>
 ```
 
 ### [SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/)
