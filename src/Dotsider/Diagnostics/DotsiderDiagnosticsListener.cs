@@ -318,6 +318,8 @@ internal sealed class DotsiderDiagnosticsListener(
             a.PublicKeyToken,
             a.Architecture,
             a.HasMetadata,
+            a.BinaryKind,
+            a.NativeAotInfo,
             a.DisplayName,
             a.SourceBundlePath,
             a.IsBundleBacked,
@@ -545,6 +547,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var user = extractor.ExtractUserStrings();
         var metadata = extractor.ExtractMetadataStrings();
         var raw = extractor.ExtractRawStrings(minLength);
+        var rawUtf16 = extractor.ExtractRawUtf16Strings(minLength);
 
         if (!string.IsNullOrEmpty(request.Query))
         {
@@ -554,6 +557,7 @@ internal sealed class DotsiderDiagnosticsListener(
             user = [.. user.Where(Match)];
             metadata = [.. metadata.Where(Match)];
             raw = [.. raw.Where(Match)];
+            rawUtf16 = [.. rawUtf16.Where(Match)];
         }
 
         var max = request.MaxResults ?? int.MaxValue;
@@ -561,7 +565,8 @@ internal sealed class DotsiderDiagnosticsListener(
         {
             UserStrings = user.Take(max),
             MetadataStrings = metadata.Take(max),
-            RawStrings = raw.Take(max)
+            RawStrings = raw.Take(max),
+            RawUtf16Strings = rawUtf16.Take(max)
         });
     }
 

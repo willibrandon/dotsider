@@ -33,6 +33,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 analyzer.AssemblyName, analyzer.AssemblyVersion, analyzer.TargetFramework,
                 analyzer.Culture, analyzer.PublicKeyToken, analyzer.Architecture,
                 analyzer.HasMetadata,
+                analyzer.BinaryKind,
+                analyzer.NativeAotInfo,
                 analyzer.DisplayName,
                 analyzer.SourceBundlePath,
                 analyzer.IsBundleBacked,

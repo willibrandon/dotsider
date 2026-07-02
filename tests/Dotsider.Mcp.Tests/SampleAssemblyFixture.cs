@@ -50,6 +50,10 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// Path to the published self-contained single-file apphost used by bundle tests.
     /// </summary>
     public string SelfContainedConsoleExe { get; private set; } = null!;
+    /// <summary>
+    /// Path to the published NativeAOT sample executable, or null when not built.
+    /// </summary>
+    public string? NativeAotConsoleExe { get; private set; }
 
     /// <summary>
     /// Builds all sample projects once per collection and resolves their output paths.
@@ -68,6 +72,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         await BuildProject("samples/EmptyLib");
         await BuildProject("samples/MinimalApi");
         await PublishSelfContainedProject("samples/SelfContainedConsole");
+        await PublishNativeAotProject("samples/NativeAotConsole");
 
         const string config = "Debug";
         const string tfm = "net10.0";
@@ -88,12 +93,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
             "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
+        NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+            "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
+
         Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
         Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
         Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
         Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
         Assert.True(File.Exists(MinimalApiDll), $"MinimalApi.dll not found at {MinimalApiDll}");
         Assert.True(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
+
+        if (!File.Exists(NativeAotConsoleExe))
+            NativeAotConsoleExe = null;
     }
 
     /// <summary>
@@ -215,6 +226,72 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
             };
+
+            var process = Process.Start(psi)!;
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    private async Task PublishNativeAotProject(string relativePath)
+    {
+        var rid = RuntimeInformation.RuntimeIdentifier;
+        var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+            "bin", "Release", "net10.0", rid, "publish",
+            $"{Path.GetFileName(relativePath)}{apphostExt}");
+
+        // Skip if Dotsider.Tests already published
+        if (File.Exists(expectedOutput))
+            return;
+
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            // Re-check after acquiring lock
+            if (File.Exists(expectedOutput))
+            {
+                lockFile.Dispose();
+                return;
+            }
+
+            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish -c Release -r {rid} -v q",
+                WorkingDirectory = projectDir,
+                UseShellExecute = false,
+            };
+
+            // NoDefaultCurrentDirectoryInExePath breaks the ILCompiler's
+            // findvcvarsall → VsDevCmd toolchain discovery (vswhere.exe
+            // is not resolved from the current directory inside FOR /F).
+            // Clear it for this process only.
+            psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();

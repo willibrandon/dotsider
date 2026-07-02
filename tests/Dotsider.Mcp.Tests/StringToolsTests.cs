@@ -83,4 +83,56 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             Assert.True(user.GetArrayLength() <= 2);
         }
     }
+
+    /// <summary>
+    /// extract_strings on a Native AOT executable returns raw ASCII and raw UTF-16
+    /// strings even though the metadata heaps are absent.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ExtractStrings_NativeAot_ReturnsRawAndUtf16()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "extract_strings",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["minLength"] = 8,
+                ["maxResults"] = 50
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Empty(json.GetProperty("userStrings").EnumerateArray());
+        Assert.True(json.GetProperty("rawStrings").GetArrayLength() > 0);
+        Assert.True(json.GetProperty("rawUtf16Strings").GetArrayLength() > 0);
+    }
+
+    /// <summary>
+    /// extract_strings always includes the rawUtf16Strings category for managed
+    /// assemblies too.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ExtractStrings_Managed_HasRawUtf16Field()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "extract_strings",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(json.TryGetProperty("rawUtf16Strings", out _));
+    }
 }

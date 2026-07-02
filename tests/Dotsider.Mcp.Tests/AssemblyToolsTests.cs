@@ -283,6 +283,54 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     }
 
     /// <summary>
+    /// get_assembly_info reports a Native AOT executable's binary kind and
+    /// ReadyToRun header facts.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_NativeAot_ReportsBinaryKindAndRtr()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal("nativeAot", json.GetProperty("binaryKind").GetString());
+        var aotInfo = json.GetProperty("nativeAotInfo");
+        Assert.True(aotInfo.GetProperty("majorVersion").GetInt32() >= 1);
+        Assert.True(aotInfo.GetProperty("sectionCount").GetInt32() >= 1);
+        Assert.False(json.GetProperty("hasMetadata").GetBoolean());
+    }
+
+    /// <summary>
+    /// get_assembly_info reports a managed assembly's binary kind as managed with
+    /// no Native AOT info attached.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_Managed_ReportsManagedKind()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal("managed", json.GetProperty("binaryKind").GetString());
+        Assert.False(json.TryGetProperty("nativeAotInfo", out _));
+    }
+
+    /// <summary>
     /// A self-contained apphost is reported as bundle-backed with an in-bundle display name.
     /// </summary>
     [Fact(Timeout = 30_000)]
