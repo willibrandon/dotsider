@@ -558,6 +558,71 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.DoesNotContain("aotNodeName", stdout);
     }
 
+    /// <summary>
+    /// Verifies <c>analyze --why</c> prints the root-first dependency chain for a compiled
+    /// method when both sidecars are present.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Why_KnownType_PrintsChain()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        Assert.SkipWhen(fixture.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--why", "Program");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("in the binary? (root first)", stdout);
+        Assert.Contains("1.", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --why --json</c> emits the chain as structured steps.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Why_Json_EmitsChainSteps()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        Assert.SkipWhen(fixture.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--why", "Program", "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        Assert.True(json.GetProperty("chain").GetArrayLength() > 0);
+        Assert.False(string.IsNullOrEmpty(json.GetProperty("target").GetString()));
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --why</c> with an unknown name errors with a clear message.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Why_UnknownName_Errors()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        Assert.SkipWhen(fixture.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--why", "NoSuchThingAnywhere12345");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("no compiled type or method matches", stderr);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --why</c> on a managed assembly explains the sidecar requirement.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Why_ManagedAssembly_Errors()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--why", "Program");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("requires a Native AOT binary", stderr);
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
