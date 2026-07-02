@@ -24,9 +24,14 @@ public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
 
         var frozen = analyzer.FrozenStrings;
 
-        Assert.NotEmpty(frozen);
+        if (!frozen.Any(s => s.Value.Contains("Hello from NativeAOT!", StringComparison.Ordinal)))
+        {
+            var sections = string.Join(", ",
+                analyzer.ReadyToRunSections.Select(s => $"{s.SectionId}:off={s.FileOffset?.ToString() ?? "null"}:sz={s.Size}"));
+            Assert.Fail($"frozen={frozen.Count}; sections=[{sections}]");
+        }
+
         Assert.All(frozen, s => Assert.Equal(StringSource.FrozenObject, s.Source));
-        Assert.Contains(frozen, s => s.Value.Contains("Hello from NativeAOT!", StringComparison.Ordinal));
     }
 
     /// <summary>
