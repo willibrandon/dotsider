@@ -137,6 +137,10 @@ internal static class AnalyzeCommand
                         analyzer = entry;
                         analyzedPath = bundle;
                         break;
+                    case AssemblyOpenResult.NativeAot(var aot):
+                        analyzer = aot;
+                        analyzedPath = filePath;
+                        break;
                     default:
                         analyzer = ((AssemblyOpenResult.Direct)result).Analyzer;
                         analyzedPath = filePath;

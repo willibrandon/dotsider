@@ -701,7 +701,7 @@ internal sealed class DotsiderDiagnosticsListener(
         if (state.IsNetFramework)
             return DotsiderResponse.Fail("Assembly targets .NET Framework; EventPipe requires .NET Core 3.0+");
 
-        if (!state.HasEntryPoint && !state.IsNativeAot)
+        if (!state.HasEntryPoint && !state.IsNativeBinary)
             return DotsiderResponse.Fail("Assembly has no entry point");
 
         if (state.Tracer?.ProcessState == TraceProcessState.Running)
@@ -948,6 +948,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 {
                     case AssemblyOpenResult.Direct(var a):
                         s.PushAssemblyDirect(a);
+                        break;
+                    case AssemblyOpenResult.NativeAot(var aot):
+                        s.PushAssemblyDirect(aot);
                         break;
                     case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                         host.Dispose();

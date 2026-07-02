@@ -28,6 +28,7 @@ public sealed class DotsiderState : IDisposable
         Analyzer = openResult switch
         {
             AssemblyOpenResult.Direct(var a) => a,
+            AssemblyOpenResult.NativeAot(var aot) => aot,
             AssemblyOpenResult.ApphostWithCompanion(var host, _) => host,
             AssemblyOpenResult.BundleEntry(var entry, _) => entry,
             _ => throw new InvalidOperationException($"Unknown open result: {openResult.GetType().Name}")
@@ -639,8 +640,14 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Whether the assembly has a CLR entry point (executable, not library).</summary>
     public bool HasEntryPoint => Analyzer.ClrHeader is { EntryPointToken: > 0 };
 
-    /// <summary>Whether the assembly appears to be NativeAOT (no CLR metadata).</summary>
-    public bool IsNativeAot => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
+    /// <summary>
+    /// Whether the binary is Native AOT compiled .NET — a validated ReadyToRun
+    /// header with no CLR metadata.
+    /// </summary>
+    public bool IsNativeAot => Analyzer.BinaryKind == BinaryKind.NativeAot;
+
+    /// <summary>Whether the binary has no CLR metadata at all (Native AOT or unknown native).</summary>
+    public bool IsNativeBinary => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
 
     /// <summary>
     /// Whether the assembly targets .NET Framework (not .NET Core / .NET 5+). True when the

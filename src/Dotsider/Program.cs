@@ -116,6 +116,9 @@ diffCommand.SetAction(async (parseResult, ct) =>
                 + $"Analyzing entry assembly {entry.FileName} instead.");
             leftAnalyzer = entry;
             break;
+        case AssemblyOpenResult.NativeAot(var aot):
+            leftAnalyzer = aot;
+            break;
         default:
             leftAnalyzer = ((AssemblyOpenResult.Direct)leftResult).Analyzer;
             break;
@@ -137,6 +140,9 @@ diffCommand.SetAction(async (parseResult, ct) =>
                 $"Note: {right.Name} is a single-file bundle. "
                 + $"Analyzing entry assembly {entry.FileName} instead.");
             rightAnalyzer = entry;
+            break;
+        case AssemblyOpenResult.NativeAot(var aot):
+            rightAnalyzer = aot;
             break;
         default:
             rightAnalyzer = ((AssemblyOpenResult.Direct)rightResult).Analyzer;
