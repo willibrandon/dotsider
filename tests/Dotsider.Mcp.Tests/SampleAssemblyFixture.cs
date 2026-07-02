@@ -56,6 +56,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleExe { get; private set; }
 
     /// <summary>
+    /// Path to the ILC size report published next to the NativeAOT sample, or null when the
+    /// publish did not produce one.
+    /// </summary>
+    public string? NativeAotConsoleMstat { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC dependency-graph DGML published next to the NativeAOT sample (codegen
+    /// preferred, scan fallback), or null when the publish did not produce one.
+    /// </summary>
+    public string? NativeAotConsoleDgml { get; private set; }
+
+    /// <summary>
     /// Builds all sample projects once per collection and resolves their output paths.
     /// </summary>
     public async ValueTask InitializeAsync()
@@ -105,6 +117,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         if (!File.Exists(NativeAotConsoleExe))
             NativeAotConsoleExe = null;
+
+        if (NativeAotConsoleExe is not null)
+        {
+            var aotPublishDir = Path.GetDirectoryName(NativeAotConsoleExe)!;
+            var mstat = Path.Combine(aotPublishDir, "NativeAotConsole.mstat");
+            NativeAotConsoleMstat = File.Exists(mstat) ? mstat : null;
+            var codegenDgml = Path.Combine(aotPublishDir, "NativeAotConsole.codegen.dgml.xml");
+            var scanDgml = Path.Combine(aotPublishDir, "NativeAotConsole.scan.dgml.xml");
+            NativeAotConsoleDgml = File.Exists(codegenDgml) ? codegenDgml
+                : File.Exists(scanDgml) ? scanDgml
+                : null;
+        }
     }
 
     /// <summary>
@@ -244,12 +268,16 @@ public class SampleAssemblyFixture : IAsyncLifetime
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        var expectedOutput = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", rid, "publish",
+        var publishDir = Path.Combine(_repoRoot, relativePath,
+            "bin", "Release", "net10.0", rid, "publish");
+        var expectedOutput = Path.Combine(publishDir,
             $"{Path.GetFileName(relativePath)}{apphostExt}");
+        // The mstat sidecar joins the up-to-date check so a publish that predates sidecar
+        // emission republishes once instead of leaving sidecar tests skipping forever.
+        var expectedMstat = Path.Combine(publishDir, $"{Path.GetFileName(relativePath)}.mstat");
 
         // Skip if Dotsider.Tests already published
-        if (File.Exists(expectedOutput))
+        if (File.Exists(expectedOutput) && File.Exists(expectedMstat))
             return;
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
@@ -272,7 +300,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         try
         {
             // Re-check after acquiring lock
-            if (File.Exists(expectedOutput))
+            if (File.Exists(expectedOutput) && File.Exists(expectedMstat))
             {
                 lockFile.Dispose();
                 return;
