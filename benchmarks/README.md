@@ -259,12 +259,18 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 |---|---|---|
 | CoreLib UserStrings | 59.15 μs | 368 KB |
 | CoreLib MetadataStrings | 1.79 ms | 2,878 KB |
-| CoreLib RawStrings | 27.76 ms | 6,490 KB |
+| CoreLib RawStrings | 13.97 ms | 6,457 KB |
 | Xml UserStrings | 62.56 μs | 375 KB |
 | Xml MetadataStrings | 1.02 ms | 1,519 KB |
-| Xml RawStrings | 14.97 ms | 3,962 KB |
-| CoreLib RawUtf16Strings | 26.99 ms | 689 KB |
-| Xml RawUtf16Strings | 15.05 ms | 613 KB |
+| Xml RawStrings | 7.10 ms | 3,956 KB |
+| CoreLib RawUtf16Strings | 4.11 ms | 763 KB |
+| Xml RawUtf16Strings | 2.24 ms | 654 KB |
+
+The raw scans classify 64 bytes (or UTF-16 code units) per step into a printable
+bitmask with `Vector128` compares and walk run boundaries via bit scans, so SIMD cost
+stays fixed per block regardless of how dense printable bytes are. The ASCII scan is
+now bounded by materializing its ~6 MB of result strings, not by scanning; the UTF-16
+scan (one pass per byte parity) is 6.6× faster than the scalar baseline it replaced.
 
 #### SizeAnalyzer
 
