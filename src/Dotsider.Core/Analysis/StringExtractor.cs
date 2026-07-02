@@ -151,4 +151,56 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
 
         return results;
     }
+
+    /// <summary>
+    /// Extracts printable UTF-16LE character sequences from the binary file. Scans for
+    /// runs of little-endian code units in the printable ASCII range (0x20–0x7E stored
+    /// as two bytes), which is how managed string literals freeze in Native AOT images.
+    /// The scan restarts at every byte position, so runs at odd offsets are found too.
+    /// Accepting the full BMP instead would drown the results in noise — most random
+    /// 16-bit values decode to a printable character.
+    /// </summary>
+    /// <param name="minLength">The minimum number of consecutive printable characters to consider a string.</param>
+    /// <returns>A list of string entries extracted from the raw binary.</returns>
+    public IReadOnlyList<StringEntry> ExtractRawUtf16Strings(int minLength = 4)
+    {
+        var bytes = analyzer.RawBytes.Span;
+        var results = new List<StringEntry>();
+        var sb = new StringBuilder();
+        var startOffset = -1;
+
+        for (var i = 0; i + 1 < bytes.Length;)
+        {
+            if (bytes[i] is >= 0x20 and <= 0x7E && bytes[i + 1] == 0)
+            {
+                if (startOffset < 0) startOffset = i;
+                sb.Append((char)bytes[i]);
+                i += 2;
+                continue;
+            }
+
+            if (sb.Length >= minLength)
+            {
+                results.Add(new StringEntry(startOffset, sb.ToString(), StringSource.RawBinaryUtf16));
+            }
+            else if (startOffset >= 0)
+            {
+                // A short run may hide a longer one starting inside it at the
+                // opposite parity; rewind to just past where it began.
+                i = startOffset;
+            }
+
+            sb.Clear();
+            startOffset = -1;
+            i++;
+        }
+
+        // Handle trailing string
+        if (sb.Length >= minLength)
+        {
+            results.Add(new StringEntry(startOffset, sb.ToString(), StringSource.RawBinaryUtf16));
+        }
+
+        return results;
+    }
 }
