@@ -130,7 +130,7 @@ public class MstatReaderTests(SampleAssemblyFixture samples)
     /// Verifies mstat node names appear as DGML labels — the join contract the dependency
     /// graph and why-chains rely on.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public void Read_FixtureMstat_NodeNamesJoinToDgmlLabels()
     {
         Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");

@@ -14,7 +14,7 @@ public class DgmlReaderTests(SampleAssemblyFixture samples)
     /// Verifies the fixture's codegen graph parses with consistent nodes and links: every
     /// indexed link endpoint resolves to a node.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public void Read_FixtureDgml_ParsesNodesAndLinks()
     {
         Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
@@ -36,7 +36,7 @@ public class DgmlReaderTests(SampleAssemblyFixture samples)
     /// Verifies a chain from a real method node reaches a root: the walk ends at a node with
     /// no dependers, starts the returned list with it, and ends the list at the queried node.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public void PathToRoot_KnownMethodLabel_ReachesRoot()
     {
         Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
@@ -66,7 +66,7 @@ public class DgmlReaderTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies an unknown label yields an empty chain rather than throwing.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public void PathToRoot_UnknownLabel_ReturnsEmpty()
     {
         Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
