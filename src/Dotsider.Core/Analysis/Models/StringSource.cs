@@ -24,5 +24,11 @@ public enum StringSource
     /// UTF-16LE printable character sequences extracted directly from the binary.
     /// This is how managed string literals freeze in Native AOT images.
     /// </summary>
-    RawBinaryUtf16
+    RawBinaryUtf16,
+
+    /// <summary>
+    /// A frozen <see cref="string"/> object recovered from a Native AOT binary's frozen
+    /// object region — the AOT counterpart of the #US heap.
+    /// </summary>
+    FrozenObject
 }

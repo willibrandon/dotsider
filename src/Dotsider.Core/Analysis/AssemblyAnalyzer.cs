@@ -44,6 +44,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private NativeAddressSpace? _addressSpace;
     private bool _addressSpaceProbed;
     private IReadOnlyList<RtrSection>? _readyToRunSections;
+    private IReadOnlyList<StringEntry>? _frozenStrings;
+    private IReadOnlyList<RecoveredType>? _recoveredTypes;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -253,6 +255,47 @@ public sealed class AssemblyAnalyzer : IDisposable
                 _readyToRunSections = [];
 
             return _readyToRunSections;
+        }
+    }
+
+    /// <summary>
+    /// Frozen <see cref="string"/> literals recovered from a Native AOT binary's frozen
+    /// object region — the AOT counterpart of the #US heap. Empty when this is not a
+    /// Native AOT binary, or on Linux where the region is filled at startup and has no
+    /// file backing (the raw UTF-16 scan surfaces that text instead).
+    /// </summary>
+    public IReadOnlyList<StringEntry> FrozenStrings
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_frozenStrings is not null) return _frozenStrings;
+
+            _frozenStrings = AddressSpace is { } space && ReadyToRunSections.Count > 0
+                ? FrozenObjectReader.ReadStrings(_rawBytes, ReadyToRunSections, space)
+                : [];
+
+            return _frozenStrings;
+        }
+    }
+
+    /// <summary>
+    /// Types and method names recovered from a Native AOT binary's embedded NativeFormat
+    /// metadata (ReadyToRun section 313, or the reduced stack-trace metadata in 326). Empty
+    /// when this is not a Native AOT binary or the binary carries no readable metadata.
+    /// </summary>
+    public IReadOnlyList<RecoveredType> RecoveredTypes
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_recoveredTypes is not null) return _recoveredTypes;
+
+            _recoveredTypes = ReadyToRunSections.Count > 0
+                ? NativeMetadataReader.ReadTypes(_rawBytes, ReadyToRunSections)
+                : [];
+
+            return _recoveredTypes;
         }
     }
 
