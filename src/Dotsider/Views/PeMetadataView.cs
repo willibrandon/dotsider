@@ -75,6 +75,10 @@ public static class PeMetadataView
                         analyzer.Exports[0].Ordinal,
                     PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
                         GetLoadConfigRows(analyzer.LoadConfig)[0].Field,
+                    PeSubTabId.RtrSections when analyzer.ReadyToRunSections.Count > 0 =>
+                        analyzer.ReadyToRunSections[0].SectionId,
+                    PeSubTabId.AotTypes when analyzer.RecoveredTypes.Count > 0 =>
+                        analyzer.RecoveredTypes[0].FullName,
                     _ => null
                 };
         }
@@ -238,7 +242,11 @@ public static class PeMetadataView
                     tp.Tab("Exports", t => [BuildExportsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Exports),
                     tp.Tab("Load Config", t => [BuildLoadConfigTable(t, state)])
-                        .Selected(state.PeSubTab == PeSubTabId.LoadConfig)
+                        .Selected(state.PeSubTab == PeSubTabId.LoadConfig),
+                    tp.Tab("R2R Sections", t => [BuildRtrSectionsTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.RtrSections),
+                    tp.Tab("AOT Types", t => [BuildAotTypesTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.AotTypes)
                 ])
                 .OnSelectionChanged(e =>
                 {
@@ -817,6 +825,10 @@ public static class PeMetadataView
             PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
                 [.. ApplySearch(GetLoadConfigRows(analyzer.LoadConfig), query,
                     r => $"{r.Field} {r.Value}").Select(r => (object)r.Field)],
+            PeSubTabId.RtrSections => [.. ApplySearch(analyzer.ReadyToRunSections, query,
+                s => $"{s.SectionId} {s.Name}").Select(s => (object)s.SectionId)],
+            PeSubTabId.AotTypes => [.. ApplySearch(analyzer.RecoveredTypes, query,
+                t => t.FullName).Select(t => (object)t.FullName)],
             _ => []
         };
     }
@@ -930,6 +942,84 @@ public static class PeMetadataView
                 state.PeDetailContent = string.Join("\n",
                     "Load Configuration",
                     $"{row.Field}: {row.Value}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<RtrSection> BuildRtrSectionsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.ReadyToRunSections, query, s => $"{s.SectionId} {s.Name}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(s => s.SectionId)
+            .Header(h =>
+            [
+                h.Cell("Id").Width(SizeHint.Fixed(6)),
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Virtual Addr").Width(SizeHint.Fixed(18)),
+                h.Cell("Size").Width(SizeHint.Fixed(12)),
+                h.Cell("File Offset").Width(SizeHint.Fixed(14))
+            ])
+            .Row((r, s, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(s.SectionId.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, s.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.VirtualAddress:X}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize((int)Math.Min(s.Size, int.MaxValue), state)), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, s.FileOffset is { } o ? $"0x{o:X}" : "(in memory)"), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, s) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "ReadyToRun Section",
+                    $"Section Id: {s.SectionId}",
+                    $"Name: {s.Name}",
+                    $"Virtual Address: 0x{s.VirtualAddress:X}",
+                    $"Size: {s.Size} (0x{s.Size:X})",
+                    $"File Offset: {(s.FileOffset is { } o ? $"0x{o:X}" : "(filled at startup)")}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<RecoveredType> BuildAotTypesTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.RecoveredTypes, query, t => t.FullName);
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(t => t.FullName)
+            .Header(h =>
+            [
+                h.Cell("Type").Width(SizeHint.Fill),
+                h.Cell("Methods").Width(SizeHint.Fixed(9))
+            ])
+            .Row((r, t, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c, t.FullName, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.MethodNames.Count.ToString()), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, t) =>
+            {
+                var methods = t.MethodNames.Count > 0
+                    ? string.Join("\n", t.MethodNames.Select(m => $"  {m}"))
+                    : "  (no methods)";
+                state.PeDetailContent = string.Join("\n",
+                    $"Type: {t.FullName}",
+                    $"Methods ({t.MethodNames.Count}):",
+                    methods);
                 state.App.RequestFocus(node => node is EditorNode);
                 state.App.Invalidate();
             })

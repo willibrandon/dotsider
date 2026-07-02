@@ -38,6 +38,12 @@ public static class PeSubTabId
     /// <summary>Load Config sub-tab (load configuration directory; needs no CLR header).</summary>
     public const int LoadConfig = 10;
 
+    /// <summary>R2R Sections sub-tab (Native AOT ReadyToRun section table).</summary>
+    public const int RtrSections = 11;
+
+    /// <summary>AOT Types sub-tab (types and methods recovered from Native AOT metadata).</summary>
+    public const int AotTypes = 12;
+
     /// <summary>Total number of PE/Metadata sub-tabs.</summary>
-    public const int Count = 11;
+    public const int Count = 13;
 }
