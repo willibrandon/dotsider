@@ -41,6 +41,7 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
             var metadata = extractor.ExtractMetadataStrings();
             var raw = extractor.ExtractRawStrings(minLength ?? 4);
             var rawUtf16 = extractor.ExtractRawUtf16Strings(minLength ?? 4);
+            var frozen = analyzer.FrozenStrings;
 
             if (!string.IsNullOrEmpty(query))
             {
@@ -48,6 +49,7 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
                 metadata = [.. metadata.Where(s => s.Value.Contains(query, StringComparison.OrdinalIgnoreCase))];
                 raw = [.. raw.Where(s => s.Value.Contains(query, StringComparison.OrdinalIgnoreCase))];
                 rawUtf16 = [.. rawUtf16.Where(s => s.Value.Contains(query, StringComparison.OrdinalIgnoreCase))];
+                frozen = [.. frozen.Where(s => s.Value.Contains(query, StringComparison.OrdinalIgnoreCase))];
             }
 
             var max = maxResults ?? int.MaxValue;
@@ -56,7 +58,8 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
                 UserStrings = user.Take(max).ToList(),
                 MetadataStrings = metadata.Take(max).ToList(),
                 RawStrings = raw.Take(max).ToList(),
-                RawUtf16Strings = rawUtf16.Take(max).ToList()
+                RawUtf16Strings = rawUtf16.Take(max).ToList(),
+                FrozenStrings = frozen.Take(max).ToList()
             }, DotsiderJsonOptions.Default);
         }
 

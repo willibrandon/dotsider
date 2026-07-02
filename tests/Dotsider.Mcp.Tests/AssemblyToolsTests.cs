@@ -370,4 +370,51 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.Equal("Microsoft.AspNetCore.App", json.GetProperty("preferredRuntimePack").GetString());
     }
+
+    /// <summary>
+    /// get_assembly_info reports Native AOT section, recovered-type, and frozen-string counts.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_NativeAot_ReportsAotCounts()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(json.GetProperty("readyToRunSectionCount").GetInt32() > 0);
+        Assert.True(json.GetProperty("recoveredTypeCount").GetInt32() > 0);
+        Assert.True(json.TryGetProperty("frozenStringCount", out _));
+    }
+
+    /// <summary>
+    /// list_types falls back to the types recovered from a Native AOT binary's metadata.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ListTypes_NativeAot_ReturnsRecoveredTypes()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("list_types",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal(JsonValueKind.Array, json.ValueKind);
+        Assert.True(json.GetArrayLength() > 0);
+        var names = json.EnumerateArray().Select(e => e.GetProperty("fullName").GetString()).ToList();
+        Assert.Contains("Program", names);
+    }
 }
