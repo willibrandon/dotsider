@@ -37,22 +37,23 @@ internal static class FrozenObjectReader
             else if (section.SectionId == ReadyToRunReader.DehydratedData) dehydrated = section;
         }
 
-        // The frozen region is file-backed on Windows and macOS; scan it in place.
+        // A dehydrated data section means the frozen region is filled at startup rather than
+        // stored on disk (ELF, and zero-fill Mach-O layouts); rehydrate it and scan the
+        // result. Its presence is the definitive signal, so it takes precedence.
+        if (dehydrated is { } dehydratedSection && frozenRegion is { } targetRegion)
+        {
+            var rebuilt = DehydratedDataReader.Rehydrate(bytes, dehydratedSection, targetRegion, addressSpace);
+            if (rebuilt is not null)
+                return ScanStrings(rebuilt, regionBase: 0);
+        }
+
+        // Otherwise the region is file-backed (Windows); scan it in place.
         if (frozenRegion is { } frozen && ReadyToRunReader.FileRange(frozen) is { } fileRange)
         {
             var (start, length) = fileRange;
             var end = Math.Min(start + length, bytes.Length);
             if (end > start)
                 return ScanStrings(bytes[start..end], start);
-        }
-
-        // Otherwise the region is filled at startup from the dehydrated data (ELF, and
-        // zero-fill Mach-O layouts); rehydrate it and scan the result.
-        if (dehydrated is { } dehydratedSection && frozenRegion is { } targetRegion)
-        {
-            var rebuilt = DehydratedDataReader.Rehydrate(bytes, dehydratedSection, targetRegion, addressSpace);
-            if (rebuilt is not null)
-                return ScanStrings(rebuilt, regionBase: 0);
         }
 
         return [];
