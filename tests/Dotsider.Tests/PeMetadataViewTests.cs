@@ -887,6 +887,82 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the R2R Sections sub-tab shows the ReadyToRun section table for a Native
+    /// AOT binary on every platform.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_RtrSectionsTab_ShowsSections()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.RtrSections; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("FrozenObjectRegion"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.RtrSections, _state!.PeSubTab);
+        Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the AOT Types sub-tab shows recovered types, and the detail popup lists a
+    /// type's methods.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_AotTypesTab_ShowsTypesAndMethods()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.AotTypes; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.AotTypes, _state!.PeSubTab);
+        Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
+        Assert.Contains("Methods", _state.PeDetailContent!);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()

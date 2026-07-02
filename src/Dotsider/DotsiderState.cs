@@ -477,6 +477,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The min length used for the cached raw UTF-16 strings.</summary>
     public int CachedRawUtf16StringsMinLength { get; set; } = -1;
 
+    /// <summary>Cached frozen string literals from a Native AOT binary, loaded lazily.</summary>
+    public IReadOnlyList<StringEntry>? CachedFrozenStrings { get; set; }
+
     // --- Dependency Graph Tab State ---
 
     /// <summary>Cached dependency graph (nodes + edges) for the current analyzer.</summary>
@@ -1467,6 +1470,7 @@ public sealed class DotsiderState : IDisposable
         CachedMetadataStrings = null;
         CachedRawStrings = null;
         CachedRawUtf16Strings = null;
+        CachedFrozenStrings = null;
         CachedGraph = null;
         GraphNavigation = null;
         GraphBuildInProgress = false;
@@ -1530,6 +1534,7 @@ public sealed class DotsiderState : IDisposable
             StringsSubTabId.Metadata => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
             StringsSubTabId.RawBinary => GetCachedRawStrings(),
             StringsSubTabId.RawBinaryUtf16 => GetCachedRawUtf16Strings(),
+            StringsSubTabId.FrozenObject => CachedFrozenStrings ??= Analyzer.FrozenStrings,
             _ => []
         };
 

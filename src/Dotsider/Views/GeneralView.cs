@@ -95,6 +95,11 @@ public static class GeneralView
             infoLines.Add($"  Runtime Version:  {aot.RuntimeVersion ?? "(not detected)"}");
             infoLines.Add($"  Native Imports:   {imports.Count} modules, "
                 + $"{imports.Sum(m => m.Functions.Count)} functions");
+            infoLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
+            var recoveredTypes = analyzer.RecoveredTypes;
+            infoLines.Add($"  Recovered Types:  {recoveredTypes.Count} types, "
+                + $"{recoveredTypes.Sum(t => t.MethodNames.Count)} methods");
+            infoLines.Add($"  Frozen Strings:   {analyzer.FrozenStrings.Count}");
         }
 
         var infoText = string.Join("\n", infoLines);

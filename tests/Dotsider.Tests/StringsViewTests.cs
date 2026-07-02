@@ -16,7 +16,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp()
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string? assemblyPath = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -28,7 +28,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.Strings
                 };
@@ -372,6 +372,43 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.Equal(5, _state!.StringsMinLength);
         Assert.NotNull(_state.CachedRawUtf16Strings);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the fifth sub-tab (Frozen AOT) renders and becomes active for a Native AOT
+    /// binary. The frozen strings are file-backed on Windows and macOS; on Linux the region
+    /// is filled at startup so the sub-tab is present but empty.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Strings_NativeAot_FrozenSubTab_Renders()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= StringsSubTabId.FrozenObject; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.StringsSourceTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Frozen (AOT)"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(StringsSubTabId.FrozenObject, _state!.StringsSourceTab);
 
         cts.Cancel();
         await runTask;

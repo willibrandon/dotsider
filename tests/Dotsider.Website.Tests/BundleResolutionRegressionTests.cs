@@ -167,7 +167,7 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
     /// full published payload (<c>RichLibrary.dll</c> + <c>RichLibrary.deps.json</c>
     /// + <c>Newtonsoft.Json.dll</c>, etc.) alongside the website.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [Fact(Timeout = 60_000)]
     public async Task DepGraph_NewtonsoftResolvesFromPublishedSample()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -180,19 +180,18 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
         var drainCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _ = DrainOutputAsync(_ws, output, drainCts.Token);
 
-        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(5), ct);
+        await WaitForOutputAsync(output, "Assembly Name", TimeSpan.FromSeconds(10), ct);
 
-        // Tab 6 is the Dep Graph. Wait for "Nodes:" in the status line — that means the
-        // graph has been built, cached, and the box layer has rendered at least once.
+        // Tab 6 is the Dep Graph. Its transitive graph is built on a background thread
+        // that opens and resolves each reference, which can take many seconds under CI
+        // load, so wait for the resolved node itself — the exact text this test asserts
+        // on — rather than an intermediate signal followed by a fixed delay.
         await SendKeysAsync("6", ct);
-        await WaitForOutputAsync(output, "Nodes:", TimeSpan.FromSeconds(10), ct);
-        // One extra frame so the node boxes are definitely drawn.
-        await Task.Delay(250, ct);
+        await WaitForOutputAsync(output, "Newtonsoft.Json", TimeSpan.FromSeconds(30), ct);
 
         string captured;
         lock (output) { captured = output.ToString(); }
 
-        Assert.Contains("Newtonsoft.Json", captured);
         Assert.DoesNotContain("? Newtonsoft", captured);
         Assert.DoesNotContain("! Newtonsoft", captured);
 

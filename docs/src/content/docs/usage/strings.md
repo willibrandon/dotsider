@@ -5,12 +5,13 @@ description: User strings, metadata strings, and raw binary string scanning.
 
 ![Strings tab](../../../assets/screenshots/strings.png)
 
-The **Strings** tab (`4`) extracts text from four sources:
+The **Strings** tab (`4`) extracts text from five sources:
 
 - **User strings** — string literals from the `#US` metadata heap (the strings your code uses directly)
 - **Metadata strings** — type names, method names, namespace names from the `#Strings` heap
 - **Raw scan** — ASCII string extraction from the entire file, similar to the Unix `strings` command
 - **Raw (UTF-16)** — UTF-16 string extraction from the entire file; managed string literals freeze as UTF-16 in Native AOT images, so this sub-tab is where an AOT binary's string constants appear
+- **Frozen (AOT)** — frozen `string` literals recovered from a Native AOT binary's frozen object region, the AOT counterpart of the `#US` heap. On Windows and macOS the region is read from the file; on Linux it is a zero-fill region the runtime rebuilds at startup, so dotsider rehydrates the dehydrated data to recover the same literals
 
 ## Copy strings
 

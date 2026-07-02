@@ -18,7 +18,7 @@ public static class StringsView
     private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
     [ThreadStatic] private static bool s_yankFlash;
     private static readonly string[] SourceTabs =
-        ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary", "Raw (UTF-16)"];
+        ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary", "Raw (UTF-16)", "Frozen (AOT)"];
 
     /// <summary>
     /// Builds the Strings view widget tree.

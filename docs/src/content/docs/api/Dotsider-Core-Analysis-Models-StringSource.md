@@ -18,6 +18,17 @@ public enum StringSource
 
 ## Fields
 
+### FrozenObject
+
+A frozen [String](https://learn.microsoft.com/dotnet/api/system.string) object recovered from a Native AOT binary's frozen
+object region — the AOT counterpart of the #US heap.
+
+**Returns:** [StringSource](/api/dotsider.core.analysis.models.stringsource/)
+
+```csharp
+FrozenObject = 4
+```
+
 ### MetadataStrings
 
 The #Strings metadata heap, containing identifier names used in metadata tables.

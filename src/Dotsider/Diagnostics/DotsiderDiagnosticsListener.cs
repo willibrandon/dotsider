@@ -330,13 +330,30 @@ internal sealed class DotsiderDiagnosticsListener(
             a.SourceLink,
             TypeCount = a.TypeDefs.Count,
             MethodCount = a.MethodDefs.Count,
-            AssemblyRefCount = a.AssemblyRefs.Count
+            AssemblyRefCount = a.AssemblyRefs.Count,
+            ReadyToRunSectionCount = a.ReadyToRunSections.Count,
+            RecoveredTypeCount = a.RecoveredTypes.Count,
+            FrozenStringCount = a.FrozenStrings.Count
         });
     }
 
     private DotsiderResponse HandleListTypes(DotsiderRequest request)
     {
-        var types = RequireAnalyzer().TypeDefs;
+        var analyzer = RequireAnalyzer();
+
+        // A Native AOT binary has no metadata TypeDefs; fall back to recovered types.
+        if (!analyzer.HasMetadata && analyzer.RecoveredTypes.Count > 0)
+        {
+            var recovered = analyzer.RecoveredTypes.AsEnumerable();
+            if (!string.IsNullOrEmpty(request.Query))
+                recovered = recovered.Where(t =>
+                    t.FullName.Contains(request.Query, StringComparison.OrdinalIgnoreCase));
+            if (request.MaxResults is > 0)
+                recovered = recovered.Take(request.MaxResults.Value);
+            return DotsiderResponse.Ok(recovered.ToList());
+        }
+
+        var types = analyzer.TypeDefs;
         if (!string.IsNullOrEmpty(request.Query))
         {
             types = [.. types.Where(t =>
@@ -548,6 +565,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var metadata = extractor.ExtractMetadataStrings();
         var raw = extractor.ExtractRawStrings(minLength);
         var rawUtf16 = extractor.ExtractRawUtf16Strings(minLength);
+        var frozen = state.Analyzer.FrozenStrings;
 
         if (!string.IsNullOrEmpty(request.Query))
         {
@@ -558,6 +576,7 @@ internal sealed class DotsiderDiagnosticsListener(
             metadata = [.. metadata.Where(Match)];
             raw = [.. raw.Where(Match)];
             rawUtf16 = [.. rawUtf16.Where(Match)];
+            frozen = [.. frozen.Where(Match)];
         }
 
         var max = request.MaxResults ?? int.MaxValue;
@@ -566,7 +585,8 @@ internal sealed class DotsiderDiagnosticsListener(
             UserStrings = user.Take(max),
             MetadataStrings = metadata.Take(max),
             RawStrings = raw.Take(max),
-            RawUtf16Strings = rawUtf16.Take(max)
+            RawUtf16Strings = rawUtf16.Take(max),
+            FrozenStrings = frozen.Take(max)
         });
     }
 

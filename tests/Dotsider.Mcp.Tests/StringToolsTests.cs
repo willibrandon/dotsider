@@ -135,4 +135,31 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.True(json.TryGetProperty("rawUtf16Strings", out _));
     }
+
+    /// <summary>
+    /// extract_strings surfaces frozen string literals from a Native AOT binary on every
+    /// platform — from the file-backed region on Windows and macOS, and from the rehydrated
+    /// dehydrated data on Linux.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ExtractStrings_NativeAot_IncludesFrozenStrings()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "extract_strings",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        var frozen = json.GetProperty("frozenStrings");
+        Assert.Equal(JsonValueKind.Array, frozen.ValueKind);
+        Assert.Contains(frozen.EnumerateArray(),
+            e => e.GetProperty("value").GetString()!.Contains("Hello from NativeAOT!"));
+    }
 }

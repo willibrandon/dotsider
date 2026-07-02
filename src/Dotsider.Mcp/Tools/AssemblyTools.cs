@@ -45,7 +45,10 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 analyzer.SourceLink,
                 TypeCount = analyzer.TypeDefs.Count,
                 MethodCount = analyzer.MethodDefs.Count,
-                AssemblyRefCount = analyzer.AssemblyRefs.Count
+                AssemblyRefCount = analyzer.AssemblyRefs.Count,
+                ReadyToRunSectionCount = analyzer.ReadyToRunSections.Count,
+                RecoveredTypeCount = analyzer.RecoveredTypes.Count,
+                FrozenStringCount = analyzer.FrozenStrings.Count
             }, DotsiderJsonOptions.Default);
         }
 
@@ -79,6 +82,19 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
+
+            // A Native AOT binary has no metadata TypeDefs; fall back to the types
+            // recovered from its embedded NativeFormat metadata.
+            if (!analyzer.HasMetadata && analyzer.RecoveredTypes.Count > 0)
+            {
+                var recovered = analyzer.RecoveredTypes.AsEnumerable();
+                if (!string.IsNullOrEmpty(query))
+                    recovered = recovered.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
+                if (maxResults is > 0)
+                    recovered = recovered.Take(maxResults.Value);
+                return JsonSerializer.Serialize(recovered.ToList(), DotsiderJsonOptions.Default);
+            }
+
             var types = analyzer.TypeDefs.AsEnumerable();
             if (!string.IsNullOrEmpty(query))
                 types = types.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));

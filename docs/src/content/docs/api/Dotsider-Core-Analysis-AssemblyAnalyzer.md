@@ -235,6 +235,19 @@ The file size in bytes.
 public long FileSize { get; }
 ```
 
+### FrozenStrings
+
+Frozen [String](https://learn.microsoft.com/dotnet/api/system.string) literals recovered from a Native AOT binary's frozen
+object region — the AOT counterpart of the #US heap. Empty when this is not a
+Native AOT binary, or on Linux where the region is filled at startup and has no
+file backing (the raw UTF-16 scan surfaces that text instead).
+
+**Returns:** [IReadOnlyList\<StringEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<StringEntry> FrozenStrings { get; }
+```
+
 ### HasMetadata
 
 Whether the PE file contains .NET metadata.
@@ -402,6 +415,29 @@ Gets the raw bytes of the file for hex editor display.
 
 ```csharp
 public ReadOnlyMemory<byte> RawBytes { get; }
+```
+
+### ReadyToRunSections
+
+The ReadyToRun section table of a Native AOT binary, or an empty list when this is
+not a Native AOT binary or the table cannot be parsed.
+
+**Returns:** [IReadOnlyList\<RtrSection\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<RtrSection> ReadyToRunSections { get; }
+```
+
+### RecoveredTypes
+
+Types and method names recovered from a Native AOT binary's embedded NativeFormat
+metadata (ReadyToRun section 313, or the reduced stack-trace metadata in 326). Empty
+when this is not a Native AOT binary or the binary carries no readable metadata.
+
+**Returns:** [IReadOnlyList\<RecoveredType\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<RecoveredType> RecoveredTypes { get; }
 ```
 
 ### Resources

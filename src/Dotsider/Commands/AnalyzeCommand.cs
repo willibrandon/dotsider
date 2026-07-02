@@ -235,6 +235,9 @@ internal static class AnalyzeCommand
                 a.TargetFramework, a.Architecture, a.HasMetadata, a.BinaryKind, a.NativeAotInfo,
                 a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
                 a.PdbProvenance, a.SourceLink, a.DebugDirectory,
+                a.ReadyToRunSections,
+                RecoveredTypeCount = a.RecoveredTypes.Count,
+                FrozenStringCount = a.FrozenStrings.Count,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -253,6 +256,10 @@ internal static class AnalyzeCommand
                 fmt.WriteLine($"Runtime:    {aot.RuntimeVersion ?? "(not detected)"}");
                 fmt.WriteLine($"Imports:    {a.Imports.Count} modules, "
                     + $"{a.Imports.Sum(m => m.Functions.Count)} functions");
+                fmt.WriteLine($"R2R:        {a.ReadyToRunSections.Count} sections");
+                fmt.WriteLine($"Recovered:  {a.RecoveredTypes.Count} types, "
+                    + $"{a.RecoveredTypes.Sum(t => t.MethodNames.Count)} methods");
+                fmt.WriteLine($"Frozen:     {a.FrozenStrings.Count} strings");
             }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
@@ -284,6 +291,11 @@ internal static class AnalyzeCommand
 
     private static int PrintTypes(AssemblyAnalyzer a, OutputFormatter fmt)
     {
+        // A Native AOT binary has no metadata TypeDefs; fall back to the types recovered
+        // from its embedded NativeFormat metadata so --types still describes it.
+        if (!a.HasMetadata && a.RecoveredTypes.Count > 0)
+            return PrintRecoveredTypes(a, fmt);
+
         if (fmt.JsonMode)
         {
             fmt.WriteJson(a.TypeDefs);
@@ -299,6 +311,21 @@ internal static class AnalyzeCommand
                 t.BaseType ?? "",
                 t.MethodCount.ToString()
             }));
+
+        return 0;
+    }
+
+    private static int PrintRecoveredTypes(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(a.RecoveredTypes);
+            return 0;
+        }
+
+        fmt.WriteTable(
+            ["Type", "Methods"],
+            a.RecoveredTypes.Select(t => new[] { t.FullName, t.MethodNames.Count.ToString() }));
 
         return 0;
     }
@@ -463,13 +490,14 @@ internal static class AnalyzeCommand
         var scanRaw = !a.HasMetadata;
         IReadOnlyList<StringEntry> raw = scanRaw ? extractor.ExtractRawStrings(minLength) : [];
         IReadOnlyList<StringEntry> rawUtf16 = scanRaw ? extractor.ExtractRawUtf16Strings(minLength) : [];
+        var frozen = a.FrozenStrings;
 
         if (fmt.JsonMode)
         {
             fmt.WriteJson(new
             {
                 UserStrings = user, MetadataStrings = metadata,
-                RawStrings = raw, RawUtf16Strings = rawUtf16
+                RawStrings = raw, RawUtf16Strings = rawUtf16, FrozenStrings = frozen
             });
             return 0;
         }
@@ -501,6 +529,14 @@ internal static class AnalyzeCommand
         {
             fmt.WriteLine($"Raw Strings (UTF-16) ({rawUtf16.Count}):");
             foreach (var s in rawUtf16)
+                fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
+            fmt.WriteLine("");
+        }
+
+        if (frozen.Count > 0)
+        {
+            fmt.WriteLine($"Frozen Strings (AOT) ({frozen.Count}):");
+            foreach (var s in frozen)
                 fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
         }
 
