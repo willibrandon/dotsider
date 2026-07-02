@@ -76,6 +76,37 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Waits until the dep-graph vertical <see cref="Hex1b.Nodes.ScrollbarNode"/> has settled and
+    /// returns its track geometry as the rightmost column, top row, and height. Reads the live
+    /// focus ring, which the render thread rebuilds each frame; a concurrent rebuild surfaces as
+    /// <see cref="InvalidOperationException"/> mid-enumeration and is treated as "not settled yet"
+    /// so the poll retries. Deriving the click target from the real bounds keeps the track tests
+    /// independent of the exact graph layout, which varies with content.
+    /// </summary>
+    /// <param name="auto">The automator whose default timeout bounds the wait.</param>
+    /// <returns>The scrollbar column, the track's top row, and the track height in rows.</returns>
+    private async Task<(int Column, int TrackTop, int TrackHeight)> WaitForScrollbarTrackAsync(
+        Hex1bTerminalAutomator auto)
+    {
+        var column = -1;
+        var trackTop = -1;
+        var trackHeight = 0;
+        await auto.WaitUntilAsync(_ =>
+        {
+            Hex1b.Nodes.ScrollbarNode? scrollbar;
+            try { scrollbar = _hex1bApp!.Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault(); }
+            catch (InvalidOperationException) { return false; }
+            if (scrollbar is null || scrollbar.Bounds.Height <= 0) return false;
+            var bounds = scrollbar.Bounds;
+            column = bounds.X + bounds.Width - 1;
+            trackTop = bounds.Y;
+            trackHeight = bounds.Height;
+            return true;
+        }, description: "dep-graph scrollbar track to settle");
+        return (column, trackTop, trackHeight);
+    }
+
+    /// <summary>
     /// Verifies app launches shows assembly name.
     /// </summary>
     [Fact(Timeout = 30_000)]
@@ -1354,10 +1385,20 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.True(max >= viewport - 1, "viewport must allow at least one page step");
         Assert.Equal(0, _state.DepGraphScrollY);
 
-        // Click near the bottom of the rightmost column — likely below the thumb when the
-        // thumb is at the top.
+        // Derive the click target from the live scrollbar bounds rather than a fixed cell: the
+        // graph layout — and therefore the track's position and length — varies with content.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var (sbCol, trackTop, trackHeight) = await WaitForScrollbarTrackAsync(auto);
+
+        // With the offset at 0 the thumb is anchored at the track top, and because the content
+        // exceeds the viewport the thumb is shorter than the track — so the bottom track row is
+        // always below the thumb. A click there pages forward by exactly viewportSize - 1.
+        await auto.WaitUntilAsync(s => s.GetCell(sbCol, trackTop).Character == "▉",
+            description: "scrollbar thumb to paint at the track top");
+        var trackBottom = trackTop + trackHeight - 1;
+
         await new Hex1bTerminalInputSequenceBuilder()
-            .MouseMoveTo(119, 25)
+            .MouseMoveTo(sbCol, trackBottom)
             .Click()
             .WaitUntil(_ => _state.DepGraphScrollY > 0, TimeSpan.FromSeconds(5))
             .Build()
@@ -1391,9 +1432,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         Assert.Equal(0, _state!.DepGraphScrollY);
 
-        var sbCol = 119;
+        // Grab the thumb at its real position (the track top at offset 0) and drag down within the
+        // track, rather than assuming fixed rows: any downward movement maps to a positive offset.
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+        var (sbCol, trackTop, trackHeight) = await WaitForScrollbarTrackAsync(auto);
+        await auto.WaitUntilAsync(s => s.GetCell(sbCol, trackTop).Character == "▉",
+            description: "scrollbar thumb to paint at the track top");
+
         await new Hex1bTerminalInputSequenceBuilder()
-            .Drag(sbCol, 6, sbCol, 18)
+            .Drag(sbCol, trackTop, sbCol, trackTop + trackHeight - 1)
             .WaitUntil(_ => _state.DepGraphScrollY > 0, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, cts.Token);

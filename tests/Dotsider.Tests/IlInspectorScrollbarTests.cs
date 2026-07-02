@@ -106,8 +106,21 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
     }
 
+    /// <summary>
+    /// Copies the focus ring to an array, treating the transient
+    /// <see cref="InvalidOperationException"/> a concurrent render-thread rebuild can raise
+    /// mid-enumeration as an empty result. Hex1b rebuilds the ring (a plain list) after every
+    /// frame, so a read from the test poll thread must tolerate that race and retry rather than
+    /// fault the test.
+    /// </summary>
+    private static Hex1bNode[] SnapshotFocusables(Hex1bApp app)
+    {
+        try { return [.. app.Focusables]; }
+        catch (InvalidOperationException) { return []; }
+    }
+
     private static ScrollPanelNode? FindPanel(Hex1bApp app)
-        => app.Focusables.OfType<ScrollPanelNode>().FirstOrDefault();
+        => SnapshotFocusables(app).OfType<ScrollPanelNode>().FirstOrDefault();
 
     private static async Task<ScrollPanelNode> WaitForPanelAsync(
         Hex1bTerminalAutomator auto, Hex1bApp app)
@@ -120,9 +133,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         ScrollPanelNode? captured = null;
         await auto.WaitUntilAsync(_ =>
         {
-            var current = FindPanel(app);
+            // Read the panel and the focused node from one snapshot so a rebuild between the two
+            // reads cannot yield an inconsistent pair.
+            var focusables = SnapshotFocusables(app);
+            var current = focusables.OfType<ScrollPanelNode>().FirstOrDefault();
             if (current is null || current.ViewportSize <= 0) return false;
-            if (app.FocusedNode is not ScrollPanelNode focused
+            if (focusables.FirstOrDefault(n => n.IsFocused) is not ScrollPanelNode focused
                 || !ReferenceEquals(focused, current)) return false;
             captured = current;
             return true;
@@ -176,7 +192,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         state.App.Invalidate();
         await auto.WaitUntilAsync(_ =>
         {
-            var sp = app.Focusables.OfType<ScrollPanelNode>().FirstOrDefault();
+            var sp = FindPanel(app);
             return sp is { ViewportSize: > 0 } && sp.ContentSize == rows.Count;
         }, description: "panel ContentSize agrees with current rows.Count");
     }
@@ -733,7 +749,16 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await WaitForPanelAsync(auto, app);
 
-        var count = app.Focusables.OfType<ScrollPanelNode>().Count();
+        // Snapshot the ring without racing the render thread's per-frame rebuild (an empty
+        // snapshot means the rebuild is in flight — poll again), then assert the panel is unique.
+        var count = 0;
+        await auto.WaitUntilAsync(_ =>
+        {
+            var focusables = SnapshotFocusables(app);
+            if (focusables.Length == 0) return false;
+            count = focusables.OfType<ScrollPanelNode>().Count();
+            return true;
+        }, description: "focus ring observed without a concurrent rebuild");
         Assert.Equal(1, count);
 
         _cts!.Cancel();
