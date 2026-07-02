@@ -6,17 +6,16 @@ namespace Dotsider.Core.Analysis;
 
 /// <summary>
 /// Recovers frozen <see cref="string"/> literals from a Native AOT binary's frozen object
-/// region (ReadyToRun section 206). The region is a sequence of GC objects, each laid out
-/// as a zero sync block, a MethodTable pointer, and the instance fields. Objects are sized
-/// by reading their MethodTable, so the walk steps over non-string objects to reach every
-/// string. On Linux the region is a NOBITS segment the runtime fills at startup, so it has
-/// no file backing and yields nothing here; the raw UTF-16 scan surfaces that text instead.
+/// region (ReadyToRun section 206). Each frozen string is a self-describing object — a
+/// 32-bit length followed by that many UTF-16 code units and a null terminator — so the
+/// region is scanned for that shape rather than walked by object pointers, which sidesteps
+/// the platform-specific MethodTable pointer encodings. On Windows and macOS the region is
+/// file-backed and scanned in place; on Linux (and zero-fill Mach-O layouts) it is filled
+/// at startup from the dehydrated data, which is rehydrated first.
 /// </summary>
 internal static class FrozenObjectReader
 {
-    private const uint HasComponentSizeFlag = 0x8000_0000;
     private const int MaxStringLength = 1 << 20;
-    private const int MaxObjects = 1 << 22;
 
     /// <summary>
     /// Reads the frozen string literals from the frozen object region.
@@ -30,107 +29,84 @@ internal static class FrozenObjectReader
         IReadOnlyList<RtrSection> sections,
         NativeAddressSpace addressSpace)
     {
-        RtrSection? region = null;
+        RtrSection? frozenRegion = null;
+        RtrSection? dehydrated = null;
         foreach (var section in sections)
         {
-            if (section.SectionId == ReadyToRunReader.FrozenObjectRegion)
-            {
-                region = section;
-                break;
-            }
+            if (section.SectionId == ReadyToRunReader.FrozenObjectRegion) frozenRegion = section;
+            else if (section.SectionId == ReadyToRunReader.DehydratedData) dehydrated = section;
         }
 
-        if (region is not { } frozen || ReadyToRunReader.FileRange(frozen) is not var (start, length))
-            return [];
-
-        var pointerSize = addressSpace.PointerSize;
-        var stringBaseSize = (uint)(2 * pointerSize + 6); // sync + MethodTable + length + null char
-        var end = Math.Min(start + length, bytes.Length);
-
-        var results = new List<StringEntry>();
-        var eeTypes = new Dictionary<ulong, (uint BaseSize, int ComponentSize)>();
-
-        var pos = start;
-        for (var guard = 0; guard < MaxObjects; guard++)
+        // The frozen region is file-backed on Windows and macOS; scan it in place.
+        if (frozenRegion is { } frozen && ReadyToRunReader.FileRange(frozen) is { } fileRange)
         {
-            pos = Align(pos, pointerSize);
-            if (pos + 2 * pointerSize > end) break;
+            var (start, length) = fileRange;
+            var end = Math.Min(start + length, bytes.Length);
+            if (end > start)
+                return ScanStrings(bytes[start..end], start);
+        }
 
-            // [sync block][MethodTable*]; the object reference points at the MethodTable.
-            var methodTable = ReadPointer(bytes, pos + pointerSize, pointerSize);
-            if (methodTable == 0) break; // aligned null terminator ends the region
+        // Otherwise the region is filled at startup from the dehydrated data (ELF, and
+        // zero-fill Mach-O layouts); rehydrate it and scan the result.
+        if (dehydrated is { } dehydratedSection && frozenRegion is { } targetRegion)
+        {
+            var rebuilt = DehydratedDataReader.Rehydrate(bytes, dehydratedSection, targetRegion, addressSpace);
+            if (rebuilt is not null)
+                return ScanStrings(rebuilt, regionBase: 0);
+        }
 
-            if (!TryGetEEType(bytes, addressSpace, eeTypes, methodTable, out var baseSize, out var componentSize))
-                break;
+        return [];
+    }
 
-            var numComponents = 0;
-            if (componentSize != 0)
+    /// <summary>
+    /// Scans a frozen object region for length-prefixed UTF-16 string literals: a 32-bit
+    /// length, that many code units, and a null terminator. Offsets are reported relative to
+    /// <paramref name="regionBase"/>.
+    /// </summary>
+    private static List<StringEntry> ScanStrings(ReadOnlySpan<byte> region, int regionBase)
+    {
+        var results = new List<StringEntry>();
+        var pos = 0;
+        while (pos + 6 <= region.Length)
+        {
+            var length = BinaryPrimitives.ReadInt32LittleEndian(region[pos..]);
+            if (length is < 1 or > MaxStringLength)
             {
-                var lengthOffset = pos + 2 * pointerSize;
-                if (lengthOffset + 4 > end) break;
-                numComponents = BinaryPrimitives.ReadInt32LittleEndian(bytes[lengthOffset..]);
-                if (numComponents is < 0 or > MaxStringLength) break;
+                pos += 1;
+                continue;
             }
 
-            var objectSize = (long)baseSize + (long)numComponents * componentSize;
-            objectSize = Math.Max(objectSize, 3 * pointerSize);
-            objectSize = Align((int)objectSize, pointerSize);
-            if (objectSize <= 0) break;
-
-            // A frozen string: HasComponentSize with component size 2 and the String base size.
-            if (componentSize == 2 && baseSize == stringBaseSize && numComponents > 0)
+            var charsStart = pos + 4;
+            var terminator = charsStart + length * 2;
+            if (terminator + 2 > region.Length
+                || BinaryPrimitives.ReadUInt16LittleEndian(region[terminator..]) != 0
+                || !IsFrozenString(region.Slice(charsStart, length * 2)))
             {
-                var charsOffset = pos + 2 * pointerSize + 4;
-                var byteCount = numComponents * 2;
-                if (charsOffset + byteCount <= end)
-                {
-                    var value = Encoding.Unicode.GetString(bytes.Slice(charsOffset, byteCount));
-                    results.Add(new StringEntry(pos, value, StringSource.FrozenObject));
-                }
+                pos += 1;
+                continue;
             }
 
-            pos += (int)objectSize;
+            var value = Encoding.Unicode.GetString(region.Slice(charsStart, length * 2));
+            results.Add(new StringEntry(regionBase + charsStart, value, StringSource.FrozenObject));
+            pos = terminator + 2;
         }
 
         return results;
     }
 
-    private static bool TryGetEEType(
-        ReadOnlySpan<byte> bytes,
-        NativeAddressSpace addressSpace,
-        Dictionary<ulong, (uint BaseSize, int ComponentSize)> cache,
-        ulong methodTable,
-        out uint baseSize,
-        out int componentSize)
+    /// <summary>
+    /// Returns true when the code units look like a real string literal: every unit is
+    /// printable or common whitespace, none is a NUL.
+    /// </summary>
+    private static bool IsFrozenString(ReadOnlySpan<byte> chars)
     {
-        if (cache.TryGetValue(methodTable, out var cached))
+        for (var i = 0; i + 1 < chars.Length; i += 2)
         {
-            baseSize = cached.BaseSize;
-            componentSize = cached.ComponentSize;
-            return true;
+            var c = (char)(chars[i] | (chars[i + 1] << 8));
+            if (c == '\0') return false;
+            if (c < 0x20 && c is not ('\t' or '\n' or '\r')) return false;
         }
 
-        baseSize = 0;
-        componentSize = 0;
-        if (!addressSpace.TryGetFileOffset(methodTable, out var offset, out var available) || available < 8)
-            return false;
-
-        var flags = BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]);
-        baseSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 4)..]);
-        componentSize = (flags & HasComponentSizeFlag) != 0 ? (int)(flags & 0xFFFF) : 0;
-
-        // A frozen object's base size never approaches the address range; reject nonsense
-        // so a stray pointer does not drive a huge bogus step.
-        if (baseSize is 0 or > (1 << 24)) return false;
-
-        cache[methodTable] = (baseSize, componentSize);
         return true;
     }
-
-    private static ulong ReadPointer(ReadOnlySpan<byte> bytes, int offset, int pointerSize) =>
-        pointerSize == 8
-            ? BinaryPrimitives.ReadUInt64LittleEndian(bytes[offset..])
-            : BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]);
-
-    private static int Align(int value, int alignment) => (value + alignment - 1) & ~(alignment - 1);
 }

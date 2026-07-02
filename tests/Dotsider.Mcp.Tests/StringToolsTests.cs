@@ -137,8 +137,9 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
     }
 
     /// <summary>
-    /// extract_strings surfaces frozen string literals from a Native AOT binary. The
-    /// region is filled at startup on Linux, so it is present but empty there.
+    /// extract_strings surfaces frozen string literals from a Native AOT binary on every
+    /// platform — from the file-backed region on Windows and macOS, and from the rehydrated
+    /// dehydrated data on Linux.
     /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task ExtractStrings_NativeAot_IncludesFrozenStrings()
@@ -158,12 +159,7 @@ public class StringToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         var frozen = json.GetProperty("frozenStrings");
         Assert.Equal(JsonValueKind.Array, frozen.ValueKind);
-
-        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-                System.Runtime.InteropServices.OSPlatform.Linux))
-        {
-            Assert.Contains(frozen.EnumerateArray(),
-                e => e.GetProperty("value").GetString()!.Contains("Hello from NativeAOT!"));
-        }
+        Assert.Contains(frozen.EnumerateArray(),
+            e => e.GetProperty("value").GetString()!.Contains("Hello from NativeAOT!"));
     }
 }

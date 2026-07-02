@@ -55,15 +55,17 @@ internal static class ReadyToRunReader
             long size;
             if (hasEndField)
             {
-                start = ReadPointer(bytes, row + 8, pointerSize);
-                var end = ReadPointer(bytes, row + 8 + pointerSize, pointerSize);
+                // Start/End are absolute virtual addresses, or chained-fixup pointers on
+                // Mach-O; resolve both to canonical addresses before differencing.
+                start = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8, pointerSize));
+                var end = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8 + pointerSize, pointerSize));
                 // TypeManagerIndirection (204) records End = 0; its size is not expressed here.
                 size = end > start ? (long)(end - start) : 0;
             }
             else
             {
                 size = BinaryPrimitives.ReadInt32LittleEndian(bytes[(row + 4)..]);
-                start = ReadPointer(bytes, row + 8, pointerSize);
+                start = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8, pointerSize));
             }
 
             int? fileOffset = addressSpace.TryGetFileOffset(start, out var offset, out _)

@@ -57,11 +57,12 @@ public class ReadyToRunReaderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
-    /// Verifies the frozen object region is file-backed on Windows and macOS. On Linux it
-    /// is a NOBITS region the runtime fills at startup, so it has no file backing.
+    /// Verifies the frozen object region is present, and that its file backing matches the
+    /// platform: file-backed on Windows, a NOBITS region the runtime fills at startup on
+    /// Linux (paired with a dehydrated data section that rebuilds it).
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void ReadyToRunSections_FrozenRegion_FileBackedExceptOnLinux()
+    public void ReadyToRunSections_FrozenRegion_FileBackingMatchesPlatform()
     {
         Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
@@ -69,10 +70,15 @@ public class ReadyToRunReaderTests(SampleAssemblyFixture samples)
 
         var frozen = Assert.Single(analyzer.ReadyToRunSections, s => s.SectionId == 206);
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            Assert.Null(frozen.FileOffset);
-        else
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
             Assert.NotNull(frozen.FileOffset);
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            Assert.Null(frozen.FileOffset);
+            Assert.Contains(analyzer.ReadyToRunSections, s => s.SectionId == 207); // DehydratedData
+        }
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 
@@ -13,8 +12,8 @@ public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
 {
     /// <summary>
     /// Verifies frozen strings are recovered from the sample and include the literal it
-    /// prints. On Linux the region is filled at startup and has no file backing, so the
-    /// walk yields nothing there.
+    /// prints. On Windows and macOS the region is file-backed; on Linux it is rebuilt from
+    /// the dehydrated data — either way the literals are recovered.
     /// </summary>
     [Fact(Timeout = 30_000)]
     public void FrozenStrings_NativeAotExe_RecoversLiterals()
@@ -24,12 +23,6 @@ public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
         using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
 
         var frozen = analyzer.FrozenStrings;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            Assert.Empty(frozen);
-            return;
-        }
 
         Assert.NotEmpty(frozen);
         Assert.All(frozen, s => Assert.Equal(StringSource.FrozenObject, s.Source));
@@ -43,8 +36,6 @@ public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
     public void FrozenStrings_NativeAotExe_HaveValidOffsets()
     {
         Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        Assert.SkipWhen(RuntimeInformation.IsOSPlatform(OSPlatform.Linux),
-            "the frozen object region is filled at startup on Linux");
 
         var size = new FileInfo(samples.NativeAotConsoleExe!).Length;
         using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
