@@ -172,6 +172,32 @@ Gets the PE debug directory entries.
 public IReadOnlyList<DebugDirectoryInfo> DebugDirectory { get; }
 ```
 
+### Dgml
+
+The ILC dependency graph found next to a Native AOT binary, or null when this is not
+a Native AOT binary or no readable DGML sidecar sits beside it. Graphs run to
+hundreds of thousands of links, so touch this only when a dependency question is
+actually being asked. The value is assigned before the probed flag, so a rare
+concurrent first read costs at most a second parse of immutable data.
+
+**Returns:** [DgmlGraph](/api/dotsider.core.analysis.models.dgmlgraph/)
+
+```csharp
+public DgmlGraph? Dgml { get; }
+```
+
+### DgmlPath
+
+The path of the DGML sidecar next to a Native AOT binary — the codegen graph when
+present (its node names match the mstat's exactly), else the scan graph — or null
+when this is not a Native AOT binary or neither file is present.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? DgmlPath { get; }
+```
+
 ### DisplayName
 
 Logical display name for the analyzed artifact. For bundle-backed analyzers this is
@@ -349,6 +375,30 @@ Gets the MethodDef metadata table entries.
 
 ```csharp
 public IReadOnlyList<MethodDefInfo> MethodDefs { get; }
+```
+
+### Mstat
+
+The ILC size report found next to a Native AOT binary, or null when this is not a
+Native AOT binary or no readable `.mstat` sidecar sits beside it. The value is
+assigned before the probed flag, so a rare concurrent first read costs at most a
+second parse of immutable data.
+
+**Returns:** [MstatData](/api/dotsider.core.analysis.models.mstatdata/)
+
+```csharp
+public MstatData? Mstat { get; }
+```
+
+### MstatPath
+
+The path of the `.mstat` sidecar next to a Native AOT binary, or null when this
+is not a Native AOT binary or the file is absent.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? MstatPath { get; }
 ```
 
 ### NativeAotInfo

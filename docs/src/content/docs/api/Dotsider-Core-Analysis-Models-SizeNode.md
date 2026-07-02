@@ -1,6 +1,6 @@
 ---
 title: "SizeNode"
-description: "A node in the size treemap hierarchy. Can be assembly, namespace, type, or method."
+description: "A node in the size treemap hierarchy. Can be assembly, namespace, type, or method — or, for Native AOT trees, a data category and its entries."
 slug: api/dotsider.core.analysis.models.sizenode
 sidebar:
   order: 1
@@ -10,7 +10,8 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-A node in the size treemap hierarchy. Can be assembly, namespace, type, or method.
+A node in the size treemap hierarchy. Can be assembly, namespace, type, or method — or,
+for Native AOT trees, a data category and its entries.
 
 ```csharp
 public sealed record SizeNode : IEquatable<SizeNode>
@@ -26,9 +27,10 @@ public sealed record SizeNode : IEquatable<SizeNode>
 
 ## Constructors
 
-### SizeNode(string, string, long, SizeNodeKind, IReadOnlyList\<SizeNode\>)
+### SizeNode(string, string, long, SizeNodeKind, IReadOnlyList\<SizeNode\>, string?)
 
-A node in the size treemap hierarchy. Can be assembly, namespace, type, or method.
+A node in the size treemap hierarchy. Can be assembly, namespace, type, or method — or,
+for Native AOT trees, a data category and its entries.
 
 **Parameters:**
 
@@ -37,12 +39,27 @@ A node in the size treemap hierarchy. Can be assembly, namespace, type, or metho
 - `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Size in bytes attributed to this node.
 - `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)): The granularity level of this node.
 - `Children` ([IReadOnlyList\<SizeNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Child nodes in the hierarchy.
+- `AotNodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The ILC dependency-graph node name behind this entry, or null outside Native AOT trees.
+The name matches a DGML node label, which is what makes "why is this in my binary"
+answerable for the node.
 
 ```csharp
-public SizeNode(string Name, string FullPath, long Size, SizeNodeKind Kind, IReadOnlyList<SizeNode> Children)
+public SizeNode(string Name, string FullPath, long Size, SizeNodeKind Kind, IReadOnlyList<SizeNode> Children, string? AotNodeName = null)
 ```
 
 ## Properties
+
+### AotNodeName
+
+The ILC dependency-graph node name behind this entry, or null outside Native AOT trees.
+The name matches a DGML node label, which is what makes "why is this in my binary"
+answerable for the node.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? AotNodeName { get; init; }
+```
 
 ### Children
 

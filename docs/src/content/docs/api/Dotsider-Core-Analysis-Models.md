@@ -194,6 +194,44 @@ metadata consumed by the TUI ([NavigationById](/api/dotsider.core.analysis.model
 public sealed record DependencyGraphResult : IEquatable<DependencyGraphResult>
 ```
 
+### [DgmlGraph](/api/dotsider.core.analysis.models.dgmlgraph/)
+
+An ILC dependency graph read from a DGML file, with the reverse index needed to answer
+"why is this in my binary": a breadth-first walk from any node toward its dependers ends
+at a root — a node nothing depends on — and the chain back down is the explanation.
+
+```csharp
+public sealed class DgmlGraph
+```
+
+### [DgmlLink](/api/dotsider.core.analysis.models.dgmllink/)
+
+One edge of an ILC dependency graph: the source node depends on the target node, so the
+target is in the binary because the source needed it.
+
+```csharp
+public sealed record DgmlLink : IEquatable<DgmlLink>
+```
+
+### [DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/)
+
+One node of an ILC dependency graph. The label is the compiler's node name — the same
+string an mstat size entry stores as its `NodeName`, which is how the two files join.
+
+```csharp
+public sealed record DgmlNode : IEquatable<DgmlNode>
+```
+
+### [DgmlPathStep](/api/dotsider.core.analysis.models.dgmlpathstep/)
+
+One step of a root-to-node dependency chain — the answer to "why is this in my binary,"
+read top-down: the root kept the second step, which kept the third, and so on to the node
+that was asked about.
+
+```csharp
+public sealed record DgmlPathStep : IEquatable<DgmlPathStep>
+```
+
 ### [DiffEntry\<T\>](/api/dotsider.core.analysis.models.diffentry-1/)
 
 A single diff entry wrapping an item from either side.
@@ -424,6 +462,86 @@ Information about a method defined in the assembly's MethodDef metadata table.
 public sealed record MethodDefInfo : IEquatable<MethodDefInfo>
 ```
 
+### [MstatBlob](/api/dotsider.core.analysis.models.mstatblob/)
+
+One named global data region from an ILC size report — embedded metadata, hydration
+tables, dispatch maps, and the like. Blob names come from the compiler's node type names
+(for example `Metadata` or `InterfaceDispatchMap`), with same-named regions
+summed into one entry.
+
+```csharp
+public sealed record MstatBlob : IEquatable<MstatBlob>
+```
+
+### [MstatData](/api/dotsider.core.analysis.models.mstatdata/)
+
+The contents of an ILC size report (`.mstat`), produced by publishing a Native AOT
+project with `IlcGenerateMstatFile`. The file is itself a valid ECMA-335 assembly whose
+assembly version carries the format version and whose data lives in IL streams; this record
+is the decoded result. Sections absent from older format versions are empty lists.
+
+```csharp
+public sealed record MstatData : IEquatable<MstatData>
+```
+
+### [MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/)
+
+One method-body fold from an ILC size report (format 2.2+): the compiler emitted a single
+body and pointed these identical methods at it, so only the original contributes size.
+
+```csharp
+public sealed record MstatDeduplicatedMethod : IEquatable<MstatDeduplicatedMethod>
+```
+
+### [MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/)
+
+One frozen object from an ILC size report (format 2.1+) — an object allocated at compile
+time and baked into the image, most commonly a string literal. For back-compat these bytes
+are also summed into the `ArrayOfFrozenObjects` blob entry.
+
+```csharp
+public sealed record MstatFrozenObject : IEquatable<MstatFrozenObject>
+```
+
+### [MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/)
+
+One embedded manifest resource from an ILC size report (format 2.1+). For back-compat
+these bytes are also summed into the `ResourceData` blob entry.
+
+```csharp
+public sealed record MstatManifestResource : IEquatable<MstatManifestResource>
+```
+
+### [MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/)
+
+One compiled method body from an ILC size report. Sizes are bytes of native artifact, not
+IL: ILC compiles each body once, so the sum over all methods is the code contribution to
+the binary.
+
+```csharp
+public sealed record MstatMethod : IEquatable<MstatMethod>
+```
+
+### [MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/)
+
+One field-RVA data entry from an ILC size report (format 2.1+) — the initial data of a
+field mapped directly into the image, typically compiler-generated arrays behind
+collection expressions and `ReadOnlySpan` literals. For back-compat these bytes are
+also summed into the `FieldRvaData` blob entry.
+
+```csharp
+public sealed record MstatRvaField : IEquatable<MstatRvaField>
+```
+
+### [MstatType](/api/dotsider.core.analysis.models.mstattype/)
+
+One constructed type from an ILC size report. The size is the type's MethodTable data —
+the runtime type structure — not the code of its methods, which is reported per method.
+
+```csharp
+public sealed record MstatType : IEquatable<MstatType>
+```
+
 ### [NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/)
 
 Facts extracted from the embedded ReadyToRun header of a Native AOT binary.
@@ -559,7 +677,8 @@ public sealed record SequencePointInfo : IEquatable<SequencePointInfo>
 
 ### [SizeNode](/api/dotsider.core.analysis.models.sizenode/)
 
-A node in the size treemap hierarchy. Can be assembly, namespace, type, or method.
+A node in the size treemap hierarchy. Can be assembly, namespace, type, or method — or,
+for Native AOT trees, a data category and its entries.
 
 ```csharp
 public sealed record SizeNode : IEquatable<SizeNode>
@@ -655,6 +774,15 @@ Describes the kind of difference detected between two assembly elements.
 public enum DiffKind
 ```
 
+### [GraphNodeKind](/api/dotsider.core.analysis.models.graphnodekind/)
+
+What a dependency-graph node represents. Managed graphs contain only assemblies; the
+Native AOT graph adds the binary's native import modules.
+
+```csharp
+public enum GraphNodeKind
+```
+
 ### [MemberRefKind](/api/dotsider.core.analysis.models.memberrefkind/)
 
 Distinguishes whether a MemberRef entry refers to a method or a field.
@@ -708,7 +836,8 @@ public enum PolicyLayer
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)
 
-The granularity level of a [SizeNode](/api/dotsider.core.analysis.models.sizenode/) in the size breakdown tree.
+The granularity level of a [SizeNode](/api/dotsider.core.analysis.models.sizenode/) in the size breakdown tree. The kinds
+beyond [Method](/api/dotsider.core.analysis.models.sizenodekind.method/) appear only in Native AOT trees built from an mstat report.
 
 ```csharp
 public enum SizeNodeKind

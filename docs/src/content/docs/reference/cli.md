@@ -44,11 +44,14 @@ dotsider analyze MyLib.dll --types -o out.txt # write to file
 dotsider analyze MyApp.exe                    # apphost .exe → auto-redirects to MyApp.dll
 dotsider analyze MyApp                        # single-file bundle → extracts entry assembly
 dotsider analyze MyAotApp.exe                 # Native AOT → binary kind, RTR format, imports
+dotsider analyze MyAotApp.exe --why System.Text.Json.JsonSerializer  # AOT dependency chain
 ```
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
 
 If the file is a Native AOT executable (a validated ReadyToRun header with no CLR metadata), the default output adds `Kind`, `RTR Format`, `Runtime`, `Imports`, `R2R`, `Recovered`, and `Frozen` lines, and JSON output gains `binaryKind`, `nativeAotInfo`, `readyToRunSections`, `recoveredTypeCount`, and `frozenStringCount`. `--types` falls back to the types recovered from the embedded metadata, `--strings` adds the raw ASCII and UTF-16 scans plus the frozen string literals, since AOT binaries have no metadata string heaps.
+
+With the ILC sidecars next to the binary (publish with `IlcGenerateMstatFile` and `IlcGenerateDgmlFile`, then copy the `.mstat` and `.codegen.dgml.xml` out of `obj/.../native/`), `--size` prints the compiler's own per-assembly breakdown with the binary's data categories, `--deps` shows the compiled-in assemblies and native import modules, and `--why <name>` prints the dependency chain that kept a type or method in the binary — root first, one step per line with the compiler's reason. Names match exactly first, then by unambiguous substring.
 
 When portable PDB data is available, default output reports where it came from, and `--il` includes source spans, local names, and Source Link markers. Use `--json` when you need the exact URLs. `--embedded-source` prints source embedded in the PDB.
 
@@ -63,6 +66,7 @@ When portable PDB data is available, default output reports where it came from, 
 | `-n`, `--min-len <n>` | Minimum length for raw string extraction (default: 4) |
 | `--fields` | List field definitions |
 | `--size` | Show size breakdown |
+| `--why <name>` | Explain why a type or method is in a Native AOT binary |
 | `--bundle` | Show single-file bundle manifest |
 | `--json` | Output as JSON |
 | `-o`, `--output <file>` | Write output to a file |

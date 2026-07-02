@@ -10,8 +10,10 @@ Core library for .NET assembly analysis. Provides analyzers, models, and the dia
 | `IlDisassembler` | Disassembles method bodies into IL instruction sequences |
 | `IlNavigationResolver` | Resolves metadata tokens from IL instructions to `IlNavigationTarget` records (file path, type/method, member kind) for go-to-definition |
 | `StringExtractor` | Extracts user strings, metadata strings, and raw binary strings from an assembly |
-| `SizeAnalyzer` | Builds a hierarchical size tree (namespace → type → method) by IL byte size |
-| `DependencyGraphBuilder` | Generates a dependency graph (nodes and edges) from assembly references; routes through `NetFxBinder` for .NET Framework roots so nodes are keyed on the *bound* identity (post-redirect) |
+| `SizeAnalyzer` | Builds a hierarchical size tree (namespace → type → method) by IL byte size; for Native AOT binaries with an mstat sidecar the tree comes from the compiler's size report instead, with per-assembly subtrees and data categories |
+| `DependencyGraphBuilder` | Generates a dependency graph (nodes and edges) from assembly references; routes through `NetFxBinder` for .NET Framework roots so nodes are keyed on the *bound* identity (post-redirect). Native AOT binaries graph the compiled-in assemblies (mstat × DGML join) plus native import modules |
+| `MstatReader` | Decodes an ILC size report (`.mstat`) — a valid ECMA-335 assembly whose data lives in IL streams — into per-method, per-type, blob, frozen object, RVA field, and resource sizes with assembly attribution and dependency-graph node names |
+| `DgmlReader` | Streams an ILC dependency-graph DGML file into a `DgmlGraph` whose `PathToRoot` answers "why is this in my binary" — node labels equal mstat node names, joining the two files |
 | `AssemblyDiffer` | Compares two assemblies and reports added, removed, and changed types, methods, and references. Method body comparison uses normalized IL instruction walks with semantic token resolution, deep local signature decoding, and exception region analysis |
 | `RuntimeTracer` | Launches a .NET process with EventPipe tracing for JIT, GC, exception, and counter events |
 | `NuGetPackageAnalyzer` | Reads `.nupkg` files for package metadata and DLL listing |
@@ -37,6 +39,8 @@ All models live in `Analysis/Models/` and are plain records or enums suitable fo
 **Portable PDB:** `PdbProvenance`, `PdbProvenanceKind`, `SourceLinkInfo`, `SourceLinkMapping`, `EmbeddedSourceInfo`
 
 **Size:** `SizeNode`, `SizeNodeKind`
+
+**Native AOT sidecars:** `MstatData`, `MstatMethod`, `MstatType`, `MstatBlob`, `MstatRvaField`, `MstatFrozenObject`, `MstatManifestResource`, `MstatDeduplicatedMethod`, `DgmlGraph`, `DgmlNode`, `DgmlLink`, `DgmlPathStep`
 
 **Strings:** `StringEntry`, `StringSource`
 
@@ -87,11 +91,11 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `get-method-debug-info` | TypeName, MethodName | Portable PDB sequence points and local names for a method |
 | `get-source-link` | — | Source Link mappings decoded from the portable PDB |
 | `search-il-opcodes` | Query, MaxResults? | Find methods containing an opcode |
-| `get-size-tree` | — | Hierarchical size tree |
+| `get-size-tree` | — | Hierarchical size tree (AOT-aware: mstat-backed for Native AOT binaries) |
 | `get-largest-methods` | MaxResults? | Top methods by IL size |
 | `get-strings` | Query?, MinLength?, MaxResults? | User, metadata, and binary strings |
 | `get-assembly-refs` | — | Assembly references |
-| `get-dependency-graph` | — | Dependency graph nodes and edges |
+| `get-dependency-graph` | — | Dependency graph nodes and edges (AOT-aware: compiled-in assemblies and native imports) |
 | `get-type-refs` | — | Type references |
 | `diff` | LeftPath, RightPath | Assembly comparison |
 | `is-bundle` | AssemblyPath | Check if a file is a single-file bundle |

@@ -29,7 +29,7 @@ public sealed record GraphNode : IEquatable<GraphNode>
 
 ## Constructors
 
-### GraphNode(string, string, string?, string, string?, bool, int, bool)
+### GraphNode(string, string, string?, string, string?, bool, int, bool, GraphNodeKind)
 
 A node in the transitive assembly dependency graph. Topology only — layout coordinates
 and rendered labels are the responsibility of the view layer, which projects the visible
@@ -53,9 +53,11 @@ Zero for the root; one for direct references; greater for transitive references.
 probe produced any candidate and the case where a probe produced a simple-name match whose
 manifest identity did not match — the latter is further distinguished by the node's
 navigation-context provenance.
+- `Kind` ([GraphNodeKind](/api/dotsider.core.analysis.models.graphnodekind/)): What the node represents. Defaults to [Assembly](/api/dotsider.core.analysis.models.graphnodekind.assembly/) and is omitted
+from serialized output at that default, so managed graph JSON is unchanged.
 
 ```csharp
-public GraphNode(string Id, string Name, string? Version, string Culture, string? PublicKeyToken, bool IsRoot, int Depth, bool Unresolved)
+public GraphNode(string Id, string Name, string? Version, string Culture, string? PublicKeyToken, bool IsRoot, int Depth, bool Unresolved, GraphNodeKind Kind = GraphNodeKind.Assembly)
 ```
 
 ## Properties
@@ -102,6 +104,18 @@ Whether this is the analyzed assembly (the root of the graph).
 
 ```csharp
 public bool IsRoot { get; init; }
+```
+
+### Kind
+
+What the node represents. Defaults to [Assembly](/api/dotsider.core.analysis.models.graphnodekind.assembly/) and is omitted
+from serialized output at that default, so managed graph JSON is unchanged.
+
+**Returns:** [GraphNodeKind](/api/dotsider.core.analysis.models.graphnodekind/)
+
+```csharp
+[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+public GraphNodeKind Kind { get; init; }
 ```
 
 ### Name
