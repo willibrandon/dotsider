@@ -479,6 +479,54 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.True(anyNonRootSource);
     }
 
+    /// <summary>
+    /// Verifies <c>analyze --size</c> on a Native AOT binary with an mstat sidecar prints the
+    /// per-assembly breakdown and the data categories instead of an empty tree.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Size_NativeAot_PrintsAssemblyBreakdown()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--size");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("System.Private.CoreLib", stdout);
+        Assert.Contains("Blobs", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --size --json</c> on a Native AOT binary carries the new node
+    /// kinds and the dependency-graph node names that make the tree joinable.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Size_NativeAot_Json_HasAotKindsAndNodeNames()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--size", "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("\"category\"", stdout);
+        Assert.Contains("aotNodeName", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --size --json</c> on a managed assembly is unchanged by the AOT
+    /// additions: no aotNodeName property appears.
+    /// </summary>
+    [Fact]
+    public async Task Analyze_Size_Managed_Json_HasNoAotProperties()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--size", "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.DoesNotContain("aotNodeName", stdout);
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(

@@ -74,4 +74,29 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         var methods = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.True(methods.GetArrayLength() <= 20);
     }
+
+    /// <summary>
+    /// get_size_breakdown on a Native AOT binary with an mstat sidecar returns the AOT tree:
+    /// assembly subtrees plus category nodes, not an empty root.
+    /// </summary>
+    [Fact]
+    public async Task GetSizeBreakdown_NativeAot_ReturnsAotTree()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "get_size_breakdown",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var tree = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(tree.GetProperty("size").GetInt64() > 0);
+        Assert.Contains("category", text);
+        Assert.Contains("System.Private.CoreLib", text);
+    }
 }
