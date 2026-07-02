@@ -1,4 +1,3 @@
-using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Analysis;
@@ -7,72 +6,66 @@ using Dotsider.Core.Analysis.Models;
 namespace Dotsider.Benchmarks;
 
 /// <summary>
-/// Benchmarks for <see cref="PeDirectoryReader"/> import, export, and load-config
-/// parsing against a real Native AOT executable (11 import modules) and CoreLib
-/// (a managed PE with a near-empty import surface).
+/// Benchmarks for the native import/export/load-config readers, measured through the
+/// format-aware <see cref="AssemblyAnalyzer"/> properties so each platform exercises
+/// its own parser: PE directories on Windows, ELF dynamic tables on Linux, and Mach-O
+/// load commands on macOS. CoreLib gives a managed-PE reference point on every OS.
 /// </summary>
 [MemoryDiagnoser]
 public class PeDirectoryReaderBenchmarks
 {
-    private FileStream _nativeAotStream = null!;
-    private FileStream _coreLibStream = null!;
-    private PEReader _nativeAotPe = null!;
-    private PEReader _coreLibPe = null!;
+    private string _nativeAotPath = null!;
+    private string _coreLibPath = null!;
 
     /// <summary>
-    /// Publishes the Native AOT sample and opens PE readers for reuse.
+    /// Publishes the Native AOT sample and resolves the binary paths.
     /// </summary>
     [GlobalSetup]
     public void Setup()
     {
         BenchmarkHelpers.PublishNativeAotSample("samples/NativeAotConsole");
-
-        _nativeAotStream = File.OpenRead(
-            BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole"));
-        _nativeAotPe = new PEReader(_nativeAotStream);
-
-        _coreLibStream = File.OpenRead(Path.Combine(
-            RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll"));
-        _coreLibPe = new PEReader(_coreLibStream);
+        _nativeAotPath = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole");
+        _coreLibPath = Path.Combine(
+            RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
     }
 
     /// <summary>
-    /// Disposes the shared PE readers and streams.
+    /// Reads the Native AOT import table in the platform's native format.
     /// </summary>
-    [GlobalCleanup]
-    public void Cleanup()
+    [Benchmark(Description = "NativeAOT Imports")]
+    public IReadOnlyList<ImportedModuleInfo> NativeAot_Imports()
     {
-        _nativeAotPe.Dispose();
-        _coreLibPe.Dispose();
-        _nativeAotStream.Dispose();
-        _coreLibStream.Dispose();
+        using var analyzer = new AssemblyAnalyzer(_nativeAotPath);
+        return analyzer.Imports;
     }
 
     /// <summary>
-    /// Walks the Native AOT import descriptors, thunk tables, and hint/name entries.
+    /// Reads the Native AOT export table in the platform's native format.
     /// </summary>
-    [Benchmark(Description = "NativeAOT ReadImports")]
-    public IReadOnlyList<ImportedModuleInfo> NativeAot_ReadImports()
-        => PeDirectoryReader.ReadImports(_nativeAotPe);
+    [Benchmark(Description = "NativeAOT Exports")]
+    public IReadOnlyList<ExportedFunctionInfo> NativeAot_Exports()
+    {
+        using var analyzer = new AssemblyAnalyzer(_nativeAotPath);
+        return analyzer.Exports;
+    }
 
     /// <summary>
-    /// Reads the Native AOT export directory (typically empty for an executable).
+    /// Reads the Native AOT load configuration (PE-only; empty on ELF and Mach-O).
     /// </summary>
-    [Benchmark(Description = "NativeAOT ReadExports")]
-    public IReadOnlyList<ExportedFunctionInfo> NativeAot_ReadExports()
-        => PeDirectoryReader.ReadExports(_nativeAotPe);
+    [Benchmark(Description = "NativeAOT LoadConfig")]
+    public LoadConfigInfo? NativeAot_LoadConfig()
+    {
+        using var analyzer = new AssemblyAnalyzer(_nativeAotPath);
+        return analyzer.LoadConfig;
+    }
 
     /// <summary>
-    /// Parses the Native AOT load configuration directory including guard-flag decoding.
+    /// Reads CoreLib's import table — the managed-PE reference point.
     /// </summary>
-    [Benchmark(Description = "NativeAOT ReadLoadConfig")]
-    public LoadConfigInfo? NativeAot_ReadLoadConfig()
-        => PeDirectoryReader.ReadLoadConfig(_nativeAotPe);
-
-    /// <summary>
-    /// Walks CoreLib's import table — the managed-PE fast path.
-    /// </summary>
-    [Benchmark(Description = "CoreLib ReadImports")]
-    public IReadOnlyList<ImportedModuleInfo> CoreLib_ReadImports()
-        => PeDirectoryReader.ReadImports(_coreLibPe);
+    [Benchmark(Description = "CoreLib Imports")]
+    public IReadOnlyList<ImportedModuleInfo> CoreLib_Imports()
+    {
+        using var analyzer = new AssemblyAnalyzer(_coreLibPath);
+        return analyzer.Imports;
+    }
 }

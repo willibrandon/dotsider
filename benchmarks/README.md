@@ -47,7 +47,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
 | `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
-| `PeDirectoryReaderBenchmarks` | Native import/export/load-config directory parsing on a Native AOT exe and CoreLib |
+| `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
 | `RuntimeTracerDataRetrievalBenchmarks` | Ring buffer snapshot, summary aggregation, output materialization, and counter read with populated trace data |
 | `RuntimeTracerThroughputBenchmarks` | Data retrieval under concurrent event-processing load (lock contention, volatile reads) |
 | `RuntimeTracerWritePathBenchmarks` | Full write pipeline throughput: event collection, counter acquisition, and Start/Stop lifecycle with EventPipe connect latency |
@@ -212,10 +212,10 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| NativeAOT ReadImports | — | — |
-| NativeAOT ReadExports | — | — |
-| NativeAOT ReadLoadConfig | — | — |
-| CoreLib ReadImports | — | — |
+| NativeAOT Imports | — | — |
+| NativeAOT Exports | — | — |
+| NativeAOT LoadConfig | — | — |
+| CoreLib Imports | — | — |
 
 #### RuntimeTracer — Data Retrieval (populated)
 

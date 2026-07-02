@@ -5,40 +5,44 @@ using Dotsider.Core.Analysis;
 namespace Dotsider.Tests;
 
 /// <summary>
-/// Tests for the PE import/export/load-config directory parsers, exercised through
-/// the public <see cref="AssemblyAnalyzer"/> properties against real sample binaries,
-/// plus a synthetic PE for export shapes (forwarders, ordinal-only) no sample produces.
+/// Tests for the native import/export/load-config readers, exercised through the public
+/// <see cref="AssemblyAnalyzer"/> properties against real sample binaries. Each CI OS
+/// publishes its own-format Native AOT binary, so the import/export cases cover PE on
+/// Windows, ELF on Linux, and Mach-O on macOS. A synthetic PE covers export shapes
+/// (forwarders, ordinal-only) that no sample produces.
 /// </summary>
 [Collection("SampleAssemblies")]
 public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
 {
+    /// <summary>The core system library name expected in the import table of the running OS.</summary>
+    private static string CoreImportLibrary =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "kernel32"
+        : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libSystem"
+        : "libc";
+
     /// <summary>
-    /// Verifies the apphost executable's import table contains kernel32.
+    /// Verifies the apphost executable's import table lists the platform's core system library.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void Imports_ApphostExe_ContainsKernel32()
+    public void Imports_ApphostExe_ContainsCoreLibrary()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "apphost is a PE with an import table only on Windows");
-
         using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
 
         var imports = analyzer.Imports;
 
         Assert.NotEmpty(imports);
         Assert.Contains(imports, m =>
-            m.ModuleName.Contains("kernel32", StringComparison.OrdinalIgnoreCase));
-        Assert.All(imports, m => Assert.NotEmpty(m.Functions));
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Verifies the Native AOT executable imports multiple modules with named functions.
+    /// Verifies the Native AOT executable imports the platform's core system library
+    /// with named functions attributed to it (PE thunks, ELF versioned symbols, or
+    /// Mach-O two-level-namespace bindings).
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void Imports_NativeAotExe_ContainsMultipleModules()
+    public void Imports_NativeAotExe_ContainsCoreLibraryWithFunctions()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -46,7 +50,10 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
 
         var imports = analyzer.Imports;
 
-        Assert.True(imports.Count >= 2);
+        Assert.NotEmpty(imports);
+        Assert.Contains(imports, m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
+
         var named = imports.SelectMany(m => m.Functions).Where(f => f.Name is not null).ToList();
         Assert.NotEmpty(named);
         Assert.All(named, f => Assert.Null(f.Ordinal));
@@ -104,14 +111,34 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
-    /// Verifies the Native AOT executable's load configuration parses with a
-    /// security cookie present.
+    /// Verifies the Native AOT executable exports parse without error. An ELF image
+    /// exports its runtime debug header; a Windows PE executable typically exports
+    /// nothing, which is equally valid.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Exports_NativeAotExe_WellFormed()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        var exports = analyzer.Exports;
+
+        Assert.NotNull(exports);
+        Assert.All(exports, e => Assert.False(string.IsNullOrEmpty(e.Name)));
+    }
+
+    /// <summary>
+    /// Verifies the Native AOT executable's load configuration parses with a security
+    /// cookie on Windows, where the PE load configuration directory exists. The
+    /// directory is a PE-only structure with no ELF or Mach-O equivalent.
     /// </summary>
     [Fact(Timeout = 30_000)]
     public void LoadConfig_NativeAotExe_HasSecurityCookie()
     {
         Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "the load configuration directory exists only in Windows PE output");
+            "the load configuration directory is a PE-only structure");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -126,13 +153,14 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
-    /// Verifies the apphost executable's load configuration parses.
+    /// Verifies the apphost executable's load configuration parses on Windows. The
+    /// directory is a PE-only structure with no ELF or Mach-O equivalent.
     /// </summary>
     [Fact(Timeout = 30_000)]
     public void LoadConfig_ApphostExe_Parses()
     {
         Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "the load configuration directory exists only in Windows PE output");
+            "the load configuration directory is a PE-only structure");
 
         using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
 

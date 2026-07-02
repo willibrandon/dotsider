@@ -718,15 +718,20 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         await runTask;
     }
 
+    /// <summary>The core system library name shown in the import table of the running OS.</summary>
+    private static string CoreImportLibrary =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "kernel32"
+        : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libSystem"
+        : "libc";
+
     /// <summary>
     /// Verifies the Imports sub-tab shows the native import table for a Native AOT
-    /// executable.
+    /// executable — PE imports on Windows, ELF needed libraries on Linux, Mach-O
+    /// dylibs on macOS.
     /// </summary>
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NativeAot_ImportsTab_ShowsModules()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -746,17 +751,28 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
                 .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
         }
 
+        // Wait for the first module's name to render (casing varies by platform, so
+        // drive the on-screen match from the actual module name).
         await builder
-            .WaitUntil(s => s.ContainsText("KERNEL32") || s.ContainsText("kernel32"),
-                TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.Analyzer.Imports.Count > 0, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText(FirstModulePrefix()), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
         Assert.Equal(PeSubTabId.Imports, _state!.PeSubTab);
         Assert.NotEmpty(_state.Analyzer.Imports);
+        Assert.Contains(_state.Analyzer.Imports, m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
 
         cts.Cancel();
         await runTask;
+    }
+
+    private string FirstModulePrefix()
+    {
+        var name = _state!.Analyzer.Imports[0].ModuleName;
+        // The Module column is 24 cells wide; match a prefix that fits without truncation.
+        return name.Length <= 20 ? name : name[..20];
     }
 
     /// <summary>
@@ -765,8 +781,6 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NativeAot_ImportsDetailPopup_OpensOnEnter()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -806,7 +820,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     public async Task PeMetadata_NativeAot_LoadConfigTab_ShowsFields()
     {
         Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
-            "the load configuration directory exists only in Windows PE output");
+            "the load configuration directory is a PE-only structure");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 

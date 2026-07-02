@@ -20,7 +20,7 @@ The **PE / Metadata** tab (`2`) exposes the raw structure of the Portable Execut
 - **Exports** — the native export table, including forwarders and ordinal-only exports
 - **Load Config** — the load configuration directory: security cookie, SEH handler count, and decoded Control Flow Guard flags
 
-The last three read PE data directories and need no CLR header, so they light up for native apphosts and Native AOT executables where the metadata tables are empty.
+Imports and Exports need no CLR header, so they light up for native apphosts and Native AOT executables where the metadata tables are empty. They read whichever native format the binary uses: PE import descriptors on Windows, ELF needed libraries and versioned dynamic symbols on Linux, and Mach-O loaded dylibs and two-level-namespace bindings on macOS. Load Config is a PE-only structure and stays empty on ELF and Mach-O.
 
 ## Text selection and copy
 

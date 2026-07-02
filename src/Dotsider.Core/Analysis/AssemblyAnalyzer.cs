@@ -290,28 +290,29 @@ public sealed class AssemblyAnalyzer : IDisposable
     }
 
     /// <summary>
-    /// Gets the native import table (modules and imported functions). Needs no CLR
-    /// header; empty for non-PE files.
+    /// Gets the native import table: PE import descriptors, ELF needed libraries and
+    /// undefined dynamic symbols, or Mach-O loaded dylibs and undefined symbols.
+    /// Needs no CLR header.
     /// </summary>
     public IReadOnlyList<ImportedModuleInfo> Imports
     {
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            return _imports ??= _peReader is null ? [] : PeDirectoryReader.ReadImports(_peReader);
+            return _imports ??= ReadNativeImports();
         }
     }
 
     /// <summary>
-    /// Gets the native export table. Needs no CLR header; empty for non-PE files or
-    /// when the image exports nothing.
+    /// Gets the native export table: PE exports, or the defined global symbols of an
+    /// ELF or Mach-O image. Needs no CLR header; empty when the image exports nothing.
     /// </summary>
     public IReadOnlyList<ExportedFunctionInfo> Exports
     {
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            return _exports ??= _peReader is null ? [] : PeDirectoryReader.ReadExports(_peReader);
+            return _exports ??= ReadNativeExports();
         }
     }
 
@@ -720,6 +721,22 @@ public sealed class AssemblyAnalyzer : IDisposable
         // Mach-O: four known magic values (big/little endian, 32/64-bit)
         uint magic = (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
         return magic is 0xFEEDFACE or 0xFEEDFACF or 0xCEFAEDFE or 0xCFFAEDFE;
+    }
+
+    private IReadOnlyList<ImportedModuleInfo> ReadNativeImports()
+    {
+        if (_peReader is not null) return PeDirectoryReader.ReadImports(_peReader);
+        if (ElfImageReader.IsElf(_rawBytes)) return ElfImageReader.ReadImports(_rawBytes);
+        if (MachOImageReader.IsMachO(_rawBytes)) return MachOImageReader.ReadImports(_rawBytes);
+        return [];
+    }
+
+    private IReadOnlyList<ExportedFunctionInfo> ReadNativeExports()
+    {
+        if (_peReader is not null) return PeDirectoryReader.ReadExports(_peReader);
+        if (ElfImageReader.IsElf(_rawBytes)) return ElfImageReader.ReadExports(_rawBytes);
+        if (MachOImageReader.IsMachO(_rawBytes)) return MachOImageReader.ReadExports(_rawBytes);
+        return [];
     }
 
     /// <summary>
