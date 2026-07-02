@@ -186,8 +186,8 @@ public string DisplayName { get; }
 
 ### Exports
 
-Gets the native export table. Needs no CLR header; empty for non-PE files or
-when the image exports nothing.
+Gets the native export table: PE exports, or the defined global symbols of an
+ELF or Mach-O image. Needs no CLR header; empty when the image exports nothing.
 
 **Returns:** [IReadOnlyList\<ExportedFunctionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
@@ -257,8 +257,9 @@ public bool HasPortablePdb { get; }
 
 ### Imports
 
-Gets the native import table (modules and imported functions). Needs no CLR
-header; empty for non-PE files.
+Gets the native import table: PE import descriptors, ELF needed libraries and
+undefined dynamic symbols, or Mach-O loaded dylibs and undefined symbols.
+Needs no CLR header.
 
 **Returns:** [IReadOnlyList\<ImportedModuleInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
