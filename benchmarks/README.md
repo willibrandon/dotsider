@@ -128,6 +128,16 @@ Identity and distinct benchmarks are worst-case: every method matches, forcing n
 
 The builder now produces a full transitive closure: every AssemblyRef is resolved by full identity, opened, and recursed into. CoreLib has no outbound refs so its graph is a single root node (the baseline reflects pure BFS + layout overhead). Xml refs most of the BCL, so its closure walks ~dozens of additional assemblies — each one opened via `AssemblyAnalyzer`, which dominates both time and allocation. The prior 8 μs baseline measured only the root's direct-ref star without any resolution or traversal; the new number is the cost of doing the thing the name actually claims.
 
+#### DgmlReader
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| Read codegen DGML | 7.06 ms | 6.86 MB |
+| Read scan DGML | 15.88 ms | 12.63 MB |
+| PathToRoot on a deep method node | 118.3 ns | 648 B |
+
+Reads parse the NativeAotConsole sample's ILC dependency-graph sidecars (the scan graph roughly doubles the codegen graph's node count) and build the label and edge indexes. `PathToRoot` is a pure index walk, so chain queries from the UI are effectively free once the graph is loaded.
+
 #### DotNetRuntimeLocator
 
 | Benchmark | Mean | Allocated |
@@ -194,6 +204,14 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | Direct usable (System.Private.Xml) | 36.25 μs | 10.80 KB |
 | Known mapping warm cache hit | 67.62 ns | — |
 
+#### MstatReader
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| Read NativeAotConsole.mstat | 764.7 μs | 2.73 MB |
+
+One read fully decodes the sample's ILC size report: walks the IL stream for every type, method, and blob row, resolves every token with assembly attribution, and reads every node name from the `.names` section.
+
 #### NativeAotDetector
 
 | Benchmark | Mean | Allocated |
@@ -224,9 +242,9 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
-| ReadyToRun sections | — | — |
-| Frozen strings | — | — |
-| Recovered types | — | — |
+| ReadyToRun sections | 194.9 μs | 1.19 MB |
+| Frozen strings | 257.3 μs | 1.34 MB |
+| Recovered types | 240.5 μs | 1.33 MB |
 
 #### RuntimeTracer — Data Retrieval (populated)
 
