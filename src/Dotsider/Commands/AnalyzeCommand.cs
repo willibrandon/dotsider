@@ -235,7 +235,7 @@ internal static class AnalyzeCommand
                 a.TargetFramework, a.Architecture, a.HasMetadata, a.BinaryKind, a.NativeAotInfo,
                 a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
                 a.PdbProvenance, a.SourceLink, a.DebugDirectory,
-                ReadyToRunSections = a.ReadyToRunSections,
+                a.ReadyToRunSections,
                 RecoveredTypeCount = a.RecoveredTypes.Count,
                 FrozenStringCount = a.FrozenStrings.Count,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
