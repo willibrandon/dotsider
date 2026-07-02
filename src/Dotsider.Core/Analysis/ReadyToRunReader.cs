@@ -23,6 +23,9 @@ internal static class ReadyToRunReader
     /// <summary>SectionId of the embedded NativeFormat metadata blob (ReadonlyBlobRegionStart + EmbeddedMetadata).</summary>
     internal const int EmbeddedMetadata = 313;
 
+    /// <summary>The <c>Internal.Metadata.NativeFormat</c> blob signature (0xDEADDFFD).</summary>
+    private const uint NativeMetadataSignature = 0xDEAD_DFFD;
+
     private const int HeaderSize = 16;
 
     /// <summary>
@@ -42,8 +45,14 @@ internal static class ReadyToRunReader
         if (!hasEndField && info.EntrySize != newRowSize) return [];
 
         var rowsStart = info.HeaderOffset + HeaderSize;
-        var sections = new List<RtrSection>(info.SectionCount);
 
+        // On Mach-O the Start/End pointers are chained-fixup encoded; determine which rebase
+        // form the image uses so pointers into zero-fill regions (which never map to a file)
+        // still decode correctly. Non-Mach-O images use their pointers directly.
+        var offsetForm = addressSpace.MachOChained
+            && CalibrateChainedForm(bytes, info, addressSpace, rowsStart);
+
+        var sections = new List<RtrSection>(info.SectionCount);
         for (var i = 0; i < info.SectionCount; i++)
         {
             var row = rowsStart + i * info.EntrySize;
@@ -55,17 +64,15 @@ internal static class ReadyToRunReader
             long size;
             if (hasEndField)
             {
-                // Start/End are absolute virtual addresses, or chained-fixup pointers on
-                // Mach-O; resolve both to canonical addresses before differencing.
-                start = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8, pointerSize));
-                var end = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8 + pointerSize, pointerSize));
+                start = Decode(ReadPointer(bytes, row + 8, pointerSize), addressSpace, offsetForm);
+                var end = Decode(ReadPointer(bytes, row + 8 + pointerSize, pointerSize), addressSpace, offsetForm);
                 // TypeManagerIndirection (204) records End = 0; its size is not expressed here.
                 size = end > start ? (long)(end - start) : 0;
             }
             else
             {
                 size = BinaryPrimitives.ReadInt32LittleEndian(bytes[(row + 4)..]);
-                start = addressSpace.ResolvePointer(ReadPointer(bytes, row + 8, pointerSize));
+                start = Decode(ReadPointer(bytes, row + 8, pointerSize), addressSpace, offsetForm);
             }
 
             int? fileOffset = addressSpace.TryGetFileOffset(start, out var offset, out _)
@@ -76,6 +83,46 @@ internal static class ReadyToRunReader
         }
 
         return sections;
+    }
+
+    /// <summary>
+    /// Decodes a section pointer, applying the Mach-O chained-fixup rebase decode when needed.
+    /// </summary>
+    private static ulong Decode(ulong raw, NativeAddressSpace addressSpace, bool offsetForm) =>
+        addressSpace.MachOChained
+            ? NativeAddressSpace.DecodeChainedRebase(raw, offsetForm, addressSpace.MachOImageBase)
+            : raw;
+
+    /// <summary>
+    /// Determines the Mach-O chained rebase form by decoding the embedded metadata section's
+    /// pointer both ways and keeping whichever lands on the NativeFormat signature. Defaults
+    /// to the image-base-offset form (arm64) when the signal is unavailable.
+    /// </summary>
+    private static bool CalibrateChainedForm(
+        ReadOnlySpan<byte> bytes, NativeAotInfo info, NativeAddressSpace addressSpace, int rowsStart)
+    {
+        for (var i = 0; i < info.SectionCount; i++)
+        {
+            var row = rowsStart + i * info.EntrySize;
+            if (row + info.EntrySize > bytes.Length) break;
+            if (BinaryPrimitives.ReadInt32LittleEndian(bytes[row..]) != EmbeddedMetadata) continue;
+
+            var raw = ReadPointer(bytes, row + 8, addressSpace.PointerSize);
+            foreach (var offsetForm in stackalloc[] { true, false })
+            {
+                var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm, addressSpace.MachOImageBase);
+                if (addressSpace.TryGetFileOffset(va, out var offset, out var available)
+                    && available >= sizeof(uint)
+                    && BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]) == NativeMetadataSignature)
+                {
+                    return offsetForm;
+                }
+            }
+
+            break;
+        }
+
+        return true;
     }
 
     /// <summary>Returns the file range of a section when it is file-backed, or null.</summary>

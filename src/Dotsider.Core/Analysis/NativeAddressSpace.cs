@@ -3,41 +3,43 @@ using System.Buffers.Binary;
 namespace Dotsider.Core.Analysis;
 
 /// <summary>
-/// Maps virtual addresses to file offsets for a native image (PE, ELF, or Mach-O).
-/// The ReadyToRun section table stores each section's location as an absolute virtual
-/// address, so walking it requires translating those addresses back to file positions.
-/// Regions that exist only in memory (a PE BSS tail, an ELF NOBITS segment) map to
+/// Maps virtual addresses to file offsets for a native image (PE, ELF, or Mach-O). The
+/// ReadyToRun section table stores each section's location as a virtual address, so walking
+/// it requires translating those addresses back to file positions. Regions that exist only
+/// in memory (a PE BSS tail, an ELF NOBITS segment, a Mach-O zero-fill section) map to
 /// nothing — callers treat that as "not file-backed" rather than an error.
+///
+/// On Mach-O the section pointers are chained-fixup encoded rather than stored as plain
+/// addresses; <see cref="DecodeChainedRebase"/> decodes them, and the caller determines
+/// which of the two rebase forms the image uses (see the ReadyToRun reader's calibration).
 /// </summary>
 internal sealed class NativeAddressSpace
 {
     /// <summary>The 36-bit target field of a DYLD_CHAINED_PTR_64 rebase pointer.</summary>
     private const ulong ChainedTargetMask = 0xF_FFFF_FFFF;
 
-    // dyld chained pointer formats (mach-o/fixup-chains.h).
-    private const int DyldChainedPtr64 = 2;         // rebase target is an absolute unslid address
-    private const int DyldChainedPtr64Offset = 6;   // rebase target is an offset from the image base
-
     private readonly List<Segment> _segments;
     private readonly int _byteLength;
-    private readonly ulong _machOImageBase;
-    private readonly int _machOPointerFormat;
-    private readonly bool _machOChained;
 
     private NativeAddressSpace(
         int pointerSize, List<Segment> segments, int byteLength,
-        bool machOChained = false, int machOPointerFormat = 0, ulong machOImageBase = 0)
+        bool machOChained = false, ulong machOImageBase = 0)
     {
         PointerSize = pointerSize;
         _segments = segments;
         _byteLength = byteLength;
-        _machOChained = machOChained;
-        _machOPointerFormat = machOPointerFormat;
-        _machOImageBase = machOImageBase;
+        MachOChained = machOChained;
+        MachOImageBase = machOImageBase;
     }
 
     /// <summary>The image's pointer size in bytes (8 for 64-bit, 4 for 32-bit).</summary>
     public int PointerSize { get; }
+
+    /// <summary>Whether this is a Mach-O image whose pointers are chained-fixup encoded.</summary>
+    public bool MachOChained { get; }
+
+    /// <summary>The Mach-O image base (the __TEXT segment address); 0 for other formats.</summary>
+    public ulong MachOImageBase { get; }
 
     /// <summary>
     /// Builds an address space from a native image, or returns null when the format is
@@ -61,59 +63,27 @@ internal sealed class NativeAddressSpace
     }
 
     /// <summary>
-    /// Translates a virtual address to a file offset when it falls inside file-backed data.
-    /// On Mach-O the value may be a chained-fixup pointer, so the raw and decoded
-    /// interpretations are each tried.
+    /// Decodes a Mach-O chained-fixup rebase pointer to the virtual address it targets. The
+    /// low 36 bits are the target; <paramref name="offsetForm"/> selects whether that is an
+    /// offset from the image base (DYLD_CHAINED_PTR_64_OFFSET, arm64) or an absolute address
+    /// (DYLD_CHAINED_PTR_64, x64). Returns the input unchanged for a null or import-bind value.
     /// </summary>
-    /// <param name="virtualAddress">The virtual address (possibly a chained-fixup pointer).</param>
+    public static ulong DecodeChainedRebase(ulong raw, bool offsetForm, ulong imageBase)
+    {
+        if (raw == 0 || (raw >> 63) != 0) return raw;
+        var target = raw & ChainedTargetMask;
+        return offsetForm ? imageBase + target : (((raw >> 36) & 0xFF) << 56) | target;
+    }
+
+    /// <summary>
+    /// Translates a virtual address to a file offset when it falls inside file-backed data.
+    /// The address must already be decoded (see <see cref="DecodeChainedRebase"/> for Mach-O).
+    /// </summary>
+    /// <param name="virtualAddress">The virtual address to translate.</param>
     /// <param name="fileOffset">The resulting file offset.</param>
     /// <param name="available">Bytes available from <paramref name="fileOffset"/> to the end of the containing segment.</param>
     /// <returns>True when the address maps into file-backed data.</returns>
     public bool TryGetFileOffset(ulong virtualAddress, out int fileOffset, out int available)
-    {
-        if (TryMap(ResolvePointer(virtualAddress), out fileOffset, out available)) return true;
-
-        // Fallback for a chained image whose pointer format could not be read: try the two
-        // rebase interpretations and accept whichever maps. This keeps file-backed lookups
-        // (metadata, headers) working even when the deterministic decode is unavailable.
-        if (_machOChained && _machOPointerFormat == 0 && virtualAddress != 0)
-        {
-            var target = virtualAddress & ChainedTargetMask;
-            if (TryMap(target, out fileOffset, out available)) return true;
-            if (TryMap(_machOImageBase + target, out fileOffset, out available)) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Resolves a pointer value to the virtual address it targets, decoding a Mach-O
-    /// chained-fixup rebase pointer when the image uses them. The decode is deterministic
-    /// (driven by the image's pointer format) so it resolves correctly even for targets in a
-    /// zero-fill region that has no file backing. Returns the input unchanged when it is
-    /// zero, the image is not chained, or the pointer is an import bind rather than a rebase.
-    /// </summary>
-    /// <param name="pointer">The raw pointer value read from the image.</param>
-    public ulong ResolvePointer(ulong pointer)
-    {
-        if (pointer == 0) return 0;
-
-        // The high bit marks an import bind (no local target); leave it for the caller.
-        if (_machOPointerFormat != 0 && (pointer >> 63) == 0)
-        {
-            var target = pointer & ChainedTargetMask;
-            return _machOPointerFormat switch
-            {
-                DyldChainedPtr64Offset => _machOImageBase + target,
-                DyldChainedPtr64 => (((pointer >> 36) & 0xFF) << 56) | target,
-                _ => pointer,
-            };
-        }
-
-        return pointer;
-    }
-
-    private bool TryMap(ulong virtualAddress, out int fileOffset, out int available)
     {
         foreach (var segment in _segments)
         {
@@ -218,7 +188,6 @@ internal sealed class NativeAddressSpace
 
         var segments = new List<Segment>();
         var chained = false;
-        var pointerFormat = 0;
         var imageBase = ulong.MaxValue;
         var command = 32;
         for (var i = 0; i < commandCount; i++)
@@ -228,12 +197,8 @@ internal sealed class NativeAddressSpace
             var cmdSize = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 4)..]);
             if (cmdSize < 8 || command + cmdSize > bytes.Length) break;
 
-            if (cmd == lcDyldChainedFixups && command + 16 <= bytes.Length)
-            {
+            if (cmd == lcDyldChainedFixups)
                 chained = true;
-                var dataOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 8)..]);
-                pointerFormat = ReadChainedPointerFormat(bytes, dataOffset);
-            }
 
             if (cmd == lcSegment64 && command + 56 <= bytes.Length)
             {
@@ -253,42 +218,9 @@ internal sealed class NativeAddressSpace
         }
 
         return segments.Count > 0
-            ? new NativeAddressSpace(8, segments, bytes.Length, chained, pointerFormat,
+            ? new NativeAddressSpace(8, segments, bytes.Length, chained,
                 imageBase == ulong.MaxValue ? 0 : imageBase)
             : null;
-    }
-
-    /// <summary>
-    /// Reads the chained-fixup pointer format from an <c>LC_DYLD_CHAINED_FIXUPS</c> payload:
-    /// the fixups header points to a starts-in-image table, whose first segment records the
-    /// format shared by the image's rebased pointers. Returns 0 when it cannot be read.
-    /// </summary>
-    private static int ReadChainedPointerFormat(ReadOnlySpan<byte> bytes, int fixupsDataOffset)
-    {
-        if (fixupsDataOffset <= 0 || fixupsDataOffset + 8 > bytes.Length) return 0;
-
-        var startsOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(fixupsDataOffset + 4)..]);
-        var starts = fixupsDataOffset + startsOffset; // dyld_chained_starts_in_image
-        if (starts <= 0 || starts + 4 > bytes.Length) return 0;
-
-        var segCount = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[starts..]);
-        if (segCount is < 1 or > 4096) return 0;
-
-        for (var s = 0; s < segCount; s++)
-        {
-            var slot = starts + 4 + s * 4;
-            if (slot + 4 > bytes.Length) break;
-
-            var segInfoOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[slot..]);
-            if (segInfoOffset == 0) continue; // segment has no fixups
-
-            // dyld_chained_starts_in_segment: size(u32), page_size(u16), pointer_format(u16), ...
-            var pointerFormatField = starts + segInfoOffset + 6;
-            if (pointerFormatField + 2 > bytes.Length) break;
-            return BinaryPrimitives.ReadUInt16LittleEndian(bytes[pointerFormatField..]);
-        }
-
-        return 0;
     }
 
     private readonly record struct Segment(ulong VirtualAddress, int FileOffset, int FileSize);
