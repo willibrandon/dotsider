@@ -36,6 +36,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `AssemblyAnalyzerBenchmarks` | Constructor (file and byte[]), lazy metadata properties (TypeDefs, MethodDefs, AssemblyRefs, TypeRefs, MemberRefs, FieldDefs, CustomAttributes, Resources, Sections), token resolution, and 7-step assembly resolution chain (app-local, NuGet deps.json, runtime directory, source bundle, host bundle, adjacent bundles, shared framework) |
 | `AssemblyDifferBenchmarks` | Dictionary-based O(n) diff of two assemblies by type, method, and reference with normalized IL body comparison |
 | `DependencyGraphBuilderBenchmarks` | Full transitive assembly dependency closure — BFS walk that resolves each AssemblyRef by full identity, opens it, and recurses (CoreLib has no outbound refs so this is pure builder overhead; Xml walks its full BCL/runtime-pack closure) |
+| `DgmlReaderBenchmarks` | ILC dependency-graph parsing (codegen and scan DGML sidecars) and a root-chain walk from a deep method node |
 | `DotNetRuntimeLocatorColdBenchmarks` | Cold-path .NET runtime discovery: base path + shared framework resolution with cache cleared |
 | `DotNetRuntimeLocatorWarmBenchmarks` | Warm-cache ConcurrentDictionary hit for shared framework lookup |
 | `HexSearchBenchmarks` | `FindBytePattern` with short, long, and no-match patterns against real assemblies |
@@ -45,6 +46,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `ImplementationAssemblyResolverColdBenchmarks` | Cold-path reference-to-implementation resolution: known mappings, type forwarder chains, direct usable metadata |
 | `ImplementationAssemblyResolverWarmBenchmarks` | Warm-cache hit for implementation assembly resolution |
 | `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
+| `MstatReaderBenchmarks` | Full ILC size-report decode: IL stream walk, token resolution with assembly attribution, and .names section reads |
 | `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
 | `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
