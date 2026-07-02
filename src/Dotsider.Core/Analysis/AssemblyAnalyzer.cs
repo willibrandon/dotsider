@@ -37,6 +37,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     private string? _preferredRuntimePack;
     private NativeAotInfo? _nativeAotInfo;
     private bool _nativeAotProbed;
+    private IReadOnlyList<ImportedModuleInfo>? _imports;
+    private IReadOnlyList<ExportedFunctionInfo>? _exports;
+    private LoadConfigInfo? _loadConfig;
+    private bool _loadConfigProbed;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -282,6 +286,50 @@ public sealed class AssemblyAnalyzer : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             return _debugDirectory ??= ReadDebugDirectory();
+        }
+    }
+
+    /// <summary>
+    /// Gets the native import table (modules and imported functions). Needs no CLR
+    /// header; empty for non-PE files.
+    /// </summary>
+    public IReadOnlyList<ImportedModuleInfo> Imports
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _imports ??= _peReader is null ? [] : PeDirectoryReader.ReadImports(_peReader);
+        }
+    }
+
+    /// <summary>
+    /// Gets the native export table. Needs no CLR header; empty for non-PE files or
+    /// when the image exports nothing.
+    /// </summary>
+    public IReadOnlyList<ExportedFunctionInfo> Exports
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _exports ??= _peReader is null ? [] : PeDirectoryReader.ReadExports(_peReader);
+        }
+    }
+
+    /// <summary>
+    /// Gets the parsed load configuration directory, or null when absent or not a PE.
+    /// </summary>
+    public LoadConfigInfo? LoadConfig
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_loadConfigProbed)
+            {
+                _loadConfig = _peReader is null ? null : PeDirectoryReader.ReadLoadConfig(_peReader);
+                _loadConfigProbed = true;
+            }
+
+            return _loadConfig;
         }
     }
 
