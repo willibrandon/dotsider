@@ -28,6 +28,7 @@ public sealed class DotsiderState : IDisposable
         Analyzer = openResult switch
         {
             AssemblyOpenResult.Direct(var a) => a,
+            AssemblyOpenResult.NativeAot(var aot) => aot,
             AssemblyOpenResult.ApphostWithCompanion(var host, _) => host,
             AssemblyOpenResult.BundleEntry(var entry, _) => entry,
             _ => throw new InvalidOperationException($"Unknown open result: {openResult.GetType().Name}")
@@ -449,7 +450,7 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The minimum string length filter for raw strings.</summary>
     public int StringsMinLength { get; set; } = 4;
 
-    /// <summary>The selected string source tab (0=User, 1=Metadata, 2=Raw).</summary>
+    /// <summary>The selected string source tab (0=User, 1=Metadata, 2=Raw, 3=Raw UTF-16).</summary>
     public int StringsSourceTab { get; set; }
 
     /// <summary>The focused string entry key in the strings table.</summary>
@@ -469,6 +470,12 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The min length used for the cached raw strings.</summary>
     public int CachedRawStringsMinLength { get; set; } = -1;
+
+    /// <summary>Cached raw UTF-16 strings, invalidated when min length changes.</summary>
+    public IReadOnlyList<StringEntry>? CachedRawUtf16Strings { get; set; }
+
+    /// <summary>The min length used for the cached raw UTF-16 strings.</summary>
+    public int CachedRawUtf16StringsMinLength { get; set; } = -1;
 
     // --- Dependency Graph Tab State ---
 
@@ -639,8 +646,14 @@ public sealed class DotsiderState : IDisposable
     /// <summary>Whether the assembly has a CLR entry point (executable, not library).</summary>
     public bool HasEntryPoint => Analyzer.ClrHeader is { EntryPointToken: > 0 };
 
-    /// <summary>Whether the assembly appears to be NativeAOT (no CLR metadata).</summary>
-    public bool IsNativeAot => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
+    /// <summary>
+    /// Whether the binary is Native AOT compiled .NET — a validated ReadyToRun
+    /// header with no CLR metadata.
+    /// </summary>
+    public bool IsNativeAot => Analyzer.BinaryKind == BinaryKind.NativeAot;
+
+    /// <summary>Whether the binary has no CLR metadata at all (Native AOT or unknown native).</summary>
+    public bool IsNativeBinary => !Analyzer.HasMetadata || Analyzer.ClrHeader is null;
 
     /// <summary>
     /// Whether the assembly targets .NET Framework (not .NET Core / .NET 5+). True when the
@@ -1453,6 +1466,7 @@ public sealed class DotsiderState : IDisposable
         CachedUserStrings = null;
         CachedMetadataStrings = null;
         CachedRawStrings = null;
+        CachedRawUtf16Strings = null;
         CachedGraph = null;
         GraphNavigation = null;
         GraphBuildInProgress = false;
@@ -1515,6 +1529,7 @@ public sealed class DotsiderState : IDisposable
             StringsSubTabId.UserStrings => CachedUserStrings ??= StringExtractor.ExtractUserStrings(),
             StringsSubTabId.Metadata => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
             StringsSubTabId.RawBinary => GetCachedRawStrings(),
+            StringsSubTabId.RawBinaryUtf16 => GetCachedRawUtf16Strings(),
             _ => []
         };
 
@@ -1565,6 +1580,17 @@ public sealed class DotsiderState : IDisposable
         }
 
         return CachedRawStrings;
+    }
+
+    private IReadOnlyList<StringEntry> GetCachedRawUtf16Strings()
+    {
+        if (CachedRawUtf16Strings is null || CachedRawUtf16StringsMinLength != StringsMinLength)
+        {
+            CachedRawUtf16Strings = StringExtractor.ExtractRawUtf16Strings(StringsMinLength);
+            CachedRawUtf16StringsMinLength = StringsMinLength;
+        }
+
+        return CachedRawUtf16Strings;
     }
 
     /// <summary>

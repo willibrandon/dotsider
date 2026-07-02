@@ -73,6 +73,22 @@ internal static class BenchmarkHelpers
     }
 
     /// <summary>
+    /// Publishes a sample project with Native AOT. Cached per <paramref name="relativePath"/>.
+    /// </summary>
+    /// <param name="relativePath">Path relative to repo root (e.g. "samples/NativeAotConsole").</param>
+    /// <returns>The absolute path to the project directory.</returns>
+    internal static string PublishNativeAotSample(string relativePath)
+    {
+        var projectDir = Path.Combine(GetRepoRoot(), relativePath);
+        return BuildCache.GetOrAdd($"publish-aot:{relativePath}", _ =>
+        {
+            var rid = RuntimeInformation.RuntimeIdentifier;
+            RunDotNet(projectDir, $"publish -c Release -r {rid} -v q");
+            return projectDir;
+        });
+    }
+
+    /// <summary>
     /// Returns the platform-specific apphost extension (e.g. ".exe" on Windows, "" on Unix).
     /// </summary>
     internal static string ApphostExtension =>
@@ -105,6 +121,11 @@ internal static class BenchmarkHelpers
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+
+        // NoDefaultCurrentDirectoryInExePath breaks the ILCompiler's findvcvarsall →
+        // VsDevCmd toolchain discovery during Native AOT publish. Clear it for this
+        // process only (harmless for plain builds).
+        psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
 
         var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Failed to start: dotnet {arguments}");

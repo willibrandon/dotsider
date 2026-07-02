@@ -29,6 +29,15 @@ public static class PeSubTabId
     /// <summary>Debug Directory sub-tab.</summary>
     public const int DebugDirectory = 7;
 
+    /// <summary>Imports sub-tab (native import table; needs no CLR header).</summary>
+    public const int Imports = 8;
+
+    /// <summary>Exports sub-tab (native export table; needs no CLR header).</summary>
+    public const int Exports = 9;
+
+    /// <summary>Load Config sub-tab (load configuration directory; needs no CLR header).</summary>
+    public const int LoadConfig = 10;
+
     /// <summary>Total number of PE/Metadata sub-tabs.</summary>
-    public const int Count = 8;
+    public const int Count = 11;
 }

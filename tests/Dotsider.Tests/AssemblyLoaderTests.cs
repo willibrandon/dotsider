@@ -78,15 +78,42 @@ public sealed class AssemblyLoaderTests(SampleAssemblyFixture samples)
         direct.Analyzer.Dispose();
     }
 
-    /// <summary>Verifies that a NativeAOT exe returns a Direct result without metadata.</summary>
+    /// <summary>Verifies that a NativeAOT exe returns a NativeAot result without metadata.</summary>
     [Fact(Timeout = 30_000)]
-    public void Open_NativeAotExe_ReturnsDirect()
+    public void Open_NativeAotExe_ReturnsNativeAot()
     {
         Assert.NotNull(samples.NativeAotConsoleExe);
         var result = AssemblyLoader.Open(samples.NativeAotConsoleExe!);
-        Assert.IsType<AssemblyOpenResult.Direct>(result);
+        Assert.IsType<AssemblyOpenResult.NativeAot>(result);
+        var aot = (AssemblyOpenResult.NativeAot)result;
+        Assert.False(aot.Analyzer.HasMetadata);
+        Assert.NotNull(aot.Analyzer.NativeAotInfo);
+        Assert.Equal(BinaryKind.NativeAot, aot.Analyzer.BinaryKind);
+        aot.Analyzer.Dispose();
+    }
+
+    /// <summary>
+    /// Verifies that a single-file bundle is never classified as Native AOT even though
+    /// the ReadyToRun assemblies inside it contain RTR signatures — the bundle check
+    /// runs before the Native AOT probe.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Open_SingleFileBundle_NotClassifiedAsNativeAot()
+    {
+        Assert.NotNull(samples.SelfContainedConsoleExe);
+        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
+        Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        ((AssemblyOpenResult.BundleEntry)result).EntryAnalyzer.Dispose();
+    }
+
+    /// <summary>Verifies that a managed DLL is classified as Managed.</summary>
+    [Fact(Timeout = 30_000)]
+    public void Open_ManagedDll_HasManagedBinaryKind()
+    {
+        var result = AssemblyLoader.Open(samples.RichLibraryDll);
         var direct = (AssemblyOpenResult.Direct)result;
-        Assert.False(direct.Analyzer.HasMetadata);
+        Assert.Equal(BinaryKind.Managed, direct.Analyzer.BinaryKind);
+        Assert.Null(direct.Analyzer.NativeAotInfo);
         direct.Analyzer.Dispose();
     }
 }

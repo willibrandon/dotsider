@@ -45,6 +45,12 @@ internal static class AnalyzeCommand
         Description = "Extract strings from the assembly"
     };
 
+    private static readonly Option<int> s_minLenOption = new("--min-len", "-n")
+    {
+        Description = "Minimum length for raw string extraction (default: 4)",
+        DefaultValueFactory = _ => 4
+    };
+
     private static readonly Option<bool> s_sizeOption = new("--size")
     {
         Description = "Show size breakdown"
@@ -79,6 +85,7 @@ internal static class AnalyzeCommand
             s_embeddedSourceOption,
             s_depsOption,
             s_stringsOption,
+            s_minLenOption,
             s_sizeOption,
             s_fieldsOption,
             s_bundleOption,
@@ -137,6 +144,10 @@ internal static class AnalyzeCommand
                         analyzer = entry;
                         analyzedPath = bundle;
                         break;
+                    case AssemblyOpenResult.NativeAot(var aot):
+                        analyzer = aot;
+                        analyzedPath = filePath;
+                        break;
                     default:
                         analyzer = ((AssemblyOpenResult.Direct)result).Analyzer;
                         analyzedPath = filePath;
@@ -189,7 +200,8 @@ internal static class AnalyzeCommand
                     return Task.FromResult(PrintDeps(analyzer, formatter));
 
                 if (parseResult.GetValue(s_stringsOption))
-                    return Task.FromResult(PrintStrings(analyzer, formatter));
+                    return Task.FromResult(PrintStrings(analyzer, formatter,
+                        parseResult.GetValue(s_minLenOption)));
 
                 if (parseResult.GetValue(s_sizeOption))
                     return Task.FromResult(PrintSize(analyzer, formatter));
@@ -220,7 +232,7 @@ internal static class AnalyzeCommand
             fmt.WriteJson(new
             {
                 a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
-                a.TargetFramework, a.Architecture, a.HasMetadata,
+                a.TargetFramework, a.Architecture, a.HasMetadata, a.BinaryKind, a.NativeAotInfo,
                 a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
                 a.PdbProvenance, a.SourceLink, a.DebugDirectory,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
@@ -234,6 +246,14 @@ internal static class AnalyzeCommand
             fmt.WriteLine($"Version:    {a.AssemblyVersion ?? "(none)"}");
             fmt.WriteLine($"Framework:  {a.TargetFramework ?? "(none)"}");
             fmt.WriteLine($"Arch:       {a.Architecture}");
+            if (a.NativeAotInfo is { } aot)
+            {
+                fmt.WriteLine("Kind:       Native AOT (.NET)");
+                fmt.WriteLine($"RTR Format: v{aot.MajorVersion}.{aot.MinorVersion} ({aot.SectionCount} sections)");
+                fmt.WriteLine($"Runtime:    {aot.RuntimeVersion ?? "(not detected)"}");
+                fmt.WriteLine($"Imports:    {a.Imports.Count} modules, "
+                    + $"{a.Imports.Sum(m => m.Functions.Count)} functions");
+            }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
             if (a.IsBundleBacked)
@@ -432,15 +452,25 @@ internal static class AnalyzeCommand
         return 0;
     }
 
-    private static int PrintStrings(AssemblyAnalyzer a, OutputFormatter fmt)
+    private static int PrintStrings(AssemblyAnalyzer a, OutputFormatter fmt, int minLength)
     {
         var extractor = new StringExtractor(a);
         var user = extractor.ExtractUserStrings();
         var metadata = extractor.ExtractMetadataStrings();
 
+        // Metadata-less binaries (Native AOT, apphosts) have no string heaps —
+        // fall back to the raw scans so --strings never comes back empty-handed.
+        var scanRaw = !a.HasMetadata;
+        IReadOnlyList<StringEntry> raw = scanRaw ? extractor.ExtractRawStrings(minLength) : [];
+        IReadOnlyList<StringEntry> rawUtf16 = scanRaw ? extractor.ExtractRawUtf16Strings(minLength) : [];
+
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new { UserStrings = user, MetadataStrings = metadata });
+            fmt.WriteJson(new
+            {
+                UserStrings = user, MetadataStrings = metadata,
+                RawStrings = raw, RawUtf16Strings = rawUtf16
+            });
             return 0;
         }
 
@@ -456,6 +486,21 @@ internal static class AnalyzeCommand
         {
             fmt.WriteLine($"Metadata Strings ({metadata.Count}):");
             foreach (var s in metadata)
+                fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
+        }
+
+        if (raw.Count > 0)
+        {
+            fmt.WriteLine($"Raw Strings (ASCII) ({raw.Count}):");
+            foreach (var s in raw)
+                fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
+            fmt.WriteLine("");
+        }
+
+        if (rawUtf16.Count > 0)
+        {
+            fmt.WriteLine($"Raw Strings (UTF-16) ({rawUtf16.Count}):");
+            foreach (var s in rawUtf16)
                 fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
         }
 

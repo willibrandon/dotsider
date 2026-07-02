@@ -245,4 +245,79 @@ public class StringExtractorTests(SampleAssemblyFixture samples)
 
         Assert.NotNull(strings);
     }
+
+    /// <summary>
+    /// Verifies the UTF-16 raw scan finds frozen managed string literals in a
+    /// Native AOT binary (the DOTNET_ environment variable names the runtime reads).
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeAot_ExtractRawUtf16Strings_FindsFrozenLiterals()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractRawUtf16Strings(minLength: 8);
+
+        Assert.NotEmpty(strings);
+        Assert.Contains(strings, s => s.Value.Contains("DOTNET_", StringComparison.Ordinal));
+        Assert.All(strings, s => Assert.Equal(StringSource.RawBinaryUtf16, s.Source));
+    }
+
+    /// <summary>
+    /// Verifies the UTF-16 raw scan honors the minimum length.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExtractRawUtf16Strings_RespectsMinLength()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractRawUtf16Strings(minLength: 16);
+
+        Assert.All(strings, s => Assert.True(s.Value.Length >= 16));
+    }
+
+    /// <summary>
+    /// Verifies UTF-16 entries carry offsets inside the file.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExtractRawUtf16Strings_HaveValidOffsets()
+    {
+        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractRawUtf16Strings();
+
+        Assert.All(strings, s => Assert.InRange(s.Offset, 0, (int)a.FileSize - 1));
+    }
+
+    /// <summary>
+    /// Verifies a UTF-16 run at an odd byte offset is found — UTF-16 data sits at
+    /// arbitrary alignments in real binaries.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ExtractRawUtf16Strings_OddOffsetRun_Found()
+    {
+        var bytes = new byte[64];
+        bytes[0] = 0x7F;
+        bytes[1] = (byte)'E';
+        bytes[2] = (byte)'L';
+        bytes[3] = (byte)'F';
+
+        // "Hello" as UTF-16LE starting at odd offset 7
+        var text = "Hello"u8;
+        for (var i = 0; i < text.Length; i++)
+            bytes[7 + i * 2] = text[i];
+
+        using var a = new AssemblyAnalyzer(bytes, "fake.so");
+        var extractor = new StringExtractor(a);
+
+        var strings = extractor.ExtractRawUtf16Strings(minLength: 5);
+
+        var entry = Assert.Single(strings, s => s.Value == "Hello");
+        Assert.Equal(7, entry.Offset);
+    }
 }

@@ -14,6 +14,9 @@ public static class StringsSubTabId
     /// <summary>Raw Binary sub-tab.</summary>
     public const int RawBinary = 2;
 
+    /// <summary>Raw UTF-16 sub-tab.</summary>
+    public const int RawBinaryUtf16 = 3;
+
     /// <summary>Total number of Strings sub-tabs.</summary>
-    public const int Count = 3;
+    public const int Count = 4;
 }

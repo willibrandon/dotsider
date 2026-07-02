@@ -101,6 +101,16 @@ The assembly version string, or null.
 public string? AssemblyVersion { get; }
 ```
 
+### BinaryKind
+
+Coarse classification of the analyzed binary.
+
+**Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
+
+```csharp
+public BinaryKind BinaryKind { get; }
+```
+
 ### CanSaveInPlace
 
 Whether in-place hex save is supported. Returns `false` for bundle-backed analyzers
@@ -174,6 +184,17 @@ points to the bundle executable on disk. For file-backed analyzers, equals [File
 public string DisplayName { get; }
 ```
 
+### Exports
+
+Gets the native export table: PE exports, or the defined global symbols of an
+ELF or Mach-O image. Needs no CLR header; empty when the image exports nothing.
+
+**Returns:** [IReadOnlyList\<ExportedFunctionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<ExportedFunctionInfo> Exports { get; }
+```
+
 ### FieldDefs
 
 Gets the FieldDef metadata table entries.
@@ -234,6 +255,18 @@ Gets whether a portable PDB was opened.
 public bool HasPortablePdb { get; }
 ```
 
+### Imports
+
+Gets the native import table: PE import descriptors, ELF needed libraries and
+undefined dynamic symbols, or Mach-O loaded dylibs and undefined symbols.
+Needs no CLR header.
+
+**Returns:** [IReadOnlyList\<ImportedModuleInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<ImportedModuleInfo> Imports { get; }
+```
+
 ### IsBundleBacked
 
 Whether this analyzer was created from bytes extracted from a single-file bundle.
@@ -275,6 +308,16 @@ the bundle executable; for file-backed analyzers this is [FilePath](/api/dotside
 public string LaunchPath { get; }
 ```
 
+### LoadConfig
+
+Gets the parsed load configuration directory, or null when absent or not a PE.
+
+**Returns:** [LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/)
+
+```csharp
+public LoadConfigInfo? LoadConfig { get; }
+```
+
 ### MemberRefs
 
 Gets the MemberRef metadata table entries.
@@ -293,6 +336,19 @@ Gets the MethodDef metadata table entries.
 
 ```csharp
 public IReadOnlyList<MethodDefInfo> MethodDefs { get; }
+```
+
+### NativeAotInfo
+
+Facts from the embedded ReadyToRun header when this is a Native AOT binary,
+or null. Only probed for metadata-less files — a managed ReadyToRun assembly
+also embeds the header, but there it accompanies metadata rather than
+replacing it.
+
+**Returns:** [NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/)
+
+```csharp
+public NativeAotInfo? NativeAotInfo { get; }
 ```
 
 ### PdbProvenance

@@ -60,6 +60,7 @@ internal static class ToolHelpers
         return result switch
         {
             AssemblyOpenResult.Direct(var a) => a,
+            AssemblyOpenResult.NativeAot(var aot) => aot,
             AssemblyOpenResult.ApphostWithCompanion(var host, var companion) =>
                 OpenCompanion(host, companion),
             AssemblyOpenResult.BundleEntry(var entry, _) => entry,

@@ -581,7 +581,7 @@ public sealed class DotsiderApp(DotsiderState state)
                         : "Enter: Re-run";
                     hints.Add(s.Section(hint));
                 }
-                else if ((_state.HasEntryPoint || _state.IsNativeAot) && !_state.IsNetFramework)
+                else if ((_state.HasEntryPoint || _state.IsNativeBinary) && !_state.IsNetFramework)
                     hints.Add(s.Section("Enter: Launch"));
             }
 

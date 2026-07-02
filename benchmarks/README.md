@@ -45,13 +45,15 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `ImplementationAssemblyResolverColdBenchmarks` | Cold-path reference-to-implementation resolution: known mappings, type forwarder chains, direct usable metadata |
 | `ImplementationAssemblyResolverWarmBenchmarks` | Warm-cache hit for implementation assembly resolution |
 | `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
+| `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
+| `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
 | `RuntimeTracerDataRetrievalBenchmarks` | Ring buffer snapshot, summary aggregation, output materialization, and counter read with populated trace data |
 | `RuntimeTracerThroughputBenchmarks` | Data retrieval under concurrent event-processing load (lock contention, volatile reads) |
 | `RuntimeTracerWritePathBenchmarks` | Full write pipeline throughput: event collection, counter acquisition, and Start/Stop lifecycle with EventPipe connect latency |
 | `SingleFileBundleReaderBenchmarks` | Bundle signature scanning (file/span, positive/negative), manifest parsing, and full entry-assembly extraction |
 | `SizeAnalyzerBenchmarks` | `BuildSizeTree` full traversal |
-| `StringExtractorBenchmarks` | UserStrings, MetadataStrings, and RawStrings extraction |
+| `StringExtractorBenchmarks` | UserStrings, MetadataStrings, RawStrings, and RawUtf16Strings extraction |
 | `TreemapLayoutBenchmarks` | Squarified treemap rectangle computation for assembly size trees |
 
 ## Test Assemblies
@@ -189,6 +191,14 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | Direct usable (System.Private.Xml) | 36.25 μs | 10.80 KB |
 | Known mapping warm cache hit | 67.62 ns | — |
 
+#### NativeAotDetector
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| Detect NativeAOT exe (positive) | 63.80 μs | 4,752 B |
+| Detect CoreLib (R2R negative) | 470.87 μs | — |
+| Detect apphost (negative) | 3.63 μs | — |
+
 #### NuGetPackageAnalyzer
 
 | Benchmark | Mean | Allocated |
@@ -197,6 +207,15 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 | OpenDll (CoreLib ~16MB) | 32.82 ms | 16,335 KB |
 | Construction (120+ entries) | 115.41 μs | 143.17 KB |
 | OpenDll from large package (CoreLib) | 30.35 ms | 16,434 KB |
+
+#### PeDirectoryReader
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| NativeAOT Imports | 127.4 μs | 1.20 MB |
+| NativeAOT Exports | 122.8 μs | 1.19 MB |
+| NativeAOT LoadConfig | 121.9 μs | 1.18 MB |
+| CoreLib Imports | 1.20 ms | 16.30 MB |
 
 #### RuntimeTracer — Data Retrieval (populated)
 
@@ -240,10 +259,18 @@ The 8ms adaptive threshold (`HexDumpView` line 44) crosses at ~10MB on this mach
 |---|---|---|
 | CoreLib UserStrings | 59.15 μs | 368 KB |
 | CoreLib MetadataStrings | 1.79 ms | 2,878 KB |
-| CoreLib RawStrings | 27.76 ms | 6,490 KB |
+| CoreLib RawStrings | 13.97 ms | 6,457 KB |
 | Xml UserStrings | 62.56 μs | 375 KB |
 | Xml MetadataStrings | 1.02 ms | 1,519 KB |
-| Xml RawStrings | 14.97 ms | 3,962 KB |
+| Xml RawStrings | 7.10 ms | 3,956 KB |
+| CoreLib RawUtf16Strings | 4.11 ms | 763 KB |
+| Xml RawUtf16Strings | 2.24 ms | 654 KB |
+
+The raw scans classify 64 bytes (or UTF-16 code units) per step into a printable
+bitmask with `Vector128` compares and walk run boundaries via bit scans, so SIMD cost
+stays fixed per block regardless of how dense printable bytes are. The ASCII scan is
+now bounded by materializing its ~6 MB of result strings, not by scanning; the UTF-16
+scan (one pass per byte parity) is 6.6× faster than the scalar baseline it replaced.
 
 #### SizeAnalyzer
 

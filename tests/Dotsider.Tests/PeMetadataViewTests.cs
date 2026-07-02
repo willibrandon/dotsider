@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
@@ -16,7 +17,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp()
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string? assemblyPath = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -28,7 +29,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.PeMetadata
                 };
@@ -712,6 +713,174 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Contains("Token: 0x", content);
         Assert.Contains("Signature:", content);
         Assert.Contains("RVA: 0x", content);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>The core system library name shown in the import table of the running OS.</summary>
+    private static string CoreImportLibrary =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "kernel32"
+        : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libSystem"
+        : "libc";
+
+    /// <summary>
+    /// Verifies the Imports sub-tab shows the native import table for a Native AOT
+    /// executable — PE imports on Windows, ELF needed libraries on Linux, Mach-O
+    /// dylibs on macOS.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_ImportsTab_ShowsModules()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.Imports; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        // Wait for the first module's name to render (casing varies by platform, so
+        // drive the on-screen match from the actual module name).
+        await builder
+            .WaitUntil(_ => _state!.Analyzer.Imports.Count > 0, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText(FirstModulePrefix()), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.Imports, _state!.PeSubTab);
+        Assert.NotEmpty(_state.Analyzer.Imports);
+        Assert.Contains(_state.Analyzer.Imports, m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    private string FirstModulePrefix()
+    {
+        var name = _state!.Analyzer.Imports[0].ModuleName;
+        // The Module column is 24 cells wide; match a prefix that fits without truncation.
+        return name.Length <= 20 ? name : name[..20];
+    }
+
+    /// <summary>
+    /// Verifies the Imports detail popup opens on Enter for a Native AOT executable.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_ImportsDetailPopup_OpensOnEnter()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.Imports; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Contains("Imported Function", _state!.PeDetailContent!);
+        Assert.Contains("Module:", _state.PeDetailContent!);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Load Config sub-tab shows parsed fields for a Native AOT executable.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_LoadConfigTab_ShowsFields()
+    {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "the load configuration directory is a PE-only structure");
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.LoadConfig; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Security Cookie"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.LoadConfig, _state!.PeSubTab);
+        Assert.NotNull(_state.Analyzer.LoadConfig);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies a managed DLL can navigate through the Imports, Exports, and Load
+    /// Config sub-tabs without crashing even when they are empty.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_ManagedDll_NewSubTabs_NoCrash()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.LoadConfig; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Load Config"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.LoadConfig, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;

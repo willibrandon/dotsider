@@ -18,5 +18,11 @@ public enum StringSource
     /// <summary>
     /// Raw printable character sequences extracted directly from the binary.
     /// </summary>
-    RawBinary
+    RawBinary,
+
+    /// <summary>
+    /// UTF-16LE printable character sequences extracted directly from the binary.
+    /// This is how managed string literals freeze in Native AOT images.
+    /// </summary>
+    RawBinaryUtf16
 }

@@ -66,7 +66,7 @@ public static class DynamicAnalysisView
                 $"Detected target: {state.EffectiveTargetFrameworkDisplay}");
 
         // Library DLL — no entry point (but allow NativeAOT executables through)
-        if (!state.HasEntryPoint && !state.IsNativeAot)
+        if (!state.HasEntryPoint && !state.IsNativeBinary)
             return BuildMessageView(ctx,
                 "This assembly is a library (no entry point).",
                 "Dynamic analysis requires an executable assembly.",

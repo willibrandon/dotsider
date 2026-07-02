@@ -38,6 +38,17 @@ Raw printable character sequences extracted directly from the binary.
 RawBinary = 2
 ```
 
+### RawBinaryUtf16
+
+UTF-16LE printable character sequences extracted directly from the binary.
+This is how managed string literals freeze in Native AOT images.
+
+**Returns:** [StringSource](/api/dotsider.core.analysis.models.stringsource/)
+
+```csharp
+RawBinaryUtf16 = 3
+```
+
 ### UserStrings
 
 The #US (User Strings) metadata heap, containing string literals used in IL code.

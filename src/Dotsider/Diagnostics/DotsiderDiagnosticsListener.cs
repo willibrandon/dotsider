@@ -318,6 +318,8 @@ internal sealed class DotsiderDiagnosticsListener(
             a.PublicKeyToken,
             a.Architecture,
             a.HasMetadata,
+            a.BinaryKind,
+            a.NativeAotInfo,
             a.DisplayName,
             a.SourceBundlePath,
             a.IsBundleBacked,
@@ -545,6 +547,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var user = extractor.ExtractUserStrings();
         var metadata = extractor.ExtractMetadataStrings();
         var raw = extractor.ExtractRawStrings(minLength);
+        var rawUtf16 = extractor.ExtractRawUtf16Strings(minLength);
 
         if (!string.IsNullOrEmpty(request.Query))
         {
@@ -554,6 +557,7 @@ internal sealed class DotsiderDiagnosticsListener(
             user = [.. user.Where(Match)];
             metadata = [.. metadata.Where(Match)];
             raw = [.. raw.Where(Match)];
+            rawUtf16 = [.. rawUtf16.Where(Match)];
         }
 
         var max = request.MaxResults ?? int.MaxValue;
@@ -561,7 +565,8 @@ internal sealed class DotsiderDiagnosticsListener(
         {
             UserStrings = user.Take(max),
             MetadataStrings = metadata.Take(max),
-            RawStrings = raw.Take(max)
+            RawStrings = raw.Take(max),
+            RawUtf16Strings = rawUtf16.Take(max)
         });
     }
 
@@ -701,7 +706,7 @@ internal sealed class DotsiderDiagnosticsListener(
         if (state.IsNetFramework)
             return DotsiderResponse.Fail("Assembly targets .NET Framework; EventPipe requires .NET Core 3.0+");
 
-        if (!state.HasEntryPoint && !state.IsNativeAot)
+        if (!state.HasEntryPoint && !state.IsNativeBinary)
             return DotsiderResponse.Fail("Assembly has no entry point");
 
         if (state.Tracer?.ProcessState == TraceProcessState.Running)
@@ -948,6 +953,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 {
                     case AssemblyOpenResult.Direct(var a):
                         s.PushAssemblyDirect(a);
+                        break;
+                    case AssemblyOpenResult.NativeAot(var aot):
+                        s.PushAssemblyDirect(aot);
                         break;
                     case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                         host.Dispose();

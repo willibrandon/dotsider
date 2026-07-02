@@ -43,9 +43,12 @@ dotsider analyze MyLib.dll --json             # any of the above as JSON
 dotsider analyze MyLib.dll --types -o out.txt # write to file
 dotsider analyze MyApp.exe                    # apphost .exe → auto-redirects to MyApp.dll
 dotsider analyze MyApp                        # single-file bundle → extracts entry assembly
+dotsider analyze MyAotApp.exe                 # Native AOT → binary kind, RTR format, imports
 ```
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
+
+If the file is a Native AOT executable (a validated ReadyToRun header with no CLR metadata), the default output adds `Kind`, `RTR Format`, `Runtime`, and `Imports` lines, and JSON output gains `binaryKind` and `nativeAotInfo` fields. `--strings` falls back to the raw ASCII and UTF-16 scans, since AOT binaries have no metadata string heaps.
 
 When portable PDB data is available, default output reports where it came from, and `--il` includes source spans, local names, and Source Link markers. Use `--json` when you need the exact URLs. `--embedded-source` prints source embedded in the PDB.
 
@@ -57,6 +60,7 @@ When portable PDB data is available, default output reports where it came from, 
 | `--embedded-source <name>` | Print embedded source for a method |
 | `--deps` | Show assembly references |
 | `--strings` | Extract strings |
+| `-n`, `--min-len <n>` | Minimum length for raw string extraction (default: 4) |
 | `--fields` | List field definitions |
 | `--size` | Show size breakdown |
 | `--bundle` | Show single-file bundle manifest |

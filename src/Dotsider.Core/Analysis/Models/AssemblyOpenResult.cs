@@ -9,10 +9,19 @@ public abstract record AssemblyOpenResult
 {
     /// <summary>
     /// Direct load — the file is a .dll or .exe with metadata, or a native binary
-    /// with no metadata (NativeAOT, unknown format).
+    /// with no metadata and no ReadyToRun header (unknown format).
     /// </summary>
     /// <param name="Analyzer">The analyzer for the opened file.</param>
     public sealed record Direct(AssemblyAnalyzer Analyzer) : AssemblyOpenResult;
+
+    /// <summary>
+    /// The file is a Native AOT compiled .NET binary: a valid PE, ELF, or Mach-O
+    /// with no COR header whose image embeds a validated ReadyToRun header. No
+    /// metadata is available, but PE structure, native import/export/load-config
+    /// directories, and raw strings are.
+    /// </summary>
+    /// <param name="Analyzer">The analyzer for the Native AOT binary (no metadata).</param>
+    public sealed record NativeAot(AssemblyAnalyzer Analyzer) : AssemblyOpenResult;
 
     /// <summary>
     /// The file is a native apphost with a companion managed .dll on disk.

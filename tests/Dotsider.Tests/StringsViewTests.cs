@@ -305,6 +305,79 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the fourth sub-tab (Raw UTF-16) renders and becomes active.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Strings_NavigateToRawUtf16_Renders()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= StringsSubTabId.RawBinaryUtf16; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.StringsSourceTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Raw (UTF-16)"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(StringsSubTabId.RawBinaryUtf16, _state!.StringsSourceTab);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies changing min length on the Raw UTF-16 sub-tab invalidates and
+    /// rebuilds its cache with the new minimum.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Strings_MinLengthChange_InvalidatesUtf16Cache()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("User Strings"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= StringsSubTabId.RawBinaryUtf16; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.StringsSourceTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(_ => _state!.CachedRawUtf16StringsMinLength == _state.StringsMinLength,
+                TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.OemPlus)
+            .WaitUntil(_ => _state!.StringsMinLength == 5
+                && _state.CachedRawUtf16StringsMinLength == 5,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(5, _state!.StringsMinLength);
+        Assert.NotNull(_state.CachedRawUtf16Strings);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()

@@ -77,6 +77,8 @@ Tools work in two modes:
 
 Single-file executables and native apphosts are handled transparently in direct mode — the server extracts the entry assembly from bundles and redirects apphosts to their companion DLLs, matching CLI and TUI behavior. Portable PDB data is exposed when present, including provenance, Source Link mappings, sequence points, and local names.
 
+Native AOT executables are recognized by their embedded ReadyToRun header: `get_assembly_info` reports `binaryKind` (`managed`, `nativeAot`, or `native`) and a `nativeAotInfo` object with the RTR format version, section count, and heuristically recovered runtime version. `extract_strings` returns `rawStrings` (ASCII) and `rawUtf16Strings` alongside the metadata heaps — for AOT binaries the raw scans are the only populated categories, and the UTF-16 scan is where frozen managed string literals appear.
+
 Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
 
 ## Guided prompts

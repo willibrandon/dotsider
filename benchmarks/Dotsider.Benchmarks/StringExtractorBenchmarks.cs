@@ -76,4 +76,19 @@ public class StringExtractorBenchmarks
     [Benchmark(Description = "Xml RawStrings")]
     public IReadOnlyList<StringEntry> Xml_RawStrings()
         => new StringExtractor(_xmlAnalyzer).ExtractRawStrings();
+
+    /// <summary>
+    /// Scans the CoreLib PE for raw UTF-16 strings — the parity-restarting pass
+    /// that surfaces frozen literals in Native AOT images.
+    /// </summary>
+    [Benchmark(Description = "CoreLib RawUtf16Strings")]
+    public IReadOnlyList<StringEntry> CoreLib_RawUtf16Strings()
+        => new StringExtractor(_coreLibAnalyzer).ExtractRawUtf16Strings();
+
+    /// <summary>
+    /// Scans the Xml PE for raw UTF-16 strings.
+    /// </summary>
+    [Benchmark(Description = "Xml RawUtf16Strings")]
+    public IReadOnlyList<StringEntry> Xml_RawUtf16Strings()
+        => new StringExtractor(_xmlAnalyzer).ExtractRawUtf16Strings();
 }

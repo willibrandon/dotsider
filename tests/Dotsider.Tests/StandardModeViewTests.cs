@@ -3040,6 +3040,37 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the General tab shows the Native AOT info block (binary kind,
+    /// ReadyToRun format version, runtime version, native import summary) for a
+    /// Native AOT executable.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task General_NativeAot_ShowsAotInfo()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT (.NET)"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("ILC / RTR Format"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native Imports"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.True(_state!.IsNativeAot);
+        Assert.NotNull(_state.Analyzer.NativeAotInfo);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()
