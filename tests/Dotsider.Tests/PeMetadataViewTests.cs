@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
@@ -724,6 +725,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NativeAot_ImportsTab_ShowsModules()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -762,6 +765,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NativeAot_ImportsDetailPopup_OpensOnEnter()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -800,6 +805,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     [Fact(Timeout = 30_000)]
     public async Task PeMetadata_NativeAot_LoadConfigTab_ShowsFields()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "the load configuration directory exists only in Windows PE output");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 

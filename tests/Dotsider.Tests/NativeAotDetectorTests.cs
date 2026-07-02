@@ -211,6 +211,34 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
+    /// Verifies the runtime-version heuristic finds a version placed after the
+    /// anchor message and prefers the match nearest to it — the ELF layout, where
+    /// the version lands a few hundred bytes past the anchor instead of
+    /// immediately before it as in MSVC-linked PEs.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Detect_VersionAfterAnchor_NearestMatchWins()
+    {
+        var bytes = new byte[8192];
+        bytes[0] = 0x7F;
+        bytes[1] = (byte)'E';
+        bytes[2] = (byte)'L';
+        bytes[3] = (byte)'F';
+        WriteHeader(bytes, offset: 512, majorVersion: 16, minorVersion: 0,
+            sectionCount: 33, entrySize: 24, entryType: 1, firstSectionId: 201);
+
+        var anchor = "Process is terminating due to StackOverflowException"u8;
+        anchor.CopyTo(bytes.AsSpan(4096));
+        "1.2.3"u8.CopyTo(bytes.AsSpan(4096 + anchor.Length + 700)); // decoy, farther away
+        "10.0.5"u8.CopyTo(bytes.AsSpan(4096 + anchor.Length + 200));
+
+        var result = NativeAotDetector.Detect(bytes);
+
+        Assert.NotNull(result);
+        Assert.Equal("10.0.5", result.RuntimeVersion);
+    }
+
+    /// <summary>
     /// Writes a ReadyToRun-shaped header into a buffer at the given offset.
     /// </summary>
     private static void WriteHeader(byte[] bytes, int offset, ushort majorVersion,

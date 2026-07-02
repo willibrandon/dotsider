@@ -18,14 +18,16 @@ public static partial class NativeAotDetector
     private const int HeaderSize = 16;
 
     /// <summary>
-    /// The runtime pack embeds its version string immediately before this message;
-    /// the placement holds even for hand-linked binaries where other anchors move.
+    /// The runtime pack embeds its version string near this message — the two live in
+    /// the same runtime object file, so linkers keep them close, but which side the
+    /// version lands on differs: immediately before on MSVC-linked PEs, a few hundred
+    /// bytes after on ELF images.
     /// </summary>
     private static ReadOnlySpan<byte> VersionAnchor =>
         "Process is terminating due to StackOverflowException"u8;
 
-    /// <summary>Bytes to search before <see cref="VersionAnchor"/> for the version string.</summary>
-    private const int VersionWindowSize = 64;
+    /// <summary>Bytes to search on each side of <see cref="VersionAnchor"/> for the version string.</summary>
+    private const int VersionWindowSize = 1024;
 
     /// <summary>
     /// Probes the given binary image for a validated ReadyToRun header.
@@ -120,8 +122,9 @@ public static partial class NativeAotDetector
 
     /// <summary>
     /// Heuristically recovers the runtime version from the string the runtime pack
-    /// embeds immediately before its stack-overflow fatal message. Returns null when
-    /// the layout does not match — never guesses.
+    /// embeds near its stack-overflow fatal message, taking the version-shaped match
+    /// closest to the anchor. Returns null when the layout does not match — never
+    /// guesses.
     /// </summary>
     private static string? DetectRuntimeVersion(ReadOnlySpan<byte> bytes)
     {
@@ -129,13 +132,23 @@ public static partial class NativeAotDetector
         if (anchorIndex < 0) return null;
 
         var windowStart = Math.Max(0, anchorIndex - VersionWindowSize);
-        var window = Encoding.Latin1.GetString(bytes[windowStart..anchorIndex]);
+        var windowEnd = Math.Min(bytes.Length, anchorIndex + VersionAnchor.Length + VersionWindowSize);
+        var window = Encoding.Latin1.GetString(bytes[windowStart..windowEnd]);
 
-        Match? last = null;
+        var anchorOffset = anchorIndex - windowStart;
+        Match? best = null;
+        var bestDistance = int.MaxValue;
         foreach (Match match in VersionRegex().Matches(window))
-            last = match;
+        {
+            var distance = Math.Abs(match.Index - anchorOffset);
+            if (distance < bestDistance)
+            {
+                best = match;
+                bestDistance = distance;
+            }
+        }
 
-        return last?.Value;
+        return best?.Value;
     }
 
     /// <summary>Matches a three-part runtime version with an optional prerelease suffix.</summary>

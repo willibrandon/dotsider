@@ -1,4 +1,5 @@
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
@@ -17,6 +18,9 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     [Fact(Timeout = 30_000)]
     public void Imports_ApphostExe_ContainsKernel32()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "apphost is a PE with an import table only on Windows");
+
         using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
 
         var imports = analyzer.Imports;
@@ -33,6 +37,8 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     [Fact(Timeout = 30_000)]
     public void Imports_NativeAotExe_ContainsMultipleModules()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "Native AOT output is a PE with an import table only on Windows");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -104,6 +110,8 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     [Fact(Timeout = 30_000)]
     public void LoadConfig_NativeAotExe_HasSecurityCookie()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "the load configuration directory exists only in Windows PE output");
         Assert.SkipWhen(samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
@@ -123,6 +131,9 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     [Fact(Timeout = 30_000)]
     public void LoadConfig_ApphostExe_Parses()
     {
+        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            "the load configuration directory exists only in Windows PE output");
+
         using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
 
         var loadConfig = analyzer.LoadConfig;
