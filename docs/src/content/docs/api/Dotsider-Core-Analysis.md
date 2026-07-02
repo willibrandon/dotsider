@@ -46,9 +46,9 @@ public static class AssemblyIdentityFormat
 ### [AssemblyLoader](/api/dotsider.core.analysis.assemblyloader/)
 
 Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
-single-file bundles (entry assembly extraction), and direct .dll/.exe loading.
-Returns an [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) that preserves the distinction so callers
-can decide how to present each case (e.g. showing an apphost dialog).
+single-file bundles (entry assembly extraction), Native AOT binaries, and direct
+.dll/.exe loading. Returns an [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) that preserves the
+distinction so callers can decide how to present each case (e.g. showing an apphost dialog).
 
 ```csharp
 public static class AssemblyLoader
@@ -102,6 +102,18 @@ assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
 public static class ImplementationAssemblyResolver
+```
+
+### [NativeAotDetector](/api/dotsider.core.analysis.nativeaotdetector/)
+
+Detects Native AOT compiled .NET binaries by locating and validating the embedded
+ReadyToRun header. Every Native AOT image carries this header (signature "RTR\0")
+so the runtime can find its module sections, but the signature bytes also occur as
+code immediates, so each candidate is validated against the field ranges the ILC
+toolchain actually emits before it is accepted.
+
+```csharp
+public static class NativeAotDetector
 ```
 
 ### [NetFxBinder](/api/dotsider.core.analysis.netfxbinder/)

@@ -92,6 +92,27 @@ A list of string entries extracted from the raw binary.
 public IReadOnlyList<StringEntry> ExtractRawStrings(int minLength = 4)
 ```
 
+### ExtractRawUtf16Strings(int)
+
+Extracts printable UTF-16LE character sequences from the binary file. Scans for
+runs of little-endian code units in the printable ASCII range (0x20–0x7E stored
+as two bytes), which is how managed string literals freeze in Native AOT images.
+The scan restarts at every byte position, so runs at odd offsets are found too.
+Accepting the full BMP instead would drown the results in noise — most random
+16-bit values decode to a printable character.
+
+**Parameters:**
+
+- `minLength` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The minimum number of consecutive printable characters to consider a string.
+
+**Returns:** [IReadOnlyList\<StringEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+A list of string entries extracted from the raw binary.
+
+```csharp
+public IReadOnlyList<StringEntry> ExtractRawUtf16Strings(int minLength = 4)
+```
+
 ### ExtractUserStrings()
 
 Extracts all user string literals from the #US metadata heap.

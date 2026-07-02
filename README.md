@@ -41,14 +41,14 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed.
+dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed. If you open a Native AOT executable, dotsider validates its embedded ReadyToRun header and shows the binary kind, toolchain format version, runtime version, native import/export/load-config tables, and frozen UTF-16 string literals.
 
 | Tab | What you see |
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
-| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, and debug directory rows. Press `g` on a TypeDef or MethodDef to jump to its IL. |
+| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, and load config rows. Press `g` on a TypeDef or MethodDef to jump to its IL. |
 | **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `u` on a `[source link]` marker to copy its resolved URL. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
-| **4 Strings** | User strings, metadata strings, and raw binary string scan with configurable minimum length. |
+| **4 Strings** | User strings, metadata strings, and raw ASCII and UTF-16 binary scans with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
 | **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in; Enter on a method leaf jumps to its IL. |

@@ -58,10 +58,21 @@ public sealed record AssemblyOpenResult.BundleEntry : AssemblyOpenResult, IEquat
 ### [AssemblyOpenResult.Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/)
 
 Direct load — the file is a .dll or .exe with metadata, or a native binary
-with no metadata (NativeAOT, unknown format).
+with no metadata and no ReadyToRun header (unknown format).
 
 ```csharp
 public sealed record AssemblyOpenResult.Direct : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.Direct>
+```
+
+### [AssemblyOpenResult.NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/)
+
+The file is a Native AOT compiled .NET binary: a valid PE, ELF, or Mach-O
+with no COR header whose image embeds a validated ReadyToRun header. No
+metadata is available, but PE structure, native import/export/load-config
+directories, and raw strings are.
+
+```csharp
+public sealed record AssemblyOpenResult.NativeAot : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.NativeAot>
 ```
 
 ### [AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/)
@@ -207,6 +218,14 @@ Embedded source decoded from a portable PDB document.
 public sealed record EmbeddedSourceInfo : IEquatable<EmbeddedSourceInfo>
 ```
 
+### [ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/)
+
+A single entry in the PE export table.
+
+```csharp
+public sealed record ExportedFunctionInfo : IEquatable<ExportedFunctionInfo>
+```
+
 ### [FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/)
 
 Information about a field defined in the assembly's FieldDef metadata table.
@@ -335,6 +354,33 @@ A token kind that is recognized but not supported for navigation.
 public sealed record IlNavigationTarget.Unsupported : IlNavigationTarget, IEquatable<IlNavigationTarget>, IEquatable<IlNavigationTarget.Unsupported>
 ```
 
+### [ImportedFunctionInfo](/api/dotsider.core.analysis.models.importedfunctioninfo/)
+
+A single function imported from a native module.
+
+```csharp
+public sealed record ImportedFunctionInfo : IEquatable<ImportedFunctionInfo>
+```
+
+### [ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/)
+
+A native module referenced by the PE import table, with the functions imported from it.
+
+```csharp
+public sealed record ImportedModuleInfo : IEquatable<ImportedModuleInfo>
+```
+
+### [LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/)
+
+Parsed PE load configuration directory. Pointer-width fields are widened to
+[UInt64](https://learn.microsoft.com/dotnet/api/system.uint64) so a single record covers PE32 and PE32+ images. Fields
+beyond the directory's declared size are zero — real-world load configs are
+truncated at many historical lengths.
+
+```csharp
+public sealed record LoadConfigInfo : IEquatable<LoadConfigInfo>
+```
+
 ### [LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/)
 
 Per-loaded-identity entry interned in `LoadedAssemblyCache`. When two distinct requested
@@ -376,6 +422,17 @@ Information about a method defined in the assembly's MethodDef metadata table.
 
 ```csharp
 public sealed record MethodDefInfo : IEquatable<MethodDefInfo>
+```
+
+### [NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/)
+
+Facts extracted from the embedded ReadyToRun header of a Native AOT binary.
+Every Native AOT image embeds this header (signature "RTR\0") so the runtime can
+locate its module sections; its presence with no COR header identifies the binary
+as Native AOT compiled .NET.
+
+```csharp
+public sealed record NativeAotInfo : IEquatable<NativeAotInfo>
 ```
 
 ### [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)
@@ -552,6 +609,14 @@ Describes how an assembly in the dependency graph was located — or why it coul
 
 ```csharp
 public enum AssemblyProvenance
+```
+
+### [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
+
+Coarse classification of an analyzed binary.
+
+```csharp
+public enum BinaryKind
 ```
 
 ### [BundleFileType](/api/dotsider.core.analysis.models.bundlefiletype/)

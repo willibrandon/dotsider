@@ -1,6 +1,6 @@
 ---
 title: "AssemblyOpenResult.Direct"
-description: "Direct load — the file is a .dll or .exe with metadata, or a native binary with no metadata (NativeAOT, unknown format)."
+description: "Direct load — the file is a .dll or .exe with metadata, or a native binary with no metadata and no ReadyToRun header (unknown format)."
 slug: api/dotsider.core.analysis.models.assemblyopenresult.direct
 sidebar:
   order: 1
@@ -11,7 +11,7 @@ sidebar:
 **Assembly:** Dotsider.Core.dll
 
 Direct load — the file is a .dll or .exe with metadata, or a native binary
-with no metadata (NativeAOT, unknown format).
+with no metadata and no ReadyToRun header (unknown format).
 
 ```csharp
 public sealed record AssemblyOpenResult.Direct : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.Direct>
@@ -31,7 +31,7 @@ public sealed record AssemblyOpenResult.Direct : AssemblyOpenResult, IEquatable<
 ### Direct(AssemblyAnalyzer)
 
 Direct load — the file is a .dll or .exe with metadata, or a native binary
-with no metadata (NativeAOT, unknown format).
+with no metadata and no ReadyToRun header (unknown format).
 
 **Parameters:**
 

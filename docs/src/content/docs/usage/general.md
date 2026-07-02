@@ -13,6 +13,15 @@ The **General** tab (`1`) is the first thing you see when opening an assembly. I
 - **PDB summary** — whether portable debug information came from a sidecar, an embedded PDB, or was unavailable
 - **Dependency table** — all referenced assemblies with their versions
 
+## Native AOT binaries
+
+Opening a Native AOT executable adds a block below the standard fields. ILC strips ECMA-335 metadata, but every AOT image embeds a ReadyToRun header the runtime uses to find its module sections — dotsider validates that header and reports:
+
+- **Binary kind** — `Native AOT (.NET)`
+- **ILC / RTR format** — the ReadyToRun format version, section count, and header offset
+- **Runtime version** — recovered from a version string the runtime pack embeds; shown as `(not detected)` when the layout doesn't match (a heuristic, never a guess)
+- **Native imports** — module and function counts from the PE import table (the full table lives in the PE/Metadata tab)
+
 ## Text selection and copy
 
 The Assembly Info panel is a read-only editor. Click into it or press `Tab` to move focus there, then select text with click-drag or `Shift` + arrow keys. Press `y` to yank the selection to the clipboard.
