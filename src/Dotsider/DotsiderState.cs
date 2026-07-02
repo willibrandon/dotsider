@@ -450,7 +450,7 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The minimum string length filter for raw strings.</summary>
     public int StringsMinLength { get; set; } = 4;
 
-    /// <summary>The selected string source tab (0=User, 1=Metadata, 2=Raw).</summary>
+    /// <summary>The selected string source tab (0=User, 1=Metadata, 2=Raw, 3=Raw UTF-16).</summary>
     public int StringsSourceTab { get; set; }
 
     /// <summary>The focused string entry key in the strings table.</summary>
@@ -470,6 +470,12 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The min length used for the cached raw strings.</summary>
     public int CachedRawStringsMinLength { get; set; } = -1;
+
+    /// <summary>Cached raw UTF-16 strings, invalidated when min length changes.</summary>
+    public IReadOnlyList<StringEntry>? CachedRawUtf16Strings { get; set; }
+
+    /// <summary>The min length used for the cached raw UTF-16 strings.</summary>
+    public int CachedRawUtf16StringsMinLength { get; set; } = -1;
 
     // --- Dependency Graph Tab State ---
 
@@ -1460,6 +1466,7 @@ public sealed class DotsiderState : IDisposable
         CachedUserStrings = null;
         CachedMetadataStrings = null;
         CachedRawStrings = null;
+        CachedRawUtf16Strings = null;
         CachedGraph = null;
         GraphNavigation = null;
         GraphBuildInProgress = false;
@@ -1522,6 +1529,7 @@ public sealed class DotsiderState : IDisposable
             StringsSubTabId.UserStrings => CachedUserStrings ??= StringExtractor.ExtractUserStrings(),
             StringsSubTabId.Metadata => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
             StringsSubTabId.RawBinary => GetCachedRawStrings(),
+            StringsSubTabId.RawBinaryUtf16 => GetCachedRawUtf16Strings(),
             _ => []
         };
 
@@ -1572,6 +1580,17 @@ public sealed class DotsiderState : IDisposable
         }
 
         return CachedRawStrings;
+    }
+
+    private IReadOnlyList<StringEntry> GetCachedRawUtf16Strings()
+    {
+        if (CachedRawUtf16Strings is null || CachedRawUtf16StringsMinLength != StringsMinLength)
+        {
+            CachedRawUtf16Strings = StringExtractor.ExtractRawUtf16Strings(StringsMinLength);
+            CachedRawUtf16StringsMinLength = StringsMinLength;
+        }
+
+        return CachedRawUtf16Strings;
     }
 
     /// <summary>

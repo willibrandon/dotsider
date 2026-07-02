@@ -67,7 +67,8 @@ public static class GeneralView
         }
 
         // Build Assembly Info text for read-only editor
-        var infoText = string.Join("\n",
+        var infoLines = new List<string>
+        {
             $"  Assembly Name:    {analyzer.AssemblyName ?? "(none)"}",
             $"  Version:          {analyzer.AssemblyVersion ?? "(none)"}",
             $"  Target Framework: {state.EffectiveTargetFrameworkDisplay}",
@@ -81,7 +82,27 @@ public static class GeneralView
             $"  Read-Only:        {(analyzer.IsReadOnly ? "Yes" : "No")}",
             $"  Has Metadata:     {(analyzer.HasMetadata ? "Yes" : "No")}",
             $"  PDB:              {analyzer.PdbProvenance}",
-            $"  Source Link:      {(analyzer.SourceLink.IsPresent ? $"present, {analyzer.SourceLink.Mappings.Count} mappings" : "not present")}");
+            $"  Source Link:      {(analyzer.SourceLink.IsPresent ? $"present, {analyzer.SourceLink.Mappings.Count} mappings" : "not present")}",
+        };
+
+        if (analyzer.NativeAotInfo is { } aot)
+        {
+            var imports = analyzer.Imports;
+            infoLines.Add("");
+            infoLines.Add("  Binary Kind:      Native AOT (.NET)");
+            infoLines.Add($"  ILC / RTR Format: v{aot.MajorVersion}.{aot.MinorVersion} "
+                + $"({aot.SectionCount} sections @ 0x{aot.HeaderOffset:X})");
+            infoLines.Add($"  Runtime Version:  {aot.RuntimeVersion ?? "(not detected)"}");
+            infoLines.Add($"  Native Imports:   {imports.Count} modules, "
+                + $"{imports.Sum(m => m.Functions.Count)} functions");
+        }
+
+        var infoText = string.Join("\n", infoLines);
+
+        // Border chrome adds 2 rows. The AOT layout gets one more so the editor's
+        // horizontal scrollbar (long publish-dir PDB paths overflow the width)
+        // doesn't cover the last info line.
+        var infoHeight = infoLines.Count + (analyzer.NativeAotInfo is null ? 2 : 3);
 
         if (state.GeneralInfoEditorText != infoText)
         {
@@ -125,7 +146,7 @@ public static class GeneralView
                                 () => state.App.Invalidate());
                         })
                         .FillWidth().FillHeight())
-                ).Title(" Assembly Info ").FixedHeight(16)
+                ).Title(" Assembly Info ").FixedHeight(infoHeight)
             };
 
             // Search bar

@@ -10,13 +10,15 @@ namespace Dotsider.Views;
 
 /// <summary>
 /// Builds the Strings tab (Tab 4), showing string entries extracted from the assembly
-/// across three sub-tabs: User Strings (#US), Metadata Strings (#Strings), and Raw Binary.
+/// across four sub-tabs: User Strings (#US), Metadata Strings (#Strings), Raw Binary,
+/// and Raw UTF-16.
 /// </summary>
 public static class StringsView
 {
     private static readonly Hex1bColor AddressColor = Hex1bColor.FromRgb(100, 100, 130);
     [ThreadStatic] private static bool s_yankFlash;
-    private static readonly string[] SourceTabs = ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary"];
+    private static readonly string[] SourceTabs =
+        ["User Strings (#US)", "Metadata (#Strings)", "Raw Binary", "Raw (UTF-16)"];
 
     /// <summary>
     /// Builds the Strings view widget tree.
@@ -117,7 +119,7 @@ public static class StringsView
 
                 // Status line
                 var statusParts = new List<string> { $"{activeStrings.Count} strings" };
-                if (state.StringsSourceTab == StringsSubTabId.RawBinary)
+                if (state.StringsSourceTab is StringsSubTabId.RawBinary or StringsSubTabId.RawBinaryUtf16)
                 {
                     statusParts.Add($"Min length: {state.StringsMinLength}");
                 }
@@ -179,6 +181,7 @@ public static class StringsView
                 {
                     state.StringsMinLength++;
                     state.CachedRawStrings = null;
+                    state.CachedRawUtf16Strings = null;
                     state.App.Invalidate();
                 }, "Increase min length");
 
@@ -186,6 +189,7 @@ public static class StringsView
                 {
                     state.StringsMinLength++;
                     state.CachedRawStrings = null;
+                    state.CachedRawUtf16Strings = null;
                     state.App.Invalidate();
                 }, "Increase min length");
 
@@ -195,6 +199,7 @@ public static class StringsView
                     {
                         state.StringsMinLength--;
                         state.CachedRawStrings = null;
+                        state.CachedRawUtf16Strings = null;
                         state.App.Invalidate();
                     }
                 }, "Decrease min length");
@@ -205,6 +210,7 @@ public static class StringsView
                     {
                         state.StringsMinLength--;
                         state.CachedRawStrings = null;
+                        state.CachedRawUtf16Strings = null;
                         state.App.Invalidate();
                     }
                 }, "Decrease min length");

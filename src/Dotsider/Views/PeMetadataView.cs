@@ -69,6 +69,12 @@ public static class PeMetadataView
                     PeSubTabId.Resources when analyzer.Resources.Count > 0 => analyzer.Resources[0].Name,
                     PeSubTabId.DebugDirectory when analyzer.DebugDirectory.Count > 0 =>
                         GetDebugDirectoryKey(analyzer.DebugDirectory[0]),
+                    PeSubTabId.Imports when GetImportRows(analyzer).Count > 0 =>
+                        GetImportRows(analyzer)[0].Key,
+                    PeSubTabId.Exports when analyzer.Exports.Count > 0 =>
+                        analyzer.Exports[0].Ordinal,
+                    PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
+                        GetLoadConfigRows(analyzer.LoadConfig)[0].Field,
                     _ => null
                 };
         }
@@ -226,7 +232,13 @@ public static class PeMetadataView
                     tp.Tab("Resources", t => [BuildResourcesTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Resources),
                     tp.Tab("Debug Directory", t => [BuildDebugDirectoryTable(t, state)])
-                        .Selected(state.PeSubTab == PeSubTabId.DebugDirectory)
+                        .Selected(state.PeSubTab == PeSubTabId.DebugDirectory),
+                    tp.Tab("Imports", t => [BuildImportsTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.Imports),
+                    tp.Tab("Exports", t => [BuildExportsTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.Exports),
+                    tp.Tab("Load Config", t => [BuildLoadConfigTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.LoadConfig)
                 ])
                 .OnSelectionChanged(e =>
                 {
@@ -798,9 +810,162 @@ public static class PeMetadataView
                 r => $"{r.Name} {r.Visibility}").Select(r => (object)r.Name)],
             PeSubTabId.DebugDirectory => [.. ApplySearch(analyzer.DebugDirectory, query,
                 d => $"{d.Type} {d.Stamp:X8} {d.Payload}").Select(d => (object)GetDebugDirectoryKey(d))],
+            PeSubTabId.Imports => [.. ApplySearch(GetImportRows(analyzer), query,
+                r => $"{r.Module} {r.Function.Name}").Select(r => (object)r.Key)],
+            PeSubTabId.Exports => [.. ApplySearch(analyzer.Exports, query,
+                e => $"{e.Name} {e.Ordinal} {e.ForwardedTo}").Select(e => (object)e.Ordinal)],
+            PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
+                [.. ApplySearch(GetLoadConfigRows(analyzer.LoadConfig), query,
+                    r => $"{r.Field} {r.Value}").Select(r => (object)r.Field)],
             _ => []
         };
     }
+
+    private static TableWidget<ImportRow> BuildImportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(GetImportRows(state.Analyzer), query,
+            r => $"{r.Module} {r.Function.Name}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(r => r.Key)
+            .Header(h =>
+            [
+                h.Cell("Module").Width(SizeHint.Fixed(24)),
+                h.Cell("Function").Width(SizeHint.Fill),
+                h.Cell("Hint").Width(SizeHint.Fixed(8)),
+                h.Cell("Ordinal").Width(SizeHint.Fixed(9))
+            ])
+            .Row((r, row, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c, row.Module, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, ImportFunctionDisplay(row.Function), query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(row.Function.Hint?.ToString() ?? ""), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(row.Function.Ordinal?.ToString() ?? ""), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, row) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "Imported Function",
+                    $"Module: {row.Module}",
+                    $"Function: {ImportFunctionDisplay(row.Function)}",
+                    $"Hint: {row.Function.Hint?.ToString() ?? "(none)"}",
+                    $"Ordinal: {row.Function.Ordinal?.ToString() ?? "(imported by name)"}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<ExportedFunctionInfo> BuildExportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(state.Analyzer.Exports, query,
+            e => $"{e.Name} {e.Ordinal} {e.ForwardedTo}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(e => e.Ordinal)
+            .Header(h =>
+            [
+                h.Cell("Ordinal").Width(SizeHint.Fixed(9)),
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("RVA").Width(SizeHint.Fixed(12)),
+                h.Cell("Forwarded To").Width(SizeHint.Fixed(30))
+            ])
+            .Row((r, e, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(e.Ordinal.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, e.Name ?? "(ordinal only)", query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{e.Rva:X8}"), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, e.ForwardedTo ?? "", query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, e) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "Exported Function",
+                    $"Ordinal: {e.Ordinal}",
+                    $"Name: {e.Name ?? "(ordinal only)"}",
+                    $"RVA: 0x{e.Rva:X8}",
+                    $"Forwarded To: {e.ForwardedTo ?? "(not forwarded)"}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<LoadConfigRow> BuildLoadConfigTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        IReadOnlyList<LoadConfigRow> rows = state.Analyzer.LoadConfig is { } loadConfig
+            ? GetLoadConfigRows(loadConfig)
+            : [];
+        var data = ApplySearch(rows, query, r => $"{r.Field} {r.Value}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(r => r.Field)
+            .Header(h =>
+            [
+                h.Cell("Field").Width(SizeHint.Fixed(28)),
+                h.Cell("Value").Width(SizeHint.Fill)
+            ])
+            .Row((r, row, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c, row.Field, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, row.Value, query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, row) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "Load Configuration",
+                    $"{row.Field}: {row.Value}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    /// <summary>Flattens the import table into one row per imported function.</summary>
+    private static IReadOnlyList<ImportRow> GetImportRows(Core.Analysis.AssemblyAnalyzer analyzer) =>
+        [.. analyzer.Imports.SelectMany(m => m.Functions.Select(f =>
+            new ImportRow(m.ModuleName, f, $"{m.ModuleName}!{f.Name ?? $"#{f.Ordinal}"}")))];
+
+    /// <summary>Projects the load configuration into displayable field/value rows.</summary>
+    private static IReadOnlyList<LoadConfigRow> GetLoadConfigRows(LoadConfigInfo loadConfig) =>
+    [
+        new("Size", $"{loadConfig.Size} (0x{loadConfig.Size:X})"),
+        new("Timestamp", $"0x{loadConfig.TimeDateStamp:X8}"),
+        new("Version", $"{loadConfig.MajorVersion}.{loadConfig.MinorVersion}"),
+        new("Dependent Load Flags", $"0x{loadConfig.DependentLoadFlags:X4}"),
+        new("Security Cookie", loadConfig.SecurityCookie == 0
+            ? "(none)" : $"0x{loadConfig.SecurityCookie:X}"),
+        new("SEH Handler Count", loadConfig.SehHandlerCount.ToString()),
+        new("Guard CF Check Function", loadConfig.GuardCfCheckFunctionPointer == 0
+            ? "(none)" : $"0x{loadConfig.GuardCfCheckFunctionPointer:X}"),
+        new("Guard CF Function Count", loadConfig.GuardCfFunctionCount.ToString()),
+        new("Guard Flags", $"0x{loadConfig.GuardFlags:X8}"),
+        new("Guard Flags Decoded", loadConfig.GuardFlagsDescription),
+    ];
+
+    private static string ImportFunctionDisplay(ImportedFunctionInfo function) =>
+        function.Name ?? $"#{function.Ordinal}";
+
+    /// <summary>A single imported function flattened with its owning module.</summary>
+    private sealed record ImportRow(string Module, ImportedFunctionInfo Function, string Key);
+
+    /// <summary>A load-configuration field projected for table display.</summary>
+    private sealed record LoadConfigRow(string Field, string Value);
 
     private static string GetDebugDirectoryKey(DebugDirectoryInfo info) =>
         $"{info.Type}:{info.AddressOfRawData:X8}:{info.PointerToRawData:X8}";
