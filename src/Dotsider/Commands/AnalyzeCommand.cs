@@ -1,5 +1,7 @@
 using System.CommandLine;
+using System.Globalization;
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Infrastructure;
 
@@ -56,6 +58,11 @@ internal static class AnalyzeCommand
         Description = "Show size breakdown"
     };
 
+    private static readonly Option<string?> s_disasmOption = new("--disasm")
+    {
+        Description = "Disassemble a native function (name or 0xVA)"
+    };
+
     private static readonly Option<bool> s_symbolsOption = new("--symbols")
     {
         Description = "List native symbols (Native AOT and other native binaries)"
@@ -98,6 +105,7 @@ internal static class AnalyzeCommand
             s_minLenOption,
             s_sizeOption,
             s_symbolsOption,
+            s_disasmOption,
             s_whyOption,
             s_fieldsOption,
             s_bundleOption,
@@ -220,6 +228,9 @@ internal static class AnalyzeCommand
 
                 if (parseResult.GetValue(s_symbolsOption))
                     return Task.FromResult(PrintSymbols(analyzer, formatter));
+
+                if (parseResult.GetValue(s_disasmOption) is { } disasmTarget)
+                    return Task.FromResult(PrintDisasm(analyzer, disasmTarget, formatter));
 
                 if (parseResult.GetValue(s_whyOption) is { } whyTarget)
                     return Task.FromResult(PrintWhy(analyzer, whyTarget, formatter));
@@ -421,6 +432,67 @@ internal static class AnalyzeCommand
 
         fmt.WriteLine(dis.FormatDisassembly(method));
 
+        return 0;
+    }
+
+    private static int PrintDisasm(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        var info = a.NativeSymbols;
+        if (info is null || info.Symbols.Count == 0)
+        {
+            OutputFormatter.WriteError("Error: --disasm requires a binary with native symbols");
+            return 1;
+        }
+
+        List<NativeSymbol> executables =
+            [.. info.Symbols.Where(s => s.Kind is NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary)];
+
+        List<NativeSymbol> matches;
+        if (target.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            && ulong.TryParse(target.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var va))
+        {
+            matches = info.TryFindByAddress(va, out var found) ? [found] : [];
+        }
+        else
+        {
+            // Prefer an exact managed-name match, then the raw symbol name, then a suffix match.
+            matches = [.. executables.Where(s => string.Equals(s.ManagedName, target, StringComparison.Ordinal))];
+            if (matches.Count == 0)
+                matches = [.. executables.Where(s => string.Equals(s.Name, target, StringComparison.Ordinal))];
+            if (matches.Count == 0)
+                matches = [.. executables.Where(s => (s.ManagedName ?? s.Name).EndsWith(target, StringComparison.Ordinal))];
+        }
+
+        if (matches.Count == 0)
+        {
+            OutputFormatter.WriteError($"Error: No native symbol matches '{target}'");
+            return 1;
+        }
+
+        if (matches.Count > 1)
+        {
+            OutputFormatter.WriteError($"Error: '{target}' is ambiguous ({matches.Count} matches):");
+            foreach (var m in matches.OrderBy(m => m.VirtualAddress))
+                OutputFormatter.WriteError($"  0x{m.VirtualAddress:x}  {m.ManagedName ?? m.Name}");
+            return 2;
+        }
+
+        var symbol = matches[0];
+        var result = NativeDisassembler.DisassembleSymbol(a, symbol);
+        if (result is null)
+        {
+            OutputFormatter.WriteError($"Error: '{symbol.ManagedName ?? symbol.Name}' has no disassemblable bytes");
+            return 1;
+        }
+
+        var (text, instructions, _) = result.Value;
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new { Symbol = symbol.ManagedName ?? symbol.Name, a.Architecture, Instructions = instructions });
+            return 0;
+        }
+
+        fmt.WriteLine(text);
         return 0;
     }
 
