@@ -34,10 +34,191 @@ public static class NativeSymbolReader
         if (ElfImageReader.IsElf(span))
             return ReadElf(imagePath, imageBytes, demangler);
 
-        // Mach-O dispatch lands with its reader.
+        if (MachOImageReader.IsMachO(span) || MachOImageReader.IsFat(span))
+            return ReadMachO(imagePath, imageBytes, demangler);
+
         return new NativeSymbolInfo([], NativeSymbolSource.PdataFallback,
             NativeSymbolStatus.NotApplicable, null, "unrecognized image format");
     }
+
+    private static NativeSymbolInfo ReadMachO(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
+    {
+        var span = imageBytes.Span;
+        var dsymPath = FindSidecarDirectory(imagePath);
+        var dsymBytes = dsymPath is not null ? File.ReadAllBytes(dsymPath) : null;
+
+        // Fat archives: pick the slice the dSYM identifies, else the one carrying the Native
+        // AOT signal — never silently the host architecture.
+        long sliceShift = 0;
+        if (MachOImageReader.IsFat(span))
+        {
+            var slices = MachOImageReader.ReadFatSlices(span);
+            var chosen = ChooseFatSlice(span, slices, dsymBytes);
+            if (chosen < 0)
+            {
+                var names = string.Join(", ", slices.Select(s => $"0x{s.CpuType:x}"));
+                return new NativeSymbolInfo([], NativeSymbolSource.MachONlist, NativeSymbolStatus.AmbiguousImage,
+                    null, $"fat archive: no slice disambiguated by dSYM UUID or Native AOT signal (cputypes {names})");
+            }
+
+            sliceShift = slices[chosen].Offset;
+            span = span.Slice((int)slices[chosen].Offset, (int)slices[chosen].Size);
+        }
+
+        var imageSections = MachOImageReader.ReadSectionList(span);
+        var hasImageUuid = MachOImageReader.TryReadUuid(span, out var imageUuid);
+
+        if (dsymBytes is not null)
+        {
+            // The UUID is the identity: when the image has one, the dSYM must carry the same.
+            if (hasImageUuid
+                && (!MachOImageReader.TryReadUuid(dsymBytes, out var dsymUuid)
+                    || !imageUuid.AsSpan().SequenceEqual(dsymUuid)))
+            {
+                return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.IdMismatch,
+                    $"dSYM '{Path.GetFileName(dsymPath)}' does not match the image (UUID)");
+            }
+
+            // A dSYM contributes both its DWARF and its nlist — merged, not either/or.
+            var raw = new List<RawNativeSymbol>();
+            AppendMachODwarfFunctions(dsymBytes, imageSections, sliceShift, raw);
+            foreach (var symbol in MachOSymbolReader.ReadSymbols(dsymBytes, demangler))
+                raw.Add(RemapToImage(symbol, imageSections, sliceShift));
+
+            if (raw.Count > 0)
+            {
+                var diagnostic = hasImageUuid ? null : "dSYM matched without UUIDs (none present)";
+                return Build(raw, demangler, NativeSymbolSource.Dsym, NativeSymbolStatus.Loaded, dsymPath, diagnostic);
+            }
+
+            return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.CorruptSymbolFile,
+                $"'{Path.GetFileName(dsymPath)}' matched but contains no readable symbols");
+        }
+
+        // No dSYM: the image's own symbol table is still a named primary source.
+        var own = MachOSymbolReader.ReadSymbols(span, demangler);
+        if (own.Count > 0)
+        {
+            var shifted = sliceShift == 0 ? own : [.. own.Select(s => Shift(s, sliceShift))];
+            return Build(shifted, demangler, NativeSymbolSource.MachONlist, NativeSymbolStatus.Loaded,
+                imagePath, "no dSYM bundle; names from the image's symbol table");
+        }
+
+        return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.FallbackOnly,
+            "no dSYM bundle and no symbol table");
+    }
+
+    /// <summary>
+    /// Picks a fat slice: a single slice stands alone; otherwise the dSYM's UUID decides, then
+    /// the Native AOT signal; -1 when nothing disambiguates.
+    /// </summary>
+    private static int ChooseFatSlice(
+        ReadOnlySpan<byte> archive, IReadOnlyList<MachOImageReader.MachOFatSlice> slices, byte[]? dsymBytes)
+    {
+        if (slices.Count == 1) return 0;
+
+        if (dsymBytes is not null && MachOImageReader.TryReadUuid(dsymBytes, out var dsymUuid))
+        {
+            for (var i = 0; i < slices.Count; i++)
+            {
+                var slice = archive.Slice((int)slices[i].Offset, (int)slices[i].Size);
+                if (MachOImageReader.TryReadUuid(slice, out var uuid) && uuid.AsSpan().SequenceEqual(dsymUuid))
+                    return i;
+            }
+        }
+
+        for (var i = 0; i < slices.Count; i++)
+        {
+            var slice = archive.Slice((int)slices[i].Offset, (int)slices[i].Size);
+            if (NativeAotDetector.Detect(slice) is not null) return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Recovers boundaries from <c>LC_FUNCTION_STARTS</c> under the given failure status; a
+    /// status of <see cref="NativeSymbolStatus.FallbackOnly"/> degrades to
+    /// <see cref="NativeSymbolStatus.NoSymbolFile"/> when there are no boundaries either.
+    /// </summary>
+    private static NativeSymbolInfo FunctionStartsFallback(
+        ReadOnlySpan<byte> imageBytes, long sliceShift, IlcNameDemangler demangler,
+        NativeSymbolStatus status, string baseDiagnostic)
+    {
+        var boundaries = MachOSymbolReader.ReadFunctionStartBoundaries(imageBytes);
+        if (boundaries.Count > 0)
+        {
+            var shifted = sliceShift == 0 ? boundaries : [.. boundaries.Select(b => Shift(b, sliceShift))];
+            return Build(shifted, demangler, NativeSymbolSource.FunctionStartsFallback, status, null,
+                baseDiagnostic + "; recovered function boundaries from LC_FUNCTION_STARTS");
+        }
+
+        var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
+        return new NativeSymbolInfo([], NativeSymbolSource.FunctionStartsFallback, empty, null,
+            baseDiagnostic + "; no LC_FUNCTION_STARTS data");
+    }
+
+    /// <summary>
+    /// Probes for the dSYM bundle next to the image and returns its inner DWARF file:
+    /// <c>&lt;image&gt;.dSYM/Contents/Resources/DWARF/&lt;name&gt;</c>.
+    /// </summary>
+    private static string? FindSidecarDirectory(string imagePath)
+    {
+        var name = Path.GetFileName(imagePath);
+        if (string.IsNullOrEmpty(name)) return null;
+        var inner = Path.Combine(imagePath + ".dSYM", "Contents", "Resources", "DWARF", name);
+        return File.Exists(inner) ? inner : null;
+    }
+
+    /// <summary>Walks the dSYM's <c>__DWARF</c> sections into function records.</summary>
+    private static void AppendMachODwarfFunctions(
+        byte[] dsymBytes, IReadOnlyList<MachOImageReader.MachOSection> imageSections,
+        long sliceShift, List<RawNativeSymbol> raw)
+    {
+        var sections = MachOImageReader.ReadSectionList(dsymBytes);
+        var dwarf = DwarfSections.Collect(name =>
+        {
+            // Mach-O section names cap at 16 chars: __debug_str_offsets -> __debug_str_offs.
+            var wanted = "__debug_" + name;
+            if (wanted.Length > 16) wanted = wanted[..16];
+            foreach (var s in sections)
+            {
+                if (s.Name == wanted && s.Size > 0 && s.FileOffset >= 0
+                    && s.FileOffset + s.Size <= dsymBytes.Length)
+                {
+                    return dsymBytes.AsSpan((int)s.FileOffset, (int)s.Size).ToArray();
+                }
+            }
+
+            return null;
+        });
+
+        AppendDwarfFunctions(dwarf, va => MapMachOAddress(imageSections, va, sliceShift), raw);
+    }
+
+    /// <summary>Re-anchors a dSYM-derived symbol's section and file offset onto the analyzed image.</summary>
+    private static RawNativeSymbol RemapToImage(
+        RawNativeSymbol symbol, IReadOnlyList<MachOImageReader.MachOSection> imageSections, long sliceShift)
+    {
+        var (section, fileOffset) = MapMachOAddress(imageSections, symbol.VirtualAddress, sliceShift);
+        return symbol with { Section = section ?? symbol.Section, FileOffset = fileOffset };
+    }
+
+    private static (string? Section, long? FileOffset) MapMachOAddress(
+        IReadOnlyList<MachOImageReader.MachOSection> sections, ulong va, long sliceShift)
+    {
+        foreach (var section in sections)
+        {
+            if (section.Address != 0 && va >= section.Address && va < section.Address + (ulong)section.Size)
+                return (section.Name, sliceShift + section.FileOffset + (long)(va - section.Address));
+        }
+
+        return (null, null);
+    }
+
+    /// <summary>Shifts a fat-slice-relative file offset to the whole archive.</summary>
+    private static RawNativeSymbol Shift(RawNativeSymbol symbol, long sliceShift) =>
+        symbol.FileOffset is { } offset ? symbol with { FileOffset = offset + sliceShift } : symbol;
 
     private static NativeSymbolInfo ReadElf(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
     {
@@ -135,10 +316,8 @@ public static class NativeSymbolReader
     }
 
     /// <summary>
-    /// Walks the symbol source's DWARF into function records: names from the DIE walk, extents
-    /// from <c>low_pc</c>/<c>high_pc</c> or range lists, and source attribution from the decl
-    /// attributes with the line-program row as fallback. Addresses map to sections and file
-    /// offsets through the analyzed image, not the sidecar.
+    /// Walks the ELF symbol source's DWARF into function records, mapping addresses through the
+    /// analyzed image's sections, not the sidecar's.
     /// </summary>
     private static void ReadDwarfFunctions(
         byte[] symbolBytes, IReadOnlyList<ElfImageReader.ElfSection> imageSections, List<RawNativeSymbol> raw)
@@ -148,6 +327,22 @@ public static class NativeSymbolReader
                 && s.Size > 0 && s.FileOffset >= 0 && s.FileOffset + s.Size <= symbolBytes.Length
                 ? symbolBytes.AsSpan(s.FileOffset, s.Size).ToArray()
                 : null);
+        AppendDwarfFunctions(dwarf, va =>
+            ElfImageReader.TryMapAddress(imageSections, va, out var name, out var offset)
+                ? (name, offset)
+                : (null, null), raw);
+    }
+
+    /// <summary>
+    /// Walks DWARF sections into function records: names from the DIE walk, extents from
+    /// <c>low_pc</c>/<c>high_pc</c> or range lists, and source attribution from the decl
+    /// attributes with the line-program row as fallback. The address map supplies the analyzed
+    /// image's section names and file offsets.
+    /// </summary>
+    private static void AppendDwarfFunctions(
+        DwarfSections dwarf, Func<ulong, (string? Section, long? FileOffset)> mapAddress,
+        List<RawNativeSymbol> raw)
+    {
         if (!dwarf.HasInfo) return;
 
         var lineCache = new Dictionary<long, DwarfLineProgram?>();
@@ -174,13 +369,13 @@ public static class NativeSymbolReader
                 line = lineNumber;
             }
 
-            var mapped = ElfImageReader.TryMapAddress(imageSections, lowPc, out var sectionName, out var fileOffset);
+            var (sectionName, fileOffset) = mapAddress(lowPc);
             raw.Add(new RawNativeSymbol(
                 Name: function.Name,
                 VirtualAddress: lowPc,
                 Rva: null,
-                FileOffset: mapped ? fileOffset : null,
-                Section: mapped ? sectionName : null,
+                FileOffset: fileOffset,
+                Section: sectionName,
                 Size: (long)size,
                 IsData: false,
                 IsBoundary: false,

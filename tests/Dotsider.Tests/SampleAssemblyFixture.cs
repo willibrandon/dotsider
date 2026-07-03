@@ -153,6 +153,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string? NativeAotConsoleSymbols { get; private set; }
 
+    /// <summary>
+    /// Path to the NativeAOT sample's <c>.dSYM</c> bundle directory (macOS), or null when the
+    /// publish did not produce one. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleDsym { get; private set; }
+
     // Self-contained single-file sample
     /// <summary>
     /// Path to the published self-contained single-file sample executable.
@@ -275,6 +281,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
             ?? ExistingPathOrNull(Path.Combine(
                 aotPublishDir, "NativeAotConsole.dSYM", "Contents", "Resources", "DWARF", "NativeAotConsole"));
 
+        NativeAotConsoleDsym = ExistingDirOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.dSYM"));
+
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
             "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
@@ -369,6 +377,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
     private static string? ExistingPathOrNull(string path)
         => File.Exists(path) ? path : null;
+
+    private static string? ExistingDirOrNull(string path)
+        => Directory.Exists(path) ? path : null;
 
     private async Task PublishNativeAotProject(string relativePath)
     {
