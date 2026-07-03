@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -99,15 +100,44 @@ internal static class IlEditorHost
             .FillHeight();
     }
 
+    private static int LineStartOffset(string text, int line)
+    {
+        if (line <= 1) return 0;
+        var current = 1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\n') continue;
+            if (++current == line) return i + 1;
+        }
+
+        return 0;
+    }
+
     private static void PerformGoToDefinition(DotsiderState state)
     {
-        // Native mode: resolve the target of the instruction under the cursor to a symbol.
+        // Native mode: resolve the target of the instruction under the cursor.
         if (state.IlNativeInstructions is { } nativeInstructions
             && state.IlEditorState is { } nativeEditor
             && state.Analyzer.NativeSymbols is { } info)
         {
             var inst = NativeNavigationHelper.GetInstructionAtCursor(nativeEditor, nativeInstructions);
-            if (inst?.TargetAddress is { } target && info.TryFindByAddress(target, out var symbol))
+            if (inst?.TargetAddress is not { } target)
+                return;
+
+            // An intra-function local label jumps within the current listing, not to another symbol.
+            if (inst.TargetKind == NativeTargetKind.LocalLabel)
+            {
+                if (nativeInstructions.FirstOrDefault(i => i.Address == target)?.DisplayLine is { } line)
+                {
+                    var offset = LineStartOffset(nativeEditor.Document.GetText(), line);
+                    nativeEditor.SetCursorPosition(new DocumentOffset(offset));
+                    state.App.Invalidate();
+                }
+
+                return;
+            }
+
+            if (info.TryFindByAddress(target, out var symbol))
             {
                 state.NavigateToNativeSymbol(symbol);
                 state.App.Invalidate();

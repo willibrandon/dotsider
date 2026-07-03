@@ -78,8 +78,10 @@ public sealed class NativeImportResolver
 
             return slots.Count > 0 ? new NativeImportResolver(slots) : null;
         }
-        catch (Exception ex) when (ex is BadImageFormatException or InvalidOperationException or IOException)
+        catch (Exception)
         {
+            // Best-effort: a malformed import table or an out-of-range read must never crash the
+            // disassembly it composes into — the targets simply stay unresolved.
             return null;
         }
     }
