@@ -159,10 +159,20 @@ internal static class SyntheticImageBuilders
     /// <summary>
     /// Builds a minimal 64-bit little-endian ELF image whose section header table carries the
     /// given named sections (plus the standard null section and a trailing <c>.shstrtab</c>),
-    /// so section-driven readers — DWARF, symtab, build-id — run on every platform.
+    /// so section-driven readers — DWARF, symtab, build-id — run on every platform. Every
+    /// section is <c>SHT_PROGBITS</c>; use the typed overload for symbol tables.
     /// </summary>
     /// <param name="sections">Each section's name, virtual address, and content bytes.</param>
-    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content)[] sections)
+    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content)[] sections) =>
+        BuildElf([.. sections.Select(s => (s.Name, s.Address, s.Content, 1u, 0u))]);
+
+    /// <summary>
+    /// Builds a minimal 64-bit little-endian ELF image with explicit section types and links,
+    /// so <c>.symtab</c> (type 2, link = its string table's index) can be modeled. Section
+    /// indices follow build order: the null section is 0, the given sections are 1..n.
+    /// </summary>
+    /// <param name="sections">Each section's name, virtual address, content, <c>sh_type</c>, and <c>sh_link</c>.</param>
+    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content, uint Type, uint Link)[] sections)
     {
         const int headerSize = 64;
         const int sectionHeaderSize = 64;
@@ -213,7 +223,7 @@ internal static class SyntheticImageBuilders
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(60), (ushort)sectionCount);
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(62), (ushort)(sectionCount - 1)); // e_shstrndx
 
-        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size)
+        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size, uint link)
         {
             var h = tableOffset + index * sectionHeaderSize;
             BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h), nameOffset);
@@ -221,17 +231,18 @@ internal static class SyntheticImageBuilders
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 16), address);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 24), (ulong)fileOffset);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 32), (ulong)size);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h + 40), link);
         }
 
         for (var i = 0; i < sections.Length; i++)
         {
             sections[i].Content.CopyTo(image.AsSpan(contentOffsets[i]));
-            WriteHeader(i + 1, nameOffsets[i], 1 /* SHT_PROGBITS */, sections[i].Address,
-                contentOffsets[i], sections[i].Content.Length);
+            WriteHeader(i + 1, nameOffsets[i], sections[i].Type, sections[i].Address,
+                contentOffsets[i], sections[i].Content.Length, sections[i].Link);
         }
 
         shStrTab.CopyTo(image.AsSpan(shStrTabOffset));
-        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length);
+        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length, 0);
         return image;
     }
 
@@ -262,6 +273,37 @@ internal static class SyntheticImageBuilders
         Padded("GNU\0"u8.ToArray());
         Padded(id);
         return [.. note];
+    }
+
+    /// <summary>
+    /// Builds <c>.eh_frame</c> content with one CIE (augmentation <c>zR</c>, absolute-pointer
+    /// encoding) and one FDE per function, terminated — the plain shape the boundary fallback
+    /// walks. Encoding-specific shapes are hand-built in the eh_frame tests.
+    /// </summary>
+    /// <param name="functions">Each function's start address and byte size.</param>
+    public static byte[] EhFrame(params (ulong Va, ulong Size)[] functions)
+    {
+        var section = new List<byte>();
+        void U32(uint v) { for (var i = 0; i < 4; i++) section.Add((byte)(v >> (8 * i))); }
+        void U64(ulong v) { for (var i = 0; i < 8; i++) section.Add((byte)(v >> (8 * i))); }
+
+        // CIE: id 0, version 1, "zR", code align 1, data align 0x78 (SLEB -8), return reg 16,
+        // aug length 1, FDE encoding 0x00 (absptr).
+        byte[] cie = [0, 0, 0, 0, 1, (byte)'z', (byte)'R', 0, 1, 0x78, 16, 1, 0x00];
+        U32((uint)cie.Length);
+        section.AddRange(cie);
+
+        foreach (var (va, size) in functions)
+        {
+            U32(20); // FDE length: cie_pointer + two 8-byte pointers
+            // cie_pointer: distance from this FDE's id field back to the CIE at offset 0.
+            U32((uint)section.Count);
+            U64(va);
+            U64(size);
+        }
+
+        U32(0); // terminator
+        return [.. section];
     }
 
     /// <summary>

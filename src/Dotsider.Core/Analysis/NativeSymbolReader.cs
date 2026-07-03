@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Dwarf;
 using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
@@ -30,9 +31,175 @@ public static class NativeSymbolReader
         if (span.Length >= 2 && span[0] == (byte)'M' && span[1] == (byte)'Z')
             return ReadPe(imagePath, imageBytes, demangler);
 
-        // ELF and Mach-O dispatch land with their readers.
+        if (ElfImageReader.IsElf(span))
+            return ReadElf(imagePath, imageBytes, demangler);
+
+        // Mach-O dispatch lands with its reader.
         return new NativeSymbolInfo([], NativeSymbolSource.PdataFallback,
             NativeSymbolStatus.NotApplicable, null, "unrecognized image format");
+    }
+
+    private static NativeSymbolInfo ReadElf(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
+    {
+        var span = imageBytes.Span;
+        var imageSections = ElfImageReader.ReadSections(span);
+
+        // Choose the symbol source: the image itself when it still carries DWARF, else a
+        // sidecar validated by build id / debuglink CRC.
+        byte[] symbolBytes;
+        string symbolPath;
+        string? diagnostic = null;
+        if (ElfImageReader.TryGetSection(span, ".debug_info", out _))
+        {
+            symbolBytes = imageBytes.ToArray();
+            symbolPath = imagePath;
+        }
+        else if (FindDbgSidecar(imagePath, span) is { } sidecar)
+        {
+            if (sidecar.Match == ElfSidecarMatch.Mismatched)
+            {
+                return BoundaryFallback(span, demangler, NativeSymbolStatus.IdMismatch,
+                    $"debug sidecar '{Path.GetFileName(sidecar.Path)}' does not match the image (build id or debuglink CRC)");
+            }
+
+            symbolBytes = sidecar.Bytes;
+            symbolPath = sidecar.Path;
+            if (sidecar.Match == ElfSidecarMatch.LooseMatch)
+                diagnostic = "sidecar matched by machine and debug info only (no build id or debuglink)";
+        }
+        else
+        {
+            return BoundaryFallback(span, demangler, NativeSymbolStatus.FallbackOnly,
+                "no debug sidecar");
+        }
+
+        var raw = new List<RawNativeSymbol>();
+        ReadDwarfFunctions(symbolBytes, imageSections, raw);
+        raw.AddRange(ElfSymtabReader.ReadDataSymbols(symbolBytes, imageSections));
+
+        return raw.Count > 0
+            ? Build(raw, demangler, NativeSymbolSource.Dwarf, NativeSymbolStatus.Loaded, symbolPath, diagnostic)
+            : BoundaryFallback(span, demangler, NativeSymbolStatus.CorruptSymbolFile,
+                $"'{Path.GetFileName(symbolPath)}' matched but contains no readable symbols");
+    }
+
+    /// <summary>
+    /// Recovers boundaries from <c>.eh_frame</c> under the given failure status; a status of
+    /// <see cref="NativeSymbolStatus.FallbackOnly"/> degrades to
+    /// <see cref="NativeSymbolStatus.NoSymbolFile"/> when there are no boundaries either.
+    /// </summary>
+    private static NativeSymbolInfo BoundaryFallback(
+        ReadOnlySpan<byte> imageBytes, IlcNameDemangler demangler,
+        NativeSymbolStatus status, string baseDiagnostic)
+    {
+        var boundaries = EhFrameReader.ReadBoundaries(imageBytes);
+        if (boundaries.Count > 0)
+        {
+            return Build(boundaries, demangler, NativeSymbolSource.EhFrameFallback, status, null,
+                baseDiagnostic + "; recovered function boundaries from .eh_frame");
+        }
+
+        var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
+        return new NativeSymbolInfo([], NativeSymbolSource.EhFrameFallback, empty, null,
+            baseDiagnostic + "; no .eh_frame data");
+    }
+
+    /// <summary>
+    /// Probes for a debug sidecar next to the image — the <c>.gnu_debuglink</c>-named file
+    /// first, then <c>&lt;name&gt;.dbg</c> — and validates its identity. The first matching
+    /// candidate wins; when only mismatching candidates exist, the first is reported.
+    /// </summary>
+    private static (string Path, byte[] Bytes, ElfSidecarMatch Match)? FindDbgSidecar(
+        string imagePath, ReadOnlySpan<byte> image)
+    {
+        var directory = Path.GetDirectoryName(imagePath);
+        if (string.IsNullOrEmpty(directory)) return null;
+
+        var candidates = new List<string>(2);
+        if (ElfImageReader.TryReadDebugLink(image, out var linkName, out _) && linkName.Length > 0)
+            candidates.Add(Path.Combine(directory, Path.GetFileName(linkName)));
+        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".dbg");
+        if (!candidates.Contains(conventional)) candidates.Add(conventional);
+
+        (string, byte[], ElfSidecarMatch)? mismatch = null;
+        foreach (var candidate in candidates)
+        {
+            if (!File.Exists(candidate)) continue;
+            var bytes = File.ReadAllBytes(candidate);
+            var match = ElfSidecarIdentity.Check(image, bytes);
+            if (match != ElfSidecarMatch.Mismatched) return (candidate, bytes, match);
+            mismatch ??= (candidate, bytes, match);
+        }
+
+        return mismatch;
+    }
+
+    /// <summary>
+    /// Walks the symbol source's DWARF into function records: names from the DIE walk, extents
+    /// from <c>low_pc</c>/<c>high_pc</c> or range lists, and source attribution from the decl
+    /// attributes with the line-program row as fallback. Addresses map to sections and file
+    /// offsets through the analyzed image, not the sidecar.
+    /// </summary>
+    private static void ReadDwarfFunctions(
+        byte[] symbolBytes, IReadOnlyList<ElfImageReader.ElfSection> imageSections, List<RawNativeSymbol> raw)
+    {
+        var dwarf = DwarfSections.Collect(name =>
+            ElfImageReader.TryGetSection(symbolBytes, ".debug_" + name, out var s)
+                && s.Size > 0 && s.FileOffset >= 0 && s.FileOffset + s.Size <= symbolBytes.Length
+                ? symbolBytes.AsSpan(s.FileOffset, s.Size).ToArray()
+                : null);
+        if (!dwarf.HasInfo) return;
+
+        var lineCache = new Dictionary<long, DwarfLineProgram?>();
+        foreach (var (function, unit) in DwarfReader.ReadFunctions(dwarf))
+        {
+            var lowPc = function.LowPc;
+            var size = function.Size;
+            if (function.RangesOffset >= 0
+                && DwarfRangeLists.TryResolve(dwarf, function.RangesOffset, function.RangesIsRnglistx,
+                    unit, out var rangeStart, out var rangeSize))
+            {
+                lowPc = rangeStart;
+                size = rangeSize;
+            }
+
+            if (lowPc == 0) continue;
+
+            string? sourceFile = null;
+            int? line = null;
+            if (GetLineProgram(dwarf, unit.StmtListOffset, lineCache) is { } program)
+            {
+                var (file, lineNumber) = program.ResolveSource(function.DeclFile, function.DeclLine, lowPc);
+                sourceFile = file;
+                line = lineNumber;
+            }
+
+            var mapped = ElfImageReader.TryMapAddress(imageSections, lowPc, out var sectionName, out var fileOffset);
+            raw.Add(new RawNativeSymbol(
+                Name: function.Name,
+                VirtualAddress: lowPc,
+                Rva: null,
+                FileOffset: mapped ? fileOffset : null,
+                Section: mapped ? sectionName : null,
+                Size: (long)size,
+                IsData: false,
+                IsBoundary: false,
+                SourceFile: sourceFile,
+                Line: line));
+        }
+    }
+
+    private static DwarfLineProgram? GetLineProgram(
+        DwarfSections dwarf, long stmtListOffset, Dictionary<long, DwarfLineProgram?> cache)
+    {
+        if (stmtListOffset < 0) return null;
+        if (!cache.TryGetValue(stmtListOffset, out var program))
+        {
+            program = DwarfLineProgram.Parse(dwarf, stmtListOffset);
+            cache[stmtListOffset] = program;
+        }
+
+        return program;
     }
 
     private static NativeSymbolInfo ReadPe(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)

@@ -36,9 +36,10 @@ internal static class ElfImageReader
     /// <param name="Address">The section's virtual address (<c>sh_addr</c>).</param>
     /// <param name="FileOffset">The section's file offset (<c>sh_offset</c>).</param>
     /// <param name="Size">The section's byte size (<c>sh_size</c>).</param>
+    /// <param name="Link">The <c>sh_link</c> value (for a symbol table, its string table's section index).</param>
     /// <param name="Info">The <c>sh_info</c> value (meaning varies by section type).</param>
     internal readonly record struct ElfSection(
-        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Info);
+        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Link, uint Info);
 
     /// <summary>
     /// Walks the section headers into named sections, or an empty list when the image is not a
@@ -71,9 +72,10 @@ internal static class ElfImageReader
                 var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 16)..]);
                 var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
                 var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
+                var link = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 40)..]);
                 var info = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 44)..]);
                 var name = ReadString(bytes, shStrTableOffset, nameOffset) ?? "";
-                sections.Add(new ElfSection(name, type, address, offset, size, info));
+                sections.Add(new ElfSection(name, type, address, offset, size, link, info));
             }
 
             return sections;
@@ -186,6 +188,32 @@ internal static class ElfImageReader
         {
             return [];
         }
+    }
+
+    /// <summary>
+    /// Maps a virtual address to its containing section's name and the corresponding file
+    /// offset, or false when no mapped section covers it.
+    /// </summary>
+    /// <param name="sections">The image's sections.</param>
+    /// <param name="va">The virtual address to map.</param>
+    /// <param name="sectionName">The containing section's name.</param>
+    /// <param name="fileOffset">The file offset the address maps to.</param>
+    internal static bool TryMapAddress(
+        IReadOnlyList<ElfSection> sections, ulong va, out string sectionName, out long fileOffset)
+    {
+        foreach (var section in sections)
+        {
+            if (section.Address != 0 && va >= section.Address && va < section.Address + (ulong)section.Size)
+            {
+                sectionName = section.Name;
+                fileOffset = section.FileOffset + (long)(va - section.Address);
+                return true;
+            }
+        }
+
+        sectionName = "";
+        fileOffset = 0;
+        return false;
     }
 
     /// <summary>
