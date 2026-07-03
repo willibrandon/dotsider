@@ -13,6 +13,73 @@ namespace Dotsider.Core.Analysis;
 public static class NativeSymbolReader
 {
     /// <summary>
+    /// Reads the native symbols of a binary, dispatching on image format. Managed and
+    /// unrecognized images return an empty result marked <see cref="NativeSymbolStatus.NotApplicable"/>.
+    /// </summary>
+    /// <param name="imagePath">The binary's path, used to probe for sidecar symbol files.</param>
+    /// <param name="imageBytes">The binary's raw bytes.</param>
+    /// <param name="recoveredTypes">Types recovered from the binary's own metadata, for demangling.</param>
+    public static NativeSymbolInfo Read(
+        string imagePath,
+        ReadOnlyMemory<byte> imageBytes,
+        IReadOnlyList<RecoveredType> recoveredTypes)
+    {
+        var demangler = new IlcNameDemangler(recoveredTypes);
+        var span = imageBytes.Span;
+
+        if (span.Length >= 2 && span[0] == (byte)'M' && span[1] == (byte)'Z')
+            return ReadPe(imagePath, imageBytes, demangler);
+
+        // ELF and Mach-O dispatch land with their readers.
+        return new NativeSymbolInfo([], NativeSymbolSource.PdataFallback,
+            NativeSymbolStatus.NotApplicable, null, "unrecognized image format");
+    }
+
+    private static NativeSymbolInfo ReadPe(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
+    {
+        var codeView = PeCodeView.TryRead(imageBytes.Span);
+
+        // A same-directory PDB whose GUID and age match is the rich source.
+        if (codeView is { } id && FindMatchingPdb(imagePath, id) is { } pdbPath)
+        {
+            var raw = NativePdb.NativePdbReader.Read(File.ReadAllBytes(pdbPath), imageBytes);
+            if (raw.Count > 0)
+                return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null);
+        }
+
+        // No usable PDB: recover function boundaries from .pdata.
+        var boundaries = PdataReader.ReadBoundaries(imageBytes);
+        return boundaries.Count > 0
+            ? Build(boundaries, demangler, NativeSymbolSource.PdataFallback, NativeSymbolStatus.FallbackOnly,
+                null, "no matching PDB; recovered function boundaries from .pdata")
+            : new NativeSymbolInfo([], NativeSymbolSource.PdataFallback, NativeSymbolStatus.NoSymbolFile,
+                null, "no PDB and no .pdata exception directory");
+    }
+
+    private static string? FindMatchingPdb(string imagePath, PeCodeView.CodeViewId id)
+    {
+        var directory = Path.GetDirectoryName(imagePath);
+        if (string.IsNullOrEmpty(directory)) return null;
+
+        var candidates = new List<string>(2);
+        if (!string.IsNullOrEmpty(id.PdbPath))
+            candidates.Add(Path.Combine(directory, Path.GetFileName(id.PdbPath)));
+        candidates.Add(Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb"));
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path)
+                && NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age)
+                && guid == id.Guid && age == id.Age)
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Demangles, classifies, sizes, and merges raw reader output into the public symbol model.
     /// Records that share a virtual address collapse to one primary — the richest wins and the
     /// rest become aliases — so no byte is counted twice; unsized symbols take the distance to the

@@ -50,6 +50,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private bool _mstatProbed;
     private DgmlGraph? _dgml;
     private bool _dgmlProbed;
+    private NativeSymbolInfo? _nativeSymbols;
+    private bool _nativeSymbolsProbed;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -362,6 +364,32 @@ public sealed class AssemblyAnalyzer : IDisposable
         BinaryKind == BinaryKind.NativeAot
             ? FindSidecar(".codegen.dgml.xml") ?? FindSidecar(".scan.dgml.xml")
             : null;
+
+    /// <summary>
+    /// The native symbols of this binary — function names, addresses, and sizes read from its
+    /// PDB, DWARF, or dSYM, or function boundaries from unwind data when no symbols exist. Null
+    /// for managed assemblies. Parsed on demand; the value is assigned before the probed flag, so
+    /// a rare concurrent first read costs at most a second parse of immutable data.
+    /// </summary>
+    public NativeSymbolInfo? NativeSymbols
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_nativeSymbolsProbed)
+            {
+                _nativeSymbols = BinaryKind != BinaryKind.Managed
+                    ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
+                    : null;
+                _nativeSymbolsProbed = true;
+            }
+
+            return _nativeSymbols;
+        }
+    }
+
+    /// <summary>The symbol file the native symbols were read from (PDB, .dbg, or dSYM), or null.</summary>
+    public string? NativeSymbolsPath => NativeSymbols?.Path;
 
     /// <summary>
     /// Probes for a sidecar next to the analyzed binary: the binary's extension is replaced
