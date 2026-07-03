@@ -258,6 +258,16 @@ public static class DllInspectorBindings
             if (state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
                 hints.Add(s.Section("g: Go to IL"));
         }
+        else if (state.CurrentTab == TabId.IlInspector && state.IsNativeBinary)
+        {
+            if (state.IlSelectedNativeSymbol is not null)
+                hints.Add(s.Section("Enter/gd: Go to def"));
+            hints.Add(s.Section("l: Focus"));
+            if (state.IlSelectedNativeSymbol is { FileOffset: not null })
+                hints.Add(s.Section("x: Hex"));
+            if (state.IlNativeBackStack.Count > 0)
+                hints.Add(s.Section("Esc: Back"));
+        }
         else if (state.CurrentTab == TabId.IlInspector)
         {
             if (state.IlSelectedMethod is not null)

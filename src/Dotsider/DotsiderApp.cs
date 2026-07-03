@@ -365,7 +365,8 @@ public sealed class DotsiderApp(DotsiderState state)
             // Single Global Escape prevents conflicts between clear-selection and back-nav.
             var hasBackTarget = _state.NavigationStack.Count > 0
                 || _state.CrossViewBackTarget is not null
-                || _state.IlBackStack.Count > 0;
+                || _state.IlBackStack.Count > 0
+                || _state.IlNativeBackStack.Count > 0;
             var hasIlSelection = _state.CurrentTab == TabId.IlInspector
                 && _state.IlEditorState?.Cursor.HasSelection == true;
             var sizeMapUsesEsc = _state.CurrentTab == TabId.SizeMap && _state.TreemapBreadcrumb.Count > 0;
@@ -380,8 +381,13 @@ public sealed class DotsiderApp(DotsiderState state)
             {
                 bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
-                    // Priority 1: IL go-to-definition back
-                    if (_state.CurrentTab == TabId.IlInspector && _state.IlBackStack.Count > 0)
+                    // Priority 1: native IL go-to-definition back
+                    if (_state.CurrentTab == TabId.IlInspector && _state.IlNativeBackStack.Count > 0)
+                    {
+                        _state.RestoreFromNativeBackEntry(_state.IlNativeBackStack.Pop());
+                    }
+                    // Priority 1b: managed IL go-to-definition back
+                    else if (_state.CurrentTab == TabId.IlInspector && _state.IlBackStack.Count > 0)
                     {
                         var entry = _state.IlBackStack.Pop();
                         _state.RestoreFromIlBackEntry(entry);
