@@ -124,11 +124,17 @@ internal static class IlEditorHost
             if (inst?.TargetAddress is not { } target)
                 return;
 
-            // An intra-function local label jumps within the current listing, not to another symbol.
+            // An intra-function local label jumps within the current listing, not to another symbol;
+            // record the pre-jump cursor so Esc returns here.
             if (inst.TargetKind == NativeTargetKind.LocalLabel)
             {
-                if (nativeInstructions.FirstOrDefault(i => i.Address == target)?.DisplayLine is { } line)
+                if (nativeInstructions.FirstOrDefault(i => i.Address == target)?.DisplayLine is { } line
+                    && state.IlSelectedNativeSymbol is { } currentSymbol)
                 {
+                    state.IlNativeBackStack.Push(new NativeBackEntry(
+                        currentSymbol, state.IlFocusedTreeKey,
+                        new Dictionary<string, bool>(state.IlTreeExpansionState),
+                        nativeEditor.Cursor.Position.Value));
                     var offset = LineStartOffset(nativeEditor.Document.GetText(), line);
                     nativeEditor.SetCursorPosition(new DocumentOffset(offset));
                     state.App.Invalidate();

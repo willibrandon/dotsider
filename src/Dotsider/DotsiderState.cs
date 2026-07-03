@@ -884,6 +884,15 @@ public sealed class DotsiderState : IDisposable
         IlTreeExpansionState.Clear();
         foreach (var (k, v) in entry.TreeExpansionState)
             IlTreeExpansionState[k] = v;
+
+        // Restore the cursor for an intra-function (local-label) back, where the editor already holds
+        // the same symbol and is not rebuilt.
+        if (entry.CursorOffset is { } offset && IlEditorState is { } editor
+            && IlEditorNativeSymbol?.VirtualAddress == entry.Symbol.VirtualAddress)
+        {
+            editor.SetCursorPosition(new Hex1b.Documents.DocumentOffset(offset));
+        }
+
         App.Invalidate();
     }
 

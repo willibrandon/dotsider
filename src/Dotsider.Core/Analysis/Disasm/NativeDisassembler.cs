@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Dotsider.Core.Analysis.Models;
 
@@ -96,8 +98,10 @@ public static class NativeDisassembler
         var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
 
         // Compose the symbol resolver with the import resolver so indirect targets that land on an
-        // import slot render as MODULE!Function rather than an unresolved address.
-        var imports = NativeImportResolver.Build(raw);
+        // import slot render as MODULE!Function rather than an unresolved address. The import table
+        // is parsed once per image and cached — rebuilding it per call would re-read the whole PE
+        // (copying megabytes) on every function selection.
+        var imports = ImportResolverFor(analyzer);
 
         bool Resolver(ulong va, out NativeSymbolRef sym)
         {
@@ -135,8 +139,7 @@ public static class NativeDisassembler
     public static IReadOnlyList<NativeSymbol> FindExecutableSymbols(NativeSymbolInfo info, string target)
     {
         if (target.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                ? ulong.TryParse(target.AsSpan(2), System.Globalization.NumberStyles.HexNumber,
-                    System.Globalization.CultureInfo.InvariantCulture, out var va)
+                ? ulong.TryParse(target.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var va)
                 : ulong.TryParse(target, out va))
         {
             return info.TryFindByAddress(va, out var found) ? [found] : [];
@@ -154,6 +157,11 @@ public static class NativeDisassembler
 
         return [.. executables.Where(s => (s.ManagedName ?? s.Name).EndsWith(target, StringComparison.Ordinal))];
     }
+
+    private static readonly ConditionalWeakTable<AssemblyAnalyzer, StrongBox<NativeImportResolver?>> ImportResolverCache = [];
+
+    private static NativeImportResolver? ImportResolverFor(AssemblyAnalyzer analyzer) =>
+        ImportResolverCache.GetValue(analyzer, a => new StrongBox<NativeImportResolver?>(NativeImportResolver.Build(a.RawBytes))).Value;
 
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {
