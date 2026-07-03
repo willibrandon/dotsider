@@ -28,10 +28,12 @@ internal static class IlEditorHost
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             new EditorWidget(editorState)
                 .Decorations(state.IlSyntaxProvider)
+                .Decorations(state.IlNativeSyntaxProvider)
                 .Decorations(state.IlSourceLinkProvider)
                 .Decorations(state.IlSearchProvider)
                 .Decorations(state.IlYankProvider)
                 .Decorations(state.IlNavigationProvider)
+                .Decorations(state.IlNativeNavigationProvider)
                 .InputBindings(bindings =>
                 {
                     // Escape: IL back navigation takes priority over vim cancel.

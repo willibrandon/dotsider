@@ -224,6 +224,12 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The native symbol currently loaded into the editor pane (for staleness detection).</summary>
     public NativeSymbol? IlEditorNativeSymbol { get; set; }
 
+    /// <summary>Span-driven syntax highlighting for the native disassembly listing.</summary>
+    public NativeSyntaxDecorationProvider IlNativeSyntaxProvider { get; } = new();
+
+    /// <summary>Span-driven target underlining for the native disassembly listing.</summary>
+    public NativeNavigationDecorationProvider IlNativeNavigationProvider { get; } = new();
+
     /// <summary>The decoded native instructions of the currently displayed symbol, or null.</summary>
     public IReadOnlyList<NativeInstruction>? IlNativeInstructions { get; set; }
 
