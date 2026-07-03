@@ -246,6 +246,7 @@ internal sealed class DotsiderDiagnosticsListener(
 
                 // Symbols
                 "get-native-symbols" => HandleGetNativeSymbols(),
+                "disassemble-native" => HandleDisassembleNative(request),
 
                 // Diff
                 "diff" => HandleDiff(request),
@@ -651,6 +652,32 @@ internal sealed class DotsiderDiagnosticsListener(
         return a.NativeSymbols is { } info
             ? DotsiderResponse.Ok(info)
             : DotsiderResponse.Fail("Managed assembly; no native symbols to read");
+    }
+
+    private DotsiderResponse HandleDisassembleNative(DotsiderRequest request)
+    {
+        var a = RequireAnalyzer();
+        if (a.NativeSymbols is not { } info || info.Symbols.Count == 0)
+            return DotsiderResponse.Fail("Managed assembly; no native symbols to disassemble");
+
+        var target = request.SymbolAddress ?? request.SymbolName;
+        if (string.IsNullOrEmpty(target))
+            return DotsiderResponse.Fail("symbolName or symbolAddress is required");
+
+        var matches = Core.Analysis.Disasm.NativeDisassembler.FindExecutableSymbols(info, target);
+        if (matches.Count == 0)
+            return DotsiderResponse.Fail($"No native symbol matches '{target}'");
+        if (matches.Count > 1)
+        {
+            var candidates = string.Join(", ", matches.OrderBy(m => m.VirtualAddress)
+                .Select(m => $"0x{m.VirtualAddress:x} {m.ManagedName ?? m.Name}"));
+            return DotsiderResponse.Fail($"'{target}' is ambiguous ({matches.Count} matches): {candidates}");
+        }
+
+        var result = Core.Analysis.Disasm.NativeDisassembler.DisassembleSymbol(a, matches[0]);
+        return result is null
+            ? DotsiderResponse.Fail($"'{matches[0].ManagedName ?? matches[0].Name}' has no disassemblable bytes")
+            : DotsiderResponse.Ok(new { Symbol = matches[0].ManagedName ?? matches[0].Name, a.Architecture, result.Value.Instructions });
     }
 
     // --- Diff Handler ---

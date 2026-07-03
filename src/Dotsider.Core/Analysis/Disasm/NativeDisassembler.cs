@@ -117,6 +117,37 @@ public static class NativeDisassembler
         return Render(instructions, header);
     }
 
+    /// <summary>
+    /// Resolves a disassembly target — a hex/decimal virtual address or a symbol name — to the
+    /// matching executable symbols, so callers report an exact hit, an ambiguity, or a miss the same
+    /// way. A hex <c>0x…</c> or decimal address resolves through the containing symbol; a name prefers
+    /// an exact managed-name match, then the raw symbol name, then a suffix match.
+    /// </summary>
+    /// <param name="info">The recovered native symbols.</param>
+    /// <param name="target">The address or name to resolve.</param>
+    public static IReadOnlyList<NativeSymbol> FindExecutableSymbols(NativeSymbolInfo info, string target)
+    {
+        if (target.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                ? ulong.TryParse(target.AsSpan(2), System.Globalization.NumberStyles.HexNumber,
+                    System.Globalization.CultureInfo.InvariantCulture, out var va)
+                : ulong.TryParse(target, out va))
+        {
+            return info.TryFindByAddress(va, out var found) ? [found] : [];
+        }
+
+        var executables = info.Symbols
+            .Where(s => s.Kind is NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary)
+            .ToList();
+
+        List<NativeSymbol> exact = [.. executables.Where(s => string.Equals(s.ManagedName, target, StringComparison.Ordinal))];
+        if (exact.Count > 0) return exact;
+
+        List<NativeSymbol> raw = [.. executables.Where(s => string.Equals(s.Name, target, StringComparison.Ordinal))];
+        if (raw.Count > 0) return raw;
+
+        return [.. executables.Where(s => (s.ManagedName ?? s.Name).EndsWith(target, StringComparison.Ordinal))];
+    }
+
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {
         "X64" => NativeArchitecture.X64,

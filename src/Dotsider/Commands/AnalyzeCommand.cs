@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Globalization;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
@@ -444,24 +443,7 @@ internal static class AnalyzeCommand
             return 1;
         }
 
-        List<NativeSymbol> executables =
-            [.. info.Symbols.Where(s => s.Kind is NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary)];
-
-        List<NativeSymbol> matches;
-        if (target.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-            && ulong.TryParse(target.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var va))
-        {
-            matches = info.TryFindByAddress(va, out var found) ? [found] : [];
-        }
-        else
-        {
-            // Prefer an exact managed-name match, then the raw symbol name, then a suffix match.
-            matches = [.. executables.Where(s => string.Equals(s.ManagedName, target, StringComparison.Ordinal))];
-            if (matches.Count == 0)
-                matches = [.. executables.Where(s => string.Equals(s.Name, target, StringComparison.Ordinal))];
-            if (matches.Count == 0)
-                matches = [.. executables.Where(s => (s.ManagedName ?? s.Name).EndsWith(target, StringComparison.Ordinal))];
-        }
+        var matches = NativeDisassembler.FindExecutableSymbols(info, target);
 
         if (matches.Count == 0)
         {

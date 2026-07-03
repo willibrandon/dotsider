@@ -61,4 +61,10 @@ public sealed class DotsiderRequest
 
     /// <summary>Whether IL responses should include portable PDB debug information.</summary>
     public bool IncludeDebugInfo { get; set; }
+
+    /// <summary>Native symbol name for disassemble-native (managed name, raw name, or suffix).</summary>
+    public string? SymbolName { get; set; }
+
+    /// <summary>Native symbol virtual address (hex <c>0x…</c> or decimal) for disassemble-native.</summary>
+    public string? SymbolAddress { get; set; }
 }
