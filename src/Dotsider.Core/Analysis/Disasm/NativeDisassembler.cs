@@ -77,7 +77,7 @@ public static class NativeDisassembler
     private static NativeInstruction DecodeOne(
         NativeArchitecture arch, ReadOnlySpan<byte> code, int offset, ulong baseAddress) =>
         arch == NativeArchitecture.Arm64
-            ? FallbackWord(code, offset, baseAddress)
+            ? arm64.Arm64Decoder.Decode(code, offset, baseAddress + (ulong)offset)
             : x64.XarchDecoder.Decode(code, offset, baseAddress + (ulong)offset);
 
     /// <summary>One-byte <c>.byte 0x..</c> safety net for x64.</summary>
