@@ -68,6 +68,36 @@ public class NativePdbReaderTests(SampleAssemblyFixture samples)
         Assert.Empty(NativePdbReader.Read([0xDE, 0xAD, 0xBE, 0xEF], new byte[64]));
     }
 
+    /// <summary>
+    /// Verifies the full PDB pipeline — module records, publics, and the data pass — merged and
+    /// demangled: addresses are unique (no double count), managed names join, and the compiler's
+    /// data symbols (MethodTables) surface as their own kind.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Build_FixturePdb_MergesDemanglesAndClassifies()
+    {
+        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+
+        using var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var raw = NativePdbReader.Read(
+            File.ReadAllBytes(samples.NativeAotConsoleSymbols!), analyzer.RawBytes.ToArray());
+        var demangler = new Dotsider.Core.Analysis.IlcNameDemangler(analyzer.RecoveredTypes);
+
+        var info = Dotsider.Core.Analysis.NativeSymbolReader.Build(
+            raw, demangler,
+            Dotsider.Core.Analysis.Models.NativeSymbolSource.NativePdb,
+            Dotsider.Core.Analysis.Models.NativeSymbolStatus.Loaded,
+            samples.NativeAotConsoleSymbols, null);
+
+        Assert.NotEmpty(info.Symbols);
+        // No two symbols share an address after the merge.
+        Assert.Equal(info.Symbols.Count, info.Symbols.Select(s => s.VirtualAddress).Distinct().Count());
+        // Managed names joined for some functions.
+        Assert.Contains(info.Symbols, s => s.IsExactMatch && s.ManagedName is not null);
+        // The compiler's MethodTable data symbols are recovered and classified.
+        Assert.Contains(info.Symbols, s => s.Kind == Dotsider.Core.Analysis.Models.NativeSymbolKind.MethodTable);
+    }
+
 
 
     private static int IndexOf(byte[] haystack, byte[] needle)

@@ -111,28 +111,46 @@ internal static class NativePdbReader
         var addressSpace = NativeAddressSpace.Create(peImageBytes.Span);
 
         var result = new List<RawNativeSymbol>();
+
+        RawNativeSymbol? Resolve(string name, int segment, uint offset, uint size, bool isData, string? file, int? line)
+        {
+            if (sectionMap.ToRva(segment, offset) is not { } rva) return null;
+            var va = imageBase + rva;
+            long? fileOffset = addressSpace is not null
+                && addressSpace.TryGetFileOffset(va, out var fo, out _) ? fo : null;
+            return new RawNativeSymbol(
+                Name: name, VirtualAddress: va, Rva: rva, FileOffset: fileOffset,
+                Section: sectionMap.SectionName(segment), Size: size,
+                IsData: isData || !sectionMap.IsExecutable(segment), IsBoundary: false,
+                SourceFile: file, Line: line);
+        }
+
+        // Module procedures and data records — the rich source with sizes and line info.
         foreach (var module in dbi.Modules)
         {
             if (module.SymbolStream < 0 || module.SymbolStream >= msf.StreamCount) continue;
             var moduleStream = msf.GetStream(module.SymbolStream);
             foreach (var symbol in CodeViewSymbolReader.ReadModule(moduleStream, module, names))
             {
-                if (sectionMap.ToRva(symbol.Segment, symbol.Offset) is not { } rva) continue;
-                var va = imageBase + rva;
-                long? fileOffset = addressSpace is not null
-                    && addressSpace.TryGetFileOffset(va, out var fo, out _) ? fo : null;
+                if (Resolve(symbol.Name, symbol.Segment, symbol.Offset, symbol.Size, symbol.IsData,
+                    symbol.SourceFile, symbol.Line) is { } raw)
+                {
+                    result.Add(raw);
+                }
+            }
+        }
 
-                result.Add(new RawNativeSymbol(
-                    Name: symbol.Name,
-                    VirtualAddress: va,
-                    Rva: rva,
-                    FileOffset: fileOffset,
-                    Section: sectionMap.SectionName(symbol.Segment),
-                    Size: symbol.Size,
-                    IsData: symbol.IsData || !sectionMap.IsExecutable(symbol.Segment),
-                    IsBoundary: false,
-                    SourceFile: symbol.SourceFile,
-                    Line: symbol.Line));
+        // Publics — named symbols without sizes; the merge pass sizes and dedups them against the
+        // richer module records above.
+        if (dbi.PublicStream >= 0 && dbi.PublicStream < msf.StreamCount
+            && dbi.SymbolRecordStream >= 0 && dbi.SymbolRecordStream < msf.StreamCount)
+        {
+            var publics = PublicsReader.Read(msf.GetStream(dbi.PublicStream), msf.GetStream(dbi.SymbolRecordStream));
+            foreach (var pub in publics)
+            {
+                var isData = !pub.IsFunction && !sectionMap.IsExecutable(pub.Segment);
+                if (Resolve(pub.Name, pub.Segment, pub.Offset, 0, isData, null, null) is { } raw)
+                    result.Add(raw);
             }
         }
 
