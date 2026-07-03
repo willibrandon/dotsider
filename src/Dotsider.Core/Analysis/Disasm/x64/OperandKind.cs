@@ -95,6 +95,8 @@ internal enum OperandKind : byte
     Wss,
     /// <summary>Vector reg or memory from ModRM r/m, scalar-double (8-byte memory size hint).</summary>
     Wsd,
+    /// <summary>Vector reg or memory from ModRM r/m, always 128-bit xmm regardless of vector length (insert/extract-128).</summary>
+    Wxmm,
     /// <summary>Vector reg from VEX/EVEX vvvv (xmm/ymm/zmm by length).</summary>
     Hx,
     /// <summary>Vector reg from imm8[7:4] (is4 operand).</summary>

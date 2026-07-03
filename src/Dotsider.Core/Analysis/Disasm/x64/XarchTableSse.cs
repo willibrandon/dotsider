@@ -39,10 +39,10 @@ internal static partial class XarchTables
         Row(Map0F, PpF2, 0x12, "movddup", K.Vx, K.Wsd);
         Row(Map0F, PpNone, 0x13, "movlps", K.Wx, K.Vx);
         Row(Map0F, Pp66, 0x13, "movlpd", K.Wsd, K.Vx);
-        Row(Map0F, PpNone, 0x14, "unpcklps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x14, "unpcklpd", K.Vx, K.Wx);
-        Row(Map0F, PpNone, 0x15, "unpckhps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x15, "unpckhpd", K.Vx, K.Wx);
+        Row(Map0F, PpNone, 0x14, "unpcklps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x14, "unpcklpd", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, PpNone, 0x15, "unpckhps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x15, "unpckhpd", K.Vx, K.Hx, K.Wx);
         Row(Map0F, PpNone, 0x16, "movhps", K.Vx, K.Wx);
         Row(Map0F, Pp66, 0x16, "movhpd", K.Vx, K.Wsd);
         Row(Map0F, PpF3, 0x16, "movshdup", K.Vx, K.Wx);
@@ -104,10 +104,11 @@ internal static partial class XarchTables
 
     private static void Packed(string op, int opcode)
     {
-        Row(Map0F, PpNone, opcode, op + "ps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, opcode, op + "pd", K.Vx, K.Wx);
-        Row(Map0F, PpF3, opcode, op + "ss", K.Vx, K.Wss);
-        Row(Map0F, PpF2, opcode, op + "sd", K.Vx, K.Wsd);
+        // Three-operand under VEX/EVEX (Vx, Hx, W); legacy decode drops the Hx (vvvv) source.
+        Row(Map0F, PpNone, opcode, op + "ps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, opcode, op + "pd", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, PpF3, opcode, op + "ss", K.Vx, K.Hx, K.Wss);
+        Row(Map0F, PpF2, opcode, op + "sd", K.Vx, K.Hx, K.Wsd);
     }
 
     private static void RegisterSseConvert()
@@ -136,21 +137,21 @@ internal static partial class XarchTables
 
     private static void RegisterSseLogicalCompare()
     {
-        Row(Map0F, PpNone, 0x54, "andps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x54, "andpd", K.Vx, K.Wx);
-        Row(Map0F, PpNone, 0x55, "andnps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x55, "andnpd", K.Vx, K.Wx);
-        Row(Map0F, PpNone, 0x56, "orps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x56, "orpd", K.Vx, K.Wx);
-        Row(Map0F, PpNone, 0x57, "xorps", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x57, "xorpd", K.Vx, K.Wx);
+        Row(Map0F, PpNone, 0x54, "andps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x54, "andpd", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, PpNone, 0x55, "andnps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x55, "andnpd", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, PpNone, 0x56, "orps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x56, "orpd", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, PpNone, 0x57, "xorps", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x57, "xorpd", K.Vx, K.Hx, K.Wx);
 
-        Row(Map0F, PpNone, 0xC2, "cmpps", K.Vx, K.Wx, K.Ib);
-        Row(Map0F, Pp66, 0xC2, "cmppd", K.Vx, K.Wx, K.Ib);
-        Row(Map0F, PpF3, 0xC2, "cmpss", K.Vx, K.Wss, K.Ib);
-        Row(Map0F, PpF2, 0xC2, "cmpsd", K.Vx, K.Wsd, K.Ib);
-        Row(Map0F, PpNone, 0xC6, "shufps", K.Vx, K.Wx, K.Ib);
-        Row(Map0F, Pp66, 0xC6, "shufpd", K.Vx, K.Wx, K.Ib);
+        Row(Map0F, PpNone, 0xC2, "cmpps", K.Vx, K.Hx, K.Wx, K.Ib);
+        Row(Map0F, Pp66, 0xC2, "cmppd", K.Vx, K.Hx, K.Wx, K.Ib);
+        Row(Map0F, PpF3, 0xC2, "cmpss", K.Vx, K.Hx, K.Wss, K.Ib);
+        Row(Map0F, PpF2, 0xC2, "cmpsd", K.Vx, K.Hx, K.Wsd, K.Ib);
+        Row(Map0F, PpNone, 0xC6, "shufps", K.Vx, K.Hx, K.Wx, K.Ib);
+        Row(Map0F, Pp66, 0xC6, "shufpd", K.Vx, K.Hx, K.Wx, K.Ib);
     }
 
     private static void RegisterSsePackedInteger()
@@ -168,11 +169,11 @@ internal static partial class XarchTables
             (0x68, "punpckhbw"), (0x69, "punpckhwd"), (0x6A, "punpckhdq"), (0x6B, "packssdw"),
             (0x6C, "punpcklqdq"), (0x6D, "punpckhqdq"),
         ];
-        foreach (var (op, name) in unpack) Row(Map0F, Pp66, op, name, K.Vx, K.Wx);
+        foreach (var (op, name) in unpack) Row(Map0F, Pp66, op, name, K.Vx, K.Hx, K.Wx);
 
-        Row(Map0F, Pp66, 0x74, "pcmpeqb", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x75, "pcmpeqw", K.Vx, K.Wx);
-        Row(Map0F, Pp66, 0x76, "pcmpeqd", K.Vx, K.Wx);
+        Row(Map0F, Pp66, 0x74, "pcmpeqb", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x75, "pcmpeqw", K.Vx, K.Hx, K.Wx);
+        Row(Map0F, Pp66, 0x76, "pcmpeqd", K.Vx, K.Hx, K.Wx);
 
         // Arithmetic/logical packed integer (D0-FF).
         (int op, string name)[] packedInt =
@@ -186,7 +187,7 @@ internal static partial class XarchTables
             (0xF4, "pmuludq"), (0xF5, "pmaddwd"), (0xF6, "psadbw"), (0xF8, "psubb"), (0xF9, "psubw"),
             (0xFA, "psubd"), (0xFB, "psubq"), (0xFC, "paddb"), (0xFD, "paddw"), (0xFE, "paddd"),
         ];
-        foreach (var (op, name) in packedInt) Row(Map0F, Pp66, op, name, K.Vx, K.Wx);
+        foreach (var (op, name) in packedInt) Row(Map0F, Pp66, op, name, K.Vx, K.Hx, K.Wx);
 
         // Shift-by-immediate groups (71/72/73) — reg selects psrlw/psraw/psllw etc.
         Row(Map0F, Pp66, 0x71, null, K.Wx, K.Ib, flags: OpFlags.Group, groupOrTuple: GrpShiftW);
@@ -200,38 +201,49 @@ internal static partial class XarchTables
 
     private static void RegisterSse38()
     {
-        // SSSE3 / SSE4.1 / SSE4.2 over 0F 38 (all 66-prefixed here).
-        (int op, string name)[] ops =
+        // SSSE3 / SSE4.1 / SSE4.2 over 0F 38 (all 66-prefixed). Three-operand under VEX.
+        (int op, string name)[] threeOp =
         [
             (0x00, "pshufb"), (0x01, "phaddw"), (0x02, "phaddd"), (0x03, "phaddsw"), (0x04, "pmaddubsw"),
             (0x05, "phsubw"), (0x06, "phsubd"), (0x07, "phsubsw"), (0x08, "psignb"), (0x09, "psignw"),
-            (0x0A, "psignd"), (0x0B, "pmulhrsw"), (0x1C, "pabsb"), (0x1D, "pabsw"), (0x1E, "pabsd"),
-            (0x20, "pmovsxbw"), (0x21, "pmovsxbd"), (0x22, "pmovsxbq"), (0x23, "pmovsxwd"), (0x24, "pmovsxwq"),
-            (0x25, "pmovsxdq"), (0x28, "pmuldq"), (0x29, "pcmpeqq"), (0x2B, "packusdw"),
-            (0x30, "pmovzxbw"), (0x31, "pmovzxbd"), (0x32, "pmovzxbq"), (0x33, "pmovzxwd"), (0x34, "pmovzxwq"),
-            (0x35, "pmovzxdq"), (0x37, "pcmpgtq"), (0x38, "pminsb"), (0x39, "pminsd"), (0x3A, "pminuw"),
-            (0x3B, "pminud"), (0x3C, "pmaxsb"), (0x3D, "pmaxsd"), (0x3E, "pmaxuw"), (0x3F, "pmaxud"),
-            (0x40, "pmulld"), (0x41, "phminposuw"),
+            (0x0A, "psignd"), (0x0B, "pmulhrsw"), (0x28, "pmuldq"), (0x29, "pcmpeqq"), (0x2B, "packusdw"),
+            (0x37, "pcmpgtq"), (0x38, "pminsb"), (0x39, "pminsd"), (0x3A, "pminuw"), (0x3B, "pminud"),
+            (0x3C, "pmaxsb"), (0x3D, "pmaxsd"), (0x3E, "pmaxuw"), (0x3F, "pmaxud"), (0x40, "pmulld"),
         ];
-        foreach (var (op, name) in ops) Row(Map0F38, Pp66, op, name, K.Vx, K.Wx);
+        foreach (var (op, name) in threeOp) Row(Map0F38, Pp66, op, name, K.Vx, K.Hx, K.Wx);
 
-        Row(Map0F38, Pp66, 0x17, "ptest", K.Vx, K.Wx);
-        Row(Map0F38, Pp66, 0x2A, "movntdqa", K.Vx, K.Wx);
-        // crc32 (SSE4.2, F2 prefix).
-        Row(Map0F38, PpF2, 0xF0, "crc32", K.Gy, K.Eb);
-        Row(Map0F38, PpF2, 0xF1, "crc32", K.Gy, K.Ev);
+        // Two-operand (unary) 0F 38 ops.
+        (int op, string name)[] twoOp =
+        [
+            (0x1C, "pabsb"), (0x1D, "pabsw"), (0x1E, "pabsd"),
+            (0x20, "pmovsxbw"), (0x21, "pmovsxbd"), (0x22, "pmovsxbq"), (0x23, "pmovsxwd"), (0x24, "pmovsxwq"),
+            (0x25, "pmovsxdq"), (0x30, "pmovzxbw"), (0x31, "pmovzxbd"), (0x32, "pmovzxbq"), (0x33, "pmovzxwd"),
+            (0x34, "pmovzxwq"), (0x35, "pmovzxdq"), (0x41, "phminposuw"), (0x17, "ptest"), (0x2A, "movntdqa"),
+        ];
+        foreach (var (op, name) in twoOp) Row(Map0F38, Pp66, op, name, K.Vx, K.Wx);
+
+        // crc32 (SSE4.2, F2 prefix) — GPR destination, no vvvv.
+        Row(Map0F38, PpF2, 0xF0, "crc32", K.Gy, K.Eb, flags: OpFlags.NoVexPrefix);
+        Row(Map0F38, PpF2, 0xF1, "crc32", K.Gy, K.Ev, flags: OpFlags.NoVexPrefix);
     }
 
     private static void RegisterSse3A()
     {
-        (int op, string name)[] ops =
+        // Three-operand + imm8 under VEX.
+        (int op, string name)[] threeOp =
         [
-            (0x08, "roundps"), (0x09, "roundpd"), (0x0A, "roundss"), (0x0B, "roundsd"),
             (0x0C, "blendps"), (0x0D, "blendpd"), (0x0E, "pblendw"), (0x0F, "palignr"),
             (0x40, "dpps"), (0x41, "dppd"), (0x42, "mpsadbw"),
+        ];
+        foreach (var (op, name) in threeOp) Row(Map0F3A, Pp66, op, name, K.Vx, K.Hx, K.Wx, K.Ib);
+
+        // Two-operand + imm8.
+        (int op, string name)[] twoOp =
+        [
+            (0x08, "roundps"), (0x09, "roundpd"), (0x0A, "roundss"), (0x0B, "roundsd"),
             (0x60, "pcmpestrm"), (0x61, "pcmpestri"), (0x62, "pcmpistrm"), (0x63, "pcmpistri"),
         ];
-        foreach (var (op, name) in ops) Row(Map0F3A, Pp66, op, name, K.Vx, K.Wx, K.Ib);
+        foreach (var (op, name) in twoOp) Row(Map0F3A, Pp66, op, name, K.Vx, K.Wx, K.Ib);
 
         // Insert/extract carry a GPR or memory operand.
         Row(Map0F3A, Pp66, 0x14, "pextrb", K.Ev, K.Vx, K.Ib);

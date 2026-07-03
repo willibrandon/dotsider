@@ -37,6 +37,6 @@ internal readonly record struct OpEntry(
         OperandKind.Eb or OperandKind.Ew or OperandKind.Ed or OperandKind.Eq or OperandKind.Ev or OperandKind.Ey
         or OperandKind.Gb or OperandKind.Gw or OperandKind.Gd or OperandKind.Gv or OperandKind.Gy
         or OperandKind.M or OperandKind.Mv or OperandKind.Sw
-        or OperandKind.Vx or OperandKind.Wx or OperandKind.Wss or OperandKind.Wsd
+        or OperandKind.Vx or OperandKind.Wx or OperandKind.Wss or OperandKind.Wsd or OperandKind.Wxmm
         or OperandKind.Kr or OperandKind.Km or OperandKind.Pq or OperandKind.Qq;
 }

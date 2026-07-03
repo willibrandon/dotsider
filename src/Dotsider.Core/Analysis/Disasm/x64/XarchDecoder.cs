@@ -19,36 +19,51 @@ internal static class XarchDecoder
     {
         var r = new NativeCodeReader(code) { Position = start };
         var p = default(Prefixes);
+        p.VectorLen = 16;
 
-        // 1. Legacy prefixes, then an optional REX (which must be last before the opcode).
+        // 1. Legacy prefixes.
         while (r.HasMore && TryConsumeLegacyPrefix(ref r, ref p)) { }
-        if (r.HasMore && r.Peek() is >= 0x40 and <= 0x4F)
-        {
-            var rex = r.ReadU8();
-            p.HasRex = true;
-            p.RexW = (rex & 8) != 0;
-            p.RexR = (rex & 4) != 0;
-            p.RexX = (rex & 2) != 0;
-            p.RexB = (rex & 1) != 0;
-        }
-
         if (!r.HasMore) return ByteFallback(code, start, address);
 
-        // 2. Opcode + 0F / 0F 38 / 0F 3A escape.
-        var map = XarchTables.MapOneByte;
-        int opcode = r.ReadU8();
-        if (opcode == 0x0F)
+        int map, opcode, pp;
+        var next = r.Peek();
+        if (next is 0xC4 or 0xC5)
         {
-            var op2 = r.ReadU8();
-            (map, opcode) = op2 switch
+            // 2a. VEX prefix carries the map, mandatory prefix, W, vvvv, and vector length.
+            (map, pp) = ParseVex(ref r, ref p);
+            if (!r.HasMore) return ByteFallback(code, start, address);
+            opcode = r.ReadU8();
+        }
+        else
+        {
+            // 2b. Optional REX, then opcode + 0F / 0F 38 / 0F 3A escape.
+            if (next is >= 0x40 and <= 0x4F)
             {
-                0x38 => (XarchTables.Map0F38, (int)r.ReadU8()),
-                0x3A => (XarchTables.Map0F3A, (int)r.ReadU8()),
-                _ => (XarchTables.Map0F, op2),
-            };
+                var rex = r.ReadU8();
+                p.HasRex = true;
+                p.RexW = (rex & 8) != 0;
+                p.RexR = (rex & 4) != 0;
+                p.RexX = (rex & 2) != 0;
+                p.RexB = (rex & 1) != 0;
+                if (!r.HasMore) return ByteFallback(code, start, address);
+            }
+
+            map = XarchTables.MapOneByte;
+            opcode = r.ReadU8();
+            if (opcode == 0x0F)
+            {
+                var op2 = r.ReadU8();
+                (map, opcode) = op2 switch
+                {
+                    0x38 => (XarchTables.Map0F38, (int)r.ReadU8()),
+                    0x3A => (XarchTables.Map0F3A, (int)r.ReadU8()),
+                    _ => (XarchTables.Map0F, op2),
+                };
+            }
+
+            pp = p.Rep ? XarchTables.PpF3 : p.Repne ? XarchTables.PpF2 : p.OpSize ? XarchTables.Pp66 : XarchTables.PpNone;
         }
 
-        var pp = p.Rep ? XarchTables.PpF3 : p.Repne ? XarchTables.PpF2 : p.OpSize ? XarchTables.Pp66 : XarchTables.PpNone;
         var entry = XarchTables.Lookup(map, pp, opcode);
         if (entry.IsEmpty) return ByteFallback(code, start, address);
 
@@ -93,6 +108,13 @@ internal static class XarchDecoder
         if (map == XarchTables.MapOneByte && opcode is >= 0xB8 and <= 0xBF && effOp == 8)
             mnemonic = "movabs";
 
+        // VEX 0F 77 is vzeroupper (128) / vzeroall (256); the legacy form is emms.
+        if (map == XarchTables.Map0F && opcode == 0x77 && p.HasVex)
+        {
+            return Build(code, start, address, p.VectorLen == 32 ? "vzeroall" : "vzeroupper", [],
+                NativeInstructionCategory.Vector, NativeFlowKind.Sequential, r.Position);
+        }
+
         var ctx = new OperandContext(effOp, p, address, start);
         var operands = new List<NativeOperand>(4);
         ulong? target = null;
@@ -124,6 +146,8 @@ internal static class XarchDecoder
         DecodeOperand(entry.Op4, ref r, modrm, ctx, operands, ref target, opcode);
 
         mnemonic = ApplyRepPrefix(mnemonic, map, opcode, p);
+        if (p.HasVex && (entry.Flags & OpFlags.NoVexPrefix) == 0 && mnemonic != ".byte")
+            mnemonic = "v" + mnemonic;
         var flow = ClassifyFlow(mnemonic, operands);
         var category = ClassifyCategory(mnemonic, opcode, map, operands);
         return Build(code, start, address, mnemonic, operands, category, flow, r.Position, target);
@@ -147,6 +171,49 @@ internal static class XarchDecoder
         r.ReadU8();
         return true;
     }
+
+    /// <summary>
+    /// Parses a 2-byte (<c>C5</c>) or 3-byte (<c>C4</c>) VEX prefix, filling the vector-encoding
+    /// state (inverted R/X/B/vvvv, W, vector length, mandatory prefix) and returning the opcode map
+    /// and mandatory-prefix index the VEX fields select.
+    /// </summary>
+    private static (int Map, int Pp) ParseVex(ref NativeCodeReader r, ref Prefixes p)
+    {
+        p.HasVex = true;
+        var lead = r.ReadU8();
+        if (lead == 0xC5)
+        {
+            var b1 = r.ReadU8();
+            p.RexR = (b1 & 0x80) == 0;
+            p.Vvvv = ~(b1 >> 3) & 0xF;
+            p.VectorLen = (b1 & 4) != 0 ? 32 : 16;
+            return (XarchTables.Map0F, VexPp(b1 & 3));
+        }
+
+        var c1 = r.ReadU8();
+        var c2 = r.ReadU8();
+        p.RexR = (c1 & 0x80) == 0;
+        p.RexX = (c1 & 0x40) == 0;
+        p.RexB = (c1 & 0x20) == 0;
+        p.RexW = (c2 & 0x80) != 0;
+        p.Vvvv = ~(c2 >> 3) & 0xF;
+        p.VectorLen = (c2 & 4) != 0 ? 32 : 16;
+        var map = (c1 & 0x1F) switch
+        {
+            2 => XarchTables.Map0F38,
+            3 => XarchTables.Map0F3A,
+            _ => XarchTables.Map0F,
+        };
+        return (map, VexPp(c2 & 3));
+    }
+
+    private static int VexPp(int pp) => pp switch
+    {
+        1 => XarchTables.Pp66,
+        2 => XarchTables.PpF3,
+        3 => XarchTables.PpF2,
+        _ => XarchTables.PpNone,
+    };
 
     private static OpEntry MergeGroup(OpEntry primary, OpEntry group)
     {
@@ -179,9 +246,10 @@ internal static class XarchDecoder
             case OperandKind.Ev: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize)); break;
             case OperandKind.Ey: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize == 2 ? 4 : ctx.OpSize)); break;
             case OperandKind.M: case OperandKind.Mv: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize)); break;
-            case OperandKind.Wx: operands.Add(Rm(ref r, modrm, ctx, 16, vector: true)); break;
+            case OperandKind.Wx: operands.Add(Rm(ref r, modrm, ctx, ctx.Prefixes.VectorLen, vector: true)); break;
             case OperandKind.Wss: operands.Add(Rm(ref r, modrm, ctx, 4, vector: true)); break;
             case OperandKind.Wsd: operands.Add(Rm(ref r, modrm, ctx, 8, vector: true)); break;
+            case OperandKind.Wxmm: operands.Add(Rm(ref r, modrm, ctx, 16, vector: true)); break;
             case OperandKind.Qq: operands.Add(Rm(ref r, modrm, ctx, 8, mmx: true)); break;
 
             case OperandKind.Gb: operands.Add(Reg(modrm, ctx, 1)); break;
@@ -189,7 +257,24 @@ internal static class XarchDecoder
             case OperandKind.Gd: operands.Add(Reg(modrm, ctx, 4)); break;
             case OperandKind.Gv: operands.Add(Reg(modrm, ctx, ctx.OpSize)); break;
             case OperandKind.Gy: operands.Add(Reg(modrm, ctx, ctx.OpSize == 2 ? 4 : ctx.OpSize)); break;
-            case OperandKind.Vx: operands.Add(RegVector(modrm, ctx, 16)); break;
+            case OperandKind.Vx: operands.Add(RegVector(modrm, ctx, ctx.Prefixes.VectorLen)); break;
+            case OperandKind.Hx:
+                // The vvvv source exists only under VEX/EVEX; legacy SSE decode drops it.
+                if (ctx.Prefixes.HasVex)
+                {
+                    var h = XarchRegisters.Vector(ctx.Prefixes.Vvvv, ctx.Prefixes.VectorLen);
+                    operands.Add(new NativeOperand(NativeOperandKind.Register, h, Register: h));
+                }
+
+                break;
+            case OperandKind.Lx:
+            {
+                // is4: the high nibble of a trailing imm8 selects a vector register.
+                var is4 = r.ReadU8();
+                var l = XarchRegisters.Vector((is4 >> 4) & (15), ctx.Prefixes.VectorLen);
+                operands.Add(new NativeOperand(NativeOperandKind.Register, l, Register: l));
+                break;
+            }
             case OperandKind.Kr: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mask(RegIndex(modrm, ctx)), Register: XarchRegisters.Mask(RegIndex(modrm, ctx)))); break;
             case OperandKind.Pq: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mmx((modrm >> 3) & 7), Register: XarchRegisters.Mmx((modrm >> 3) & 7))); break;
             case OperandKind.Sw: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Segment((modrm >> 3) & 7), Register: XarchRegisters.Segment((modrm >> 3) & 7))); break;
@@ -416,6 +501,11 @@ internal static class XarchDecoder
         public bool RexR;
         public bool RexX;
         public bool RexB;
+
+        // VEX vector-encoding state (EVEX state is added with the AVX-512 family).
+        public bool HasVex;
+        public int Vvvv;        // the vvvv source register (0-31)
+        public int VectorLen;   // packed vector length in bytes (16/32/64)
     }
 
     private readonly ref struct OperandContext(int opSize, Prefixes prefixes, ulong address, int codeStart)

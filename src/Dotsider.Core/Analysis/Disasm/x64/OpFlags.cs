@@ -27,4 +27,7 @@ internal enum OpFlags : byte
 
     /// <summary>Explicitly reserved/undefined (#UD); length is not defined — one-byte fallback.</summary>
     Undefined = 32,
+
+    /// <summary>The mnemonic is complete as written and must not receive the automatic VEX <c>v</c> prefix (BMI/GPR VEX ops).</summary>
+    NoVexPrefix = 64,
 }
