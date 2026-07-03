@@ -11,19 +11,20 @@ namespace Dotsider.Tests;
 /// </summary>
 public class NativeDisassemblerTests
 {
-    /// <summary>Verifies the x64 fallback emits one <c>.byte</c> per byte and never desyncs.</summary>
+    /// <summary>Verifies undefined x64 opcodes fall back to one <c>.byte</c> each and never desync.</summary>
     [Fact(Timeout = 30_000)]
-    public void Disassemble_X64Unknown_EmitsExactWidthBytes()
+    public void Disassemble_X64Undefined_EmitsExactWidthBytes()
     {
-        byte[] code = [0x48, 0x0F, 0x38];
+        // 0x06 (push es) and 0x0E (push cs) are both #UD in 64-bit → one-byte fallbacks.
+        byte[] code = [0x06, 0x0E];
         var insns = NativeDisassembler.Disassemble(code, 0x1000, NativeArchitecture.X64);
 
-        Assert.Equal(3, insns.Count);
+        Assert.Equal(2, insns.Count);
         Assert.All(insns, i => Assert.True(i.IsFallback));
         Assert.All(insns, i => Assert.Equal(".byte", i.Mnemonic));
         Assert.All(insns, i => Assert.Equal(1, i.Length));
         Assert.Equal(0x1000UL, insns[0].Address);
-        Assert.Equal(0x1002UL, insns[2].Address);
+        Assert.Equal(0x1001UL, insns[1].Address);
         Assert.Equal(NativeInstructionCategory.Unknown, insns[0].Category);
     }
 

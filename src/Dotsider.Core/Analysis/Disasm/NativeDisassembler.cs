@@ -71,15 +71,14 @@ public static class NativeDisassembler
     }
 
     /// <summary>
-    /// Decodes a single instruction at <paramref name="offset"/>. Until the real decoders land this
-    /// is the exact-width fallback: one byte for x64, one 32-bit word for A64. The facade fills the
-    /// presentation fields; the decoder owns everything semantic.
+    /// Decodes a single instruction at <paramref name="offset"/>, dispatching to the per-arch
+    /// decoder. The A64 decoder lands later; until then A64 uses the exact-width word fallback.
     /// </summary>
     private static NativeInstruction DecodeOne(
         NativeArchitecture arch, ReadOnlySpan<byte> code, int offset, ulong baseAddress) =>
         arch == NativeArchitecture.Arm64
             ? FallbackWord(code, offset, baseAddress)
-            : FallbackByte(code, offset, baseAddress);
+            : x64.XarchDecoder.Decode(code, offset, baseAddress + (ulong)offset);
 
     /// <summary>One-byte <c>.byte 0x..</c> safety net for x64.</summary>
     private static NativeInstruction FallbackByte(ReadOnlySpan<byte> code, int offset, ulong baseAddress)
