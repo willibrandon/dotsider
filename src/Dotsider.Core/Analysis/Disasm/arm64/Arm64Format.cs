@@ -64,4 +64,24 @@ internal enum Arm64Format
     CondCompareReg,
     /// <summary>Rn, #imm5, #nzcv, cond (conditional compare immediate).</summary>
     CondCompareImm,
+
+    // Loads and stores. The mnemonic and register width derive from the size/opc/V fields.
+    /// <summary>Rt, [Rn|SP, #imm] (load/store register, unsigned scaled immediate offset).</summary>
+    LdStUImm,
+    /// <summary>Rt, [Rn|SP], #imm / [Rn|SP, #imm]! (load/store register, post/pre-indexed).</summary>
+    LdStImmIndexed,
+    /// <summary>Rt, [Rn|SP, #simm] (load/store register, unscaled signed offset: ldur/stur).</summary>
+    LdStUnscaled,
+    /// <summary>Rt, [Rn|SP, Rm{, extend/lsl}] (load/store register, register offset).</summary>
+    LdStRegOff,
+    /// <summary>Rt, Rt2, [Rn|SP{, #imm}] (load/store pair, with pre/post/signed variants).</summary>
+    LdStPair,
+    /// <summary>Rt, label (load register, PC-relative literal).</summary>
+    LdLiteral,
+    /// <summary>Ws, Rt, [Rn|SP] / Rt, [Rn|SP] (load/store exclusive).</summary>
+    LdStExclusive,
+    /// <summary>Rt, [Rn|SP] (load-acquire / store-release).</summary>
+    LdStAcqRel,
+    /// <summary>Rs, Rt, [Rn|SP] (LSE atomic read-modify-write).</summary>
+    Atomic,
 }

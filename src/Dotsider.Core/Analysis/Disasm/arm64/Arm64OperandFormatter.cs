@@ -11,7 +11,7 @@ using R = Arm64Registers;
 /// common architectural aliases (mov/cmp/cmn/tst/neg/mul/lsl/lsr/asr/cset/…) the way the assembler
 /// and objdump present them.
 /// </summary>
-internal static class Arm64OperandFormatter
+internal static partial class Arm64OperandFormatter
 {
     /// <summary>Formats one instruction word matched to <paramref name="entry"/>.</summary>
     /// <param name="entry">The matched decode row.</param>
@@ -236,6 +236,17 @@ internal static class Arm64OperandFormatter
                 Imm(ops, cond, 0);
                 break;
             }
+
+            case Arm64Format.LdStUImm:
+            case Arm64Format.LdStUnscaled:
+            case Arm64Format.LdStImmIndexed:
+            case Arm64Format.LdStRegOff:
+            case Arm64Format.LdStPair:
+            case Arm64Format.LdLiteral:
+            case Arm64Format.LdStExclusive:
+            case Arm64Format.Atomic:
+                mnem = FormatLoadStore(entry.Format, ops, word, rd, rn, rm, ra, address, ref target);
+                break;
         }
 
         return new Arm64Decoded(mnem, ops, cat, flow, target);
