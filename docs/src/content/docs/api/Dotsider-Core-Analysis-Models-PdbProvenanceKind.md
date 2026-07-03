@@ -25,7 +25,7 @@ The assembly came from a single-file bundle, so sidecar probing was intentionall
 **Returns:** [PdbProvenanceKind](/api/dotsider.core.analysis.models.pdbprovenancekind/)
 
 ```csharp
-BundleSidecarSkipped = 6
+BundleSidecarSkipped = 7
 ```
 
 ### CodeViewSidecarMismatched
@@ -56,6 +56,16 @@ An embedded portable PDB was opened.
 
 ```csharp
 Embedded = 4
+```
+
+### NativePdb
+
+A Windows native PDB was found beside the binary and its GUID and age match the CodeView entry.
+
+**Returns:** [PdbProvenanceKind](/api/dotsider.core.analysis.models.pdbprovenancekind/)
+
+```csharp
+NativePdb = 6
 ```
 
 ### NoDebugDirectory

@@ -414,6 +414,29 @@ replacing it.
 public NativeAotInfo? NativeAotInfo { get; }
 ```
 
+### NativeSymbols
+
+The native symbols of this binary — function names, addresses, and sizes read from its
+PDB, DWARF, or dSYM, or function boundaries from unwind data when no symbols exist. Null
+for managed assemblies. Parsed on demand; the value is assigned before the probed flag, so
+a rare concurrent first read costs at most a second parse of immutable data.
+
+**Returns:** [NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/)
+
+```csharp
+public NativeSymbolInfo? NativeSymbols { get; }
+```
+
+### NativeSymbolsPath
+
+The symbol file the native symbols were read from (PDB, .dbg, or dSYM), or null.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? NativeSymbolsPath { get; }
+```
+
 ### PdbProvenance
 
 Portable PDB provenance for the analyzed assembly.

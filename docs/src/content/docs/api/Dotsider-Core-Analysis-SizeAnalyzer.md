@@ -1,6 +1,6 @@
 ---
 title: "SizeAnalyzer"
-description: "Computes IL code size per method and builds a hierarchical size tree for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is built from the compiler's size report instead: native code and MethodTable bytes per assembly, namespace, type, and method, plus the binary's data categories."
+description: "Computes IL code size per method and builds a hierarchical size tree for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is built from the compiler's size report instead: native code and MethodTable bytes per assembly, namespace, type, and method, plus the binary's data categories. Without an mstat, the binary's merged native symbols carry the tree."
 slug: api/dotsider.core.analysis.sizeanalyzer
 sidebar:
   order: 0
@@ -13,7 +13,8 @@ sidebar:
 Computes IL code size per method and builds a hierarchical size tree
 for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is
 built from the compiler's size report instead: native code and MethodTable bytes per
-assembly, namespace, type, and method, plus the binary's data categories.
+assembly, namespace, type, and method, plus the binary's data categories. Without an
+mstat, the binary's merged native symbols carry the tree.
 
 ```csharp
 public static class SizeAnalyzer

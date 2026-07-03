@@ -149,6 +149,19 @@ toolchain actually emits before it is accepted.
 public static class NativeAotDetector
 ```
 
+### [NativeSymbolReader](/api/dotsider.core.analysis.nativesymbolreader/)
+
+Reads a native binary's symbols — function names, addresses, and sizes — from its debug
+information, demangling ILC names back to managed names and merging the overlapping records
+that different symbol sources produce. Windows native PDBs, Linux DWARF, and macOS dSYM/nlist
+each feed the same merge and demangle pipeline through String); when no symbols
+exist, unwind data still yields function boundaries at lower fidelity. The public entry points
+that dispatch on image format are added as each reader lands.
+
+```csharp
+public static class NativeSymbolReader
+```
+
 ### [NetFxBinder](/api/dotsider.core.analysis.netfxbinder/)
 
 CLR-accurate .NET Framework assembly binder for both CLR generations. Consumes a
@@ -208,7 +221,8 @@ public static class SingleFileBundleReader
 Computes IL code size per method and builds a hierarchical size tree
 for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is
 built from the compiler's size report instead: native code and MethodTable bytes per
-assembly, namespace, type, and method, plus the binary's data categories.
+assembly, namespace, type, and method, plus the binary's data categories. Without an
+mstat, the binary's merged native symbols carry the tree.
 
 ```csharp
 public static class SizeAnalyzer
