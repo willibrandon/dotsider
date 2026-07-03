@@ -147,7 +147,13 @@ public static class NativeDisassembler
                     ? (sym.Kind == NativeSymbolKind.Function ? NativeTargetKind.Function : NativeTargetKind.Data)
                     : insn.TargetKind;
                 instructions[i] = insn with { TargetKind = kind, TargetName = name };
+                continue;
             }
+
+            // An unresolved RIP-relative data reference still shows its absolute address, since the
+            // operand text only carries the [rip+disp] form.
+            if (insn.TargetKind == NativeTargetKind.Data)
+                instructions[i] = insn with { TargetName = $"0x{target:x}" };
         }
 
         return instructions;

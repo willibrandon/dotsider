@@ -596,11 +596,21 @@ internal static class XarchDecoder
     {
         var bytes = code[start..endPosition].ToArray();
         var operandText = string.Join(", ", operands.Select(o => o.Text));
-        var targetKind = target is null
-            ? NativeTargetKind.None
-            : flow is NativeFlowKind.Call or NativeFlowKind.Jump or NativeFlowKind.ConditionalBranch
+
+        var targetKind = NativeTargetKind.None;
+        if (target is not null)
+        {
+            targetKind = flow is NativeFlowKind.Call or NativeFlowKind.Jump or NativeFlowKind.ConditionalBranch
                 ? NativeTargetKind.Function
                 : NativeTargetKind.None;
+        }
+        else if (operands.FirstOrDefault(o => o.IsRipRelative) is { } rip)
+        {
+            // RIP-relative data target: absolute VA = next-instruction VA + disp = address + length + disp.
+            target = unchecked(address + (ulong)bytes.Length + (ulong)rip.MemoryDisplacement);
+            targetKind = NativeTargetKind.Data;
+        }
+
         return new NativeInstruction(
             Address: address, Rva: null, FileOffset: null, Bytes: bytes, Length: bytes.Length,
             Mnemonic: mnemonic, Operands: operands, OperandText: operandText,
