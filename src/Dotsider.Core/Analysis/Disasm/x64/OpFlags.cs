@@ -30,4 +30,7 @@ internal enum OpFlags : byte
 
     /// <summary>The mnemonic is complete as written and must not receive the automatic VEX <c>v</c> prefix (BMI/GPR VEX ops).</summary>
     NoVexPrefix = 64,
+
+    /// <summary>Under EVEX the mnemonic takes a <c>d</c> (W=0) or <c>q</c> (W=1) element-width suffix (EVEX-only ops).</summary>
+    EvexDQ = 128,
 }

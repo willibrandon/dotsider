@@ -53,6 +53,10 @@ internal static partial class XarchTables
     private static readonly OpEntry[][][] Tables;
     private static readonly OpEntry[][] Groups;
 
+    /// <summary>VEX-only opmask ops keyed by <c>(pp &lt;&lt; 8) | opcode</c>, kept out of the shared
+    /// 0F table because those opcodes are the legacy setcc/cmovcc slots.</summary>
+    private static readonly Dictionary<int, OpEntry> KmaskOps = [];
+
     static XarchTables()
     {
         Tables = new OpEntry[MapCount][][];
@@ -73,7 +77,15 @@ internal static partial class XarchTables
         RegisterFma();
         RegisterBmi();
         RegisterCrypto();
+        RegisterAvx512();
     }
+
+    /// <summary>Looks up a VEX-encoded opmask op (kmov/kand/…) on the 0F map by prefix and opcode.</summary>
+    /// <param name="pp">The mandatory-prefix index.</param>
+    /// <param name="opcode">The opcode byte.</param>
+    /// <param name="entry">The matched opmask row.</param>
+    internal static bool TryKmask(int pp, int opcode, out OpEntry entry) =>
+        KmaskOps.TryGetValue((pp << 8) | opcode, out entry);
 
     /// <summary>
     /// Looks up an opcode. A missing prefixed entry falls back to the no-prefix entry, since many

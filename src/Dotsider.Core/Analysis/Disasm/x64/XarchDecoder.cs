@@ -34,6 +34,13 @@ internal static class XarchDecoder
             if (!r.HasMore) return ByteFallback(code, start, address);
             opcode = r.ReadU8();
         }
+        else if (next == 0x62)
+        {
+            // 2a'. EVEX prefix: like VEX plus R'/V'/X extensions, opmask, zeroing, and broadcast.
+            (map, pp) = ParseEvex(ref r, ref p);
+            if (map < 0 || !r.HasMore) return ByteFallback(code, start, address);
+            opcode = r.ReadU8();
+        }
         else
         {
             // 2b. Optional REX, then opcode + 0F / 0F 38 / 0F 3A escape.
@@ -64,7 +71,10 @@ internal static class XarchDecoder
             pp = p.Rep ? XarchTables.PpF3 : p.Repne ? XarchTables.PpF2 : p.OpSize ? XarchTables.Pp66 : XarchTables.PpNone;
         }
 
-        var entry = XarchTables.Lookup(map, pp, opcode);
+        // Under VEX the 0F setcc/cmovcc slots are the opmask ops (kmov/kand/…) instead.
+        var entry = p.HasVex && map == XarchTables.Map0F && XarchTables.TryKmask(pp, opcode, out var km)
+            ? km
+            : XarchTables.Lookup(map, pp, opcode);
         if (entry.IsEmpty) return ByteFallback(code, start, address);
 
         // 3. ModRM (+ group re-index), then operands.
@@ -155,8 +165,10 @@ internal static class XarchDecoder
         DecodeOperand(entry.Op4, ref r, modrm, ctx, operands, ref target, opcode);
 
         mnemonic = ApplyRepPrefix(mnemonic, map, opcode, p);
-        if (p.HasVex && (entry.Flags & OpFlags.NoVexPrefix) == 0 && mnemonic != ".byte")
+        if (p.HasEvex) mnemonic = EvexSuffix(mnemonic, map, opcode, entry.Flags, p);
+        if (p.IsVector && (entry.Flags & OpFlags.NoVexPrefix) == 0 && mnemonic != ".byte")
             mnemonic = "v" + mnemonic;
+        if (p.HasEvex) ApplyEvexDecoration(operands, p);
         var flow = ClassifyFlow(mnemonic, operands);
         var category = ClassifyCategory(mnemonic, opcode, map, operands);
         return Build(code, start, address, mnemonic, operands, category, flow, r.Position, target);
@@ -224,6 +236,46 @@ internal static class XarchDecoder
         _ => XarchTables.PpNone,
     };
 
+    /// <summary>
+    /// Parses a 4-byte EVEX prefix (<c>62</c> + three payload bytes), filling the R/X/B plus the R'/
+    /// V'/X extension bits (for xmm/zmm 16-31), W, vvvv, vector length from L'L, opmask (aaa),
+    /// zeroing (z), and broadcast (b). Returns (-1, -1) if the payload is truncated.
+    /// </summary>
+    private static (int Map, int Pp) ParseEvex(ref NativeCodeReader r, ref Prefixes p)
+    {
+        r.ReadU8(); // 0x62
+        if (r.Remaining < 3) return (-1, -1);
+        var p0 = r.ReadU8();
+        var p1 = r.ReadU8();
+        var p2 = r.ReadU8();
+
+        p.HasEvex = true;
+        p.RexR = (p0 & 0x80) == 0;
+        p.RexX = (p0 & 0x40) == 0;
+        p.EvexX = (p0 & 0x40) == 0;
+        p.RexB = (p0 & 0x20) == 0;
+        p.EvexR2 = (p0 & 0x10) == 0;
+
+        p.RexW = (p1 & 0x80) != 0;
+        var v2 = (p2 & 0x08) == 0;
+        p.Vvvv = (~(p1 >> 3) & 0xF) | (v2 ? 16 : 0);
+
+        var ll = ((p2 >> 6) & 1) << 1 | ((p2 >> 5) & 1);
+        p.VectorLen = ll == 0 ? 16 : ll == 1 ? 32 : 64;
+        p.Zeroing = (p2 & 0x80) != 0;
+        p.Broadcast = (p2 & 0x10) != 0;
+        p.MaskReg = p2 & 7;
+
+        var map = (p0 & 0x7) switch
+        {
+            2 => XarchTables.Map0F38,
+            3 => XarchTables.Map0F3A,
+            1 => XarchTables.Map0F,
+            _ => -1,
+        };
+        return (map, VexPp(p1 & 3));
+    }
+
     private static OpEntry MergeGroup(OpEntry primary, OpEntry group)
     {
         var hasOperands = group.Op1 != OperandKind.None;
@@ -269,7 +321,7 @@ internal static class XarchDecoder
             case OperandKind.Vx: operands.Add(RegVector(modrm, ctx, ctx.Prefixes.VectorLen)); break;
             case OperandKind.Hx:
                 // The vvvv source exists only under VEX/EVEX; legacy SSE decode drops it.
-                if (ctx.Prefixes.HasVex)
+                if (ctx.Prefixes.IsVector)
                 {
                     var h = XarchRegisters.Vector(ctx.Prefixes.Vvvv, ctx.Prefixes.VectorLen);
                     operands.Add(new NativeOperand(NativeOperandKind.Register, h, Register: h));
@@ -280,14 +332,18 @@ internal static class XarchDecoder
             {
                 // is4: the high nibble of a trailing imm8 selects a vector register.
                 var is4 = r.ReadU8();
-                var l = XarchRegisters.Vector((is4 >> 4) & (15), ctx.Prefixes.VectorLen);
+                var l = XarchRegisters.Vector((is4 >> 4) & (ctx.Prefixes.HasEvex ? 31 : 15), ctx.Prefixes.VectorLen);
                 operands.Add(new NativeOperand(NativeOperandKind.Register, l, Register: l));
                 break;
             }
-            case OperandKind.Kr: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mask(RegIndex(modrm, ctx)), Register: XarchRegisters.Mask(RegIndex(modrm, ctx)))); break;
+            case OperandKind.Kr: { var k = XarchRegisters.Mask(((modrm >> 3) & 7)); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }
+            case OperandKind.Km: { var k = XarchRegisters.Mask(modrm & 7); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }
+            case OperandKind.Kv: { var k = XarchRegisters.Mask(ctx.Prefixes.Vvvv & 7); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }
             case OperandKind.Pq: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mmx((modrm >> 3) & 7), Register: XarchRegisters.Mmx((modrm >> 3) & 7))); break;
             case OperandKind.Sw: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Segment((modrm >> 3) & 7), Register: XarchRegisters.Segment((modrm >> 3) & 7))); break;
 
+            // A vector/mask control imm8 is a raw byte; a GPR ALU imm8 sign-extends to operand size.
+            case OperandKind.Ib when IsVectorContext(operands): operands.Add(Imm(ref r, 1)); break;
             case OperandKind.Ib: operands.Add(ImmSx(ref r, 1, ctx.OpSize)); break;
             case OperandKind.Iw: operands.Add(Imm(ref r, 2)); break;
             case OperandKind.Id: operands.Add(Imm(ref r, 4)); break;
@@ -314,7 +370,13 @@ internal static class XarchDecoder
         }
     }
 
-    private static int RegIndex(byte modrm, OperandContext ctx) => ((modrm >> 3) & 7) + (ctx.Prefixes.RexR ? 8 : 0);
+    /// <summary>Whether the operands so far name a vector or mask register (so an imm8 is a raw control byte).</summary>
+    private static bool IsVectorContext(List<NativeOperand> operands) =>
+        operands.Any(o => o.Register is { } n
+            && (n.StartsWith("xmm") || n.StartsWith("ymm") || n.StartsWith("zmm") || n[0] == 'k'));
+
+    private static int RegIndex(byte modrm, OperandContext ctx) =>
+        ((modrm >> 3) & 7) + (ctx.Prefixes.RexR ? 8 : 0) + (ctx.Prefixes.EvexR2 ? 16 : 0);
 
     private static NativeOperand Reg(byte modrm, OperandContext ctx, int size)
     {
@@ -339,7 +401,7 @@ internal static class XarchDecoder
     {
         var mod = modrm >> 6;
         var rmLow = modrm & 7;
-        var rmFull = rmLow + (ctx.Prefixes.RexB ? 8 : 0);
+        var rmFull = rmLow + (ctx.Prefixes.RexB ? 8 : 0) + (ctx.Prefixes.EvexX && vector ? 16 : 0);
 
         if (mod == 3)
         {
@@ -430,6 +492,64 @@ internal static class XarchDecoder
         return mnemonic;
     }
 
+    /// <summary>
+    /// Applies the element-width suffix that EVEX adds to the SSE/AVX logical and packed-move
+    /// opcodes (e.g. <c>pxor</c> → <c>pxord</c>/<c>pxorq</c>, <c>movdqa</c> → <c>movdqa32/64</c> by
+    /// EVEX.W). Ops that already encode their width in the base name pass through unchanged.
+    /// </summary>
+    private static string EvexSuffix(string m, int map, int opcode, OpFlags flags, Prefixes p)
+    {
+        if ((flags & OpFlags.EvexDQ) != 0) return m + (p.RexW ? "q" : "d");
+
+        // scalef/getexp carry ps (W=0) / pd (W=1) like the FMA rows.
+        if (map == XarchTables.Map0F38 && opcode is 0x2C or 0x42 && p.RexW && m.EndsWith("ps"))
+            return m[..^2] + "pd";
+
+        // round* (0F3A 08-0B) is spelled rndscale* under EVEX.
+        if (map == XarchTables.Map0F3A && opcode is >= 0x08 and <= 0x0B && m.StartsWith("round"))
+            return "rndscale" + m[5..];
+
+        if (map != XarchTables.Map0F) return m;
+        var q = p.RexW;
+        return opcode switch
+        {
+            0xDB => q ? "pandq" : "pandd",
+            0xDF => q ? "pandnq" : "pandnd",
+            0xEB => q ? "porq" : "pord",
+            0xEF => q ? "pxorq" : "pxord",
+            0x6F or 0x7F when m == "movdqa" => q ? "movdqa64" : "movdqa32",
+            0x6F or 0x7F when m == "movdqu" => q ? "movdqu64" : "movdqu32",
+            _ => m,
+        };
+    }
+
+    /// <summary>
+    /// Decorates the operands with EVEX masking and broadcast: <c>{k1}</c>/<c>{z}</c> on the
+    /// destination when an opmask is selected, and <c>{1toN}</c> on a memory source under broadcast.
+    /// </summary>
+    private static void ApplyEvexDecoration(List<NativeOperand> operands, Prefixes p)
+    {
+        if (operands.Count == 0) return;
+
+        if (p.MaskReg != 0)
+        {
+            var dst = operands[0];
+            var text = $"{dst.Text}{{k{p.MaskReg}}}" + (p.Zeroing ? "{z}" : "");
+            operands[0] = dst with { Text = text };
+        }
+
+        if (p.Broadcast)
+        {
+            for (var i = 0; i < operands.Count; i++)
+            {
+                if (operands[i].Kind != NativeOperandKind.Memory) continue;
+                var n = p.VectorLen / (p.RexW ? 8 : 4);
+                operands[i] = operands[i] with { Text = $"{operands[i].Text} {{1to{n}}}" };
+                break;
+            }
+        }
+    }
+
     private static NativeFlowKind ClassifyFlow(string mnemonic, List<NativeOperand> operands)
     {
         if (mnemonic is "ret" or "retf" or "iret" or "sysret") return NativeFlowKind.Return;
@@ -512,10 +632,18 @@ internal static class XarchDecoder
         public bool RexX;
         public bool RexB;
 
-        // VEX vector-encoding state (EVEX state is added with the AVX-512 family).
+        // VEX/EVEX vector-encoding state.
         public bool HasVex;
+        public bool HasEvex;
         public int Vvvv;        // the vvvv source register (0-31)
         public int VectorLen;   // packed vector length in bytes (16/32/64)
+        public bool EvexR2;     // R' — reg bit 4 (xmm/zmm 16-31)
+        public bool EvexX;      // X — rm bit 4 for a register operand
+        public int MaskReg;     // EVEX aaa opmask (0 = none)
+        public bool Zeroing;    // EVEX z (merging vs zeroing)
+        public bool Broadcast;  // EVEX b (memory broadcast)
+
+        public readonly bool IsVector => HasVex || HasEvex;
     }
 
     private readonly ref struct OperandContext(int opSize, Prefixes prefixes, ulong address, int codeStart)
