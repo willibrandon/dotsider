@@ -65,7 +65,14 @@ internal static class XarchDecoder
         }
 
         var mnemonic = entry.Mnemonic ?? ".byte";
-        var effOp = EffectiveOperandSize(entry, p);
+        // 66 is an operand-size override only when it is NOT the mandatory prefix that selected an
+        // SSE/vector entry; F2/F3 are never operand-size.
+        var op66Mandatory = p.OpSize && map != XarchTables.MapOneByte
+            && XarchTables.HasEntry(map, XarchTables.Pp66, opcode);
+        var effOp = EffectiveOperandSize(entry, p, p.OpSize && !op66Mandatory);
+
+        // movd becomes movq under REX.W (the GPR operand is 64-bit).
+        if (mnemonic == "movd" && p.RexW) mnemonic = "movq";
 
         // Endbr and the x87 escapes need the ModRM/opcode before naming.
         if (map == XarchTables.Map0F && opcode == 0x1E && p.Rep && hasModRm)
@@ -116,9 +123,9 @@ internal static class XarchDecoder
         DecodeOperand(entry.Op3, ref r, modrm, ctx, operands, ref target, opcode);
         DecodeOperand(entry.Op4, ref r, modrm, ctx, operands, ref target, opcode);
 
-        mnemonic = ApplyRepPrefix(mnemonic, opcode, p);
+        mnemonic = ApplyRepPrefix(mnemonic, map, opcode, p);
         var flow = ClassifyFlow(mnemonic, operands);
-        var category = ClassifyCategory(mnemonic, opcode, map);
+        var category = ClassifyCategory(mnemonic, opcode, map, operands);
         return Build(code, start, address, mnemonic, operands, category, flow, r.Position, target);
     }
 
@@ -149,11 +156,11 @@ internal static class XarchDecoder
             : primary with { Mnemonic = group.Mnemonic, Flags = primary.Flags | group.Flags };
     }
 
-    private static int EffectiveOperandSize(OpEntry entry, Prefixes p)
+    private static int EffectiveOperandSize(OpEntry entry, Prefixes p, bool opSize16)
     {
         if ((entry.Flags & OpFlags.Force64) != 0) return 8;
-        if ((entry.Flags & OpFlags.Default64) != 0) return p.OpSize ? 2 : 8;
-        return p.RexW ? 8 : p.OpSize ? 2 : 4;
+        if ((entry.Flags & OpFlags.Default64) != 0) return opSize16 ? 2 : 8;
+        return p.RexW ? 8 : opSize16 ? 2 : 4;
     }
 
     private static void DecodeOperand(
@@ -170,16 +177,18 @@ internal static class XarchDecoder
             case OperandKind.Ed: operands.Add(Rm(ref r, modrm, ctx, 4)); break;
             case OperandKind.Eq: operands.Add(Rm(ref r, modrm, ctx, 8)); break;
             case OperandKind.Ev: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize)); break;
-            case OperandKind.Ey: operands.Add(Rm(ref r, modrm, ctx, 8)); break;
+            case OperandKind.Ey: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize == 2 ? 4 : ctx.OpSize)); break;
             case OperandKind.M: case OperandKind.Mv: operands.Add(Rm(ref r, modrm, ctx, ctx.OpSize)); break;
             case OperandKind.Wx: operands.Add(Rm(ref r, modrm, ctx, 16, vector: true)); break;
+            case OperandKind.Wss: operands.Add(Rm(ref r, modrm, ctx, 4, vector: true)); break;
+            case OperandKind.Wsd: operands.Add(Rm(ref r, modrm, ctx, 8, vector: true)); break;
             case OperandKind.Qq: operands.Add(Rm(ref r, modrm, ctx, 8, mmx: true)); break;
 
             case OperandKind.Gb: operands.Add(Reg(modrm, ctx, 1)); break;
             case OperandKind.Gw: operands.Add(Reg(modrm, ctx, 2)); break;
             case OperandKind.Gd: operands.Add(Reg(modrm, ctx, 4)); break;
             case OperandKind.Gv: operands.Add(Reg(modrm, ctx, ctx.OpSize)); break;
-            case OperandKind.Gy: operands.Add(Reg(modrm, ctx, 8)); break;
+            case OperandKind.Gy: operands.Add(Reg(modrm, ctx, ctx.OpSize == 2 ? 4 : ctx.OpSize)); break;
             case OperandKind.Vx: operands.Add(RegVector(modrm, ctx, 16)); break;
             case OperandKind.Kr: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mask(RegIndex(modrm, ctx)), Register: XarchRegisters.Mask(RegIndex(modrm, ctx)))); break;
             case OperandKind.Pq: operands.Add(new NativeOperand(NativeOperandKind.Register, XarchRegisters.Mmx((modrm >> 3) & 7), Register: XarchRegisters.Mmx((modrm >> 3) & 7))); break;
@@ -275,7 +284,7 @@ internal static class XarchDecoder
         }
 
         disp += mod switch { 1 => r.ReadI8(), 2 => r.ReadI32(), _ => 0 };
-        var hintSize = vector ? 16 : mmx ? 8 : size;
+        var hintSize = mmx ? 8 : size;
         return XarchOperandFormatter.Memory(hintSize, baseReg, indexReg, scale, disp, ripRel);
     }
 
@@ -314,9 +323,11 @@ internal static class XarchDecoder
         return XarchOperandFormatter.Memory(size, null, null, 0, (long)addr, ripRelative: false);
     }
 
-    private static string ApplyRepPrefix(string mnemonic, int opcode, Prefixes p)
+    private static string ApplyRepPrefix(string mnemonic, int map, int opcode, Prefixes p)
     {
-        var isString = opcode is (>= 0xA4 and <= 0xA7) or (>= 0xAA and <= 0xAF) or (>= 0x6C and <= 0x6F);
+        // Only the one-byte string opcodes take a rep prefix; on the 0F map F3/F2 are mandatory.
+        var isString = map == XarchTables.MapOneByte
+            && opcode is (>= 0xA4 and <= 0xA7) or (>= 0xAA and <= 0xAF) or (>= 0x6C and <= 0x6F);
         if (!isString) return mnemonic;
         var cmpOrScas = opcode is 0xA6 or 0xA7 or 0xAE or 0xAF;
         if (p.Rep) return (cmpOrScas ? "repe " : "rep ") + mnemonic;
@@ -335,7 +346,8 @@ internal static class XarchDecoder
         return NativeFlowKind.Sequential;
     }
 
-    private static NativeInstructionCategory ClassifyCategory(string mnemonic, int opcode, int map)
+    private static NativeInstructionCategory ClassifyCategory(
+        string mnemonic, int opcode, int map, List<NativeOperand> operands)
     {
         if (map == XarchTables.MapOneByte && opcode is >= 0xD8 and <= 0xDF) return NativeInstructionCategory.Float;
         if (mnemonic is "nop" or "int3" or "int1" or "ud2" or "pause" or "cpuid" or "rdtsc" or "hlt"
@@ -345,10 +357,22 @@ internal static class XarchDecoder
             return NativeInstructionCategory.System;
         }
 
-        return mnemonic is "call" or "jmp" or "ret" or "retf" or "iret" || (mnemonic.Length > 1 && mnemonic[0] == 'j')
-            || mnemonic is "loop" or "loope" or "loopne" or "jrcxz"
-            ? NativeInstructionCategory.Control
-            : NativeInstructionCategory.Integer;
+        if (mnemonic is "call" or "jmp" or "ret" or "retf" or "iret" || (mnemonic.Length > 1 && mnemonic[0] == 'j')
+            || mnemonic is "loop" or "loope" or "loopne" or "jrcxz")
+        {
+            return NativeInstructionCategory.Control;
+        }
+
+        // Vector/float: an operand names a vector register. Scalar single/double forms are float.
+        var usesVector = operands.Any(o => o.Register is { } n && (n.StartsWith("xmm") || n.StartsWith("ymm") || n.StartsWith("zmm")));
+        if (usesVector)
+        {
+            var scalar = mnemonic.EndsWith("ss") || mnemonic.EndsWith("sd") || mnemonic.StartsWith("cvtsi")
+                || mnemonic is "movd" or "movq";
+            return scalar ? NativeInstructionCategory.Float : NativeInstructionCategory.Vector;
+        }
+
+        return NativeInstructionCategory.Integer;
     }
 
     private static NativeInstruction Build(

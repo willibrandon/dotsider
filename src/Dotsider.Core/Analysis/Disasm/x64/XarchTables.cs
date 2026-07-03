@@ -45,6 +45,9 @@ internal static partial class XarchTables
     internal const byte Grp7 = 12;   // 0F 01 (system; xgetbv etc. handled by mod==11 in the decoder)
     internal const byte Grp8 = 13;   // 0F BA bt/bts/btr/btc
     internal const byte Grp15 = 14;  // 0F AE fences/fxsave
+    internal const byte GrpShiftW = 15; // 0F 71 psrlw/psraw/psllw
+    internal const byte GrpShiftD = 16; // 0F 72 psrld/psrad/pslld
+    internal const byte GrpShiftQ = 17; // 0F 73 psrlq/psrldq/psllq/pslldq
     internal const byte GroupCount = 32;
 
     private static readonly OpEntry[][][] Tables;
@@ -65,6 +68,7 @@ internal static partial class XarchTables
             Groups[g] = new OpEntry[8];
 
         RegisterLegacy();
+        RegisterSse();
     }
 
     /// <summary>

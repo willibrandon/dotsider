@@ -91,6 +91,10 @@ internal enum OperandKind : byte
     Vx,
     /// <summary>Vector reg from ModRM r/m (xmm/ymm/zmm by length).</summary>
     Wx,
+    /// <summary>Vector reg or memory from ModRM r/m, scalar-single (4-byte memory size hint).</summary>
+    Wss,
+    /// <summary>Vector reg or memory from ModRM r/m, scalar-double (8-byte memory size hint).</summary>
+    Wsd,
     /// <summary>Vector reg from VEX/EVEX vvvv (xmm/ymm/zmm by length).</summary>
     Hx,
     /// <summary>Vector reg from imm8[7:4] (is4 operand).</summary>
