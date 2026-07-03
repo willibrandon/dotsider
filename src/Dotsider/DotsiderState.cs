@@ -218,6 +218,21 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The number of header lines in the current disassembly.</summary>
     public int IlHeaderLineCount { get; set; }
 
+    /// <summary>The native symbol selected in the tree for a non-managed binary (native IL-inspector mode).</summary>
+    public NativeSymbol? IlSelectedNativeSymbol { get; set; }
+
+    /// <summary>The native symbol currently loaded into the editor pane (for staleness detection).</summary>
+    public NativeSymbol? IlEditorNativeSymbol { get; set; }
+
+    /// <summary>The decoded native instructions of the currently displayed symbol, or null.</summary>
+    public IReadOnlyList<NativeInstruction>? IlNativeInstructions { get; set; }
+
+    /// <summary>The number of header lines in the current native disassembly.</summary>
+    public int IlNativeHeaderLineCount { get; set; }
+
+    /// <summary>The back-stack of native symbols visited via go-to-definition, for Esc.</summary>
+    public Stack<NativeBackEntry> IlNativeBackStack { get; } = new();
+
     /// <summary>The field targeted by the last field go-to-definition, displayed in the right pane.</summary>
     public FieldDefInfo? IlSelectedField { get; set; }
 

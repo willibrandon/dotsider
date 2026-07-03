@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
@@ -93,8 +94,10 @@ public static class IlInspectorView
             }
         }
 
-        // Build the flattened tree rows for the left pane list
-        var treeRows = BuildTreeRows(state);
+        // Build the flattened tree rows for the left pane list — native symbols for a non-managed
+        // binary, managed methods otherwise.
+        var isNative = state.Analyzer.BinaryKind != BinaryKind.Managed;
+        var treeRows = isNative ? BuildNativeTreeRows(state) : BuildTreeRows(state);
         var formattedRows = treeRows.Select(r => FormatTreeRow(r, state)).ToList();
 
         // Capture the ScrollPanelNode that hosts the tree from App.Focusables.
@@ -185,6 +188,8 @@ public static class IlInspectorView
                                 state.IlFocusedTreeKey = row.Key;
                                 if (row is { Kind: IlTreeRowKind.Method, Method: not null })
                                     state.IlSelectedMethod = row.Method;
+                                else if (row is { Kind: IlTreeRowKind.Method, Symbol: not null })
+                                    state.IlSelectedNativeSymbol = row.Symbol;
                             }
                             state.App.Invalidate();
                         },
@@ -331,6 +336,85 @@ public static class IlInspectorView
     }
 
     /// <summary>
+    /// Builds the native IL-inspector tree for a non-managed (Native AOT) binary: the executable
+    /// symbols (functions, stubs, unwind boundaries) bucketed namespace → type → function the same
+    /// way the managed tree buckets methods, using <see cref="NativeSymbolName.Parse"/> for managed-
+    /// named functions and synthetic buckets — <c>(runtime)</c>, <c>(stubs)</c>, <c>(functions)</c> —
+    /// for the rest. Method rows carry their <see cref="NativeSymbol"/> in <see cref="IlTreeRow.Symbol"/>.
+    /// </summary>
+    /// <param name="state">The current application state.</param>
+    internal static List<IlTreeRow> BuildNativeTreeRows(DotsiderState state)
+    {
+        var rows = new List<IlTreeRow>();
+        var info = state.Analyzer.NativeSymbols;
+        if (info is null) return rows;
+
+        var search = state.Search[TabId.IlInspector];
+        var query = search.Query ?? string.Empty;
+
+        // Bucket every executable symbol into (namespace, type, member).
+        var buckets = new SortedDictionary<string, SortedDictionary<string, List<(string Member, NativeSymbol Symbol)>>>(StringComparer.Ordinal);
+        foreach (var s in info.Symbols)
+        {
+            if (s.Kind is not (NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary))
+                continue;
+
+            string ns, type, member;
+            if (s.Kind == NativeSymbolKind.Function && s.ManagedName is { } managed)
+            {
+                var parsed = NativeSymbolName.Parse(managed);
+                ns = parsed.Namespace.Length == 0 ? "(global)" : parsed.Namespace;
+                type = parsed.TypeName.Length == 0 ? "(functions)" : parsed.TypeName;
+                member = parsed.MemberName;
+            }
+            else
+            {
+                ns = s.Kind == NativeSymbolKind.Stub ? "(stubs)"
+                    : s.Kind == NativeSymbolKind.Function ? "(runtime)" : "(functions)";
+                type = ns;
+                member = s.Name;
+            }
+
+            if (query.Length > 0 && !member.Contains(query, StringComparison.OrdinalIgnoreCase)
+                && !type.Contains(query, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!buckets.TryGetValue(ns, out var byType))
+                byType = buckets[ns] = new SortedDictionary<string, List<(string, NativeSymbol)>>(StringComparer.Ordinal);
+            if (!byType.TryGetValue(type, out var list))
+                list = byType[type] = [];
+            list.Add((member, s));
+        }
+
+        foreach (var (ns, byType) in buckets)
+        {
+            var nsKey = $"nns:{ns}";
+            var nsExpanded = GetExpansionState(state, nsKey, defaultExpanded: query.Length > 0);
+            rows.Add(new IlTreeRow(nsKey, 0, IlTreeRowKind.Namespace,
+                HighlightHelper.HighlightSubstring(ns, query), null, CanExpand: true, IsExpanded: nsExpanded, nsKey));
+            if (!nsExpanded) continue;
+
+            foreach (var (type, members) in byType)
+            {
+                var typeKey = $"ntype:{ns}/{type}";
+                var typeExpanded = GetExpansionState(state, typeKey, defaultExpanded: query.Length > 0);
+                rows.Add(new IlTreeRow(typeKey, 1, IlTreeRowKind.Type,
+                    HighlightHelper.HighlightSubstring(type, query), null, CanExpand: true, IsExpanded: typeExpanded, typeKey));
+                if (!typeExpanded) continue;
+
+                foreach (var (member, symbol) in members.OrderBy(m => m.Symbol.VirtualAddress))
+                {
+                    var funcKey = $"nfunc:{symbol.VirtualAddress:x}";
+                    rows.Add(new IlTreeRow(funcKey, 2, IlTreeRowKind.Method,
+                        HighlightHelper.HighlightSubstring(member, query), null, CanExpand: false, IsExpanded: false, "", symbol));
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// Formats a tree row for display in the table cell, adding indentation,
     /// expand/collapse glyphs, and the selection marker.
     /// </summary>
@@ -377,6 +461,10 @@ public static class IlInspectorView
                 state.IlSelectedMethod = row.Method;
                 state.IlFocusedTreeKey = row.Key;
                 break;
+            case IlTreeRowKind.Method when row.Symbol is not null:
+                state.IlSelectedNativeSymbol = row.Symbol;
+                state.IlFocusedTreeKey = row.Key;
+                break;
             case IlTreeRowKind.Namespace:
             case IlTreeRowKind.Type:
                 // Toggle expansion
@@ -388,12 +476,55 @@ public static class IlInspectorView
     }
 
     /// <summary>
+    /// Builds the right pane for a non-managed binary: the selected native symbol's disassembly,
+    /// rebuilding the editor only when the symbol or analyzer changes, and stashing the decoded
+    /// instructions and header line count so the span-driven decoration providers can consume them.
+    /// </summary>
+    private static Hex1bWidget[] BuildNativeEditorPane<T>(
+        WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
+    {
+        if (state.IlSelectedNativeSymbol is not { } symbol)
+            return [ctx.Text("  Select a function to view its disassembly").FillHeight()];
+
+        if (state.IlEditorNativeSymbol?.VirtualAddress != symbol.VirtualAddress
+            || !ReferenceEquals(state.IlEditorAnalyzer, state.Analyzer))
+        {
+            if (state.IlEditorKey is not null && state.IlEditorState is not null)
+                state.IlCachedEditors[state.IlEditorKey] = state.IlEditorState;
+
+            var result = NativeDisassembler.DisassembleSymbol(state.Analyzer, symbol);
+            var disassembly = result?.Text
+                ?? $"// {symbol.ManagedName ?? symbol.Name}\n// No disassemblable bytes.";
+            var doc = new Hex1bDocument(disassembly);
+            state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
+            state.IlEditorNativeSymbol = symbol;
+            state.IlEditorMethod = null;
+            state.IlEditorField = null;
+            state.IlEditorAnalyzer = state.Analyzer;
+            state.IlNativeInstructions = result?.Instructions;
+            state.IlNativeHeaderLineCount = result?.HeaderLineCount ?? 0;
+            state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, unchecked((int)symbol.VirtualAddress));
+            state.IlCachedEditors.Remove(state.IlEditorKey);
+
+            var firstLine = result?.Instructions.FirstOrDefault(i => i.DisplayLine is not null)?.DisplayLine
+                ?? state.IlNativeHeaderLineCount + 1;
+            state.IlEditorState.SetCursorPosition(new DocumentOffset(GetLineStartOffset(disassembly, firstLine)));
+        }
+
+        return WrapInStatePanels(state);
+    }
+
+    /// <summary>
     /// Builds the right pane with an EditorWidget for IL disassembly.
     /// Creates or reuses EditorState based on the selected method.
     /// </summary>
     private static Hex1bWidget[] BuildEditorPane<T>(
         WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
     {
+        // Native (non-managed) mode: render the selected symbol's native disassembly.
+        if (state.Analyzer.BinaryKind != BinaryKind.Managed)
+            return BuildNativeEditorPane(ctx, state);
+
         if (state.IlSelectedMethod is not { } method)
         {
             if (state.IlSelectedField is { } field)
