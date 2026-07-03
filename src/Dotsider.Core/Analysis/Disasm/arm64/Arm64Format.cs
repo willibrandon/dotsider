@@ -84,4 +84,36 @@ internal enum Arm64Format
     LdStAcqRel,
     /// <summary>Rs, Rt, [Rn|SP] (LSE atomic read-modify-write).</summary>
     Atomic,
+
+    // CRC32 (in the data-processing register group but with mixed register widths).
+    /// <summary>Wd, Wn, Wm|Xm (crc32*/crc32c*).</summary>
+    Crc,
+
+    // Scalar floating-point and Advanced SIMD.
+    /// <summary>Fd, Fn, Fm scalar (fadd/fsub/fmul/fdiv/fnmul).</summary>
+    ScalarFp3,
+    /// <summary>Fd, Fn scalar (fabs/fneg/fsqrt/fmov/frintX).</summary>
+    ScalarFp2,
+    /// <summary>Fn, Fm / Fn, #0.0 (fcmp/fcmpe).</summary>
+    FpCompare,
+    /// <summary>Fd, Fn with a type change (fcvt between half/single/double).</summary>
+    FpCvt,
+    /// <summary>Rd, Fn or Fd, Rn (fcvtzs/scvtf between integer and FP).</summary>
+    FpToFromInt,
+    /// <summary>Fd, Fn, Fm, cond (fcsel).</summary>
+    FpCondSelect,
+    /// <summary>Vd.T, Vn.T, Vm.T (SIMD three-same: add/mul/fadd/and/…).</summary>
+    SimdReg3,
+    /// <summary>Vd.T, Vn.T (SIMD two-register misc: neg/abs/not/fneg/…).</summary>
+    SimdMisc2,
+    /// <summary>Vd.T, Rn or Vd.T, Vn.Ts[i] (dup).</summary>
+    SimdDup,
+    /// <summary>Vd.T, #imm (movi/mvni).</summary>
+    SimdModImm,
+    /// <summary>Vd.T, Vn.T, Vm.T (SIMD dot-product: sdot/udot).</summary>
+    SimdDot,
+    /// <summary>Vd.16b, Vn.16b (AES round).</summary>
+    CryptoAes,
+    /// <summary>Vd, Vn, Vm (SHA update).</summary>
+    CryptoSha,
 }

@@ -247,6 +247,29 @@ internal static partial class Arm64OperandFormatter
             case Arm64Format.Atomic:
                 mnem = FormatLoadStore(entry.Format, ops, word, rd, rn, rm, ra, address, ref target);
                 break;
+
+            case Arm64Format.Crc:
+                Reg(ops, R.Gpr(rd, false));
+                Reg(ops, R.Gpr(rn, false));
+                Reg(ops, R.Gpr(rm, mnem.EndsWith("x")));
+                break;
+
+            case Arm64Format.ScalarFp3:
+            case Arm64Format.ScalarFp2:
+            case Arm64Format.FpCompare:
+            case Arm64Format.FpCvt:
+            case Arm64Format.FpToFromInt:
+            case Arm64Format.FpCondSelect:
+            case Arm64Format.SimdReg3:
+            case Arm64Format.SimdMisc2:
+            case Arm64Format.SimdDup:
+            case Arm64Format.SimdModImm:
+            case Arm64Format.SimdDot:
+            case Arm64Format.CryptoAes:
+            case Arm64Format.CryptoSha:
+                cat = NativeInstructionCategory.Float;
+                FormatSimd(entry.Format, mnem, ops, word, rd, rn, rm);
+                break;
         }
 
         return new Arm64Decoded(mnem, ops, cat, flow, target);

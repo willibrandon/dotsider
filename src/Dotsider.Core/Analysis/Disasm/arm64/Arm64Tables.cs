@@ -186,5 +186,15 @@ internal static partial class Arm64Tables
         // Data-processing (3 source).
         Add(DpReg, 0x7FE08000, 0x1B000000, "madd", DataProc3);
         Add(DpReg, 0x7FE08000, 0x1B008000, "msub", DataProc3);
+
+        // CRC32 / CRC32C (mixed register widths; sf selects the crc32x/cx forms so the mask covers bit31).
+        Add(DpReg, 0xFFE0FC00, 0x1AC04000, "crc32b", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x1AC04400, "crc32h", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x1AC04800, "crc32w", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x9AC04C00, "crc32x", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x1AC05000, "crc32cb", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x1AC05400, "crc32ch", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x1AC05800, "crc32cw", Crc);
+        Add(DpReg, 0xFFE0FC00, 0x9AC05C00, "crc32cx", Crc);
     }
 }

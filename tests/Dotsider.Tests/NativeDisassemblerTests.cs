@@ -28,17 +28,18 @@ public class NativeDisassemblerTests
         Assert.Equal(NativeInstructionCategory.Unknown, insns[0].Category);
     }
 
-    /// <summary>Verifies the arm64 fallback emits one 32-bit <c>.word</c> per instruction.</summary>
+    /// <summary>Verifies unallocated arm64 words fall back to one 32-bit <c>.word</c> each.</summary>
     [Fact(Timeout = 30_000)]
     public void Disassemble_Arm64Unknown_EmitsWords()
     {
-        byte[] code = [0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13];
+        // bits[28:25]=0000 is a reserved/unallocated major class.
+        byte[] code = [0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00];
         var insns = NativeDisassembler.Disassemble(code, 0x4000, NativeArchitecture.Arm64);
 
         Assert.Equal(2, insns.Count);
         Assert.All(insns, i => Assert.Equal(".word", i.Mnemonic));
         Assert.All(insns, i => Assert.Equal(4, i.Length));
-        Assert.Equal("0x03020100", insns[0].OperandText);
+        Assert.Equal("0x00000000", insns[0].OperandText);
         Assert.Equal(0x4004UL, insns[1].Address);
     }
 
@@ -46,7 +47,7 @@ public class NativeDisassemblerTests
     [Fact(Timeout = 30_000)]
     public void Disassemble_Arm64TruncatedTail_FallsToByte()
     {
-        byte[] code = [0x00, 0x01, 0x02, 0x03, 0xAA];
+        byte[] code = [0x00, 0x00, 0x00, 0x00, 0xAA];
         var insns = NativeDisassembler.Disassemble(code, 0, NativeArchitecture.Arm64);
 
         Assert.Equal(2, insns.Count);
