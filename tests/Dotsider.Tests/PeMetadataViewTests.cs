@@ -963,6 +963,119 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the Symbols sub-tab lists the Native AOT binary's symbols with the address
+    /// column rendered.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_SymbolsTab_ShowsSymbols()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.Symbols; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Address"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.NotNull(_state.Analyzer.NativeSymbols);
+        Assert.NotEmpty(_state.Analyzer.NativeSymbols!.Symbols);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Symbols detail popup opens on Enter, carrying the mangled name and the
+    /// symbol source line.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_NativeAot_SymbolsDetailPopup_OpensOnEnter()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+            "NativeAOT sample was not built");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.Symbols; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Contains("Native Symbol", _state!.PeDetailContent!);
+        Assert.Contains("Symbols From:", _state.PeDetailContent!);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Symbols sub-tab renders empty for a managed assembly instead of crashing —
+    /// managed binaries have no native symbols.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_Managed_SymbolsTab_EmptyNoCrash()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
+        for (var target = 1; target <= PeSubTabId.Symbols; target++)
+        {
+            var expected = target;
+            builder = builder
+                .Key(Hex1bKey.RightArrow)
+                .WaitUntil(_ => _state!.PeSubTab == expected, TimeSpan.FromSeconds(10));
+        }
+
+        await builder
+            .WaitUntil(s => s.ContainsText("Address"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.Null(_state.Analyzer.NativeSymbols);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()

@@ -3109,6 +3109,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Native Imports"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("R2R Sections"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Recovered Types"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native Symbols"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -3116,6 +3117,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotNull(_state.Analyzer.NativeAotInfo);
         Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
         Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
+        Assert.NotNull(_state.Analyzer.NativeSymbols);
 
         cts.Cancel();
         await runTask;
