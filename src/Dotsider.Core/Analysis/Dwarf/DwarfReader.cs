@@ -18,7 +18,7 @@ internal static class DwarfReader
     /// <param name="Name">The best name found: linkage name when present, else the source name.</param>
     /// <param name="LowPc">The function's start address.</param>
     /// <param name="Size">The function's byte size, or 0 when the DIE recorded none.</param>
-    /// <param name="DeclFile">The <c>DW_AT_decl_file</c> index into the CU's line-program file table, or 0.</param>
+    /// <param name="DeclFile">The <c>DW_AT_decl_file</c> index into the CU's line-program file table, or -1 when the DIE recorded none.</param>
     /// <param name="DeclLine">The <c>DW_AT_decl_line</c> value, or 0.</param>
     /// <param name="StmtListOffset">The CU's <c>.debug_line</c> program offset, or -1 when absent.</param>
     /// <param name="RangesOffset">The <c>DW_AT_ranges</c> offset when the function is range-based, or -1.</param>
@@ -168,7 +168,7 @@ internal static class DwarfReader
         var hasHighPc = false;
         long rangesOffset = -1;
         var rangesIsIndex = false;
-        var declFile = 0;
+        var declFile = -1; // v5 file tables are 0-based, so 0 is a real index
         var declLine = 0;
         long referencedDie = -1;
 
