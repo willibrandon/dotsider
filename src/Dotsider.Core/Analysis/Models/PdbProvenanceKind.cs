@@ -23,6 +23,9 @@ public enum PdbProvenanceKind
     /// <summary>A CodeView entry was present, but it identifies a Windows PDB or another non-portable PDB.</summary>
     UnsupportedWindowsPdb,
 
+    /// <summary>A Windows native PDB was found beside the binary and its GUID and age match the CodeView entry.</summary>
+    NativePdb,
+
     /// <summary>The assembly came from a single-file bundle, so sidecar probing was intentionally skipped.</summary>
     BundleSidecarSkipped
 }

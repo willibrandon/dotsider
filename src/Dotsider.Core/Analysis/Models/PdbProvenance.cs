@@ -20,6 +20,7 @@ public sealed record PdbProvenance(
         PdbProvenanceKind.CodeViewSidecarMissing => Details ?? "CodeViewSidecarMissing",
         PdbProvenanceKind.CodeViewSidecarMismatched => Details ?? "CodeViewSidecarMismatched",
         PdbProvenanceKind.UnsupportedWindowsPdb => Details ?? "UnsupportedWindowsPdb",
+        PdbProvenanceKind.NativePdb => Details ?? "NativePdb",
         PdbProvenanceKind.BundleSidecarSkipped => Details ?? "BundleSidecarSkipped",
         _ => Kind.ToString()
     };

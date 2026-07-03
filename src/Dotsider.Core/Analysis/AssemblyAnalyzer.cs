@@ -1164,6 +1164,17 @@ public sealed class AssemblyAnalyzer : IDisposable
 
         if (!codeViewEntry.IsPortableCodeView)
         {
+            // A native (Windows) PDB. Dotsider can read these; if a matching one sits beside the
+            // binary, mark it so — the full symbol parse stays lazy on the NativeSymbols property.
+            if (!IsBundleBacked && TryMatchNativePdb(codeViewData) is { } nativePath)
+            {
+                PdbProvenance = new PdbProvenance(
+                    PdbProvenanceKind.NativePdb,
+                    nativePath,
+                    $"NativePdb (GUID matched, {nativePath})");
+                return;
+            }
+
             PdbProvenance = new PdbProvenance(
                 PdbProvenanceKind.UnsupportedWindowsPdb,
                 codeViewData.Path,
@@ -1204,6 +1215,36 @@ public sealed class AssemblyAnalyzer : IDisposable
                     foundPath,
                     $"UnsupportedWindowsPdb ({foundPath})");
         }
+    }
+
+    /// <summary>
+    /// Looks for a Windows native PDB beside the binary whose GUID and age match the CodeView
+    /// entry, using the cheap block-level probe. Probes the binary's own directory only — like
+    /// every other sidecar — so the result does not depend on a build-time absolute path that
+    /// happens to still resolve on the current machine. Returns the matching path, or null.
+    /// </summary>
+    private string? TryMatchNativePdb(CodeViewDebugDirectoryData codeViewData)
+    {
+        var directory = Path.GetDirectoryName(FilePath);
+        if (string.IsNullOrEmpty(directory)) return null;
+
+        // The CodeView entry's own file name (its directory is discarded), then <stem>.pdb.
+        var candidates = new List<string>(2);
+        if (!string.IsNullOrEmpty(codeViewData.Path))
+            candidates.Add(Path.Combine(directory, Path.GetFileName(codeViewData.Path)));
+        candidates.Add(Path.Combine(directory, Path.GetFileNameWithoutExtension(FilePath) + ".pdb"));
+
+        foreach (var path in candidates)
+        {
+            if (!File.Exists(path)) continue;
+            if (NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age)
+                && guid == codeViewData.Guid && age == codeViewData.Age)
+            {
+                return path;
+            }
+        }
+
+        return null;
     }
 
     private bool TryOpenAssociatedPortablePdb()

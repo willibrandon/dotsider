@@ -946,6 +946,114 @@ public class AssemblyAnalyzerTests(SampleAssemblyFixture samples)
         }
     }
 
+    /// <summary>
+    /// Verifies a Native AOT binary with its matching PDB beside it is marked NativePdb, carrying
+    /// the PDB path, rather than the UnsupportedWindowsPdb it used to report.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Provenance_NativeAotExeWithMatchingPdb_IsNativePdb()
+    {
+        Assert.SkipWhen(
+            samples.NativeAotConsoleSymbols is null
+            || !samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase),
+            "native PDB not present on this platform");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        Assert.Equal(PdbProvenanceKind.NativePdb, a.PdbProvenance.Kind);
+        Assert.Equal(samples.NativeAotConsoleSymbols, a.PdbProvenance.Path);
+    }
+
+    /// <summary>
+    /// Verifies a Native AOT binary copied away from its PDB falls back to UnsupportedWindowsPdb.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Provenance_NativeAotExeWithoutPdb_IsUnsupportedWindowsPdb()
+    {
+        Assert.SkipWhen(
+            samples.NativeAotConsoleSymbols is null
+            || !samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase),
+            "native PDB not present on this platform");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-nopdb-");
+        try
+        {
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
+            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            using var a = new AssemblyAnalyzer(exeCopy);
+
+            Assert.Equal(PdbProvenanceKind.UnsupportedWindowsPdb, a.PdbProvenance.Kind);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a PDB whose GUID does not match the binary is rejected as UnsupportedWindowsPdb,
+    /// not accepted as a native match.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Provenance_NativeAotExeWithWrongPdb_IsUnsupportedWindowsPdb()
+    {
+        Assert.SkipWhen(
+            samples.NativeAotConsoleSymbols is null
+            || !samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase),
+            "native PDB not present on this platform");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-wrongpdb-");
+        try
+        {
+            var name = Path.GetFileName(samples.NativeAotConsoleExe!);
+            var exeCopy = Path.Combine(dir.FullName, name);
+            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+
+            // A valid PDB whose GUID no longer matches the binary: flip the info-stream GUID bytes
+            // in a copy of the real PDB, leaving the container otherwise intact.
+            var pdb = File.ReadAllBytes(samples.NativeAotConsoleSymbols!);
+            MutatePdbGuid(pdb);
+            File.WriteAllBytes(Path.Combine(dir.FullName, stem + ".pdb"), pdb);
+
+            using var a = new AssemblyAnalyzer(exeCopy);
+
+            Assert.Equal(PdbProvenanceKind.UnsupportedWindowsPdb, a.PdbProvenance.Kind);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    // Zeroes the PDB info-stream GUID so its id no longer matches the exe, while leaving the MSF
+    // container valid. Walks the superblock → block map → directory to find stream 1's first block.
+    private static void MutatePdbGuid(byte[] pdb)
+    {
+        var s = pdb.AsSpan();
+        var blockSize = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(s[32..]);
+        var numDirBytes = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(s[44..]);
+        var blockMapAddr = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(s[52..]);
+        var dirBlockCount = (numDirBytes + blockSize - 1) / blockSize;
+        var dir = new byte[dirBlockCount * blockSize];
+        for (var i = 0; i < dirBlockCount; i++)
+        {
+            var b = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(s[(blockMapAddr * blockSize + i * 4)..]);
+            s.Slice(b * blockSize, blockSize).CopyTo(dir.AsSpan(i * blockSize));
+        }
+
+        var p = 0;
+        var numStreams = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(dir.AsSpan(p));
+        p += 4;
+        var sizes = new int[numStreams];
+        for (var i = 0; i < numStreams; i++) { sizes[i] = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(dir.AsSpan(p)); p += 4; }
+        var stream0Blocks = (Math.Max(0, sizes[0]) + blockSize - 1) / blockSize;
+        p += stream0Blocks * 4;
+        var stream1FirstBlock = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(dir.AsSpan(p));
+        // GUID is at offset 12 in the info stream's first block.
+        for (var i = 0; i < 16; i++) pdb[stream1FirstBlock * blockSize + 12 + i] ^= 0xFF;
+    }
+
     private static MethodDefInfo FindMethod(AssemblyAnalyzer analyzer, string typeName, string methodName)
     {
         var method = analyzer.MethodDefs.FirstOrDefault(m =>
