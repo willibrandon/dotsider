@@ -7,9 +7,10 @@ namespace Dotsider.Core.Analysis;
 /// <summary>
 /// A clean-room reader for the <c>Internal.Metadata.NativeFormat</c> blob that ILC embeds
 /// in a Native AOT binary (ReadyToRun section 313, or the reduced stack-trace metadata in
-/// 326). It recovers namespace-qualified type names and method names — enough to describe a
-/// stripped binary that carries no ECMA-335 metadata. Only the name-bearing records are
-/// decoded; signatures, attributes, and generics are stepped over. Ported clean-room from
+/// 326). It recovers namespace-qualified type names, method names (in metadata order), and the
+/// defining assembly scope name — enough to describe a stripped binary that carries no
+/// ECMA-335 metadata, and enough to demangle native symbols back to it. Only the name-bearing
+/// records are decoded; signatures, attributes, and generics are stepped over. Ported clean-room from
 /// the MIT-licensed reader and writer in dotnet/runtime; the name records are stable across
 /// .NET 8 through 11. Malformed blobs yield the partial result gathered so far.
 /// </summary>
@@ -87,7 +88,7 @@ internal sealed class NativeMetadataReader
         var span = _blob.Span;
         var p = offset;
         DecodeUnsigned(span, ref p);          // Flags
-        DecodeUnsigned(span, ref p);          // Name
+        var nameOffset = (int)DecodeUnsigned(span, ref p);  // Name (the assembly simple name)
         DecodeUnsigned(span, ref p);          // HashAlgorithm
         DecodeUnsigned(span, ref p);          // MajorVersion
         DecodeUnsigned(span, ref p);          // MinorVersion
@@ -97,10 +98,11 @@ internal sealed class NativeMetadataReader
         DecodeUnsigned(span, ref p);          // Culture
         var rootNamespace = (int)DecodeUnsigned(span, ref p);
 
-        ReadNamespace(rootNamespace, parentNamespace: "", depth: 0);
+        var assemblyName = ReadString(nameOffset);
+        ReadNamespace(rootNamespace, parentNamespace: "", assemblyName, depth: 0);
     }
 
-    private void ReadNamespace(int offset, string parentNamespace, int depth)
+    private void ReadNamespace(int offset, string parentNamespace, string? assemblyName, int depth)
     {
         if (depth > MaxDepth || _recordBudget-- <= 0) return;
 
@@ -118,13 +120,13 @@ internal sealed class NativeMetadataReader
             : parentNamespace.Length == 0 ? name : $"{parentNamespace}.{name}";
 
         foreach (var typeOffset in typeDefs)
-            ReadType(typeOffset, fullNamespace, enclosingName: null, depth + 1);
+            ReadType(typeOffset, fullNamespace, enclosingName: null, assemblyName, depth + 1);
 
         foreach (var childOffset in childNamespaces)
-            ReadNamespace(childOffset, fullNamespace, depth + 1);
+            ReadNamespace(childOffset, fullNamespace, assemblyName, depth + 1);
     }
 
-    private void ReadType(int offset, string namespaceName, string? enclosingName, int depth)
+    private void ReadType(int offset, string namespaceName, string? enclosingName, string? assemblyName, int depth)
     {
         if (depth > MaxDepth || _recordBudget-- <= 0) return;
 
@@ -152,10 +154,10 @@ internal sealed class NativeMetadataReader
             if (methodName.Length > 0) methodNames.Add(methodName);
         }
 
-        _types.Add(new RecoveredType(fullName, methodNames));
+        _types.Add(new RecoveredType(fullName, methodNames, assemblyName));
 
         foreach (var nestedOffset in nestedTypes)
-            ReadType(nestedOffset, namespaceName, fullName, depth + 1);
+            ReadType(nestedOffset, namespaceName, fullName, assemblyName, depth + 1);
     }
 
     private string ReadMethodName(int offset)

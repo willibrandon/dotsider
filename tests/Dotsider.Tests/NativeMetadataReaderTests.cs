@@ -65,4 +65,41 @@ public class NativeMetadataReaderTests(SampleAssemblyFixture samples)
 
         Assert.Empty(analyzer.RecoveredTypes);
     }
+
+    /// <summary>
+    /// Verifies recovered types carry their defining assembly scope name — framework types
+    /// resolve to <c>System.Private.CoreLib</c> and the app's own type to the app assembly —
+    /// which native symbol demangling joins against.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RecoveredTypes_NativeAotExe_CarryAssemblyScopeNames()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        var types = analyzer.RecoveredTypes;
+
+        var systemObject = Assert.Single(types, t => t.FullName == "System.Object");
+        Assert.Equal("System.Private.CoreLib", systemObject.AssemblyName);
+        var program = Assert.Single(types, t => t.FullName == "Program");
+        Assert.Equal("NativeAotConsole", program.AssemblyName);
+    }
+
+    /// <summary>
+    /// Verifies the explicit two-value deconstruction still compiles and yields the type name
+    /// and its methods, unaffected by the added assembly-scope parameter.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RecoveredType_TwoValueDeconstruction_Preserved()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        var (fullName, methodNames) = analyzer.RecoveredTypes.First(t => t.FullName == "Program");
+
+        Assert.Equal("Program", fullName);
+        Assert.Contains("<Main>$", methodNames);
+    }
 }
