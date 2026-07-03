@@ -3,7 +3,7 @@ title: "TraceSummary"
 description: "Summary statistics aggregated from all collected trace events."
 slug: api/dotsider.core.analysis.models.tracesummary
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

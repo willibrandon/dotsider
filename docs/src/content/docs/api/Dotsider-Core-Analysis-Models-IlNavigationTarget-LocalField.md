@@ -3,7 +3,7 @@ title: "IlNavigationTarget.LocalField"
 description: "A field defined in the current assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.localfield
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

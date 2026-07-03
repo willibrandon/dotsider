@@ -3,7 +3,7 @@ title: "AssemblyOpenResult.NativeAot"
 description: "The file is a Native AOT compiled .NET binary: a valid PE, ELF, or Mach-O with no COR header whose image embeds a validated ReadyToRun header. No metadata is available, but PE structure, native import/export/load-config directories, and raw strings are."
 slug: api/dotsider.core.analysis.models.assemblyopenresult.nativeaot
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

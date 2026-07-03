@@ -3,7 +3,7 @@ title: "BundleManifest"
 description: "The parsed manifest header of a .NET single-file bundle."
 slug: api/dotsider.core.analysis.models.bundlemanifest
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

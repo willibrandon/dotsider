@@ -3,7 +3,7 @@ title: "IlNavigationTarget"
 description: "Represents the resolved target of an IL code navigation (go-to-definition) action."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

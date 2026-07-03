@@ -3,7 +3,7 @@ title: "IlNavigationTarget.LocalType"
 description: "A type defined in the current assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.localtype
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

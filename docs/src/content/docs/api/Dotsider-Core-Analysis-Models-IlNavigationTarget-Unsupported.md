@@ -3,7 +3,7 @@ title: "IlNavigationTarget.Unsupported"
 description: "A token kind that is recognized but not supported for navigation."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.unsupported
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

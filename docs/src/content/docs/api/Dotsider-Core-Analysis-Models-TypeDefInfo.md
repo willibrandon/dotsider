@@ -3,7 +3,7 @@ title: "TypeDefInfo"
 description: "Information about a type defined in the assembly's TypeDef metadata table."
 slug: api/dotsider.core.analysis.models.typedefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

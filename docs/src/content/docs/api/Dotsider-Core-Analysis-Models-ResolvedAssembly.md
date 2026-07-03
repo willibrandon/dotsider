@@ -3,7 +3,7 @@ title: "ResolvedAssembly"
 description: "The result of resolving an assembly reference — either a file on disk or bytes from a bundle."
 slug: api/dotsider.core.analysis.models.resolvedassembly
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

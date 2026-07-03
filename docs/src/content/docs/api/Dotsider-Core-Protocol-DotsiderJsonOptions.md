@@ -3,7 +3,7 @@ title: "DotsiderJsonOptions"
 description: "Shared JSON serialization options for the dotsider diagnostics protocol."
 slug: api/dotsider.core.protocol.dotsiderjsonoptions
 sidebar:
-  order: 2
+  order: 3
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`

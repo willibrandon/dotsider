@@ -3,7 +3,7 @@ title: "AssemblyOpenResult.Direct"
 description: "Direct load — the file is a .dll or .exe with metadata, or a native binary with no metadata and no ReadyToRun header (unknown format)."
 slug: api/dotsider.core.analysis.models.assemblyopenresult.direct
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

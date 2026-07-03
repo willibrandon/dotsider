@@ -3,7 +3,7 @@ title: "DgmlNode"
 description: "One node of an ILC dependency graph. The label is the compiler's node name — the same string an mstat size entry stores as its NodeName, which is how the two files join."
 slug: api/dotsider.core.analysis.models.dgmlnode
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

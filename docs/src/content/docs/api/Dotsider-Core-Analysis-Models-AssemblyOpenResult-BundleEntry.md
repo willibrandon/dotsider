@@ -3,7 +3,7 @@ title: "AssemblyOpenResult.BundleEntry"
 description: "The file is a single-file bundle. The entry assembly has been extracted from the bundle and is ready for analysis."
 slug: api/dotsider.core.analysis.models.assemblyopenresult.bundleentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

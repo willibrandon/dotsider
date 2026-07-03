@@ -3,7 +3,7 @@ title: "ExportedFunctionInfo"
 description: "A single entry in the PE export table."
 slug: api/dotsider.core.analysis.models.exportedfunctioninfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "FieldDefInfo"
 description: "Information about a field defined in the assembly's FieldDef metadata table."
 slug: api/dotsider.core.analysis.models.fielddefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

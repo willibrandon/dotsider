@@ -3,7 +3,7 @@ title: "MstatType"
 description: "One constructed type from an ILC size report. The size is the type's MethodTable data — the runtime type structure — not the code of its methods, which is reported per method."
 slug: api/dotsider.core.analysis.models.mstattype
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

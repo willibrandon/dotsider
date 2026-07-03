@@ -3,7 +3,7 @@ title: "FrameworkAssemblyInfo"
 description: "Result of resolving an assembly from the system .NET shared framework. Includes the full path and the runtime pack that provided it."
 slug: api/dotsider.core.protocol.frameworkassemblyinfo
 sidebar:
-  order: 2
+  order: 3
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`

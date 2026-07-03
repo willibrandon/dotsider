@@ -99,6 +99,7 @@ dotsider analyze MyLib.dll                      # assembly info (default)
 dotsider analyze MyLib.dll --types              # list type definitions
 dotsider analyze MyLib.dll --methods            # list method definitions
 dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
+dotsider analyze MyAotApp.exe --symbols         # list native symbols (Native AOT / native binaries)
 dotsider analyze MyAotApp.exe --disasm 'Program.<Main>$'  # disassemble a native function (name or 0xVA)
 dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps               # assembly references
@@ -245,7 +246,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**41 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**42 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation

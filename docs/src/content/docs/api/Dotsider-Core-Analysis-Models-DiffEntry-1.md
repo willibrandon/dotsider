@@ -3,7 +3,7 @@ title: "DiffEntry<T>"
 description: "A single diff entry wrapping an item from either side."
 slug: api/dotsider.core.analysis.models.diffentry-1
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "DgmlGraph"
 description: "An ILC dependency graph read from a DGML file, with the reverse index needed to answer \"why is this in my binary\": a breadth-first walk from any node toward its dependers ends at a root — a node nothing depends on — and the chain back down is the explanation."
 slug: api/dotsider.core.analysis.models.dgmlgraph
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

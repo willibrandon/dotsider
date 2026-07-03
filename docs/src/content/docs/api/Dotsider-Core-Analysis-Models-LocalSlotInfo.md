@@ -3,7 +3,7 @@ title: "LocalSlotInfo"
 description: "A PDB local variable slot and the IL range where its name is active."
 slug: api/dotsider.core.analysis.models.localslotinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

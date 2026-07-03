@@ -3,7 +3,7 @@ title: "StringEntry"
 description: "A string extracted from the assembly, along with its source and offset."
 slug: api/dotsider.core.analysis.models.stringentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "NativeSymbolSource"
 description: "Where a binary's native symbols came from. The three primary sources carry names and (mostly) sizes; the three fallback sources recover only function boundaries from unwind data and are lower fidelity — they can miss leaf and thunk functions."
 slug: api/dotsider.core.analysis.models.nativesymbolsource
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

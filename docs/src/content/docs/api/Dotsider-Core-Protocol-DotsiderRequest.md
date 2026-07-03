@@ -3,7 +3,7 @@ title: "DotsiderRequest"
 description: "JSON request sent to a dotsider diagnostics socket."
 slug: api/dotsider.core.protocol.dotsiderrequest
 sidebar:
-  order: 2
+  order: 3
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`
@@ -160,6 +160,26 @@ Right assembly path for diff.
 
 ```csharp
 public string? RightPath { get; set; }
+```
+
+### SymbolAddress
+
+Native symbol virtual address (hex `0x…` or decimal) for disassemble-native.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? SymbolAddress { get; set; }
+```
+
+### SymbolName
+
+Native symbol name for disassemble-native (managed name, raw name, or suffix).
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? SymbolName { get; set; }
 ```
 
 ### TabId

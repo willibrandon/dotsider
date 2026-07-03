@@ -3,7 +3,7 @@ title: "MemberRefInfo"
 description: "Information about a referenced member (method or field) from the MemberRef metadata table."
 slug: api/dotsider.core.analysis.models.memberrefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

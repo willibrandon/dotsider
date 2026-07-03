@@ -3,7 +3,7 @@ title: "MstatRvaField"
 description: "One field-RVA data entry from an ILC size report (format 2.1+) — the initial data of a field mapped directly into the image, typically compiler-generated arrays behind collection expressions and ReadOnlySpan literals. For back-compat these bytes are also summed into the FieldRvaData blob entry."
 slug: api/dotsider.core.analysis.models.mstatrvafield
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

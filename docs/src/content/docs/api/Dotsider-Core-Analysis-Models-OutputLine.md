@@ -3,7 +3,7 @@ title: "OutputLine"
 description: "A line of output captured from the traced process's stdout or stderr."
 slug: api/dotsider.core.analysis.models.outputline
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

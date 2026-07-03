@@ -3,7 +3,7 @@ title: "ImportedModuleInfo"
 description: "A native module referenced by the PE import table, with the functions imported from it."
 slug: api/dotsider.core.analysis.models.importedmoduleinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

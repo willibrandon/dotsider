@@ -3,7 +3,7 @@ title: "MethodDebugInfo"
 description: "Portable PDB debug information for a method."
 slug: api/dotsider.core.analysis.models.methoddebuginfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

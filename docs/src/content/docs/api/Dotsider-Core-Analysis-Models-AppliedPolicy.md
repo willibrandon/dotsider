@@ -3,7 +3,7 @@ title: "AppliedPolicy"
 description: "Records that a requested identity was rewritten by .NET Framework binding policy. Carried on AppliedPolicy so the UI can render \"↪ redirected 1.0.0.0 → 13.0.0.0 via app.config\" without inventing new AssemblyProvenance values for redirected hits — a redirect-applied AppLocal hit is still AppLocal, just with this annotation attached."
 slug: api/dotsider.core.analysis.models.appliedpolicy
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

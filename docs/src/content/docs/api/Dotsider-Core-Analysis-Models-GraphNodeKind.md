@@ -3,7 +3,7 @@ title: "GraphNodeKind"
 description: "What a dependency-graph node represents. Managed graphs contain only assemblies; the Native AOT graph adds the binary's native import modules."
 slug: api/dotsider.core.analysis.models.graphnodekind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

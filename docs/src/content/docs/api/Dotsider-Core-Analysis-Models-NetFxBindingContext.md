@@ -3,7 +3,7 @@ title: "NetFxBindingContext"
 description: "Per-root metadata required to drive a CLR-accurate .NET Framework bind. Built once per analyzed root via AssemblyAnalyzer); carried alongside the analyzer through every resolution surface (Dep Graph, IL navigation, General-tab drill-in, type-forwarder chase) so that every code path produces the same answer for any .NET Framework reference."
 slug: api/dotsider.core.analysis.models.netfxbindingcontext
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

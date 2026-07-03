@@ -3,7 +3,7 @@ title: "RtrSection"
 description: "One entry in a Native AOT binary's ReadyToRun section table. Each section describes a runtime data region — frozen objects, GC statics, dehydrated data, or a readonly blob such as the embedded metadata — the way an ECMA-335 table describes a managed assembly."
 slug: api/dotsider.core.analysis.models.rtrsection
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

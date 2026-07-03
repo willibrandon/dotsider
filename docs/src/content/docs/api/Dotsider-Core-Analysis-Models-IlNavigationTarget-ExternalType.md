@@ -3,7 +3,7 @@ title: "IlNavigationTarget.ExternalType"
 description: "A type in an external (referenced) assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.externaltype
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

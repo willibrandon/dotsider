@@ -3,7 +3,7 @@ title: "CodeBaseEntry"
 description: "One &lt;codeBase&gt; entry parsed from a .NET Framework configuration file or publisher-policy assembly. CodeBase entries are honored only for strong-named binds at the version specified."
 slug: api/dotsider.core.analysis.models.codebaseentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

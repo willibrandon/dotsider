@@ -3,7 +3,7 @@ title: "NativeAotInfo"
 description: "Facts extracted from the embedded ReadyToRun header of a Native AOT binary. Every Native AOT image embeds this header (signature \"RTR\\0\") so the runtime can locate its module sections; its presence with no COR header identifies the binary as Native AOT compiled .NET."
 slug: api/dotsider.core.analysis.models.nativeaotinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

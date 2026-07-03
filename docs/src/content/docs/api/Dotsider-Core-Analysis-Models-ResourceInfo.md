@@ -3,7 +3,7 @@ title: "ResourceInfo"
 description: "Information about a managed resource embedded in the assembly."
 slug: api/dotsider.core.analysis.models.resourceinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

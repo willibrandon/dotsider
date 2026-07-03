@@ -3,7 +3,7 @@ title: "AssemblyProvenance"
 description: "Describes how an assembly in the dependency graph was located — or why it could not be."
 slug: api/dotsider.core.analysis.models.assemblyprovenance
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

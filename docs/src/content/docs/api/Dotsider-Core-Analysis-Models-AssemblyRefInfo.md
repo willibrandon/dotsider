@@ -3,7 +3,7 @@ title: "AssemblyRefInfo"
 description: "Information about a referenced assembly from the AssemblyRef metadata table."
 slug: api/dotsider.core.analysis.models.assemblyrefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

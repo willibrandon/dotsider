@@ -3,7 +3,7 @@ title: "SectionInfo"
 description: "Information about a single PE section (e.g., .text, .rsrc, .reloc)."
 slug: api/dotsider.core.analysis.models.sectioninfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

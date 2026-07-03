@@ -3,7 +3,7 @@ title: "RecoveredType"
 description: "A type recovered from a Native AOT binary's embedded NativeFormat metadata. ILC strips ECMA-335 metadata, but the reflection and stack-trace metadata it keeps still names the binary's own types and methods, so a stripped binary can describe itself."
 slug: api/dotsider.core.analysis.models.recoveredtype
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

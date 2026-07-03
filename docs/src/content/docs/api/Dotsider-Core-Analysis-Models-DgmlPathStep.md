@@ -3,7 +3,7 @@ title: "DgmlPathStep"
 description: "One step of a root-to-node dependency chain — the answer to \"why is this in my binary,\" read top-down: the root kept the second step, which kept the third, and so on to the node that was asked about."
 slug: api/dotsider.core.analysis.models.dgmlpathstep
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

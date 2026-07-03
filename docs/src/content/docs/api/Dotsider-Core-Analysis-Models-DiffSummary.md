@@ -3,7 +3,7 @@ title: "DiffSummary"
 description: "Summary statistics for the diff."
 slug: api/dotsider.core.analysis.models.diffsummary
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

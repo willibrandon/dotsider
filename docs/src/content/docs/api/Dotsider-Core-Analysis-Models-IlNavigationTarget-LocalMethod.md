@@ -3,7 +3,7 @@ title: "IlNavigationTarget.LocalMethod"
 description: "A method defined in the current assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.localmethod
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

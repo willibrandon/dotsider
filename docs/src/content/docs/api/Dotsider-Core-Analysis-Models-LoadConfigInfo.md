@@ -3,7 +3,7 @@ title: "LoadConfigInfo"
 description: "Parsed PE load configuration directory. Pointer-width fields are widened to UInt64 so a single record covers PE32 and PE32+ images. Fields beyond the directory's declared size are zero — real-world load configs are truncated at many historical lengths."
 slug: api/dotsider.core.analysis.models.loadconfiginfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

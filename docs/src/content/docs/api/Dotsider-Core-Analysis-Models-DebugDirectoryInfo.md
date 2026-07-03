@@ -3,7 +3,7 @@ title: "DebugDirectoryInfo"
 description: "Display-ready PE debug directory entry information."
 slug: api/dotsider.core.analysis.models.debugdirectoryinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "StringSource"
 description: "Identifies the source from which a string was extracted."
 slug: api/dotsider.core.analysis.models.stringsource
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

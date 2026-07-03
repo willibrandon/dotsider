@@ -3,7 +3,7 @@ title: "MstatManifestResource"
 description: "One embedded manifest resource from an ILC size report (format 2.1+). For back-compat these bytes are also summed into the ResourceData blob entry."
 slug: api/dotsider.core.analysis.models.mstatmanifestresource
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -2,7 +2,7 @@
 title: "Dotsider.Core.Analysis.Models"
 slug: api/dotsider.core.analysis.models
 sidebar:
-  order: 1
+  order: 2
 ---
 
 ## Classes
@@ -553,6 +553,50 @@ as Native AOT compiled .NET.
 public sealed record NativeAotInfo : IEquatable<NativeAotInfo>
 ```
 
+### [NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/)
+
+One decoded native instruction. The model is structured — bytes, structured operands, flow and
+target metadata, and source attribution — so navigation, JSON/MCP output, syntax decoration,
+and future diffing read facts rather than parse text. [OperandText](/api/dotsider.core.analysis.models.nativeinstruction.operandtext/) and the
+rendered listing line are projections; [Address](/api/dotsider.core.analysis.models.nativeinstruction.address/) is the semantic key and
+[DisplayLine](/api/dotsider.core.analysis.models.nativeinstruction.displayline/) the presentation key, mirroring
+[IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/) for the shared IL-Inspector plumbing.
+
+```csharp
+public sealed record NativeInstruction : IEquatable<NativeInstruction>
+```
+
+### [NativeOperand](/api/dotsider.core.analysis.models.nativeoperand/)
+
+One decoded operand of a [NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/), carried structurally so navigation,
+JSON/MCP output, syntax decoration, and future diffing never parse the rendered text. The
+[Text](/api/dotsider.core.analysis.models.nativeoperand.text/) is the display projection; the typed fields describe what it renders.
+
+```csharp
+public sealed record NativeOperand : IEquatable<NativeOperand>
+```
+
+### [NativeSourceLine](/api/dotsider.core.analysis.models.nativesourceline/)
+
+One address→source mapping row recovered from a native sidecar (PDB C13 line table, DWARF/dSYM
+line program): the virtual address a source line begins at, its byte length, and the file and
+1-based line number.
+
+```csharp
+public sealed record NativeSourceLine : IEquatable<NativeSourceLine>
+```
+
+### [NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/)
+
+An address-sorted map from virtual address to source file and line, aggregated from a native
+binary's debug sidecar. Int32%40) resolves an instruction address to its source
+location the way NativeSymbol%40) resolves an address to a symbol,
+letting the disassembler annotate the listing with `// file:line` where the sidecar has data.
+
+```csharp
+public sealed record NativeSourceMap : IEquatable<NativeSourceMap>
+```
+
 ### [NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/)
 
 One native symbol recovered from a binary: a function, a compiler-generated data blob, or a
@@ -763,6 +807,29 @@ Information about a referenced type from the TypeRef metadata table.
 public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 ```
 
+## Structs
+
+### [NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/)
+
+The column ranges of the mnemonic, operands, and target within a rendered disassembly line,
+set by [NativeDisassembler](/api/dotsider.core.analysis.disasm.nativedisassembler/)'s text formatter. The
+TUI decoration providers highlight and hit-test by these spans rather than re-parsing the line,
+so the rendered text stays a pure projection of the structured instruction.
+
+```csharp
+public readonly record struct NativeLineLayout : IEquatable<NativeLineLayout>
+```
+
+### [NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/)
+
+A resolved reference to the symbol containing a target address, with the offset into it — so a
+call or branch landing inside a function displays honestly as `Foo+0x12` rather than
+failing or pretending an exact hit.
+
+```csharp
+public readonly record struct NativeSymbolRef : IEquatable<NativeSymbolRef>
+```
+
 ## Enums
 
 ### [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
@@ -814,6 +881,43 @@ Distinguishes whether a MemberRef entry refers to a method or a field.
 public enum MemberRefKind
 ```
 
+### [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
+
+The instruction-set architecture a native code window is decoded as. Carried on
+[NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/) from the real image (or the selected fat-Mach-O slice) so the
+disassembler never has to guess from an ambiguous machine string.
+
+```csharp
+public enum NativeArchitecture
+```
+
+### [NativeFlowKind](/api/dotsider.core.analysis.models.nativeflowkind/)
+
+How a decoded instruction affects control flow. Drives listing navigation (which instructions
+carry a jumpable target) and future analysis without re-parsing the mnemonic.
+
+```csharp
+public enum NativeFlowKind
+```
+
+### [NativeInstructionCategory](/api/dotsider.core.analysis.models.nativeinstructioncategory/)
+
+A coarse classification of a decoded instruction by function, for grouping, coloring, and
+summaries without inspecting the mnemonic string.
+
+```csharp
+public enum NativeInstructionCategory
+```
+
+### [NativeOperandKind](/api/dotsider.core.analysis.models.nativeoperandkind/)
+
+The kind of a decoded operand, so consumers (JSON, decoration, diffing) read structure rather
+than parsing the rendered text.
+
+```csharp
+public enum NativeOperandKind
+```
+
 ### [NativeSymbolKind](/api/dotsider.core.analysis.models.nativesymbolkind/)
 
 What a native symbol represents. Native AOT binaries carry compiler-generated code and data
@@ -842,6 +946,15 @@ callers can explain the result instead of showing an empty table with no cause.
 
 ```csharp
 public enum NativeSymbolStatus
+```
+
+### [NativeTargetKind](/api/dotsider.core.analysis.models.nativetargetkind/)
+
+What a decoded instruction's resolved [TargetAddress](/api/dotsider.core.analysis.models.nativeinstruction.targetaddress/) points at,
+so the view can style and navigate a call/branch/data reference correctly.
+
+```csharp
+public enum NativeTargetKind
 ```
 
 ### [NetFxArchitecture](/api/dotsider.core.analysis.models.netfxarchitecture/)

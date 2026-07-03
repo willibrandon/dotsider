@@ -51,7 +51,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**40 tools** across:
+**42 tools** across:
 
 | Category | Tools |
 |----------|-------|
