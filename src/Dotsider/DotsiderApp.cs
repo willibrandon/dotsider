@@ -375,7 +375,8 @@ public sealed class DotsiderApp(DotsiderState state)
             if ((hasBackTarget || hasIlSelection) && !sizeMapUsesEsc && !dynamicFilterActive
                 && !currentSearch.IsActive && !_state.HexJumpDialogOpen && !hexInsertMode
                 && !_state.ApphostDialogOpen && !_state.DynamicEditingArgs
-                && _state.PeDetailContent is null && _state.StringsDetailContent is null)
+                && _state.PeDetailContent is null && _state.StringsDetailContent is null
+                && _state.SizeMapWhyContent is null)
             {
                 bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(VimReset(_ =>
                 {
@@ -599,6 +600,10 @@ public sealed class DotsiderApp(DotsiderState state)
             if (_state.CurrentTab is 0 or 1 or 6) // General, PE/Metadata, Size Map
                 hints.Add(s.Section(_state.HumanReadableSizes ? "s: Sizes (dec)" : "s: Sizes (hex)"));
 
+            // w: Why hint — AOT size map entries can explain their dependency chain
+            if (_state.CurrentTab == TabId.SizeMap && _state.IsNativeAot)
+                hints.Add(s.Section("w: Why"));
+
             // y: Yank hint — show when yankable content exists
             var yankable = _state.CurrentTab switch
             {
@@ -796,6 +801,9 @@ public sealed class DotsiderApp(DotsiderState state)
         state.CachedSizeTree = null;
         state.TreemapCurrentLevel = null;
         state.TreemapBreadcrumb.Clear();
+        state.SizeMapWhyContent = null;
+        state.SizeMapWhyEditorState = null;
+        state.SizeMapWhyEditorText = null;
         state.IlSelectedMethod = null;
         state.IlSelectedField = null;
         state.IlEditorMethod = null;

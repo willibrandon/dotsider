@@ -46,6 +46,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<RtrSection>? _readyToRunSections;
     private IReadOnlyList<StringEntry>? _frozenStrings;
     private IReadOnlyList<RecoveredType>? _recoveredTypes;
+    private MstatData? _mstat;
+    private bool _mstatProbed;
+    private DgmlGraph? _dgml;
+    private bool _dgmlProbed;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -297,6 +301,84 @@ public sealed class AssemblyAnalyzer : IDisposable
 
             return _recoveredTypes;
         }
+    }
+
+    /// <summary>
+    /// The ILC size report found next to a Native AOT binary, or null when this is not a
+    /// Native AOT binary or no readable <c>.mstat</c> sidecar sits beside it. The value is
+    /// assigned before the probed flag, so a rare concurrent first read costs at most a
+    /// second parse of immutable data.
+    /// </summary>
+    public MstatData? Mstat
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_mstatProbed)
+            {
+                _mstat = MstatPath is { } path ? MstatReader.Read(path) : null;
+                _mstatProbed = true;
+            }
+
+            return _mstat;
+        }
+    }
+
+    /// <summary>
+    /// The path of the <c>.mstat</c> sidecar next to a Native AOT binary, or null when this
+    /// is not a Native AOT binary or the file is absent.
+    /// </summary>
+    public string? MstatPath =>
+        BinaryKind == BinaryKind.NativeAot ? FindSidecar(".mstat") : null;
+
+    /// <summary>
+    /// The ILC dependency graph found next to a Native AOT binary, or null when this is not
+    /// a Native AOT binary or no readable DGML sidecar sits beside it. Graphs run to
+    /// hundreds of thousands of links, so touch this only when a dependency question is
+    /// actually being asked. The value is assigned before the probed flag, so a rare
+    /// concurrent first read costs at most a second parse of immutable data.
+    /// </summary>
+    public DgmlGraph? Dgml
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_dgmlProbed)
+            {
+                _dgml = DgmlPath is { } path ? DgmlReader.Read(path) : null;
+                _dgmlProbed = true;
+            }
+
+            return _dgml;
+        }
+    }
+
+    /// <summary>
+    /// The path of the DGML sidecar next to a Native AOT binary — the codegen graph when
+    /// present (its node names match the mstat's exactly), else the scan graph — or null
+    /// when this is not a Native AOT binary or neither file is present.
+    /// </summary>
+    public string? DgmlPath =>
+        BinaryKind == BinaryKind.NativeAot
+            ? FindSidecar(".codegen.dgml.xml") ?? FindSidecar(".scan.dgml.xml")
+            : null;
+
+    /// <summary>
+    /// Probes for a sidecar next to the analyzed binary: the binary's extension is replaced
+    /// (or the suffix appended for extensionless Linux and macOS binaries) and the file must
+    /// exist in the same directory.
+    /// </summary>
+    private string? FindSidecar(string suffix)
+    {
+        var directory = Path.GetDirectoryName(FilePath);
+        if (string.IsNullOrEmpty(directory)) return null;
+
+        var stem = Path.GetFileName(FilePath);
+        if (stem.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            stem = stem[..^4];
+
+        var candidate = Path.Combine(directory, stem + suffix);
+        return File.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>

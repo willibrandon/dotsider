@@ -56,6 +56,11 @@ internal static class AnalyzeCommand
         Description = "Show size breakdown"
     };
 
+    private static readonly Option<string?> s_whyOption = new("--why")
+    {
+        Description = "Explain why a type or method is in a Native AOT binary (requires mstat and DGML sidecars)"
+    };
+
     private static readonly Option<bool> s_fieldsOption = new("--fields")
     {
         Description = "List field definitions"
@@ -87,6 +92,7 @@ internal static class AnalyzeCommand
             s_stringsOption,
             s_minLenOption,
             s_sizeOption,
+            s_whyOption,
             s_fieldsOption,
             s_bundleOption,
             s_outputOption
@@ -205,6 +211,9 @@ internal static class AnalyzeCommand
 
                 if (parseResult.GetValue(s_sizeOption))
                     return Task.FromResult(PrintSize(analyzer, formatter));
+
+                if (parseResult.GetValue(s_whyOption) is { } whyTarget)
+                    return Task.FromResult(PrintWhy(analyzer, whyTarget, formatter));
 
                 if (parseResult.GetValue(s_fieldsOption))
                     return Task.FromResult(PrintFields(analyzer, formatter));
@@ -564,6 +573,85 @@ internal static class AnalyzeCommand
 
         foreach (var child in node.Children.OrderByDescending(c => c.Size).Take(20))
             PrintSizeNode(child, fmt, indent + 1);
+    }
+
+    private static int PrintWhy(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        if (a.BinaryKind != BinaryKind.NativeAot || a.Mstat is not { } mstat)
+        {
+            Console.Error.WriteLine(
+                "Error: --why requires a Native AOT binary with an mstat sidecar next to it "
+                + "(publish with IlcGenerateMstatFile)");
+            return 1;
+        }
+
+        if (a.Dgml is not { } dgml)
+        {
+            Console.Error.WriteLine(
+                "Error: --why requires a DGML sidecar next to the binary "
+                + "(publish with IlcGenerateDgmlFile and keep the *.codegen.dgml.xml beside it)");
+            return 1;
+        }
+
+        // Exact display-name match wins; otherwise fall back to a case-insensitive
+        // substring search and require it to be unambiguous.
+        var candidates = mstat.Methods
+            .Where(m => m.NodeName is not null)
+            .Select(m => (Display: $"{m.DeclaringType}::{m.Name}", NodeName: m.NodeName!))
+            .Concat(mstat.Types
+                .Where(t => t.NodeName is not null)
+                .Select(t => (Display: t.Name, NodeName: t.NodeName!)))
+            .ToList();
+
+        var matches = candidates
+            .Where(c => string.Equals(c.Display, target, StringComparison.Ordinal))
+            .ToList();
+        if (matches.Count == 0)
+        {
+            matches = [.. candidates
+                .Where(c => c.Display.Contains(target, StringComparison.OrdinalIgnoreCase))];
+        }
+
+        if (matches.Count == 0)
+        {
+            Console.Error.WriteLine($"Error: no compiled type or method matches '{target}'");
+            return 1;
+        }
+
+        if (matches.Count > 1)
+        {
+            Console.Error.WriteLine($"Error: '{target}' is ambiguous ({matches.Count} matches):");
+            foreach (var candidate in matches.Take(10))
+                Console.Error.WriteLine($"  {candidate.Display}");
+            if (matches.Count > 10)
+                Console.Error.WriteLine($"  ... and {matches.Count - 10} more");
+            return 1;
+        }
+
+        var (display, nodeName) = matches[0];
+        var chain = dgml.PathToRoot(nodeName);
+        if (chain.Count == 0)
+        {
+            Console.Error.WriteLine($"Error: '{display}' is not present in the DGML dependency graph");
+            return 1;
+        }
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new { Target = display, NodeName = nodeName, Chain = chain });
+            return 0;
+        }
+
+        fmt.WriteLine($"Why is {display} in the binary? (root first)");
+        fmt.WriteLine("");
+        for (var i = 0; i < chain.Count; i++)
+        {
+            fmt.WriteLine($"{i + 1,3}. {chain[i].Label}");
+            if (chain[i].Reason is { } reason)
+                fmt.WriteLine($"     reason: {reason}");
+        }
+
+        return 0;
     }
 
     private static int PrintFields(AssemblyAnalyzer a, OutputFormatter fmt)

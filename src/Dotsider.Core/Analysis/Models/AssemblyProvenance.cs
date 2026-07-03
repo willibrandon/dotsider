@@ -73,4 +73,10 @@ public enum AssemblyProvenance
     /// <see cref="Unresolved"/> so the UI can surface the configured href to the user.
     /// </summary>
     CodeBaseMissing,
+
+    /// <summary>
+    /// Compiled into a Native AOT image: the node comes from the binary's mstat size report
+    /// or native import table rather than an on-disk assembly, so there is no file to open.
+    /// </summary>
+    CompiledIntoNativeImage,
 }

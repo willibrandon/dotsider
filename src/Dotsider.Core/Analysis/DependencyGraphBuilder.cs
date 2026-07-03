@@ -23,6 +23,9 @@ public static class DependencyGraphBuilder
     /// <returns>The computed nodes, edges, and per-node navigation metadata.</returns>
     public static DependencyGraphResult Build(AssemblyAnalyzer analyzer)
     {
+        if (analyzer.BinaryKind == BinaryKind.NativeAot)
+            return BuildForNativeAot(analyzer);
+
         var byId = new Dictionary<string, GraphNode>(StringComparer.Ordinal);
         var edges = new List<GraphEdge>();
         var navById = new Dictionary<string, GraphNavigationContext>(StringComparer.Ordinal);
@@ -133,6 +136,206 @@ public static class DependencyGraphBuilder
 
         return new DependencyGraphResult(orderedNodes, edges, navById);
     }
+
+    /// <summary>
+    /// Builds the graph of a Native AOT binary. ILC folds every managed assembly into the
+    /// image, so nodes come from the mstat sidecar's assembly list (the app's own entry is
+    /// the root) with edges aggregated from the DGML dependency graph: each link whose two
+    /// endpoints attribute to different assemblies counts toward that assembly pair. The
+    /// binary's native import modules join at depth 1. Without sidecars the graph is the
+    /// root plus the import star — the only dependency facts the binary itself records.
+    /// </summary>
+    private static DependencyGraphResult BuildForNativeAot(AssemblyAnalyzer analyzer)
+    {
+        var nodes = new List<GraphNode>();
+        var edges = new List<GraphEdge>();
+        var navById = new Dictionary<string, GraphNavigationContext>(StringComparer.Ordinal);
+
+        var rootIdentity = IdentityFromAnalyzer(analyzer);
+        var mstat = analyzer.Mstat;
+
+        // The mstat lists the app's own assembly among its references; promote that identity
+        // to the root so the graph is keyed on real assembly identity when available.
+        var stem = Path.GetFileNameWithoutExtension(analyzer.FileName);
+        var appIdentity = mstat?.Assemblies.FirstOrDefault(
+            a => string.Equals(a.Name, stem, StringComparison.OrdinalIgnoreCase));
+        if (appIdentity is not null) rootIdentity = appIdentity;
+
+        var rootId = AssemblyIdentityFormat.Format(
+            rootIdentity.Name, rootIdentity.Version, rootIdentity.Culture, rootIdentity.PublicKeyToken);
+        nodes.Add(new GraphNode(
+            Id: rootId,
+            Name: rootIdentity.Name,
+            Version: NullIfEmpty(rootIdentity.Version),
+            Culture: string.IsNullOrEmpty(rootIdentity.Culture) ? "neutral" : rootIdentity.Culture,
+            PublicKeyToken: rootIdentity.PublicKeyToken,
+            IsRoot: true,
+            Depth: 0,
+            Unresolved: false));
+        navById[rootId] = AotNavigationContext(analyzer, AssemblyProvenance.Root, isFramework: false);
+
+        if (mstat is not null)
+        {
+            var idByAssemblyName = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [rootIdentity.Name] = rootId,
+            };
+
+            foreach (var assembly in mstat.Assemblies)
+            {
+                if (ReferenceEquals(assembly, appIdentity)) continue;
+                var id = AssemblyIdentityFormat.Format(
+                    assembly.Name, assembly.Version, assembly.Culture, assembly.PublicKeyToken);
+                if (!idByAssemblyName.TryAdd(assembly.Name, id)) continue;
+
+                nodes.Add(new GraphNode(
+                    Id: id,
+                    Name: assembly.Name,
+                    Version: NullIfEmpty(assembly.Version),
+                    Culture: string.IsNullOrEmpty(assembly.Culture) ? "neutral" : assembly.Culture,
+                    PublicKeyToken: assembly.PublicKeyToken,
+                    IsRoot: false,
+                    Depth: 1,
+                    Unresolved: false));
+                navById[id] = AotNavigationContext(
+                    analyzer, AssemblyProvenance.CompiledIntoNativeImage,
+                    isFramework: AssemblyAnalyzer.IsFrameworkAssembly(
+                        AssemblyProvenance.CompiledIntoNativeImage, assembly,
+                        analyzer.TargetFramework, analyzer.PreferredRuntimePack));
+            }
+
+            AggregateDgmlEdges(analyzer, mstat, idByAssemblyName, rootId, nodes, edges);
+        }
+
+        // Native import modules: the exe's own dependency facts, present with or without
+        // sidecars, at depth 1 off the root. Edge weight = imported function count.
+        foreach (var module in analyzer.Imports)
+        {
+            var id = $"native:{module.ModuleName.ToLowerInvariant()}";
+            if (navById.ContainsKey(id)) continue;
+
+            nodes.Add(new GraphNode(
+                Id: id,
+                Name: module.ModuleName,
+                Version: null,
+                Culture: "neutral",
+                PublicKeyToken: null,
+                IsRoot: false,
+                Depth: 1,
+                Unresolved: false,
+                Kind: GraphNodeKind.NativeImport));
+            navById[id] = AotNavigationContext(
+                analyzer, AssemblyProvenance.CompiledIntoNativeImage, isFramework: false);
+            edges.Add(new GraphEdge(rootId, id, module.Functions.Count));
+        }
+
+        var ordered = nodes
+            .OrderBy(n => n.Depth)
+            .ThenBy(n => n.Kind)
+            .ThenBy(n => n.Id, StringComparer.Ordinal)
+            .ToList();
+        return new DependencyGraphResult(ordered, edges, navById);
+    }
+
+    /// <summary>
+    /// Aggregates DGML links to assembly-pair edges: each link whose endpoints join (via the
+    /// mstat node names) to entries of two different assemblies increments that pair's count.
+    /// Depths then follow from a BFS over the aggregated edges so the layout bands read as
+    /// dependency layers rather than a flat row.
+    /// </summary>
+    private static void AggregateDgmlEdges(
+        AssemblyAnalyzer analyzer,
+        MstatData mstat,
+        Dictionary<string, string> idByAssemblyName,
+        string rootId,
+        List<GraphNode> nodes,
+        List<GraphEdge> edges)
+    {
+        if (analyzer.Dgml is not { } dgml) return;
+
+        // mstat node name -> owning assembly's node id.
+        var assemblyByNodeName = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var method in mstat.Methods)
+        {
+            if (method.NodeName is { } n && idByAssemblyName.TryGetValue(method.AssemblyName, out var id))
+                assemblyByNodeName.TryAdd(n, id);
+        }
+
+        foreach (var type in mstat.Types)
+        {
+            if (type.NodeName is { } n && idByAssemblyName.TryGetValue(type.AssemblyName, out var id))
+                assemblyByNodeName.TryAdd(n, id);
+        }
+
+        var labelById = new Dictionary<int, string>(dgml.Nodes.Count);
+        foreach (var node in dgml.Nodes)
+            labelById.TryAdd(node.Id, node.Label);
+
+        var counts = new Dictionary<(string Source, string Target), int>();
+        foreach (var link in dgml.Links)
+        {
+            if (!labelById.TryGetValue(link.SourceId, out var sourceLabel)
+                || !labelById.TryGetValue(link.TargetId, out var targetLabel)
+                || !assemblyByNodeName.TryGetValue(sourceLabel, out var sourceAssembly)
+                || !assemblyByNodeName.TryGetValue(targetLabel, out var targetAssembly)
+                || sourceAssembly == targetAssembly)
+            {
+                continue;
+            }
+
+            counts.TryGetValue((sourceAssembly, targetAssembly), out var count);
+            counts[(sourceAssembly, targetAssembly)] = count + 1;
+        }
+
+        foreach (var ((source, target), count) in counts.OrderBy(kvp => kvp.Key.Source, StringComparer.Ordinal))
+            edges.Add(new GraphEdge(source, target, count));
+
+        // Re-derive depths from the aggregated topology, keeping every assembly reachable:
+        // anything the BFS cannot reach from the root stays at depth 1.
+        var depths = new Dictionary<string, int>(StringComparer.Ordinal) { [rootId] = 0 };
+        var queue = new Queue<string>();
+        queue.Enqueue(rootId);
+        var adjacency = edges
+            .GroupBy(e => e.SourceId)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.TargetId).ToList(), StringComparer.Ordinal);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!adjacency.TryGetValue(current, out var children)) continue;
+            foreach (var child in children)
+            {
+                if (depths.ContainsKey(child)) continue;
+                depths[child] = depths[current] + 1;
+                queue.Enqueue(child);
+            }
+        }
+
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i].Kind == GraphNodeKind.Assembly
+                && depths.TryGetValue(nodes[i].Id, out var depth)
+                && nodes[i].Depth != depth)
+            {
+                nodes[i] = nodes[i] with { Depth = depth };
+            }
+        }
+    }
+
+    /// <summary>
+    /// The navigation context of a Native AOT graph node: nothing to open (the assembly was
+    /// compiled into the image), so Enter degrades to an explanatory message.
+    /// </summary>
+    private static GraphNavigationContext AotNavigationContext(
+        AssemblyAnalyzer analyzer, AssemblyProvenance provenance, bool isFramework) =>
+        new(
+            Resolved: null,
+            ReferencingFilePath: analyzer.FilePath,
+            ReferencingBundlePath: null,
+            ReferencingTargetFramework: analyzer.TargetFramework,
+            ReferencingPreferredRuntimePack: analyzer.PreferredRuntimePack,
+            Provenance: provenance,
+            IsFrameworkAssembly: isFramework,
+            CandidateProbePath: null);
 
     private static AssemblyResolution ResolveOnce(
         AssemblyAnalyzer parent,

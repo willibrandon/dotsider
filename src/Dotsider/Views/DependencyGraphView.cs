@@ -19,6 +19,7 @@ public static class DependencyGraphView
 {
     private static readonly Hex1bColor RootColor = Hex1bColor.FromRgb(0, 200, 180);
     private static readonly Hex1bColor RefColor = Hex1bColor.FromRgb(100, 130, 180);
+    private static readonly Hex1bColor NativeImportColor = Hex1bColor.FromRgb(150, 120, 170);
     private static readonly Hex1bColor UnresolvedColor = Hex1bColor.FromRgb(120, 100, 100);
     private static readonly Hex1bColor EdgeColor = Hex1bColor.FromRgb(80, 80, 100);
     private static readonly Hex1bColor HighlightColor = Hex1bColor.FromRgb(255, 220, 100);
@@ -277,6 +278,8 @@ public static class DependencyGraphView
                                     $"{node.Name}: identity mismatch against {nctx.CandidateProbePath ?? "(unknown)"}",
                                 AssemblyProvenance.CodeBaseMissing =>
                                     $"{node.Name}: codeBase href not found: {nctx.CandidateProbePath ?? "(unknown)"}",
+                                AssemblyProvenance.CompiledIntoNativeImage =>
+                                    $"{node.Name}: compiled into the native image; no file to open",
                                 _ => $"{node.Name}: not resolvable",
                             };
                             state.App.Invalidate();
@@ -446,7 +449,9 @@ public static class DependencyGraphView
 
         var isMatch = hasQuery && node.Name.Contains(query!, StringComparison.OrdinalIgnoreCase);
         Hex1bColor baseColor = node.Unresolved ? UnresolvedColor
-            : node.IsRoot ? RootColor : RefColor;
+            : node.IsRoot ? RootColor
+            : node.Kind == GraphNodeKind.NativeImport ? NativeImportColor
+            : RefColor;
         var bg = isHovered ? HighlightColor
             : isMatch ? baseColor
             : hasQuery ? HighlightHelper.DimColor

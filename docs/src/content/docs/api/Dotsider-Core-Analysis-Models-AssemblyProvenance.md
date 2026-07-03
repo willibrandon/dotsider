@@ -62,6 +62,17 @@ fail-fast (the CLR does not fall back to probing in this case), distinct from ge
 CodeBaseMissing = 13
 ```
 
+### CompiledIntoNativeImage
+
+Compiled into a Native AOT image: the node comes from the binary's mstat size report
+or native import table rather than an on-disk assembly, so there is no file to open.
+
+**Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
+
+```csharp
+CompiledIntoNativeImage = 14
+```
+
 ### FrameworkRuntimeDirectory
 
 Resolved from the .NET Framework runtime directory at

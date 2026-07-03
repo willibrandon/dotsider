@@ -133,6 +133,19 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string? NativeAotConsoleExe { get; private set; }
 
+    /// <summary>
+    /// Path to the ILC size report published next to the NativeAOT sample, or null when the
+    /// publish did not produce one. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleMstat { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC dependency-graph DGML published next to the NativeAOT sample (the
+    /// codegen graph, falling back to the scan graph), or null when the publish did not
+    /// produce one. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleDgml { get; private set; }
+
     // Self-contained single-file sample
     /// <summary>
     /// Path to the published self-contained single-file sample executable.
@@ -239,6 +252,14 @@ public class SampleAssemblyFixture : IAsyncLifetime
         NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
             "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
+        // ILC sidecars copied next to the exe by the sample's publish target. Null when the
+        // toolchain did not produce them, so sidecar tests skip rather than fail.
+        var aotPublishDir = Path.GetDirectoryName(NativeAotConsoleExe)!;
+        NativeAotConsoleMstat = ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.mstat"));
+        NativeAotConsoleDgml =
+            ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.codegen.dgml.xml"))
+            ?? ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.scan.dgml.xml"));
+
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
             "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
@@ -330,6 +351,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
     private string SamplePath(string project, string config, string tfm, string file)
         => Path.Combine(_repoRoot, "samples", project, "bin", config, tfm, file);
+
+    private static string? ExistingPathOrNull(string path)
+        => File.Exists(path) ? path : null;
 
     private async Task PublishNativeAotProject(string relativePath)
     {

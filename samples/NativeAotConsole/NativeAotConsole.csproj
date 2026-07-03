@@ -6,7 +6,23 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PublishAot>true</PublishAot>
+    <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
+    <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <!-- ILC writes the size report and dependency graphs to the native intermediate
+       directory; copy them next to the published binary so sidecar probing finds them.
+       Each copy is Exists-guarded: an SDK that stops producing a file degrades to
+       "sidecar absent" rather than a failed publish. -->
+  <Target Name="CopyAotSidecarsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_AotSidecar Include="$(NativeIntermediateOutputPath)$(TargetName).mstat" />
+      <_AotSidecar Include="$(NativeIntermediateOutputPath)$(TargetName).codegen.dgml.xml" />
+      <_AotSidecar Include="$(NativeIntermediateOutputPath)$(TargetName).scan.dgml.xml" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AotSidecar)" DestinationFolder="$(PublishDir)"
+          Condition="Exists('%(_AotSidecar.Identity)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

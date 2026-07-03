@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Surfaces;
 using Hex1b.Theming;
@@ -71,7 +72,17 @@ public static class SizeTreemapView
             : null;
         }
 
-        return ctx.VStack(outer =>
+        // Build the why-chain popup editor state when its content changes
+        if (state.SizeMapWhyContent is not null && state.SizeMapWhyEditorText != state.SizeMapWhyContent)
+        {
+            state.SizeMapWhyEditorText = state.SizeMapWhyContent;
+            state.SizeMapWhyEditorState = new EditorState(new Hex1bDocument(state.SizeMapWhyContent)) { IsReadOnly = true };
+        }
+
+        return ctx.ZStack(z =>
+        [
+            // Layer 0: Main content
+            z.VStack(outer =>
         {
             var widgets = new List<Hex1bWidget>
             {
@@ -143,9 +154,11 @@ public static class SizeTreemapView
                     state.TreemapHoveredNode = null;
                     state.App.Invalidate();
                 }
-                else if (drillTarget is { Kind: SizeNodeKind.Method, FullPath: var fullPath })
+                else if (drillTarget is { Kind: SizeNodeKind.Method, FullPath: var fullPath }
+                    && state.Analyzer.HasMetadata)
                 {
-                    // Leaf method node — navigate to IL Inspector
+                    // Leaf method node — navigate to IL Inspector. Native AOT leaves carry
+                    // no metadata token, so the jump is metadata-only.
                     // FullPath format: "DeclaringType::MethodName@0xTOKEN"
                     var atIdx = fullPath.LastIndexOf('@');
                     if (atIdx > 0 && fullPath.Length > atIdx + 3
@@ -159,9 +172,22 @@ public static class SizeTreemapView
                 }
             }).InputBindings(bindings =>
             {
-                // Esc pops the treemap breadcrumb (when no search is active)
+                // Esc dismisses the why popup first, then pops the treemap breadcrumb
+                // (when no search is active)
                 var treemapSearch = state.Search[TabId.SizeMap];
-                if (!treemapSearch.IsActive && state.TreemapBreadcrumb.Count > 0)
+                if (!treemapSearch.IsActive && state.SizeMapWhyContent is not null)
+                {
+                    bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                    {
+                        state.VimPending = VimMotionState.Idle;
+                        state.SizeMapWhyContent = null;
+                        state.SizeMapWhyEditorText = null;
+                        state.SizeMapWhyEditorState = null;
+                        state.RequestContentFocus();
+                        state.App.Invalidate();
+                    }, "Dismiss why");
+                }
+                else if (!treemapSearch.IsActive && state.TreemapBreadcrumb.Count > 0)
                 {
                     bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
                     {
@@ -171,6 +197,25 @@ public static class SizeTreemapView
                         state.App.Invalidate();
                     }, "Go up");
                 }
+
+                // w explains why the targeted node is in a Native AOT binary: the chain of
+                // dependencies from a root, joined through the node name the mstat recorded.
+                bindings.Key(Hex1bKey.W).Action(_ =>
+                {
+                    var target = state.TreemapHoveredNode;
+                    if (target is null && state.TreemapMatchIndex >= 0
+                        && state.TreemapMatchIndex < matchingItems.Count)
+                        target = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
+                    if (target is null && state.TreemapSelectedIndex >= 0
+                        && state.TreemapSelectedIndex < currentLevel.Children.Count)
+                        target = currentLevel.Children[state.TreemapSelectedIndex];
+                    if (target?.AotNodeName is null) return;
+
+                    state.SizeMapWhyContent = state.Analyzer.Dgml is { } dgml
+                        ? FormatWhyChain(dgml, target)
+                        : $"{target.FullPath}\n\nNo DGML dependency graph next to the binary.\nPublish with IlcGenerateDgmlFile and keep the\n*.codegen.dgml.xml beside the executable.";
+                    state.App.Invalidate();
+                }, "Why in binary");
 
                 bindings.Mouse(MouseButton.Right).Action(_ =>
                 {
@@ -232,7 +277,73 @@ public static class SizeTreemapView
                 }
             }, "Esc");
         })
-        .Fill();
+        .Fill(),
+
+            // Layer 1: Why-chain popup overlay (read-only editor for selection + yank)
+            state.SizeMapWhyContent is not null && state.SizeMapWhyEditorState is not null
+                ? z.Backdrop(
+                    z.Border(
+                        z.ThemePanel(t => t
+                            .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                            .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                        z.Editor(state.SizeMapWhyEditorState)
+                            .ViewRenderer(InfoEditorViewRenderer.Instance)
+                            .Decorations(new InfoLabelDecorationProvider())
+                            .Decorations(state.SizeMapWhyYankProvider)
+                            .InputBindings(bindings =>
+                            {
+                                TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                                    bindings,
+                                    state.SizeMapWhyEditorState!,
+                                    () => state.VimPending,
+                                    () => state.VimPendingEditor,
+                                    () => state.VimPendingCursorOffset,
+                                    () => state.VimPendingTimestamp,
+                                    (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                                    state.PerformEditorYank,
+                                    () => state.App.Invalidate());
+                            })
+                            .FillWidth().FillHeight())
+                    ).Title(" Why in binary ").FixedWidth(100).FixedHeight(20)
+                ).OnClickAway(() =>
+                {
+                    state.SizeMapWhyContent = null;
+                    state.SizeMapWhyEditorText = null;
+                    state.SizeMapWhyEditorState = null;
+                    state.RequestContentFocus();
+                    state.App.Invalidate();
+                })
+                : null
+        ]).Fill();
+    }
+
+    /// <summary>
+    /// Formats the root-to-node dependency chain for the why popup: the root kept step 2,
+    /// step 2 kept step 3, and so on down to the node that was asked about.
+    /// </summary>
+    private static string FormatWhyChain(DgmlGraph dgml, SizeNode target)
+    {
+        var path = dgml.PathToRoot(target.AotNodeName!);
+        if (path.Count == 0)
+        {
+            return $"{target.FullPath}\n\nNot present in the DGML dependency graph. The scan\ngraph can differ from the compiled output; publish\nwith the codegen graph next to the binary for an\nexact join.";
+        }
+
+        var lines = new List<string>
+        {
+            target.FullPath,
+            "",
+            "Kept by (root first):",
+            "",
+        };
+        for (var i = 0; i < path.Count; i++)
+        {
+            lines.Add($"{i + 1,3}. {path[i].Label}");
+            if (path[i].Reason is { } reason)
+                lines.Add($"     reason: {reason}");
+        }
+
+        return string.Join('\n', lines);
     }
 
     private static string BuildBreadcrumb(DotsiderState state)

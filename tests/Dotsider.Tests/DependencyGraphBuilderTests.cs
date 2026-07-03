@@ -362,16 +362,111 @@ public class DependencyGraphBuilderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
-    /// An assembly whose PE has no CLR metadata (for example a native binary or unknown format)
-    /// still produces a root-only graph and does not throw.
+    /// A Native AOT binary with mstat and DGML sidecars produces a real graph: the compiled
+    /// assemblies as nodes, DGML links aggregated to assembly-pair edges, and the native
+    /// import modules at depth 1.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void NativeOrNoMetadata_ReturnsRootOnlyGraph()
+    public void NativeAot_BuildsAssemblyAndImportGraph()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var graph = DependencyGraphBuilder.Build(a);
+
+        var root = Assert.Single(graph.Nodes, n => n.IsRoot);
+        Assert.Equal("NativeAotConsole", root.Name);
+        Assert.Contains(graph.Nodes, n =>
+            n.Kind == GraphNodeKind.Assembly && n.Name == "System.Private.CoreLib");
+        Assert.Contains(graph.Nodes, n => n.Kind == GraphNodeKind.NativeImport);
+
+        if (samples.NativeAotConsoleDgml is not null)
+            Assert.Contains(graph.Edges, e => e.SourceId == root.Id && e.TypeRefCount > 0);
+    }
+
+    /// <summary>
+    /// The compiled-in assembly nodes carry full identity — version and public key token —
+    /// and their navigation contexts classify framework assemblies so the hide-framework
+    /// filter works on the AOT graph.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeAot_AssemblyNodesCarryIdentityAndFrameworkClassification()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var graph = DependencyGraphBuilder.Build(a);
+
+        var corelib = graph.Nodes.First(n => n.Name == "System.Private.CoreLib");
+        Assert.NotNull(corelib.Version);
+        Assert.True(graph.NavigationById[corelib.Id].IsFrameworkAssembly);
+    }
+
+    /// <summary>
+    /// Every AOT node carries a navigation context with a null resolution and the
+    /// compiled-into-native-image provenance, so Enter degrades to a message instead of
+    /// reporting a missing context.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeAot_AllNodesHaveDegradedNavigationContexts()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var graph = DependencyGraphBuilder.Build(a);
+
+        Assert.All(graph.Nodes, n =>
+        {
+            Assert.True(graph.NavigationById.ContainsKey(n.Id), $"{n.Name}: navigation context missing");
+            Assert.Null(graph.NavigationById[n.Id].Resolved);
+        });
+        Assert.All(graph.Nodes.Where(n => !n.IsRoot), n =>
+            Assert.Equal(AssemblyProvenance.CompiledIntoNativeImage, graph.NavigationById[n.Id].Provenance));
+    }
+
+    /// <summary>
+    /// A Native AOT binary with no sidecars falls back to the import star: the root plus its
+    /// native import modules, every edge sourced from the root.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeAot_WithoutSidecars_ReturnsRootPlusImportStar()
     {
         Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
             "Native AOT sample is not available on this platform.");
-        using var a = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-depgraph-");
+        try
+        {
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
+            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            using var a = new AssemblyAnalyzer(exeCopy);
+
+            var graph = DependencyGraphBuilder.Build(a);
+
+            var root = Assert.Single(graph.Nodes, n => n.IsRoot);
+            Assert.All(graph.Nodes.Where(n => !n.IsRoot), n =>
+                Assert.Equal(GraphNodeKind.NativeImport, n.Kind));
+            Assert.All(graph.Edges, e => Assert.Equal(root.Id, e.SourceId));
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A native binary that is not Native AOT (a plain apphost opened directly) still
+    /// produces a root-only graph and does not throw — the guarantee the AOT branch must not
+    /// disturb.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeNonAot_ReturnsRootOnlyGraph()
+    {
+        using var a = new AssemblyAnalyzer(samples.HelloWorldExe);
+        Assert.Equal(BinaryKind.Native, a.BinaryKind);
+
         var graph = DependencyGraphBuilder.Build(a);
+
         Assert.Single(graph.Nodes);
         Assert.True(graph.Nodes[0].IsRoot);
         Assert.Empty(graph.Edges);

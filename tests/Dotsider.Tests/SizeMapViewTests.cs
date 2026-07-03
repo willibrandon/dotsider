@@ -2,6 +2,7 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
+using Hex1b.Input;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -19,7 +20,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp()
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string? assemblyPath = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -31,7 +32,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.SizeMap
                 };
@@ -270,6 +271,150 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
             description: "hovered item resolved for rightmost painted cell");
 
         Assert.NotNull(_state!.TreemapHoveredItem);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Size Map on a Native AOT binary with an mstat sidecar renders the
+    /// per-assembly and category breakdown instead of the empty state.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_NativeAot_RendersAssembliesAndBuckets()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Total:");
+        await auto.WaitUntilAsync(s => !s.ContainsText("No code size data available"),
+            description: "AOT size tree to render");
+        await auto.WaitUntilTextAsync("System.Private.CoreLib");
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies w on a node that carries a dependency-graph name opens the why-chain popup,
+    /// and Esc dismisses it.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_NativeAot_WhyKeyOpensAndEscClosesChainPopup()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Total:");
+        await auto.WaitUntilAsync(_ => _state?.CachedSizeTree is not null,
+            description: "size tree to build");
+
+        // Drive selection to a node-named leaf deterministically: focus the Frozen Objects
+        // category (string literals always join the graph) and select its largest entry.
+        var frozen = _state!.CachedSizeTree!.Children.First(c => c.Name == "Frozen Objects");
+        _state.TreemapBreadcrumb.Push(_state.CachedSizeTree!);
+        _state.TreemapCurrentLevel = frozen;
+        _state.TreemapSelectedIndex = 0;
+        _state.App.Invalidate();
+        await auto.WaitUntilTextAsync("> Frozen Objects");
+
+        await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
+        await auto.WaitUntilAsync(s => s.ContainsText("Why in binary"),
+            description: "why popup to open");
+        await auto.WaitUntilTextAsync("Kept by (root first):");
+
+        await auto.EscapeAsync(ct: cts.Token);
+        await auto.WaitUntilAsync(s => !s.ContainsText("Why in binary"),
+            description: "why popup to close");
+        Assert.Null(_state.SizeMapWhyContent);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies w without a DGML sidecar explains what is missing instead of doing nothing.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_NativeAot_WhyKeyWithoutDgml_ExplainsMissingGraph()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var dir = Directory.CreateTempSubdirectory("dotsider-whynodgml-");
+        var name = Path.GetFileName(samples.NativeAotConsoleExe!);
+        var exeCopy = Path.Combine(dir.FullName, name);
+        File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+        var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+        File.Copy(samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, stem + ".mstat"));
+
+        var (terminal, app) = CreateDotsiderApp(exeCopy);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        try
+        {
+            var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+            await auto.WaitUntilAlternateScreenAsync();
+            await auto.WaitUntilTextAsync("Total:");
+            await auto.WaitUntilAsync(_ => _state?.CachedSizeTree is not null,
+                description: "size tree to build");
+
+            var frozen = _state!.CachedSizeTree!.Children.First(c => c.Name == "Frozen Objects");
+            _state.TreemapBreadcrumb.Push(_state.CachedSizeTree!);
+            _state.TreemapCurrentLevel = frozen;
+            _state.TreemapSelectedIndex = 0;
+            _state.App.Invalidate();
+            await auto.WaitUntilTextAsync("> Frozen Objects");
+
+            await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
+            await auto.WaitUntilAsync(s => s.ContainsText("No DGML dependency graph"),
+                description: "missing-graph notice to open");
+        }
+        finally
+        {
+            // Stop the app and release the analyzer's handle on the copied exe before the
+            // directory delete, on both the success and failure paths.
+            cts.Cancel();
+            try { await runTask; } catch (OperationCanceledException) { }
+            _state?.Dispose();
+            _state = null;
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies w is inert on a managed assembly's tree, whose nodes carry no dependency
+    /// names.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task SizeMap_Managed_WhyKeyIsNoOp()
+    {
+        var (terminal, app) = CreateDotsiderApp();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
+
+        await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Total:");
+
+        await auto.KeyAsync(Hex1bKey.RightArrow, ct: cts.Token);
+        await auto.WaitUntilAsync(_ => _state?.TreemapSelectedIndex >= 0,
+            description: "a treemap node to be selected");
+        await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
+        await auto.WaitAsync(100, ct: cts.Token);
+
+        Assert.Null(_state!.SizeMapWhyContent);
 
         cts.Cancel();
         await runTask;

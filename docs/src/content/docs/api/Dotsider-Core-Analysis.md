@@ -70,6 +70,21 @@ public topology plus internal navigation metadata consumed only by the TUI.
 public static class DependencyGraphBuilder
 ```
 
+### [DgmlReader](/api/dotsider.core.analysis.dgmlreader/)
+
+Reads an ILC dependency-graph DGML file, emitted when publishing a Native AOT project with
+`IlcGenerateDgmlFile`. The format is a `DirectedGraph` document of nodes (id and
+label) and links (source depends on target, with a reason). Node labels equal the node
+names an mstat size report stores ([MstatReader](/api/dotsider.core.analysis.mstatreader/)), which is how sizes join to
+dependency chains.
+
+Parsing streams the XML — the graphs run to hundreds of thousands of links — and never
+throws: unreadable files return null, and malformed nodes or links are skipped.
+
+```csharp
+public static class DgmlReader
+```
+
 ### [DotNetRuntimeLocator](/api/dotsider.core.analysis.dotnetruntimelocator/)
 
 Discovers system .NET installations and resolves shared framework assembly paths.
@@ -102,6 +117,24 @@ assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
 public static class ImplementationAssemblyResolver
+```
+
+### [MstatReader](/api/dotsider.core.analysis.mstatreader/)
+
+Reads an ILC size report (`.mstat`), the file `IlcGenerateMstatFile` emits when
+publishing a Native AOT project. The report is itself a valid ECMA-335 assembly: its
+assembly version carries the format version, and its data is encoded as IL instruction
+streams in global methods named `Methods`, `Types`, `Blobs`, and (in newer
+formats) `RvaFields`, `FrozenObjects`, `ManifestResources`, and
+`DeduplicatedMethods`. Format 2.0+ also stores each entry's dependency-graph node name
+in a custom `.names` PE section; those names equal the node labels in the DGML graphs
+`IlcGenerateDgmlFile` emits, which is how sizes join to dependency chains.
+
+Malformed input never throws: unreadable files return null, and a truncated IL stream
+yields the entries parsed before the damage.
+
+```csharp
+public static class MstatReader
 ```
 
 ### [NativeAotDetector](/api/dotsider.core.analysis.nativeaotdetector/)
@@ -173,7 +206,9 @@ public static class SingleFileBundleReader
 ### [SizeAnalyzer](/api/dotsider.core.analysis.sizeanalyzer/)
 
 Computes IL code size per method and builds a hierarchical size tree
-for treemap visualization.
+for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is
+built from the compiler's size report instead: native code and MethodTable bytes per
+assembly, namespace, type, and method, plus the binary's data categories.
 
 ```csharp
 public static class SizeAnalyzer

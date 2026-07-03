@@ -41,6 +41,16 @@ description: All keyboard shortcuts for navigating dotsider.
 | `u` | Copy Source Link URL from a `[source link]` marker |
 | `l` | Focus the IL disassembly editor |
 
+## Size Map tab
+
+| Key | Action |
+|-----|--------|
+| `←` / `→` | Move selection across the current level |
+| `Enter` / click | Drill into a region; on a managed method leaf, jump to its IL |
+| `Esc` / right-click | Go up one level |
+| `w` | Why is this in the binary — dependency chain popup (Native AOT with DGML sidecar) |
+| `s` | Toggle size formatting |
+
 ## Hex Dump tab — Normal mode
 
 | Key | Action |
