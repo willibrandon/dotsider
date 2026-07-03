@@ -48,6 +48,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
 | `MstatReaderBenchmarks` | Full ILC size-report decode: IL stream walk, token resolution with assembly attribution, and .names section reads |
 | `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
+| `NativeDisassemblerBenchmarks` | Whole-region decode throughput over a 256 KB buffer of representative x86-64 and AArch64 code, and the single-function `DisassembleWithText` hot path invoked on every UI selection |
 | `NativeSymbolReaderBenchmarks` | Native symbol reading beside the platform's artifact (native PDB / `.dbg` / dSYM), the unwind-data boundary fallback with no sidecars in reach, and the analyzer constructor's cheap PDB identity probe |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
 | `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
@@ -220,6 +221,16 @@ One read fully decodes the sample's ILC size report: walks the IL stream for eve
 | Detect NativeAOT exe (positive) | 63.80 μs | 4,752 B |
 | Detect CoreLib (R2R negative) | 470.87 μs | — |
 | Detect apphost (negative) | 3.63 μs | — |
+
+#### NativeDisassembler
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| x64 Disassemble 256KB |  |  |
+| arm64 Disassemble 256KB |  |  |
+| x64 DisassembleWithText single function |  |  |
+
+The region benchmarks tile a representative instruction sequence to 256 KB and decode the whole buffer; the single-function benchmark is the `DisassembleWithText` path the IL Inspector runs on every selection.
 
 #### NativeSymbolReader
 
