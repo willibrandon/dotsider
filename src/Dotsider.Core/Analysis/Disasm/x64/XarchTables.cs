@@ -72,6 +72,7 @@ internal static partial class XarchTables
         RegisterAvx();
         RegisterFma();
         RegisterBmi();
+        RegisterCrypto();
     }
 
     /// <summary>
