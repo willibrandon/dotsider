@@ -71,6 +71,87 @@ public static class NativeDisassembler
     }
 
     /// <summary>
+    /// The convenience the view, CLI, MCP, and session share: disassembles one recovered native
+    /// symbol from its owning <paramref name="analyzer"/>. It slices the symbol's bytes, takes the
+    /// architecture from the recovered symbol info (the real selected slice), resolves call/branch/
+    /// data targets through the other symbols, stamps each instruction's source location from the
+    /// symbol info's source map, and renders a header with the symbol name and its file:line.
+    /// Returns null when the symbol has no file-backed bytes or the architecture is unknown.
+    /// </summary>
+    /// <param name="analyzer">The analyzer that recovered the symbol.</param>
+    /// <param name="symbol">The symbol to disassemble.</param>
+    public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
+        DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol)
+    {
+        var info = analyzer.NativeSymbols;
+        if (info is null || symbol.FileOffset is not { } fileOffset || symbol.Size <= 0) return null;
+
+        var arch = info.Architecture != NativeArchitecture.Unknown
+            ? info.Architecture
+            : MapArchitecture(analyzer.Architecture);
+        if (arch == NativeArchitecture.Unknown) return null;
+
+        var raw = analyzer.RawBytes;
+        if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
+        var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
+
+        bool Resolver(ulong va, out NativeSymbolRef sym)
+        {
+            if (info.TryFindByAddress(va, out var found))
+            {
+                sym = new NativeSymbolRef(
+                    found.VirtualAddress, found.ManagedName ?? found.Name, found.Kind,
+                    (long)(va - found.VirtualAddress));
+                return true;
+            }
+
+            sym = default;
+            return false;
+        }
+
+        var instructions = Disassemble(code, symbol.VirtualAddress, arch, Resolver);
+        if (info.SourceMap is { } sourceMap)
+            instructions = StampSource(instructions, sourceMap);
+
+        var header = BuildSymbolHeader(symbol, instructions, info.SourceMap);
+        return Render(instructions, header);
+    }
+
+    private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
+    {
+        "X64" => NativeArchitecture.X64,
+        "ARM64" => NativeArchitecture.Arm64,
+        _ => NativeArchitecture.Unknown,
+    };
+
+    private static List<NativeInstruction> StampSource(
+        IReadOnlyList<NativeInstruction> instructions, NativeSourceMap sourceMap)
+    {
+        var stamped = new List<NativeInstruction>(instructions.Count);
+        foreach (var insn in instructions)
+        {
+            stamped.Add(sourceMap.TryGetLine(insn.Address, out var file, out var line)
+                ? insn with { SourceFile = file, Line = line }
+                : insn);
+        }
+
+        return stamped;
+    }
+
+    private static string BuildSymbolHeader(
+        NativeSymbol symbol, IReadOnlyList<NativeInstruction> instructions, NativeSourceMap? sourceMap)
+    {
+        var name = symbol.ManagedName ?? symbol.Name;
+        if (sourceMap is not null && instructions.Count > 0
+            && sourceMap.TryGetLine(symbol.VirtualAddress, out var file, out var line))
+        {
+            return $"{name}\n// Source: {file}:{line}";
+        }
+
+        return name;
+    }
+
+    /// <summary>
     /// Decodes a single instruction at <paramref name="offset"/>, dispatching to the per-arch
     /// decoder. The A64 decoder lands later; until then A64 uses the exact-width word fallback.
     /// </summary>
