@@ -1,6 +1,6 @@
 ---
 title: "NativeImportResolver"
-description: "Resolves an indirect call/branch target that lands on an import slot to the imported symbol name, so a call [rip+disp] through the PE Import Address Table renders as KERNEL32!GetProcAddress rather than an unresolved address. Built once per image from the import directory (PE IAT today; ELF PLT/GOT and Mach-O stubs are the planned extensions), it maps each IAT slot's virtual address to its MODULE!Function name. NativeSymbolRef%40) composes after the symbol resolver in NativeSymbol)."
+description: "Resolves an indirect call/branch target that lands on an import slot to the imported symbol name, so a call [rip+disp] through the PE Import Address Table renders as KERNEL32!GetProcAddress, an ELF PLT stub jumping through its GOT slot renders as the bound dynamic symbol, and a Mach-O stub renders as its imported symbol — rather than an unresolved address. Built once per image, it maps each import slot's virtual address to its name. NativeSymbolRef%40) composes after the symbol resolver in NativeSymbol)."
 slug: api/dotsider.core.analysis.disasm.nativeimportresolver
 sidebar:
   order: 1
@@ -12,10 +12,11 @@ sidebar:
 
 Resolves an indirect call/branch target that lands on an import slot to the imported symbol name,
 so a `call [rip+disp]` through the PE Import Address Table renders as
-`KERNEL32!GetProcAddress` rather than an unresolved address. Built once per image from the
-import directory (PE IAT today; ELF PLT/GOT and Mach-O stubs are the planned extensions), it maps
-each IAT slot's virtual address to its `MODULE!Function` name. NativeSymbolRef%40)
-composes after the symbol resolver in NativeSymbol).
+`KERNEL32!GetProcAddress`, an ELF PLT stub jumping through its GOT slot renders as the bound
+dynamic symbol, and a Mach-O stub renders as its imported symbol — rather than an unresolved
+address. Built once per image, it maps each import slot's virtual address to its name.
+NativeSymbolRef%40) composes after the symbol resolver in
+NativeSymbol).
 
 ```csharp
 public sealed class NativeImportResolver
@@ -27,19 +28,20 @@ public sealed class NativeImportResolver
 
 ## Methods
 
-### Build(ReadOnlyMemory\<byte\>)
+### Build(ReadOnlyMemory\<byte\>, NativeArchitecture)
 
-Builds the resolver from a binary's raw bytes, or null when it is not a PE image or has no
-imports. Each IAT slot virtual address is `imageBase + importAddressTableRva + i*ptrSize`.
+Builds the resolver from a binary's raw bytes, dispatching on the image format (PE, ELF, or
+Mach-O), or null when the format carries no resolvable import slots.
 
 **Parameters:**
 
 - `rawBytes` ([ReadOnlyMemory\<Byte\>](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)): The image's raw bytes.
+- `architecture` ([NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)): The selected architecture, used to pick the slice of a fat Mach-O.
 
 **Returns:** [NativeImportResolver](/api/dotsider.core.analysis.disasm.nativeimportresolver/)
 
 ```csharp
-public static NativeImportResolver? Build(ReadOnlyMemory<byte> rawBytes)
+public static NativeImportResolver? Build(ReadOnlyMemory<byte> rawBytes, NativeArchitecture architecture = NativeArchitecture.Unknown)
 ```
 
 ### TryResolve(ulong, out NativeSymbolRef)

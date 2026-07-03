@@ -161,7 +161,8 @@ public static class NativeDisassembler
     private static readonly ConditionalWeakTable<AssemblyAnalyzer, StrongBox<NativeImportResolver?>> ImportResolverCache = [];
 
     private static NativeImportResolver? ImportResolverFor(AssemblyAnalyzer analyzer) =>
-        ImportResolverCache.GetValue(analyzer, a => new StrongBox<NativeImportResolver?>(NativeImportResolver.Build(a.RawBytes))).Value;
+        ImportResolverCache.GetValue(analyzer, a => new StrongBox<NativeImportResolver?>(
+            NativeImportResolver.Build(a.RawBytes, a.NativeSymbols?.Architecture ?? NativeArchitecture.Unknown))).Value;
 
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {

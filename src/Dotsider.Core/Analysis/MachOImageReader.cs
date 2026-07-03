@@ -21,6 +21,7 @@ internal static class MachOImageReader
     private const int MaxStringLength = 4_096;
 
     private const uint LcSymtab = 0x2;
+    private const uint LcDysymtab = 0xB;
     private const uint LcLoadDylib = 0xC;
     private const uint LcLoadWeakDylib = 0x80000018;
     private const uint LcReexportDylib = 0x8000001F;
@@ -127,9 +128,15 @@ internal static class MachOImageReader
     /// <param name="Size">The section's byte size.</param>
     /// <param name="Flags">The section flags (instruction attributes mark executable code).</param>
     /// <param name="Ordinal">The 1-based ordinal <c>n_sect</c> refers to, across all segments in load order.</param>
+    /// <param name="IndirectSymbolIndex">The <c>reserved1</c> field — a stub/pointer section's base index into the indirect symbol table.</param>
+    /// <param name="StubSize">The <c>reserved2</c> field — the byte size of each entry in a symbol-stub section, else 0.</param>
     internal readonly record struct MachOSection(
-        string Name, string Segment, ulong Address, long FileOffset, long Size, uint Flags, int Ordinal)
+        string Name, string Segment, ulong Address, long FileOffset, long Size, uint Flags, int Ordinal,
+        int IndirectSymbolIndex = 0, int StubSize = 0)
     {
+        /// <summary>The section type (low byte of the flags), e.g. stubs (0x8) or symbol pointers (0x6/0x7).</summary>
+        public uint Type => Flags & 0xFF;
+
         /// <summary>
         /// Whether the section holds code: ILC uses <c>__text</c>, <c>__managedcode</c>, and the
         /// <c>__unbox</c> stubs, so the instruction attributes decide, not the name.
@@ -166,7 +173,9 @@ internal static class MachOImageReader
                         FileOffset: BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 48)..]),
                         Size: (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(s + 40)..]),
                         Flags: BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 64)..]),
-                        Ordinal: ordinal));
+                        Ordinal: ordinal,
+                        IndirectSymbolIndex: (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 72)..]),
+                        StubSize: (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 76)..])));
                 }
             }
         }
@@ -231,6 +240,24 @@ internal static class MachOImageReader
                 (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 12)..]),
                 (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 16)..]));
             return symtab.Count > 0;
+        }
+
+        return false;
+    }
+
+    /// <summary>Finds the <c>LC_DYSYMTAB</c> indirect symbol table, which maps stub/pointer slots to symbols.</summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="table">The indirect symbol table's file offset and entry count (each a uint32 symbol index).</param>
+    internal static bool TryGetIndirectSymbolTable(ReadOnlySpan<byte> bytes, out (int Offset, int Count) table)
+    {
+        table = default;
+        foreach (var (cmd, offset, size) in Commands(bytes))
+        {
+            if (cmd != LcDysymtab || size < 80) continue;
+            table = (
+                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 56)..]),  // indirectsymoff
+                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 60)..])); // nindirectsyms
+            return table.Count > 0;
         }
 
         return false;

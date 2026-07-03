@@ -26,10 +26,11 @@ public static class NativeDisassembler
 
 Resolves an indirect call/branch target that lands on an import slot to the imported symbol name,
 so a `call [rip+disp]` through the PE Import Address Table renders as
-`KERNEL32!GetProcAddress` rather than an unresolved address. Built once per image from the
-import directory (PE IAT today; ELF PLT/GOT and Mach-O stubs are the planned extensions), it maps
-each IAT slot's virtual address to its `MODULE!Function` name. NativeSymbolRef%40)
-composes after the symbol resolver in NativeSymbol).
+`KERNEL32!GetProcAddress`, an ELF PLT stub jumping through its GOT slot renders as the bound
+dynamic symbol, and a Mach-O stub renders as its imported symbol — rather than an unresolved
+address. Built once per image, it maps each import slot's virtual address to its name.
+NativeSymbolRef%40) composes after the symbol resolver in
+NativeSymbol).
 
 ```csharp
 public sealed class NativeImportResolver
