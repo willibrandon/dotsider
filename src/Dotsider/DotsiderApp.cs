@@ -530,7 +530,8 @@ public sealed class DotsiderApp(DotsiderState state)
 
             hints.Add(s.Section("1-8: Tabs"));
 
-            if (_state.NavigationStack.Count > 0 || _state.IlBackStack.Count > 0)
+            if (_state.NavigationStack.Count > 0 || _state.IlBackStack.Count > 0
+                || _state.IlNativeBackStack.Count > 0)
                 hints.Add(s.Section("Esc: Back"));
 
             if (_state.CurrentTab == 1)
@@ -538,6 +539,15 @@ public sealed class DotsiderApp(DotsiderState state)
                 hints.Add(s.Section("Enter: Detail"));
                 if (_state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
                     hints.Add(s.Section("g: Go to IL"));
+            }
+            else if (_state.CurrentTab == 2 && _state.Analyzer.BinaryKind != BinaryKind.Managed)
+            {
+                // Native disassembly mode: gate on the native symbol, mirroring the managed hints below.
+                if (_state.IlSelectedNativeSymbol is not null)
+                    hints.Add(s.Section("Enter/gd: Go to def"));
+                hints.Add(s.Section("l: Focus"));
+                if (_state.IlSelectedNativeSymbol is { FileOffset: not null })
+                    hints.Add(s.Section("x: Hex"));
             }
             else if (_state.CurrentTab == 2)
             {

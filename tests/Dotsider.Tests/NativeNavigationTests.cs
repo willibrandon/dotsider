@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Documents;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -38,14 +39,25 @@ public sealed class NativeNavigationTests(SampleAssemblyFixture samples) : IDisp
             .Take(2).ToList();
         Assert.Equal(2, functions.Count);
 
+        // Establish the real precondition a UI navigation has: an editor loaded for the current
+        // symbol with the cursor somewhere in its listing. NavigateToNativeSymbol captures that
+        // editor so Esc restores both the symbol and the exact cursor offset (mirrors managed mode).
         state.IlSelectedNativeSymbol = functions[0];
+        state.IlEditorState = new EditorState(new Hex1bDocument("0x1000: 90     nop\n0x1001: c3     ret")) { IsReadOnly = true };
+        state.IlEditorNativeSymbol = functions[0];
+        state.IlEditorState.SetCursorPosition(new DocumentOffset(12));
+        var recordedOffset = state.IlEditorState.Cursor.Position.Value;
+
         state.NavigateToNativeSymbol(functions[1]);
 
         Assert.Equal(functions[1].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
         Assert.Single(state.IlNativeBackStack);
 
+        // Move the cursor away, then restore: the offset must snap back to where the jump departed.
+        state.IlEditorState.SetCursorPosition(new DocumentOffset(0));
         state.RestoreFromNativeBackEntry(state.IlNativeBackStack.Pop());
         Assert.Equal(functions[0].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
+        Assert.Equal(recordedOffset, state.IlEditorState.Cursor.Position.Value);
     }
 
     /// <inheritdoc />

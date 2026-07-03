@@ -132,7 +132,9 @@ internal static class IlEditorHost
                     && state.IlSelectedNativeSymbol is { } currentSymbol)
                 {
                     state.IlNativeBackStack.Push(new NativeBackEntry(
-                        currentSymbol, state.IlFocusedTreeKey,
+                        currentSymbol, nativeEditor, state.IlEditorKey,
+                        state.IlNativeInstructions, state.IlNativeHeaderLineCount,
+                        state.IlFocusedTreeKey,
                         new Dictionary<string, bool>(state.IlTreeExpansionState),
                         nativeEditor.Cursor.Position.Value));
                     var offset = LineStartOffset(nativeEditor.Document.GetText(), line);

@@ -863,15 +863,20 @@ public sealed class DotsiderState : IDisposable
     /// <param name="symbol">The native symbol to navigate to.</param>
     public void NavigateToNativeSymbol(NativeSymbol symbol)
     {
-        if (IlSelectedNativeSymbol is { } current)
+        // Capture the outgoing editor instance (with its cursor and scroll) so Esc lands back exactly
+        // where the jump departed from — the same model as the managed IlBackEntry.
+        if (IlSelectedNativeSymbol is { } current && IlEditorState is { } editor
+            && IlEditorNativeSymbol?.VirtualAddress == current.VirtualAddress)
         {
             IlNativeBackStack.Push(new NativeBackEntry(
-                current, IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState)));
+                current, editor, IlEditorKey, IlNativeInstructions, IlNativeHeaderLineCount,
+                IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState),
+                editor.Cursor.Position.Value));
         }
 
         ExpandNativeTreePath(symbol);
         IlSelectedNativeSymbol = symbol;
-        IlFocusedTreeKey = $"nfunc:{symbol.VirtualAddress:x}";
+        SetIlFocusedTreeKey($"nfunc:{symbol.VirtualAddress:x}");
         App.Invalidate();
     }
 
@@ -879,20 +884,38 @@ public sealed class DotsiderState : IDisposable
     /// <param name="entry">The entry to restore.</param>
     public void RestoreFromNativeBackEntry(NativeBackEntry entry)
     {
+        // Cache the outgoing editor before swapping it out (mirrors managed RestoreFromIlBackEntry).
+        if (IlEditorKey is not null && IlEditorState is not null)
+            IlCachedEditors[IlEditorKey] = IlEditorState;
+
         IlSelectedNativeSymbol = entry.Symbol;
-        IlFocusedTreeKey = entry.FocusedTreeKey;
+        SetIlFocusedTreeKey(entry.FocusedTreeKey);
         IlTreeExpansionState.Clear();
         foreach (var (k, v) in entry.TreeExpansionState)
             IlTreeExpansionState[k] = v;
 
-        // Restore the cursor for an intra-function (local-label) back, where the editor already holds
-        // the same symbol and is not rebuilt.
-        if (entry.CursorOffset is { } offset && IlEditorState is { } editor
-            && IlEditorNativeSymbol?.VirtualAddress == entry.Symbol.VirtualAddress)
+        // Restore the exact editor instance and mark it current so BuildNativeEditorPane reuses it
+        // instead of rebuilding — this is what preserves cursor and scroll across the round-trip.
+        IlEditorState = entry.EditorState;
+        IlEditorNativeSymbol = entry.Symbol;
+        IlEditorMethod = null;
+        IlEditorField = null;
+        IlEditorAnalyzer = Analyzer;
+        IlEditorKey = entry.EditorKey;
+        if (entry.EditorKey is not null)
         {
-            editor.SetCursorPosition(new Hex1b.Documents.DocumentOffset(offset));
+            IlEditorKeyCache[(Analyzer, unchecked((int)entry.Symbol.VirtualAddress))] = entry.EditorKey;
+            IlCachedEditors.Remove(entry.EditorKey);
         }
 
+        IlNativeInstructions = entry.Instructions;
+        IlNativeHeaderLineCount = entry.HeaderLineCount;
+        IlNativeSyntaxProvider.Instructions = entry.Instructions;
+        IlNativeNavigationProvider.Instructions = entry.Instructions;
+
+        IlEditorState.SetCursorPosition(new Hex1b.Documents.DocumentOffset(entry.CursorOffset));
+
+        App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
     }
 
