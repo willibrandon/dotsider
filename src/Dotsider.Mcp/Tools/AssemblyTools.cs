@@ -48,7 +48,10 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 AssemblyRefCount = analyzer.AssemblyRefs.Count,
                 ReadyToRunSectionCount = analyzer.ReadyToRunSections.Count,
                 RecoveredTypeCount = analyzer.RecoveredTypes.Count,
-                FrozenStringCount = analyzer.FrozenStrings.Count
+                FrozenStringCount = analyzer.FrozenStrings.Count,
+                NativeSymbolCount = analyzer.NativeSymbols?.Symbols.Count ?? 0,
+                NativeSymbolSource = analyzer.NativeSymbols?.Source,
+                NativeSymbolStatus = analyzer.NativeSymbols?.Status
             }, DotsiderJsonOptions.Default);
         }
 

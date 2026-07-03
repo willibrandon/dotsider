@@ -93,6 +93,7 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `search-il-opcodes` | Query, MaxResults? | Find methods containing an opcode |
 | `get-size-tree` | — | Hierarchical size tree (AOT-aware: mstat-backed for Native AOT binaries) |
 | `get-largest-methods` | MaxResults? | Top methods by IL size |
+| `get-native-symbols` | — | Native symbols with provenance (PDB/DWARF/dSYM, or unwind-data boundaries) |
 | `get-strings` | Query?, MinLength?, MaxResults? | User, metadata, and binary strings |
 | `get-assembly-refs` | — | Assembly references |
 | `get-dependency-graph` | — | Dependency graph nodes and edges (AOT-aware: compiled-in assemblies and native imports) |

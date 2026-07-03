@@ -50,6 +50,9 @@ public class ToolRegistrationTests : McpServerTestBase
         Assert.Contains("get_size_breakdown", names);
         Assert.Contains("get_largest_methods", names);
 
+        // Symbol tools
+        Assert.Contains("get_native_symbols", names);
+
         // Diff tools
         Assert.Contains("diff_assemblies", names);
 
