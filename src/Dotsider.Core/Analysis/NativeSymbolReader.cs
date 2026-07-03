@@ -45,7 +45,9 @@ public static class NativeSymbolReader
     {
         var span = imageBytes.Span;
         var dsymPath = FindSidecarDirectory(imagePath);
-        var dsymBytes = dsymPath is not null ? File.ReadAllBytes(dsymPath) : null;
+        // A dSYM's inner file can itself be a fat archive: work with its thin slices so UUID
+        // validation compares Mach-O identities, not a fat header against an image.
+        var dsymSlices = dsymPath is not null ? ThinSlices(File.ReadAllBytes(dsymPath)) : null;
 
         // Fat archives: pick the slice the dSYM identifies, else the one carrying the Native
         // AOT signal — never silently the host architecture.
@@ -53,7 +55,7 @@ public static class NativeSymbolReader
         if (MachOImageReader.IsFat(span))
         {
             var slices = MachOImageReader.ReadFatSlices(span);
-            var chosen = ChooseFatSlice(span, slices, dsymBytes);
+            var chosen = ChooseFatSlice(span, slices, dsymSlices);
             if (chosen < 0)
             {
                 var names = string.Join(", ", slices.Select(s => $"0x{s.CpuType:x}"));
@@ -68,12 +70,12 @@ public static class NativeSymbolReader
         var imageSections = MachOImageReader.ReadSectionList(span);
         var hasImageUuid = MachOImageReader.TryReadUuid(span, out var imageUuid);
 
-        if (dsymBytes is not null)
+        if (dsymSlices is not null)
         {
-            // The UUID is the identity: when the image has one, the dSYM must carry the same.
-            if (hasImageUuid
-                && (!MachOImageReader.TryReadUuid(dsymBytes, out var dsymUuid)
-                    || !imageUuid.AsSpan().SequenceEqual(dsymUuid)))
+            // The UUID is the identity: when the image has one, some dSYM slice must carry the
+            // same; without one, only an unambiguous single-slice dSYM is safe to trust.
+            var dsymBytes = SelectDsymSlice(dsymSlices, hasImageUuid ? imageUuid : null);
+            if (dsymBytes is null)
             {
                 return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.IdMismatch,
                     $"dSYM '{Path.GetFileName(dsymPath)}' does not match the image (UUID)");
@@ -109,21 +111,32 @@ public static class NativeSymbolReader
     }
 
     /// <summary>
-    /// Picks a fat slice: a single slice stands alone; otherwise the dSYM's UUID decides, then
-    /// the Native AOT signal; -1 when nothing disambiguates.
+    /// Picks a fat slice: a single slice stands alone; otherwise a dSYM slice's UUID decides,
+    /// then the Native AOT signal; -1 when nothing disambiguates.
     /// </summary>
     private static int ChooseFatSlice(
-        ReadOnlySpan<byte> archive, IReadOnlyList<MachOImageReader.MachOFatSlice> slices, byte[]? dsymBytes)
+        ReadOnlySpan<byte> archive, IReadOnlyList<MachOImageReader.MachOFatSlice> slices,
+        List<byte[]>? dsymSlices)
     {
         if (slices.Count == 1) return 0;
 
-        if (dsymBytes is not null && MachOImageReader.TryReadUuid(dsymBytes, out var dsymUuid))
+        if (dsymSlices is not null)
         {
+            var dsymUuids = new List<byte[]>();
+            foreach (var dsymSlice in dsymSlices)
+            {
+                if (MachOImageReader.TryReadUuid(dsymSlice, out var uuid))
+                    dsymUuids.Add(uuid);
+            }
+
             for (var i = 0; i < slices.Count; i++)
             {
                 var slice = archive.Slice((int)slices[i].Offset, (int)slices[i].Size);
-                if (MachOImageReader.TryReadUuid(slice, out var uuid) && uuid.AsSpan().SequenceEqual(dsymUuid))
+                if (MachOImageReader.TryReadUuid(slice, out var uuid)
+                    && dsymUuids.Any(d => uuid.AsSpan().SequenceEqual(d)))
+                {
                     return i;
+                }
             }
         }
 
@@ -134,6 +147,40 @@ public static class NativeSymbolReader
         }
 
         return -1;
+    }
+
+    /// <summary>A Mach-O file's thin candidates: itself, or each slice of a fat archive.</summary>
+    private static List<byte[]> ThinSlices(byte[] bytes)
+    {
+        if (!MachOImageReader.IsFat(bytes)) return [bytes];
+
+        var result = new List<byte[]>();
+        foreach (var slice in MachOImageReader.ReadFatSlices(bytes))
+            result.Add(bytes.AsSpan((int)slice.Offset, (int)slice.Size).ToArray());
+        return result.Count > 0 ? result : [bytes];
+    }
+
+    /// <summary>
+    /// Picks the dSYM slice carrying the image's UUID; without an image UUID, only a
+    /// single-slice dSYM is unambiguous enough to trust.
+    /// </summary>
+    private static byte[]? SelectDsymSlice(List<byte[]> slices, byte[]? imageUuid)
+    {
+        if (imageUuid is not null)
+        {
+            foreach (var slice in slices)
+            {
+                if (MachOImageReader.TryReadUuid(slice, out var uuid)
+                    && uuid.AsSpan().SequenceEqual(imageUuid))
+                {
+                    return slice;
+                }
+            }
+
+            return null;
+        }
+
+        return slices.Count == 1 ? slices[0] : null;
     }
 
     /// <summary>
@@ -396,48 +443,104 @@ public static class NativeSymbolReader
         return program;
     }
 
-    private static NativeSymbolInfo ReadPe(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
+    /// <summary>The outcome of probing the same-directory PDB candidates.</summary>
+    private enum PdbProbe
     {
-        var codeView = PeCodeView.TryRead(imageBytes.Span);
+        /// <summary>No candidate file exists.</summary>
+        None,
 
-        // A same-directory PDB whose GUID and age match is the rich source.
-        if (codeView is { } id && FindMatchingPdb(imagePath, id) is { } pdbPath)
-        {
-            var raw = NativePdb.NativePdbReader.Read(File.ReadAllBytes(pdbPath), imageBytes);
-            if (raw.Count > 0)
-                return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null);
-        }
+        /// <summary>A candidate's GUID and age match the image's RSDS record.</summary>
+        Matched,
 
-        // No usable PDB: recover function boundaries from .pdata.
-        var boundaries = PdataReader.ReadBoundaries(imageBytes);
-        return boundaries.Count > 0
-            ? Build(boundaries, demangler, NativeSymbolSource.PdataFallback, NativeSymbolStatus.FallbackOnly,
-                null, "no matching PDB; recovered function boundaries from .pdata")
-            : new NativeSymbolInfo([], NativeSymbolSource.PdataFallback, NativeSymbolStatus.NoSymbolFile,
-                null, "no PDB and no .pdata exception directory");
+        /// <summary>A candidate exists but its identity differs — a stale build's PDB.</summary>
+        Mismatched,
+
+        /// <summary>A candidate exists but is not a readable MSF container.</summary>
+        Unreadable,
     }
 
-    private static string? FindMatchingPdb(string imagePath, PeCodeView.CodeViewId id)
+    private static NativeSymbolInfo ReadPe(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
+    {
+        // A same-directory PDB whose GUID and age match is the rich source; a candidate that
+        // exists but fails identity or parsing is reported, not silently treated as absent.
+        if (PeCodeView.TryRead(imageBytes.Span) is { } id)
+        {
+            var (outcome, pdbPath) = ProbePdb(imagePath, id);
+            switch (outcome)
+            {
+                case PdbProbe.Matched:
+                {
+                    var raw = NativePdb.NativePdbReader.Read(File.ReadAllBytes(pdbPath!), imageBytes);
+                    if (raw.Count > 0)
+                        return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null);
+                    return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
+                        $"'{Path.GetFileName(pdbPath)}' matched but contains no readable symbols");
+                }
+
+                case PdbProbe.Mismatched:
+                    return PdataFallback(imageBytes, demangler, NativeSymbolStatus.IdMismatch,
+                        $"PDB '{Path.GetFileName(pdbPath)}' does not match the image (GUID or age)");
+                case PdbProbe.Unreadable:
+                    return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
+                        $"'{Path.GetFileName(pdbPath)}' is not a readable PDB");
+            }
+        }
+
+        return PdataFallback(imageBytes, demangler, NativeSymbolStatus.FallbackOnly, "no matching PDB");
+    }
+
+    /// <summary>
+    /// Recovers boundaries from <c>.pdata</c> under the given failure status; a status of
+    /// <see cref="NativeSymbolStatus.FallbackOnly"/> degrades to
+    /// <see cref="NativeSymbolStatus.NoSymbolFile"/> when there are no boundaries either.
+    /// </summary>
+    private static NativeSymbolInfo PdataFallback(
+        ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler,
+        NativeSymbolStatus status, string baseDiagnostic)
+    {
+        var boundaries = PdataReader.ReadBoundaries(imageBytes);
+        if (boundaries.Count > 0)
+        {
+            return Build(boundaries, demangler, NativeSymbolSource.PdataFallback, status, null,
+                baseDiagnostic + "; recovered function boundaries from .pdata");
+        }
+
+        var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
+        return new NativeSymbolInfo([], NativeSymbolSource.PdataFallback, empty, null,
+            baseDiagnostic + "; no .pdata exception directory");
+    }
+
+    /// <summary>
+    /// Probes the same-directory PDB candidates: the first matching one wins; when only
+    /// mismatching or unreadable candidates exist, the first is reported so a stale or corrupt
+    /// sidecar is visible to callers.
+    /// </summary>
+    private static (PdbProbe Outcome, string? Path) ProbePdb(string imagePath, PeCodeView.CodeViewId id)
     {
         var directory = Path.GetDirectoryName(imagePath);
-        if (string.IsNullOrEmpty(directory)) return null;
+        if (string.IsNullOrEmpty(directory)) return (PdbProbe.None, null);
 
         var candidates = new List<string>(2);
         if (!string.IsNullOrEmpty(id.PdbPath))
             candidates.Add(Path.Combine(directory, Path.GetFileName(id.PdbPath)));
-        candidates.Add(Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb"));
+        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb");
+        if (!candidates.Contains(conventional)) candidates.Add(conventional);
 
+        (PdbProbe, string?) firstDefect = (PdbProbe.None, null);
         foreach (var path in candidates)
         {
-            if (File.Exists(path)
-                && NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age)
-                && guid == id.Guid && age == id.Age)
+            if (!File.Exists(path)) continue;
+            if (!NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age))
             {
-                return path;
+                if (firstDefect.Item1 == PdbProbe.None) firstDefect = (PdbProbe.Unreadable, path);
+                continue;
             }
+
+            if (guid == id.Guid && age == id.Age) return (PdbProbe.Matched, path);
+            if (firstDefect.Item1 == PdbProbe.None) firstDefect = (PdbProbe.Mismatched, path);
         }
 
-        return null;
+        return firstDefect;
     }
 
     /// <summary>
@@ -492,19 +595,36 @@ public static class NativeSymbolReader
             aliasesByIndex.Add([]);
         }
 
-        // Size unsized symbols by the distance to the next symbol's address.
-        for (var i = 0; i < primaries.Count; i++)
+        // Size unsized symbols by the distance to the next symbol's start — within the same
+        // section only, so the last symbol of a section never absorbs the gap to the next one.
+        for (var i = 0; i < primaries.Count - 1; i++)
         {
             if (primaries[i].Size > 0) continue;
-            var next = i + 1 < primaries.Count ? primaries[i + 1].VirtualAddress : primaries[i].VirtualAddress;
-            var gap = (long)(next - primaries[i].VirtualAddress);
+            var next = primaries[i + 1];
+            if (primaries[i].Section is not null && next.Section is not null
+                && !string.Equals(primaries[i].Section, next.Section, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var gap = (long)(next.VirtualAddress - primaries[i].VirtualAddress);
             primaries[i] = primaries[i] with { Size = gap > 0 ? gap : 0 };
+        }
+
+        // Clip overlapping extents to the next symbol's start: the Size Map sums this set, so
+        // no byte may be attributed twice.
+        for (var i = 0; i < primaries.Count - 1; i++)
+        {
+            var gap = (long)(primaries[i + 1].VirtualAddress - primaries[i].VirtualAddress);
+            if (primaries[i].Size > gap)
+                primaries[i] = primaries[i] with { Size = gap };
         }
 
         var symbols = new List<NativeSymbol>(primaries.Count);
         for (var i = 0; i < primaries.Count; i++)
         {
             var p = primaries[i];
+            var aliases = aliasesByIndex[i];
             NativeSymbolKind kind;
             string? managedName;
             bool exact;
@@ -521,9 +641,22 @@ public static class NativeSymbolReader
                 kind = demangled.Kind;
                 managedName = demangled.ManagedName;
                 exact = demangled.IsExactMatch;
-                // A symbol the demangler read as a function but that lives in a data section is data.
+
                 if (kind == NativeSymbolKind.Function && p.IsData)
-                    kind = NativeSymbolKind.Data;
+                {
+                    // A data-section record that is neither a recognized ILC node nor a managed
+                    // join is an unrelated global (import thunks, CRT state). Promote a
+                    // recognized alias when the address group has one; otherwise drop the
+                    // record — recognized names only, so the data categories carry no noise.
+                    if (managedName is null && !TryPromoteRecognizedAlias(
+                        demangler, ref p, aliases, out kind, out managedName, out exact))
+                    {
+                        continue;
+                    }
+
+                    if (kind == NativeSymbolKind.Function)
+                        kind = NativeSymbolKind.Data;
+                }
             }
 
             symbols.Add(new NativeSymbol(
@@ -538,10 +671,38 @@ public static class NativeSymbolReader
                 SourceFile: p.SourceFile,
                 Line: p.Line,
                 IsExactMatch: exact,
-                Aliases: aliasesByIndex[i]));
+                Aliases: aliases));
         }
 
         return new NativeSymbolInfo(symbols, source, status, path, diagnostic);
+    }
+
+    /// <summary>
+    /// Re-fronts a merged data record with its first alias the demangler recognizes as an ILC
+    /// node, moving the unrecognized primary name into the aliases.
+    /// </summary>
+    private static bool TryPromoteRecognizedAlias(
+        IlcNameDemangler demangler, ref RawNativeSymbol primary, List<string> aliases,
+        out NativeSymbolKind kind, out string? managedName, out bool exact)
+    {
+        for (var i = 0; i < aliases.Count; i++)
+        {
+            var candidate = demangler.Demangle(aliases[i]);
+            if (candidate.Kind == NativeSymbolKind.Function) continue;
+
+            var promoted = aliases[i];
+            aliases[i] = primary.Name;
+            primary = primary with { Name = promoted };
+            kind = candidate.Kind;
+            managedName = candidate.ManagedName;
+            exact = candidate.IsExactMatch;
+            return true;
+        }
+
+        kind = NativeSymbolKind.Function;
+        managedName = null;
+        exact = false;
+        return false;
     }
 
     // Rich records (procedures/data with sizes and line info) outrank named-only publics, which

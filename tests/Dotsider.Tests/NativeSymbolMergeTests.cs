@@ -80,14 +80,88 @@ public class NativeSymbolMergeTests
     }
 
     /// <summary>
-    /// Verifies a function-named symbol found in a data context classifies as data, not a function.
+    /// Verifies an unrecognized data-section record is dropped — unrelated globals and import
+    /// thunks would otherwise inflate the Size Map's data categories — while a recognized ILC
+    /// node at the same footing survives.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void Build_FunctionNameInDataSection_ClassifiesAsData()
+    public void Build_UnrecognizedDataSymbol_Dropped()
     {
-        var info = Build(Raw("App_T__Method", 0x2000, 0x10, isData: true));
+        var info = Build(
+            Raw("__imp_GetLastError", 0x2000, 0x08, isData: true),
+            Raw("_ZTV6Widget", 0x2010, 0x18, isData: true));
 
-        Assert.Equal(NativeSymbolKind.Data, Assert.Single(info.Symbols).Kind);
+        var symbol = Assert.Single(info.Symbols);
+        Assert.Equal("_ZTV6Widget", symbol.Name);
+        Assert.Equal(NativeSymbolKind.MethodTable, symbol.Kind);
+    }
+
+    /// <summary>
+    /// Verifies a data record joined to a managed name is kept and classified as data rather
+    /// than dropped with the unrecognized ones.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Build_ManagedJoinedDataSymbol_KeptAsData()
+    {
+        var demangler = new IlcNameDemangler([new RecoveredType("System.Foo", ["Bar"], "System.Private.CoreLib")]);
+        var info = NativeSymbolReader.Build(
+            [Raw("S_P_CoreLib_System_Foo__Bar", 0x2000, 0x10, isData: true)],
+            demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, "x.pdb", null);
+
+        var symbol = Assert.Single(info.Symbols);
+        Assert.Equal(NativeSymbolKind.Data, symbol.Kind);
+        Assert.Equal("System.Foo.Bar", symbol.ManagedName);
+    }
+
+    /// <summary>
+    /// Verifies a merged data group whose primary is unrecognized re-fronts a recognized alias
+    /// instead of dropping the address: the node name leads and the old primary becomes an alias.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Build_UnrecognizedDataPrimary_PromotesRecognizedAlias()
+    {
+        var info = Build(
+            Raw("crt_state", 0x2000, 0x18, isData: true),
+            Raw("_ZTV6Widget", 0x2000, 0, isData: true));
+
+        var symbol = Assert.Single(info.Symbols);
+        Assert.Equal("_ZTV6Widget", symbol.Name);
+        Assert.Equal(NativeSymbolKind.MethodTable, symbol.Kind);
+        Assert.Equal(0x18, symbol.Size);
+        Assert.Contains("crt_state", symbol.Aliases);
+    }
+
+    /// <summary>
+    /// Verifies overlapping extents clip to the next symbol's start so the Size Map never
+    /// counts a byte twice.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Build_OverlappingRanges_ClipToNextStart()
+    {
+        var info = Build(
+            Raw("a", 0x1000, 0x100),
+            Raw("b", 0x1050, 0x20));
+
+        Assert.Equal(0x50, info.Symbols[0].Size);
+        Assert.Equal(0x20, info.Symbols[1].Size);
+    }
+
+    /// <summary>
+    /// Verifies an unsized symbol is not sized across a section boundary: the gap to a symbol
+    /// in a different section says nothing about its extent.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Build_UnsizedSymbol_NotSizedAcrossSections()
+    {
+        var raw = new RawNativeSymbol[]
+        {
+            new("last_in_text", 0x1000, 0x1000, 0x1000, ".text", 0, false, false, null, null),
+            new("_ZTV6Widget", 0x9000, 0x9000, 0x9000, ".data", 0x10, true, false, null, null),
+        };
+        var info = NativeSymbolReader.Build(raw, EmptyDemangler, NativeSymbolSource.NativePdb,
+            NativeSymbolStatus.Loaded, "x.pdb", null);
+
+        Assert.Equal(0, info.Symbols[0].Size);
     }
 
     /// <summary>

@@ -18,6 +18,7 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
     private static readonly byte[] UuidA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
     private static readonly byte[] UuidB = [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    private static readonly byte[] UuidC = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9];
 
     private static (string, ulong, (string, ulong, uint, byte[])[]) TextSegment() =>
         ("__TEXT", 0x1_0000_0000, new[] { ("__text", 0x1_0000_1000UL, ExecFlags, new byte[0x100]) });
@@ -245,6 +246,76 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
             Assert.Empty(ambiguous.Symbols);
             Assert.Contains("0x100000c", ambiguous.Diagnostic);
             Assert.Contains("0x1000007", ambiguous.Diagnostic);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a universal (fat) dSYM is sliced before UUID validation: the slice carrying the
+    /// image's UUID is selected and its DWARF read, instead of the fat header failing the
+    /// identity check.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Read_FatDsym_SlicesToMatchingUuid()
+    {
+        var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
+        try
+        {
+            var path = Path.Combine(dir.FullName, "app");
+            File.WriteAllBytes(path, SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidA));
+
+            var (info, abbrev) = MinimalDwarf("frost_main", 0x1_0000_1010, 0x40);
+            var matching = SyntheticImageBuilders.BuildMachO(
+                [("__DWARF", 0x2_0000_0000, new[]
+                {
+                    ("__debug_info", 0x2_0000_0000UL, 0u, info),
+                    ("__debug_abbrev", 0x2_0000_1000UL, 0u, abbrev),
+                })],
+                uuid: UuidA);
+            var other = SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidB, cpuType: 0x0100_0007);
+            WriteDsym(dir.FullName, "app", SyntheticImageBuilders.BuildFat(other, matching));
+
+            var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
+
+            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
+            Assert.Equal(NativeSymbolSource.Dsym, result.Source);
+            var symbol = Assert.Single(result.Symbols);
+            Assert.Equal("frost_main", symbol.Name);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a fat dSYM with no slice carrying the image's UUID is rejected as
+    /// <see cref="NativeSymbolStatus.IdMismatch"/>, not silently read.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Read_FatDsym_NoMatchingSlice_ReportsIdMismatch()
+    {
+        var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
+        try
+        {
+            var path = Path.Combine(dir.FullName, "app");
+            File.WriteAllBytes(path, SyntheticImageBuilders.BuildMachO(
+                [TextSegment()],
+                uuid: UuidA,
+                functionStarts: new DwarfBlob().ULeb(0x1010).ULeb(0).ToArray()));
+
+            var sliceB = SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidB);
+            var sliceC = SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidC, cpuType: 0x0100_0007);
+            WriteDsym(dir.FullName, "app", SyntheticImageBuilders.BuildFat(sliceB, sliceC));
+
+            var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
+
+            Assert.Equal(NativeSymbolStatus.IdMismatch, result.Status);
+            Assert.Equal(NativeSymbolSource.FunctionStartsFallback, result.Source);
+            Assert.Contains("UUID", result.Diagnostic);
         }
         finally
         {
