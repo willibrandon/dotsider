@@ -559,6 +559,75 @@ public class CliTests(SampleAssemblyFixture fixture)
     }
 
     /// <summary>
+    /// Verifies <c>analyze --symbols</c> on a Native AOT binary prints the provenance header
+    /// and the symbol table.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Symbols_NativeAot_PrintsTable()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleSymbols is null, "native symbols were not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--symbols");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Source:", stdout);
+        Assert.Contains("Symbols (", stdout);
+        Assert.Contains("0x", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --symbols --json</c> carries the provenance and the symbol list.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Symbols_NativeAot_Json_CarriesProvenance()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleSymbols is null, "native symbols were not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--symbols", "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("\"source\"", stdout);
+        Assert.Contains("\"status\"", stdout);
+        Assert.Contains("\"symbols\"", stdout);
+        Assert.Contains("virtualAddress", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --symbols</c> on a managed assembly exits 1 — there are no native
+    /// symbols to read.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Symbols_Managed_ExitsOne()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--symbols");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("managed", stderr);
+    }
+
+    /// <summary>
+    /// Verifies the default <c>analyze --json</c> info carries the native symbol provenance
+    /// fields for a Native AOT binary.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Info_NativeAot_Json_CarriesSymbolProvenance()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--json");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("nativeSymbolCount", stdout);
+        Assert.Contains("nativeSymbolSource", stdout);
+        Assert.Contains("nativeSymbolStatus", stdout);
+        Assert.Contains("nativeSymbolsPath", stdout);
+    }
+
+    /// <summary>
     /// Verifies <c>analyze --why</c> prints the root-first dependency chain for a compiled
     /// method when both sidecars are present.
     /// </summary>

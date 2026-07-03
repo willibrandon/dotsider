@@ -61,6 +61,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 | Metadata inspection | `get_pe_headers`, `get_clr_header`, `get_sections`, `get_custom_attributes`, `get_resources`, `resolve_token` |
 | Dependencies | `get_assembly_refs`, `get_dependency_graph`, `get_type_refs` |
 | Size analysis | `get_size_breakdown`, `get_largest_methods` |
+| Native symbols | `get_native_symbols` |
 | String extraction | `extract_strings` |
 | Diffing | `diff_assemblies` |
 | NuGet packages | `analyze_nupkg` |

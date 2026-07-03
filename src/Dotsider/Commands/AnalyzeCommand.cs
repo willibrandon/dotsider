@@ -6,7 +6,7 @@ using Dotsider.Infrastructure;
 namespace Dotsider.Commands;
 
 /// <summary>
-/// Headless assembly analysis command: types, methods, IL, deps, strings, size.
+/// Headless assembly analysis command: types, methods, IL, deps, strings, size, symbols.
 /// </summary>
 internal static class AnalyzeCommand
 {
@@ -56,6 +56,11 @@ internal static class AnalyzeCommand
         Description = "Show size breakdown"
     };
 
+    private static readonly Option<bool> s_symbolsOption = new("--symbols")
+    {
+        Description = "List native symbols (Native AOT and other native binaries)"
+    };
+
     private static readonly Option<string?> s_whyOption = new("--why")
     {
         Description = "Explain why a type or method is in a Native AOT binary (requires mstat and DGML sidecars)"
@@ -92,6 +97,7 @@ internal static class AnalyzeCommand
             s_stringsOption,
             s_minLenOption,
             s_sizeOption,
+            s_symbolsOption,
             s_whyOption,
             s_fieldsOption,
             s_bundleOption,
@@ -212,6 +218,9 @@ internal static class AnalyzeCommand
                 if (parseResult.GetValue(s_sizeOption))
                     return Task.FromResult(PrintSize(analyzer, formatter));
 
+                if (parseResult.GetValue(s_symbolsOption))
+                    return Task.FromResult(PrintSymbols(analyzer, formatter));
+
                 if (parseResult.GetValue(s_whyOption) is { } whyTarget)
                     return Task.FromResult(PrintWhy(analyzer, whyTarget, formatter));
 
@@ -247,6 +256,10 @@ internal static class AnalyzeCommand
                 a.ReadyToRunSections,
                 RecoveredTypeCount = a.RecoveredTypes.Count,
                 FrozenStringCount = a.FrozenStrings.Count,
+                NativeSymbolCount = a.NativeSymbols?.Symbols.Count ?? 0,
+                NativeSymbolSource = a.NativeSymbols?.Source,
+                NativeSymbolStatus = a.NativeSymbols?.Status,
+                a.NativeSymbolsPath,
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -269,6 +282,12 @@ internal static class AnalyzeCommand
                 fmt.WriteLine($"Recovered:  {a.RecoveredTypes.Count} types, "
                     + $"{a.RecoveredTypes.Sum(t => t.MethodNames.Count)} methods");
                 fmt.WriteLine($"Frozen:     {a.FrozenStrings.Count} strings");
+                if (a.NativeSymbols is { } symbols)
+                {
+                    fmt.WriteLine(symbols.Symbols.Count > 0
+                        ? $"Symbols:    {symbols.Symbols.Count} from {symbols.Source}"
+                        : $"Symbols:    {symbols.Diagnostic ?? symbols.Status.ToString()}");
+                }
             }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
@@ -548,6 +567,46 @@ internal static class AnalyzeCommand
             foreach (var s in frozen)
                 fmt.WriteLine($"  [{s.Offset:X6}] {s.Value}");
         }
+
+        return 0;
+    }
+
+    private static int PrintSymbols(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        if (a.NativeSymbols is not { } info)
+        {
+            Console.Error.WriteLine("Error: managed assembly; no native symbols to read");
+            return 1;
+        }
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new
+            {
+                info.Source, info.Status, info.Path, info.Diagnostic,
+                info.Symbols.Count,
+                info.Symbols
+            });
+            return 0;
+        }
+
+        fmt.WriteLine($"Source:     {info.Source} ({info.Status})");
+        fmt.WriteLine($"Path:       {info.Path ?? "(none)"}");
+        if (info.Diagnostic is not null)
+            fmt.WriteLine($"Note:       {info.Diagnostic}");
+        fmt.WriteLine("");
+
+        fmt.WriteLine($"Symbols ({info.Symbols.Count}):");
+        fmt.WriteTable(
+            ["Address", "Size", "Kind", "Name", "Source"],
+            info.Symbols.Select(s => new[]
+            {
+                $"0x{s.VirtualAddress:X}",
+                s.Size.ToString(),
+                s.Kind.ToString(),
+                s.ManagedName ?? s.Name,
+                s.SourceFile is not null ? $"{s.SourceFile}:{s.Line}" : ""
+            }));
 
         return 0;
     }

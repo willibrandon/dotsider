@@ -1,6 +1,6 @@
 ---
 title: "SizeNodeKind"
-description: "The granularity level of a SizeNode in the size breakdown tree. The kinds beyond Method appear only in Native AOT trees built from an mstat report."
+description: "The granularity level of a SizeNode in the size breakdown tree. The kinds beyond Method appear only in Native AOT trees, built from an mstat report or, when none sits beside the binary, from its merged native symbols."
 slug: api/dotsider.core.analysis.models.sizenodekind
 sidebar:
   order: 1
@@ -11,7 +11,8 @@ sidebar:
 **Assembly:** Dotsider.Core.dll
 
 The granularity level of a [SizeNode](/api/dotsider.core.analysis.models.sizenode/) in the size breakdown tree. The kinds
-beyond [Method](/api/dotsider.core.analysis.models.sizenodekind.method/) appear only in Native AOT trees built from an mstat report.
+beyond [Method](/api/dotsider.core.analysis.models.sizenodekind.method/) appear only in Native AOT trees, built from an mstat report or,
+when none sits beside the binary, from its merged native symbols.
 
 ```csharp
 public enum SizeNodeKind
@@ -57,6 +58,17 @@ An object frozen into a Native AOT binary at compile time.
 
 ```csharp
 FrozenObject = 7
+```
+
+### Function
+
+A native function sized from the binary's symbols — unlike [Method](/api/dotsider.core.analysis.models.sizenodekind.method/), there
+is no IL body behind it to drill into.
+
+**Returns:** [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)
+
+```csharp
+Function = 10
 ```
 
 ### Method

@@ -50,6 +50,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     private bool _mstatProbed;
     private DgmlGraph? _dgml;
     private bool _dgmlProbed;
+    private NativeSymbolInfo? _nativeSymbols;
+    private bool _nativeSymbolsProbed;
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -362,6 +364,32 @@ public sealed class AssemblyAnalyzer : IDisposable
         BinaryKind == BinaryKind.NativeAot
             ? FindSidecar(".codegen.dgml.xml") ?? FindSidecar(".scan.dgml.xml")
             : null;
+
+    /// <summary>
+    /// The native symbols of this binary — function names, addresses, and sizes read from its
+    /// PDB, DWARF, or dSYM, or function boundaries from unwind data when no symbols exist. Null
+    /// for managed assemblies. Parsed on demand; the value is assigned before the probed flag, so
+    /// a rare concurrent first read costs at most a second parse of immutable data.
+    /// </summary>
+    public NativeSymbolInfo? NativeSymbols
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_nativeSymbolsProbed)
+            {
+                _nativeSymbols = BinaryKind != BinaryKind.Managed
+                    ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
+                    : null;
+                _nativeSymbolsProbed = true;
+            }
+
+            return _nativeSymbols;
+        }
+    }
+
+    /// <summary>The symbol file the native symbols were read from (PDB, .dbg, or dSYM), or null.</summary>
+    public string? NativeSymbolsPath => NativeSymbols?.Path;
 
     /// <summary>
     /// Probes for a sidecar next to the analyzed binary: the binary's extension is replaced
@@ -1164,6 +1192,17 @@ public sealed class AssemblyAnalyzer : IDisposable
 
         if (!codeViewEntry.IsPortableCodeView)
         {
+            // A native (Windows) PDB. Dotsider can read these; if a matching one sits beside the
+            // binary, mark it so — the full symbol parse stays lazy on the NativeSymbols property.
+            if (!IsBundleBacked && TryMatchNativePdb(codeViewData) is { } nativePath)
+            {
+                PdbProvenance = new PdbProvenance(
+                    PdbProvenanceKind.NativePdb,
+                    nativePath,
+                    $"NativePdb (GUID matched, {nativePath})");
+                return;
+            }
+
             PdbProvenance = new PdbProvenance(
                 PdbProvenanceKind.UnsupportedWindowsPdb,
                 codeViewData.Path,
@@ -1204,6 +1243,36 @@ public sealed class AssemblyAnalyzer : IDisposable
                     foundPath,
                     $"UnsupportedWindowsPdb ({foundPath})");
         }
+    }
+
+    /// <summary>
+    /// Looks for a Windows native PDB beside the binary whose GUID and age match the CodeView
+    /// entry, using the cheap block-level probe. Probes the binary's own directory only — like
+    /// every other sidecar — so the result does not depend on a build-time absolute path that
+    /// happens to still resolve on the current machine. Returns the matching path, or null.
+    /// </summary>
+    private string? TryMatchNativePdb(CodeViewDebugDirectoryData codeViewData)
+    {
+        var directory = Path.GetDirectoryName(FilePath);
+        if (string.IsNullOrEmpty(directory)) return null;
+
+        // The CodeView entry's own file name (its directory is discarded), then <stem>.pdb.
+        var candidates = new List<string>(2);
+        if (!string.IsNullOrEmpty(codeViewData.Path))
+            candidates.Add(Path.Combine(directory, Path.GetFileName(codeViewData.Path)));
+        candidates.Add(Path.Combine(directory, Path.GetFileNameWithoutExtension(FilePath) + ".pdb"));
+
+        foreach (var path in candidates)
+        {
+            if (!File.Exists(path)) continue;
+            if (NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age)
+                && guid == codeViewData.Guid && age == codeViewData.Age)
+            {
+                return path;
+            }
+        }
+
+        return null;
     }
 
     private bool TryOpenAssociatedPortablePdb()

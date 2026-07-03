@@ -244,6 +244,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 "get-size-tree" => HandleGetSizeTree(),
                 "get-largest-methods" => HandleGetLargestMethods(request),
 
+                // Symbols
+                "get-native-symbols" => HandleGetNativeSymbols(),
+
                 // Diff
                 "diff" => HandleDiff(request),
 
@@ -333,7 +336,10 @@ internal sealed class DotsiderDiagnosticsListener(
             AssemblyRefCount = a.AssemblyRefs.Count,
             ReadyToRunSectionCount = a.ReadyToRunSections.Count,
             RecoveredTypeCount = a.RecoveredTypes.Count,
-            FrozenStringCount = a.FrozenStrings.Count
+            FrozenStringCount = a.FrozenStrings.Count,
+            NativeSymbolCount = a.NativeSymbols?.Symbols.Count ?? 0,
+            NativeSymbolSource = a.NativeSymbols?.Source,
+            NativeSymbolStatus = a.NativeSymbols?.Status
         });
     }
 
@@ -635,6 +641,16 @@ internal sealed class DotsiderDiagnosticsListener(
             .Take(max);
 
         return DotsiderResponse.Ok(methods);
+    }
+
+    // --- Symbols Handler ---
+
+    private DotsiderResponse HandleGetNativeSymbols()
+    {
+        var a = RequireAnalyzer();
+        return a.NativeSymbols is { } info
+            ? DotsiderResponse.Ok(info)
+            : DotsiderResponse.Fail("Managed assembly; no native symbols to read");
     }
 
     // --- Diff Handler ---

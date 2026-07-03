@@ -79,6 +79,8 @@ public static class PeMetadataView
                         analyzer.ReadyToRunSections[0].SectionId,
                     PeSubTabId.AotTypes when analyzer.RecoveredTypes.Count > 0 =>
                         analyzer.RecoveredTypes[0].FullName,
+                    PeSubTabId.Symbols when GetSymbolRows(analyzer).Count > 0 =>
+                        GetSymbolRows(analyzer)[0].VirtualAddress,
                     _ => null
                 };
         }
@@ -246,7 +248,9 @@ public static class PeMetadataView
                     tp.Tab("R2R Sections", t => [BuildRtrSectionsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.RtrSections),
                     tp.Tab("AOT Types", t => [BuildAotTypesTable(t, state)])
-                        .Selected(state.PeSubTab == PeSubTabId.AotTypes)
+                        .Selected(state.PeSubTab == PeSubTabId.AotTypes),
+                    tp.Tab("Symbols", t => [BuildSymbolsTable(t, state)])
+                        .Selected(state.PeSubTab == PeSubTabId.Symbols)
                 ])
                 .OnSelectionChanged(e =>
                 {
@@ -829,6 +833,8 @@ public static class PeMetadataView
                 s => $"{s.SectionId} {s.Name}").Select(s => (object)s.SectionId)],
             PeSubTabId.AotTypes => [.. ApplySearch(analyzer.RecoveredTypes, query,
                 t => t.FullName).Select(t => (object)t.FullName)],
+            PeSubTabId.Symbols => [.. ApplySearch(GetSymbolRows(analyzer), query,
+                s => $"{s.Name} {s.ManagedName} {s.Kind} {s.SourceFile}").Select(s => (object)s.VirtualAddress)],
             _ => []
         };
     }
@@ -1025,6 +1031,62 @@ public static class PeMetadataView
             })
             .Compact().Fill();
     }
+
+    private static TableWidget<NativeSymbol> BuildSymbolsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(GetSymbolRows(state.Analyzer), query,
+            s => $"{s.Name} {s.ManagedName} {s.Kind} {s.SourceFile}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(s => s.VirtualAddress)
+            .Header(h =>
+            [
+                h.Cell("Address").Width(SizeHint.Fixed(14)),
+                h.Cell("RVA").Width(SizeHint.Fixed(12)),
+                h.Cell("Size").Width(SizeHint.Fixed(9)),
+                h.Cell("Kind").Width(SizeHint.Fixed(13)),
+                h.Cell("Name").Width(SizeHint.Fill)
+            ])
+            .Row((r, s, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.VirtualAddress:X}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, s.Rva is { } rva ? $"0x{rva:X8}" : ""), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(s.Size.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(s.Kind.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, s.ManagedName ?? s.Name, query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, s) =>
+            {
+                var info = state.Analyzer.NativeSymbols!;
+                state.PeDetailContent = string.Join("\n",
+                    "Native Symbol",
+                    $"Name: {s.Name}",
+                    $"Managed: {s.ManagedName ?? "(no managed join)"}{(s.IsExactMatch ? " (exact)" : "")}",
+                    $"Kind: {s.Kind}",
+                    $"Address: 0x{s.VirtualAddress:X}"
+                        + (s.Rva is { } rva ? $"  RVA: 0x{rva:X8}" : "")
+                        + (s.FileOffset is { } fo ? $"  File Offset: 0x{fo:X}" : ""),
+                    $"Section: {s.Section ?? "(unknown)"}",
+                    $"Size: {s.Size} (0x{s.Size:X})",
+                    $"Source: {(s.SourceFile is not null ? $"{s.SourceFile}:{s.Line}" : "(none)")}",
+                    $"Aliases: {(s.Aliases.Count > 0 ? string.Join(", ", s.Aliases) : "(none)")}",
+                    "",
+                    $"Symbols From: {info.Source} ({info.Status})",
+                    $"Path: {info.Path ?? "(none)"}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    /// <summary>The native symbols to display, or empty when the binary is managed.</summary>
+    private static IReadOnlyList<NativeSymbol> GetSymbolRows(Core.Analysis.AssemblyAnalyzer analyzer) =>
+        analyzer.NativeSymbols?.Symbols ?? [];
 
     /// <summary>Flattens the import table into one row per imported function.</summary>
     private static IReadOnlyList<ImportRow> GetImportRows(Core.Analysis.AssemblyAnalyzer analyzer) =>

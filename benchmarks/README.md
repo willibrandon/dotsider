@@ -48,6 +48,7 @@ dotnet run --project benchmarks/Dotsider.Benchmarks -c Release -- --list flat
 | `McpToolBenchmarks` | MCP tool call round-trip and session discovery through in-process pipe transport |
 | `MstatReaderBenchmarks` | Full ILC size-report decode: IL stream walk, token resolution with assembly attribution, and .names section reads |
 | `NativeAotDetectorBenchmarks` | ReadyToRun header scan + validation on a real Native AOT exe (positive with false-positive rejection), CoreLib (R2R negative full scan), and an apphost (no candidates) |
+| `NativeSymbolReaderBenchmarks` | Native symbol reading beside the platform's artifact (native PDB / `.dbg` / dSYM), the unwind-data boundary fallback with no sidecars in reach, and the analyzer constructor's cheap PDB identity probe |
 | `NuGetPackageAnalyzerBenchmarks` | NuGet package construction and DLL extraction from standard (2 DLLs) and large (120+ entry) packages |
 | `PeDirectoryReaderBenchmarks` | Native import/export/load-config parsing on a Native AOT binary (PE, ELF, or Mach-O by platform) and CoreLib |
 | `ReadyToRunReaderBenchmarks` | Native AOT ReadyToRun section walk, frozen string recovery, and NativeFormat type/method name recovery |
@@ -219,6 +220,16 @@ One read fully decodes the sample's ILC size report: walks the IL stream for eve
 | Detect NativeAOT exe (positive) | 63.80 μs | 4,752 B |
 | Detect CoreLib (R2R negative) | 470.87 μs | — |
 | Detect apphost (negative) | 3.63 μs | — |
+
+#### NativeSymbolReader
+
+| Benchmark | Mean | Allocated |
+|---|---|---|
+| Read symbols (platform artifact) | 19.16 ms | 64.80 MB |
+| Boundary fallback (no sidecars) | 1.77 ms | 3.41 MB |
+| TryReadPdbId probe | 10.73 μs | 12.4 KB |
+
+On this machine the symbol read follows the dSYM path — the bundle's DWARF and nlist merged — while the Windows leg reads the native PDB and the Linux leg the `.dbg`. The boundary fallback measures the unwind-data walk alone (`LC_FUNCTION_STARTS` here, `.pdata` on Windows, `.eh_frame` on Linux). The probe is the per-constructor PDB identity check; it is plain file reading, so on legs whose publish makes no PDB it targets a staged minimal MSF — the same superblock, block-map, directory, and stream-1 reads, just a smaller directory than the real artifact's.
 
 #### NuGetPackageAnalyzer
 

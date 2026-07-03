@@ -44,6 +44,9 @@ public static class PeSubTabId
     /// <summary>AOT Types sub-tab (types and methods recovered from Native AOT metadata).</summary>
     public const int AotTypes = 12;
 
+    /// <summary>Symbols sub-tab (native symbols from the binary's PDB, DWARF, or dSYM).</summary>
+    public const int Symbols = 13;
+
     /// <summary>Total number of PE/Metadata sub-tabs.</summary>
-    public const int Count = 13;
+    public const int Count = 14;
 }

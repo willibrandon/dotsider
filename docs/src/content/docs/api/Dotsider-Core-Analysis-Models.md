@@ -553,6 +553,29 @@ as Native AOT compiled .NET.
 public sealed record NativeAotInfo : IEquatable<NativeAotInfo>
 ```
 
+### [NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/)
+
+One native symbol recovered from a binary: a function, a compiler-generated data blob, or a
+nameless boundary. The address is carried in every form a consumer might need — virtual
+address for display and cross-symbol ordering, PE RVA, file offset when the address is
+file-backed, and the containing section — so the UI, hex views, and disassembly never have
+to recompute a mapping.
+
+```csharp
+public sealed record NativeSymbol : IEquatable<NativeSymbol>
+```
+
+### [NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/)
+
+The native symbols recovered from a binary, plus the provenance and status needed to explain
+the result. Symbols are ordered by [VirtualAddress](/api/dotsider.core.analysis.models.nativesymbol.virtualaddress/), which
+NativeSymbol%40) relies on to resolve an address to its containing symbol —
+the lookup the disassembly and hex views use to name code.
+
+```csharp
+public sealed record NativeSymbolInfo : IEquatable<NativeSymbolInfo>
+```
+
 ### [NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/)
 
 Per-root metadata required to drive a CLR-accurate .NET Framework bind. Built once per
@@ -791,6 +814,36 @@ Distinguishes whether a MemberRef entry refers to a method or a field.
 public enum MemberRefKind
 ```
 
+### [NativeSymbolKind](/api/dotsider.core.analysis.models.nativesymbolkind/)
+
+What a native symbol represents. Native AOT binaries carry compiler-generated code and data
+symbols beyond ordinary functions; this classification drives the Size Map's category
+grouping and the symbol view's presentation.
+
+```csharp
+public enum NativeSymbolKind
+```
+
+### [NativeSymbolSource](/api/dotsider.core.analysis.models.nativesymbolsource/)
+
+Where a binary's native symbols came from. The three primary sources carry names and (mostly)
+sizes; the three fallback sources recover only function boundaries from unwind data and are
+lower fidelity — they can miss leaf and thunk functions.
+
+```csharp
+public enum NativeSymbolSource
+```
+
+### [NativeSymbolStatus](/api/dotsider.core.analysis.models.nativesymbolstatus/)
+
+The outcome of probing a binary for native symbols. When no symbols are returned, the status
+distinguishes the reasons — missing, mismatched, corrupt, ambiguous, or fallback-only — so
+callers can explain the result instead of showing an empty table with no cause.
+
+```csharp
+public enum NativeSymbolStatus
+```
+
 ### [NetFxArchitecture](/api/dotsider.core.analysis.models.netfxarchitecture/)
 
 Effective process bitness for a .NET Framework root assembly. Models actual runtime
@@ -837,7 +890,8 @@ public enum PolicyLayer
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)
 
 The granularity level of a [SizeNode](/api/dotsider.core.analysis.models.sizenode/) in the size breakdown tree. The kinds
-beyond [Method](/api/dotsider.core.analysis.models.sizenodekind.method/) appear only in Native AOT trees built from an mstat report.
+beyond [Method](/api/dotsider.core.analysis.models.sizenodekind.method/) appear only in Native AOT trees, built from an mstat report or,
+when none sits beside the binary, from its merged native symbols.
 
 ```csharp
 public enum SizeNodeKind

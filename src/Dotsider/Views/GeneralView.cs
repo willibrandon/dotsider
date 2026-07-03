@@ -100,6 +100,12 @@ public static class GeneralView
             infoLines.Add($"  Recovered Types:  {recoveredTypes.Count} types, "
                 + $"{recoveredTypes.Sum(t => t.MethodNames.Count)} methods");
             infoLines.Add($"  Frozen Strings:   {analyzer.FrozenStrings.Count}");
+            if (analyzer.NativeSymbols is { } symbols)
+            {
+                infoLines.Add(symbols.Symbols.Count > 0
+                    ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
+                    : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
+            }
         }
 
         var infoText = string.Join("\n", infoLines);

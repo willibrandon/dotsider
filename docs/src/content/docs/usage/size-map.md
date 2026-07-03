@@ -30,3 +30,9 @@ For a Native AOT binary the treemap is built from the compiler's own size report
 With the `.mstat` beside the binary the tree shows every assembly ILC compiled in, drilling through namespaces and types to native method sizes (code plus GC and exception info). Each type carries an explicit `MethodTable` leaf for its runtime type structure, and category regions sit beside the assemblies: `Blobs` for global data like embedded metadata and dispatch maps, `Frozen Objects` for compile-time allocated objects (mostly string literals), `RVA Fields` for data mapped straight into the image, and `Resources` for embedded manifest resources.
 
 With the `.codegen.dgml.xml` beside the binary too, press `w` on any method, type, or frozen object to see why it is in the binary: the chain of dependencies from a root down to the node, each step annotated with the compiler's reason. `Esc` dismisses the chain.
+
+### Without an mstat
+
+When no `.mstat` sits beside a Native AOT binary, the treemap is built from its native symbols instead — the PDB, `.dbg`, or dSYM the publish produced. Functions joined to managed names group under assembly > namespace > type, and the compiler-generated data nodes land in explicit categories (`MethodTables`, `Frozen Objects`, `Stubs`, `Generic Dictionaries`, `Statics`, `Data`), with unjoined names under `Runtime`. The mstat report always wins when present — it is the compiler's own accounting.
+
+With no symbol file either, unwind data still yields nameless function boundaries under an `Unattributed` category — enough for a size histogram, though unwind data can miss leaf and thunk functions, so a boundary-only tree understates slightly.
