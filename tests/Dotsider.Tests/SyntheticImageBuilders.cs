@@ -307,6 +307,175 @@ internal static class SyntheticImageBuilders
     }
 
     /// <summary>
+    /// Builds a minimal thin 64-bit little-endian Mach-O image: the given segments with their
+    /// sections (ordinals follow declaration order across segments), an optional symbol table,
+    /// an optional <c>LC_UUID</c>, and an optional <c>LC_FUNCTION_STARTS</c> payload. Symbol
+    /// names are written verbatim — give them their on-disk leading underscore.
+    /// </summary>
+    /// <param name="segments">Each segment's name, base address, and sections (name, address, flags, content).</param>
+    /// <param name="symbols">nlist entries: name, <c>n_type</c>, <c>n_sect</c> ordinal, and <c>n_value</c>.</param>
+    /// <param name="uuid">The 16-byte <c>LC_UUID</c> payload, or null for none.</param>
+    /// <param name="functionStarts">The raw <c>LC_FUNCTION_STARTS</c> ULEB payload, or null for none.</param>
+    /// <param name="cpuType">The header <c>cputype</c> (ARM64 by default).</param>
+    public static byte[] BuildMachO(
+        (string Segment, ulong VmAddr, (string Name, ulong Address, uint Flags, byte[] Content)[] Sections)[] segments,
+        (string Name, byte Type, byte Ordinal, ulong Value)[]? symbols = null,
+        byte[]? uuid = null,
+        byte[]? functionStarts = null,
+        uint cpuType = 0x0100000C)
+    {
+        const int headerSize = 32;
+        const int segmentHeaderSize = 72;
+        const int sectionSize = 80;
+        const int nlistSize = 16;
+
+        var commandsSize = segments.Sum(s => segmentHeaderSize + sectionSize * s.Sections.Length)
+            + (uuid is null ? 0 : 24)
+            + (symbols is null ? 0 : 24)
+            + (functionStarts is null ? 0 : 16);
+        var ncmds = segments.Length + (uuid is null ? 0 : 1) + (symbols is null ? 0 : 1)
+            + (functionStarts is null ? 0 : 1);
+
+        // Content layout: section contents, string table, nlist array, function-starts payload.
+        var offset = headerSize + commandsSize;
+        var contentOffsets = segments.Select(s => s.Sections.Select(sec =>
+        {
+            var at = offset;
+            offset += sec.Content.Length;
+            return at;
+        }).ToArray()).ToArray();
+
+        var strings = new List<byte> { 0 };
+        var nameOffsets = new uint[symbols?.Length ?? 0];
+        for (var i = 0; i < (symbols?.Length ?? 0); i++)
+        {
+            if (symbols![i].Name.Length == 0)
+            {
+                nameOffsets[i] = 0;
+                continue;
+            }
+
+            nameOffsets[i] = (uint)strings.Count;
+            strings.AddRange(System.Text.Encoding.UTF8.GetBytes(symbols[i].Name));
+            strings.Add(0);
+        }
+
+        var stringOffset = offset;
+        offset += strings.Count;
+        var nlistOffset = offset;
+        offset += (symbols?.Length ?? 0) * nlistSize;
+        var startsOffset = offset;
+        offset += functionStarts?.Length ?? 0;
+
+        var image = new byte[offset];
+        BinaryPrimitives.WriteUInt32LittleEndian(image, 0xFEEDFACF);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(4), cpuType);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(12), 2); // MH_EXECUTE
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(16), (uint)ncmds);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(20), (uint)commandsSize);
+
+        var command = headerSize;
+        for (var si = 0; si < segments.Length; si++)
+        {
+            var (segment, vmAddr, sections) = segments[si];
+            var cmdSize = segmentHeaderSize + sectionSize * sections.Length;
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command), 0x19);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 4), (uint)cmdSize);
+            System.Text.Encoding.ASCII.GetBytes(segment).CopyTo(image.AsSpan(command + 8));
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(command + 24), vmAddr);
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(command + 32), 0x4000); // vmsize
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 64), (uint)sections.Length);
+
+            for (var i = 0; i < sections.Length; i++)
+            {
+                var s = command + segmentHeaderSize + i * sectionSize;
+                System.Text.Encoding.ASCII.GetBytes(sections[i].Name).CopyTo(image.AsSpan(s));
+                System.Text.Encoding.ASCII.GetBytes(segment).CopyTo(image.AsSpan(s + 16));
+                BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(s + 32), sections[i].Address);
+                BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(s + 40), (ulong)sections[i].Content.Length);
+                BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(s + 48), (uint)contentOffsets[si][i]);
+                BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(s + 64), sections[i].Flags);
+                sections[i].Content.CopyTo(image.AsSpan(contentOffsets[si][i]));
+            }
+
+            command += cmdSize;
+        }
+
+        if (uuid is not null)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command), 0x1B);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 4), 24);
+            uuid.CopyTo(image.AsSpan(command + 8));
+            command += 24;
+        }
+
+        if (symbols is not null)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command), 0x2);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 4), 24);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 8), (uint)nlistOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 12), (uint)symbols.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 16), (uint)stringOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 20), (uint)strings.Count);
+            command += 24;
+
+            for (var i = 0; i < symbols.Length; i++)
+            {
+                var entry = nlistOffset + i * nlistSize;
+                BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(entry), nameOffsets[i]);
+                image[entry + 4] = symbols[i].Type;
+                image[entry + 5] = symbols[i].Ordinal;
+                BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(entry + 8), symbols[i].Value);
+            }
+
+            strings.ToArray().CopyTo(image.AsSpan(stringOffset));
+        }
+
+        if (functionStarts is not null)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command), 0x26);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 4), 16);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 8), (uint)startsOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(command + 12), (uint)functionStarts.Length);
+            functionStarts.CopyTo(image.AsSpan(startsOffset));
+        }
+
+        return image;
+    }
+
+    /// <summary>
+    /// Wraps thin Mach-O slices in a fat/universal archive (32-bit big-endian header), reading
+    /// each slice's <c>cputype</c> from its own header.
+    /// </summary>
+    /// <param name="slices">The thin images to wrap.</param>
+    public static byte[] BuildFat(params byte[][] slices)
+    {
+        var headerSize = 8 + slices.Length * 20;
+        var offsets = new int[slices.Length];
+        var offset = (headerSize + 7) & ~7;
+        for (var i = 0; i < slices.Length; i++)
+        {
+            offsets[i] = offset;
+            offset += (slices[i].Length + 7) & ~7;
+        }
+
+        var image = new byte[offset];
+        BinaryPrimitives.WriteUInt32BigEndian(image, 0xCAFEBABE);
+        BinaryPrimitives.WriteUInt32BigEndian(image.AsSpan(4), (uint)slices.Length);
+        for (var i = 0; i < slices.Length; i++)
+        {
+            var entry = 8 + i * 20;
+            var cpuType = BinaryPrimitives.ReadUInt32LittleEndian(slices[i].AsSpan(4));
+            BinaryPrimitives.WriteUInt32BigEndian(image.AsSpan(entry), cpuType);
+            BinaryPrimitives.WriteUInt32BigEndian(image.AsSpan(entry + 8), (uint)offsets[i]);
+            BinaryPrimitives.WriteUInt32BigEndian(image.AsSpan(entry + 12), (uint)slices[i].Length);
+            slices[i].CopyTo(image.AsSpan(offsets[i]));
+        }
+
+        return image;
+    }
+
+    /// <summary>
     /// Builds <c>.gnu_debuglink</c> content: the sidecar file name, 4-aligned, then the CRC-32
     /// of the sidecar's bytes.
     /// </summary>
