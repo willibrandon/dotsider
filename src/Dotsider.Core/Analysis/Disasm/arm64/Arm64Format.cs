@@ -116,4 +116,30 @@ internal enum Arm64Format
     CryptoAes,
     /// <summary>Vd, Vn, Vm (SHA update).</summary>
     CryptoSha,
+
+    // SVE / SVE2 (scalable Z registers and predicate registers).
+    /// <summary>Zd.T, Zn.T, Zm.T (SVE unpredicated arithmetic).</summary>
+    SveArithUnpred,
+    /// <summary>Zdn.T, Pg/m, Zdn.T, Zm.T (SVE predicated destructive arithmetic).</summary>
+    SveArithPred,
+    /// <summary>Zdn.T, Pg/m, Zn.T (SVE predicated unary).</summary>
+    SveUnaryPred,
+    /// <summary>Pd.T, pattern (ptrue/ptrues).</summary>
+    SvePtrue,
+    /// <summary>Pd.T, Rn, Rm (whilelt/whilelo/…).</summary>
+    SveWhile,
+    /// <summary>{Zt.T}, Pg/z, [Xn, Xm, lsl #n] (SVE contiguous load).</summary>
+    SveLoad,
+    /// <summary>{Zt.T}, Pg, [Xn, Xm, lsl #n] (SVE contiguous store).</summary>
+    SveStore,
+    /// <summary>Pd.T, Pg/z, Zn.T, #imm (SVE compare with immediate).</summary>
+    SveCmpImm,
+    /// <summary>Pd.T, Pg/z, Zn.T, Zm.T (SVE compare vectors).</summary>
+    SveCmpVec,
+    /// <summary>Zd, Zn (movprfx).</summary>
+    SveMovprfx,
+    /// <summary>Zd.T, #imm (mov/dup immediate).</summary>
+    SveDupImm,
+    /// <summary>Rd (incb/inch/incw/incd).</summary>
+    SveInc,
 }

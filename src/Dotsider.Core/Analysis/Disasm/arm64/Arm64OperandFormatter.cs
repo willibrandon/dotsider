@@ -270,6 +270,22 @@ internal static partial class Arm64OperandFormatter
                 cat = NativeInstructionCategory.Float;
                 FormatSimd(entry.Format, mnem, ops, word, rd, rn, rm);
                 break;
+
+            case Arm64Format.SveArithUnpred:
+            case Arm64Format.SveArithPred:
+            case Arm64Format.SveUnaryPred:
+            case Arm64Format.SvePtrue:
+            case Arm64Format.SveWhile:
+            case Arm64Format.SveLoad:
+            case Arm64Format.SveStore:
+            case Arm64Format.SveCmpImm:
+            case Arm64Format.SveCmpVec:
+            case Arm64Format.SveMovprfx:
+            case Arm64Format.SveDupImm:
+            case Arm64Format.SveInc:
+                cat = NativeInstructionCategory.Vector;
+                FormatSve(entry.Format, mnem, ops, word, rd, rn, rm);
+                break;
         }
 
         return new Arm64Decoded(mnem, ops, cat, flow, target);
