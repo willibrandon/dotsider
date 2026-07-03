@@ -95,6 +95,10 @@ public static class NativeDisassembler
         if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
         var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
 
+        // Compose the symbol resolver with the import resolver so indirect targets that land on an
+        // import slot render as MODULE!Function rather than an unresolved address.
+        var imports = NativeImportResolver.Build(raw);
+
         bool Resolver(ulong va, out NativeSymbolRef sym)
         {
             if (info.TryFindByAddress(va, out var found))
@@ -104,6 +108,9 @@ public static class NativeDisassembler
                     (long)(va - found.VirtualAddress));
                 return true;
             }
+
+            if (imports is not null && imports.TryResolve(va, out sym))
+                return true;
 
             sym = default;
             return false;
