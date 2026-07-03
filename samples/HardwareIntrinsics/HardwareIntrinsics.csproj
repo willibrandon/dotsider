@@ -1,0 +1,18 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- SVE (System.Runtime.Intrinsics.Arm.Sve) is an evaluation API in this runtime. -->
+    <NoWarn>$(NoWarn);SYSLIB5003</NoWarn>
+    <!-- Publish with the ISA baseline raised so the guarded AVX-512 / SVE paths are emitted. -->
+    <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">native</IlcInstructionSet>
+  </PropertyGroup>
+</Project>
