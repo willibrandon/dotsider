@@ -263,11 +263,12 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
-    /// Verifies an AOT binary without an mstat sidecar falls back to the metadata path: an
-    /// empty tree rather than a throw.
+    /// Verifies an AOT binary copied away from every sidecar still carries a Size Map: the
+    /// unwind-data boundaries fill it at symbol fidelity (no IL <see cref="SizeNodeKind.Method"/>
+    /// nodes), instead of the pre-symbol empty tree.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void NativeAot_WithoutSidecar_FallsBackToEmptyTree()
+    public void NativeAot_WithoutSidecar_BuildsTreeFromBoundaries()
     {
         Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
@@ -280,8 +281,9 @@ public class SizeAnalyzerTests(SampleAssemblyFixture samples)
 
             var tree = SizeAnalyzer.BuildSizeTree(a);
 
-            Assert.Equal(0, tree.Size);
-            Assert.Empty(tree.Children);
+            Assert.True(tree.Size > 0);
+            Assert.NotEmpty(tree.Children);
+            Assert.DoesNotContain(tree.Children, c => c.Kind == SizeNodeKind.Method);
         }
         finally
         {

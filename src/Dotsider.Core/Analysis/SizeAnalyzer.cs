@@ -6,7 +6,8 @@ namespace Dotsider.Core.Analysis;
 /// Computes IL code size per method and builds a hierarchical size tree
 /// for treemap visualization. For a Native AOT binary with an mstat sidecar the tree is
 /// built from the compiler's size report instead: native code and MethodTable bytes per
-/// assembly, namespace, type, and method, plus the binary's data categories.
+/// assembly, namespace, type, and method, plus the binary's data categories. Without an
+/// mstat, the binary's merged native symbols carry the tree.
 /// </summary>
 public static class SizeAnalyzer
 {
@@ -19,6 +20,13 @@ public static class SizeAnalyzer
     {
         if (analyzer.BinaryKind == BinaryKind.NativeAot && analyzer.Mstat is { } mstat)
             return BuildAotSizeTree(analyzer, mstat);
+
+        // No mstat: the merged native symbols carry the tree at symbol fidelity.
+        if (analyzer.BinaryKind == BinaryKind.NativeAot
+            && analyzer.NativeSymbols is { Symbols.Count: > 0 } symbols)
+        {
+            return BuildFromSymbols(analyzer.FileName, analyzer.RecoveredTypes, symbols);
+        }
 
         // Get method sizes
         var methodSizes = new List<(MethodDefInfo Method, long Size)>();
@@ -255,4 +263,150 @@ public static class SizeAnalyzer
         ns.Length > 0 && typeName.StartsWith(ns + ".", StringComparison.Ordinal)
             ? typeName[(ns.Length + 1)..]
             : typeName;
+
+    /// <summary>
+    /// Builds the size tree of a Native AOT binary from its merged native symbols: functions
+    /// joined to managed names land under assembly &gt; namespace &gt; type, and the
+    /// compiler-generated node kinds under explicit categories — unjoined names in
+    /// <c>Runtime</c>, nameless boundaries in <c>Unattributed</c>. Each merged symbol is summed
+    /// exactly once, so no byte is counted twice.
+    /// </summary>
+    /// <param name="fileName">The analyzed binary's file name, for the root node.</param>
+    /// <param name="recoveredTypes">The binary's recovered metadata, for assembly attribution.</param>
+    /// <param name="info">The merged native symbols.</param>
+    internal static SizeNode BuildFromSymbols(
+        string fileName, IReadOnlyList<RecoveredType> recoveredTypes, NativeSymbolInfo info)
+    {
+        // FullName -> assembly scope, for attributing a joined method to its assembly subtree
+        // and for finding the type/method split point inside a joined name.
+        var assemblyByType = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var type in recoveredTypes)
+            assemblyByType.TryAdd(type.FullName, type.AssemblyName ?? "(unknown assembly)");
+
+        // assembly -> namespace -> type FullName -> method leaves
+        var assemblies = new Dictionary<string, Dictionary<string, Dictionary<string, List<SizeNode>>>>(StringComparer.Ordinal);
+        var categories = new Dictionary<string, List<SizeNode>>(StringComparer.Ordinal);
+
+        void Categorize(string category, NativeSymbol symbol, SizeNodeKind kind) =>
+            (categories.TryGetValue(category, out var list) ? list : categories[category] = [])
+                .Add(new SizeNode(
+                    symbol.ManagedName ?? symbol.Name,
+                    $"{category}/{symbol.Name}@0x{symbol.VirtualAddress:x}",
+                    symbol.Size, kind, []));
+
+        foreach (var symbol in info.Symbols)
+        {
+            if (symbol.Size <= 0) continue;
+            switch (symbol.Kind)
+            {
+                case NativeSymbolKind.Function
+                    when symbol.ManagedName is not null
+                        && TrySplitManagedName(symbol.ManagedName, assemblyByType,
+                            out var assembly, out var ns, out var type, out var method):
+                {
+                    var namespaces = assemblies.TryGetValue(assembly, out var a)
+                        ? a
+                        : assemblies[assembly] = new Dictionary<string, Dictionary<string, List<SizeNode>>>(StringComparer.Ordinal);
+                    var types = namespaces.TryGetValue(ns, out var n)
+                        ? n
+                        : namespaces[ns] = new Dictionary<string, List<SizeNode>>(StringComparer.Ordinal);
+                    (types.TryGetValue(type, out var methods) ? methods : types[type] = [])
+                        .Add(new SizeNode(
+                            method, $"{assembly}/{type}::{method}@0x{symbol.VirtualAddress:x}",
+                            symbol.Size, SizeNodeKind.Function, []));
+                    break;
+                }
+
+                case NativeSymbolKind.Function:
+                    Categorize("Runtime", symbol, SizeNodeKind.Function);
+                    break;
+                case NativeSymbolKind.Boundary:
+                    Categorize("Unattributed", symbol, SizeNodeKind.Function);
+                    break;
+                case NativeSymbolKind.MethodTable:
+                    Categorize("MethodTables", symbol, SizeNodeKind.MethodTable);
+                    break;
+                case NativeSymbolKind.FrozenObject:
+                    Categorize("Frozen Objects", symbol, SizeNodeKind.FrozenObject);
+                    break;
+                case NativeSymbolKind.Stub:
+                    Categorize("Stubs", symbol, SizeNodeKind.Function);
+                    break;
+                case NativeSymbolKind.GenericDictionary:
+                    Categorize("Generic Dictionaries", symbol, SizeNodeKind.Blob);
+                    break;
+                case NativeSymbolKind.Statics:
+                    Categorize("Statics", symbol, SizeNodeKind.Blob);
+                    break;
+                default:
+                    Categorize("Data", symbol, SizeNodeKind.Blob);
+                    break;
+            }
+        }
+
+        var roots = new List<SizeNode>();
+        foreach (var (assemblyName, namespaces) in assemblies)
+        {
+            var namespaceNodes = namespaces
+                .Select(kvp => new SizeNode(
+                    kvp.Key, $"{assemblyName}/{kvp.Key}",
+                    kvp.Value.Values.Sum(m => m.Sum(x => x.Size)), SizeNodeKind.Namespace,
+                    [.. kvp.Value
+                        .Select(t => new SizeNode(
+                            StripNamespace(t.Key, kvp.Key == "(global)" ? "" : kvp.Key),
+                            $"{assemblyName}/{t.Key}",
+                            t.Value.Sum(m => m.Size), SizeNodeKind.Type,
+                            [.. t.Value.OrderByDescending(m => m.Size)]))
+                        .OrderByDescending(t => t.Size)]))
+                .OrderByDescending(n => n.Size)
+                .ToList();
+
+            roots.Add(new SizeNode(
+                assemblyName, assemblyName,
+                namespaceNodes.Sum(n => n.Size), SizeNodeKind.Assembly, namespaceNodes));
+        }
+
+        foreach (var (category, entries) in categories)
+        {
+            roots.Add(new SizeNode(
+                category, category, entries.Sum(e => e.Size), SizeNodeKind.Category,
+                [.. entries.OrderByDescending(e => e.Size)]));
+        }
+
+        return new SizeNode(
+            fileName, fileName,
+            roots.Sum(r => r.Size), SizeNodeKind.Assembly,
+            [.. roots.OrderByDescending(r => r.Size)]);
+    }
+
+    /// <summary>
+    /// Splits a joined name (<c>{type.FullName}.{method}</c>) at the recovered type boundary.
+    /// Method names may contain dots (<c>.ctor</c>), so split points are probed right to left
+    /// against the recovered type names rather than guessed.
+    /// </summary>
+    private static bool TrySplitManagedName(
+        string managedName, Dictionary<string, string> assemblyByType,
+        out string assembly, out string ns, out string type, out string method)
+    {
+        for (var i = managedName.LastIndexOf('.'); i > 0; i = managedName.LastIndexOf('.', i - 1))
+        {
+            var candidate = managedName[..i];
+            if (!assemblyByType.TryGetValue(candidate, out var owner)) continue;
+
+            assembly = owner;
+            type = candidate;
+            method = managedName[(i + 1)..];
+
+            // The namespace is the outermost scope's dotted prefix; nested types ('+') keep
+            // their full display under the type node.
+            var plus = candidate.IndexOf('+');
+            var scope = plus >= 0 ? candidate[..plus] : candidate;
+            var dot = scope.LastIndexOf('.');
+            ns = dot > 0 ? scope[..dot] : "(global)";
+            return method.Length > 0;
+        }
+
+        assembly = ns = type = method = "";
+        return false;
+    }
 }

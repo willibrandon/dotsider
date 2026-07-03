@@ -2,7 +2,8 @@ namespace Dotsider.Core.Analysis.Models;
 
 /// <summary>
 /// The granularity level of a <see cref="SizeNode"/> in the size breakdown tree. The kinds
-/// beyond <see cref="Method"/> appear only in Native AOT trees built from an mstat report.
+/// beyond <see cref="Method"/> appear only in Native AOT trees, built from an mstat report or,
+/// when none sits beside the binary, from its merged native symbols.
 /// </summary>
 public enum SizeNodeKind
 {
@@ -34,5 +35,11 @@ public enum SizeNodeKind
     RvaField,
 
     /// <summary>A manifest resource embedded in a Native AOT binary.</summary>
-    Resource
+    Resource,
+
+    /// <summary>
+    /// A native function sized from the binary's symbols — unlike <see cref="Method"/>, there
+    /// is no IL body behind it to drill into.
+    /// </summary>
+    Function
 }
