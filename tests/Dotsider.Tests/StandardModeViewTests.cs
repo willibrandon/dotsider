@@ -694,6 +694,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S) // "sys"
             .Key(Hex1bKey.Enter) // Confirm
             .WaitUntil(_ => _state!.Search[TabId.DepGraph].IsConfirmed, TimeSpan.FromSeconds(10))
+            // The match count is recomputed during the render pass, so wait for
+            // the frame that carries it rather than racing the confirm handler.
+            .WaitUntil(_ => _state!.Search[TabId.DepGraph].MatchCount > 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -1878,6 +1881,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Key(Hex1bKey.R).Key(Hex1bKey.I).Key(Hex1bKey.C).Key(Hex1bKey.H) // "rich"
             .Key(Hex1bKey.Enter) // Confirm
             .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(10))
+            // The match count is recomputed during the render pass, so wait for
+            // the frame that carries it rather than racing the confirm handler.
+            .WaitUntil(_ => _state!.Search[TabId.SizeMap].MatchCount > 0, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
