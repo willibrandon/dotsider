@@ -30,6 +30,79 @@ internal static class ElfImageReader
         && bytes[0] == 0x7F && bytes[1] == (byte)'E' && bytes[2] == (byte)'L' && bytes[3] == (byte)'F'
         && bytes[4] == 2; // ELFCLASS64
 
+    /// <summary>One ELF section header's identity and location.</summary>
+    /// <param name="Name">The section name from the section-header string table.</param>
+    /// <param name="Type">The <c>sh_type</c> value.</param>
+    /// <param name="Address">The section's virtual address (<c>sh_addr</c>).</param>
+    /// <param name="FileOffset">The section's file offset (<c>sh_offset</c>).</param>
+    /// <param name="Size">The section's byte size (<c>sh_size</c>).</param>
+    /// <param name="Info">The <c>sh_info</c> value (meaning varies by section type).</param>
+    internal readonly record struct ElfSection(
+        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Info);
+
+    /// <summary>
+    /// Walks the section headers into named sections, or an empty list when the image is not a
+    /// little-endian 64-bit ELF or carries no section headers.
+    /// </summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    internal static IReadOnlyList<ElfSection> ReadSections(ReadOnlySpan<byte> bytes)
+    {
+        try
+        {
+            if (!IsElf(bytes) || bytes[5] != 1) return [];
+
+            var sectionOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[40..]);
+            var sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(bytes[58..]);
+            var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes[60..]);
+            var stringSectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(bytes[62..]);
+            if (sectionOffset <= 0 || sectionEntrySize < SectionHeaderSize || sectionCount == 0)
+                return [];
+
+            var shStrTableOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(
+                bytes[(int)(sectionOffset + (long)stringSectionIndex * sectionEntrySize + 24)..]);
+
+            var sections = new List<ElfSection>(sectionCount);
+            for (var i = 0; i < sectionCount; i++)
+            {
+                var header = sectionOffset + (long)i * sectionEntrySize;
+                if (header + SectionHeaderSize > bytes.Length) break;
+                var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)header..]);
+                var type = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 4)..]);
+                var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 16)..]);
+                var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
+                var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
+                var info = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 44)..]);
+                var name = ReadString(bytes, shStrTableOffset, nameOffset) ?? "";
+                sections.Add(new ElfSection(name, type, address, offset, size, info));
+            }
+
+            return sections;
+        }
+        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Finds a section by name.</summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="name">The section name (e.g. <c>.debug_info</c>).</param>
+    /// <param name="section">The section when found.</param>
+    internal static bool TryGetSection(ReadOnlySpan<byte> bytes, string name, out ElfSection section)
+    {
+        foreach (var candidate in ReadSections(bytes))
+        {
+            if (candidate.Name == name)
+            {
+                section = candidate;
+                return true;
+            }
+        }
+
+        section = default;
+        return false;
+    }
+
     /// <summary>
     /// Reads the needed shared libraries and the undefined symbols imported from each.
     /// </summary>

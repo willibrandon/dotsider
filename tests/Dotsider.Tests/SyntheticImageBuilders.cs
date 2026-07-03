@@ -155,4 +155,83 @@ internal static class SyntheticImageBuilders
 
         return image;
     }
+
+    /// <summary>
+    /// Builds a minimal 64-bit little-endian ELF image whose section header table carries the
+    /// given named sections (plus the standard null section and a trailing <c>.shstrtab</c>),
+    /// so section-driven readers — DWARF, symtab, build-id — run on every platform.
+    /// </summary>
+    /// <param name="sections">Each section's name, virtual address, and content bytes.</param>
+    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content)[] sections)
+    {
+        const int headerSize = 64;
+        const int sectionHeaderSize = 64;
+
+        // Section-name string table: NUL, then each name, then ".shstrtab".
+        var names = new List<byte> { 0 };
+        var nameOffsets = new uint[sections.Length + 1];
+        for (var i = 0; i < sections.Length; i++)
+        {
+            nameOffsets[i] = (uint)names.Count;
+            names.AddRange(System.Text.Encoding.UTF8.GetBytes(sections[i].Name));
+            names.Add(0);
+        }
+
+        nameOffsets[^1] = (uint)names.Count;
+        names.AddRange(".shstrtab"u8.ToArray());
+        names.Add(0);
+        var shStrTab = names.ToArray();
+
+        // Layout: header | section contents | .shstrtab | section header table.
+        var contentOffsets = new int[sections.Length];
+        var offset = headerSize;
+        for (var i = 0; i < sections.Length; i++)
+        {
+            contentOffsets[i] = offset;
+            offset += sections[i].Content.Length;
+        }
+
+        var shStrTabOffset = offset;
+        offset += shStrTab.Length;
+        var tableOffset = offset;
+        var sectionCount = sections.Length + 2; // null section + user sections + .shstrtab
+        var image = new byte[tableOffset + sectionCount * sectionHeaderSize];
+
+        image[0] = 0x7F;
+        image[1] = (byte)'E';
+        image[2] = (byte)'L';
+        image[3] = (byte)'F';
+        image[4] = 2; // ELFCLASS64
+        image[5] = 1; // little-endian
+        image[6] = 1; // EV_CURRENT
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(16), 2); // ET_EXEC
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(18), 0x3E); // EM_X86_64
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(20), 1);
+        BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(40), (ulong)tableOffset); // e_shoff
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(52), headerSize); // e_ehsize
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(58), sectionHeaderSize); // e_shentsize
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(60), (ushort)sectionCount);
+        BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(62), (ushort)(sectionCount - 1)); // e_shstrndx
+
+        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size)
+        {
+            var h = tableOffset + index * sectionHeaderSize;
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h), nameOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h + 4), type);
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 16), address);
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 24), (ulong)fileOffset);
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 32), (ulong)size);
+        }
+
+        for (var i = 0; i < sections.Length; i++)
+        {
+            sections[i].Content.CopyTo(image.AsSpan(contentOffsets[i]));
+            WriteHeader(i + 1, nameOffsets[i], 1 /* SHT_PROGBITS */, sections[i].Address,
+                contentOffsets[i], sections[i].Content.Length);
+        }
+
+        shStrTab.CopyTo(image.AsSpan(shStrTabOffset));
+        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length);
+        return image;
+    }
 }
