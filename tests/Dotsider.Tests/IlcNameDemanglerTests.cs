@@ -110,17 +110,33 @@ public class IlcNameDemanglerTests
     }
 
     /// <summary>
-    /// Verifies a known type whose method is absent from sparse metadata still resolves to the
-    /// type by its longest known prefix, marked non-exact.
+    /// Verifies a known type whose method is absent from sparse metadata claims no managed
+    /// name — heuristics never populate <c>ManagedName</c>; the raw name stays the display.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void Demangle_KnownTypeUnknownMethod_ResolvesByPrefixNonExact()
+    public void Demangle_KnownTypeUnknownMethod_ClaimsNoManagedName()
     {
         var d = Build(new RecoveredType("System.String", [], "System.Private.CoreLib"));
 
         var result = d.Demangle("S_P_CoreLib_System_String__SomeMissingMethod");
 
-        Assert.Equal("System.String.SomeMissingMethod", result.ManagedName);
+        Assert.Null(result.ManagedName);
+        Assert.False(result.IsExactMatch);
+    }
+
+    /// <summary>
+    /// Verifies overloads sharing a method name never yield an exact match for the unsuffixed
+    /// symbol: the shared name is kept as the display, but no signature can say which overload
+    /// the symbol is.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Demangle_DuplicateMethodName_SharedNameNeverExact()
+    {
+        var d = Build(new RecoveredType("System.Foo", ["Bar", "Bar"], "System.Private.CoreLib"));
+
+        var result = d.Demangle("S_P_CoreLib_System_Foo__Bar");
+
+        Assert.Equal("System.Foo.Bar", result.ManagedName);
         Assert.False(result.IsExactMatch);
     }
 

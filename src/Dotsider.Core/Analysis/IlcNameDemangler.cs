@@ -24,10 +24,17 @@ internal sealed class IlcNameDemangler
     /// <param name="IsExactMatch">Whether <paramref name="ManagedName"/> is an unambiguous join rather than a heuristic display.</param>
     internal readonly record struct Result(string? ManagedName, NativeSymbolKind Kind, bool IsExactMatch);
 
-    // Sanitized type key -> managed FullName; sanitized "{typeKey}__{method}" -> managed "FullName.method".
-    // Ambiguous keys (sanitization collisions or repeated names) map to null so they can't claim an exact match.
+    /// <summary>A method-key join: the shared display name and whether the key is ambiguous.</summary>
+    /// <param name="Name">The managed display name, or null when a sanitization collision leaves no single name.</param>
+    /// <param name="Ambiguous">Whether more than one recovered method produced this key (overloads share their name).</param>
+    private readonly record struct MethodJoin(string? Name, bool Ambiguous);
+
+    // Sanitized type key -> managed FullName; sanitized "{typeKey}__{method}" -> the method join.
+    // A type key colliding with a different FullName maps to null; a method key hit twice is
+    // ambiguous even when the display name is identical — overloads share a name, and without a
+    // signature the reader cannot tell which one a native symbol is.
     private readonly Dictionary<string, string?> _typeByKey = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string?> _methodByKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, MethodJoin> _methodByKey = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Builds a demangler from the types recovered from a binary's embedded metadata.
@@ -42,7 +49,7 @@ internal sealed class IlcNameDemangler
             Add(_typeByKey, typeKey, type.FullName);
 
             foreach (var method in type.MethodNames)
-                Add(_methodByKey, $"{typeKey}__{Sanitize(method)}", $"{type.FullName}.{method}");
+                AddMethod($"{typeKey}__{Sanitize(method)}", $"{type.FullName}.{method}");
         }
     }
 
@@ -60,19 +67,15 @@ internal sealed class IlcNameDemangler
         // A function: strip generic/constructed <…> scopes, then join against known methods.
         var flat = StripScopes(symbol);
 
-        if (_methodByKey.TryGetValue(flat, out var exact) && exact is not null)
-            return new Result(exact, NativeSymbolKind.Function, true);
+        if (_methodByKey.TryGetValue(flat, out var join) && join.Name is not null)
+            return new Result(join.Name, NativeSymbolKind.Function, !join.Ambiguous);
 
         // Overload disambiguation suffix (_0, _1, …) that metadata cannot distinguish.
         var deSuffixed = StripTrailingOverloadSuffix(flat);
-        if (deSuffixed is not null && _methodByKey.TryGetValue(deSuffixed, out var overload) && overload is not null)
-            return new Result(overload, NativeSymbolKind.Function, false);
+        if (deSuffixed is not null && _methodByKey.TryGetValue(deSuffixed, out var overload) && overload.Name is not null)
+            return new Result(overload.Name, NativeSymbolKind.Function, false);
 
-        // Known type, method absent from the (sparse) metadata: name it by its longest known type prefix.
-        if (TryMatchByTypePrefix(flat, out var byType))
-            return new Result(byType, NativeSymbolKind.Function, false);
-
-        // No join: a heuristic display with the assembly moniker expanded, but no managed name.
+        // No join: heuristics never claim a managed name — the raw name stays the display.
         return new Result(null, NativeSymbolKind.Function, false);
     }
 
@@ -154,24 +157,6 @@ internal sealed class IlcNameDemangler
 
     private bool IsExactMatchForType(string mangledType) =>
         _typeByKey.TryGetValue(StripScopes(mangledType), out var name) && name is not null;
-
-    private bool TryMatchByTypePrefix(string flat, out string managedName)
-    {
-        // Walk the '__' method-separator candidates, longest type prefix first.
-        for (var i = flat.Length - 2; i > 0; i--)
-        {
-            if (flat[i] != '_' || flat[i + 1] != '_') continue;
-            var typeKey = flat[..i];
-            if (_typeByKey.TryGetValue(typeKey, out var typeName) && typeName is not null)
-            {
-                managedName = $"{typeName}.{flat[(i + 2)..]}";
-                return true;
-            }
-        }
-
-        managedName = "";
-        return false;
-    }
 
     private static string? StripTrailingOverloadSuffix(string flat)
     {
@@ -261,6 +246,23 @@ internal sealed class IlcNameDemangler
         else
         {
             map[key] = value;
+        }
+    }
+
+    private void AddMethod(string key, string value)
+    {
+        // Any second writer marks the key ambiguous — even with an identical display name,
+        // duplicates mean overloads, and no signature can say which one a symbol is. The shared
+        // name survives when it is the same, so the symbol can still be named, just not exactly.
+        if (_methodByKey.TryGetValue(key, out var existing))
+        {
+            _methodByKey[key] = new MethodJoin(
+                string.Equals(existing.Name, value, StringComparison.Ordinal) ? existing.Name : null,
+                Ambiguous: true);
+        }
+        else
+        {
+            _methodByKey[key] = new MethodJoin(value, Ambiguous: false);
         }
     }
 }
