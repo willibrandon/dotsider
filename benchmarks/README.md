@@ -225,6 +225,9 @@ One read fully decodes the sample's ILC size report: walks the IL stream for eve
 
 | Benchmark | Mean | Allocated |
 |---|---|---|
+| Read symbols (platform artifact) | 19.16 ms | 64.80 MB |
+| Boundary fallback (no sidecars) | 1.77 ms | 3.41 MB |
+| TryReadPdbId probe | 10.73 μs | 12.4 KB |
 
 On this machine the symbol read follows the dSYM path — the bundle's DWARF and nlist merged — while the Windows leg reads the native PDB and the Linux leg the `.dbg`. The boundary fallback measures the unwind-data walk alone (`LC_FUNCTION_STARTS` here, `.pdata` on Windows, `.eh_frame` on Linux). The probe is the per-constructor PDB identity check; it is plain file reading, so on legs whose publish makes no PDB it targets a staged minimal MSF — the same superblock, block-map, directory, and stream-1 reads, just a smaller directory than the real artifact's.
 
