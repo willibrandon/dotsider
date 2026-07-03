@@ -188,6 +188,68 @@ internal static class ElfImageReader
         }
     }
 
+    /// <summary>
+    /// Reads the GNU build id from the <c>.note.gnu.build-id</c> section — the note whose owner
+    /// is <c>GNU</c> and type is 3 — walking past any other notes sharing the section.
+    /// </summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="buildId">The build id payload when found.</param>
+    internal static bool TryReadBuildId(ReadOnlySpan<byte> bytes, out byte[] buildId)
+    {
+        buildId = [];
+        if (!TryGetSection(bytes, ".note.gnu.build-id", out var section)) return false;
+        if (section.FileOffset < 0 || section.FileOffset + section.Size > bytes.Length) return false;
+
+        var data = bytes.Slice(section.FileOffset, section.Size);
+        var position = 0;
+        while (position + 12 <= data.Length)
+        {
+            var nameSize = BinaryPrimitives.ReadUInt32LittleEndian(data[position..]);
+            var descSize = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + 4)..]);
+            var type = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + 8)..]);
+            var namePosition = position + 12;
+            var descPosition = namePosition + (int)((nameSize + 3) & ~3u);
+            var next = descPosition + (int)((descSize + 3) & ~3u);
+            if (nameSize > (uint)data.Length || descSize > (uint)data.Length || next > data.Length) return false;
+
+            if (type == 3 && nameSize == 4 && data.Slice(namePosition, 4).SequenceEqual("GNU\0"u8))
+            {
+                buildId = data.Slice(descPosition, (int)descSize).ToArray();
+                return buildId.Length > 0;
+            }
+
+            position = next;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the <c>.gnu_debuglink</c> section: the sidecar's file name, then — 4-aligned — the
+    /// CRC-32 of the entire sidecar file.
+    /// </summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="fileName">The named sidecar file.</param>
+    /// <param name="crc">The expected CRC-32 of the sidecar's bytes.</param>
+    internal static bool TryReadDebugLink(ReadOnlySpan<byte> bytes, out string fileName, out uint crc)
+    {
+        fileName = "";
+        crc = 0;
+        if (!TryGetSection(bytes, ".gnu_debuglink", out var section)) return false;
+        if (section.FileOffset < 0 || section.FileOffset + section.Size > bytes.Length) return false;
+
+        var data = bytes.Slice(section.FileOffset, section.Size);
+        var end = data.IndexOf((byte)0);
+        if (end <= 0) return false;
+
+        var crcOffset = (end + 1 + 3) & ~3;
+        if (crcOffset + 4 > data.Length) return false;
+
+        fileName = Encoding.UTF8.GetString(data[..end]);
+        crc = BinaryPrimitives.ReadUInt32LittleEndian(data[crcOffset..]);
+        return true;
+    }
+
     private static string? ReadString(ReadOnlySpan<byte> bytes, long tableOffset, uint offset)
     {
         var start = tableOffset + offset;

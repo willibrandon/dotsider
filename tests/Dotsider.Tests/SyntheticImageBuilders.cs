@@ -234,4 +234,51 @@ internal static class SyntheticImageBuilders
         WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length);
         return image;
     }
+
+    /// <summary>
+    /// Builds a GNU build-id note (owner <c>GNU</c>, type 3) for a <c>.note.gnu.build-id</c>
+    /// section, optionally preceded by an unrelated note the reader must walk past.
+    /// </summary>
+    /// <param name="id">The build id payload.</param>
+    /// <param name="precedeWithForeignNote">Whether to prepend a non-GNU note entry.</param>
+    public static byte[] GnuBuildIdNote(byte[] id, bool precedeWithForeignNote = false)
+    {
+        var note = new List<byte>();
+        void U32(uint v) { Span<byte> t = stackalloc byte[4]; BinaryPrimitives.WriteUInt32LittleEndian(t, v); note.AddRange(t); }
+        void Padded(byte[] data)
+        {
+            note.AddRange(data);
+            for (var i = data.Length; (i & 3) != 0; i++) note.Add(0);
+        }
+
+        if (precedeWithForeignNote)
+        {
+            U32(4); U32(2); U32(1); // namesz, descsz, type
+            Padded("XYZ\0"u8.ToArray());
+            Padded([0xAA, 0xBB]);
+        }
+
+        U32(4); U32((uint)id.Length); U32(3);
+        Padded("GNU\0"u8.ToArray());
+        Padded(id);
+        return [.. note];
+    }
+
+    /// <summary>
+    /// Builds <c>.gnu_debuglink</c> content: the sidecar file name, 4-aligned, then the CRC-32
+    /// of the sidecar's bytes.
+    /// </summary>
+    /// <param name="fileName">The sidecar file name.</param>
+    /// <param name="crc">The CRC-32 of the entire sidecar file.</param>
+    public static byte[] GnuDebugLink(string fileName, uint crc)
+    {
+        var content = new List<byte>();
+        content.AddRange(System.Text.Encoding.UTF8.GetBytes(fileName));
+        content.Add(0);
+        while ((content.Count & 3) != 0) content.Add(0);
+        Span<byte> t = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(t, crc);
+        content.AddRange(t);
+        return [.. content];
+    }
 }
