@@ -444,11 +444,33 @@ static async Task<int> RunTui(string[] args, string filePath)
     }
     finally
     {
-        AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
-        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
-        CursorColorHelper.ResetCursorColor();
-        hex1bApp.Dispose();
-        RestoreTerminal();
+        // RestoreTerminal must run even if Dispose throws — otherwise a teardown failure leaves the
+        // terminal in the alternate screen with mouse reporting on (mouse motion then echoes as escape
+        // sequences at the shell). Catch and log the teardown so the terminal is always restored and
+        // the failure leaves a trace instead of vanishing into a bare process exit.
+        try
+        {
+            CursorColorHelper.ResetCursorColor();
+            hex1bApp.Dispose();
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                var log = Path.Combine(Path.GetTempPath(), "dotsider-crash.log");
+                File.AppendAllText(log, $"{DateTime.Now:O}\nTeardown: {ex}\n\n");
+            }
+            catch
+            {
+                // Best-effort.
+            }
+        }
+        finally
+        {
+            RestoreTerminal();
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+        }
     }
 
     return 0;
