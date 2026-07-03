@@ -832,6 +832,80 @@ public sealed class DotsiderState : IDisposable
         App.Invalidate();
     }
 
+    /// <summary>Navigates to the Hex Dump tab, jumping directly to a file offset (native mode).</summary>
+    /// <param name="fileOffset">The file offset to jump to.</param>
+    public void NavigateToHexFileOffset(long fileOffset)
+    {
+        if (fileOffset < 0) return;
+
+        CrossViewBackStack.Push((CurrentTab, PeSubTab));
+
+        var doc = HexEditorState.Document;
+        if (fileOffset < doc.ByteCount)
+        {
+            var byteMap = doc.GetByteMap();
+            var (charIdx, _) = byteMap.ByteToChar((int)fileOffset);
+            HexEditorState.SetCursorPosition(new Hex1b.Documents.DocumentOffset(charIdx));
+            HexEditorState.ByteCursorOffset = (int)fileOffset;
+            HexScrollTarget = fileOffset;
+        }
+
+        NavigateToTab(TabId.HexDump);
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Selects a native symbol in the IL-inspector native mode, pushing the current view onto the
+    /// native back stack (for Esc) and expanding the tree path so the target is visible. This is the
+    /// go-to-definition landing for a resolved call/branch target.
+    /// </summary>
+    /// <param name="symbol">The native symbol to navigate to.</param>
+    public void NavigateToNativeSymbol(NativeSymbol symbol)
+    {
+        if (IlSelectedNativeSymbol is { } current)
+        {
+            IlNativeBackStack.Push(new NativeBackEntry(
+                current, IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState)));
+        }
+
+        ExpandNativeTreePath(symbol);
+        IlSelectedNativeSymbol = symbol;
+        IlFocusedTreeKey = $"nfunc:{symbol.VirtualAddress:x}";
+        App.Invalidate();
+    }
+
+    /// <summary>Restores the native IL-inspector view from a back-stack entry on Esc.</summary>
+    /// <param name="entry">The entry to restore.</param>
+    public void RestoreFromNativeBackEntry(NativeBackEntry entry)
+    {
+        IlSelectedNativeSymbol = entry.Symbol;
+        IlFocusedTreeKey = entry.FocusedTreeKey;
+        IlTreeExpansionState.Clear();
+        foreach (var (k, v) in entry.TreeExpansionState)
+            IlTreeExpansionState[k] = v;
+        App.Invalidate();
+    }
+
+    private void ExpandNativeTreePath(NativeSymbol symbol)
+    {
+        string ns, type;
+        if (symbol.Kind == NativeSymbolKind.Function && symbol.ManagedName is { } managed)
+        {
+            var parsed = Core.Analysis.Disasm.NativeSymbolName.Parse(managed);
+            ns = parsed.Namespace.Length == 0 ? "(global)" : parsed.Namespace;
+            type = parsed.TypeName.Length == 0 ? "(functions)" : parsed.TypeName;
+        }
+        else
+        {
+            ns = type = symbol.Kind == NativeSymbolKind.Stub ? "(stubs)"
+                : symbol.Kind == NativeSymbolKind.Function ? "(runtime)" : "(functions)";
+        }
+
+        IlTreeExpansionState[$"nns:{ns}"] = true;
+        IlTreeExpansionState[$"ntype:{ns}/{type}"] = true;
+    }
+
     /// <summary>
     /// Navigates to the definition of the IL instruction's metadata token.
     /// </summary>

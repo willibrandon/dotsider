@@ -41,7 +41,11 @@ internal static class IlEditorHost
                     // First match wins in the binding walk.
                     bindings.Key(Hex1bKey.Escape).Action(_ =>
                     {
-                        if (state.IlBackStack.Count > 0)
+                        if (state.IlNativeBackStack.Count > 0)
+                        {
+                            state.RestoreFromNativeBackEntry(state.IlNativeBackStack.Pop());
+                        }
+                        else if (state.IlBackStack.Count > 0)
                         {
                             var entry = state.IlBackStack.Pop();
                             state.RestoreFromIlBackEntry(entry);
@@ -97,6 +101,21 @@ internal static class IlEditorHost
 
     private static void PerformGoToDefinition(DotsiderState state)
     {
+        // Native mode: resolve the target of the instruction under the cursor to a symbol.
+        if (state.IlNativeInstructions is { } nativeInstructions
+            && state.IlEditorState is { } nativeEditor
+            && state.Analyzer.NativeSymbols is { } info)
+        {
+            var inst = NativeNavigationHelper.GetInstructionAtCursor(nativeEditor, nativeInstructions);
+            if (inst?.TargetAddress is { } target && info.TryFindByAddress(target, out var symbol))
+            {
+                state.NavigateToNativeSymbol(symbol);
+                state.App.Invalidate();
+            }
+
+            return;
+        }
+
         if (state.IlInstructions is { } instructions
             && state.IlEditorState is { } es)
         {

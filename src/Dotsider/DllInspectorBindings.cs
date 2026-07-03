@@ -225,6 +225,14 @@ public static class DllInspectorBindings
                     state.NavigateToHexOffset(ilMethod.Rva);
                 }, "View in hex");
             }
+            else if (state.IlSelectedNativeSymbol is { FileOffset: { } nativeFileOffset })
+            {
+                bindings.Key(Hex1bKey.X).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.NavigateToHexFileOffset(nativeFileOffset);
+                }, "View in hex");
+            }
 
             bindings.Key(Hex1bKey.L).Global().Action(_ =>
             {

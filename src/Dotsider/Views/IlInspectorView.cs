@@ -503,6 +503,8 @@ public static class IlInspectorView
             state.IlEditorAnalyzer = state.Analyzer;
             state.IlNativeInstructions = result?.Instructions;
             state.IlNativeHeaderLineCount = result?.HeaderLineCount ?? 0;
+            state.IlNativeSyntaxProvider.Instructions = state.IlNativeInstructions;
+            state.IlNativeNavigationProvider.Instructions = state.IlNativeInstructions;
             state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, unchecked((int)symbol.VirtualAddress));
             state.IlCachedEditors.Remove(state.IlEditorKey);
 

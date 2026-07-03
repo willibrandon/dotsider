@@ -12,6 +12,7 @@ namespace Dotsider.Tests;
 /// </summary>
 public class NativeSyntaxDecorationTests
 {
+    /// <summary>Verifies the provider emits address and mnemonic spans for each instruction line.</summary>
     [Fact(Timeout = 30_000)]
     public void GetDecorations_NativeListing_ColorsMnemonicAndAddress()
     {
@@ -29,6 +30,7 @@ public class NativeSyntaxDecorationTests
         Assert.True(spans.Count >= instructions.Count(i => i.DisplayLine is not null) * 2);
     }
 
+    /// <summary>Verifies the provider produces nothing until it is fed an instruction list.</summary>
     [Fact(Timeout = 30_000)]
     public void GetDecorations_NoInstructions_IsInert()
     {
