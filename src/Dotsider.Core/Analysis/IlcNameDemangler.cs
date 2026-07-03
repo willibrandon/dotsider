@@ -19,9 +19,9 @@ namespace Dotsider.Core.Analysis;
 internal sealed class IlcNameDemangler
 {
     /// <summary>The outcome of demangling a single symbol.</summary>
-    /// <param name="ManagedName">The managed name, or null when no confident name could be produced.</param>
+    /// <param name="ManagedName">The managed name joined from recovered metadata, or null when no join exists — heuristics never populate it. Overloads share a name, so precision lives in <paramref name="IsExactMatch"/>.</param>
     /// <param name="Kind">The classified symbol kind.</param>
-    /// <param name="IsExactMatch">Whether <paramref name="ManagedName"/> is an unambiguous join rather than a heuristic display.</param>
+    /// <param name="IsExactMatch">Whether <paramref name="ManagedName"/> identifies exactly one recovered member.</param>
     internal readonly record struct Result(string? ManagedName, NativeSymbolKind Kind, bool IsExactMatch);
 
     /// <summary>A method-key join: the shared display name and whether the key is ambiguous.</summary>

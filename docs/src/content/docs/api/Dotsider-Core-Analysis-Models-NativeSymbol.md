@@ -41,7 +41,7 @@ to recompute a mapping.
 **Parameters:**
 
 - `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The raw symbol name (mangled for managed code), or a synthesized `sub_…` for a boundary.
-- `ManagedName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The demangled managed name when the symbol joined a recovered type unambiguously, else null.
+- `ManagedName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The managed name joined from the binary's recovered metadata, or null when no join exists. Overloads share a name, so this alone does not pin a member — [IsExactMatch](/api/dotsider.core.analysis.models.nativesymbol.isexactmatch/) is the precision flag.
 - `VirtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64)): The symbol's virtual address (image base + RVA on PE; the symbol VA on ELF/Mach-O).
 - `Rva` ([Nullable\<UInt32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The PE relative virtual address, or null for non-PE images.
 - `FileOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The file offset the address maps to, or null when the symbol is not file-backed.
@@ -50,7 +50,7 @@ to recompute a mapping.
 - `Kind` ([NativeSymbolKind](/api/dotsider.core.analysis.models.nativesymbolkind/)): What the symbol represents.
 - `SourceFile` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The declaring source file, when debug line info is present.
 - `Line` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The declaring source line, when debug line info is present.
-- `IsExactMatch` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether [ManagedName](/api/dotsider.core.analysis.models.nativesymbol.managedname/) is an unambiguous demangle rather than a heuristic display.
+- `IsExactMatch` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether [ManagedName](/api/dotsider.core.analysis.models.nativesymbol.managedname/) identifies exactly one recovered member; false when the join is ambiguous (overloads sharing a name, or an overload-suffix join).
 - `Aliases` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): Alternate names that resolved to the same address and were merged into this symbol.
 
 ```csharp
@@ -81,7 +81,7 @@ public long? FileOffset { get; init; }
 
 ### IsExactMatch
 
-Whether [ManagedName](/api/dotsider.core.analysis.models.nativesymbol.managedname/) is an unambiguous demangle rather than a heuristic display.
+Whether [ManagedName](/api/dotsider.core.analysis.models.nativesymbol.managedname/) identifies exactly one recovered member; false when the join is ambiguous (overloads sharing a name, or an overload-suffix join).
 
 **Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
 
@@ -111,7 +111,7 @@ public int? Line { get; init; }
 
 ### ManagedName
 
-The demangled managed name when the symbol joined a recovered type unambiguously, else null.
+The managed name joined from the binary's recovered metadata, or null when no join exists. Overloads share a name, so this alone does not pin a member — [IsExactMatch](/api/dotsider.core.analysis.models.nativesymbol.isexactmatch/) is the precision flag.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 

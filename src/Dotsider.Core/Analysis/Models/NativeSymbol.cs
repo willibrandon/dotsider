@@ -8,7 +8,7 @@ namespace Dotsider.Core.Analysis.Models;
 /// to recompute a mapping.
 /// </summary>
 /// <param name="Name">The raw symbol name (mangled for managed code), or a synthesized <c>sub_…</c> for a boundary.</param>
-/// <param name="ManagedName">The demangled managed name when the symbol joined a recovered type unambiguously, else null.</param>
+/// <param name="ManagedName">The managed name joined from the binary's recovered metadata, or null when no join exists. Overloads share a name, so this alone does not pin a member — <see cref="IsExactMatch"/> is the precision flag.</param>
 /// <param name="VirtualAddress">The symbol's virtual address (image base + RVA on PE; the symbol VA on ELF/Mach-O).</param>
 /// <param name="Rva">The PE relative virtual address, or null for non-PE images.</param>
 /// <param name="FileOffset">The file offset the address maps to, or null when the symbol is not file-backed.</param>
@@ -17,7 +17,7 @@ namespace Dotsider.Core.Analysis.Models;
 /// <param name="Kind">What the symbol represents.</param>
 /// <param name="SourceFile">The declaring source file, when debug line info is present.</param>
 /// <param name="Line">The declaring source line, when debug line info is present.</param>
-/// <param name="IsExactMatch">Whether <see cref="ManagedName"/> is an unambiguous demangle rather than a heuristic display.</param>
+/// <param name="IsExactMatch">Whether <see cref="ManagedName"/> identifies exactly one recovered member; false when the join is ambiguous (overloads sharing a name, or an overload-suffix join).</param>
 /// <param name="Aliases">Alternate names that resolved to the same address and were merged into this symbol.</param>
 public sealed record NativeSymbol(
     string Name,
