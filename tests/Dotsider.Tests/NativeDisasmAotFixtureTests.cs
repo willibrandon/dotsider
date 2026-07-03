@@ -42,7 +42,7 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
             var insns = NativeDisassembler.Disassemble(code, 0, arch);
             Assert.Equal(code.Length, insns.Sum(i => i.Length));
             var fallback = insns.FirstOrDefault(i => i.IsFallback);
-            Assert.True(fallback is null, $"{name}: unexpected fallback {fallback?.OperandText}");
+            Assert.True(fallback is null, $"{name} @+0x{fallback?.Address:x}: unexpected fallback {fallback?.Mnemonic} {fallback?.OperandText} (bytes {Hex(fallback)})");
             checkedFns++;
         }
 
@@ -62,19 +62,43 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
         Assert.NotNull(symbols);
 
         var sawVector = false;
+        var checkedFns = 0;
+        var totalInsns = 0;
+        var categories = new HashSet<NativeInstructionCategory>();
+        var simdSamples = new List<string>();
         foreach (var (code, name) in ManagedFunctions(analyzer, symbols!))
         {
             var insns = NativeDisassembler.Disassemble(code, 0, arch);
             Assert.Equal(code.Length, insns.Sum(i => i.Length));
-            Assert.True(insns.All(i => !i.IsFallback), $"{name}: unexpected fallback");
+            var fallback = insns.FirstOrDefault(i => i.IsFallback);
+            Assert.True(fallback is null, $"{name} @+0x{fallback?.Address:x}: unexpected fallback {fallback?.Mnemonic} {fallback?.OperandText} (bytes {Hex(fallback)})");
 
-            sawVector |= insns.Any(i => i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float
-                && i.Operands.Any(o => o.Register is { } r
-                    && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z'))));
+            checkedFns++;
+            totalInsns += insns.Count;
+            foreach (var i in insns)
+            {
+                categories.Add(i.Category);
+                if (i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float)
+                {
+                    if (i.Operands.Any(o => o.Register is { } r
+                        && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z'))))
+                        sawVector = true;
+                    else if (simdSamples.Count < 8)
+                        simdSamples.Add($"{i.Mnemonic} {i.OperandText}");
+                }
+            }
         }
 
-        Assert.True(sawVector, "expected at least one vector-register operand across the intrinsic methods");
+        // On failure, surface what the leg actually decoded: whether any Vector/Float instruction was
+        // seen at all (a build/ISA issue) versus seen without a recognized vector register (a decoder
+        // operand-classification issue).
+        Assert.True(sawVector,
+            $"no vector-register operand across {checkedFns} functions / {totalInsns} instructions; "
+            + $"categories=[{string.Join(",", categories)}]; simd-without-vreg=[{string.Join(" | ", simdSamples)}]");
     }
+
+    private static string Hex(NativeInstruction? insn) =>
+        insn is null ? "—" : string.Join(" ", insn.Bytes.Select(b => b.ToString("x2")));
 
     private static IEnumerable<(byte[] Code, string Name)> ManagedFunctions(AssemblyAnalyzer analyzer, NativeSymbolInfo symbols)
     {

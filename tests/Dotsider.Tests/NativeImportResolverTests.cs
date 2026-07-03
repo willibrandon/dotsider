@@ -28,11 +28,16 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
         Assert.NotNull(resolver); // a NativeAOT exe imports a handful of OS APIs
         Assert.NotEmpty(resolver.Slots);
 
-        // Each mapped slot round-trips through TryResolve to its MODULE!Function name.
+        // Each mapped slot round-trips through TryResolve to its imported name.
         var (slotVa, name) = resolver.Slots.First();
         Assert.True(resolver.TryResolve(slotVa, out var import));
         Assert.Equal(name, import.Name);
-        Assert.Contains('!', import.Name);
+        Assert.False(string.IsNullOrEmpty(import.Name));
+
+        // The MODULE!Function form is a PE Import Address Table convention; ELF PLT/GOT and Mach-O
+        // stub imports are bare (or leading-underscored) symbol names with no module qualifier.
+        if (OperatingSystem.IsWindows())
+            Assert.Contains('!', import.Name);
     }
 
     /// <summary>Verifies the import resolver composes into DisassembleSymbol's target naming.</summary>
