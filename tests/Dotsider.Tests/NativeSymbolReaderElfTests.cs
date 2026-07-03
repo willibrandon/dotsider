@@ -257,6 +257,40 @@ public class NativeSymbolReaderElfTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
+    /// Verifies a sidecar whose debug sections are <c>SHF_COMPRESSED</c> — the GNU toolchain
+    /// default that produces zlib payloads behind an <c>Elf64_Chdr</c> — inflates and loads.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Read_CompressedDebugSections_InflateAndLoad()
+    {
+        var dir = Directory.CreateTempSubdirectory("dotsider-elf-");
+        try
+        {
+            var exePath = Write(dir.FullName, "app", SyntheticImageBuilders.BuildElf(
+                (".text", 0x1000, new byte[0x100]),
+                (".note.gnu.build-id", 0, SyntheticImageBuilders.GnuBuildIdNote(IdA))));
+
+            var (info, abbrev) = MinimalDwarf("frost_main", 0x1010, 0x40);
+            Write(dir.FullName, "app.dbg", SyntheticImageBuilders.BuildElf(
+                (".note.gnu.build-id", 0, SyntheticImageBuilders.GnuBuildIdNote(IdA), 1u, 0u, 0UL),
+                (".debug_info", 0, SyntheticImageBuilders.CompressDebugSection(info), 1u, 0u, 0x800UL),
+                (".debug_abbrev", 0, SyntheticImageBuilders.CompressDebugSection(abbrev), 1u, 0u, 0x800UL)));
+
+            var result = NativeSymbolReader.Read(exePath, File.ReadAllBytes(exePath), []);
+
+            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
+            Assert.Equal(NativeSymbolSource.Dwarf, result.Source);
+            var symbol = Assert.Single(result.Symbols);
+            Assert.Equal("frost_main", symbol.Name);
+            Assert.Equal(0x40, symbol.Size);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Verifies a matched sidecar with unreadable debug data reports
     /// <see cref="NativeSymbolStatus.CorruptSymbolFile"/>.
     /// </summary>

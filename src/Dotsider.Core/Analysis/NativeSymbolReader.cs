@@ -324,8 +324,7 @@ public static class NativeSymbolReader
     {
         var dwarf = DwarfSections.Collect(name =>
             ElfImageReader.TryGetSection(symbolBytes, ".debug_" + name, out var s)
-                && s.Size > 0 && s.FileOffset >= 0 && s.FileOffset + s.Size <= symbolBytes.Length
-                ? symbolBytes.AsSpan(s.FileOffset, s.Size).ToArray()
+                ? ElfImageReader.ReadSectionBytes(symbolBytes, s)
                 : null);
         AppendDwarfFunctions(dwarf, va =>
             ElfImageReader.TryMapAddress(imageSections, va, out var name, out var offset)

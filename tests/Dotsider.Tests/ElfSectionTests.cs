@@ -53,4 +53,37 @@ public class ElfSectionTests
         var truncated = SyntheticImageBuilders.BuildElf((".text", 0, new byte[] { 1 }))[..70];
         Assert.Empty(ElfImageReader.ReadSections(truncated));
     }
+
+    /// <summary>
+    /// Verifies section content materializes through <c>SHF_COMPRESSED</c>: a zlib payload
+    /// inflates to the original bytes, plain sections pass through, and unsupported or
+    /// malformed compression reads as absent rather than as garbage.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void ReadSectionBytes_InflatesCompressedSections()
+    {
+        byte[] payload = [.. Enumerable.Range(0, 512).Select(i => (byte)(i * 7))];
+        var image = SyntheticImageBuilders.BuildElf(
+            (".debug_info", 0, SyntheticImageBuilders.CompressDebugSection(payload), 1u, 0u, 0x800UL),
+            (".debug_abbrev", 0, payload, 1u, 0u, 0UL));
+        var sections = ElfImageReader.ReadSections(image);
+
+        var compressed = sections.Single(s => s.Name == ".debug_info");
+        Assert.Equal(payload, ElfImageReader.ReadSectionBytes(image, compressed));
+
+        var plain = sections.Single(s => s.Name == ".debug_abbrev");
+        Assert.Equal(payload, ElfImageReader.ReadSectionBytes(image, plain));
+
+        // Unsupported compression type (zstd = 2): absent, not misread.
+        var zstd = SyntheticImageBuilders.CompressDebugSection(payload);
+        zstd[0] = 2;
+        var zstdImage = SyntheticImageBuilders.BuildElf((".debug_info", 0, zstd, 1u, 0u, 0x800UL));
+        Assert.Null(ElfImageReader.ReadSectionBytes(
+            zstdImage, ElfImageReader.ReadSections(zstdImage).Single(s => s.Name == ".debug_info")));
+
+        // Truncated header: absent.
+        var tiny = SyntheticImageBuilders.BuildElf((".debug_info", 0, new byte[8], 1u, 0u, 0x800UL));
+        Assert.Null(ElfImageReader.ReadSectionBytes(
+            tiny, ElfImageReader.ReadSections(tiny).Single(s => s.Name == ".debug_info")));
+    }
 }

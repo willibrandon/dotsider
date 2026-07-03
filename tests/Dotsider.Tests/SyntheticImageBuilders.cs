@@ -172,7 +172,16 @@ internal static class SyntheticImageBuilders
     /// indices follow build order: the null section is 0, the given sections are 1..n.
     /// </summary>
     /// <param name="sections">Each section's name, virtual address, content, <c>sh_type</c>, and <c>sh_link</c>.</param>
-    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content, uint Type, uint Link)[] sections)
+    public static byte[] BuildElf(params (string Name, ulong Address, byte[] Content, uint Type, uint Link)[] sections) =>
+        BuildElf([.. sections.Select(s => (s.Name, s.Address, s.Content, s.Type, s.Link, 0UL))]);
+
+    /// <summary>
+    /// Builds a minimal 64-bit little-endian ELF image with explicit section types, links, and
+    /// flags — <c>SHF_COMPRESSED</c> (0x800) marks content carrying an <c>Elf64_Chdr</c>.
+    /// </summary>
+    /// <param name="sections">Each section's name, address, content, <c>sh_type</c>, <c>sh_link</c>, and <c>sh_flags</c>.</param>
+    public static byte[] BuildElf(
+        params (string Name, ulong Address, byte[] Content, uint Type, uint Link, ulong Flags)[] sections)
     {
         const int headerSize = 64;
         const int sectionHeaderSize = 64;
@@ -223,11 +232,12 @@ internal static class SyntheticImageBuilders
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(60), (ushort)sectionCount);
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(62), (ushort)(sectionCount - 1)); // e_shstrndx
 
-        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size, uint link)
+        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size, uint link, ulong flags)
         {
             var h = tableOffset + index * sectionHeaderSize;
             BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h), nameOffset);
             BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h + 4), type);
+            BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 8), flags);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 16), address);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 24), (ulong)fileOffset);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 32), (ulong)size);
@@ -238,12 +248,35 @@ internal static class SyntheticImageBuilders
         {
             sections[i].Content.CopyTo(image.AsSpan(contentOffsets[i]));
             WriteHeader(i + 1, nameOffsets[i], sections[i].Type, sections[i].Address,
-                contentOffsets[i], sections[i].Content.Length, sections[i].Link);
+                contentOffsets[i], sections[i].Content.Length, sections[i].Link, sections[i].Flags);
         }
 
         shStrTab.CopyTo(image.AsSpan(shStrTabOffset));
-        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length, 0);
+        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length, 0, 0);
         return image;
+    }
+
+    /// <summary>
+    /// Wraps section content the way GNU toolchains compress debug sections: an
+    /// <c>Elf64_Chdr</c> (zlib type) followed by the zlib-deflated payload. Pair with
+    /// <c>SHF_COMPRESSED</c> (0x800) section flags.
+    /// </summary>
+    /// <param name="content">The uncompressed section content.</param>
+    public static byte[] CompressDebugSection(byte[] content)
+    {
+        using var buffer = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(
+            buffer, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            zlib.Write(content);
+        }
+
+        var section = new byte[24 + buffer.Length];
+        BinaryPrimitives.WriteUInt32LittleEndian(section, 1); // ELFCOMPRESS_ZLIB
+        BinaryPrimitives.WriteUInt64LittleEndian(section.AsSpan(8), (ulong)content.Length);
+        BinaryPrimitives.WriteUInt64LittleEndian(section.AsSpan(16), 1); // ch_addralign
+        buffer.ToArray().CopyTo(section.AsSpan(24));
+        return section;
     }
 
     /// <summary>

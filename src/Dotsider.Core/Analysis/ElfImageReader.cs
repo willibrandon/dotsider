@@ -23,6 +23,8 @@ internal static class ElfImageReader
     private const int StbGlobal = 1;
     private const int StbWeak = 2;
     private const ushort ShnUndef = 0;
+    private const ulong ShfCompressed = 0x800;
+    private const uint ElfCompressZlib = 1;
 
     /// <summary>Returns true if the bytes are a 64-bit ELF image.</summary>
     internal static bool IsElf(ReadOnlySpan<byte> bytes) =>
@@ -38,8 +40,9 @@ internal static class ElfImageReader
     /// <param name="Size">The section's byte size (<c>sh_size</c>).</param>
     /// <param name="Link">The <c>sh_link</c> value (for a symbol table, its string table's section index).</param>
     /// <param name="Info">The <c>sh_info</c> value (meaning varies by section type).</param>
+    /// <param name="Flags">The <c>sh_flags</c> value (<c>SHF_COMPRESSED</c> marks a compressed payload).</param>
     internal readonly record struct ElfSection(
-        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Link, uint Info);
+        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Link, uint Info, ulong Flags);
 
     /// <summary>
     /// Walks the section headers into named sections, or an empty list when the image is not a
@@ -69,13 +72,14 @@ internal static class ElfImageReader
                 if (header + SectionHeaderSize > bytes.Length) break;
                 var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)header..]);
                 var type = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 4)..]);
+                var flags = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 8)..]);
                 var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 16)..]);
                 var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
                 var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
                 var link = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 40)..]);
                 var info = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 44)..]);
                 var name = ReadString(bytes, shStrTableOffset, nameOffset) ?? "";
-                sections.Add(new ElfSection(name, type, address, offset, size, link, info));
+                sections.Add(new ElfSection(name, type, address, offset, size, link, info, flags));
             }
 
             return sections;
@@ -187,6 +191,46 @@ internal static class ElfImageReader
         catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
         {
             return [];
+        }
+    }
+
+    /// <summary>
+    /// Materializes a section's content, transparently inflating <c>SHF_COMPRESSED</c> zlib
+    /// payloads — GNU toolchains compress debug sections by default, prefixing them with an
+    /// <c>Elf64_Chdr</c>. Unsupported compression (zstd) and malformed payloads yield null so
+    /// the section reads as absent rather than as garbage.
+    /// </summary>
+    /// <param name="bytes">The raw image bytes.</param>
+    /// <param name="section">The section to read.</param>
+    internal static byte[]? ReadSectionBytes(ReadOnlySpan<byte> bytes, ElfSection section)
+    {
+        if (section.Size <= 0 || section.FileOffset < 0
+            || section.FileOffset + section.Size > bytes.Length)
+        {
+            return null;
+        }
+
+        var raw = bytes.Slice(section.FileOffset, section.Size);
+        if ((section.Flags & ShfCompressed) == 0) return raw.ToArray();
+
+        // Elf64_Chdr: ch_type u32, ch_reserved u32, ch_size u64, ch_addralign u64.
+        if (raw.Length < 24) return null;
+        var compressionType = BinaryPrimitives.ReadUInt32LittleEndian(raw);
+        var uncompressedSize = BinaryPrimitives.ReadUInt64LittleEndian(raw[8..]);
+        if (compressionType != ElfCompressZlib || uncompressedSize is 0 or > int.MaxValue) return null;
+
+        try
+        {
+            using var compressed = new MemoryStream(raw[24..].ToArray());
+            using var zlib = new System.IO.Compression.ZLibStream(
+                compressed, System.IO.Compression.CompressionMode.Decompress);
+            var inflated = new byte[(int)uncompressedSize];
+            zlib.ReadExactly(inflated);
+            return inflated;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException)
+        {
+            return null;
         }
     }
 
