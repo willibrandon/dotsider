@@ -166,6 +166,11 @@ internal static partial class Arm64OperandFormatter
                 cat = NativeInstructionCategory.System;
                 break;
 
+            case Arm64Format.Udf:
+                Imm(ops, $"#0x{word & 0xFFFF:x}", word & 0xFFFF);
+                cat = NativeInstructionCategory.System;
+                break;
+
             case Arm64Format.Hint:
             case Arm64Format.Barrier:
                 cat = NativeInstructionCategory.System;

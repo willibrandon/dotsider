@@ -40,6 +40,8 @@ internal enum Arm64Format
     BranchReg,
     /// <summary>#imm16 (svc/hvc/brk).</summary>
     Exception,
+    /// <summary>#imm16 from bits[15:0] (udf — the permanently-undefined encoding; 0x00000000 is udf #0).</summary>
+    Udf,
     /// <summary>No operands or a hint immediate (nop/yield/…).</summary>
     Hint,
     /// <summary>Barrier with an optional option (dmb/dsb/isb).</summary>

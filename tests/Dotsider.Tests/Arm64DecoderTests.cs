@@ -36,6 +36,8 @@ public class Arm64DecoderTests
     [InlineData("tst", "x0, x1", 0xEA01001Fu)]
     [InlineData("neg", "x0, x1", 0xCB0103E0u)]
     [InlineData("and", "x0, x1, #0xff", 0x92401C20u)]
+    [InlineData("udf", "#0x0", 0x00000000u)]
+    [InlineData("udf", "#0x1", 0x00000001u)]
     public void Decode_Base_MnemonicAndOperands(string mnemonic, string operands, uint word)
     {
         var insn = One(word);
@@ -78,7 +80,9 @@ public class Arm64DecoderTests
     [Fact(Timeout = 30_000)]
     public void Decode_Unallocated_EmitsWord()
     {
-        var insn = One(0x00000000u);
+        // bits[28:25] = 0b0001 is an unallocated top-level class (no decode group), so it desyncs
+        // into a .word. 0x00000000 is deliberately NOT used here — it is udf #0, a defined encoding.
+        var insn = One(0x02000000u);
         Assert.True(insn.IsFallback);
         Assert.Equal(".word", insn.Mnemonic);
         Assert.Equal(4, insn.Length);

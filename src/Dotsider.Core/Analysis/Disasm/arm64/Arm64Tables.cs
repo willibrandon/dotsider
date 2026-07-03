@@ -10,6 +10,7 @@ using static Arm64Format;
 /// </summary>
 internal static partial class Arm64Tables
 {
+    private static readonly List<Arm64Entry> Reserved = [];
     private static readonly List<Arm64Entry> DpImm = [];
     private static readonly List<Arm64Entry> Branch = [];
     private static readonly List<Arm64Entry> DpReg = [];
@@ -20,6 +21,7 @@ internal static partial class Arm64Tables
 
     static Arm64Tables()
     {
+        RegisterReserved();
         RegisterDpImm();
         RegisterBranch();
         RegisterDpReg();
@@ -27,6 +29,7 @@ internal static partial class Arm64Tables
         RegisterSimdFp();
         RegisterSve();
 
+        SortBySpecificity(Reserved);
         SortBySpecificity(DpImm);
         SortBySpecificity(Branch);
         SortBySpecificity(DpReg);
@@ -50,6 +53,7 @@ internal static partial class Arm64Tables
     /// <summary>Selects the decode group for a word by its major class bits[28:25].</summary>
     private static IReadOnlyList<Arm64Entry> Dispatch(uint word) => ((word >> 25) & 0xF) switch
     {
+        0x0 => Reserved,
         0x8 or 0x9 => DpImm,
         0xA or 0xB => Branch,
         0x5 or 0xD => DpReg,
@@ -70,6 +74,14 @@ internal static partial class Arm64Tables
     static partial void RegisterLoadStore();
     static partial void RegisterSimdFp();
     static partial void RegisterSve();
+
+    private static void RegisterReserved()
+    {
+        // Permanently Undefined (UDF), the bits[28:25]=0b0000 reserved class. ILC emits it as a trap /
+        // unreachable marker and as inter-function alignment fill, so a run of zero words is udf #0,
+        // not a decode gap. imm16 is bits[15:0]; the upper half-word is zero.
+        Add(Reserved, 0xFFFF0000, 0x00000000, "udf", Udf);
+    }
 
     private static void RegisterDpImm()
     {
