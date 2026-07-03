@@ -13,6 +13,7 @@ public class XarchAvxTests
     private static NativeInstruction One(params byte[] code) =>
         NativeDisassembler.Disassemble(code, 0x1000, NativeArchitecture.X64)[0];
 
+    /// <summary>Decodes representative VEX-encoded AVX/AVX2 ops to their mnemonics, operands, and length.</summary>
     [Theory(Timeout = 30_000)]
     [InlineData("vaddps", "ymm0, ymm1, ymm2", new byte[] { 0xC5, 0xF4, 0x58, 0xC2 })]
     [InlineData("vaddsd", "xmm0, xmm1, xmm2", new byte[] { 0xC5, 0xF3, 0x58, 0xC2 })]
@@ -35,6 +36,7 @@ public class XarchAvxTests
         Assert.Equal(code.Length, insn.Length);
     }
 
+    /// <summary>Verifies a VEX.256 op renders ymm registers and classifies as Vector.</summary>
     [Fact(Timeout = 30_000)]
     public void Decode_Avx256_UsesYmmAndVectorCategory()
     {

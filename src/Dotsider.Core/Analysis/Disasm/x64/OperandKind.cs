@@ -69,6 +69,8 @@ internal enum OperandKind : byte
     Ob,
     /// <summary>Absolute moffs address, operand-size (mov eAX,[moffs]).</summary>
     Ov,
+    /// <summary>General-purpose register from VEX/EVEX vvvv, operand-size (BMI ops).</summary>
+    By,
     /// <summary>Opcode-embedded register (opcode low 3 bits + REX.B), byte.</summary>
     Zb,
     /// <summary>Opcode-embedded register, operand-size.</summary>

@@ -13,6 +13,7 @@ public class XarchSseTests
     private static NativeInstruction One(params byte[] code) =>
         NativeDisassembler.Disassemble(code, 0x1000, NativeArchitecture.X64)[0];
 
+    /// <summary>Decodes representative SSE opcodes to their exact mnemonics, operands, and length.</summary>
     [Theory(Timeout = 30_000)]
     [InlineData("movaps", "xmm0, xmm1", new byte[] { 0x0F, 0x28, 0xC1 })]
     [InlineData("movapd", "xmm0, xmm1", new byte[] { 0x66, 0x0F, 0x28, 0xC1 })]
@@ -46,6 +47,7 @@ public class XarchSseTests
         Assert.Equal(code.Length, insn.Length);
     }
 
+    /// <summary>Verifies packed ops classify as Vector and scalar single/double as Float.</summary>
     [Fact(Timeout = 30_000)]
     public void Decode_Sse_ClassifiesVectorAndFloat()
     {

@@ -70,6 +70,8 @@ internal static partial class XarchTables
         RegisterLegacy();
         RegisterSse();
         RegisterAvx();
+        RegisterFma();
+        RegisterBmi();
     }
 
     /// <summary>

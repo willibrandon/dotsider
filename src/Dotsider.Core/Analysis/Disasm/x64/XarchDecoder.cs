@@ -89,6 +89,15 @@ internal static class XarchDecoder
         // movd becomes movq under REX.W (the GPR operand is 64-bit).
         if (mnemonic == "movd" && p.RexW) mnemonic = "movq";
 
+        // FMA: VEX.W selects the pd/sd (W=1) vs ps/ss (W=0) suffix registered on the row.
+        if (map == XarchTables.Map0F38 && p.HasVex && p.RexW && XarchTables.IsFmaOpcode(opcode)
+            && mnemonic.Length > 2)
+        {
+            mnemonic = mnemonic.EndsWith("ps") ? mnemonic[..^2] + "pd"
+                : mnemonic.EndsWith("ss") ? mnemonic[..^2] + "sd"
+                : mnemonic;
+        }
+
         // Endbr and the x87 escapes need the ModRM/opcode before naming.
         if (map == XarchTables.Map0F && opcode == 0x1E && p.Rep && hasModRm)
         {
@@ -290,6 +299,7 @@ internal static class XarchDecoder
 
             case OperandKind.Ob: case OperandKind.Ov: operands.Add(Moffs(ref r, ctx, kind == OperandKind.Ob ? 1 : ctx.OpSize)); break;
 
+            case OperandKind.By: operands.Add(RegDirect(ctx.Prefixes.Vvvv, ctx, ctx.OpSize == 2 ? 4 : ctx.OpSize)); break;
             case OperandKind.Zb: operands.Add(RegDirect((opcode & 7) + (ctx.Prefixes.RexB ? 8 : 0), ctx, 1)); break;
             case OperandKind.Zv: operands.Add(RegDirect((opcode & 7) + (ctx.Prefixes.RexB ? 8 : 0), ctx, ctx.OpSize)); break;
             case OperandKind.RAX: operands.Add(RegDirect(0, ctx, ctx.OpSize)); break;
