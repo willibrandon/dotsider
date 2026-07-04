@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -28,10 +29,12 @@ internal static class IlEditorHost
                 .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
             new EditorWidget(editorState)
                 .Decorations(state.IlSyntaxProvider)
+                .Decorations(state.IlNativeSyntaxProvider)
                 .Decorations(state.IlSourceLinkProvider)
                 .Decorations(state.IlSearchProvider)
                 .Decorations(state.IlYankProvider)
                 .Decorations(state.IlNavigationProvider)
+                .Decorations(state.IlNativeNavigationProvider)
                 .InputBindings(bindings =>
                 {
                     // Escape: IL back navigation takes priority over vim cancel.
@@ -39,7 +42,11 @@ internal static class IlEditorHost
                     // First match wins in the binding walk.
                     bindings.Key(Hex1bKey.Escape).Action(_ =>
                     {
-                        if (state.IlBackStack.Count > 0)
+                        if (state.IlNativeBackStack.Count > 0)
+                        {
+                            state.RestoreFromNativeBackEntry(state.IlNativeBackStack.Pop());
+                        }
+                        else if (state.IlBackStack.Count > 0)
                         {
                             var entry = state.IlBackStack.Pop();
                             state.RestoreFromIlBackEntry(entry);
@@ -93,8 +100,60 @@ internal static class IlEditorHost
             .FillHeight();
     }
 
+    private static int LineStartOffset(string text, int line)
+    {
+        if (line <= 1) return 0;
+        var current = 1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\n') continue;
+            if (++current == line) return i + 1;
+        }
+
+        return 0;
+    }
+
     private static void PerformGoToDefinition(DotsiderState state)
     {
+        // Native mode: resolve the target of the instruction under the cursor.
+        if (state.IlNativeInstructions is { } nativeInstructions
+            && state.IlEditorState is { } nativeEditor
+            && state.Analyzer.NativeSymbols is { } info)
+        {
+            var inst = NativeNavigationHelper.GetInstructionAtCursor(nativeEditor, nativeInstructions);
+            if (inst?.TargetAddress is not { } target)
+                return;
+
+            // An intra-function local label jumps within the current listing, not to another symbol;
+            // record the pre-jump cursor so Esc returns here.
+            if (inst.TargetKind == NativeTargetKind.LocalLabel)
+            {
+                if (nativeInstructions.FirstOrDefault(i => i.Address == target)?.DisplayLine is { } line
+                    && state.IlSelectedNativeSymbol is { } currentSymbol)
+                {
+                    state.IlNativeBackStack.Push(new NativeBackEntry(
+                        currentSymbol, nativeEditor, state.IlEditorKey,
+                        state.IlNativeInstructions, state.IlNativeHeaderLineCount,
+                        state.IlFocusedTreeKey,
+                        new Dictionary<string, bool>(state.IlTreeExpansionState),
+                        nativeEditor.Cursor.Position.Value));
+                    var offset = LineStartOffset(nativeEditor.Document.GetText(), line);
+                    nativeEditor.SetCursorPosition(new DocumentOffset(offset));
+                    state.App.Invalidate();
+                }
+
+                return;
+            }
+
+            if (info.TryFindByAddress(target, out var symbol))
+            {
+                state.NavigateToNativeSymbol(symbol);
+                state.App.Invalidate();
+            }
+
+            return;
+        }
+
         if (state.IlInstructions is { } instructions
             && state.IlEditorState is { } es)
         {

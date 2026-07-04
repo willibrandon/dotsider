@@ -3,7 +3,7 @@ title: "NetFxArchitecture"
 description: "Effective process bitness for a .NET Framework root assembly. Models actual runtime architecture, not the PE's compile-time descriptor — AnyCPU is a compile-time attribute that resolves to host bitness at load time, so there is no MSIL runtime arch."
 slug: api/dotsider.core.analysis.models.netfxarchitecture
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

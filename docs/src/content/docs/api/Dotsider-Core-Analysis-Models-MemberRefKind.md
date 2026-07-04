@@ -3,7 +3,7 @@ title: "MemberRefKind"
 description: "Distinguishes whether a MemberRef entry refers to a method or a field."
 slug: api/dotsider.core.analysis.models.memberrefkind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

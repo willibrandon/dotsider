@@ -47,7 +47,7 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, load config, ReadyToRun sections, and recovered AOT types. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `u` on a `[source link]` marker to copy its resolved URL. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. |
+| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `u` on a `[source link]` marker to copy its resolved URL. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. For a Native AOT binary the same tree lists recovered functions and the right pane shows real **x86-64 or AArch64 disassembly** (a from-scratch, VEX/EVEX-aware x64 decoder and an A64 decoder incl. SVE), with call/branch/data targets resolved to names, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. |
 | **4 Strings** | User strings, metadata strings, raw ASCII and UTF-16 binary scans, and frozen AOT string literals, with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -99,6 +99,8 @@ dotsider analyze MyLib.dll                      # assembly info (default)
 dotsider analyze MyLib.dll --types              # list type definitions
 dotsider analyze MyLib.dll --methods            # list method definitions
 dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
+dotsider analyze MyAotApp.exe --symbols         # list native symbols (Native AOT / native binaries)
+dotsider analyze MyAotApp.exe --disasm 'Program.<Main>$'  # disassemble a native function (name or 0xVA)
 dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps               # assembly references
 dotsider analyze MyLib.dll --strings            # extract strings
@@ -244,7 +246,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**40 tools** across assembly analysis, IL disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**42 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation

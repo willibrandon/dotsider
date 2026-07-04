@@ -3,7 +3,7 @@ title: "DiffKind"
 description: "Describes the kind of difference detected between two assembly elements."
 slug: api/dotsider.core.analysis.models.diffkind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

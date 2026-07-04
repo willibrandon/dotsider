@@ -159,6 +159,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string? NativeAotConsoleDsym { get; private set; }
 
+    /// <summary>
+    /// Path to the published HardwareIntrinsics NativeAOT sample — one method per intrinsic family —
+    /// or null when the publish did not run. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? HardwareIntrinsicsExe { get; private set; }
+
     // Self-contained single-file sample
     /// <summary>
     /// Path to the published self-contained single-file sample executable.
@@ -206,6 +212,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         }
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
+        builds.Add(PublishNativeAotProject("samples/HardwareIntrinsics"));
         builds.Add(PublishSelfContainedProject("samples/SelfContainedConsole"));
 
         await Task.WhenAll(builds);
@@ -282,6 +289,9 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 aotPublishDir, "NativeAotConsole.dSYM", "Contents", "Resources", "DWARF", "NativeAotConsole"));
 
         NativeAotConsoleDsym = ExistingDirOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.dSYM"));
+
+        HardwareIntrinsicsExe = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "HardwareIntrinsics",
+            "bin", "Release", tfm, rid, "publish", $"HardwareIntrinsics{apphostExt}"));
 
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
             "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");

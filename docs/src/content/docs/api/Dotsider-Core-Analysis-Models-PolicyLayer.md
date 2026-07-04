@@ -3,7 +3,7 @@ title: "PolicyLayer"
 description: "Identifies which layer of .NET Framework binding policy rewrote a requested assembly identity. The CLR walks app config first, then publisher policy (unless bypassed by &lt;publisherPolicy apply=\"no\"/&gt;), then machine.config; later layers override earlier ones, so the effective winner is machine.config &gt; publisher &gt; app &gt; framework unification."
 slug: api/dotsider.core.analysis.models.policylayer
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

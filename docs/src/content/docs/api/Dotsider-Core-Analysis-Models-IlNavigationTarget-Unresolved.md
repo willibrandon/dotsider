@@ -3,7 +3,7 @@ title: "IlNavigationTarget.Unresolved"
 description: "A token that could not be resolved to any known target."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.unresolved
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

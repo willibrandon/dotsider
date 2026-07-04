@@ -3,7 +3,7 @@ title: "ResolvedAssembly.FromBundle"
 description: "The assembly was found inside a single-file bundle."
 slug: api/dotsider.core.analysis.models.resolvedassembly.frombundle
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "CounterSnapshot"
 description: "A snapshot of runtime performance counters at a point in time."
 slug: api/dotsider.core.analysis.models.countersnapshot
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

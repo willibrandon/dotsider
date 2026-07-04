@@ -3,7 +3,7 @@ title: "MstatData"
 description: "The contents of an ILC size report (.mstat), produced by publishing a Native AOT project with IlcGenerateMstatFile. The file is itself a valid ECMA-335 assembly whose assembly version carries the format version and whose data lives in IL streams; this record is the decoded result. Sections absent from older format versions are empty lists."
 slug: api/dotsider.core.analysis.models.mstatdata
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

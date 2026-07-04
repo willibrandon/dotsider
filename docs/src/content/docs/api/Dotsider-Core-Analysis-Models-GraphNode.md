@@ -3,7 +3,7 @@ title: "GraphNode"
 description: "A node in the transitive assembly dependency graph. Topology only — layout coordinates and rendered labels are the responsibility of the view layer, which projects the visible subgraph into a separate render model so filters and viewport changes rebalance without perturbing this record."
 slug: api/dotsider.core.analysis.models.graphnode
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

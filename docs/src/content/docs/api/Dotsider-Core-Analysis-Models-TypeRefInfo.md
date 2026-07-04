@@ -3,7 +3,7 @@ title: "TypeRefInfo"
 description: "Information about a referenced type from the TypeRef metadata table."
 slug: api/dotsider.core.analysis.models.typerefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

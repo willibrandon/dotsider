@@ -3,7 +3,7 @@ title: "NetFxBindResult"
 description: "Result of a single .NET Framework bind. Carries the requested identity, the effective identity after policy was applied, the loaded identity (when binding succeeded), the file path the CLR would load, the provenance classification, the policy-layer attribution, and (when binding failed) a human-readable reason for UI surfacing."
 slug: api/dotsider.core.analysis.models.netfxbindresult
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

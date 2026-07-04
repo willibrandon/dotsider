@@ -3,7 +3,7 @@ title: "MstatBlob"
 description: "One named global data region from an ILC size report — embedded metadata, hydration tables, dispatch maps, and the like. Blob names come from the compiler's node type names (for example Metadata or InterfaceDispatchMap), with same-named regions summed into one entry."
 slug: api/dotsider.core.analysis.models.mstatblob
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

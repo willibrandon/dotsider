@@ -3,7 +3,7 @@ title: "MstatMethod"
 description: "One compiled method body from an ILC size report. Sizes are bytes of native artifact, not IL: ILC compiles each body once, so the sum over all methods is the code contribution to the binary."
 slug: api/dotsider.core.analysis.models.mstatmethod
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

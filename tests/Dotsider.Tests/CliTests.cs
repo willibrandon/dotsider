@@ -608,6 +608,41 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("managed", stderr);
     }
 
+    /// <summary>Verifies <c>analyze --disasm 0xVA</c> on a Native AOT binary prints a named listing.</summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Disasm_NativeAot_ByAddress_PrintsListing()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleExe is null || !File.Exists(fixture.NativeAotConsoleExe),
+            "NativeAOT publish did not run on this leg.");
+
+        ulong va;
+        using (var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(fixture.NativeAotConsoleExe!))
+        {
+            var fn = analyzer.NativeSymbols?.Symbols.FirstOrDefault(s =>
+                s.Kind == Dotsider.Core.Analysis.Models.NativeSymbolKind.Function
+                && s.ManagedName is not null && s.FileOffset is not null && s.Size > 0);
+            Assert.NotNull(fn);
+            va = fn!.VirtualAddress;
+        }
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--disasm", $"0x{va:x}");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains($"0x{va:x}:", stdout);
+    }
+
+    /// <summary>Verifies <c>analyze --disasm</c> on a managed assembly exits 1 with a native-symbols error.</summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Disasm_Managed_ExitsOne()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--disasm", "Foo");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("native symbols", stderr);
+    }
+
     /// <summary>
     /// Verifies the default <c>analyze --json</c> info carries the native symbol provenance
     /// fields for a Native AOT binary.

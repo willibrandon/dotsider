@@ -1,0 +1,24 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- SVE (System.Runtime.Intrinsics.Arm.Sve) is an evaluation API in this runtime. -->
+    <NoWarn>$(NoWarn);SYSLIB5003</NoWarn>
+    <!-- Keep the symbol table so the disassembler fixtures can name and find the intrinsic methods.
+         Release AOT strips user-method symbols on Linux/macOS, which otherwise hides the vector code
+         the fixtures assert on (the ELF .symtab / Mach-O nlist would carry only a few runtime thunks). -->
+    <StripSymbols>false</StripSymbols>
+    <!-- Pin a fixed x64 ISA baseline (not "native") so the emitted intrinsic encodings are the same
+         on every build machine — VEX-encoded AVX/AVX2, never EVEX, which a native AVX-512 host would
+         otherwise emit and make the fixture non-deterministic. arm64 keeps its default baseline. -->
+    <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">avx2</IlcInstructionSet>
+  </PropertyGroup>
+</Project>

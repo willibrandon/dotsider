@@ -3,7 +3,7 @@ title: "PeHeaders"
 description: "Aggregated PE header information for a .NET assembly."
 slug: api/dotsider.core.analysis.models.peheaders
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

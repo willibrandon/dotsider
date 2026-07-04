@@ -3,7 +3,7 @@ title: "PdbProvenance"
 description: "Describes where portable PDB information was found, or why it could not be used."
 slug: api/dotsider.core.analysis.models.pdbprovenance
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

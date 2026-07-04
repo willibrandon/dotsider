@@ -3,7 +3,7 @@ title: "BindingPolicy"
 description: "Aggregated .NET Framework binding policy assembled from framework unification, machine.config, publisher-policy assemblies, and the application configuration file. Layers are stored in document order with first-match semantics — the same model the CLR applies — and later layers (machine.config &gt; publisher &gt; app &gt; framework unification) override earlier ones when they target the same identity."
 slug: api/dotsider.core.analysis.models.bindingpolicy
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

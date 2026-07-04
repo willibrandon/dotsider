@@ -3,7 +3,7 @@ title: "DependencyGraphResult"
 description: "The result of building a transitive assembly dependency graph. Contains the public topology consumed by serializers (Nodes, Edges) and the internal navigation metadata consumed by the TUI (NavigationById)."
 slug: api/dotsider.core.analysis.models.dependencygraphresult
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

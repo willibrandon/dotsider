@@ -3,7 +3,7 @@ title: "AssemblyOpenResult"
 description: "The result of opening an assembly file via AssemblyLoader, distinguishing between direct loads, apphost companion redirects, and single-file bundle entry extractions."
 slug: api/dotsider.core.analysis.models.assemblyopenresult
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

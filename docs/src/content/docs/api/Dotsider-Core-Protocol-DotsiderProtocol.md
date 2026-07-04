@@ -3,7 +3,7 @@ title: "DotsiderProtocol"
 description: "Constants for the dotsider diagnostics protocol."
 slug: api/dotsider.core.protocol.dotsiderprotocol
 sidebar:
-  order: 2
+  order: 3
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`

@@ -3,7 +3,7 @@ title: "GraphNavigationContext"
 description: "Internal per-node metadata describing how a dependency graph node was resolved and the context under which it was reached. Used by the TUI for Enter-to-open navigation and framework filtering. Never serialized — this data must not leak through CLI, diagnostics, or MCP surfaces that publish graph topology."
 slug: api/dotsider.core.analysis.models.graphnavigationcontext
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

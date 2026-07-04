@@ -29,6 +29,9 @@ x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
+# Native disassembler source folders — not the VS build-output x64/arm64 dirs above.
+!src/Dotsider.Core/Analysis/Disasm/x64/
+!src/Dotsider.Core/Analysis/Disasm/arm64/
 bld/
 [Bb]in/
 [Oo]bj/

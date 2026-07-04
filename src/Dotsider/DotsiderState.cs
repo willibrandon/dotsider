@@ -218,6 +218,30 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The number of header lines in the current disassembly.</summary>
     public int IlHeaderLineCount { get; set; }
 
+    /// <summary>The native symbol selected in the tree for a non-managed binary (native IL-inspector mode).</summary>
+    public NativeSymbol? IlSelectedNativeSymbol { get; set; }
+
+    /// <summary>The native symbol currently loaded into the editor pane (for staleness detection).</summary>
+    public NativeSymbol? IlEditorNativeSymbol { get; set; }
+
+    /// <summary>Span-driven syntax highlighting for the native disassembly listing.</summary>
+    public NativeSyntaxDecorationProvider IlNativeSyntaxProvider { get; } = new();
+
+    /// <summary>Span-driven target underlining for the native disassembly listing.</summary>
+    public NativeNavigationDecorationProvider IlNativeNavigationProvider { get; } = new();
+
+    /// <summary>The decoded native instructions of the currently displayed symbol, or null.</summary>
+    public IReadOnlyList<NativeInstruction>? IlNativeInstructions { get; set; }
+
+    /// <summary>The number of header lines in the current native disassembly.</summary>
+    public int IlNativeHeaderLineCount { get; set; }
+
+    /// <summary>The back-stack of native symbols visited via go-to-definition, for Esc.</summary>
+    public Stack<NativeBackEntry> IlNativeBackStack { get; } = new();
+
+    /// <summary>Character offsets of the confirmed search query within the native listing, for n/N.</summary>
+    public IReadOnlyList<int> IlNativeSearchOffsets { get; set; } = [];
+
     /// <summary>The field targeted by the last field go-to-definition, displayed in the right pane.</summary>
     public FieldDefInfo? IlSelectedField { get; set; }
 
@@ -232,6 +256,13 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Maps (analyzer, token) to stable key objects for StatePanelWidget identity.</summary>
     internal Dictionary<(AssemblyAnalyzer, int), object> IlEditorKeyCache { get; } = [];
+
+    /// <summary>
+    /// Native-mode editor identity keys, keyed by the full 64-bit virtual address. Kept separate from
+    /// <see cref="IlEditorKeyCache"/> so a VA never collides with a managed token (nor with another VA
+    /// that shares its low 32 bits) — <see cref="Hex1b.Widgets.StatePanelWidget"/> matches by reference.
+    /// </summary>
+    internal Dictionary<(AssemblyAnalyzer, ulong), object> IlNativeEditorKeyCache { get; } = [];
 
     /// <summary>Cached editor states for editors not currently visible (analogous to old SavedEditors).</summary>
     internal Dictionary<object, EditorState> IlCachedEditors { get; } = new(ReferenceEqualityComparer.Instance);
@@ -811,6 +842,112 @@ public sealed class DotsiderState : IDisposable
         App.Invalidate();
     }
 
+    /// <summary>Navigates to the Hex Dump tab, jumping directly to a file offset (native mode).</summary>
+    /// <param name="fileOffset">The file offset to jump to.</param>
+    public void NavigateToHexFileOffset(long fileOffset)
+    {
+        if (fileOffset < 0) return;
+
+        CrossViewBackStack.Push((CurrentTab, PeSubTab));
+
+        var doc = HexEditorState.Document;
+        if (fileOffset < doc.ByteCount)
+        {
+            var byteMap = doc.GetByteMap();
+            var (charIdx, _) = byteMap.ByteToChar((int)fileOffset);
+            HexEditorState.SetCursorPosition(new Hex1b.Documents.DocumentOffset(charIdx));
+            HexEditorState.ByteCursorOffset = (int)fileOffset;
+            HexScrollTarget = fileOffset;
+        }
+
+        NavigateToTab(TabId.HexDump);
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+    }
+
+    /// <summary>
+    /// Selects a native symbol in the IL-inspector native mode, pushing the current view onto the
+    /// native back stack (for Esc) and expanding the tree path so the target is visible. This is the
+    /// go-to-definition landing for a resolved call/branch target.
+    /// </summary>
+    /// <param name="symbol">The native symbol to navigate to.</param>
+    public void NavigateToNativeSymbol(NativeSymbol symbol)
+    {
+        // Capture the outgoing editor instance (with its cursor and scroll) so Esc lands back exactly
+        // where the jump departed from — the same model as the managed IlBackEntry.
+        if (IlSelectedNativeSymbol is { } current && IlEditorState is { } editor
+            && IlEditorNativeSymbol?.VirtualAddress == current.VirtualAddress)
+        {
+            IlNativeBackStack.Push(new NativeBackEntry(
+                current, editor, IlEditorKey, IlNativeInstructions, IlNativeHeaderLineCount,
+                IlFocusedTreeKey, new Dictionary<string, bool>(IlTreeExpansionState),
+                editor.Cursor.Position.Value));
+        }
+
+        ExpandNativeTreePath(symbol);
+        IlSelectedNativeSymbol = symbol;
+        SetIlFocusedTreeKey($"nfunc:{symbol.VirtualAddress:x}");
+        App.Invalidate();
+    }
+
+    /// <summary>Restores the native IL-inspector view from a back-stack entry on Esc.</summary>
+    /// <param name="entry">The entry to restore.</param>
+    public void RestoreFromNativeBackEntry(NativeBackEntry entry)
+    {
+        // Cache the outgoing editor before swapping it out (mirrors managed RestoreFromIlBackEntry).
+        if (IlEditorKey is not null && IlEditorState is not null)
+            IlCachedEditors[IlEditorKey] = IlEditorState;
+
+        IlSelectedNativeSymbol = entry.Symbol;
+        SetIlFocusedTreeKey(entry.FocusedTreeKey);
+        IlTreeExpansionState.Clear();
+        foreach (var (k, v) in entry.TreeExpansionState)
+            IlTreeExpansionState[k] = v;
+
+        // Restore the exact editor instance and mark it current so BuildNativeEditorPane reuses it
+        // instead of rebuilding — this is what preserves cursor and scroll across the round-trip.
+        IlEditorState = entry.EditorState;
+        IlEditorNativeSymbol = entry.Symbol;
+        IlEditorMethod = null;
+        IlEditorField = null;
+        IlEditorAnalyzer = Analyzer;
+        IlEditorKey = entry.EditorKey;
+        if (entry.EditorKey is not null)
+        {
+            IlNativeEditorKeyCache[(Analyzer, entry.Symbol.VirtualAddress)] = entry.EditorKey;
+            IlCachedEditors.Remove(entry.EditorKey);
+        }
+
+        IlNativeInstructions = entry.Instructions;
+        IlNativeHeaderLineCount = entry.HeaderLineCount;
+        IlNativeSyntaxProvider.Instructions = entry.Instructions;
+        IlNativeNavigationProvider.Instructions = entry.Instructions;
+
+        IlEditorState.SetCursorPosition(new Hex1b.Documents.DocumentOffset(entry.CursorOffset));
+
+        App.RequestFocus(node => node is EditorNode);
+        App.Invalidate();
+    }
+
+    private void ExpandNativeTreePath(NativeSymbol symbol)
+    {
+        string ns, type;
+        if (symbol.Kind == NativeSymbolKind.Function && symbol.ManagedName is { } managed)
+        {
+            var parsed = Core.Analysis.Disasm.NativeSymbolName.Parse(managed);
+            ns = parsed.Namespace.Length == 0 ? "(global)" : parsed.Namespace;
+            type = parsed.TypeName.Length == 0 ? "(functions)" : parsed.TypeName;
+        }
+        else
+        {
+            ns = type = symbol.Kind == NativeSymbolKind.Stub ? "(stubs)"
+                : symbol.Kind == NativeSymbolKind.Function ? "(runtime)" : "(functions)";
+        }
+
+        IlTreeExpansionState[$"nns:{ns}"] = true;
+        IlTreeExpansionState[$"ntype:{ns}/{type}"] = true;
+    }
+
     /// <summary>
     /// Navigates to the definition of the IL instruction's metadata token.
     /// </summary>
@@ -988,6 +1125,23 @@ public sealed class DotsiderState : IDisposable
         {
             key = new object();
             IlEditorKeyCache[cacheKey] = key;
+        }
+
+        return key;
+    }
+
+    /// <summary>
+    /// Returns a stable identity key for a native symbol's editor within an analyzer, keyed by the
+    /// full 64-bit virtual address (never truncated). Same (analyzer, address) always returns the same
+    /// reference, as <see cref="StatePanelWidget"/> reference-equality matching requires.
+    /// </summary>
+    internal object GetOrCreateNativeEditorKey(AssemblyAnalyzer analyzer, ulong address)
+    {
+        var cacheKey = (analyzer, address);
+        if (!IlNativeEditorKeyCache.TryGetValue(cacheKey, out var key))
+        {
+            key = new object();
+            IlNativeEditorKeyCache[cacheKey] = key;
         }
 
         return key;
@@ -1441,6 +1595,7 @@ public sealed class DotsiderState : IDisposable
         IlScrollPanelNode = null;
         IlScrollSelectionIntoViewPending = false;
         IlEditorKeyCache.Clear();
+        IlNativeEditorKeyCache.Clear();
         IlCachedEditors.Clear();
         IlPrevSelectionAnchor = null;
         IlPrevCursorPosition = null;
@@ -1456,6 +1611,15 @@ public sealed class DotsiderState : IDisposable
         IlHeaderLineCount = 0;
         IlNavigationProvider.Instructions = null;
         IlSourceLinkProvider.Instructions = null;
+        // Native IL-inspector mode mirrors the managed fields above; clear it too so a new binary
+        // does not inherit the previous one's selected symbol, decoded listing, or back stack.
+        IlSelectedNativeSymbol = null;
+        IlEditorNativeSymbol = null;
+        IlNativeInstructions = null;
+        IlNativeHeaderLineCount = 0;
+        IlNativeSyntaxProvider.Instructions = null;
+        IlNativeNavigationProvider.Instructions = null;
+        IlNativeBackStack.Clear();
         IlGdPending = false;
         TransientNotice = null;
         IlYankProvider.HighlightRange = null;

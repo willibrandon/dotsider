@@ -3,7 +3,7 @@ title: "AssemblyOpenResult.ApphostWithCompanion"
 description: "The file is a native apphost with a companion managed .dll on disk. The caller decides when to redirect (e.g. showing a dialog first)."
 slug: api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "AssemblyResolution"
 description: "Outcome of an identity-based assembly resolution. Carries everything the dependency-graph builder and UI need: the resolved file/bundle (or null on failure), the provenance classifying how the file was located, the candidate path of an identity-mismatched simple-name hit, and — for .NET Framework binds — the policy-layer attribution and the effective bound identity."
 slug: api/dotsider.core.analysis.models.assemblyresolution
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "NativeSymbolKind"
 description: "What a native symbol represents. Native AOT binaries carry compiler-generated code and data symbols beyond ordinary functions; this classification drives the Size Map's category grouping and the symbol view's presentation."
 slug: api/dotsider.core.analysis.models.nativesymbolkind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "NativeSymbol"
 description: "One native symbol recovered from a binary: a function, a compiler-generated data blob, or a nameless boundary. The address is carried in every form a consumer might need — virtual address for display and cross-symbol ordering, PE RVA, file offset when the address is file-backed, and the containing section — so the UI, hex views, and disassembly never have to recompute a mapping."
 slug: api/dotsider.core.analysis.models.nativesymbol
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

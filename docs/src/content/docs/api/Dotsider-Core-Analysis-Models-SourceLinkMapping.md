@@ -3,7 +3,7 @@ title: "SourceLinkMapping"
 description: "A single Source Link document mapping."
 slug: api/dotsider.core.analysis.models.sourcelinkmapping
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

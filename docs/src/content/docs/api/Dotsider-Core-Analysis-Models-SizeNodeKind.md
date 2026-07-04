@@ -3,7 +3,7 @@ title: "SizeNodeKind"
 description: "The granularity level of a SizeNode in the size breakdown tree. The kinds beyond Method appear only in Native AOT trees, built from an mstat report or, when none sits beside the binary, from its merged native symbols."
 slug: api/dotsider.core.analysis.models.sizenodekind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

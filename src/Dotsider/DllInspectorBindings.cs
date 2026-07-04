@@ -225,6 +225,14 @@ public static class DllInspectorBindings
                     state.NavigateToHexOffset(ilMethod.Rva);
                 }, "View in hex");
             }
+            else if (state.IlSelectedNativeSymbol is { FileOffset: { } nativeFileOffset })
+            {
+                bindings.Key(Hex1bKey.X).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.NavigateToHexFileOffset(nativeFileOffset);
+                }, "View in hex");
+            }
 
             bindings.Key(Hex1bKey.L).Global().Action(_ =>
             {
@@ -249,6 +257,16 @@ public static class DllInspectorBindings
             hints.Add(s.Section("Enter: Detail"));
             if (state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
                 hints.Add(s.Section("g: Go to IL"));
+        }
+        else if (state.CurrentTab == TabId.IlInspector && state.IsNativeBinary)
+        {
+            if (state.IlSelectedNativeSymbol is not null)
+                hints.Add(s.Section("Enter/gd: Go to def"));
+            hints.Add(s.Section("l: Focus"));
+            if (state.IlSelectedNativeSymbol is { FileOffset: not null })
+                hints.Add(s.Section("x: Hex"));
+            if (state.IlNativeBackStack.Count > 0)
+                hints.Add(s.Section("Esc: Back"));
         }
         else if (state.CurrentTab == TabId.IlInspector)
         {

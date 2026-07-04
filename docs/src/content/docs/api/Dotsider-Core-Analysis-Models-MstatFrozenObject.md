@@ -3,7 +3,7 @@ title: "MstatFrozenObject"
 description: "One frozen object from an ILC size report (format 2.1+) — an object allocated at compile time and baked into the image, most commonly a string literal. For back-compat these bytes are also summed into the ArrayOfFrozenObjects blob entry."
 slug: api/dotsider.core.analysis.models.mstatfrozenobject
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

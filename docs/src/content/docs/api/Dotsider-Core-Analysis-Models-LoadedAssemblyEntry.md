@@ -3,7 +3,7 @@ title: "LoadedAssemblyEntry"
 description: "Per-loaded-identity entry interned in LoadedAssemblyCache. When two distinct requested identities redirect to the same loaded identity, both Loaded values reference-equal this single entry, faithfully modeling the CLR's \"already loaded\" reuse: only one filesystem read per loaded identity."
 slug: api/dotsider.core.analysis.models.loadedassemblyentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

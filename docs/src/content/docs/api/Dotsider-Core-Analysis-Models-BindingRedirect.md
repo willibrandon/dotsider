@@ -3,7 +3,7 @@ title: "BindingRedirect"
 description: "One &lt;bindingRedirect&gt; entry parsed from a .NET Framework configuration file or a publisher-policy assembly's embedded XML resource."
 slug: api/dotsider.core.analysis.models.bindingredirect
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

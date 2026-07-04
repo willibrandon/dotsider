@@ -3,7 +3,7 @@ title: "BundleEntry"
 description: "Describes a single file entry within a .NET single-file bundle."
 slug: api/dotsider.core.analysis.models.bundleentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

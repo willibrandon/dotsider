@@ -3,7 +3,7 @@ title: "PdbProvenanceKind"
 description: "Portable PDB discovery outcomes that are meaningful to .NET developers."
 slug: api/dotsider.core.analysis.models.pdbprovenancekind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

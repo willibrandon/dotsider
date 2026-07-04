@@ -3,7 +3,7 @@ title: "NuGetFileEntry"
 description: "Represents a file entry within a NuGet package (.nupkg)."
 slug: api/dotsider.core.analysis.models.nugetfileentry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

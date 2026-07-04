@@ -46,6 +46,8 @@ dotsider analyze MyApp                        # single-file bundle → extracts 
 dotsider analyze MyAotApp.exe                 # Native AOT → binary kind, RTR format, imports
 dotsider analyze MyAotApp.exe --why System.Text.Json.JsonSerializer  # AOT dependency chain
 dotsider analyze MyAotApp.exe --symbols       # native symbols with addresses, sizes, and file:line
+dotsider analyze MyAotApp.exe --disasm 'Program.<Main>$'  # disassemble a native function by name
+dotsider analyze MyAotApp.exe --disasm 0x140001300        # disassemble a native function by address
 ```
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
@@ -55,6 +57,8 @@ If the file is a Native AOT executable (a validated ReadyToRun header with no CL
 With the ILC sidecars next to the binary (publish with `IlcGenerateMstatFile` and `IlcGenerateDgmlFile`, then copy the `.mstat` and `.codegen.dgml.xml` out of `obj/.../native/`), `--size` prints the compiler's own per-assembly breakdown with the binary's data categories (without an mstat it falls back to the binary's native symbols), `--symbols` lists native symbols with their provenance — the platform's PDB, `.dbg`, or dSYM, or unwind-data boundaries when none exists, `--deps` shows the compiled-in assemblies and native import modules, and `--why <name>` prints the dependency chain that kept a type or method in the binary — root first, one step per line with the compiler's reason. Names match exactly first, then by unambiguous substring.
 
 When portable PDB data is available, default output reports where it came from, and `--il` includes source spans, local names, and Source Link markers. Use `--json` when you need the exact URLs. `--embedded-source` prints source embedded in the PDB.
+
+`--disasm <name-or-0xVA>` disassembles one native function of a Native AOT (or other native) binary to real x86-64 or AArch64 assembly, resolving call and branch targets to names (`call Foo`, `Foo+0x12`, intra-function `loc_…` labels), RIP-relative loads to the referenced data symbol, and indirect calls through the import table to `MODULE!Function`. Identify the function by an exact managed name, its raw symbol name, a suffix, or a hex virtual address; an ambiguous name lists the candidates and exits non-zero. `--json` carries the structured operands and per-instruction metadata. A managed assembly (no native symbols) exits 1.
 
 | Option | Description |
 |--------|-------------|
@@ -68,6 +72,7 @@ When portable PDB data is available, default output reports where it came from, 
 | `--fields` | List field definitions |
 | `--size` | Show size breakdown |
 | `--symbols` | List native symbols with provenance (Native AOT and other native binaries) |
+| `--disasm <name-or-0xVA>` | Disassemble a native function to assembly (Native AOT and other native binaries) |
 | `--why <name>` | Explain why a type or method is in a Native AOT binary |
 | `--bundle` | Show single-file bundle manifest |
 | `--json` | Output as JSON |

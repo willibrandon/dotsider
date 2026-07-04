@@ -3,7 +3,7 @@ title: "BindingPolicyParseResult"
 description: "Output of NetFxRuntimeVersion): the redirects, codeBase entries, per-identity publisher-policy disablements, probing privatePath segments, and the runtime-scoped publisher-policy bypass flag found in a single configuration file."
 slug: api/dotsider.core.analysis.models.bindingpolicyparseresult
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

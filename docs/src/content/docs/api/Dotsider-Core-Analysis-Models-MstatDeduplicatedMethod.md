@@ -3,7 +3,7 @@ title: "MstatDeduplicatedMethod"
 description: "One method-body fold from an ILC size report (format 2.2+): the compiler emitted a single body and pointed these identical methods at it, so only the original contributes size."
 slug: api/dotsider.core.analysis.models.mstatdeduplicatedmethod
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

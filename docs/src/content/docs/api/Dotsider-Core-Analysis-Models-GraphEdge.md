@@ -3,7 +3,7 @@ title: "GraphEdge"
 description: "A directed edge from a referencing assembly to a referenced assembly in the transitive dependency graph. Edges are retained for cycles and diamonds: revisiting an already-seen target identity emits a new edge but does not re-expand the target's subtree."
 slug: api/dotsider.core.analysis.models.graphedge
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

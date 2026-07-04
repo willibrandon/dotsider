@@ -3,7 +3,7 @@ title: "ImportedFunctionInfo"
 description: "A single function imported from a native module."
 slug: api/dotsider.core.analysis.models.importedfunctioninfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

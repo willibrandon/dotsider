@@ -3,7 +3,7 @@ title: "MethodDefInfo"
 description: "Information about a method defined in the assembly's MethodDef metadata table."
 slug: api/dotsider.core.analysis.models.methoddefinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "BinaryKind"
 description: "Coarse classification of an analyzed binary."
 slug: api/dotsider.core.analysis.models.binarykind
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

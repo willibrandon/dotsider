@@ -3,7 +3,7 @@ title: "IlNavigationTarget.ExternalMethod"
 description: "A method in an external (referenced) assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.externalmethod
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

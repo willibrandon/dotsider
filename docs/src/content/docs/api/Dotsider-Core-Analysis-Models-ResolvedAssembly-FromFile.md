@@ -3,7 +3,7 @@ title: "ResolvedAssembly.FromFile"
 description: "The assembly was found as a file on disk."
 slug: api/dotsider.core.analysis.models.resolvedassembly.fromfile
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

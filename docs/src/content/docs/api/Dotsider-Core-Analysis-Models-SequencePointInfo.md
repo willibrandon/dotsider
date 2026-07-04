@@ -3,7 +3,7 @@ title: "SequencePointInfo"
 description: "A source sequence point decoded from a portable PDB."
 slug: api/dotsider.core.analysis.models.sequencepointinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

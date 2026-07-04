@@ -3,7 +3,7 @@ title: "DgmlLink"
 description: "One edge of an ILC dependency graph: the source node depends on the target node, so the target is in the binary because the source needed it."
 slug: api/dotsider.core.analysis.models.dgmllink
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

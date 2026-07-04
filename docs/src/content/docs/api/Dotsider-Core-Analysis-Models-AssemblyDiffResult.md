@@ -3,7 +3,7 @@ title: "AssemblyDiffResult"
 description: "The complete diff result between two assemblies."
 slug: api/dotsider.core.analysis.models.assemblydiffresult
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "IlInstruction"
 description: "A single decoded IL (Intermediate Language) instruction."
 slug: api/dotsider.core.analysis.models.ilinstruction
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

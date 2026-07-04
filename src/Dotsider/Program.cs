@@ -397,8 +397,46 @@ static async Task<int> RunTui(string[] args, string filePath)
     }, appOptions);
 
     diagnosticsListener.StartListening();
-    
+
     CursorColorHelper.SetThemeCursorColor();
+
+    // Safety net: some exit paths bypass the finally below — a crash on a background render/input
+    // thread, or Ctrl+C — which would leave the terminal in mouse-reporting mode (mouse movement
+    // then echoes as escape sequences at the shell). Disable mouse reporting, show the cursor, and
+    // leave the alternate screen on every exit path, and log an unhandled exception so its root
+    // cause is captured even when normal cleanup is skipped.
+    static void RestoreTerminal()
+    {
+        try
+        {
+            Console.Out.Write("\x1b[?1003l\x1b[?1002l\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[?1049l");
+            Console.Out.Flush();
+        }
+        catch
+        {
+            // Nothing more we can do while tearing down.
+        }
+    }
+
+    void OnUnhandled(object? _, UnhandledExceptionEventArgs e)
+    {
+        RestoreTerminal();
+        try
+        {
+            var log = Path.Combine(Path.GetTempPath(), "dotsider-crash.log");
+            File.AppendAllText(log, $"{DateTime.Now:O}\n{(e.ExceptionObject as Exception)?.ToString() ?? e.ExceptionObject}\n\n");
+            Console.Error.WriteLine($"dotsider crashed; details written to {log}");
+        }
+        catch
+        {
+            // Best-effort.
+        }
+    }
+
+    void OnProcessExit(object? _, EventArgs __) => RestoreTerminal();
+
+    AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
+    AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
     try
     {
@@ -406,8 +444,33 @@ static async Task<int> RunTui(string[] args, string filePath)
     }
     finally
     {
-        CursorColorHelper.ResetCursorColor();
-        hex1bApp.Dispose();
+        // RestoreTerminal must run even if Dispose throws — otherwise a teardown failure leaves the
+        // terminal in the alternate screen with mouse reporting on (mouse motion then echoes as escape
+        // sequences at the shell). Catch and log the teardown so the terminal is always restored and
+        // the failure leaves a trace instead of vanishing into a bare process exit.
+        try
+        {
+            CursorColorHelper.ResetCursorColor();
+            hex1bApp.Dispose();
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                var log = Path.Combine(Path.GetTempPath(), "dotsider-crash.log");
+                File.AppendAllText(log, $"{DateTime.Now:O}\nTeardown: {ex}\n\n");
+            }
+            catch
+            {
+                // Best-effort.
+            }
+        }
+        finally
+        {
+            RestoreTerminal();
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+        }
     }
 
     return 0;

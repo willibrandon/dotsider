@@ -3,7 +3,7 @@ title: "TraceEventCategory"
 description: "Category of a traced runtime event, used for coloring in the events table."
 slug: api/dotsider.core.analysis.models.traceeventcategory
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

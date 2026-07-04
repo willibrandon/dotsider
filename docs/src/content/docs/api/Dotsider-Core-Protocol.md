@@ -2,7 +2,7 @@
 title: "Dotsider.Core.Protocol"
 slug: api/dotsider.core.protocol
 sidebar:
-  order: 2
+  order: 3
 ---
 
 ## Classes

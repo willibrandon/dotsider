@@ -3,7 +3,7 @@ title: "ClrHeader"
 description: "CLR (Common Language Runtime) header information from the PE file's COR20 header."
 slug: api/dotsider.core.analysis.models.clrheader
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

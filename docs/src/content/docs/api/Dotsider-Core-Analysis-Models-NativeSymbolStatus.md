@@ -3,7 +3,7 @@ title: "NativeSymbolStatus"
 description: "The outcome of probing a binary for native symbols. When no symbols are returned, the status distinguishes the reasons — missing, mismatched, corrupt, ambiguous, or fallback-only — so callers can explain the result instead of showing an empty table with no cause."
 slug: api/dotsider.core.analysis.models.nativesymbolstatus
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

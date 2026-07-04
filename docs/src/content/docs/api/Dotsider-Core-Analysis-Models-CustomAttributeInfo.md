@@ -3,7 +3,7 @@ title: "CustomAttributeInfo"
 description: "Information about a custom attribute applied to a metadata entity."
 slug: api/dotsider.core.analysis.models.customattributeinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

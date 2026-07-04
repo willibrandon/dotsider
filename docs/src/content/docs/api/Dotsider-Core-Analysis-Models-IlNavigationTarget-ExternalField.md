@@ -3,7 +3,7 @@ title: "IlNavigationTarget.ExternalField"
 description: "A field in an external (referenced) assembly."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.externalfield
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

@@ -3,7 +3,7 @@ title: "TraceEventEntry"
 description: "A single traced runtime event captured from the EventPipe session."
 slug: api/dotsider.core.analysis.models.traceevententry
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

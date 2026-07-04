@@ -3,7 +3,7 @@ title: "DotsiderResponse"
 description: "JSON response from a dotsider diagnostics socket."
 slug: api/dotsider.core.protocol.dotsiderresponse
 sidebar:
-  order: 2
+  order: 3
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`

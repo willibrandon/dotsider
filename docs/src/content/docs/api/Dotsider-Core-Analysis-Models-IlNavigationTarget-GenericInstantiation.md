@@ -3,7 +3,7 @@ title: "IlNavigationTarget.GenericInstantiation"
 description: "A MethodSpec whose metadata could not be decoded into a navigable target."
 slug: api/dotsider.core.analysis.models.ilnavigationtarget.genericinstantiation
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

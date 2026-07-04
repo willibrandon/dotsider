@@ -14,6 +14,7 @@ namespace Dotsider;
 /// <param name="CanExpand">Whether this row can be expanded (namespaces and types).</param>
 /// <param name="IsExpanded">Whether this row is currently expanded.</param>
 /// <param name="ExpansionKey">Key into <see cref="DotsiderState.IlTreeExpansionState"/> for toggling.</param>
+/// <param name="Symbol">The native symbol this row represents in native (non-managed) mode, or null in managed mode.</param>
 public sealed record IlTreeRow(
     string Key,
     int Depth,
@@ -22,4 +23,5 @@ public sealed record IlTreeRow(
     MethodDefInfo? Method,
     bool CanExpand,
     bool IsExpanded,
-    string ExpansionKey);
+    string ExpansionKey,
+    NativeSymbol? Symbol = null);

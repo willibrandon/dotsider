@@ -3,7 +3,7 @@ title: "NetFxRuntimeVersion"
 description: ".NET Framework CLR version a NetFxBindingContext targets. The CLR version (not the product TFM) drives the binding pipeline because the GAC layout, machine.config path, framework runtime directory, reference-assemblies tree, and appliesTo filter all switch on the CLR generation: Clr2 covers .NET Framework 2.0 / 3.0 / 3.5 SP1 (process runs on v2.0.50727); Clr4 covers .NET Framework 4.0 through 4.8.x (process runs on v4.0.30319)."
 slug: api/dotsider.core.analysis.models.netfxruntimeversion
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

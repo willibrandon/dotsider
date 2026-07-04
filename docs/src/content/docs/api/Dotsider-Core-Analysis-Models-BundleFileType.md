@@ -3,7 +3,7 @@ title: "BundleFileType"
 description: "Identifies the type of file embedded in a .NET single-file bundle."
 slug: api/dotsider.core.analysis.models.bundlefiletype
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

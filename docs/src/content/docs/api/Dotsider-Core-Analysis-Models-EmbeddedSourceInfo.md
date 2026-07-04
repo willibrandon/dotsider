@@ -3,7 +3,7 @@ title: "EmbeddedSourceInfo"
 description: "Embedded source decoded from a portable PDB document."
 slug: api/dotsider.core.analysis.models.embeddedsourceinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`

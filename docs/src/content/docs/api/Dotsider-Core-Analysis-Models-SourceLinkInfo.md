@@ -3,7 +3,7 @@ title: "SourceLinkInfo"
 description: "Source Link mappings decoded from portable PDB custom debug information."
 slug: api/dotsider.core.analysis.models.sourcelinkinfo
 sidebar:
-  order: 1
+  order: 2
 ---
 
 **Namespace:** `Dotsider.Core.Analysis.Models`
