@@ -32,14 +32,15 @@ public class NativeDisassemblerTests
     [Fact(Timeout = 30_000)]
     public void Disassemble_Arm64Unknown_EmitsWords()
     {
-        // bits[28:25]=0000 is a reserved/unallocated major class.
-        byte[] code = [0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00];
+        // bits[28:25]=0001 is an unallocated major class (no decode group). 0x00000000 is NOT used —
+        // it is udf #0, a defined encoding; 0x02000002 / 0x02000003 are little-endian words here.
+        byte[] code = [0x02, 0x00, 0x00, 0x02, 0x03, 0x00, 0x00, 0x02];
         var insns = NativeDisassembler.Disassemble(code, 0x4000, NativeArchitecture.Arm64);
 
         Assert.Equal(2, insns.Count);
         Assert.All(insns, i => Assert.Equal(".word", i.Mnemonic));
         Assert.All(insns, i => Assert.Equal(4, i.Length));
-        Assert.Equal("0x00000000", insns[0].OperandText);
+        Assert.Equal("0x02000002", insns[0].OperandText);
         Assert.Equal(0x4004UL, insns[1].Address);
     }
 
@@ -47,7 +48,8 @@ public class NativeDisassemblerTests
     [Fact(Timeout = 30_000)]
     public void Disassemble_Arm64TruncatedTail_FallsToByte()
     {
-        byte[] code = [0x00, 0x00, 0x00, 0x00, 0xAA];
+        // 0x02000002 is an unallocated word (bits[28:25]=0001); the trailing 0xAA is a truncated tail.
+        byte[] code = [0x02, 0x00, 0x00, 0x02, 0xAA];
         var insns = NativeDisassembler.Disassemble(code, 0, NativeArchitecture.Arm64);
 
         Assert.Equal(2, insns.Count);

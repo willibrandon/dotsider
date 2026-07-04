@@ -64,8 +64,7 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
         var sawVector = false;
         var checkedFns = 0;
         var totalInsns = 0;
-        var categories = new HashSet<NativeInstructionCategory>();
-        var simdSamples = new List<string>();
+        var funcDetails = new List<string>();
         foreach (var (code, name) in ManagedFunctions(analyzer, symbols!))
         {
             var insns = NativeDisassembler.Disassemble(code, 0, arch);
@@ -75,26 +74,20 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
 
             checkedFns++;
             totalInsns += insns.Count;
-            foreach (var i in insns)
-            {
-                categories.Add(i.Category);
-                if (i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float)
-                {
-                    if (i.Operands.Any(o => o.Register is { } r
-                        && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z'))))
-                        sawVector = true;
-                    else if (simdSamples.Count < 8)
-                        simdSamples.Add($"{i.Mnemonic} {i.OperandText}");
-                }
-            }
+            sawVector |= insns.Any(i => i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float
+                && i.Operands.Any(o => o.Register is { } r
+                    && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z'))));
+
+            // Per-function distinct mnemonics — so a failure shows whether the intrinsic method is
+            // present at all, and whether it decoded to SIMD (a categorization bug) or to scalar/no
+            // vector code (a build/codegen issue).
+            if (funcDetails.Count < 24)
+                funcDetails.Add($"{name}:{{{string.Join(",", insns.Select(i => i.Mnemonic).Distinct())}}}");
         }
 
-        // On failure, surface what the leg actually decoded: whether any Vector/Float instruction was
-        // seen at all (a build/ISA issue) versus seen without a recognized vector register (a decoder
-        // operand-classification issue).
         Assert.True(sawVector,
             $"no vector-register operand across {checkedFns} functions / {totalInsns} instructions; "
-            + $"categories=[{string.Join(",", categories)}]; simd-without-vreg=[{string.Join(" | ", simdSamples)}]");
+            + $"funcs=[{string.Join(" | ", funcDetails)}]");
     }
 
     private static string Hex(NativeInstruction? insn) =>
