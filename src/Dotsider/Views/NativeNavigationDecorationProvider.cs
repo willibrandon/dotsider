@@ -17,15 +17,29 @@ public sealed class NativeNavigationDecorationProvider : ITextDecorationProvider
     /// <summary>The decoded instructions of the current listing.</summary>
     public IReadOnlyList<NativeInstruction>? Instructions { get; set; }
 
+    private Dictionary<int, NativeInstruction>? _byLine;
+    private IReadOnlyList<NativeInstruction>? _indexed;
+
     /// <inheritdoc />
     public IReadOnlyList<TextDecorationSpan> GetDecorations(int startLine, int endLine, IHex1bDocument document)
     {
         if (Instructions is not { Count: > 0 } instructions) return [];
 
-        var spans = new List<TextDecorationSpan>();
-        foreach (var insn in instructions)
+        // Hex1b calls this for the visible range each render; index by display line once so a long
+        // listing costs O(visible lines), not O(all instructions), per repaint.
+        if (!ReferenceEquals(_indexed, instructions))
         {
-            if (insn.DisplayLine is not { } line || line < startLine || line > endLine) continue;
+            _indexed = instructions;
+            _byLine = [];
+            foreach (var insn in instructions)
+                if (insn.DisplayLine is { } dl)
+                    _byLine[dl] = insn;
+        }
+
+        var spans = new List<TextDecorationSpan>();
+        for (var line = startLine; line <= endLine && line <= document.LineCount; line++)
+        {
+            if (!_byLine!.TryGetValue(line, out var insn)) continue;
             if (insn.TargetKind == NativeTargetKind.None || insn.TargetName is not { Length: > 0 }) continue;
             if (insn.Layout is not { TargetStart: >= 0, TargetLength: > 0 } layout) continue;
 

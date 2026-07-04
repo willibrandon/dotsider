@@ -239,6 +239,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The back-stack of native symbols visited via go-to-definition, for Esc.</summary>
     public Stack<NativeBackEntry> IlNativeBackStack { get; } = new();
 
+    /// <summary>Character offsets of the confirmed search query within the native listing, for n/N.</summary>
+    public IReadOnlyList<int> IlNativeSearchOffsets { get; set; } = [];
+
     /// <summary>The field targeted by the last field go-to-definition, displayed in the right pane.</summary>
     public FieldDefInfo? IlSelectedField { get; set; }
 
@@ -253,6 +256,13 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>Maps (analyzer, token) to stable key objects for StatePanelWidget identity.</summary>
     internal Dictionary<(AssemblyAnalyzer, int), object> IlEditorKeyCache { get; } = [];
+
+    /// <summary>
+    /// Native-mode editor identity keys, keyed by the full 64-bit virtual address. Kept separate from
+    /// <see cref="IlEditorKeyCache"/> so a VA never collides with a managed token (nor with another VA
+    /// that shares its low 32 bits) — <see cref="Hex1b.Widgets.StatePanelWidget"/> matches by reference.
+    /// </summary>
+    internal Dictionary<(AssemblyAnalyzer, ulong), object> IlNativeEditorKeyCache { get; } = [];
 
     /// <summary>Cached editor states for editors not currently visible (analogous to old SavedEditors).</summary>
     internal Dictionary<object, EditorState> IlCachedEditors { get; } = new(ReferenceEqualityComparer.Instance);
@@ -904,7 +914,7 @@ public sealed class DotsiderState : IDisposable
         IlEditorKey = entry.EditorKey;
         if (entry.EditorKey is not null)
         {
-            IlEditorKeyCache[(Analyzer, unchecked((int)entry.Symbol.VirtualAddress))] = entry.EditorKey;
+            IlNativeEditorKeyCache[(Analyzer, entry.Symbol.VirtualAddress)] = entry.EditorKey;
             IlCachedEditors.Remove(entry.EditorKey);
         }
 
@@ -1115,6 +1125,23 @@ public sealed class DotsiderState : IDisposable
         {
             key = new object();
             IlEditorKeyCache[cacheKey] = key;
+        }
+
+        return key;
+    }
+
+    /// <summary>
+    /// Returns a stable identity key for a native symbol's editor within an analyzer, keyed by the
+    /// full 64-bit virtual address (never truncated). Same (analyzer, address) always returns the same
+    /// reference, as <see cref="StatePanelWidget"/> reference-equality matching requires.
+    /// </summary>
+    internal object GetOrCreateNativeEditorKey(AssemblyAnalyzer analyzer, ulong address)
+    {
+        var cacheKey = (analyzer, address);
+        if (!IlNativeEditorKeyCache.TryGetValue(cacheKey, out var key))
+        {
+            key = new object();
+            IlNativeEditorKeyCache[cacheKey] = key;
         }
 
         return key;
@@ -1568,6 +1595,7 @@ public sealed class DotsiderState : IDisposable
         IlScrollPanelNode = null;
         IlScrollSelectionIntoViewPending = false;
         IlEditorKeyCache.Clear();
+        IlNativeEditorKeyCache.Clear();
         IlCachedEditors.Clear();
         IlPrevSelectionAnchor = null;
         IlPrevCursorPosition = null;
@@ -1583,6 +1611,15 @@ public sealed class DotsiderState : IDisposable
         IlHeaderLineCount = 0;
         IlNavigationProvider.Instructions = null;
         IlSourceLinkProvider.Instructions = null;
+        // Native IL-inspector mode mirrors the managed fields above; clear it too so a new binary
+        // does not inherit the previous one's selected symbol, decoded listing, or back stack.
+        IlSelectedNativeSymbol = null;
+        IlEditorNativeSymbol = null;
+        IlNativeInstructions = null;
+        IlNativeHeaderLineCount = 0;
+        IlNativeSyntaxProvider.Instructions = null;
+        IlNativeNavigationProvider.Instructions = null;
+        IlNativeBackStack.Clear();
         IlGdPending = false;
         TransientNotice = null;
         IlYankProvider.HighlightRange = null;

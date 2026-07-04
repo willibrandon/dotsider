@@ -33,35 +33,61 @@ public static class IlInspectorView
             //   After confirm: compute text-level matches once, set up n/N navigation.
             if (!string.IsNullOrEmpty(query) && search.IsConfirmed)
             {
-                if (query != state.IlLastSearchQuery)
+                if (state.Analyzer.BinaryKind != BinaryKind.Managed)
                 {
-                    state.IlSearchMatches = CollectTextMatches(state, query);
-                    state.IlTextMatchMethodTokens = [.. state.IlSearchMatches.Select(m => m.Method.Token)];
-                    state.IlLastSearchQuery = query;
-                    state.IlCurrentMatchIndex = -1;
-                }
-
-                search.SetMatchCount(state.IlSearchMatches.Count);
-
-                if (state.IlSearchMatches.Count > 0)
-                {
-                    state.NavigateNextMatch = () =>
+                    // Native mode: match the query against the current listing text and step the
+                    // cursor through the hits with n/N (IlSearchProvider highlights every occurrence).
+                    if (query != state.IlLastSearchQuery)
                     {
-                        state.IlCurrentMatchIndex = (state.IlCurrentMatchIndex + 1) % state.IlSearchMatches.Count;
-                        NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
-                    };
-                    state.NavigatePrevMatch = () =>
+                        state.IlNativeSearchOffsets = CollectNativeMatches(state, query);
+                        state.IlLastSearchQuery = query;
+                        state.IlCurrentMatchIndex = -1;
+                    }
+
+                    search.SetMatchCount(state.IlNativeSearchOffsets.Count);
+                    if (state.IlNativeSearchOffsets.Count > 0)
                     {
-                        state.IlCurrentMatchIndex = state.IlCurrentMatchIndex <= 0
-                            ? state.IlSearchMatches.Count - 1
-                            : state.IlCurrentMatchIndex - 1;
-                        NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
-                    };
+                        state.NavigateNextMatch = () => NavigateToNativeMatch(state, forward: true);
+                        state.NavigatePrevMatch = () => NavigateToNativeMatch(state, forward: false);
+                    }
+                    else
+                    {
+                        state.NavigateNextMatch = null;
+                        state.NavigatePrevMatch = null;
+                    }
                 }
                 else
                 {
-                    state.NavigateNextMatch = null;
-                    state.NavigatePrevMatch = null;
+                    if (query != state.IlLastSearchQuery)
+                    {
+                        state.IlSearchMatches = CollectTextMatches(state, query);
+                        state.IlTextMatchMethodTokens = [.. state.IlSearchMatches.Select(m => m.Method.Token)];
+                        state.IlLastSearchQuery = query;
+                        state.IlCurrentMatchIndex = -1;
+                    }
+
+                    search.SetMatchCount(state.IlSearchMatches.Count);
+
+                    if (state.IlSearchMatches.Count > 0)
+                    {
+                        state.NavigateNextMatch = () =>
+                        {
+                            state.IlCurrentMatchIndex = (state.IlCurrentMatchIndex + 1) % state.IlSearchMatches.Count;
+                            NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
+                        };
+                        state.NavigatePrevMatch = () =>
+                        {
+                            state.IlCurrentMatchIndex = state.IlCurrentMatchIndex <= 0
+                                ? state.IlSearchMatches.Count - 1
+                                : state.IlCurrentMatchIndex - 1;
+                            NavigateToMatch(state, state.IlSearchMatches[state.IlCurrentMatchIndex]);
+                        };
+                    }
+                    else
+                    {
+                        state.NavigateNextMatch = null;
+                        state.NavigatePrevMatch = null;
+                    }
                 }
             }
             else
@@ -74,6 +100,7 @@ public static class IlInspectorView
                 {
                     state.IlLastSearchQuery = null;
                     state.IlSearchMatches = [];
+                    state.IlNativeSearchOffsets = [];
                     state.IlCurrentMatchIndex = -1;
                     state.IlTextMatchMethodTokens = null;
                 }
@@ -86,6 +113,14 @@ public static class IlInspectorView
                 var currentMatch = state.IlSearchMatches[state.IlCurrentMatchIndex];
                 state.IlSearchProvider.CurrentMatchStart = new DocumentPosition(currentMatch.Line, currentMatch.Column);
                 state.IlSearchProvider.CurrentMatchLength = currentMatch.Length;
+            }
+            else if (state.IlCurrentMatchIndex >= 0
+                && state.IlCurrentMatchIndex < state.IlNativeSearchOffsets.Count
+                && state.IlEditorState is { } nativeEditor)
+            {
+                state.IlSearchProvider.CurrentMatchStart =
+                    nativeEditor.Document.OffsetToPosition(new DocumentOffset(state.IlNativeSearchOffsets[state.IlCurrentMatchIndex]));
+                state.IlSearchProvider.CurrentMatchLength = state.IlLastSearchQuery?.Length ?? 0;
             }
             else
             {
@@ -427,6 +462,8 @@ public static class IlInspectorView
         var marker = row.Kind switch
         {
             IlTreeRowKind.Method when row.Method?.Token == state.IlSelectedMethod?.Token => "● ",
+            IlTreeRowKind.Method when row.Symbol is { } nsym
+                && nsym.VirtualAddress == state.IlSelectedNativeSymbol?.VirtualAddress => "● ",
             IlTreeRowKind.Type when row.Method is null
                 && state.IlSelectedMethod?.DeclaringType is { } dt
                 && row.Key == $"type:{dt}" => "● ",
@@ -505,7 +542,7 @@ public static class IlInspectorView
             state.IlNativeHeaderLineCount = result?.HeaderLineCount ?? 0;
             state.IlNativeSyntaxProvider.Instructions = state.IlNativeInstructions;
             state.IlNativeNavigationProvider.Instructions = state.IlNativeInstructions;
-            state.IlEditorKey = state.GetOrCreateEditorKey(state.Analyzer, unchecked((int)symbol.VirtualAddress));
+            state.IlEditorKey = state.GetOrCreateNativeEditorKey(state.Analyzer, symbol.VirtualAddress);
             state.IlCachedEditors.Remove(state.IlEditorKey);
 
             var firstLine = result?.Instructions.FirstOrDefault(i => i.DisplayLine is not null)?.DisplayLine
@@ -787,6 +824,33 @@ public static class IlInspectorView
     /// namespaces alphabetical, types in TypeDefs order, methods in MethodDefs order,
     /// then line → column within each method's disassembly.
     /// </summary>
+    /// <summary>Collects the character offsets of the query within the current native listing (case-insensitive).</summary>
+    private static List<int> CollectNativeMatches(DotsiderState state, string query)
+    {
+        if (state.IlEditorState is not { } editor) return [];
+        var text = editor.Document.GetText();
+        var offsets = new List<int>();
+        for (var i = text.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+             i >= 0;
+             i = text.IndexOf(query, i + query.Length, StringComparison.OrdinalIgnoreCase))
+            offsets.Add(i);
+        return offsets;
+    }
+
+    /// <summary>Moves the native listing's cursor to the next/previous confirmed-search offset (n/N).</summary>
+    private static void NavigateToNativeMatch(DotsiderState state, bool forward)
+    {
+        var offsets = state.IlNativeSearchOffsets;
+        if (offsets.Count == 0 || state.IlEditorState is not { } editor) return;
+
+        state.IlCurrentMatchIndex = forward
+            ? (state.IlCurrentMatchIndex + 1) % offsets.Count
+            : state.IlCurrentMatchIndex <= 0 ? offsets.Count - 1 : state.IlCurrentMatchIndex - 1;
+        editor.SetCursorPosition(new DocumentOffset(offsets[state.IlCurrentMatchIndex]));
+        state.App.RequestFocus(node => node is EditorNode);
+        state.App.Invalidate();
+    }
+
     private static List<IlMatch> CollectTextMatches(DotsiderState state, string query)
     {
         var result = new List<IlMatch>();

@@ -20,16 +20,7 @@ internal static class NativeNavigationHelper
         return instructions.FirstOrDefault(i => i.DisplayLine == cursorLine);
     }
 
-    private static int GetCursorLine(EditorState editorState)
-    {
-        var cursorOffset = editorState.Cursor.Position.Value;
-        var text = editorState.Document.GetText();
-        var cursorLine = 1;
-        for (var i = 0; i < cursorOffset && i < text.Length; i++)
-        {
-            if (text[i] == '\n') cursorLine++;
-        }
-
-        return cursorLine;
-    }
+    private static int GetCursorLine(EditorState editorState) =>
+        // Hex1b maps an offset to its 1-based line with an indexed lookup — no full-text scan.
+        editorState.Document.OffsetToPosition(editorState.Cursor.Position).Line;
 }
