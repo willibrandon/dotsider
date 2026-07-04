@@ -122,6 +122,22 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     private static ScrollPanelNode? FindPanel(Hex1bApp app)
         => SnapshotFocusables(app).OfType<ScrollPanelNode>().FirstOrDefault();
 
+    /// <summary>
+    /// Whether the tree overflows the panel viewport. The panel's own IsScrollable is
+    /// always false under the windowed tree (its child is viewport-sized); scrollability
+    /// is a property of the row count against the viewport.
+    /// </summary>
+    private bool TreeScrollable(ScrollPanelNode sp)
+        => sp.ViewportSize > 0
+           && Views.IlInspectorView.BuildTreeRows(_state!).Count > sp.ViewportSize;
+
+    /// <summary>The tree's maximum scroll offset for the current rows and viewport.</summary>
+    private int TreeMaxOffset(ScrollPanelNode sp)
+        => Math.Max(0, Views.IlInspectorView.BuildTreeRows(_state!).Count - sp.ViewportSize);
+
+    /// <summary>The tree's state-owned scroll offset (first visible row index).</summary>
+    private int TreeOffset => _state!.IlTreeScrollOffset;
+
     private static async Task<ScrollPanelNode> WaitForPanelAsync(
         Hex1bTerminalAutomator auto, Hex1bApp app)
     {
@@ -176,7 +192,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// pending-scroll arming) and waits until the binding closure on the panel has
     /// actually picked up the new rows. The closure refreshes only on the next
     /// IL Inspector render; we invalidate, then poll <see cref="ScrollPanelNode.ContentSize"/>
-    /// against the current row count — when they agree, a render with the post-mutation
+    /// against the expected visible-window height — the windowed tree's child measures
+    /// min(viewport, rows) tall — so agreement proves a render with the post-mutation
     /// rows has been arranged into the panel and the binding closure is current.
     /// </summary>
     private static async Task SetSelectionDirectAsync(
@@ -193,8 +210,9 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.WaitUntilAsync(_ =>
         {
             var sp = FindPanel(app);
-            return sp is { ViewportSize: > 0 } && sp.ContentSize == rows.Count;
-        }, description: "panel ContentSize agrees with current rows.Count");
+            return sp is { ViewportSize: > 0 }
+                && sp.ContentSize == Math.Min(sp.ViewportSize, rows.Count);
+        }, description: "panel ContentSize agrees with the visible window");
     }
 
     /// <summary>
@@ -237,7 +255,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel becomes scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree becomes scrollable");
 
         var thumbY = await WaitForThumbAsync(auto, terminal, sp);
         Assert.True(thumbY >= sp.Bounds.Y, "thumb cell rendered inside panel bounds");
@@ -258,7 +276,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => !sp.IsScrollable, description: "content fits viewport");
+        await auto.WaitUntilAsync(_ => !TreeScrollable(sp), description: "content fits viewport");
 
         var snapshot = terminal.CreateSnapshot();
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
@@ -333,7 +351,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.ViewportSize > 0 && sp.IsScrollable,
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp),
             description: "viewport sized and scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
@@ -352,8 +370,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 description: $"DownArrow #{i + 1} advances from {prev}");
         }
 
-        Assert.True(sp.Offset > 0,
-            $"Offset should advance after walking past viewport. ViewportSize={sp.ViewportSize}, target={target}, Offset={sp.Offset}");
+        Assert.True(TreeOffset > 0,
+            $"Offset should advance after walking past viewport. ViewportSize={sp.ViewportSize}, target={target}, Offset={TreeOffset}");
 
         _cts!.Cancel();
         await runTask;
@@ -436,7 +454,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(Hex1bKey.Home, ct: ct);
         await auto.WaitUntilAsync(_ => _state!.IlFocusedTreeKey as string == rows[0].Key,
             description: "Home jumps to row 0");
-        await auto.WaitUntilAsync(_ => sp.Offset == 0, description: "Offset returns to 0");
+        await auto.WaitUntilAsync(_ => TreeOffset == 0, description: "Offset returns to 0");
 
         _cts!.Cancel();
         await runTask;
@@ -459,7 +477,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
         await auto.WaitUntilAsync(_ => _state!.IlFocusedTreeKey as string == rows[^1].Key,
             description: "End selects last row");
-        await auto.WaitUntilAsync(_ => sp.Offset == sp.MaxOffset,
+        await auto.WaitUntilAsync(_ => TreeOffset == TreeMaxOffset(sp),
             description: "Offset hits MaxOffset");
 
         _cts!.Cancel();
@@ -480,12 +498,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
 
-        var initialOffset = sp.Offset;
+        var initialOffset = TreeOffset;
         var initialKey = _state!.IlFocusedTreeKey as string;
         var bodyX = sp.Bounds.X + 5;
         var bodyY = sp.Bounds.Y + 5;
@@ -494,7 +512,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ScrollDown()
             .Build()
             .ApplyAsync(terminal, ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == initialOffset + 3,
+        await auto.WaitUntilAsync(_ => TreeOffset == initialOffset + 3,
             description: "Offset advanced by exactly 3");
 
         Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
@@ -515,7 +533,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var bodyX = sp.Bounds.X + 5;
         var bodyY = sp.Bounds.Y + 5;
@@ -528,7 +546,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(0, sp.Offset);
+        Assert.Equal(0, TreeOffset);
         Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
@@ -547,10 +565,11 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
-        sp.Offset = sp.MaxOffset;
-        var initialKey = _state!.IlFocusedTreeKey as string;
+        _state!.IlTreeScrollOffset = TreeMaxOffset(sp);
+        _state.App.Invalidate();
+        var initialKey = _state.IlFocusedTreeKey as string;
         var bodyX = sp.Bounds.X + 5;
         var bodyY = sp.Bounds.Y + 5;
         await new Hex1bTerminalInputSequenceBuilder()
@@ -561,7 +580,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(sp.MaxOffset, sp.Offset);
+        Assert.Equal(TreeMaxOffset(sp), TreeOffset);
         Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
@@ -580,13 +599,13 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         // Find a thumb cell, then click below it on the track.
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var thumbY = await WaitForThumbAsync(auto, terminal, sp);
 
-        var initialOffset = sp.Offset;
+        var initialOffset = TreeOffset;
         var initialKey = _state!.IlFocusedTreeKey as string;
         var trackY = sp.Bounds.Y + sp.Bounds.Height - 2; // below the thumb
         var expectedStep = Math.Max(1, sp.ViewportSize - 1);
@@ -595,7 +614,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ClickAt(sbCol, trackY)
             .Build()
             .ApplyAsync(terminal, ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == Math.Min(sp.MaxOffset, initialOffset + expectedStep),
+        await auto.WaitUntilAsync(_ => TreeOffset == Math.Min(TreeMaxOffset(sp), initialOffset + expectedStep),
             description: "track click pages viewport");
 
         Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
@@ -616,7 +635,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var thumbY = await WaitForThumbAsync(auto, terminal, sp);
@@ -627,7 +646,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .Drag(sbCol, thumbY, sbCol, thumbY + dragDistance)
             .Build()
             .ApplyAsync(terminal, ct);
-        await auto.WaitUntilAsync(_ => sp.Offset > 0, description: "drag advanced offset");
+        await auto.WaitUntilAsync(_ => TreeOffset > 0, description: "drag advanced offset");
 
         Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
 
@@ -647,12 +666,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var topThumb = await WaitForThumbAsync(auto, terminal, sp);
 
-        sp.Offset = sp.MaxOffset;
+        _state!.IlTreeScrollOffset = TreeMaxOffset(sp);
         _state!.App.Invalidate();
         await auto.WaitUntilAsync(s =>
         {
@@ -678,7 +697,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -713,7 +732,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -832,16 +851,23 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         // Search bar shows the confirmed query as static text — its appearance on
         // screen is the deterministic signal that the IL view re-rendered with the
         // search active and the panel's binding closure now closes over zero rows.
-        await auto.WaitUntilTextAsync("zzzz_no_match_zzzz");
+        // Re-nudge per poll: Hex1b drains an Invalidate that races an in-flight
+        // frame, so a single test-thread Invalidate can be dropped without a render.
+        await auto.WaitUntilAsync(s =>
+        {
+            if (s.ContainsText("zzzz_no_match_zzzz")) return true;
+            _state.App.Invalidate();
+            return false;
+        }, description: "confirmed search query renders");
 
         var beforeKey = _state.IlFocusedTreeKey as string;
-        var beforeOffset = sp.Offset;
+        var beforeOffset = TreeOffset;
 
         await auto.KeyAsync(key, ct: ct);
         await Task.Delay(50, ct);
 
         Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
-        Assert.Equal(beforeOffset, sp.Offset);
+        Assert.Equal(beforeOffset, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -875,10 +901,17 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         // Search bar shows the confirmed query as static text — its appearance on
         // screen is the deterministic signal that the IL view re-rendered with the
         // search active and the panel's binding closure now closes over zero rows.
-        await auto.WaitUntilTextAsync("zzzz_no_match_zzzz");
+        // Re-nudge per poll: Hex1b drains an Invalidate that races an in-flight
+        // frame, so a single test-thread Invalidate can be dropped without a render.
+        await auto.WaitUntilAsync(s =>
+        {
+            if (s.ContainsText("zzzz_no_match_zzzz")) return true;
+            _state.App.Invalidate();
+            return false;
+        }, description: "confirmed search query renders");
 
         var beforeKey = _state.IlFocusedTreeKey as string;
-        var beforeOffset = sp.Offset;
+        var beforeOffset = TreeOffset;
 
         var bodyX = sp.Bounds.X + 5;
         var bodyY = sp.Bounds.Y + 1;
@@ -888,7 +921,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await Task.Delay(50, ct);
 
         Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
-        Assert.Equal(beforeOffset, sp.Offset);
+        Assert.Equal(beforeOffset, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -906,19 +939,19 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == sp.MaxOffset, description: "scrolled to end");
+        await auto.WaitUntilAsync(_ => TreeOffset == TreeMaxOffset(sp), description: "scrolled to end");
 
         // Collapse all types — content height shrinks dramatically.
         foreach (var t in _state!.Analyzer.TypeDefs)
             _state!.IlTreeExpansionState[$"type:{t.FullName}"] = false;
         _state!.App.Invalidate();
 
-        await auto.WaitUntilAsync(_ => sp.Offset <= sp.MaxOffset,
+        await auto.WaitUntilAsync(_ => TreeOffset <= TreeMaxOffset(sp),
             description: "Offset clamped after collapse");
-        Assert.True(sp.Offset <= sp.MaxOffset, $"Offset={sp.Offset} MaxOffset={sp.MaxOffset}");
+        Assert.True(TreeOffset <= TreeMaxOffset(sp), $"Offset={TreeOffset} MaxOffset={TreeMaxOffset(sp)}");
 
         _cts!.Cancel();
         await runTask;
@@ -999,7 +1032,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         // Pick a method row index that is visible at the current Offset.
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         var visibleMethod = -1;
-        for (var i = sp.Offset; i < Math.Min(rows.Count, sp.Offset + sp.ViewportSize); i++)
+        for (var i = TreeOffset; i < Math.Min(rows.Count, TreeOffset + sp.ViewportSize); i++)
         {
             if (rows[i].Kind == IlTreeRowKind.Method) { visibleMethod = i; break; }
         }
@@ -1009,7 +1042,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         }
 
         var clickX = sp.Bounds.X + 5;
-        var clickY = sp.Bounds.Y + (visibleMethod - sp.Offset);
+        var clickY = sp.Bounds.Y + (visibleMethod - TreeOffset);
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(clickX, clickY)
             .Build()
@@ -1034,7 +1067,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -1073,7 +1106,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         // Allow a frame for layout, then check thumb only when actually scrollable.
         await Task.Delay(50, ct);
-        if (sp.IsScrollable)
+        if (TreeScrollable(sp))
         {
             var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
             await auto.WaitUntilAsync(s =>
@@ -1123,9 +1156,9 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             var idx = IlTreeList.FindRowIndex(freshRows, $"method:{deepMethod.Token}");
             return idx >= 0
                 && sp.ViewportSize > 0
-                && sp.ContentSize == freshRows.Count
-                && sp.Offset <= idx
-                && idx < sp.Offset + sp.ViewportSize;
+                && !_state.IlScrollSelectionIntoViewPending
+                && TreeOffset <= idx
+                && idx < TreeOffset + sp.ViewportSize;
         }, description: "deep target visible after first-arrival pending scroll");
 
         _cts!.Cancel();
@@ -1144,7 +1177,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -1164,9 +1197,9 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ScrollDown(ticks)
             .Build()
             .ApplyAsync(terminal, ct);
-        await auto.WaitUntilAsync(_ => sp.Offset >= Math.Min(expectedAdvance, sp.MaxOffset),
+        await auto.WaitUntilAsync(_ => TreeOffset >= Math.Min(expectedAdvance, TreeMaxOffset(sp)),
             description: "all wheel ticks applied to Offset");
-        var offsetAfterWheel = sp.Offset;
+        var offsetAfterWheel = TreeOffset;
 
         // Force a repaint and wait one render cycle. The repaint must NOT trigger any
         // EnsureSelectionVisible-style snap-back; the wheel-only path leaves the
@@ -1175,7 +1208,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.WaitUntilAsync(_ => true, description: "render frame elapses");
 
         Assert.Equal(rows[0].Key, _state!.IlFocusedTreeKey as string);
-        Assert.Equal(offsetAfterWheel, sp.Offset);
+        Assert.Equal(offsetAfterWheel, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -1277,7 +1310,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         // External set then null — flag must clear without scrolling anywhere weird.
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
@@ -1301,12 +1334,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 .Build()
                 .ApplyAsync(terminal, ct);
         }
-        var offsetAfterWheel = sp.Offset;
+        var offsetAfterWheel = TreeOffset;
         Assert.True(offsetAfterWheel > 0, "wheel advanced offset");
 
         _state!.App.Invalidate();
         await Task.Delay(80, ct);
-        Assert.Equal(offsetAfterWheel, sp.Offset);
+        Assert.Equal(offsetAfterWheel, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -1324,7 +1357,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => !sp.IsScrollable,
+        await auto.WaitUntilAsync(_ => !TreeScrollable(sp),
             description: "HelloWorld content fits viewport");
 
         // Pick a method row that is visible.
@@ -1344,13 +1377,13 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             rows = Views.IlInspectorView.BuildTreeRows(_state);
             methodIdx = rows.FindIndex(r => r.Kind == IlTreeRowKind.Method);
             // Wait for the panel's closure to pick up the expanded rows.
-            await auto.WaitUntilAsync(_ => sp.ContentSize == rows.Count,
+            await auto.WaitUntilAsync(_ => sp.ContentSize == Math.Min(sp.ViewportSize, rows.Count),
                 description: "panel ContentSize agrees with expanded rows");
         }
         Assert.True(methodIdx >= 0);
 
         var rightCol = sp.Bounds.X + sp.Bounds.Width - 1;
-        var clickY = sp.Bounds.Y + (methodIdx - sp.Offset);
+        var clickY = sp.Bounds.Y + (methodIdx - TreeOffset);
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(rightCol, clickY)
             .Build()
@@ -1394,9 +1427,9 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             var idx = IlTreeList.FindRowIndex(rows, $"method:{deepMethod.Token}");
             return idx >= 0
                 && sp.ViewportSize > 0
-                && sp.ContentSize == rows.Count
-                && sp.Offset <= idx
-                && idx < sp.Offset + sp.ViewportSize;
+                && !_state.IlScrollSelectionIntoViewPending
+                && TreeOffset <= idx
+                && idx < TreeOffset + sp.ViewportSize;
         }, description: "deep target visible after expand + pending scroll");
 
         _cts!.Cancel();
@@ -1415,7 +1448,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -1431,10 +1464,10 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 .Build()
                 .ApplyAsync(terminal, ct);
         }
-        await auto.WaitUntilAsync(_ => sp.Offset > 0, description: "offset > 0");
+        await auto.WaitUntilAsync(_ => TreeOffset > 0, description: "offset > 0");
 
         await auto.KeyAsync(Hex1bKey.Home, ct: ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == 0,
+        await auto.WaitUntilAsync(_ => TreeOffset == 0,
             description: "Home re-anchors viewport on row 0");
 
         _cts!.Cancel();
@@ -1453,7 +1486,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await SetSelectionDirectAsync(auto, app, _state!, rows, 0);
@@ -1468,10 +1501,10 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 .Build()
                 .ApplyAsync(terminal, ct);
         }
-        await auto.WaitUntilAsync(_ => sp.Offset > 0, description: "offset > 0");
+        await auto.WaitUntilAsync(_ => TreeOffset > 0, description: "offset > 0");
 
         await auto.KeyAsync(Hex1bKey.UpArrow, ct: ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == 0,
+        await auto.WaitUntilAsync(_ => TreeOffset == 0,
             description: "UpArrow at row 0 re-anchors viewport");
         Assert.Equal(rows[0].Key, _state!.IlFocusedTreeKey as string);
 
@@ -1491,7 +1524,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         var sp = await WaitForPanelAsync(auto, app);
-        await auto.WaitUntilAsync(_ => sp.IsScrollable, description: "panel scrollable");
+        await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree scrollable");
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
@@ -1509,11 +1542,11 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 .Build()
                 .ApplyAsync(terminal, ct);
         }
-        await auto.WaitUntilAsync(_ => sp.Offset < sp.MaxOffset,
+        await auto.WaitUntilAsync(_ => TreeOffset < TreeMaxOffset(sp),
             description: "wheel pushed last row offscreen");
 
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
-        await auto.WaitUntilAsync(_ => sp.Offset == sp.MaxOffset,
+        await auto.WaitUntilAsync(_ => TreeOffset == TreeMaxOffset(sp),
             description: "End re-anchors viewport on last row");
 
         _cts!.Cancel();
