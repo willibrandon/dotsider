@@ -12,6 +12,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- SVE (System.Runtime.Intrinsics.Arm.Sve) is an evaluation API in this runtime. -->
     <NoWarn>$(NoWarn);SYSLIB5003</NoWarn>
+    <!-- Keep the symbol table so the disassembler fixtures can name and find the intrinsic methods.
+         Release AOT strips user-method symbols on Linux/macOS, which otherwise hides the vector code
+         the fixtures assert on (the ELF .symtab / Mach-O nlist would carry only a few runtime thunks). -->
+    <StripSymbols>false</StripSymbols>
     <!-- Publish with the ISA baseline raised so the guarded AVX-512 / SVE paths are emitted. -->
     <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">native</IlcInstructionSet>
   </PropertyGroup>
