@@ -110,6 +110,10 @@ internal enum Arm64Format
     SimdMisc2,
     /// <summary>Vd.T, Rn or Vd.T, Vn.Ts[i] (dup).</summary>
     SimdDup,
+    /// <summary>Vd.Ts[i], Rn — insert a general register into a vector element (ins/mov).</summary>
+    SimdInsGeneral,
+    /// <summary>Rd, Vn.Ts[i] — move a vector element to a general register (smov/umov).</summary>
+    SimdMovFromElement,
     /// <summary>Vd.T, #imm (movi/mvni).</summary>
     SimdModImm,
     /// <summary>Vd.T, Vn.T, Vm.T (SIMD dot-product: sdot/udot).</summary>

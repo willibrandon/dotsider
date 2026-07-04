@@ -268,6 +268,8 @@ internal static partial class Arm64OperandFormatter
             case Arm64Format.SimdReg3:
             case Arm64Format.SimdMisc2:
             case Arm64Format.SimdDup:
+            case Arm64Format.SimdInsGeneral:
+            case Arm64Format.SimdMovFromElement:
             case Arm64Format.SimdModImm:
             case Arm64Format.SimdDot:
             case Arm64Format.CryptoAes:

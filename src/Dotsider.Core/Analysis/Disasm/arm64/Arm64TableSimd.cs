@@ -111,6 +111,13 @@ internal static partial class Arm64Tables
         // dup (vector) from a general register.
         Add(SimdFp, 0xBFE0FC00, 0x0E000C00, "dup", SimdDup);
 
+        // AdvSIMD copy: insert a general register into a lane (ins/mov), and move a lane out to a
+        // general register with sign- or zero-extension (smov/umov). imm5 selects the element size
+        // and index. Vector128.Create and Vector*.GetElement emit these.
+        Add(SimdFp, 0xFFE0FC00, 0x4E001C00, "mov", SimdInsGeneral);
+        Add(SimdFp, 0xBFE0FC00, 0x0E002C00, "smov", SimdMovFromElement);
+        Add(SimdFp, 0xBFE0FC00, 0x0E003C00, "umov", SimdMovFromElement);
+
         // Modified immediate (movi/mvni).
         Add(SimdFp, 0xBFF89C00, 0x0F000400, "movi", SimdModImm);
         Add(SimdFp, 0xBFF89C00, 0x2F000400, "mvni", SimdModImm);

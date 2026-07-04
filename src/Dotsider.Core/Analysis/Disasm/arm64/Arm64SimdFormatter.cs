@@ -91,6 +91,23 @@ internal static partial class Arm64OperandFormatter
                 break;
             }
 
+            case Arm64Format.SimdInsGeneral:
+            {
+                var (sz, index, is64) = Element((int)(word >> 16) & 0x1F);
+                VecElem(ops, rd, sz, index);
+                Reg(ops, R.Gpr(rn, is64)); // Wn for b/h/s elements, Xn for d
+                break;
+            }
+
+            case Arm64Format.SimdMovFromElement:
+            {
+                var (sz, index, isD) = Element((int)(word >> 16) & 0x1F);
+                // smov sign-extends into Wd (Q=0) or Xd (Q=1); umov moves into Xd for a d element, else Wd.
+                Reg(ops, R.Gpr(rd, mnem == "smov" ? q : isD));
+                VecElem(ops, rn, sz, index);
+                break;
+            }
+
             case Arm64Format.SimdModImm:
             {
                 var imm = (word >> 5) & 0x1F | ((word >> 16) & 7) << 5;
@@ -122,6 +139,21 @@ internal static partial class Arm64OperandFormatter
     {
         var name = $"v{index}.{arrangement}";
         ops.Add(new NativeOperand(NativeOperandKind.Register, name, Register: name));
+    }
+
+    private static void VecElem(List<NativeOperand> ops, int index, char size, int element)
+    {
+        var name = $"v{index}.{size}[{element}]";
+        ops.Add(new NativeOperand(NativeOperandKind.Register, name, Register: name));
+    }
+
+    /// <summary>Decodes an AdvSIMD copy <c>imm5</c> field into its element size letter and lane index.</summary>
+    private static (char Size, int Index, bool Is64) Element(int imm5)
+    {
+        if ((imm5 & 1) != 0) return ('b', imm5 >> 1, false);
+        if ((imm5 & 2) != 0) return ('h', imm5 >> 2, false);
+        if ((imm5 & 4) != 0) return ('s', imm5 >> 3, false);
+        return ('d', imm5 >> 4, true);
     }
 
     private static int FpSize(int ptype) => ptype switch { 0 => 2, 1 => 3, _ => 1 }; // S, D, H
