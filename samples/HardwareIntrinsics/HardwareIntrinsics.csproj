@@ -16,7 +16,9 @@
          Release AOT strips user-method symbols on Linux/macOS, which otherwise hides the vector code
          the fixtures assert on (the ELF .symtab / Mach-O nlist would carry only a few runtime thunks). -->
     <StripSymbols>false</StripSymbols>
-    <!-- Publish with the ISA baseline raised so the guarded AVX-512 / SVE paths are emitted. -->
-    <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">native</IlcInstructionSet>
+    <!-- Pin a fixed x64 ISA baseline (not "native") so the emitted intrinsic encodings are the same
+         on every build machine — VEX-encoded AVX/AVX2, never EVEX, which a native AVX-512 host would
+         otherwise emit and make the fixture non-deterministic. arm64 keeps its default baseline. -->
+    <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">avx2</IlcInstructionSet>
   </PropertyGroup>
 </Project>

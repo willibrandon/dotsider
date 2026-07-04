@@ -61,57 +61,42 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
         var symbols = analyzer.NativeSymbols;
         Assert.NotNull(symbols);
 
-        // The sample's own managed methods decode with no desync and zero fallback.
-        var checkedFns = 0;
-        foreach (var (code, name) in ManagedFunctions(analyzer, symbols!))
+        // Scope to the sample's own intrinsic methods (the X64.* families on x64, the Arm.* families
+        // on arm64), identified by their ILC-mangled symbol name. These are pure vector/scalar code:
+        // unlike framework helpers a linear sweep cannot avoid the inline data literals of, they must
+        // decode with no desync and zero fallback. The ILC demangler does not join app-method names,
+        // so match on the raw symbol name rather than ManagedName, and don't depend on which families
+        // a leg's ISA emits — whichever architecture's families are present are the ones checked.
+        var raw = analyzer.RawBytes;
+        var intrinsics = symbols!.Symbols
+            .Where(s => s.Kind == NativeSymbolKind.Function && s.FileOffset is { } fo && s.Size > 0
+                && fo + s.Size <= raw.Length
+                && (s.Name.Contains("HardwareIntrinsics_X64") || s.Name.Contains("HardwareIntrinsics_Arm")))
+            .ToList();
+        Assert.NotEmpty(intrinsics); // the intrinsic families must be present as function symbols
+
+        var sawVector = false;
+        var funcDetails = new List<string>();
+        foreach (var s in intrinsics)
         {
+            var code = raw.Span.Slice((int)s.FileOffset!.Value, (int)s.Size).ToArray();
             var insns = NativeDisassembler.Disassemble(code, 0, arch);
             Assert.Equal(code.Length, insns.Sum(i => i.Length));
             var fallback = insns.FirstOrDefault(i => i.IsFallback);
-            Assert.True(fallback is null, $"{name} @+0x{fallback?.Address:x}: unexpected fallback {fallback?.Mnemonic} {fallback?.OperandText} (bytes {Hex(fallback)})");
-            checkedFns++;
-        }
-        Assert.True(checkedFns > 0, "no managed functions were available to check");
+            Assert.True(fallback is null, $"{s.Name} @+0x{fallback?.Address:x}: unexpected fallback {fallback?.Mnemonic} {fallback?.OperandText} (bytes {Hex(fallback)})");
 
-        // The intrinsic families are compiled into the binary whether or not the platform's symbol
-        // table names them — Release AOT strips symbols on Linux/macOS, so the guarded vector methods
-        // are present as unnamed function symbols. Scan every function (not just the named managed
-        // ones) for a cleanly-decoded vector-register operand, so this asserts the decoder handles
-        // real vectorized AOT output on every leg rather than depending on cross-platform naming.
-        var sawVector = false;
-        var scanned = 0;
-        foreach (var code in ExecutableFunctions(analyzer, symbols!))
-        {
-            var insns = NativeDisassembler.Disassemble(code, 0, arch);
-            if (insns.Any(i => i.IsFallback)) continue; // skip desynced (embedded jump-table) functions
-            scanned++;
-            if (insns.Any(i => i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float
+            sawVector |= insns.Any(i => i.Category is NativeInstructionCategory.Vector or NativeInstructionCategory.Float
                 && i.Operands.Any(o => o.Register is { } r
-                    && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z')))))
-            {
-                sawVector = true;
-                break;
-            }
+                    && (r.StartsWith("xmm") || r.StartsWith("ymm") || r.StartsWith("zmm") || r.StartsWith('v') || r.StartsWith('z'))));
+            if (funcDetails.Count < 24)
+                funcDetails.Add($"{s.Name}:{{{string.Join(",", insns.Select(i => i.Mnemonic).Distinct())}}}");
         }
 
-        Assert.True(sawVector, $"no vector-register operand across {scanned} cleanly-decoded functions ({arch})");
+        Assert.True(sawVector, $"no vector-register operand across the intrinsic methods; funcs=[{string.Join(" | ", funcDetails)}]");
     }
 
     private static string Hex(NativeInstruction? insn) =>
         insn is null ? "—" : string.Join(" ", insn.Bytes.Select(b => b.ToString("x2")));
-
-    /// <summary>Every executable function's bytes (named or not), for scans that must not depend on symbol naming.</summary>
-    private static IEnumerable<byte[]> ExecutableFunctions(AssemblyAnalyzer analyzer, NativeSymbolInfo symbols)
-    {
-        var raw = analyzer.RawBytes;
-        foreach (var s in symbols.Symbols)
-        {
-            if (s.Kind is not (NativeSymbolKind.Function or NativeSymbolKind.Boundary)
-                || s.FileOffset is not { } fo || s.Size <= 0 || fo + s.Size > raw.Length)
-                continue;
-            yield return raw.Span.Slice((int)fo, (int)s.Size).ToArray();
-        }
-    }
 
     private static IEnumerable<(byte[] Code, string Name)> ManagedFunctions(AssemblyAnalyzer analyzer, NativeSymbolInfo symbols)
     {
