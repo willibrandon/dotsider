@@ -582,12 +582,15 @@ public static class DependencyGraphView
         // against the pre-rebuild snapshot. Compare the new geometry against what the
         // scrollbar saw and schedule one extra frame on change so the next render reflects
         // the new ContentHeight/viewport. The snapshot guard prevents an invalidation loop:
-        // we invalidate only when the geometry actually moved.
+        // we invalidate only when the geometry actually moved. This runs mid-render, where
+        // a bare Invalidate is drained by the Hex1b main loop's frame-rate guard — the
+        // nudger guarantees the extra build actually happens.
         var newSnapshot = (key.Width, key.Height, built.ContentHeight);
         if (state.DepGraphScrollbarSnapshot != newSnapshot)
         {
             state.DepGraphScrollbarSnapshot = newSnapshot;
             state.App.Invalidate();
+            state.RequestExtraFrame();
         }
 
         return built;

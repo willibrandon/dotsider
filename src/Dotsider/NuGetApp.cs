@@ -31,9 +31,12 @@ public sealed class NuGetApp(NuGetState state)
         if (_state.SelectedDllState is { PerformEditorYank: null } dllSetup)
             dllSetup.PerformEditorYank = PerformEditorYank;
 
-        // Drain pending mutations from the diagnostics socket listener
+        // Drain pending mutations from the diagnostics socket listener. Advancing the
+        // build generation stops any in-flight extra-frame nudger armed by the listener.
         if (_state.SelectedDllState is { } dllState)
         {
+            unchecked { dllState.BuildGeneration++; }
+            dllState.ExtraFrameArmed = false;
             while (dllState.PendingMutations.TryDequeue(out var mutation))
                 mutation(dllState);
         }

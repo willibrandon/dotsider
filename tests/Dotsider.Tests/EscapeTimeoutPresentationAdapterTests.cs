@@ -123,18 +123,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -167,18 +164,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -214,18 +208,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -260,19 +251,16 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.I).Global().Action(_ => events.Enqueue("i"), "I");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.I).Global().Action(_ => events.Enqueue("i"), "I");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -310,18 +298,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -366,19 +351,16 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
             .WithMouse()
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                            bindings.Mouse(MouseButton.Left).Action(_ => events.Enqueue("mouse-click"), "Click");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                        bindings.Mouse(MouseButton.Left).Action(_ => events.Enqueue("mouse-click"), "Click");
+                    });
             })
             .Build();
 
@@ -443,10 +425,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
             .WithMouse()
-            .WithHex1bApp((app, options) =>
-            {
-                return ctx => ctx.TextBox();
-            })
+            .WithHex1bApp(ctx => ctx.TextBox())
             .Build();
 
         escAdapter.Terminal = terminal;
@@ -490,18 +469,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(ctx =>
             {
-                return ctx =>
-                {
-                    return ctx.TextBox()
-                        .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
-                        .InputBindings(bindings =>
-                        {
-                            bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
-                            bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
-                        });
-                };
+                return ctx.TextBox()
+                    .OnTextChanged(args => events.Enqueue($"text:{args.NewText}"))
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).Global().Action(_ => events.Enqueue("escape"), "Esc");
+                        bindings.Key(Hex1bKey.UpArrow).Global().Action(_ => events.Enqueue("up"), "Up");
+                    });
             })
             .Build();
 
@@ -548,16 +524,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
             .WithDimensions(120, 30)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(options =>
             {
                 options.Theme = DotsiderTheme.Create();
                 options.EnableMouse = true;
-                return ctx =>
-                {
-                    state ??= new DotsiderState(app, samples.HelloWorldDll);
-                    dotsiderApp ??= new DotsiderApp(state);
-                    return dotsiderApp.Build(ctx);
-                };
+            }, app => ctx =>
+            {
+                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                dotsiderApp ??= new DotsiderApp(state);
+                return dotsiderApp.Build(ctx);
             })
             .Build();
 
@@ -605,16 +580,15 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
             .WithDimensions(120, 30)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(options =>
             {
                 options.Theme = DotsiderTheme.Create();
                 options.EnableMouse = true;
-                return ctx =>
-                {
-                    state ??= new DotsiderState(app, samples.HelloWorldDll);
-                    dotsiderApp ??= new DotsiderApp(state);
-                    return dotsiderApp.Build(ctx);
-                };
+            }, app => ctx =>
+            {
+                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                dotsiderApp ??= new DotsiderApp(state);
+                return dotsiderApp.Build(ctx);
             })
             .Build();
 
@@ -660,28 +634,38 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
             .WithDimensions(120, 30)
-            .WithHex1bApp((app, options) =>
+            .WithHex1bApp(options =>
             {
                 options.Theme = DotsiderTheme.Create();
                 options.EnableMouse = true;
-                return ctx =>
-                {
-                    state ??= new DotsiderState(app, samples.HelloWorldDll);
-                    dotsiderApp ??= new DotsiderApp(state);
-                    return dotsiderApp.Build(ctx);
-                };
+            }, app => ctx =>
+            {
+                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                dotsiderApp ??= new DotsiderApp(state);
+                return dotsiderApp.Build(ctx);
             })
             .Build();
 
         escAdapter.Terminal = terminal;
         var runTask = terminal.RunAsync(ct);
 
-        // Activate search, type query, confirm with Enter
+        // Activate search, then wait for the search TextBox to take focus so the query
+        // keystrokes below land in it. The old wait matched the TextBox's "[" chrome on
+        // screen, which is a rendering detail that changes across Hex1b versions.
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.OemQuestion) // '/' activates search
-            .WaitUntil(s => s.ContainsText("/ ["), TimeSpan.FromSeconds(10)) // search bar visible
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => state is not null
+                  && state.Search[state.CurrentTab].IsActive
+                  && state.App.FocusedNode is TextBoxNode,
+            TimeSpan.FromSeconds(10));
+
+        // Type the query and confirm with Enter
+        await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.S).Key(Hex1bKey.Y).Key(Hex1bKey.S) // "sys"
             .Key(Hex1bKey.Enter) // Confirm search
             .Build()

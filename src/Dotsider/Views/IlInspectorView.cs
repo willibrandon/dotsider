@@ -135,65 +135,7 @@ public static class IlInspectorView
         var treeRows = isNative ? BuildNativeTreeRows(state) : BuildTreeRows(state);
         var formattedRows = treeRows.Select(r => FormatTreeRow(r, state)).ToList();
 
-        // Capture the ScrollPanelNode that hosts the tree from App.Focusables.
-        // ScrollPanelNode enters the focus ring after the focus-ring rebuild, which
-        // happens on frame 2 after a tab switch. The bootstrap invalidate below kicks
-        // a second frame so first-arrival rendering and pending-scroll consumption
-        // do not have to wait for user input.
-        if (state.IlScrollPanelNode is null || !state.App.Focusables.Contains(state.IlScrollPanelNode))
-        {
-            state.IlScrollPanelNode = null;
-            foreach (var node in state.App.Focusables)
-            {
-                if (node is ScrollPanelNode sp)
-                {
-                    state.IlScrollPanelNode = sp;
-                    break;
-                }
-            }
-        }
-
-        // Pending-scroll consumer. The flag is armed by SetIlFocusedTreeKey at every
-        // non-user-driven mutation site (cross-view jumps, search match navigation,
-        // back navigation). It is cleared only when the consumer can make a final,
-        // well-clamped decision: panel captured AND ContentSize matches the freshly
-        // built rows. Until both are true, request another frame and try again — this
-        // is how external first-arrival jumps land in the viewport even though the
-        // panel is null on frame 1, and how same-frame tree expansions still scroll
-        // correctly after the next layout grows the content.
-        if (state.IlScrollSelectionIntoViewPending)
-        {
-            if (state.IlFocusedTreeKey is not string pendingKey)
-            {
-                state.IlScrollSelectionIntoViewPending = false;
-            }
-            else if (IlTreeList.FindRowIndex(treeRows, pendingKey) is var pendingIdx && pendingIdx < 0)
-            {
-                state.IlScrollSelectionIntoViewPending = false;
-            }
-            else if (state.IlScrollPanelNode is not { } pendingSp
-                     || pendingSp.ViewportSize <= 0
-                     || pendingSp.ContentSize != treeRows.Count)
-            {
-                state.App.Invalidate();
-            }
-            else
-            {
-                EnsureSelectionVisible(pendingSp, pendingIdx);
-                state.IlScrollSelectionIntoViewPending = false;
-            }
-        }
-
-        // First-arrival bootstrap: the ScrollPanelNode is reconciled but does not enter
-        // App.Focusables until the next focus-ring rebuild. Without an extra frame,
-        // the scrollbar would stay invisible until the user pressed a key. The
-        // invalidate self-terminates the moment the panel is captured.
-        if (state.CurrentTab == TabId.IlInspector
-            && state.IlScrollPanelNode is null
-            && treeRows.Count > 0)
-        {
-            state.App.Invalidate();
-        }
+        SyncTreeScroll(state, treeRows);
 
         return ctx.VStack(outer =>
         {
@@ -204,7 +146,8 @@ public static class IlInspectorView
 
             // Main content: HSplitter with tree list on left, disassembly editor on right
             widgets.Add(outer.HSplitter(
-                // Left pane: scroll-panel-hosted tree list (provides its own scrollbar)
+                // Left pane: windowed tree list (panel hosts the visible rows; a
+                // standalone scrollbar gutter appears when content overflows)
                 left =>
                 [
                     IlTreeList.Build(
@@ -461,7 +404,9 @@ public static class IlInspectorView
             : "  ";
         var marker = row.Kind switch
         {
-            IlTreeRowKind.Method when row.Method?.Token == state.IlSelectedMethod?.Token => "● ",
+            // row.Method must be non-null: native leaves carry a null Method, and with
+            // no managed selection `null == null` would mark every native row.
+            IlTreeRowKind.Method when row.Method is { } m && m.Token == state.IlSelectedMethod?.Token => "● ",
             IlTreeRowKind.Method when row.Symbol is { } nsym
                 && nsym.VirtualAddress == state.IlSelectedNativeSymbol?.VirtualAddress => "● ",
             IlTreeRowKind.Type when row.Method is null
@@ -786,33 +731,102 @@ public static class IlInspectorView
     }
 
     /// <summary>
-    /// Sets <paramref name="sp"/>'s <see cref="ScrollPanelNode.Offset"/> so the row at
-    /// <paramref name="rowIndex"/> sits inside the viewport. No-op when the row is
-    /// already visible. The setter clamps to <c>[0, MaxOffset]</c> internally.
+    /// Per-render scroll bookkeeping for the tree, called by <see cref="Build"/> with the
+    /// freshly built rows: captures the panel node from <see cref="Hex1bApp.Focusables"/>,
+    /// consumes the pending scroll-into-view request once the panel is arranged, and keeps
+    /// invalidating until first arrival completes. Internal so the virtualization tests
+    /// drive the same capture/pending logic the view runs.
     /// </summary>
-    /// <param name="sp">The IL tree's scroll panel.</param>
-    /// <param name="rowIndex">The target row index in the flattened tree.</param>
-    internal static void EnsureSelectionVisible(ScrollPanelNode sp, int rowIndex)
+    /// <param name="state">The shared application state.</param>
+    /// <param name="treeRows">The rows built for this render.</param>
+    internal static void SyncTreeScroll(DotsiderState state, IReadOnlyList<IlTreeRow> treeRows)
     {
-        if (rowIndex < sp.Offset)
-            sp.Offset = rowIndex;
-        else if (rowIndex >= sp.Offset + sp.ViewportSize)
-            sp.Offset = rowIndex - sp.ViewportSize + 1;
+        // Only the root build advances BuildGeneration (DotsiderApp.Build; the tests'
+        // harness builder mirrors it). Advancing it here — mid-frame — would make a
+        // nudger armed concurrently from a socket thread believe a later build already
+        // ran and exit without nudging, dropping the very invalidation it protects.
+
+        // Capture the ScrollPanelNode that hosts the tree from App.Focusables.
+        // ScrollPanelNode enters the focus ring after the focus-ring rebuild, which
+        // happens on frame 2 after a tab switch. The bootstrap invalidate below kicks
+        // a second frame so first-arrival rendering and pending-scroll consumption
+        // do not have to wait for user input.
+        if (state.IlScrollPanelNode is null || !state.App.Focusables.Contains(state.IlScrollPanelNode))
+        {
+            state.IlScrollPanelNode = null;
+            foreach (var node in state.App.Focusables)
+            {
+                if (node is ScrollPanelNode sp)
+                {
+                    state.IlScrollPanelNode = sp;
+                    break;
+                }
+            }
+        }
+
+        // Pending-scroll consumer. The flag is armed by SetIlFocusedTreeKey at every
+        // non-user-driven mutation site (cross-view jumps, search match navigation,
+        // back navigation). It is cleared only when the consumer can make a final,
+        // well-clamped decision: the panel is captured and arranged, so its viewport
+        // height and the freshly built rows fully determine the offset. Until then,
+        // request another frame and try again — this is how external first-arrival
+        // jumps land in the viewport even though the panel is null on frame 1.
+        if (state.IlScrollSelectionIntoViewPending)
+        {
+            if (state.IlFocusedTreeKey is not string pendingKey)
+            {
+                state.IlScrollSelectionIntoViewPending = false;
+            }
+            else if (IlTreeList.FindRowIndex(treeRows, pendingKey) is var pendingIdx && pendingIdx < 0)
+            {
+                state.IlScrollSelectionIntoViewPending = false;
+            }
+            else if (state.IlScrollPanelNode is not { } pendingSp || pendingSp.ViewportSize <= 0)
+            {
+                state.RequestExtraFrame();
+            }
+            else
+            {
+                EnsureSelectionVisible(state, pendingSp, pendingIdx, treeRows.Count);
+                state.IlScrollSelectionIntoViewPending = false;
+            }
+        }
+
+        // First-arrival bootstrap: the ScrollPanelNode is reconciled but does not enter
+        // App.Focusables until the next focus-ring rebuild. Without an extra frame,
+        // the tree renders at its fallback window and the scrollbar stays invisible
+        // until the user presses a key. The retry self-terminates the moment the panel
+        // is captured.
+        if (state.CurrentTab == TabId.IlInspector
+            && state.IlScrollPanelNode is null
+            && treeRows.Count > 0)
+        {
+            state.RequestExtraFrame();
+        }
     }
 
     /// <summary>
-    /// Convenience overload that resolves the panel from
-    /// <see cref="DotsiderState.IlScrollPanelNode"/>. No-op when the panel is not yet
-    /// captured — callers wanting first-arrival scroll should also arm
-    /// <see cref="DotsiderState.IlScrollSelectionIntoViewPending"/> via
-    /// <see cref="DotsiderState.SetIlFocusedTreeKey"/>.
+    /// Adjusts <see cref="DotsiderState.IlTreeScrollOffset"/> so the row at
+    /// <paramref name="rowIndex"/> sits inside the viewport. No-op when the row is
+    /// already visible or the panel has not been arranged yet. The result is clamped
+    /// to <c>[0, rowCount - viewport]</c>; the next build renders the new window.
     /// </summary>
-    /// <param name="state">The shared application state.</param>
+    /// <param name="state">The shared application state owning the scroll offset.</param>
+    /// <param name="sp">The IL tree's scroll panel (the viewport-height source).</param>
     /// <param name="rowIndex">The target row index in the flattened tree.</param>
-    internal static void EnsureSelectionVisible(DotsiderState state, int rowIndex)
+    /// <param name="rowCount">The current flattened row count, for clamping.</param>
+    internal static void EnsureSelectionVisible(DotsiderState state, ScrollPanelNode sp, int rowIndex, int rowCount)
     {
-        if (state.IlScrollPanelNode is { } sp)
-            EnsureSelectionVisible(sp, rowIndex);
+        var viewport = sp.ViewportSize;
+        if (viewport <= 0) return;
+
+        var offset = state.IlTreeScrollOffset;
+        if (rowIndex < offset)
+            offset = rowIndex;
+        else if (rowIndex >= offset + viewport)
+            offset = rowIndex - viewport + 1;
+
+        state.IlTreeScrollOffset = Math.Clamp(offset, 0, Math.Max(0, rowCount - viewport));
     }
 
     internal static bool GetExpansionState(DotsiderState state, string key, bool defaultExpanded) =>

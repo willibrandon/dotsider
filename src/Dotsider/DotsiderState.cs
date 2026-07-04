@@ -271,8 +271,46 @@ public sealed class DotsiderState : IDisposable
     internal FieldDefInfo? IlEditorField { get; set; }
 
     /// <summary>Cached scroll-panel node hosting the IL tree. Captured each render via
-    /// the <see cref="Hex1bApp.Focusables"/> scan in <see cref="Views.IlInspectorView"/>.</summary>
+    /// the <see cref="Hex1bApp.Focusables"/> scan in <see cref="Views.IlInspectorView"/>.
+    /// The panel's child is a viewport-sized window of rows, so the node itself never
+    /// scrolls; it serves as the focusable input host and the viewport-height source.</summary>
     internal ScrollPanelNode? IlScrollPanelNode { get; set; }
+
+    /// <summary>
+    /// First visible row index of the IL tree — the tree's scroll offset, owned by state
+    /// rather than the <see cref="ScrollPanelNode"/>. Hex1b clamps a scroll child's render
+    /// surface to 10,000 rows, so trees past that (fully expanded native trees) go blank
+    /// when the panel itself translates; instead the view renders only the visible window
+    /// of rows and this offset selects it. Clamped to the row count during each build.
+    /// </summary>
+    internal int IlTreeScrollOffset { get; set; }
+
+    /// <summary>
+    /// Monotonic count of widget builds, advanced at the top of
+    /// <see cref="DotsiderApp.Build"/>. The deferred nudger behind
+    /// <see cref="RequestExtraFrame"/> watches it to know a new build has run and stop.
+    /// </summary>
+    internal int BuildGeneration { get; set; }
+
+    /// <summary>
+    /// Whether a deferred extra-frame nudger is in flight. Cleared at the top of each
+    /// build; prevents one build's multiple requests from stacking duplicate nudgers.
+    /// </summary>
+    internal bool ExtraFrameArmed { get; set; }
+
+    /// <summary>
+    /// The viewport height the current tree window was built against, recorded by
+    /// <see cref="Views.IlTreeList.Build"/>. The verifier behind
+    /// <see cref="RequestIlTreeViewportCheck"/> compares it to the panel's arranged
+    /// <see cref="ScrollPanelNode.ViewportSize"/> after the frame.
+    /// </summary>
+    internal int IlTreeWindowViewport { get; set; }
+
+    /// <summary>
+    /// Whether a tree viewport verifier is in flight. At most one runs at a time; it
+    /// disarms itself on exit.
+    /// </summary>
+    internal bool IlTreeViewportCheckArmed { get; set; }
 
     /// <summary>One-shot flag set by <see cref="SetIlFocusedTreeKey"/> so the next IL
     /// Inspector render scrolls the focused row into view. Cleared by the consumer in
@@ -1111,6 +1149,75 @@ public sealed class DotsiderState : IDisposable
         IlFocusedTreeKey = key;
         IlScrollSelectionIntoViewPending = true;
         App.Invalidate();
+        // The immediate invalidate can race an in-flight frame and be drained by the
+        // Hex1b main loop without producing a build; the nudger guarantees one runs.
+        RequestExtraFrame();
+    }
+
+    /// <summary>
+    /// Guarantees a follow-up widget build. An <see cref="Hex1bApp.Invalidate"/> that
+    /// lands while a frame is still rendering is drained by the Hex1b main loop's
+    /// frame-rate guard without producing another frame — and the frame in flight can
+    /// be arbitrarily slow (a first IL render disassembles the selected method). The
+    /// nudger keeps invalidating on a short period until it observes
+    /// <see cref="BuildGeneration"/> advance (a new build ran) or its attempt budget
+    /// runs out. At most one nudger is in flight; each build re-arms eligibility.
+    /// </summary>
+    internal void RequestExtraFrame()
+    {
+        if (ExtraFrameArmed) return;
+        ExtraFrameArmed = true;
+
+        var generation = BuildGeneration;
+        _ = Task.Run(async () =>
+        {
+            for (var attempt = 0; attempt < 50; attempt++)
+            {
+                await Task.Delay(16).ConfigureAwait(false);
+                // The first nudge is unconditional: a caller racing the top of a root
+                // build can capture that build's generation, and a build already in
+                // flight when the request was made cannot have honored it. One extra
+                // frame at worst; later ticks stop as soon as a new build runs.
+                if (attempt > 0 && BuildGeneration != generation) return;
+                App.Invalidate();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Verifies, after the frame, that the tree window was built against the viewport
+    /// height the panel actually arranged to. The window is sized from the previous
+    /// frame's layout, so a render that changes the pane height (search bar toggle,
+    /// terminal resize) leaves the tree underfilled or over-scrolled with nothing else
+    /// scheduling a rebuild. The verifier polls the live panel and nudges builds until
+    /// <see cref="IlTreeWindowViewport"/> matches the arranged
+    /// <see cref="ScrollPanelNode.ViewportSize"/> or its budget runs out. At most one
+    /// is in flight; it disarms on exit so the next build can re-arm.
+    /// </summary>
+    internal void RequestIlTreeViewportCheck()
+    {
+        if (CurrentTab != TabId.IlInspector) return;
+        if (IlTreeViewportCheckArmed) return;
+        IlTreeViewportCheckArmed = true;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                for (var attempt = 0; attempt < 50; attempt++)
+                {
+                    await Task.Delay(16).ConfigureAwait(false);
+                    var live = IlScrollPanelNode?.ViewportSize ?? 0;
+                    if (live <= 0) continue;
+                    if (live == IlTreeWindowViewport) return;
+                    App.Invalidate();
+                }
+            }
+            finally
+            {
+                IlTreeViewportCheckArmed = false;
+            }
+        });
     }
 
     /// <summary>
@@ -1594,6 +1701,8 @@ public sealed class DotsiderState : IDisposable
         IlEditorField = null;
         IlScrollPanelNode = null;
         IlScrollSelectionIntoViewPending = false;
+        IlTreeScrollOffset = 0;
+        IlTreeWindowViewport = 0;
         IlEditorKeyCache.Clear();
         IlNativeEditorKeyCache.Clear();
         IlCachedEditors.Clear();

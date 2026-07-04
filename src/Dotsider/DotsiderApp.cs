@@ -30,6 +30,11 @@ public sealed class DotsiderApp(DotsiderState state)
     /// <returns>The root widget of the application.</returns>
     public Hex1bWidget Build(RootContext ctx)
     {
+        // A new build is running: advance the generation so any in-flight extra-frame
+        // nudger stops, and allow this build's views to arm a fresh one if needed.
+        unchecked { _state.BuildGeneration++; }
+        _state.ExtraFrameArmed = false;
+
         // Drain pending mutations from the diagnostics socket listener
         while (_state.PendingMutations.TryDequeue(out var mutation))
             mutation(_state);
@@ -834,6 +839,8 @@ public sealed class DotsiderApp(DotsiderState state)
         state.IlEditorField = null;
         state.IlScrollPanelNode = null;
         state.IlScrollSelectionIntoViewPending = false;
+        state.IlTreeScrollOffset = 0;
+        state.IlTreeWindowViewport = 0;
         state.IlEditorKeyCache.Clear();
         state.IlCachedEditors.Clear();
         state.IlInstructions = null;

@@ -784,8 +784,11 @@ internal sealed class DotsiderDiagnosticsListener(
             s.Tracer.Start();
         });
 
-        // Trigger a render frame so the mutation queue gets drained
+        // Trigger a render frame so the mutation queue gets drained. The socket-thread
+        // invalidate can race an in-flight frame and be drained by the Hex1b main loop;
+        // the nudger guarantees a build actually runs.
         state.App.Invalidate();
+        state.RequestExtraFrame();
 
         return DotsiderResponse.Ok(new { Message = "Trace start queued" });
     }
@@ -847,8 +850,11 @@ internal sealed class DotsiderDiagnosticsListener(
             s.NavigateToTab(tabIndex);
         });
 
-        // Trigger a render frame so the mutation queue gets drained
+        // Trigger a render frame so the mutation queue gets drained. The socket-thread
+        // invalidate can race an in-flight frame and be drained by the Hex1b main loop;
+        // the nudger guarantees a build actually runs.
         state.App.Invalidate();
+        state.RequestExtraFrame();
 
         return DotsiderResponse.Ok(new { Message = $"Navigation to tab {tabId} queued" });
     }
@@ -870,8 +876,11 @@ internal sealed class DotsiderDiagnosticsListener(
             search.Confirm();
         });
 
-        // Trigger a render frame so the mutation queue gets drained
+        // Trigger a render frame so the mutation queue gets drained. The socket-thread
+        // invalidate can race an in-flight frame and be drained by the Hex1b main loop;
+        // the nudger guarantees a build actually runs.
         state.App.Invalidate();
+        state.RequestExtraFrame();
 
         return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
     }
@@ -962,6 +971,7 @@ internal sealed class DotsiderDiagnosticsListener(
             s.App.Invalidate();
         });
         state.App.Invalidate();
+        state.RequestExtraFrame();
         return DotsiderResponse.Ok(new { Status = "queued" });
     }
 
@@ -999,6 +1009,7 @@ internal sealed class DotsiderDiagnosticsListener(
             }
         });
         state.App.Invalidate();
+        state.RequestExtraFrame();
         return DotsiderResponse.Ok(new { Status = "queued" });
     }
 
@@ -1053,6 +1064,7 @@ internal sealed class DotsiderDiagnosticsListener(
         }
 
         state.App.Invalidate();
+        state.RequestExtraFrame();
         return DotsiderResponse.Ok(new { Status = "queued" });
     }
 

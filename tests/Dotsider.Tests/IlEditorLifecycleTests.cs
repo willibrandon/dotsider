@@ -419,6 +419,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         _cts!.Cancel();
         await runTask;
 
+        // Give the tree a non-zero scroll offset so the reset below is observable.
+        _state.IlTreeScrollOffset = 7;
+
         // PushAssemblyDirect calls ResetViewState (same path as CommitAnalyzer)
         using var otherAnalyzer = new AssemblyAnalyzer(samples.HelloWorldDll);
         _state.PushAssemblyDirect(otherAnalyzer);
@@ -428,6 +431,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Null(_state.IlEditorField);
         Assert.Null(_state.IlScrollPanelNode);
         Assert.False(_state.IlScrollSelectionIntoViewPending);
+        Assert.Equal(0, _state.IlTreeScrollOffset);
         Assert.Empty(_state.IlEditorKeyCache);
         Assert.Empty(_state.IlCachedEditors);
     }
