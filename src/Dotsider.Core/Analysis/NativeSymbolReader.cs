@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Dotsider.Core.Analysis.Dwarf;
 using Dotsider.Core.Analysis.Models;
 
@@ -41,6 +42,40 @@ public static class NativeSymbolReader
             NativeSymbolStatus.NotApplicable, null, "unrecognized image format");
     }
 
+    /// <summary>The architecture from a PE COFF machine field (e_lfanew at 0x3C, machine at PE+4).</summary>
+    private static NativeArchitecture PeArch(ReadOnlySpan<byte> image)
+    {
+        if (image.Length < 0x40) return NativeArchitecture.Unknown;
+        var peOffset = BinaryPrimitives.ReadInt32LittleEndian(image[0x3C..]);
+        if (peOffset < 0 || peOffset + 6 > image.Length) return NativeArchitecture.Unknown;
+        return BinaryPrimitives.ReadUInt16LittleEndian(image[(peOffset + 4)..]) switch
+        {
+            0x8664 => NativeArchitecture.X64,
+            0xAA64 => NativeArchitecture.Arm64,
+            _ => NativeArchitecture.Unknown,
+        };
+    }
+
+    /// <summary>The architecture from an ELF64 <c>e_machine</c> (u16 at offset 18).</summary>
+    private static NativeArchitecture ElfArch(ReadOnlySpan<byte> span) =>
+        span.Length < 20 ? NativeArchitecture.Unknown
+            : BinaryPrimitives.ReadUInt16LittleEndian(span[18..]) switch
+            {
+                62 => NativeArchitecture.X64,    // EM_X86_64
+                183 => NativeArchitecture.Arm64, // EM_AARCH64
+                _ => NativeArchitecture.Unknown,
+            };
+
+    /// <summary>The architecture from a Mach-O <c>cputype</c> (u32 at thin-header offset 4, or a fat slice).</summary>
+    private static NativeArchitecture MachOArch(ReadOnlySpan<byte> thin) =>
+        thin.Length < 8 ? NativeArchitecture.Unknown
+            : BinaryPrimitives.ReadUInt32LittleEndian(thin[4..]) switch
+            {
+                0x0100_0007 => NativeArchitecture.X64,   // CPU_TYPE_X86_64
+                0x0100_000C => NativeArchitecture.Arm64, // CPU_TYPE_ARM64
+                _ => NativeArchitecture.Unknown,
+            };
+
     private static NativeSymbolInfo ReadMachO(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
     {
         var span = imageBytes.Span;
@@ -69,6 +104,7 @@ public static class NativeSymbolReader
 
         var imageSections = MachOImageReader.ReadSectionList(span);
         var hasImageUuid = MachOImageReader.TryReadUuid(span, out var imageUuid);
+        var arch = MachOArch(span); // the selected slice's cputype, never the host architecture
 
         if (dsymSlices is not null)
         {
@@ -78,7 +114,7 @@ public static class NativeSymbolReader
             if (dsymBytes is null)
             {
                 return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.IdMismatch,
-                    $"dSYM '{Path.GetFileName(dsymPath)}' does not match the image (UUID)");
+                    $"dSYM '{Path.GetFileName(dsymPath)}' does not match the image (UUID)", arch);
             }
 
             // A dSYM contributes both its DWARF and its nlist — merged, not either/or.
@@ -90,11 +126,11 @@ public static class NativeSymbolReader
             if (raw.Count > 0)
             {
                 var diagnostic = hasImageUuid ? null : "dSYM matched without UUIDs (none present)";
-                return Build(raw, demangler, NativeSymbolSource.Dsym, NativeSymbolStatus.Loaded, dsymPath, diagnostic);
+                return Build(raw, demangler, NativeSymbolSource.Dsym, NativeSymbolStatus.Loaded, dsymPath, diagnostic, arch);
             }
 
             return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.CorruptSymbolFile,
-                $"'{Path.GetFileName(dsymPath)}' matched but contains no readable symbols");
+                $"'{Path.GetFileName(dsymPath)}' matched but contains no readable symbols", arch);
         }
 
         // No dSYM: the image's own symbol table is still a named primary source.
@@ -103,11 +139,11 @@ public static class NativeSymbolReader
         {
             var shifted = sliceShift == 0 ? own : [.. own.Select(s => Shift(s, sliceShift))];
             return Build(shifted, demangler, NativeSymbolSource.MachONlist, NativeSymbolStatus.Loaded,
-                imagePath, "no dSYM bundle; names from the image's symbol table");
+                imagePath, "no dSYM bundle; names from the image's symbol table", arch);
         }
 
         return FunctionStartsFallback(span, sliceShift, demangler, NativeSymbolStatus.FallbackOnly,
-            "no dSYM bundle and no symbol table");
+            "no dSYM bundle and no symbol table", arch);
     }
 
     /// <summary>
@@ -190,14 +226,14 @@ public static class NativeSymbolReader
     /// </summary>
     private static NativeSymbolInfo FunctionStartsFallback(
         ReadOnlySpan<byte> imageBytes, long sliceShift, IlcNameDemangler demangler,
-        NativeSymbolStatus status, string baseDiagnostic)
+        NativeSymbolStatus status, string baseDiagnostic, NativeArchitecture architecture)
     {
         var boundaries = MachOSymbolReader.ReadFunctionStartBoundaries(imageBytes);
         if (boundaries.Count > 0)
         {
             var shifted = sliceShift == 0 ? boundaries : [.. boundaries.Select(b => Shift(b, sliceShift))];
             return Build(shifted, demangler, NativeSymbolSource.FunctionStartsFallback, status, null,
-                baseDiagnostic + "; recovered function boundaries from LC_FUNCTION_STARTS");
+                baseDiagnostic + "; recovered function boundaries from LC_FUNCTION_STARTS", architecture);
         }
 
         var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
@@ -272,6 +308,8 @@ public static class NativeSymbolReader
         var span = imageBytes.Span;
         var imageSections = ElfImageReader.ReadSections(span);
 
+        var arch = ElfArch(span);
+
         // Choose the symbol source: the image itself when it still carries DWARF, else a
         // sidecar validated by build id / debuglink CRC.
         byte[] symbolBytes;
@@ -287,7 +325,7 @@ public static class NativeSymbolReader
             if (sidecar.Match == ElfSidecarMatch.Mismatched)
             {
                 return BoundaryFallback(span, demangler, NativeSymbolStatus.IdMismatch,
-                    $"debug sidecar '{Path.GetFileName(sidecar.Path)}' does not match the image (build id or debuglink CRC)");
+                    $"debug sidecar '{Path.GetFileName(sidecar.Path)}' does not match the image (build id or debuglink CRC)", arch);
             }
 
             symbolBytes = sidecar.Bytes;
@@ -298,7 +336,7 @@ public static class NativeSymbolReader
         else
         {
             return BoundaryFallback(span, demangler, NativeSymbolStatus.FallbackOnly,
-                "no debug sidecar");
+                "no debug sidecar", arch);
         }
 
         var raw = new List<RawNativeSymbol>();
@@ -306,9 +344,9 @@ public static class NativeSymbolReader
         raw.AddRange(ElfSymtabReader.ReadDataSymbols(symbolBytes, imageSections));
 
         return raw.Count > 0
-            ? Build(raw, demangler, NativeSymbolSource.Dwarf, NativeSymbolStatus.Loaded, symbolPath, diagnostic)
+            ? Build(raw, demangler, NativeSymbolSource.Dwarf, NativeSymbolStatus.Loaded, symbolPath, diagnostic, arch)
             : BoundaryFallback(span, demangler, NativeSymbolStatus.CorruptSymbolFile,
-                $"'{Path.GetFileName(symbolPath)}' matched but contains no readable symbols");
+                $"'{Path.GetFileName(symbolPath)}' matched but contains no readable symbols", arch);
     }
 
     /// <summary>
@@ -318,13 +356,13 @@ public static class NativeSymbolReader
     /// </summary>
     private static NativeSymbolInfo BoundaryFallback(
         ReadOnlySpan<byte> imageBytes, IlcNameDemangler demangler,
-        NativeSymbolStatus status, string baseDiagnostic)
+        NativeSymbolStatus status, string baseDiagnostic, NativeArchitecture architecture)
     {
         var boundaries = EhFrameReader.ReadBoundaries(imageBytes);
         if (boundaries.Count > 0)
         {
             return Build(boundaries, demangler, NativeSymbolSource.EhFrameFallback, status, null,
-                baseDiagnostic + "; recovered function boundaries from .eh_frame");
+                baseDiagnostic + "; recovered function boundaries from .eh_frame", architecture);
         }
 
         var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
@@ -461,6 +499,8 @@ public static class NativeSymbolReader
 
     private static NativeSymbolInfo ReadPe(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
     {
+        var arch = PeArch(imageBytes.Span);
+
         // A same-directory PDB whose GUID and age match is the rich source; a candidate that
         // exists but fails identity or parsing is reported, not silently treated as absent.
         if (PeCodeView.TryRead(imageBytes.Span) is { } id)
@@ -472,21 +512,21 @@ public static class NativeSymbolReader
                 {
                     var raw = NativePdb.NativePdbReader.Read(File.ReadAllBytes(pdbPath!), imageBytes);
                     if (raw.Count > 0)
-                        return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null);
+                        return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null, arch);
                     return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
-                        $"'{Path.GetFileName(pdbPath)}' matched but contains no readable symbols");
+                        $"'{Path.GetFileName(pdbPath)}' matched but contains no readable symbols", arch);
                 }
 
                 case PdbProbe.Mismatched:
                     return PdataFallback(imageBytes, demangler, NativeSymbolStatus.IdMismatch,
-                        $"PDB '{Path.GetFileName(pdbPath)}' does not match the image (GUID or age)");
+                        $"PDB '{Path.GetFileName(pdbPath)}' does not match the image (GUID or age)", arch);
                 case PdbProbe.Unreadable:
                     return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
-                        $"'{Path.GetFileName(pdbPath)}' is not a readable PDB");
+                        $"'{Path.GetFileName(pdbPath)}' is not a readable PDB", arch);
             }
         }
 
-        return PdataFallback(imageBytes, demangler, NativeSymbolStatus.FallbackOnly, "no matching PDB");
+        return PdataFallback(imageBytes, demangler, NativeSymbolStatus.FallbackOnly, "no matching PDB", arch);
     }
 
     /// <summary>
@@ -496,13 +536,13 @@ public static class NativeSymbolReader
     /// </summary>
     private static NativeSymbolInfo PdataFallback(
         ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler,
-        NativeSymbolStatus status, string baseDiagnostic)
+        NativeSymbolStatus status, string baseDiagnostic, NativeArchitecture architecture)
     {
         var boundaries = PdataReader.ReadBoundaries(imageBytes);
         if (boundaries.Count > 0)
         {
             return Build(boundaries, demangler, NativeSymbolSource.PdataFallback, status, null,
-                baseDiagnostic + "; recovered function boundaries from .pdata");
+                baseDiagnostic + "; recovered function boundaries from .pdata", architecture);
         }
 
         var empty = status == NativeSymbolStatus.FallbackOnly ? NativeSymbolStatus.NoSymbolFile : status;
@@ -555,16 +595,20 @@ public static class NativeSymbolReader
     /// <param name="status">The probe status.</param>
     /// <param name="path">The symbol file path, or null.</param>
     /// <param name="diagnostic">A human-readable note on the outcome, or null.</param>
+    /// <param name="architecture">The image's real (selected-slice) architecture.</param>
+    /// <param name="sourceMap">The address→file:line map, or null when no line data was recovered.</param>
     internal static NativeSymbolInfo Build(
         IReadOnlyList<RawNativeSymbol> raw,
         IlcNameDemangler demangler,
         NativeSymbolSource source,
         NativeSymbolStatus status,
         string? path,
-        string? diagnostic)
+        string? diagnostic,
+        NativeArchitecture architecture = NativeArchitecture.Unknown,
+        NativeSourceMap? sourceMap = null)
     {
         if (raw.Count == 0)
-            return new NativeSymbolInfo([], source, status, path, diagnostic);
+            return new NativeSymbolInfo([], source, status, path, diagnostic, architecture, sourceMap);
 
         // Order by address, then by richness so the primary of each address group comes first.
         var ordered = raw
@@ -674,7 +718,23 @@ public static class NativeSymbolReader
                 Aliases: aliases));
         }
 
-        return new NativeSymbolInfo(symbols, source, status, path, diagnostic);
+        // When a caller supplied no map, aggregate one from the symbols' recovered file:line so the
+        // disassembler can annotate the listing. This is function-granularity — each function's own
+        // source location, address-sorted for TryGetLine's binary search.
+        var map = sourceMap ?? BuildSourceMap(symbols);
+
+        return new NativeSymbolInfo(symbols, source, status, path, diagnostic, architecture, map);
+    }
+
+    /// <summary>Aggregates the symbols' recovered source locations into an address-sorted map, or null when none carry line data.</summary>
+    private static NativeSourceMap? BuildSourceMap(IReadOnlyList<NativeSymbol> symbols)
+    {
+        var lines = symbols
+            .Where(s => s.SourceFile is not null && s.Line is > 0 && s.Size > 0)
+            .OrderBy(s => s.VirtualAddress)
+            .Select(s => new NativeSourceLine(s.VirtualAddress, (uint)s.Size, s.SourceFile!, s.Line!.Value))
+            .ToList();
+        return lines.Count > 0 ? new NativeSourceMap(lines) : null;
     }
 
     /// <summary>

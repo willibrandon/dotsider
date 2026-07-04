@@ -98,6 +98,34 @@ public class NativeDisasmAotFixtureTests(SampleAssemblyFixture samples)
     private static string Hex(NativeInstruction? insn) =>
         insn is null ? "—" : string.Join(" ", insn.Bytes.Select(b => b.ToString("x2")));
 
+    /// <summary>The reader populates the real architecture and a source map, so the disassembler can name the slice and annotate file:line.</summary>
+    [Fact(Timeout = 60_000)]
+    public void NativeAotConsole_Architecture_And_SourceMap_Populated()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+            "NativeAOT publish did not run on this leg.");
+
+        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var info = analyzer.NativeSymbols;
+        Assert.NotNull(info);
+        Assert.NotEqual(NativeArchitecture.Unknown, info!.Architecture);
+        // The sample carries line data, so a map is aggregated and resolves at least one function.
+        Assert.NotNull(info.SourceMap);
+        var fn = info.Symbols.First(s => s.Kind == NativeSymbolKind.Function && s.SourceFile is not null && s.Line is > 0);
+        Assert.True(info.SourceMap!.TryGetLine(fn.VirtualAddress, out _, out var line) && line > 0);
+    }
+
+    /// <summary>A truncated instruction tail renders as .byte so summed lengths still equal the window — nothing is dropped.</summary>
+    [Fact(Timeout = 30_000)]
+    public void Disassemble_TruncatedTail_SumsToWindow()
+    {
+        // A 3-byte x64 window where the last instruction (a 4-byte lea) is truncated at the boundary.
+        byte[] code = [0x90, 0x8D, 0x05]; // nop, then a truncated lea eax,[rip+...]
+        var insns = NativeDisassembler.Disassemble(code, 0x1000, NativeArchitecture.X64);
+        Assert.Equal(code.Length, insns.Sum(i => i.Length));
+        Assert.Contains(insns, i => i.IsFallback);
+    }
+
     private static IEnumerable<(byte[] Code, string Name)> ManagedFunctions(AssemblyAnalyzer analyzer, NativeSymbolInfo symbols)
     {
         var raw = analyzer.RawBytes;

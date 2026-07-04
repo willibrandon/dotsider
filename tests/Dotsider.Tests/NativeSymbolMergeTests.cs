@@ -19,7 +19,7 @@ public class NativeSymbolMergeTests
 
     private static NativeSymbolInfo Build(params RawNativeSymbol[] raw) =>
         NativeSymbolReader.Build(raw, EmptyDemangler, NativeSymbolSource.NativePdb,
-            NativeSymbolStatus.Loaded, "x.pdb", null);
+            NativeSymbolStatus.Loaded, "x.pdb", null, NativeArchitecture.X64);
 
     /// <summary>
     /// Verifies two records at the same address collapse to one symbol, the richer record's size

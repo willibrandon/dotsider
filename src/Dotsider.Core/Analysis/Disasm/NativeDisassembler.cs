@@ -33,10 +33,10 @@ public static class NativeDisassembler
     {
         var result = new List<NativeInstruction>();
         var windowEnd = baseAddress + (ulong)code.Length;
+        var offset = 0;
 
         try
         {
-            var offset = 0;
             while (offset < code.Length && result.Count < MaxInstructions)
             {
                 var insn = DecodeOne(arch, code, offset, baseAddress);
@@ -47,10 +47,30 @@ public static class NativeDisassembler
         }
         catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
         {
-            // Keep the instructions decoded before the damage.
+            // A decoder read past a truncated tail; fall through to render the remainder as .byte.
+        }
+
+        // Render any undecoded tail — a truncated or corrupt region a decoder could not size — as one
+        // .byte per remaining byte, so summed instruction lengths always equal the window and nothing
+        // is silently dropped (the promised fallback safety net).
+        while (offset < code.Length && result.Count < MaxInstructions)
+        {
+            result.Add(ByteFallback(baseAddress + (ulong)offset, code[offset]));
+            offset++;
         }
 
         return ResolveTargets(result, baseAddress, windowEnd, resolver);
+    }
+
+    private static NativeInstruction ByteFallback(ulong address, byte value)
+    {
+        var text = $"0x{value:x2}";
+        return new NativeInstruction(
+            Address: address, Rva: null, FileOffset: null, Bytes: [value], Length: 1,
+            Mnemonic: ".byte", Operands: [new NativeOperand(NativeOperandKind.Immediate, text)],
+            OperandText: text, Category: NativeInstructionCategory.Unknown,
+            Flow: NativeFlowKind.Sequential, TargetAddress: null, TargetKind: NativeTargetKind.None,
+            TargetName: null, SourceFile: null, Line: null, IsFallback: true);
     }
 
     /// <summary>
@@ -142,7 +162,9 @@ public static class NativeDisassembler
                 ? ulong.TryParse(target.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var va)
                 : ulong.TryParse(target, out va))
         {
-            return info.TryFindByAddress(va, out var found) ? [found] : [];
+            return info.TryFindByAddress(va, out var found)
+                && found.Kind is NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary
+                ? [found] : [];
         }
 
         var executables = info.Symbols
