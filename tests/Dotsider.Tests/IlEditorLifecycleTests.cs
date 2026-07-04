@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
@@ -88,14 +89,34 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
         _state.IlTreeExpansionState[$"ns:{ns}"] = true;
         _state.IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
-        _state.IlSelectedMethod = method;
-        _state.IlFocusedTreeKey = $"method:{method.Token}";
-        _state.App.Invalidate();
+        SelectMethodForRender(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
+    }
+
+    /// <summary>
+    /// Programmatically selects a method using the same extra-frame path as
+    /// non-user-driven navigation. A plain Invalidate can race an in-flight frame on
+    /// slower CI legs and leave the editor on the previous method until another input.
+    /// </summary>
+    private void SelectMethodForRender(MethodDefInfo method)
+    {
+        _state!.IlSelectedMethod = method;
+        _state.SetIlFocusedTreeKey($"method:{method.Token}");
+    }
+
+    /// <summary>
+    /// Requests editor focus and nudges a follow-up frame so the focus-ring update is
+    /// observed even if the immediate invalidate lands during an in-flight render.
+    /// </summary>
+    private void RequestEditorFocusForRender()
+    {
+        _state!.App.RequestFocus(node => node is EditorNode);
+        _state.App.Invalidate();
+        _state.RequestExtraFrame();
     }
 
     // ── State-level unit tests ────────────────────────────────
@@ -255,8 +276,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         await SelectMethodByName(methodA.Name, terminal, ct);
 
         // Focus editor and scroll down
-        _state.App.RequestFocus(node => node is EditorNode);
-        _state.App.Invalidate();
+        RequestEditorFocusForRender();
         await auto.WaitUntilAsync(_ => app.FocusedNode is EditorNode, description: "editor focused");
         for (var i = 0; i < 10; i++)
             await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
@@ -270,17 +290,13 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // Switch to a different method via tree
         var methodB = _state.Analyzer.MethodDefs.First(m => m.Token != methodA.Token && m.Rva > 0);
-        _state.IlSelectedMethod = methodB;
-        _state.IlFocusedTreeKey = $"method:{methodB.Token}";
-        _state.App.Invalidate();
+        SelectMethodForRender(methodB);
         await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == methodB.Token,
             description: "method B loaded");
 
         // Switch back to original method
-        _state.IlSelectedMethod = methodA;
-        _state.IlFocusedTreeKey = $"method:{methodA.Token}";
-        _state.App.RequestFocus(node => node is EditorNode);
-        _state.App.Invalidate();
+        SelectMethodForRender(methodA);
+        RequestEditorFocusForRender();
         await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == methodA.Token,
             description: "method A reloaded");
         // Wait for StatePanelWidget reconciliation to settle
@@ -314,8 +330,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         await SelectMethodByName(firstMethod.Name, terminal, ct);
 
         // Focus editor programmatically
-        _state.App.RequestFocus(node => node is EditorNode);
-        _state.App.Invalidate();
+        RequestEditorFocusForRender();
         await auto.WaitUntilAsync(_ => app.FocusedNode is EditorNode, description: "editor focused");
 
         // Find a search query that matches in a DIFFERENT method
@@ -402,9 +417,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // Populate cached editors by switching methods
         var methodB = _state.Analyzer.MethodDefs.First(m => m.Token != method.Token && m.Rva > 0);
-        _state.IlSelectedMethod = methodB;
-        _state.IlFocusedTreeKey = $"method:{methodB.Token}";
-        _state.App.Invalidate();
+        SelectMethodForRender(methodB);
         await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == methodB.Token,
             description: "method B loaded");
 
