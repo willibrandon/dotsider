@@ -26,5 +26,11 @@ public enum NativeSymbolSource
     EhFrameFallback,
 
     /// <summary>Mach-O <c>LC_FUNCTION_STARTS</c> — function boundaries only.</summary>
-    FunctionStartsFallback
+    FunctionStartsFallback,
+
+    /// <summary>
+    /// A crossgen2 ReadyToRun image's method entry-point tables: named, sized function ranges
+    /// (one per hot/funclet/cold runtime function) recovered directly from the R2R sections.
+    /// </summary>
+    ReadyToRun
 }

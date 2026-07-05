@@ -108,7 +108,7 @@ public class ElfSidecarIdentityTests
         var sidecar = SidecarWithBuildId(IdA);
         var crc = Crc32.Compute(sidecar);
 
-        byte[] Image(byte[] id, uint expectedCrc) => SyntheticImageBuilders.BuildElf(
+        static byte[] Image(byte[] id, uint expectedCrc) => SyntheticImageBuilders.BuildElf(
             (".note.gnu.build-id", 0, SyntheticImageBuilders.GnuBuildIdNote(id)),
             (".gnu_debuglink", 0, SyntheticImageBuilders.GnuDebugLink("app.dbg", expectedCrc)));
 

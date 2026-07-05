@@ -9,6 +9,13 @@ public enum BinaryKind
     Managed,
 
     /// <summary>
+    /// A crossgen2 ReadyToRun image: full ECMA-335 metadata plus precompiled native method
+    /// bodies (non-composite, composite, or a composite component). Every managed tab works;
+    /// the native bodies are additionally correlated to their managed methods.
+    /// </summary>
+    ReadyToRun,
+
+    /// <summary>
     /// A Native AOT compiled .NET binary: a native executable with no CLR metadata
     /// whose image embeds a validated ReadyToRun header.
     /// </summary>

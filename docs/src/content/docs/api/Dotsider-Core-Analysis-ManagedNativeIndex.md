@@ -124,12 +124,13 @@ public MethodCorrelation? Find(string assemblyName, int methodToken)
 
 ### FindByAddress(ulong)
 
-Finds the correlation whose evidence contains the symbol at
-virtualAddress, or null for uncorrelated (runtime/stub) code.
+Finds the correlation whose native code covers virtualAddress — an
+address anywhere inside a correlated symbol, not only its entry point — or null for
+uncorrelated (runtime/stub) code.
 
 **Parameters:**
 
-- `virtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64)): The symbol's virtual address.
+- `virtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64)): A virtual address, e.g. from a stack trace or a call target.
 
 **Returns:** [MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/)
 

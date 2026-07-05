@@ -169,7 +169,7 @@ internal static class CodeViewSymbolReader
         var byteSize = BinaryPrimitives.ReadUInt32LittleEndian(span[8..]);
         var dataStart = 12;
         if (dataStart + byteSize > span.Length || nameOffset >= byteSize) return null;
-        return ReadCString(span.Slice(dataStart + (int)nameOffset));
+        return ReadCString(span[(dataStart + (int)nameOffset)..]);
     }
 
     private static string ReadCString(ReadOnlySpan<byte> span)

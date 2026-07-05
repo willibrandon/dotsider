@@ -362,10 +362,11 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         _terminal = Hex1bTerminal.CreateBuilder().WithWorkload(_workload).WithHeadless().WithDimensions(80, 24).Build();
         _app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("t")),
             new Hex1bAppOptions { WorkloadAdapter = _workload });
-        _state = new DotsiderState(_app, samples.HelloWorldDll);
-
-        _state.BuildGeneration = 41;
-        _state.ExtraFrameArmed = true;
+        _state = new DotsiderState(_app, samples.HelloWorldDll)
+        {
+            BuildGeneration = 41,
+            ExtraFrameArmed = true
+        };
 
         IlInspectorView.SyncTreeScroll(_state, []);
 

@@ -75,6 +75,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleManagedDll { get; private set; }
 
     /// <summary>
+    /// Path to the published non-composite ReadyToRun assembly (crossgen'd in place), or null when the
+    /// crossgen2 publish did not run for this RID. R2R MCP tool tests gate on it.
+    /// </summary>
+    public string? ReadyToRunConsoleDll { get; private set; }
+
+    /// <summary>
     /// Builds all sample projects once per collection and resolves their output paths.
     /// </summary>
     public async ValueTask InitializeAsync()
@@ -92,6 +98,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         await BuildProject("samples/MinimalApi");
         await PublishSelfContainedProject("samples/SelfContainedConsole");
         await PublishNativeAotProject("samples/NativeAotConsole");
+        await PublishReadyToRunProject("samples/ReadyToRunConsole");
 
         const string config = "Debug";
         const string tfm = "net10.0";
@@ -114,6 +121,10 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
             "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
+
+        var r2rConsoleDll = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, rid, "publish", "ReadyToRunConsole.dll");
+        ReadyToRunConsoleDll = File.Exists(r2rConsoleDll) ? r2rConsoleDll : null;
 
         Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
         Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
@@ -269,6 +280,56 @@ public class SampleAssemblyFixture : IAsyncLifetime
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    private async Task PublishReadyToRunProject(string relativePath)
+    {
+        var rid = RuntimeInformation.RuntimeIdentifier;
+        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+            "bin", "Release", "net10.0", rid, "publish", $"{Path.GetFileName(relativePath)}.dll");
+
+        // Reuse the Dotsider.Tests publish when it already ran (framework-dependent crossgen).
+        if (File.Exists(expectedOutput))
+            return;
+
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            if (File.Exists(expectedOutput)) { lockFile.Dispose(); return; }
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish -c Release -r {rid} --self-contained false -v q",
+                WorkingDirectory = Path.Combine(_repoRoot, relativePath),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            var process = Process.Start(psi)!;
+            _ = await process.StandardOutput.ReadToEndAsync();
+            _ = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            // A non-zero exit means crossgen2 is unavailable for this RID; the outputs stay absent.
         }
         finally
         {

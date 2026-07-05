@@ -251,6 +251,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 // Pre-ILC correlation
                 "correlate-method" => HandleCorrelateMethod(request),
 
+                // ReadyToRun correlation
+                "r2r-correlate" => HandleR2rCorrelateMethod(request),
+
                 // Diff
                 "diff" => HandleDiff(request),
 
@@ -660,12 +663,17 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleDisassembleNative(DotsiderRequest request)
     {
         var a = RequireAnalyzer();
-        if (a.NativeSymbols is not { } info || info.Symbols.Count == 0)
-            return DotsiderResponse.Fail("Managed assembly; no native symbols to disassemble");
-
         var target = request.SymbolAddress ?? request.SymbolName;
         if (string.IsNullOrEmpty(target))
             return DotsiderResponse.Fail("symbolName or symbolAddress is required");
+
+        // A ReadyToRun method spans several code ranges under one managed name; resolve to the method
+        // and render all ranges through the shared query, never a false per-range ambiguity.
+        if (a.IsReadyToRun)
+            return HandleDisassembleReadyToRun(a, target);
+
+        if (a.NativeSymbols is not { } info || info.Symbols.Count == 0)
+            return DotsiderResponse.Fail("Managed assembly; no native symbols to disassemble");
 
         var matches = Core.Analysis.Disasm.NativeDisassembler.FindExecutableSymbols(info, target);
         if (matches.Count == 0)
@@ -681,6 +689,27 @@ internal sealed class DotsiderDiagnosticsListener(
         return result is null
             ? DotsiderResponse.Fail($"'{matches[0].ManagedName ?? matches[0].Name}' has no disassemblable bytes")
             : DotsiderResponse.Ok(new { Symbol = matches[0].ManagedName ?? matches[0].Name, a.Architecture, result.Value.Instructions });
+    }
+
+    private static DotsiderResponse HandleDisassembleReadyToRun(Core.Analysis.AssemblyAnalyzer a, string target)
+    {
+        var result = Core.Analysis.ReadyToRunCorrelationQuery.Resolve(a, target, CancellationToken.None);
+        switch (result.Outcome)
+        {
+            case Core.Analysis.Models.ReadyToRunQueryOutcome.Ambiguous:
+                var candidates = string.Join(", ", result.Candidates.Select(
+                    c => $"{c.DeclaringType}::{c.Name} token 0x{c.Token:X8}"));
+                return DotsiderResponse.Fail($"{result.Message}: {candidates}");
+            case Core.Analysis.Models.ReadyToRunQueryOutcome.NotFound:
+            case Core.Analysis.Models.ReadyToRunQueryOutcome.Unavailable:
+                return DotsiderResponse.Fail(result.Message ?? "not found");
+        }
+
+        var report = result.Report!;
+        return report.NativeText is null
+            ? DotsiderResponse.Fail($"'{report.Method}' has no precompiled native code"
+                + (report.Diagnostic is { } d ? $" ({d})" : ""))
+            : DotsiderResponse.Ok(new { Symbol = report.Method, a.Architecture, report.NativeInstructions });
     }
 
     private DotsiderResponse HandleCorrelateMethod(DotsiderRequest request)
@@ -702,6 +731,28 @@ internal sealed class DotsiderDiagnosticsListener(
                     $"{c.AssemblyName} {c.DeclaringType}::{c.Name} token 0x{c.Token:X8}"
                     + (c.VirtualAddress is { } va ? $" @ 0x{va:X}" : "")))),
             _ => DotsiderResponse.Fail(result.Message ?? "correlation unavailable")
+        };
+    }
+
+    private DotsiderResponse HandleR2rCorrelateMethod(DotsiderRequest request)
+    {
+        var a = RequireAnalyzer();
+        if (a.BinaryKind != BinaryKind.ReadyToRun)
+            return DotsiderResponse.Fail("r2r-correlate requires a ReadyToRun image");
+
+        var target = request.MethodOrAddress;
+        if (string.IsNullOrWhiteSpace(target))
+            return DotsiderResponse.Fail("methodOrAddress is required");
+
+        var result = Core.Analysis.ReadyToRunCorrelationQuery.Resolve(a, target, CancellationToken.None);
+        return result.Outcome switch
+        {
+            ReadyToRunQueryOutcome.Resolved => DotsiderResponse.Ok(result.Report!),
+            ReadyToRunQueryOutcome.Ambiguous => DotsiderResponse.Fail(
+                $"{result.Message}: " + string.Join(", ", result.Candidates.Select(c =>
+                    $"{c.AssemblyName} {c.DeclaringType}::{c.Name} token 0x{c.Token:X8}"
+                    + (c.VirtualAddress is { } va ? $" @ 0x{va:X}" : "")))),
+            _ => DotsiderResponse.Fail(result.Message ?? "ReadyToRun correlation unavailable")
         };
     }
 

@@ -51,7 +51,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**42 tools** across:
+**44 tools** across:
 
 | Category | Tools |
 |----------|-------|
@@ -62,6 +62,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 | Dependencies | `get_assembly_refs`, `get_dependency_graph`, `get_type_refs` |
 | Size analysis | `get_size_breakdown`, `get_largest_methods` |
 | Native symbols | `get_native_symbols`, `get_native_disassembly` |
+| Correlation | `correlate_method`, `correlate_r2r_method` |
 | String extraction | `extract_strings` |
 | Diffing | `diff_assemblies` |
 | NuGet packages | `analyze_nupkg` |
@@ -79,6 +80,8 @@ Tools work in two modes:
 Single-file executables and native apphosts are handled transparently in direct mode — the server extracts the entry assembly from bundles and redirects apphosts to their companion DLLs, matching CLI and TUI behavior. Portable PDB data is exposed when present, including provenance, Source Link mappings, sequence points, and local names.
 
 Native AOT executables are recognized by their embedded ReadyToRun header: `get_assembly_info` reports `binaryKind` (`managed`, `nativeAot`, or `native`), a `nativeAotInfo` object with the RTR format version, section count, and heuristically recovered runtime version, plus `readyToRunSectionCount`, `recoveredTypeCount`, and `frozenStringCount`. `list_types` falls back to the types recovered from the embedded NativeFormat metadata, so it names a stripped binary's own types. `extract_strings` returns `rawStrings` (ASCII), `rawUtf16Strings`, and `frozenStrings` alongside the metadata heaps — for AOT binaries the raw scans and frozen literals are the populated categories, and the frozen strings are the AOT counterpart of the #US heap.
+
+ReadyToRun (crossgen2) images keep their full metadata: `get_assembly_info` reports `binaryKind` `readyToRun` and a `readyToRun` object (version, status, architecture, composite/component, method counts). `correlate_r2r_method` takes a `Type.Method`, a `0x06…` token, or a `0x…` native address and returns the method's IL beside its precompiled native code ranges with import-resolved call targets; an overloaded name raises an error listing the candidates. It follows a composite across its component assemblies in both directions, resolving them by name and MVID.
 
 Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
 

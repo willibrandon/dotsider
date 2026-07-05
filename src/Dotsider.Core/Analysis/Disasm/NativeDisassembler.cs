@@ -35,9 +35,14 @@ public static class NativeDisassembler
         var windowEnd = baseAddress + (ulong)code.Length;
         var offset = 0;
 
+        // Only x64 and AArch64 have decoders; any other architecture (the report-only R2R arches —
+        // x86, arm32, riscv64, loongarch64, wasm32) must not be silently decoded as x64. Skip the
+        // decode loop so the tail renders every byte as .byte rather than fabricating instructions.
+        var decodable = arch is NativeArchitecture.X64 or NativeArchitecture.Arm64;
+
         try
         {
-            while (offset < code.Length && result.Count < MaxInstructions)
+            while (decodable && offset < code.Length && result.Count < MaxInstructions)
             {
                 var insn = DecodeOne(arch, code, offset, baseAddress);
                 var length = insn.Length < 1 ? 1 : insn.Length;
@@ -125,17 +130,24 @@ public static class NativeDisassembler
         var arch = info.Architecture != NativeArchitecture.Unknown
             ? info.Architecture
             : MapArchitecture(analyzer.Architecture);
-        if (arch == NativeArchitecture.Unknown) return null;
+        // Only x64/AArch64 decode; a report-only architecture reports unsupported rather than
+        // decoding its bytes as x64 (which would fabricate plausible-but-wrong instructions).
+        if (arch is not (NativeArchitecture.X64 or NativeArchitecture.Arm64)) return null;
 
-        var raw = analyzer.RawBytes;
+        // A composite component's symbols carry offsets into the owner composite, not this file — the
+        // native code lives in the code image. Slice (and resolve imports) from there for R2R.
+        var codeImage = analyzer.IsReadyToRun ? analyzer.ReadyToRunCodeImage ?? analyzer : analyzer;
+        var raw = codeImage.RawBytes;
         if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
         var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
 
         // Compose the symbol resolver with the import resolver so indirect targets that land on an
         // import slot render as MODULE!Function rather than an unresolved address. The import table
         // is parsed once per image and cached — rebuilding it per call would re-read the whole PE
-        // (copying megabytes) on every function selection.
-        var imports = ImportResolverFor(analyzer);
+        // (copying megabytes) on every function selection. A ReadyToRun image resolves its indirect
+        // call slots through its own ImportSections rather than the PE import directory.
+        var imports = ImportResolverFor(codeImage);
+        var r2rImports = codeImage.IsReadyToRun ? ReadyToRunImportResolverFor(codeImage) : null;
 
         bool Resolver(ulong va, out NativeSymbolRef sym)
         {
@@ -150,6 +162,9 @@ public static class NativeDisassembler
                     (long)(va - found.VirtualAddress));
                 return true;
             }
+
+            if (r2rImports is not null && r2rImports.TryResolve(va, out sym))
+                return true;
 
             if (imports is not null && imports.TryResolve(va, out sym))
                 return true;
@@ -203,6 +218,12 @@ public static class NativeDisassembler
     private static NativeImportResolver? ImportResolverFor(AssemblyAnalyzer analyzer) =>
         ImportResolverCache.GetValue(analyzer, a => new StrongBox<NativeImportResolver?>(
             NativeImportResolver.Build(a.RawBytes, a.NativeSymbols?.Architecture ?? NativeArchitecture.Unknown))).Value;
+
+    private static readonly ConditionalWeakTable<AssemblyAnalyzer, StrongBox<ReadyToRun.ReadyToRunImportMap?>> ReadyToRunImportCache = [];
+
+    private static ReadyToRun.ReadyToRunImportMap? ReadyToRunImportResolverFor(AssemblyAnalyzer analyzer) =>
+        ReadyToRunImportCache.GetValue(
+            analyzer, a => new StrongBox<ReadyToRun.ReadyToRunImportMap?>(ReadyToRun.ReadyToRunImportMap.Build(a))).Value;
 
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {

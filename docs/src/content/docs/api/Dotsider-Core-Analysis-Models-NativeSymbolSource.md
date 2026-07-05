@@ -90,3 +90,14 @@ PE `.pdata` exception directory — function boundaries only.
 PdataFallback = 4
 ```
 
+### ReadyToRun
+
+A crossgen2 ReadyToRun image's method entry-point tables: named, sized function ranges
+(one per hot/funclet/cold runtime function) recovered directly from the R2R sections.
+
+**Returns:** [NativeSymbolSource](/api/dotsider.core.analysis.models.nativesymbolsource/)
+
+```csharp
+ReadyToRun = 7
+```
+

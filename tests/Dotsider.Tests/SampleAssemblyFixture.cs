@@ -203,6 +203,43 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public string? SelfContainedConsoleExe { get; private set; }
 
+    // ReadyToRun (crossgen2) samples
+    /// <summary>
+    /// Path to the published non-composite ReadyToRun assembly (crossgen'd in place), or null when
+    /// the crossgen2 publish did not run for this RID. Tests gate with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? ReadyToRunConsoleDll { get; private set; }
+
+    /// <summary>
+    /// Path to the ReadyToRun sample's apphost executable (the apphost → companion redirect case),
+    /// or null when the publish did not run.
+    /// </summary>
+    public string? ReadyToRunConsoleExe { get; private set; }
+
+    /// <summary>
+    /// Path to the composite global image (<c>ReadyToRunComposite.r2r.dll</c>) — metadata-less native
+    /// PE whose components resolve from siblings — or null when the composite publish did not run.
+    /// </summary>
+    public string? ReadyToRunCompositeImage { get; private set; }
+
+    /// <summary>
+    /// Path to a composite component DLL (<c>ReadyToRunComposite.dll</c>) that carries an
+    /// <c>OwnerCompositeExecutable</c> pointing at <see cref="ReadyToRunCompositeImage"/>, or null.
+    /// </summary>
+    public string? ReadyToRunCompositeComponent { get; private set; }
+
+    /// <summary>
+    /// Path to the second composite component (<c>ReadyToRunComponentLib.dll</c>), beside the
+    /// composite for MVID resolution, or null when the composite publish did not run.
+    /// </summary>
+    public string? ReadyToRunComponentLibDll { get; private set; }
+
+    /// <summary>The <c>ReadyToRunComposite.dll</c> component's module version id, for identity assertions.</summary>
+    public Guid ReadyToRunCompositeComponentMvid { get; private set; }
+
+    /// <summary>The <c>ReadyToRunComponentLib.dll</c> component's module version id, for identity assertions.</summary>
+    public Guid ReadyToRunComponentLibMvid { get; private set; }
+
     // Non-.NET binary for error case testing
     /// <summary>
     /// Path to a small non-.NET binary used for BadImageFormatException scenarios.
@@ -248,6 +285,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
         builds.Add(PublishNativeAotProject("samples/NativeAotLibrary"));
         builds.Add(PublishNativeAotProject("samples/HardwareIntrinsics"));
         builds.Add(PublishSelfContainedProject("samples/SelfContainedConsole"));
+
+        // ReadyToRun crossgen2 publishes: the console framework-dependent (small apphost + R2R dll),
+        // the composite self-contained (crossgen bundles the app assemblies into a *.r2r.dll with the
+        // components beside it). Tolerant of a RID without crossgen2 — R2R tests then skip.
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", selfContained: false));
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunComposite", selfContained: true));
 
         await Task.WhenAll(builds);
 
@@ -348,6 +391,22 @@ public class SampleAssemblyFixture : IAsyncLifetime
 
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
             "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
+
+        // ReadyToRun publish outputs. Null when crossgen2 did not run for this RID, so R2R tests skip.
+        var r2rConsoleDir = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, rid, "publish");
+        ReadyToRunConsoleDll = ExistingPathOrNull(Path.Combine(r2rConsoleDir, "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleExe = ExistingPathOrNull(Path.Combine(r2rConsoleDir, $"ReadyToRunConsole{apphostExt}"));
+
+        var r2rCompositeDir = Path.Combine(_repoRoot, "samples", "ReadyToRunComposite",
+            "bin", "Release", tfm, rid, "publish");
+        ReadyToRunCompositeImage = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.r2r.dll"));
+        ReadyToRunCompositeComponent = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.dll"));
+        ReadyToRunComponentLibDll = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComponentLib.dll"));
+        if (ReadyToRunCompositeComponent is not null)
+            ReadyToRunCompositeComponentMvid = ReadModuleMvid(ReadyToRunCompositeComponent);
+        if (ReadyToRunComponentLibDll is not null)
+            ReadyToRunComponentLibMvid = ReadModuleMvid(ReadyToRunComponentLibDll);
 
         RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
             "bin", config, "RichLibrary.2.5.1.nupkg");
@@ -510,6 +569,62 @@ public class SampleAssemblyFixture : IAsyncLifetime
         {
             lockFile.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Publishes a ReadyToRun (crossgen2) sample. Tolerant: a crossgen2 failure (an unsupported RID)
+    /// leaves the publish outputs absent, so the dependent tests skip rather than the fixture failing.
+    /// </summary>
+    private async Task PublishReadyToRunProject(string relativePath, bool selfContained)
+    {
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} "
+                    + $"--self-contained {(selfContained ? "true" : "false")} -v q",
+                WorkingDirectory = projectDir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            var process = Process.Start(psi)!;
+            _ = await process.StandardOutput.ReadToEndAsync();
+            _ = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            // A non-zero exit means crossgen2 is unavailable for this RID; leave the outputs absent.
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    private static Guid ReadModuleMvid(string path)
+    {
+        using var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(path);
+        var reader = analyzer.GetMetadataReader();
+        return reader is null ? Guid.Empty : reader.GetGuid(reader.GetModuleDefinition().Mvid);
     }
 
     private async Task PublishSelfContainedProject(string relativePath)

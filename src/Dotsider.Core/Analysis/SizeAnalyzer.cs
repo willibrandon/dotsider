@@ -28,6 +28,10 @@ public static class SizeAnalyzer
             return BuildFromSymbols(analyzer.FileName, analyzer.RecoveredTypes, symbols);
         }
 
+        // ReadyToRun: size the precompiled native code per method rather than IL bytes.
+        if (analyzer.IsReadyToRun && analyzer.ReadyToRunIndex is { Methods.Count: > 0 })
+            return BuildReadyToRunSizeTree(analyzer);
+
         // Get method sizes
         var methodSizes = new List<(MethodDefInfo Method, long Size)>();
         foreach (var method in analyzer.MethodDefs)
@@ -107,6 +111,73 @@ public static class SizeAnalyzer
             namespaceNodes.Sum(n => n.Size),
             SizeNodeKind.Assembly,
             [.. namespaceNodes.OrderByDescending(n => n.Size)]);
+    }
+
+    /// <summary>
+    /// Builds the size tree of a ReadyToRun image from its precompiled method sizes: namespace →
+    /// type → method, each method sized by its total native code across all ranges. Distinct from
+    /// the IL-byte tree so a reader sees the precompiled native footprint, not IL size.
+    /// </summary>
+    private static SizeNode BuildReadyToRunSizeTree(AssemblyAnalyzer analyzer)
+    {
+        // Build the tree from the method entries themselves — names and owning assembly come from the
+        // entries (for a composite, resolved from each component's metadata). This is independent of
+        // the analyzed file's own metadata, so a composite opened directly (which has none) still maps.
+        var assemblyNodes = new List<SizeNode>();
+        var byAssembly = analyzer.ReadyToRunMethods
+            .Where(m => m.TotalSize > 0)
+            .GroupBy(m => string.IsNullOrEmpty(m.AssemblyName) ? "(unknown)" : m.AssemblyName)
+            .OrderBy(g => g.Key, StringComparer.Ordinal);
+
+        foreach (var asmGroup in byAssembly)
+        {
+            var namespaceNodes = new List<SizeNode>();
+            foreach (var nsGroup in asmGroup.GroupBy(m => NamespaceOf(m.DeclaringType)).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                var typeNodes = nsGroup
+                    .GroupBy(m => m.DeclaringType ?? "(unresolved)")
+                    .Select(typeGroup =>
+                    {
+                        var methodNodes = typeGroup
+                            .OrderByDescending(m => m.TotalSize)
+                            .Select(m => new SizeNode(
+                                $"{m.Name}{m.InstantiationDisplay}",
+                                $"{asmGroup.Key}/{typeGroup.Key}::{m.Name}@0x{m.Token:X8}",
+                                m.TotalSize, SizeNodeKind.Method, []))
+                            .ToList();
+                        return new SizeNode(
+                            StripNamespace(typeGroup.Key, nsGroup.Key == "(global)" ? "" : nsGroup.Key),
+                            $"{asmGroup.Key}/{typeGroup.Key}",
+                            methodNodes.Sum(n => n.Size), SizeNodeKind.Type, [.. methodNodes]);
+                    })
+                    .OrderByDescending(t => t.Size)
+                    .ToList();
+
+                namespaceNodes.Add(new SizeNode(
+                    nsGroup.Key, $"{asmGroup.Key}/{nsGroup.Key}",
+                    typeNodes.Sum(t => t.Size), SizeNodeKind.Namespace, [.. typeNodes]));
+            }
+
+            assemblyNodes.Add(new SizeNode(
+                asmGroup.Key, asmGroup.Key,
+                namespaceNodes.Sum(n => n.Size), SizeNodeKind.Assembly,
+                [.. namespaceNodes.OrderByDescending(n => n.Size)]));
+        }
+
+        return new SizeNode(
+            $"{analyzer.AssemblyName ?? analyzer.FileName} (R2R native code)",
+            analyzer.FileName,
+            assemblyNodes.Sum(n => n.Size),
+            SizeNodeKind.Assembly,
+            [.. assemblyNodes.OrderByDescending(n => n.Size)]);
+    }
+
+    /// <summary>The namespace prefix of a declaring-type display name, or <c>(global)</c>.</summary>
+    private static string NamespaceOf(string? declaringType)
+    {
+        if (string.IsNullOrEmpty(declaringType)) return "(global)";
+        var lastDot = declaringType.LastIndexOf('.');
+        return lastDot > 0 ? declaringType[..lastDot] : "(global)";
     }
 
     /// <summary>
@@ -350,7 +421,7 @@ public static class SizeAnalyzer
             var namespaceNodes = namespaces
                 .Select(kvp => new SizeNode(
                     kvp.Key, $"{assemblyName}/{kvp.Key}",
-                    kvp.Value.Values.Sum(m => m.Sum(x => x.Size)), SizeNodeKind.Namespace,
+                    kvp.Value.Values.SelectMany(m => m).Sum(x => x.Size), SizeNodeKind.Namespace,
                     [.. kvp.Value
                         .Select(t => new SizeNode(
                             StripNamespace(t.Key, kvp.Key == "(global)" ? "" : kvp.Key),

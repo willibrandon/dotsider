@@ -134,13 +134,34 @@ public static class GeneralView
                     + " — press a to attach");
             }
         }
+        else if (analyzer.ReadyToRunInfo is { } r2r)
+        {
+            infoLines.Add("");
+            infoLines.Add("  Binary Kind:      ReadyToRun (.NET)");
+            infoLines.Add($"  R2R Format:       v{r2r.MajorVersion}.{r2r.MinorVersion} ({r2r.Status})");
+            infoLines.Add($"  Composite:        {r2r.IsComposite}"
+                + (r2r.IsComponent ? " (component)" : "") + (r2r.IsPartialImage ? ", partial image" : ""));
+            if (r2r.OwnerCompositeExecutable is { } owner)
+                infoLines.Add($"  Owner Composite:  {owner}");
+            infoLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
+            if (analyzer.ReadyToRunIndex is { } index)
+                infoLines.Add($"  Precompiled:      {index.Methods.Count} methods, "
+                    + $"{index.InstantiationCount} instantiations, {DotsiderState.FormatSize(index.TotalCodeSize)}");
+            if (analyzer.NativeSymbols is { } symbols)
+                infoLines.Add(symbols.Symbols.Count > 0
+                    ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
+                    : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
+            if (r2r.Diagnostic is { } diagnostic)
+                infoLines.Add($"  Note:             {diagnostic}");
+        }
 
         var infoText = string.Join("\n", infoLines);
 
         // Border chrome adds 2 rows. The AOT layout gets one more so the editor's
         // horizontal scrollbar (long publish-dir PDB paths overflow the width)
         // doesn't cover the last info line.
-        var infoHeight = infoLines.Count + (analyzer.NativeAotInfo is null ? 2 : 3);
+        var infoHeight = infoLines.Count
+            + (analyzer.NativeAotInfo is null && analyzer.ReadyToRunInfo is null ? 2 : 3);
 
         if (state.GeneralInfoEditorText != infoText)
         {

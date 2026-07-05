@@ -52,7 +52,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 NativeSymbolCount = analyzer.NativeSymbols?.Symbols.Count ?? 0,
                 NativeSymbolSource = analyzer.NativeSymbols?.Source,
                 NativeSymbolStatus = analyzer.NativeSymbols?.Status,
-                PreIlc = BuildPreIlcSummary(analyzer)
+                PreIlc = BuildPreIlcSummary(analyzer),
+                ReadyToRun = BuildReadyToRunSummary(analyzer)
             }, DotsiderJsonOptions.Default);
         }
 
@@ -86,6 +87,31 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
             LocalReferenceCount = s.LocalReferencePaths.Count,
             s.PackageReferenceCount,
             s.OtherReferenceCount
+        };
+    }
+
+    /// <summary>
+    /// Builds the ReadyToRun summary for a crossgen2 image — status, version, composite flags,
+    /// architecture, and precompiled-method counts. Returns null when the image is not ReadyToRun.
+    /// </summary>
+    private static object? BuildReadyToRunSummary(Core.Analysis.AssemblyAnalyzer analyzer)
+    {
+        if (analyzer.ReadyToRunInfo is not { } info)
+            return null;
+
+        return new
+        {
+            Status = info.Status.ToString(),
+            info.MajorVersion,
+            info.MinorVersion,
+            info.IsComposite,
+            info.IsComponent,
+            info.IsPartialImage,
+            Architecture = info.Architecture.ToString(),
+            info.OwnerCompositeExecutable,
+            PrecompiledMethods = analyzer.ReadyToRunIndex?.Methods.Count ?? 0,
+            InstantiationCount = analyzer.ReadyToRunIndex?.InstantiationCount ?? 0,
+            TotalCodeSize = analyzer.ReadyToRunIndex?.TotalCodeSize ?? 0
         };
     }
 

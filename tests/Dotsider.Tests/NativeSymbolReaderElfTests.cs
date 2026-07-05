@@ -305,7 +305,7 @@ public class NativeSymbolReaderElfTests(SampleAssemblyFixture samples)
                 (".note.gnu.build-id", 0, SyntheticImageBuilders.GnuBuildIdNote(IdA))));
             Write(dir.FullName, "app.dbg", SyntheticImageBuilders.BuildElf(
                 (".note.gnu.build-id", 0, SyntheticImageBuilders.GnuBuildIdNote(IdA)),
-                (".debug_info", 0, new byte[] { 9, 9, 9 }))); // no abbrev, unreadable
+                (".debug_info", 0, "\t\t\t"u8.ToArray()))); // no abbrev, unreadable
 
             var result = NativeSymbolReader.Read(exePath, File.ReadAllBytes(exePath), []);
 

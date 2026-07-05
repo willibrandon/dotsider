@@ -256,7 +256,7 @@ internal static partial class Arm64OperandFormatter
             case Arm64Format.Crc:
                 Reg(ops, R.Gpr(rd, false));
                 Reg(ops, R.Gpr(rn, false));
-                Reg(ops, R.Gpr(rm, mnem.EndsWith("x")));
+                Reg(ops, R.Gpr(rm, mnem.EndsWith('x')));
                 break;
 
             case Arm64Format.ScalarFp3:

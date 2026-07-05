@@ -56,6 +56,7 @@ public class ToolRegistrationTests : McpServerTestBase
 
         // Correlation tools
         Assert.Contains("correlate_method", names);
+        Assert.Contains("correlate_r2r_method", names);
 
         // Diff tools
         Assert.Contains("diff_assemblies", names);
