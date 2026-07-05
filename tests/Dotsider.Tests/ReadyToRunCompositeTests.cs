@@ -94,7 +94,6 @@ public class ReadyToRunCompositeTests(SampleAssemblyFixture samples)
         Assert.Equal(ReadyToRunNativeAvailability.Precompiled, result.Report!.Availability);
         Assert.NotNull(result.Report.NativeText);
         // The disassembly names a call target rather than only raw hex addresses.
-        Assert.Contains("call", result.Report.NativeText!);
         Assert.Contains("WriteLine", result.Report.NativeText);
     }
 

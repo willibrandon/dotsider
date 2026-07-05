@@ -12,7 +12,7 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
     private const string SkipReason = "ReadyToRun crossgen2 publish did not run on this leg.";
 
     /// <summary>correlate_r2r_method resolves a unique method to its report with IL and native code.</summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public async Task CorrelateR2rMethod_ByName_ReturnsReport()
     {
         Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
@@ -39,7 +39,7 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
     }
 
     /// <summary>correlate_r2r_method reports an overloaded name as an ambiguity, never first-match.</summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public async Task CorrelateR2rMethod_Overloaded_ReturnsAmbiguity()
     {
         Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
@@ -62,7 +62,7 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
     }
 
     /// <summary>get_native_disassembly renders every range of a multi-range R2R method (no false ambiguity).</summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public async Task GetNativeDisassembly_ReadyToRun_MultiRange_RendersAllRanges()
     {
         Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);

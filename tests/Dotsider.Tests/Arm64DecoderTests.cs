@@ -17,6 +17,12 @@ public class Arm64DecoderTests
         return NativeDisassembler.Disassemble(code, 0x1000, NativeArchitecture.Arm64)[0];
     }
 
+    private static NativeInstruction OneAt(uint word, ulong address)
+    {
+        var code = BitConverter.GetBytes(word);
+        return NativeDisassembler.Disassemble(code, address, NativeArchitecture.Arm64)[0];
+    }
+
     /// <summary>Decodes representative A64 base instructions to their mnemonics and operands.</summary>
     [Theory(Timeout = 30_000)]
     [InlineData("ret", "", 0xD65F03C0u)]
@@ -74,6 +80,54 @@ public class Arm64DecoderTests
         var insn = One(0x90000000u); // adrp x0, page(0)
         Assert.Equal("adrp", insn.Mnemonic);
         Assert.Equal(0x1000UL, insn.TargetAddress);
+    }
+
+    /// <summary>Verifies ADR/ADRP concatenate immhi:immlo in architectural order.</summary>
+    [Fact(Timeout = 30_000)]
+    public void Decode_AdrAndAdrp_UsesImmhiImmloOrder()
+    {
+        var adr = One(0x10000440u); // adr x0, +0x88
+        Assert.Equal("adr", adr.Mnemonic);
+        Assert.Equal(0x1088UL, adr.TargetAddress);
+
+        // Real osx-arm64 R2R import-slot pattern: llvm-objdump decodes this as
+        // "adrp x11, 0x180032000" at 0x180010e28.
+        var adrp = OneAt(0xD000010Bu, 0x180010E28UL);
+        Assert.Equal("adrp", adrp.Mnemonic);
+        Assert.Equal(0x180032000UL, adrp.TargetAddress);
+    }
+
+    /// <summary>Verifies an arm64 import-slot call sequence is named structurally.</summary>
+    [Fact(Timeout = 30_000)]
+    public void Decode_Arm64ImportSlotCall_ResolvesTargetName()
+    {
+        byte[] code =
+        [
+            0x0B, 0x01, 0x00, 0xD0, // adrp x11, 0x180032000
+            0x6B, 0x21, 0x1E, 0x91, // add  x11, x11, #0x788
+            0x70, 0x01, 0x40, 0xF9, // ldr  x16, [x11]
+            0x00, 0x02, 0x3F, 0xD6, // blr  x16
+        ];
+
+        static bool Resolve(ulong va, out NativeSymbolRef symbol)
+        {
+            if (va == 0x180032788UL)
+            {
+                symbol = new NativeSymbolRef(va, "Console.WriteLine", NativeSymbolKind.Stub, 0);
+                return true;
+            }
+
+            symbol = default;
+            return false;
+        }
+
+        var instructions = NativeDisassembler.Disassemble(
+            code, 0x180010E28UL, NativeArchitecture.Arm64, Resolve);
+
+        var branch = instructions[^1];
+        Assert.Equal("blr", branch.Mnemonic);
+        Assert.Equal(NativeTargetKind.Import, branch.TargetKind);
+        Assert.Equal("Console.WriteLine", branch.TargetName);
     }
 
     /// <summary>Verifies an unallocated word decodes as a 4-byte .word that never desyncs.</summary>

@@ -64,6 +64,9 @@ public static class NativeDisassembler
             offset++;
         }
 
+        if (arch == NativeArchitecture.Arm64 && resolver is not null)
+            ResolveArm64IndirectImports(result, resolver);
+
         return ResolveTargets(result, baseAddress, windowEnd, resolver);
     }
 
@@ -360,6 +363,146 @@ public static class NativeDisassembler
 
         return instructions;
     }
+
+    private static void ResolveArm64IndirectImports(
+        List<NativeInstruction> instructions, NativeSymbolResolver resolver)
+    {
+        var registerValues = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var registerImports = new Dictionary<string, NativeSymbolRef>(StringComparer.Ordinal);
+
+        for (var i = 0; i < instructions.Count; i++)
+        {
+            var insn = instructions[i];
+            switch (insn.Mnemonic)
+            {
+                case "adrp":
+                case "adr":
+                    if (RegisterOperand(insn, 0) is { } adrReg && insn.TargetAddress is { } target)
+                    {
+                        SetRegister(registerValues, registerImports, adrReg, target);
+                    }
+                    break;
+
+                case "add":
+                    if (RegisterOperand(insn, 0) is { } addDest
+                        && RegisterOperand(insn, 1) is { } addSource
+                        && ImmediateOperand(insn, 2) is { } addend
+                        && registerValues.TryGetValue(addSource, out var baseAddress))
+                    {
+                        SetRegister(registerValues, registerImports, addDest, unchecked(baseAddress + (ulong)addend));
+                    }
+                    else if (RegisterOperand(insn, 0) is { } unknownAddDest)
+                    {
+                        ClearRegister(registerValues, registerImports, unknownAddDest);
+                    }
+                    break;
+
+                case "mov":
+                    if (RegisterOperand(insn, 0) is { } movDest
+                        && RegisterOperand(insn, 1) is { } movSource)
+                    {
+                        if (registerValues.TryGetValue(movSource, out var sourceValue))
+                        {
+                            SetRegister(registerValues, registerImports, movDest, sourceValue);
+                            if (registerImports.TryGetValue(movSource, out var sourceImport))
+                                registerImports[movDest] = sourceImport;
+                        }
+                        else
+                        {
+                            ClearRegister(registerValues, registerImports, movDest);
+                        }
+                    }
+                    break;
+
+                case "ldr":
+                    if (RegisterOperand(insn, 0) is { } loadDest
+                        && MemoryOperand(insn, 1) is { } memory
+                        && registerValues.TryGetValue(memory.BaseRegister, out var pointerBase))
+                    {
+                        var slot = unchecked(pointerBase + (ulong)memory.Displacement);
+                        ClearRegister(registerValues, registerImports, loadDest);
+                        if (resolver(slot, out var import))
+                            registerImports[loadDest] = import;
+                    }
+                    else if (RegisterOperand(insn, 0) is { } unknownLoadDest)
+                    {
+                        ClearRegister(registerValues, registerImports, unknownLoadDest);
+                    }
+                    break;
+
+                case "blr":
+                case "br":
+                    if (RegisterOperand(insn, 0) is { } branchReg
+                        && registerImports.TryGetValue(branchReg, out var importRef))
+                    {
+                        var name = importRef.Offset == 0
+                            ? importRef.Name
+                            : $"{importRef.Name}+0x{importRef.Offset:x}";
+                        instructions[i] = insn with
+                        {
+                            TargetAddress = importRef.Start,
+                            TargetKind = NativeTargetKind.Import,
+                            TargetName = name,
+                        };
+                    }
+                    break;
+
+                default:
+                    if (MayWriteFirstRegister(insn.Mnemonic) && RegisterOperand(insn, 0) is { } dest)
+                        ClearRegister(registerValues, registerImports, dest);
+                    break;
+            }
+        }
+    }
+
+    private static string? RegisterOperand(NativeInstruction insn, int index) =>
+        index < insn.Operands.Count && NormalizeArm64Register(insn.Operands[index].Register) is { } reg ? reg : null;
+
+    private static long? ImmediateOperand(NativeInstruction insn, int index) =>
+        index < insn.Operands.Count ? insn.Operands[index].Immediate : null;
+
+    private readonly record struct Arm64MemoryOperand(string BaseRegister, long Displacement);
+
+    private static Arm64MemoryOperand? MemoryOperand(NativeInstruction insn, int index)
+    {
+        if (index >= insn.Operands.Count
+            || insn.Operands[index] is not { Kind: NativeOperandKind.Memory, MemoryBase: { } memoryBase } operand
+            || NormalizeArm64Register(memoryBase) is not { } baseRegister)
+        {
+            return null;
+        }
+
+        return new Arm64MemoryOperand(baseRegister, operand.MemoryDisplacement);
+    }
+
+    private static void SetRegister(
+        Dictionary<string, ulong> registerValues,
+        Dictionary<string, NativeSymbolRef> registerImports,
+        string register,
+        ulong value)
+    {
+        registerValues[register] = value;
+        registerImports.Remove(register);
+    }
+
+    private static void ClearRegister(
+        Dictionary<string, ulong> registerValues,
+        Dictionary<string, NativeSymbolRef> registerImports,
+        string register)
+    {
+        registerValues.Remove(register);
+        registerImports.Remove(register);
+    }
+
+    private static string? NormalizeArm64Register(string? register)
+    {
+        if (string.IsNullOrEmpty(register))
+            return null;
+        return register[0] is 'w' or 'x' && register.Length > 1 ? "x" + register[1..] : register;
+    }
+
+    private static bool MayWriteFirstRegister(string mnemonic) =>
+        mnemonic is not ("str" or "strb" or "strh" or "stp" or "stur" or "sturb" or "sturh");
 
     /// <summary>The synthesized label name for an intra-function target address.</summary>
     internal static string LocalLabel(ulong address) => $"loc_{address:x}";
