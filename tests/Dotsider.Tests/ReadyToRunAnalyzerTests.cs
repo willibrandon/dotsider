@@ -41,6 +41,24 @@ public class ReadyToRunAnalyzerTests(SampleAssemblyFixture samples)
         Assert.Same(analyzer, analyzer.ReadyToRunCodeImage);
     }
 
+    /// <summary>Unix R2R images use CoreCLR's native-image machine encoding, not plain COFF values.</summary>
+    [Theory(Timeout = 30_000)]
+    [InlineData(0xFD1D, NativeArchitecture.X64)] // AMD64 ^ Linux override
+    [InlineData(0xC020, NativeArchitecture.X64)] // AMD64 ^ Apple override
+    [InlineData(0xD11D, NativeArchitecture.Arm64)] // ARM64 ^ Linux override
+    [InlineData(0xEC20, NativeArchitecture.Arm64)] // ARM64 ^ Apple override
+    public void NativeImageMachineValues_MapToRealArchitecture(ushort machine, NativeArchitecture expected)
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        var bytes = PatchPeMachine(samples.ReadyToRunConsoleDll!, machine);
+
+        using var analyzer = new AssemblyAnalyzer(bytes, samples.ReadyToRunConsoleDll!);
+
+        Assert.Equal(BinaryKind.ReadyToRun, analyzer.BinaryKind);
+        Assert.Equal(ReadyToRunStatus.Valid, analyzer.ReadyToRunInfo!.Status);
+        Assert.Equal(expected, analyzer.ReadyToRunInfo.Architecture);
+    }
+
     /// <summary>The real image's major version falls within the supported ceiling and reads as Valid.</summary>
     [Fact(Timeout = 30_000)]
     public void ValidImage_MajorVersion_IsWithinSupportedCeiling()
@@ -180,6 +198,14 @@ public class ReadyToRunAnalyzerTests(SampleAssemblyFixture samples)
         return bytes;
     }
 
+    private static byte[] PatchPeMachine(string path, ushort machine)
+    {
+        var bytes = File.ReadAllBytes(path);
+        var offset = LocatePeMachineOffset(bytes);
+        BitConverter.GetBytes(machine).CopyTo(bytes, offset);
+        return bytes;
+    }
+
     // Locates the R2R header in a copy of the real fixture through the production parse: the analyzer's
     // reported header + version proves where it is, and the signature at that spot confirms it.
     private static (byte[] Bytes, int HeaderOffset) LoadAndLocateHeader(string path)
@@ -202,5 +228,14 @@ public class ReadyToRunAnalyzerTests(SampleAssemblyFixture samples)
 
         Assert.Fail("could not locate the R2R header matching the parsed version");
         return (bytes, -1);
+    }
+
+    private static int LocatePeMachineOffset(byte[] bytes)
+    {
+        Assert.True(bytes.Length >= 0x40, "fixture is too small for a PE header");
+        var peOffset = BitConverter.ToInt32(bytes, 0x3C);
+        Assert.InRange(peOffset, 0, bytes.Length - 6);
+        Assert.Equal(0x0000_4550u, BitConverter.ToUInt32(bytes, peOffset));
+        return peOffset + 4;
     }
 }

@@ -72,7 +72,18 @@ internal sealed class ReadyToRunImportMap
     private const uint FixupPInvokeTarget = 0x2F;
 
     /// <summary>Builds the import map for <paramref name="analyzer"/> (a ReadyToRun code image), or null.</summary>
-    public static ReadyToRunImportMap? Build(AssemblyAnalyzer analyzer)
+    public static ReadyToRunImportMap? Build(AssemblyAnalyzer analyzer) =>
+        Build(analyzer, components: null, providerFor: null);
+
+    /// <summary>
+    /// Builds the import map for a ReadyToRun code image with an optional caller-supplied component
+    /// context. Component-opened composite disassembly uses this to resolve import names without
+    /// forcing the owner composite to materialize every component method map.
+    /// </summary>
+    public static ReadyToRunImportMap? Build(
+        AssemblyAnalyzer analyzer,
+        IReadOnlyList<ReadyToRunComponent>? components,
+        Func<Guid, AssemblyAnalyzer?>? providerFor)
     {
         // Only a Valid image's import sections are trusted to parse (a corrupt/unsupported header does
         // not vouch for the current layout).
@@ -96,7 +107,11 @@ internal sealed class ReadyToRunImportMap
             or NativeArchitecture.Wasm32 ? 4 : 8;
 
         // Cross-module fixups (composite) resolve their token against the owning component's metadata.
-        var moduleContext = ReadyToRunModuleContext.ForImage(analyzer);
+        Dictionary<Guid, AssemblyAnalyzer>? transientProviders = null;
+        var moduleContext = components is { Count: > 0 }
+            ? ReadyToRunModuleContext.Create(
+                info, components, mvid => ResolveProvider(analyzer, components, providerFor, mvid, ref transientProviders))
+            : ReadyToRunModuleContext.ForImage(analyzer);
 
         var map = new Dictionary<ulong, string>();
         try
@@ -114,6 +129,12 @@ internal sealed class ReadyToRunImportMap
         {
             // Keep whatever slots resolved before the malformed row.
         }
+        finally
+        {
+            if (transientProviders is not null)
+                foreach (var provider in transientProviders.Values)
+                    provider.Dispose();
+        }
 
         // The delay-load method-call thunk region (section 106) — named as a region in TryResolve.
         ulong thunkStart = 0, thunkEnd = 0;
@@ -127,6 +148,39 @@ internal sealed class ReadyToRunImportMap
         return map.Count > 0 || thunkEnd > thunkStart
             ? new ReadyToRunImportMap(map, thunkStart, thunkEnd)
             : null;
+    }
+
+    private static AssemblyAnalyzer? ResolveProvider(
+        AssemblyAnalyzer codeImage,
+        IReadOnlyList<ReadyToRunComponent> components,
+        Func<Guid, AssemblyAnalyzer?>? providerFor,
+        Guid mvid,
+        ref Dictionary<Guid, AssemblyAnalyzer>? transientProviders)
+    {
+        if (providerFor?.Invoke(mvid) is { } existing)
+            return existing;
+        if (transientProviders is not null && transientProviders.TryGetValue(mvid, out var cached))
+            return cached;
+
+        ReadyToRunComponent? component = null;
+        foreach (var candidate in components)
+            if (candidate.Mvid == mvid)
+            {
+                component = candidate;
+                break;
+            }
+
+        if (component is null)
+            return null;
+
+        var directory = Path.GetDirectoryName(codeImage.FilePath) ?? ".";
+        var opened = ReadyToRunComponentResolver.Resolve(directory, component.AssemblyName, component.Mvid);
+        if (opened is null)
+            return null;
+
+        transientProviders ??= [];
+        transientProviders[mvid] = opened;
+        return opened;
     }
 
     private static void ReadRecord(

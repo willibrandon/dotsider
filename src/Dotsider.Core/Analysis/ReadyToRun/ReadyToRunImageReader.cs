@@ -148,12 +148,62 @@ internal static class ReadyToRunImageReader
                 $"owner composite '{ownerName}' not found beside the component; native code unavailable");
         }
 
-        // The owner resolves every component (including this one) and holds the native code. Filter
-        // its methods to this component's identity; disassembly routes through the owner's bytes.
-        var methods = owner.ReadyToRunMethods
+        // The owner composite holds the native code. Build a targeted component model from the
+        // owner's tables instead of materializing every sibling metadata provider: all entry points
+        // are still marked so funclet boundaries are correct, but only this component's metadata is
+        // resolved. Disassembly routes through the owner bytes.
+        if (owner.ReadyToRunInfo is not { Status: ReadyToRunStatus.Valid, IsComposite: true } ownerInfo
+            || !TryOpenTables(owner, ownerInfo, out var tables))
+        {
+            return new ReadyToRunModel(
+                [], owner, providers, [owner], [], OwnerCompositeMissing: false,
+                $"owner composite '{ownerName}' does not expose a usable ReadyToRun method map");
+        }
+
+        var ownerRaw = owner.RawBytes;
+        var imageBase = owner.PeHeaders?.ImageBase ?? 0;
+        var components = ReadyToRunCompositeReader.ReadComponents(
+            ownerRaw, ownerInfo, imageBase, tables.AddressSpace);
+        var sources = new List<ReadyToRunMethodMapReader.MethodMapSource>(components.Count);
+        var listing = new List<ReadyToRunComponent>(components.Count);
+        foreach (var component in components)
+        {
+            var isThisComponent = component.Mvid == mvid
+                || string.Equals(component.Name, analyzer.AssemblyName, StringComparison.Ordinal);
+            var name = component.Name ?? (isThisComponent ? analyzer.AssemblyName : null) ?? component.Mvid.ToString();
+            sources.Add(new ReadyToRunMethodMapReader.MethodMapSource(
+                name, component.Mvid, component.MethodDefEntryPointsFileOffset,
+                isThisComponent ? analyzer.MethodDefs : [],
+                isThisComponent ? analyzer.GetMetadataReader() : null));
+            listing.Add(new ReadyToRunComponent(
+                name, component.Mvid, 0, component.CoreHeaderRva,
+                isThisComponent ? analyzer.FilePath : null, isThisComponent));
+        }
+
+        var moduleContext = ReadyToRunModuleContext.Create(
+            ownerInfo, listing, id => id == mvid ? analyzer : null);
+        var instance = Section(ownerInfo, ReadyToRunSectionType.InstanceMethodEntryPoints);
+        var manifest = Section(ownerInfo, ReadyToRunSectionType.ManifestMetadata);
+        MetadataReaderProvider? manifestProvider = null;
+        List<ReadyToRunMethodEntry> allMethods;
+        try
+        {
+            var manifestReader = OpenManifest(ownerRaw, manifest, out manifestProvider);
+            var global = instance is { FileOffset: { } io }
+                ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
+                    io, instance.Size, manifestReader, owner.AssemblyName ?? "", Guid.Empty, [])
+                : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
+            allMethods = SafeBuild(tables, sources, global, moduleContext);
+        }
+        finally
+        {
+            manifestProvider?.Dispose();
+        }
+
+        var methods = allMethods
             .Where(m => m.Mvid == mvid || string.Equals(m.AssemblyName, analyzer.AssemblyName, StringComparison.Ordinal))
             .ToList();
-        return new ReadyToRunModel(methods, owner, providers, [owner], [], OwnerCompositeMissing: false, null);
+        return new ReadyToRunModel(methods, owner, providers, [owner], listing, OwnerCompositeMissing: false, null);
     }
 
     private readonly record struct Tables(

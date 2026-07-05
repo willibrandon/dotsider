@@ -1,4 +1,5 @@
 using System.Globalization;
+using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Analysis.ReadyToRun;
 
@@ -157,7 +158,21 @@ public static class ReadyToRunCorrelationQuery
         {
             string? Resolver(ulong va) =>
                 index.FindByAddress(va) is { DeclaringType: not null } e ? $"{e.DeclaringType}.{e.Name}" : null;
-            if (ReadyToRunDisassembler.DisassembleMethod(codeImage, entry, Resolver) is { } d)
+            NativeSymbolResolver? importResolver = null;
+            if (!ReferenceEquals(codeImage, analyzer) && analyzer.ReadyToRunComponents.Count > 0)
+            {
+                var importMap = ReadyToRunImportMap.Build(
+                    codeImage, analyzer.ReadyToRunComponents, analyzer.ReadyToRunMetadataProviderFor);
+                importResolver = (ulong va, out NativeSymbolRef symbol) =>
+                {
+                    if (importMap is not null && importMap.TryResolve(va, out symbol))
+                        return true;
+                    symbol = default;
+                    return false;
+                };
+            }
+
+            if (ReadyToRunDisassembler.DisassembleMethod(codeImage, entry, Resolver, importResolver) is { } d)
             {
                 nativeText = d.Text;
                 nativeInstructions = d.Instructions;

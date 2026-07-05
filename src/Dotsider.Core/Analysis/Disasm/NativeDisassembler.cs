@@ -123,6 +123,14 @@ public static class NativeDisassembler
     /// <param name="managedNameResolver">Maps a target virtual address to a managed display name, or null for none.</param>
     public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
         DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol, Func<ulong, string?>? managedNameResolver)
+        => DisassembleSymbol(analyzer, symbol, managedNameResolver, readyToRunImportResolver: null);
+
+    internal static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
+        DisassembleSymbol(
+            AssemblyAnalyzer analyzer,
+            NativeSymbol symbol,
+            Func<ulong, string?>? managedNameResolver,
+            NativeSymbolResolver? readyToRunImportResolver)
     {
         var info = analyzer.NativeSymbols;
         if (info is null || symbol.FileOffset is not { } fileOffset || symbol.Size <= 0) return null;
@@ -147,7 +155,9 @@ public static class NativeDisassembler
         // (copying megabytes) on every function selection. A ReadyToRun image resolves its indirect
         // call slots through its own ImportSections rather than the PE import directory.
         var imports = ImportResolverFor(codeImage);
-        var r2rImports = codeImage.IsReadyToRun ? ReadyToRunImportResolverFor(codeImage) : null;
+        var r2rImports = readyToRunImportResolver is null && codeImage.IsReadyToRun
+            ? ReadyToRunImportResolverFor(codeImage)
+            : null;
 
         bool Resolver(ulong va, out NativeSymbolRef sym)
         {
@@ -162,6 +172,9 @@ public static class NativeDisassembler
                     (long)(va - found.VirtualAddress));
                 return true;
             }
+
+            if (readyToRunImportResolver is not null && readyToRunImportResolver(va, out sym))
+                return true;
 
             if (r2rImports is not null && r2rImports.TryResolve(va, out sym))
                 return true;

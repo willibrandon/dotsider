@@ -26,6 +26,13 @@ public static class ReadyToRunDisassembler
     /// <param name="managedNameResolver">Resolves a call/branch target VA to a managed name, or null.</param>
     public static MethodDisassembly? DisassembleMethod(
         AssemblyAnalyzer codeImage, ReadyToRunMethodEntry entry, Func<ulong, string?>? managedNameResolver)
+        => DisassembleMethod(codeImage, entry, managedNameResolver, readyToRunImportResolver: null);
+
+    internal static MethodDisassembly? DisassembleMethod(
+        AssemblyAnalyzer codeImage,
+        ReadyToRunMethodEntry entry,
+        Func<ulong, string?>? managedNameResolver,
+        NativeSymbolResolver? readyToRunImportResolver)
     {
         if (codeImage.NativeSymbols is not { } info)
             return null;
@@ -40,7 +47,8 @@ public static class ReadyToRunDisassembler
             if (!info.TryFindByAddress(range.VirtualAddress, out var symbol))
                 continue;
 
-            var result = NativeDisassembler.DisassembleSymbol(codeImage, symbol, managedNameResolver);
+            var result = NativeDisassembler.DisassembleSymbol(
+                codeImage, symbol, managedNameResolver, readyToRunImportResolver);
             if (result is not { } r)
                 continue;
 

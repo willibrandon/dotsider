@@ -162,7 +162,28 @@ internal static class ClassicReadyToRunDetector
         if (peOffset < 0 || peOffset + 6 > raw.Length) return NativeArchitecture.Unknown;
         if (BinaryPrimitives.ReadUInt32LittleEndian(raw[peOffset..]) != 0x0000_4550) // "PE\0\0"
             return NativeArchitecture.Unknown;
-        return BinaryPrimitives.ReadUInt16LittleEndian(raw[(peOffset + 4)..]) switch
+        return MapMachine(BinaryPrimitives.ReadUInt16LittleEndian(raw[(peOffset + 4)..]));
+    }
+
+    private static NativeArchitecture MapMachine(ushort machine)
+    {
+        var direct = MapPlainMachine(machine);
+        if (direct != NativeArchitecture.Unknown)
+            return direct;
+
+        // Crossgen2 native images use CoreCLR's IMAGE_FILE_MACHINE_NATIVE_NI encoding on Unix:
+        // IMAGE_FILE_MACHINE_NATIVE ^ IMAGE_FILE_MACHINE_NATIVE_OS_OVERRIDE (pedecoder.h).
+        foreach (var osOverride in NativeImageMachineOsOverrides)
+        {
+            var decoded = MapPlainMachine((ushort)(machine ^ osOverride));
+            if (decoded != NativeArchitecture.Unknown)
+                return decoded;
+        }
+
+        return NativeArchitecture.Unknown;
+    }
+
+    private static NativeArchitecture MapPlainMachine(ushort machine) => machine switch
         {
             0x8664 => NativeArchitecture.X64,
             0xAA64 => NativeArchitecture.Arm64,
@@ -172,5 +193,14 @@ internal static class ClassicReadyToRunDetector
             0x6264 => NativeArchitecture.LoongArch64,
             _ => NativeArchitecture.Unknown,
         };
-    }
+
+    private static readonly ushort[] NativeImageMachineOsOverrides =
+    [
+        0x4644, // Apple
+        0x7B79, // Linux
+        0xADC4, // FreeBSD
+        0xADC5, // OpenBSD
+        0x1993, // NetBSD
+        0x1992, // Sun
+    ];
 }
