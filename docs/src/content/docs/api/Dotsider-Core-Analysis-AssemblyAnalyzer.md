@@ -357,6 +357,20 @@ Gets the parsed load configuration directory, or null when absent or not a PE.
 public LoadConfigInfo? LoadConfig { get; }
 ```
 
+### ManagedNativeIndex
+
+The managed↔native correlation index over the attached companion set, built lazily
+on first access; null before [AttachPreIlcCompanions](/api/dotsider.core.analysis.assemblyanalyzer.attachpreilccompanions/). A build that
+races a detach or dispose abandons its result: it captures the generation up front,
+materializes inputs under an [ObjectDisposedException](https://learn.microsoft.com/dotnet/api/system.objectdisposedexception) guard, and
+publishes only when the generation is unchanged.
+
+**Returns:** [ManagedNativeIndex](/api/dotsider.core.analysis.managednativeindex/)
+
+```csharp
+public ManagedNativeIndex? ManagedNativeIndex { get; }
+```
+
 ### MemberRefs
 
 Gets the MemberRef metadata table entries.
@@ -468,6 +482,31 @@ or "Microsoft.NETCore.App" otherwise.
 
 ```csharp
 public string PreferredRuntimePack { get; }
+```
+
+### PreIlcCompanions
+
+The attached pre-ILC companion set, or null before [AttachPreIlcCompanions](/api/dotsider.core.analysis.assemblyanalyzer.attachpreilccompanions/)
+succeeds. Owned by this analyzer — see [PreIlcCompanionSet](/api/dotsider.core.analysis.models.preilccompanionset/) for the
+ownership contract.
+
+**Returns:** [PreIlcCompanionSet](/api/dotsider.core.analysis.models.preilccompanionset/)
+
+```csharp
+public PreIlcCompanionSet? PreIlcCompanions { get; }
+```
+
+### PreIlcSidecars
+
+The pre-ILC build outputs probed for a Native AOT binary — its managed input,
+portable PDB, and intermediate-tree mstat/DGML sidecars — or null when this is not
+a Native AOT binary or nothing was found. The value is assigned before the probed
+flag, so a rare concurrent first read costs at most a second probe.
+
+**Returns:** [PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/)
+
+```csharp
+public PreIlcSidecars? PreIlcSidecars { get; }
 ```
 
 ### PublicKeyToken
@@ -585,6 +624,28 @@ public IReadOnlyList<TypeRefInfo> TypeRefs { get; }
 ```
 
 ## Methods
+
+### AttachPreIlcCompanions()
+
+Opens the probed pre-ILC managed input (and validated local references) as an
+attached companion set. Idempotent — a second call returns the existing set.
+Returns null when there is nothing attachable or the companion cannot be opened.
+The set is owned by this analyzer and disposed with it.
+
+**Returns:** [PreIlcCompanionSet](/api/dotsider.core.analysis.models.preilccompanionset/)
+
+```csharp
+public PreIlcCompanionSet? AttachPreIlcCompanions()
+```
+
+### DetachPreIlcCompanions()
+
+Detaches and disposes the pre-ILC companion set and drops the correlation index.
+A concurrent index build observes the generation change and never publishes.
+
+```csharp
+public void DetachPreIlcCompanions()
+```
 
 ### Dispose()
 

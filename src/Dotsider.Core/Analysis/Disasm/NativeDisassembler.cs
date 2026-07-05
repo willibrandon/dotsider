@@ -103,7 +103,21 @@ public static class NativeDisassembler
     /// <param name="analyzer">The analyzer that recovered the symbol.</param>
     /// <param name="symbol">The symbol to disassemble.</param>
     public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
-        DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol)
+        DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol) =>
+        DisassembleSymbol(analyzer, symbol, managedNameResolver: null);
+
+    /// <summary>
+    /// <see cref="DisassembleSymbol(AssemblyAnalyzer, NativeSymbol)"/> with correlation-aware
+    /// target naming: <paramref name="managedNameResolver"/> is consulted before the symbol
+    /// and import resolvers, so a call target resolves to its pre-ILC companion-backed
+    /// managed name when one exists. The two-argument overload is preserved as shipped
+    /// public API and delegates here with a null resolver.
+    /// </summary>
+    /// <param name="analyzer">The analyzer that recovered the symbol.</param>
+    /// <param name="symbol">The symbol to disassemble.</param>
+    /// <param name="managedNameResolver">Maps a target virtual address to a managed display name, or null for none.</param>
+    public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
+        DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol, Func<ulong, string?>? managedNameResolver)
     {
         var info = analyzer.NativeSymbols;
         if (info is null || symbol.FileOffset is not { } fileOffset || symbol.Size <= 0) return null;
@@ -127,8 +141,12 @@ public static class NativeDisassembler
         {
             if (info.TryFindByAddress(va, out var found))
             {
+                // Companion-backed names beat the reduced recovered-metadata join; the
+                // offset-into-symbol delta renders the same either way.
+                var name = managedNameResolver?.Invoke(found.VirtualAddress)
+                    ?? found.ManagedName ?? found.Name;
                 sym = new NativeSymbolRef(
-                    found.VirtualAddress, found.ManagedName ?? found.Name, found.Kind,
+                    found.VirtualAddress, name, found.Kind,
                     (long)(va - found.VirtualAddress));
                 return true;
             }

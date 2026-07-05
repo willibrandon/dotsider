@@ -17,6 +17,8 @@
     <Project Path="samples/EmptyLib/EmptyLib.csproj" />
     <Project Path="samples/NetFxConsole/NetFxConsole.csproj" />
     <Project Path="samples/NativeAotConsole/NativeAotConsole.csproj" />
+    <Project Path="samples/NativeAotArtifactsConsole/NativeAotArtifactsConsole.csproj" />
+    <Project Path="samples/NativeAotLibrary/NativeAotLibrary.csproj" />
     <Project Path="samples/Dotted.Name.App/Dotted.Name.App.csproj" />
     <Project Path="samples/SelfContainedConsole/SelfContainedConsole.csproj" />
     <Project Path="samples/AppLocalRollForward/AppLocalRollForward.csproj" />

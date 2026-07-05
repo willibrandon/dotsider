@@ -40,11 +40,11 @@ public sealed class DotsiderApp(DotsiderState state)
             mutation(_state);
 
         // On first render, move focus from the tab bar into the content area.
-        // Defer if the apphost dialog is open — focus will be seeded on dismiss.
+        // Defer if a companion dialog is open — focus will be seeded on dismiss.
         if (!_initialFocusRequested)
         {
             _initialFocusRequested = true;
-            if (!_state.ApphostDialogOpen)
+            if (!_state.ModalDialogOpen)
             {
                 SeedFocusedRowIfNeeded();
                 RequestContentFocus();
@@ -72,6 +72,14 @@ public sealed class DotsiderApp(DotsiderState state)
                     ? $"{_state.Analyzer.DisplayName} (depth {_state.NavigationStack.Count + 1})"
                     : _state.Analyzer.DisplayName).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
+                .. _state.Analyzer.PreIlcCompanions is { } companions
+                    ? new IInfoBarChild[]
+                    {
+                        bar.Divider(" "),
+                        bar.Section($"⇄ {companions.Root.FileName}").Theme(t => t
+                            .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(0, 160, 140))),
+                    }
+                    : [],
                 bar.Spacer(),
                 bar.Section(_state.Analyzer.Architecture).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(140, 120, 40))),
@@ -130,7 +138,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // or hex insert mode to let EditorNode/TextBox receive character input
             var hexInsertMode = _state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert;
             if (!isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode
-                && !_state.ApphostDialogOpen)
+                && !_state.ModalDialogOpen)
             {
                 for (var i = 0; i < 8; i++)
                 {
@@ -243,7 +251,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 _state.App.Invalidate();
             }
             var detailPopupOpen = _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
-            if (!_state.HexJumpDialogOpen && !detailPopupOpen && !_state.ApphostDialogOpen)
+            if (!_state.HexJumpDialogOpen && !detailPopupOpen && !_state.ModalDialogOpen)
             {
                 bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
                 if (!isSearchEditing)
@@ -283,9 +291,24 @@ public sealed class DotsiderApp(DotsiderState state)
                 }), "Open managed DLL");
             }
 
+            // Pre-ILC dialog Enter — attach the companions alongside the native binary.
+            // Unlike the apphost accept, nothing is pushed: the AOT binary stays current
+            // and the metadata tabs start routing to the attached root.
+            if (_state.PreIlcDialogOpen)
+            {
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
+                {
+                    _state.PreIlcDialogOpen = false;
+                    _state.AttachPreIlc();
+                    SeedFocusedRowIfNeeded();
+                    RequestContentFocus();
+                    _state.App.Invalidate();
+                }), "Attach pre-ILC sidecars");
+            }
+
             // Hex + IL Inspector keybindings (shared with NuGetApp).
-            // Suppressed while the apphost dialog is open to prevent background shortcuts.
-            if (!isSearchEditing && !_state.ApphostDialogOpen)
+            // Suppressed while a companion dialog is open to prevent background shortcuts.
+            if (!isSearchEditing && !_state.ModalDialogOpen)
                 DllInspectorBindings.Register(bindings, _state, _state.App,
                     resetVimPending: () => _state.VimPending = VimMotionState.Idle);
 
@@ -380,7 +403,7 @@ public sealed class DotsiderApp(DotsiderState state)
                 && _state.DynamicCategoryFilter is not null;
             if ((hasBackTarget || hasIlSelection) && !sizeMapUsesEsc && !dynamicFilterActive
                 && !currentSearch.IsActive && !_state.HexJumpDialogOpen && !hexInsertMode
-                && !_state.ApphostDialogOpen && !_state.DynamicEditingArgs
+                && !_state.ModalDialogOpen && !_state.DynamicEditingArgs
                 && _state.PeDetailContent is null && _state.StringsDetailContent is null
                 && _state.SizeMapWhyContent is null)
             {
@@ -406,8 +429,7 @@ public sealed class DotsiderApp(DotsiderState state)
                     else if (_state.NavigationStack.Count > 0)
                     {
                         var backTab = _state.PopAssembly();
-                        if (_state.ApphostCompanionDllPath is not null && !_state.Analyzer.HasMetadata)
-                            _state.ApphostDialogOpen = true;
+                        _state.ReofferCompanionDialogsAfterPop();
                         _state.NavigateToTab(backTab);
                         _state.RequestContentFocus();
                         _state.App.Invalidate();
@@ -466,6 +488,56 @@ public sealed class DotsiderApp(DotsiderState state)
             ]).Fill();
         }
 
+        // Pre-ILC sidecar offer overlay — mutually exclusive with the apphost dialog
+        // (a binary is apphost XOR Native AOT; each open-result arm sets only its flag).
+        if (_state.PreIlcDialogOpen && _state.Analyzer.PreIlcSidecars is { HasAttachableCompanion: true } sidecars)
+        {
+            var dllName = Path.GetFileName(sidecars.ManagedAssemblyPath!);
+            var extras = sidecars.LocalReferencePaths.Count > 0
+                ? $" + {sidecars.LocalReferencePaths.Count} local reference{(sidecars.LocalReferencePaths.Count == 1 ? "" : "s")}"
+                : "";
+            var symbols = sidecars.PdbStatus is PreIlcPdbStatus.Matched or PreIlcPdbStatus.Embedded
+                ? "  (+ symbols)"
+                : "";
+            return ctx.ZStack(z =>
+            [
+                mainContent,
+                z.Backdrop(
+                    z.Border(
+                        z.VStack(dlg =>
+                        [
+                            dlg.Text(""),
+                            dlg.Text("  This is a Native AOT binary. Its pre-ILC"),
+                            dlg.Text("  build outputs were found:"),
+                            dlg.Text(""),
+                            dlg.Text($"  {dllName}{extras}{symbols}"),
+                            dlg.Text(""),
+                            dlg.Text("  Attach to see IL, metadata, and native"),
+                            dlg.Text("  code side by side?"),
+                            dlg.Text(""),
+                            dlg.Text("  Enter: Attach | Esc: No, native only")
+                        ])
+                    ).Title(" Native AOT Sidecars Detected ").FixedWidth(55).FixedHeight(12)
+                    .InputBindings(bindings =>
+                    {
+                        bindings.Key(Hex1bKey.Escape).OverridesCapture().Action(_ =>
+                        {
+                            _state.PreIlcDialogOpen = false;
+                            SeedFocusedRowIfNeeded();
+                            RequestContentFocus();
+                            _state.App.Invalidate();
+                        }, "Keep native only");
+                    })
+                ).OnClickAway(() =>
+                {
+                    _state.PreIlcDialogOpen = false;
+                    SeedFocusedRowIfNeeded();
+                    RequestContentFocus();
+                    _state.App.Invalidate();
+                })
+            ]).Fill();
+        }
+
         return mainContent;
     }
 
@@ -488,8 +560,8 @@ public sealed class DotsiderApp(DotsiderState state)
     {
         switch (_state.CurrentTab)
         {
-            case TabId.General when _state.GeneralFocusedDep is null && _state.Analyzer.AssemblyRefs.Count > 0:
-                _state.GeneralFocusedDep = _state.Analyzer.AssemblyRefs[0].Name;
+            case TabId.General when _state.GeneralFocusedDep is null && _state.MetadataAnalyzer.AssemblyRefs.Count > 0:
+                _state.GeneralFocusedDep = _state.MetadataAnalyzer.AssemblyRefs[0].Name;
                 break;
             case TabId.PeMetadata when _state.PeFocusedKey is null:
                 _state.PeFocusedKey = _state.Analyzer.Sections.Count > 0
@@ -545,24 +617,36 @@ public sealed class DotsiderApp(DotsiderState state)
                 if (_state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
                     hints.Add(s.Section("g: Go to IL"));
             }
-            else if (_state.CurrentTab == 2 && _state.Analyzer.BinaryKind != BinaryKind.Managed)
+            else if (_state.CurrentTab == 2 && Views.IlInspectorView.IsNativeTreeMode(_state))
             {
                 // Native disassembly mode: gate on the native symbol, mirroring the managed hints below.
                 if (_state.IlSelectedNativeSymbol is not null)
                     hints.Add(s.Section("Enter/gd: Go to def"));
                 hints.Add(s.Section("l: Focus"));
+                if (_state.Analyzer.PreIlcCompanions is not null)
+                    hints.Add(s.Section("t: Managed tree"));
                 if (_state.IlSelectedNativeSymbol is { FileOffset: not null })
                     hints.Add(s.Section("x: Hex"));
             }
             else if (_state.CurrentTab == 2)
             {
+                var preIlcAttached = _state.Analyzer.PreIlcCompanions is not null;
                 if (_state.IlSelectedMethod is not null)
                     hints.Add(s.Section("Enter/gd: Go to def"));
-                hints.Add(s.Section("l: Focus IL"));
-                if (_state.IlSelectedMethod is { Rva: > 0 })
+                hints.Add(s.Section(preIlcAttached && _state.IlPairNativeEditorState is not null
+                    ? "l: Panes"
+                    : "l: Focus IL"));
+                if (preIlcAttached)
+                    hints.Add(s.Section("t: Native tree"));
+                if (preIlcAttached
+                    ? _state.IlSelectedMethod is not null && HasCorrelatedFileOffset(_state)
+                    : _state.IlSelectedMethod is { Rva: > 0 })
+                {
                     hints.Add(s.Section("x: Hex"));
+                }
                 if (_state.IlSelectedMethod is { } method
-                    && _state.Analyzer.GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
+                    && (_state.IlSelectedMethodOwner ?? _state.MetadataAnalyzer)
+                        .GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
                     hints.Add(s.Section("o: Source"));
                 if (HasSourceLinkUrlAtIlCursor(_state))
                     hints.Add(s.Section("u: Source URL"));
@@ -858,6 +942,10 @@ public sealed class DotsiderApp(DotsiderState state)
         state.ClrHeaderEditorText = null;
         state.DataInterpEditorState = null;
         state.DataInterpEditorText = null;
+        state.ResetPreIlcViewState();
+        // A fresh analyzer over the saved bytes re-earns the sidecar offer.
+        if (analyzer.PreIlcSidecars is { HasAttachableCompanion: true } && analyzer.PreIlcCompanions is null)
+            state.PreIlcDialogOpen = true;
     }
 
     private IlYankDecorationProvider? FindYankProvider(EditorState editorState) =>
@@ -869,6 +957,13 @@ public sealed class DotsiderApp(DotsiderState state)
         && state.App.FocusedNode is EditorNode { State: var focusedState }
         && ReferenceEquals(focusedState, editorState)
         && IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions) is not null;
+
+    private static bool HasCorrelatedFileOffset(DotsiderState state) =>
+        state.IlSelectedMethod is { } method
+        && state.PreIlcIndex is { } index
+        && state.Analyzer.PreIlcCompanions is { } companions
+        && index.Find((state.IlSelectedMethodOwner ?? companions.Root).AssemblyName ?? "", method.Token)?
+            .NativeSymbols.Any(sym => sym.FileOffset is not null) == true;
 
     /// <summary>
     /// Performs a neovim-style yank on the focused editor's selection or current text-object range.

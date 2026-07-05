@@ -291,6 +291,10 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Native AOT Sidecars Detected");
+        await auto.KeyAsync(Hex1bKey.Escape, ct: cts.Token);
+        await auto.WaitUntilAsync(s => !s.ContainsText("Native AOT Sidecars Detected"),
+            description: "pre-ILC offer dismissed");
         await auto.WaitUntilTextAsync("Total:");
         await auto.WaitUntilAsync(s => !s.ContainsText("No code size data available"),
             description: "AOT size tree to render");
@@ -316,6 +320,10 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
+        await auto.WaitUntilTextAsync("Native AOT Sidecars Detected");
+        await auto.KeyAsync(Hex1bKey.Escape, ct: cts.Token);
+        await auto.WaitUntilAsync(s => !s.ContainsText("Native AOT Sidecars Detected"),
+            description: "pre-ILC offer dismissed");
         await auto.WaitUntilTextAsync("Total:");
         await auto.WaitUntilAsync(_ => _state?.CachedSizeTree is not null,
             description: "size tree to build");

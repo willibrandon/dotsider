@@ -727,6 +727,133 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("requires a Native AOT binary", stderr);
     }
 
+    // --- Pre-ILC correlation ---
+
+    /// <summary>
+    /// Verifies plain <c>analyze</c> prints the pre-ILC probe summary without attaching.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Default_PreIlc_PrintsProbeSummaryWithoutAttaching()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Pre-ILC:", stdout);
+        Assert.Contains("Origin:", stdout);
+        // The counts summary attaches; a plain info dump must not print it.
+        Assert.DoesNotContain("Correlation:", stdout);
+    }
+
+    /// <summary>
+    /// Verifies the default <c>analyze --json</c> carries the <c>preIlc</c> probe object.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Default_PreIlc_Json_CarriesProbeObject()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--json");
+
+        Assert.Equal(0, exitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(stdout);
+        var preIlc = json.GetProperty("preIlc");
+        Assert.True(preIlc.GetProperty("hasAttachableCompanion").GetBoolean());
+        Assert.False(string.IsNullOrEmpty(preIlc.GetProperty("managedAssemblyPath").GetString()));
+    }
+
+    /// <summary>
+    /// Verifies bare <c>--correlate</c> attaches and prints the correlation counts.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Correlate_Bare_PrintsCounts()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--correlate");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Correlation:", stdout);
+        Assert.Contains("methods", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>--correlate Type.Method</c> resolves a unique method and prints its IL.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Correlate_ByName_PrintsIl()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--correlate", "Greeter.Describe");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Greeter::Describe", stdout);
+        Assert.Contains("--- IL (pre-ILC) ---", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>--correlate 0xVA</c> resolves by address and prints the native listing.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Correlate_ByAddress_PrintsNative()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        Assert.SkipWhen(fixture.NativeAotConsoleSymbols is null, "native symbols were not produced");
+
+        ulong va;
+        using (var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(fixture.NativeAotConsoleExe!))
+        {
+            analyzer.AttachPreIlcCompanions();
+            var correlation = analyzer.ManagedNativeIndex?.Methods.FirstOrDefault(m =>
+                m.Status == Dotsider.Core.Analysis.Models.MethodCorrelationStatus.CorrelatedExact
+                && m.NativeSymbols.Count > 0
+                && m.NativeSymbols[0].FileOffset is not null);
+            Assert.NotNull(correlation);
+            va = correlation!.NativeSymbols[0].VirtualAddress;
+        }
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--correlate", $"0x{va:x}");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("--- Native ---", stdout);
+    }
+
+    /// <summary>
+    /// Verifies an ambiguous name (overloads) lists every candidate and exits non-zero.
+    /// </summary>
+    [Fact(Timeout = 60_000)]
+    public async Task Analyze_Correlate_AmbiguousName_ListsCandidatesAndExitsNonZero()
+    {
+        Assert.SkipWhen(fixture.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.NativeAotConsoleExe!, "--correlate", "Greeter.Greet");
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains("ambiguous", stderr);
+        Assert.Contains("Greeter::Greet", stderr);
+    }
+
+    /// <summary>
+    /// Verifies <c>--correlate</c> on a managed assembly explains the Native AOT requirement.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Correlate_ManagedAssembly_ExitsOne()
+    {
+        var (exitCode, _, stderr) = await RunDotsiderAsync(
+            "analyze", fixture.RichLibraryDll, "--correlate", "Foo");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("requires a Native AOT binary", stderr);
+    }
+
     // --- Helpers ---
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(

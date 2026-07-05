@@ -160,6 +160,38 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleDsym { get; private set; }
 
     /// <summary>
+    /// Path to the NativeAOT sample's pre-ILC managed input in its intermediate tree
+    /// (<c>obj\Release\&lt;tfm&gt;\&lt;rid&gt;\NativeAotConsole.dll</c>), or null. Tests gate on
+    /// this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleManagedDll { get; private set; }
+
+    /// <summary>
+    /// Path to the portable PDB beside the pre-ILC managed input, or null.
+    /// </summary>
+    public string? NativeAotConsoleManagedPdb { get; private set; }
+
+    /// <summary>
+    /// Path to the NativeAOT sample's ILC response file
+    /// (<c>obj\...\native\NativeAotConsole.ilc.rsp</c>), or null.
+    /// </summary>
+    public string? NativeAotConsoleIlcRsp { get; private set; }
+
+    /// <summary>
+    /// Path to the NativeAOT sample published with <c>UseArtifactsOutput</c> — the exe under
+    /// <c>artifacts\publish\&lt;proj&gt;\&lt;pivot&gt;</c> — or null when the publish did not run.
+    /// Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotArtifactsExe { get; private set; }
+
+    /// <summary>
+    /// Path to the published Native AOT shared-library binary (<c>.dll</c>/<c>.so</c>/<c>.dylib</c>
+    /// per platform), or null when the publish did not run. Tests gate on this with
+    /// <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotLibraryBinary { get; private set; }
+
+    /// <summary>
     /// Path to the published HardwareIntrinsics NativeAOT sample — one method per intrinsic family —
     /// or null when the publish did not run. Tests gate on this with <c>Assert.SkipWhen</c>.
     /// </summary>
@@ -212,6 +244,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
         }
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
+        builds.Add(PublishNativeAotProject("samples/NativeAotArtifactsConsole"));
+        builds.Add(PublishNativeAotProject("samples/NativeAotLibrary"));
         builds.Add(PublishNativeAotProject("samples/HardwareIntrinsics"));
         builds.Add(PublishSelfContainedProject("samples/SelfContainedConsole"));
 
@@ -289,6 +323,25 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 aotPublishDir, "NativeAotConsole.dSYM", "Contents", "Resources", "DWARF", "NativeAotConsole"));
 
         NativeAotConsoleDsym = ExistingDirOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.dSYM"));
+
+        // The pre-ILC inputs stay in the intermediate tree — the sidecar probe's territory.
+        var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+            "obj", "Release", tfm, rid);
+        NativeAotConsoleManagedDll = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.dll"));
+        NativeAotConsoleManagedPdb = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.pdb"));
+        NativeAotConsoleIlcRsp = ExistingPathOrNull(
+            Path.Combine(aotObjDir, "native", "NativeAotConsole.ilc.rsp"));
+
+        // Artifacts-layout pivot names are SDK-internal; glob for the exe instead of parsing.
+        NativeAotArtifactsExe = FindArtifactsPublishOutput(
+            "NativeAotArtifactsConsole", $"NativeAotArtifactsConsole{apphostExt}");
+
+        var libPublishDir = Path.Combine(_repoRoot, "samples", "NativeAotLibrary",
+            "bin", "Release", tfm, rid, "publish");
+        NativeAotLibraryBinary =
+            ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dll"))
+            ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.so"))
+            ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dylib"));
 
         HardwareIntrinsicsExe = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "HardwareIntrinsics",
             "bin", "Release", tfm, rid, "publish", $"HardwareIntrinsics{apphostExt}"));
@@ -380,6 +433,21 @@ public class SampleAssemblyFixture : IAsyncLifetime
             catch { /* best effort */ }
         }
         return ValueTask.CompletedTask;
+    }
+
+    private string? FindArtifactsPublishOutput(string project, string fileName)
+    {
+        var publishRoot = Path.Combine(
+            _repoRoot, "samples", project, "artifacts", "publish", project);
+        if (!Directory.Exists(publishRoot)) return null;
+
+        foreach (var pivotDir in Directory.GetDirectories(publishRoot))
+        {
+            var candidate = Path.Combine(pivotDir, fileName);
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return null;
     }
 
     private string SamplePath(string project, string config, string tfm, string file)

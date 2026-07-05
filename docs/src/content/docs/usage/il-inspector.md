@@ -49,3 +49,27 @@ Open a Native AOT binary and the IL Inspector switches to native mode: the left 
 Call and branch targets are resolved to names: a direct call shows `call Foo`, a target landing inside a function shows `Foo+0x12`, an intra-function jump becomes a synthesized `loc_…` label, a RIP-relative load names the referenced data symbol, and an indirect call through the import table resolves to `MODULE!Function`. Where the debug sidecar carries line data, `// file:line` annotations mark the source.
 
 `Enter` on a resolved call/branch jumps to that function (the target is underlined to signal it's navigable); `Esc` returns. `x` jumps to the function's bytes in the Hex Dump. The Size Map and the PE/Metadata **Symbols** sub-tab cross-navigate into the native listing.
+
+## Pre-ILC sidecar correlation (Native AOT)
+
+Publishing a Native AOT binary leaves its pre-ILC inputs behind in the build tree — the managed assemblies ILC compiled (root plus local project references), their portable PDBs, and the `.mstat`/`.dgml` size and dependency sidecars. When you open an AOT binary, dotsider probes for them (following the `.ilc.rsp` response file first, then the `obj\<cfg>\<tfm>\<rid>` layout, then a sibling assembly) and, if it finds an attachable managed assembly, offers to attach it:
+
+```
+ Native AOT Sidecars Detected
+ …
+ Enter: Attach | Esc: No, native only
+```
+
+Press `Enter` to attach or `Esc` to stay native-only. When attached, the metadata tabs (PE/Metadata, Strings, General references) fill from the managed assembly while the binary tabs stay native, and a method's IL and native code show **side by side**.
+
+- The tree shows correlation markers: `✓` correlated exactly, `~` shared with overloads (ambiguous), `±` size-only (mstat evidence but no native symbol), `–` not in the native image (trimmed or inlined).
+- Selecting a correlated method splits the right pane: pre-ILC IL on the left, native disassembly on the right, with call targets named from the companion metadata. A status line reports the native address and size.
+- Overloads that ILC's mangling collapses are reported as ambiguous with the shared size, never guessed apart. A generic method with several instantiations shows every native symbol.
+- `t` toggles between the managed and native tree; `l` cycles focus between the IL and native panes (and swaps the visible pane when the terminal is too narrow to split); `Tab` steps tree → IL → native. Search (`/`) follows the focused pane. `x` opens the Hex Dump at the correlated symbol's file offset.
+- On the **General** tab, `a` re-opens the offer and `d` detaches; the tab also reports the correlation counts (`{exact} of {total} methods in native image`).
+
+The same correlation is available headlessly:
+
+- CLI: `dotsider analyze <binary>` prints the cheap probe summary without attaching; `dotsider analyze <binary> --correlate` prints the correlation counts; `--correlate Type.Method` or `--correlate 0x<address>` prints the method's IL beside its native code. An ambiguous name lists every candidate and exits non-zero.
+- MCP: the `correlate_method` tool (and the `preIlc` summary on `get_assembly_info`) expose the same data over a session or a file path.
+- Session socket: the `correlate-method` command answers the same query against a running instance.

@@ -72,6 +72,13 @@ internal static class AnalyzeCommand
         Description = "Explain why a type or method is in a Native AOT binary (requires mstat and DGML sidecars)"
     };
 
+    private static readonly Option<string?> s_correlateOption = new("--correlate")
+    {
+        Description = "Correlate a Native AOT binary with its pre-ILC assembly. "
+            + "Bare: print correlation counts. With a value (Type.Method or 0xVA): print IL and native code side by side.",
+        Arity = ArgumentArity.ZeroOrOne
+    };
+
     private static readonly Option<bool> s_fieldsOption = new("--fields")
     {
         Description = "List field definitions"
@@ -106,6 +113,7 @@ internal static class AnalyzeCommand
             s_symbolsOption,
             s_disasmOption,
             s_whyOption,
+            s_correlateOption,
             s_fieldsOption,
             s_bundleOption,
             s_outputOption
@@ -234,6 +242,10 @@ internal static class AnalyzeCommand
                 if (parseResult.GetValue(s_whyOption) is { } whyTarget)
                     return Task.FromResult(PrintWhy(analyzer, whyTarget, formatter));
 
+                if (parseResult.GetResult(s_correlateOption) is not null)
+                    return Task.FromResult(PrintCorrelate(
+                        analyzer, parseResult.GetValue(s_correlateOption), formatter));
+
                 if (parseResult.GetValue(s_fieldsOption))
                     return Task.FromResult(PrintFields(analyzer, formatter));
 
@@ -270,6 +282,7 @@ internal static class AnalyzeCommand
                 NativeSymbolSource = a.NativeSymbols?.Source,
                 NativeSymbolStatus = a.NativeSymbols?.Status,
                 a.NativeSymbolsPath,
+                PreIlc = BuildPreIlcProbeJson(a),
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -298,6 +311,9 @@ internal static class AnalyzeCommand
                         ? $"Symbols:    {symbols.Symbols.Count} from {symbols.Source}"
                         : $"Symbols:    {symbols.Diagnostic ?? symbols.Status.ToString()}");
                 }
+
+                if (a.PreIlcSidecars is { } sidecars)
+                    WritePreIlcProbeSummary(sidecars, fmt);
             }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
@@ -693,16 +709,16 @@ internal static class AnalyzeCommand
         if (a.BinaryKind != BinaryKind.NativeAot || a.Mstat is not { } mstat)
         {
             Console.Error.WriteLine(
-                "Error: --why requires a Native AOT binary with an mstat sidecar next to it "
-                + "(publish with IlcGenerateMstatFile)");
+                "Error: --why requires a Native AOT binary with an mstat sidecar — beside the binary "
+                + "or in the build tree (obj\\<cfg>\\<tfm>\\<rid>\\native) — publish with IlcGenerateMstatFile");
             return 1;
         }
 
         if (a.Dgml is not { } dgml)
         {
             Console.Error.WriteLine(
-                "Error: --why requires a DGML sidecar next to the binary "
-                + "(publish with IlcGenerateDgmlFile and keep the *.codegen.dgml.xml beside it)");
+                "Error: --why requires a DGML sidecar — beside the binary or in the build tree "
+                + "(obj\\<cfg>\\<tfm>\\<rid>\\native) — publish with IlcGenerateDgmlFile");
             return 1;
         }
 
@@ -762,6 +778,211 @@ internal static class AnalyzeCommand
             fmt.WriteLine($"{i + 1,3}. {chain[i].Label}");
             if (chain[i].Reason is { } reason)
                 fmt.WriteLine($"     reason: {reason}");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// The cheap probe summary — origin, sidecar paths, and reference counts — printed for a
+    /// Native AOT binary without attaching. Local reference paths are listed as positive
+    /// evidence; package and other references are summarized as counts, never dumped.
+    /// </summary>
+    private static void WritePreIlcProbeSummary(PreIlcSidecars s, OutputFormatter fmt)
+    {
+        if (s.ManagedAssemblyPath is { } managed)
+        {
+            var refParts = new List<string>();
+            if (s.LocalReferencePaths.Count > 0) refParts.Add($"{s.LocalReferencePaths.Count} local");
+            if (s.PackageReferenceCount > 0) refParts.Add($"{s.PackageReferenceCount} package");
+            if (s.OtherReferenceCount > 0) refParts.Add($"{s.OtherReferenceCount} other");
+            var refs = refParts.Count > 0 ? $" (+{string.Join(", ", refParts)} refs)" : "";
+            fmt.WriteLine($"Pre-ILC:    {Path.GetFileName(managed)}{refs}");
+            fmt.WriteLine($"  Origin:   {s.Origin}");
+            fmt.WriteLine($"  Pdb:      {s.PdbStatus}");
+        }
+        else
+        {
+            fmt.WriteLine("Pre-ILC:    sidecars only (no attachable managed assembly)");
+        }
+
+        if (s.MstatPath is not null) fmt.WriteLine("  mstat:    present");
+        if ((s.CodegenDgmlPath ?? s.ScanDgmlPath) is not null) fmt.WriteLine("  dgml:     present");
+    }
+
+    /// <summary>
+    /// Builds the JSON <c>preIlc</c> probe object: origin, sidecar paths, local reference
+    /// paths, and package/other reference counts. Returns null when no sidecars were found.
+    /// </summary>
+    private static object? BuildPreIlcProbeJson(AssemblyAnalyzer a)
+    {
+        if (a.PreIlcSidecars is not { } s)
+            return null;
+
+        return new
+        {
+            s.ManagedAssemblyPath,
+            Origin = s.Origin.ToString(),
+            s.ManagedPdbPath,
+            PdbStatus = s.PdbStatus.ToString(),
+            s.MstatPath,
+            s.CodegenDgmlPath,
+            s.ScanDgmlPath,
+            s.IlcResponseFilePath,
+            s.LocalReferencePaths,
+            s.PackageReferenceCount,
+            s.OtherReferenceCount,
+            s.UnresolvedReferencePaths,
+            s.HasAttachableCompanion,
+            s.Details
+        };
+    }
+
+    /// <summary>
+    /// The <c>--correlate</c> action. Bare (<paramref name="target"/> null) attaches, builds the
+    /// index, and prints correlation counts. With a value it resolves one method (by name or
+    /// <c>0x</c> address) and prints its status, sizes, IL, and native code. An ambiguous name
+    /// lists every candidate and exits non-zero — the ambiguity is never resolved by guessing.
+    /// </summary>
+    private static int PrintCorrelate(AssemblyAnalyzer a, string? target, OutputFormatter fmt)
+    {
+        if (a.BinaryKind != BinaryKind.NativeAot)
+        {
+            OutputFormatter.WriteError("Error: --correlate requires a Native AOT binary");
+            return 1;
+        }
+
+        var companions = a.PreIlcCompanions ?? a.AttachPreIlcCompanions();
+        if (companions is null)
+        {
+            OutputFormatter.WriteError(a.PreIlcSidecars is { HasAttachableCompanion: true }
+                ? "Error: correlation unavailable: pre-ILC companion assembly could not be opened"
+                : "Error: correlation unavailable: no pre-ILC managed assembly was found next to the binary "
+                    + "(publish leaves it in obj\\<cfg>\\<tfm>\\<rid>)");
+            return 1;
+        }
+
+        if (a.ManagedNativeIndex is not { } index)
+        {
+            OutputFormatter.WriteError("Error: correlation unavailable: the correlation index could not be built");
+            return 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(target))
+            return PrintCorrelateCounts(index, companions, fmt);
+
+        return PrintCorrelateMethod(a, target, fmt);
+    }
+
+    private static int PrintCorrelateCounts(
+        ManagedNativeIndex index, PreIlcCompanionSet companions, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new
+            {
+                RootAssembly = companions.Root.AssemblyName,
+                LocalReferenceCount = companions.LocalReferences.Count,
+                index.ExactCount,
+                index.AmbiguousCount,
+                index.MstatOnlyCount,
+                index.NotInImageCount,
+                TotalMethods = index.Methods.Count,
+                index.TotalCorrelatedSize
+            });
+            return 0;
+        }
+
+        fmt.WriteLine($"Root:       {companions.Root.AssemblyName ?? "(unknown)"}");
+        if (companions.LocalReferences.Count > 0)
+            fmt.WriteLine($"Local refs: {companions.LocalReferences.Count}");
+        fmt.WriteLine("");
+        fmt.WriteLine($"Correlation: {index.ExactCount} exact, {index.AmbiguousCount} ambiguous, "
+            + $"{index.MstatOnlyCount} size-only, {index.NotInImageCount} trimmed/inlined "
+            + $"of {index.Methods.Count} methods");
+        fmt.WriteLine($"Correlated:  {DotsiderState.FormatSize(index.TotalCorrelatedSize)}");
+        return 0;
+    }
+
+    private static int PrintCorrelateMethod(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        var result = CorrelationQuery.Resolve(a, target, CancellationToken.None);
+        switch (result.Outcome)
+        {
+            case CorrelationQueryOutcome.Unavailable:
+                OutputFormatter.WriteError($"Error: correlation unavailable: {result.Message}");
+                return 1;
+
+            case CorrelationQueryOutcome.NotFound:
+                OutputFormatter.WriteError($"Error: {result.Message}");
+                return 1;
+
+            case CorrelationQueryOutcome.Ambiguous:
+                if (fmt.JsonMode)
+                {
+                    fmt.WriteJson(new { Ambiguous = true, result.Message, result.Candidates });
+                }
+                else
+                {
+                    OutputFormatter.WriteError($"Error: {result.Message}:");
+                    foreach (var c in result.Candidates)
+                        OutputFormatter.WriteError(
+                            $"  {c.AssemblyName}  {c.DeclaringType}::{c.Name}  token 0x{c.Token:X8}"
+                            + (c.VirtualAddress is { } va ? $"  @ 0x{va:X}" : ""));
+                }
+
+                return 2;
+
+            default:
+                return PrintCorrelateReport(result.Report!, fmt);
+        }
+    }
+
+    private static int PrintCorrelateReport(CorrelationReport report, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(report);
+            return 0;
+        }
+
+        fmt.WriteLine($"Method:     {report.Method}");
+        fmt.WriteLine($"Assembly:   {report.Assembly}");
+        fmt.WriteLine($"Token:      0x{report.Token:X8}");
+        fmt.WriteLine($"Status:     {report.Status}");
+        if (report.Symbols.Count > 0)
+        {
+            fmt.WriteLine($"Symbols ({report.Symbols.Count}):");
+            foreach (var s in report.Symbols)
+                fmt.WriteLine($"  0x{s.VirtualAddress:X}  {DotsiderState.FormatSize(s.Size)}  {s.Name}");
+        }
+
+        if (report.NativeSize > 0)
+            fmt.WriteLine($"Owned size: {DotsiderState.FormatSize(report.NativeSize)}");
+        if (report.SharedCandidateSize > 0)
+            fmt.WriteLine($"Shared size: {DotsiderState.FormatSize(report.SharedCandidateSize)} (shared with overloads)");
+        if (report.MstatSize > 0)
+            fmt.WriteLine($"mstat size: {DotsiderState.FormatSize(report.MstatSize)}");
+
+        if (report.Il is { } il)
+        {
+            fmt.WriteLine("");
+            fmt.WriteLine("--- IL (pre-ILC) ---");
+            fmt.WriteLine(il);
+        }
+
+        if (report.NativeDisassembly is { } native)
+        {
+            fmt.WriteLine("");
+            fmt.WriteLine("--- Native ---");
+            fmt.WriteLine(native);
+        }
+        else if (report.Symbols.Count == 0)
+        {
+            fmt.WriteLine("");
+            fmt.WriteLine(report.MstatSize > 0
+                ? "(size only from mstat; no native symbol to disassemble)"
+                : "(not in native image — trimmed or inlined)");
         }
 
         return 0;

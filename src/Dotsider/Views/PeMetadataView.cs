@@ -29,6 +29,10 @@ public static class PeMetadataView
     {
         s_yankFlash = state.YankFlashRow;
         var analyzer = state.Analyzer;
+        // Metadata tables answer from the attached pre-ILC root when one exists; the PE
+        // headers and native tables stay on the binary itself.
+        var metadataAnalyzer = state.MetadataAnalyzer;
+        var routed = !ReferenceEquals(metadataAnalyzer, analyzer);
         var search = state.Search[TabId.PeMetadata];
 
         // Set up match navigation — cycle through active sub-tab's filtered rows
@@ -60,15 +64,15 @@ public static class PeMetadataView
             state.PeFocusedKey ??= state.PeSubTab switch
                 {
                     PeSubTabId.Sections when analyzer.Sections.Count > 0 => analyzer.Sections[0].Name,
-                    PeSubTabId.TypeDef when analyzer.TypeDefs.Count > 0 => analyzer.TypeDefs[0].Token,
-                    PeSubTabId.MethodDef when analyzer.MethodDefs.Count > 0 => analyzer.MethodDefs[0].Token,
-                    PeSubTabId.TypeRef when analyzer.TypeRefs.Count > 0 => analyzer.TypeRefs[0].Token,
-                    PeSubTabId.MemberRef when analyzer.MemberRefs.Count > 0 => analyzer.MemberRefs[0].Token,
-                    PeSubTabId.Attributes when analyzer.CustomAttributes.Count > 0 =>
-                        $"{analyzer.CustomAttributes[0].Parent}|{analyzer.CustomAttributes[0].Constructor}",
-                    PeSubTabId.Resources when analyzer.Resources.Count > 0 => analyzer.Resources[0].Name,
-                    PeSubTabId.DebugDirectory when analyzer.DebugDirectory.Count > 0 =>
-                        GetDebugDirectoryKey(analyzer.DebugDirectory[0]),
+                    PeSubTabId.TypeDef when metadataAnalyzer.TypeDefs.Count > 0 => metadataAnalyzer.TypeDefs[0].Token,
+                    PeSubTabId.MethodDef when metadataAnalyzer.MethodDefs.Count > 0 => metadataAnalyzer.MethodDefs[0].Token,
+                    PeSubTabId.TypeRef when metadataAnalyzer.TypeRefs.Count > 0 => metadataAnalyzer.TypeRefs[0].Token,
+                    PeSubTabId.MemberRef when metadataAnalyzer.MemberRefs.Count > 0 => metadataAnalyzer.MemberRefs[0].Token,
+                    PeSubTabId.Attributes when metadataAnalyzer.CustomAttributes.Count > 0 =>
+                        $"{metadataAnalyzer.CustomAttributes[0].Parent}|{metadataAnalyzer.CustomAttributes[0].Constructor}",
+                    PeSubTabId.Resources when metadataAnalyzer.Resources.Count > 0 => metadataAnalyzer.Resources[0].Name,
+                    PeSubTabId.DebugDirectory when GetDebugDirectoryRows(state).Count > 0 =>
+                        GetDebugDirectoryRowKey(GetDebugDirectoryRows(state)[0]),
                     PeSubTabId.Imports when GetImportRows(analyzer).Count > 0 =>
                         GetImportRows(analyzer)[0].Key,
                     PeSubTabId.Exports when analyzer.Exports.Count > 0 =>
@@ -111,8 +115,8 @@ public static class PeMetadataView
             state.PeHeadersEditorState = new EditorState(new Hex1bDocument(peText)) { IsReadOnly = true };
         }
 
-        // Build CLR Header text for read-only editor
-        var clrText = analyzer.ClrHeader is { } clr
+        // Build CLR Header text — the companion's when attached (the native AOT image has none).
+        var clrText = metadataAnalyzer.ClrHeader is { } clr
             ? string.Join("\n",
                 $"  Runtime Version:    {clr.MajorRuntimeVersion}.{clr.MinorRuntimeVersion}",
                 $"  Metadata RVA:       0x{clr.MetadataRva:X8}",
@@ -212,7 +216,7 @@ public static class PeMetadataView
                                         () => state.App.Invalidate());
                                 })
                                 .FillWidth().FillHeight())
-                        ).Title(" CLR Header ").Fill()
+                        ).Title(routed ? " CLR Header (pre-ILC) " : " CLR Header ").Fill()
                     ],
                     leftWidth: 50).FixedHeight(12)
                 };
@@ -350,12 +354,14 @@ public static class PeMetadataView
                             state.VimPending = VimMotionState.Idle;
                             if (state.PeFocusedKey is int token)
                             {
+                                // Tokens come from the routed analyzer, so they match the
+                                // companion-driven IL tree when a pre-ILC set is attached.
                                 if (state.PeSubTab == PeSubTabId.TypeDef)
                                 {
-                                    var typeDef = analyzer.TypeDefs.FirstOrDefault(t => t.Token == token);
+                                    var typeDef = metadataAnalyzer.TypeDefs.FirstOrDefault(t => t.Token == token);
                                     if (typeDef is not null)
                                     {
-                                        var method = analyzer.MethodDefs.FirstOrDefault(
+                                        var method = metadataAnalyzer.MethodDefs.FirstOrDefault(
                                             m => m.DeclaringType == typeDef.FullName);
                                         if (method is not null)
                                             state.NavigateToIlMethod(method);
@@ -363,7 +369,7 @@ public static class PeMetadataView
                                 }
                                 else // MethodDef
                                 {
-                                    var method = analyzer.MethodDefs.FirstOrDefault(m => m.Token == token);
+                                    var method = metadataAnalyzer.MethodDefs.FirstOrDefault(m => m.Token == token);
                                     if (method is not null)
                                         state.NavigateToIlMethod(method);
                                 }
@@ -469,19 +475,43 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<DebugDirectoryInfo> BuildDebugDirectoryTable(
+    /// <summary>One Debug Directory row with its provenance: the native binary's own entry
+    /// or the attached pre-ILC companion's. Both symbol stores are exactly what the sidecar
+    /// feature joins, so both are shown, tagged by origin.</summary>
+    internal readonly record struct DebugDirectoryRow(string Origin, DebugDirectoryInfo Info);
+
+    /// <summary>
+    /// The Debug Directory rows for the current state: the binary's entries, plus the
+    /// pre-ILC companion's tagged with their origin when a set is attached.
+    /// </summary>
+    internal static IReadOnlyList<DebugDirectoryRow> GetDebugDirectoryRows(DotsiderState state)
+    {
+        var rows = new List<DebugDirectoryRow>(
+            state.Analyzer.DebugDirectory.Select(d => new DebugDirectoryRow("native", d)));
+        if (state.Analyzer.PreIlcCompanions is { } companions)
+            rows.AddRange(companions.Root.DebugDirectory.Select(d => new DebugDirectoryRow("pre-ILC", d)));
+        return rows;
+    }
+
+    /// <summary>The origin-prefixed row key — unique across the merged analyzers.</summary>
+    internal static string GetDebugDirectoryRowKey(DebugDirectoryRow row) =>
+        $"{row.Origin}:{GetDebugDirectoryKey(row.Info)}";
+
+    private static TableWidget<DebugDirectoryRow> BuildDebugDirectoryTable(
         WidgetContext<VStackWidget> ctx,
         DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.DebugDirectory, query,
-            d => $"{d.Type} {d.Stamp:X8} {d.Payload}");
+        var merged = state.Analyzer.PreIlcCompanions is not null;
+        var data = ApplySearch(GetDebugDirectoryRows(state), query,
+            r => $"{r.Origin} {r.Info.Type} {r.Info.Stamp:X8} {r.Info.Payload}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
         return ctx.Table(data)
-            .RowKey(GetDebugDirectoryKey)
+            .RowKey(r => GetDebugDirectoryRowKey(r))
             .Header(h =>
             [
+                .. merged ? new[] { h.Cell("Origin").Width(SizeHint.Fixed(9)) } : [],
                 h.Cell("Type").Width(SizeHint.Fixed(20)),
                 h.Cell("Stamp").Width(SizeHint.Fixed(12)),
                 h.Cell("Major").Width(SizeHint.Fixed(7)),
@@ -491,23 +521,33 @@ public static class PeMetadataView
                 h.Cell("Pointer").Width(SizeHint.Fixed(12)),
                 h.Cell("Payload").Width(SizeHint.Fill)
             ])
-            .Row((r, d, rs) =>
-            [
-                r.Cell(c => FocusHighlightCell(c,d.Type.ToString(), query, true, rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.Stamp:X8}"), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,c.Text(d.MajorVersion.ToString()), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,c.Text(d.MinorVersion.ToString()), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,c.Text(FormatSize(d.DataSize, state)), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.AddressOfRawData:X8}"), rs.IsFocused)),
-                r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.PointerToRawData:X8}"), rs.IsFocused)),
-                r.Cell(c => FocusHighlightCell(c,d.Payload, query, true, rs.IsFocused))
-            ])
+            .Row((r, row, rs) =>
+            {
+                var d = row.Info;
+                return
+                [
+                    .. merged
+                        ? new[] { r.Cell(c => FocusHighlightCell(c, row.Origin, query, true, rs.IsFocused)) }
+                        : (TableCell[])[],
+                    r.Cell(c => FocusHighlightCell(c,d.Type.ToString(), query, true, rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.Stamp:X8}"), rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,c.Text(d.MajorVersion.ToString()), rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,c.Text(d.MinorVersion.ToString()), rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,c.Text(FormatSize(d.DataSize, state)), rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.AddressOfRawData:X8}"), rs.IsFocused)),
+                    r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.PointerToRawData:X8}"), rs.IsFocused)),
+                    r.Cell(c => FocusHighlightCell(c,d.Payload, query, true, rs.IsFocused))
+                ];
+            })
             .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
             .OnFocusChanged(key => state.PeFocusedKey = key)
-            .OnRowActivated((_, d) =>
+            .OnRowActivated((_, row) =>
             {
-                state.PeDetailContent = string.Join("\n",
-                    "Debug Directory",
+                var d = row.Info;
+                var lines = new List<string> { "Debug Directory" };
+                if (merged) lines.Add($"Origin: {row.Origin}");
+                lines.AddRange(
+                [
                     $"Type: {d.Type}",
                     $"Stamp: 0x{d.Stamp:X8}",
                     $"Major Version: {d.MajorVersion}",
@@ -515,7 +555,9 @@ public static class PeMetadataView
                     $"Data Size: {d.DataSize} (0x{d.DataSize:X})",
                     $"Address Of Raw Data: 0x{d.AddressOfRawData:X8}",
                     $"Pointer To Raw Data: 0x{d.PointerToRawData:X8}",
-                    $"Payload: {d.Payload}");
+                    $"Payload: {d.Payload}",
+                ]);
+                state.PeDetailContent = string.Join("\n", lines);
                 state.App.RequestFocus(node => node is EditorNode);
                 state.App.Invalidate();
             })
@@ -525,7 +567,7 @@ public static class PeMetadataView
     private static TableWidget<TypeDefInfo> BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.TypeDefs, query,
+        var data = ApplySearch(state.MetadataAnalyzer.TypeDefs, query,
             t => $"{t.FullName} {t.BaseType} {t.Attributes}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -569,7 +611,7 @@ public static class PeMetadataView
     private static TableWidget<MethodDefInfo> BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.MethodDefs, query,
+        var data = ApplySearch(state.MetadataAnalyzer.MethodDefs, query,
             m => $"{m.DeclaringType} {m.Name} {m.Signature}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -613,7 +655,7 @@ public static class PeMetadataView
     private static TableWidget<TypeRefInfo> BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.TypeRefs, query,
+        var data = ApplySearch(state.MetadataAnalyzer.TypeRefs, query,
             t => $"{t.FullName} {t.ResolutionScope}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -650,7 +692,7 @@ public static class PeMetadataView
     private static TableWidget<MemberRefInfo> BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.MemberRefs, query,
+        var data = ApplySearch(state.MetadataAnalyzer.MemberRefs, query,
             m => $"{m.DeclaringType} {m.Name}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -684,7 +726,7 @@ public static class PeMetadataView
     private static TableWidget<CustomAttributeInfo> BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.CustomAttributes, query,
+        var data = ApplySearch(state.MetadataAnalyzer.CustomAttributes, query,
             a => $"{a.Parent} {a.Constructor} {a.Value}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -720,7 +762,7 @@ public static class PeMetadataView
     private static TableWidget<ResourceInfo> BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
-        var data = ApplySearch(state.Analyzer.Resources, query,
+        var data = ApplySearch(state.MetadataAnalyzer.Resources, query,
             r => $"{r.Name} {r.Visibility}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
 
@@ -804,24 +846,25 @@ public static class PeMetadataView
         var query = state.Search[TabId.PeMetadata].Query;
         if (string.IsNullOrEmpty(query)) return [];
         var analyzer = state.Analyzer;
+        var metadataAnalyzer = state.MetadataAnalyzer;
         return state.PeSubTab switch
         {
             PeSubTabId.Sections => [.. ApplySearch(analyzer.Sections, query,
                 s => $"{s.Name} {s.Characteristics}").Select(s => (object)s.Name)],
-            PeSubTabId.TypeDef => [.. ApplySearch(analyzer.TypeDefs, query,
+            PeSubTabId.TypeDef => [.. ApplySearch(metadataAnalyzer.TypeDefs, query,
                 t => $"{t.FullName} {t.BaseType} {t.Attributes}").Select(t => (object)t.Token)],
-            PeSubTabId.MethodDef => [.. ApplySearch(analyzer.MethodDefs, query,
+            PeSubTabId.MethodDef => [.. ApplySearch(metadataAnalyzer.MethodDefs, query,
                 m => $"{m.DeclaringType} {m.Name} {m.Signature}").Select(m => (object)m.Token)],
-            PeSubTabId.TypeRef => [.. ApplySearch(analyzer.TypeRefs, query,
+            PeSubTabId.TypeRef => [.. ApplySearch(metadataAnalyzer.TypeRefs, query,
                 t => $"{t.FullName} {t.ResolutionScope}").Select(t => (object)t.Token)],
-            PeSubTabId.MemberRef => [.. ApplySearch(analyzer.MemberRefs, query,
+            PeSubTabId.MemberRef => [.. ApplySearch(metadataAnalyzer.MemberRefs, query,
                 m => $"{m.DeclaringType} {m.Name}").Select(m => (object)m.Token)],
-            PeSubTabId.Attributes => [.. ApplySearch(analyzer.CustomAttributes, query,
+            PeSubTabId.Attributes => [.. ApplySearch(metadataAnalyzer.CustomAttributes, query,
                 a => $"{a.Parent} {a.Constructor} {a.Value}").Select(a => (object)$"{a.Parent}|{a.Constructor}")],
-            PeSubTabId.Resources => [.. ApplySearch(analyzer.Resources, query,
+            PeSubTabId.Resources => [.. ApplySearch(metadataAnalyzer.Resources, query,
                 r => $"{r.Name} {r.Visibility}").Select(r => (object)r.Name)],
-            PeSubTabId.DebugDirectory => [.. ApplySearch(analyzer.DebugDirectory, query,
-                d => $"{d.Type} {d.Stamp:X8} {d.Payload}").Select(d => (object)GetDebugDirectoryKey(d))],
+            PeSubTabId.DebugDirectory => [.. ApplySearch(GetDebugDirectoryRows(state), query,
+                r => $"{r.Origin} {r.Info.Type} {r.Info.Stamp:X8} {r.Info.Payload}").Select(r => (object)GetDebugDirectoryRowKey(r))],
             PeSubTabId.Imports => [.. ApplySearch(GetImportRows(analyzer), query,
                 r => $"{r.Module} {r.Function.Name}").Select(r => (object)r.Key)],
             PeSubTabId.Exports => [.. ApplySearch(analyzer.Exports, query,

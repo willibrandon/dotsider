@@ -126,8 +126,8 @@ public static class StringsView
 
                 var skipped = state.StringsSourceTab switch
                 {
-                    StringsSubTabId.UserStrings => state.StringExtractor.SkippedUserStringCount,
-                    StringsSubTabId.Metadata => state.StringExtractor.SkippedMetadataStringCount,
+                    StringsSubTabId.UserStrings => state.MetadataStringExtractor.SkippedUserStringCount,
+                    StringsSubTabId.Metadata => state.MetadataStringExtractor.SkippedMetadataStringCount,
                     _ => 0
                 };
 

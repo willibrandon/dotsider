@@ -122,6 +122,16 @@ Full or partial method name for disassembly or filtering.
 public string? MethodName { get; set; }
 ```
 
+### MethodOrAddress
+
+Method name (optionally `Type.Method`) or `0x…` native address for correlate-method.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? MethodOrAddress { get; set; }
+```
+
 ### MinLength
 
 Minimum string length for raw string extraction.

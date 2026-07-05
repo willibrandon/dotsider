@@ -54,6 +54,9 @@ public class ToolRegistrationTests : McpServerTestBase
         Assert.Contains("get_native_symbols", names);
         Assert.Contains("get_native_disassembly", names);
 
+        // Correlation tools
+        Assert.Contains("correlate_method", names);
+
         // Diff tools
         Assert.Contains("diff_assemblies", names);
 

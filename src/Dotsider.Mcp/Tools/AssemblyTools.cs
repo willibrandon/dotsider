@@ -51,7 +51,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 FrozenStringCount = analyzer.FrozenStrings.Count,
                 NativeSymbolCount = analyzer.NativeSymbols?.Symbols.Count ?? 0,
                 NativeSymbolSource = analyzer.NativeSymbols?.Source,
-                NativeSymbolStatus = analyzer.NativeSymbols?.Status
+                NativeSymbolStatus = analyzer.NativeSymbols?.Status,
+                PreIlc = BuildPreIlcSummary(analyzer)
             }, DotsiderJsonOptions.Default);
         }
 
@@ -62,6 +63,30 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         }
 
         return "Error: Either assemblyPath or sessionId is required.";
+    }
+
+    /// <summary>
+    /// Builds the cheap pre-ILC probe summary for a Native AOT binary — origin, sidecar
+    /// availability, and reference counts. Never attaches; package and other references are
+    /// counts, not dumps. Returns null when no sidecars were found.
+    /// </summary>
+    private static object? BuildPreIlcSummary(Core.Analysis.AssemblyAnalyzer analyzer)
+    {
+        if (analyzer.PreIlcSidecars is not { } s)
+            return null;
+
+        return new
+        {
+            s.HasAttachableCompanion,
+            RootAssembly = s.ManagedAssemblyPath is { } p ? Path.GetFileName(p) : null,
+            Origin = s.Origin.ToString(),
+            PdbStatus = s.PdbStatus.ToString(),
+            HasMstat = s.MstatPath is not null,
+            HasDgml = (s.CodegenDgmlPath ?? s.ScanDgmlPath) is not null,
+            LocalReferenceCount = s.LocalReferencePaths.Count,
+            s.PackageReferenceCount,
+            s.OtherReferenceCount
+        };
     }
 
     /// <summary>
