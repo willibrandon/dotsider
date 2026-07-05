@@ -52,6 +52,15 @@ public sealed class AssemblyAnalyzer : IDisposable
     private bool _dgmlProbed;
     private NativeSymbolInfo? _nativeSymbols;
     private bool _nativeSymbolsProbed;
+    private PreIlcSidecars? _preIlcSidecars;
+    private bool _preIlcProbed;
+    private PreIlcCompanionSet? _preIlcCompanions;
+    private ManagedNativeIndex? _managedNativeIndex;
+    private int _preIlcGeneration;
+
+    // Serializes the correlation index's publish against detach/dispose so a build that
+    // races a teardown can never store its result after the companions were cleared.
+    private readonly Lock _preIlcIndexLock = new();
 
     /// <summary>
     /// Opens and analyzes the specified .NET assembly file.
@@ -331,7 +340,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// is not a Native AOT binary or the file is absent.
     /// </summary>
     public string? MstatPath =>
-        BinaryKind == BinaryKind.NativeAot ? FindSidecar(".mstat") : null;
+        BinaryKind == BinaryKind.NativeAot
+            ? FindSidecar(".mstat") ?? PreIlcSidecars?.MstatPath
+            : null;
 
     /// <summary>
     /// The ILC dependency graph found next to a Native AOT binary, or null when this is not
@@ -362,7 +373,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// </summary>
     public string? DgmlPath =>
         BinaryKind == BinaryKind.NativeAot
-            ? FindSidecar(".codegen.dgml.xml") ?? FindSidecar(".scan.dgml.xml")
+            ? FindSidecar(".codegen.dgml.xml") ?? PreIlcSidecars?.CodegenDgmlPath
+                ?? FindSidecar(".scan.dgml.xml") ?? PreIlcSidecars?.ScanDgmlPath
             : null;
 
     /// <summary>
@@ -392,19 +404,185 @@ public sealed class AssemblyAnalyzer : IDisposable
     public string? NativeSymbolsPath => NativeSymbols?.Path;
 
     /// <summary>
-    /// Probes for a sidecar next to the analyzed binary: the binary's extension is replaced
-    /// (or the suffix appended for extensionless Linux and macOS binaries) and the file must
-    /// exist in the same directory.
+    /// The pre-ILC build outputs probed for a Native AOT binary — its managed input,
+    /// portable PDB, and intermediate-tree mstat/DGML sidecars — or null when this is not
+    /// a Native AOT binary or nothing was found. The value is assigned before the probed
+    /// flag, so a rare concurrent first read costs at most a second probe.
+    /// </summary>
+    public PreIlcSidecars? PreIlcSidecars
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_preIlcProbed)
+            {
+                _preIlcSidecars = BinaryKind == BinaryKind.NativeAot
+                    ? PreIlcSidecarDetector.Find(FilePath)
+                    : null;
+                _preIlcProbed = true;
+            }
+
+            return _preIlcSidecars;
+        }
+    }
+
+    /// <summary>
+    /// The attached pre-ILC companion set, or null before <see cref="AttachPreIlcCompanions"/>
+    /// succeeds. Owned by this analyzer — see <see cref="PreIlcCompanionSet"/> for the
+    /// ownership contract.
+    /// </summary>
+    public PreIlcCompanionSet? PreIlcCompanions
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _preIlcCompanions;
+        }
+    }
+
+    /// <summary>
+    /// Opens the probed pre-ILC managed input (and validated local references) as an
+    /// attached companion set. Idempotent — a second call returns the existing set.
+    /// Returns null when there is nothing attachable or the companion cannot be opened.
+    /// The set is owned by this analyzer and disposed with it.
+    /// </summary>
+    public PreIlcCompanionSet? AttachPreIlcCompanions()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_preIlcCompanions is { } existing) return existing;
+        if (PreIlcSidecars is not { HasAttachableCompanion: true } sidecars) return null;
+
+        PreIlcCompanionSet set;
+        try
+        {
+            var root = new AssemblyAnalyzer(sidecars.ManagedAssemblyPath!);
+            if (!root.HasMetadata)
+            {
+                root.Dispose();
+                return null;
+            }
+
+            var locals = new List<AssemblyAnalyzer>();
+            foreach (var path in sidecars.LocalReferencePaths)
+            {
+                try
+                {
+                    var reference = new AssemblyAnalyzer(path);
+                    if (reference.HasMetadata) locals.Add(reference);
+                    else reference.Dispose();
+                }
+                catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
+                {
+                    // A reference that fails to open just drops out of the set.
+                }
+            }
+
+            set = new PreIlcCompanionSet(root, locals);
+        }
+        catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        var published = Interlocked.CompareExchange(ref _preIlcCompanions, set, null);
+        if (published is not null)
+        {
+            set.Dispose();
+            return published;
+        }
+
+        Interlocked.Increment(ref _preIlcGeneration);
+        return set;
+    }
+
+    /// <summary>
+    /// Detaches and disposes the pre-ILC companion set and drops the correlation index.
+    /// A concurrent index build observes the generation change and never publishes.
+    /// </summary>
+    public void DetachPreIlcCompanions()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        PreIlcCompanionSet? set;
+        lock (_preIlcIndexLock)
+        {
+            set = Interlocked.Exchange(ref _preIlcCompanions, null);
+            if (set is null) return;
+
+            Interlocked.Increment(ref _preIlcGeneration);
+            _managedNativeIndex = null;
+        }
+
+        set.Dispose();
+    }
+
+    /// <summary>
+    /// The managed↔native correlation index over the attached companion set, built lazily
+    /// on first access; null before <see cref="AttachPreIlcCompanions"/>. A build that
+    /// races a detach or dispose abandons its result: it captures the generation up front,
+    /// materializes inputs under an <see cref="ObjectDisposedException"/> guard, and
+    /// publishes only when the generation is unchanged.
+    /// </summary>
+    public ManagedNativeIndex? ManagedNativeIndex
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            // A cached index is only valid while its companion set is still attached — never
+            // hand one back after a detach cleared the companions.
+            if (_managedNativeIndex is { } cached && _preIlcCompanions is not null) return cached;
+
+            var set = _preIlcCompanions;
+            if (set is null) return null;
+            var generation = Volatile.Read(ref _preIlcGeneration);
+
+            ManagedNativeIndex index;
+            try
+            {
+                var sources = new List<ManagedMethodSource>(set.All.Count);
+                foreach (var companion in set.All)
+                {
+                    sources.Add(new ManagedMethodSource(
+                        companion.AssemblyName ?? PreIlcSidecarDetector.StripKnownExtension(companion.FileName),
+                        companion.MethodDefs));
+                }
+
+                index = ManagedNativeIndex.Build(sources, NativeSymbols?.Symbols ?? [], Mstat);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Raced a detach/dispose mid-build; the inputs are gone.
+                return null;
+            }
+
+            // Publish under the lock so a detach/dispose racing this assignment either
+            // blocks it (generation already bumped → abandon) or runs after it and clears
+            // the field — the index can never outlive the companion set it was built for.
+            lock (_preIlcIndexLock)
+            {
+                if (Volatile.Read(ref _preIlcGeneration) != generation
+                    || !ReferenceEquals(_preIlcCompanions, set))
+                {
+                    return null;
+                }
+
+                _managedNativeIndex = index;
+                return index;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Probes for a sidecar next to the analyzed binary: any known binary extension
+    /// (<c>.exe</c>, <c>.dll</c>, <c>.so</c>, <c>.dylib</c> — Native AOT libraries are
+    /// binaries too) is replaced, or the suffix appended for extensionless Linux and
+    /// macOS binaries, and the file must exist in the same directory.
     /// </summary>
     private string? FindSidecar(string suffix)
     {
         var directory = Path.GetDirectoryName(FilePath);
         if (string.IsNullOrEmpty(directory)) return null;
 
-        var stem = Path.GetFileName(FilePath);
-        if (stem.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            stem = stem[..^4];
-
+        var stem = PreIlcSidecarDetector.StripKnownExtension(Path.GetFileName(FilePath));
         var candidate = Path.Combine(directory, stem + suffix);
         return File.Exists(candidate) ? candidate : null;
     }
@@ -894,6 +1072,15 @@ public sealed class AssemblyAnalyzer : IDisposable
     public void Dispose()
     {
         _disposed = true;
+        PreIlcCompanionSet? companions;
+        lock (_preIlcIndexLock)
+        {
+            Interlocked.Increment(ref _preIlcGeneration);
+            companions = Interlocked.Exchange(ref _preIlcCompanions, null);
+            _managedNativeIndex = null;
+        }
+
+        companions?.Dispose();
         _pdbReaderProvider?.Dispose();
         _peReader?.Dispose();
         _stream.Dispose();

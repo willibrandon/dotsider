@@ -15,6 +15,7 @@ namespace Dotsider;
 /// <param name="IsExpanded">Whether this row is currently expanded.</param>
 /// <param name="ExpansionKey">Key into <see cref="DotsiderState.IlTreeExpansionState"/> for toggling.</param>
 /// <param name="Symbol">The native symbol this row represents in native (non-managed) mode, or null in managed mode.</param>
+/// <param name="Owner">The analyzer that defines <paramref name="Method"/> when it is a pre-ILC local reference; null means the routed metadata analyzer.</param>
 public sealed record IlTreeRow(
     string Key,
     int Depth,
@@ -24,4 +25,5 @@ public sealed record IlTreeRow(
     bool CanExpand,
     bool IsExpanded,
     string ExpansionKey,
-    NativeSymbol? Symbol = null);
+    NativeSymbol? Symbol = null,
+    Dotsider.Core.Analysis.AssemblyAnalyzer? Owner = null);

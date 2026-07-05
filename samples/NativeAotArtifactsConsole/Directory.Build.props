@@ -1,0 +1,8 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<!-- UseArtifactsOutput must be set in Directory.Build.props (the SDK rejects it in the
+     project file). Scoped to this sample: the repo has no root Directory.Build.props. -->
+<Project>
+  <PropertyGroup>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+  </PropertyGroup>
+</Project>

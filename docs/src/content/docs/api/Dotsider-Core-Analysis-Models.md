@@ -160,6 +160,45 @@ the version specified.
 public sealed record CodeBaseEntry : IEquatable<CodeBaseEntry>
 ```
 
+### [CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/)
+
+One of several methods a name query matched. Overloads share a name, so an ambiguous
+query surfaces every candidate rather than guessing which the caller meant.
+
+```csharp
+public sealed record CorrelationCandidate : IEquatable<CorrelationCandidate>
+```
+
+### [CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/)
+
+The result of a [CorrelationQuery](/api/dotsider.core.analysis.correlationquery/): an [Outcome](/api/dotsider.core.analysis.models.correlationqueryresult.outcome/) with exactly the
+payload that outcome carries — a [Report](/api/dotsider.core.analysis.models.correlationqueryresult.report/) when resolved, a candidate list when
+ambiguous, a [Message](/api/dotsider.core.analysis.models.correlationqueryresult.message/) explaining a miss or an unavailable index.
+
+```csharp
+public sealed record CorrelationQueryResult : IEquatable<CorrelationQueryResult>
+```
+
+### [CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/)
+
+The resolved correlation payload shared verbatim by every programmatic surface — the CLI
+`--correlate` option, the session `correlate-method` command, and the MCP
+`correlate_method` tool — so a method's pre-ILC IL and its native code are reported
+identically wherever they are requested.
+
+```csharp
+public sealed record CorrelationReport : IEquatable<CorrelationReport>
+```
+
+### [CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/)
+
+One native symbol carrying a correlated method's compiled code, flattened for the
+programmatic surfaces (CLI, session, MCP) that report a correlation.
+
+```csharp
+public sealed record CorrelationReportSymbol : IEquatable<CorrelationReportSymbol>
+```
+
 ### [CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/)
 
 A snapshot of runtime performance counters at a point in time.
@@ -438,12 +477,30 @@ A PDB local variable slot and the IL range where its name is active.
 public sealed record LocalSlotInfo : IEquatable<LocalSlotInfo>
 ```
 
+### [ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/)
+
+One managed assembly's contribution to a managed↔native correlation build: its simple
+name (ILC embeds it in every mangled symbol) and its method definitions.
+
+```csharp
+public sealed record ManagedMethodSource : IEquatable<ManagedMethodSource>
+```
+
 ### [MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/)
 
 Information about a referenced member (method or field) from the MemberRef metadata table.
 
 ```csharp
 public sealed record MemberRefInfo : IEquatable<MemberRefInfo>
+```
+
+### [MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/)
+
+One pre-ILC managed method joined to its native evidence: the symbols that carry its
+compiled code and the mstat rows that carry its sizes.
+
+```csharp
+public sealed record MethodCorrelation : IEquatable<MethodCorrelation>
 ```
 
 ### [MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/)
@@ -674,6 +731,27 @@ Aggregated PE header information for a .NET assembly.
 public sealed record PeHeaders : IEquatable<PeHeaders>
 ```
 
+### [PreIlcCompanionSet](/api/dotsider.core.analysis.models.preilccompanionset/)
+
+The attached pre-ILC companions of a Native AOT binary: the root managed input and any
+validated local reference assemblies.
+
+```csharp
+public sealed class PreIlcCompanionSet
+```
+
+### [PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/)
+
+The pre-ILC build outputs found for a Native AOT binary: the managed input assembly
+ILC compiled, its portable PDB, and any mstat/DGML sidecars discovered in the build's
+intermediate tree. A result exists whenever anything was found — mstat/DGML-only
+results feed silent fallbacks, while the attach/offer flow gates on
+[HasAttachableCompanion](/api/dotsider.core.analysis.models.preilcsidecars.hasattachablecompanion/).
+
+```csharp
+public sealed record PreIlcSidecars : IEquatable<PreIlcSidecars>
+```
+
 ### [RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/)
 
 A type recovered from a Native AOT binary's embedded NativeFormat metadata. ILC strips
@@ -856,6 +934,15 @@ Identifies the type of file embedded in a .NET single-file bundle.
 public enum BundleFileType : byte
 ```
 
+### [CorrelationQueryOutcome](/api/dotsider.core.analysis.models.correlationqueryoutcome/)
+
+The outcome of a [CorrelationQuery](/api/dotsider.core.analysis.correlationquery/): how a method-or-address query resolved
+against an attached companion set's correlation index.
+
+```csharp
+public enum CorrelationQueryOutcome
+```
+
 ### [DiffKind](/api/dotsider.core.analysis.models.diffkind/)
 
 Describes the kind of difference detected between two assembly elements.
@@ -879,6 +966,14 @@ Distinguishes whether a MemberRef entry refers to a method or a field.
 
 ```csharp
 public enum MemberRefKind
+```
+
+### [MethodCorrelationStatus](/api/dotsider.core.analysis.models.methodcorrelationstatus/)
+
+How a pre-ILC managed method relates to the native image it was compiled into.
+
+```csharp
+public enum MethodCorrelationStatus
 ```
 
 ### [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
@@ -998,6 +1093,23 @@ framework unification.
 
 ```csharp
 public enum PolicyLayer
+```
+
+### [PreIlcAssemblyOrigin](/api/dotsider.core.analysis.models.preilcassemblyorigin/)
+
+How the pre-ILC managed input of a Native AOT binary was located, ordered from
+most to least authoritative.
+
+```csharp
+public enum PreIlcAssemblyOrigin
+```
+
+### [PreIlcPdbStatus](/api/dotsider.core.analysis.models.preilcpdbstatus/)
+
+The portable-PDB situation of a located pre-ILC managed assembly.
+
+```csharp
+public enum PreIlcPdbStatus
 ```
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)

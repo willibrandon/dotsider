@@ -41,7 +41,7 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed. If you open a Native AOT executable, dotsider validates its embedded ReadyToRun header and walks its runtime sections — surfacing the binary kind, toolchain format version, runtime version, native import/export/load-config tables, the ReadyToRun section table, the types and methods recovered from the embedded metadata, and frozen string literals.
+dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed. If you open a Native AOT executable, dotsider validates its embedded ReadyToRun header and walks its runtime sections — surfacing the binary kind, toolchain format version, runtime version, native import/export/load-config tables, the ReadyToRun section table, the types and methods recovered from the embedded metadata, and frozen string literals. It also probes the build tree for the binary's pre-ILC managed assemblies and their mstat/DGML sidecars and offers to attach them, filling the metadata tabs and showing each method's IL beside its native code.
 
 | Tab | What you see |
 |-----|-------------|
@@ -101,6 +101,8 @@ dotsider analyze MyLib.dll --methods            # list method definitions
 dotsider analyze MyLib.dll --il Type.Method     # disassemble a method
 dotsider analyze MyAotApp.exe --symbols         # list native symbols (Native AOT / native binaries)
 dotsider analyze MyAotApp.exe --disasm 'Program.<Main>$'  # disassemble a native function (name or 0xVA)
+dotsider analyze MyAotApp.exe --correlate       # correlate with pre-ILC assembly (counts)
+dotsider analyze MyAotApp.exe --correlate Type.Method  # IL and native code side by side (name or 0xVA)
 dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps               # assembly references
 dotsider analyze MyLib.dll --strings            # extract strings

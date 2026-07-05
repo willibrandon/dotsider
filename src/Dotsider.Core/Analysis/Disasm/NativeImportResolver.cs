@@ -12,7 +12,7 @@ namespace Dotsider.Core.Analysis.Disasm;
 /// dynamic symbol, and a Mach-O stub renders as its imported symbol — rather than an unresolved
 /// address. Built once per image, it maps each import slot's virtual address to its name.
 /// <see cref="TryResolve"/> composes after the symbol resolver in
-/// <see cref="NativeDisassembler.DisassembleSymbol"/>.
+/// <see cref="NativeDisassembler.DisassembleSymbol(AssemblyAnalyzer, Models.NativeSymbol)"/>.
 /// </summary>
 public sealed class NativeImportResolver
 {

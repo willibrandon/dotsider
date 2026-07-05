@@ -791,6 +791,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
 
         var builder = new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
         for (var target = 1; target <= PeSubTabId.Imports; target++)
         {
@@ -939,6 +942,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
 
         var builder = new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
         for (var target = 1; target <= PeSubTabId.AotTypes; target++)
         {
@@ -1018,6 +1024,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
 
         var builder = new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10));
         for (var target = 1; target <= PeSubTabId.Symbols; target++)
         {

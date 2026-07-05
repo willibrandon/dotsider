@@ -10,7 +10,7 @@ namespace Dotsider.Tests;
 /// Tests for <see cref="NativeImportResolver"/>: it maps a PE image's Import Address Table slots, an
 /// ELF image's PLT/GOT slots, and a Mach-O image's stubs to their imported symbol names, so an
 /// indirect call or PLT/stub jump resolves to the import and composes into
-/// <see cref="NativeDisassembler.DisassembleSymbol"/>.
+/// <see cref="NativeDisassembler.DisassembleSymbol(AssemblyAnalyzer, NativeSymbol)"/>.
 /// </summary>
 [Collection("SampleAssemblies")]
 public class NativeImportResolverTests(SampleAssemblyFixture samples)

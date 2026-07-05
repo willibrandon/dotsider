@@ -67,4 +67,7 @@ public sealed class DotsiderRequest
 
     /// <summary>Native symbol virtual address (hex <c>0x…</c> or decimal) for disassemble-native.</summary>
     public string? SymbolAddress { get; set; }
+
+    /// <summary>Method name (optionally <c>Type.Method</c>) or <c>0x…</c> native address for correlate-method.</summary>
+    public string? MethodOrAddress { get; set; }
 }

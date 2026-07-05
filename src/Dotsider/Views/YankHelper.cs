@@ -76,6 +76,7 @@ public static class YankHelper
     public static IlYankDecorationProvider? FindYankProvider(DotsiderState state, EditorState editorState)
     {
         if (editorState == state.IlEditorState) return state.IlYankProvider;
+        if (editorState == state.IlPairNativeEditorState) return state.IlPairYankProvider;
         if (editorState == state.GeneralInfoEditorState) return state.GeneralInfoYankProvider;
         if (editorState == state.PeHeadersEditorState) return state.PeHeadersYankProvider;
         if (editorState == state.ClrHeaderEditorState) return state.ClrHeaderYankProvider;
@@ -105,7 +106,7 @@ public static class YankHelper
     private static string? GetGeneralYankText(DotsiderState state)
     {
         if (state.GeneralFocusedDep is not string name) return null;
-        var asmRef = state.Analyzer.AssemblyRefs.FirstOrDefault(r => r.Name == name);
+        var asmRef = state.MetadataAnalyzer.AssemblyRefs.FirstOrDefault(r => r.Name == name);
         if (asmRef is null) return null;
         return $"{asmRef.Name}\t{asmRef.Version}\t{asmRef.Culture}\t{asmRef.PublicKeyToken}";
     }
@@ -113,7 +114,8 @@ public static class YankHelper
     private static string? GetPeMetadataYankText(DotsiderState state)
     {
         if (state.PeFocusedKey is null) return null;
-        var analyzer = state.Analyzer;
+        // Yank answers from the same analyzer the table rendered from.
+        var analyzer = PeMetadataRouting.AnalyzerForPeSubTab(state, state.PeSubTab);
 
         return state.PeSubTab switch
         {
@@ -124,9 +126,26 @@ public static class YankHelper
             PeSubTabId.MemberRef => FormatMemberRef(analyzer.MemberRefs, state.PeFocusedKey),
             PeSubTabId.Attributes => FormatAttribute(analyzer.CustomAttributes, state.PeFocusedKey),
             PeSubTabId.Resources => FormatResource(analyzer.Resources, state.PeFocusedKey),
-            PeSubTabId.DebugDirectory => FormatDebugDirectory(analyzer.DebugDirectory, state.PeFocusedKey),
+            PeSubTabId.DebugDirectory => FormatDebugDirectoryRow(state),
             _ => null
         };
+    }
+
+    private static string? FormatDebugDirectoryRow(DotsiderState state)
+    {
+        if (state.PeFocusedKey is not string key) return null;
+        var rows = PeMetadataView.GetDebugDirectoryRows(state);
+        var idx = -1;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (PeMetadataView.GetDebugDirectoryRowKey(rows[i]) == key) { idx = i; break; }
+        }
+
+        if (idx < 0) return null;
+        var row = rows[idx];
+        var entry = row.Info;
+        return $"{row.Origin}\t{entry.Type}\t0x{entry.Stamp:X8}\t{entry.MajorVersion}\t{entry.MinorVersion}\t{entry.DataSize}\t"
+            + $"0x{entry.AddressOfRawData:X8}\t0x{entry.PointerToRawData:X8}\t{entry.Payload}";
     }
 
     private static string? GetStringsYankText(DotsiderState state)
@@ -267,15 +286,6 @@ public static class YankHelper
             : $"{r.Name}\t{r.Visibility}\t0x{r.Offset:X8}\t{r.Size}\t{(r.IsLinked ? "Yes" : "No")}";
     }
 
-    private static string? FormatDebugDirectory(IReadOnlyList<DebugDirectoryInfo> entries, object key)
-    {
-        if (key is not string compositeKey) return null;
-        var entry = entries.FirstOrDefault(x =>
-            $"{x.Type}:{x.AddressOfRawData:X8}:{x.PointerToRawData:X8}" == compositeKey);
-        return entry is null ? null
-            : $"{entry.Type}\t0x{entry.Stamp:X8}\t{entry.MajorVersion}\t{entry.MinorVersion}\t{entry.DataSize}\t"
-                + $"0x{entry.AddressOfRawData:X8}\t0x{entry.PointerToRawData:X8}\t{entry.Payload}";
-    }
 
     private static string? FormatDiffTypesRow(DiffState state, string key)
     {

@@ -12,5 +12,8 @@ public enum IlTreeRowKind
     Type,
 
     /// <summary>A method definition row (leaf).</summary>
-    Method
+    Method,
+
+    /// <summary>An assembly grouping row — shown when a multi-assembly pre-ILC set is attached.</summary>
+    Assembly
 }

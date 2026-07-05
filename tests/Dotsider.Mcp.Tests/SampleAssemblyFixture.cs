@@ -68,6 +68,13 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleDgml { get; private set; }
 
     /// <summary>
+    /// Path to the pre-ILC managed assembly left in the NativeAOT sample's intermediate tree
+    /// (<c>obj\Release\&lt;tfm&gt;\&lt;rid&gt;\NativeAotConsole.dll</c>), or null. Correlation tests
+    /// gate on this — it is the attachable companion the sidecar probe finds.
+    /// </summary>
+    public string? NativeAotConsoleManagedDll { get; private set; }
+
+    /// <summary>
     /// Builds all sample projects once per collection and resolves their output paths.
     /// </summary>
     public async ValueTask InitializeAsync()
@@ -128,6 +135,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
             NativeAotConsoleDgml = File.Exists(codegenDgml) ? codegenDgml
                 : File.Exists(scanDgml) ? scanDgml
                 : null;
+
+            var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+                "obj", "Release", tfm, rid);
+            var managedDll = Path.Combine(aotObjDir, "NativeAotConsole.dll");
+            NativeAotConsoleManagedDll = File.Exists(managedDll) ? managedDll : null;
         }
     }
 

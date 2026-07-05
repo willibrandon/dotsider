@@ -248,6 +248,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 "get-native-symbols" => HandleGetNativeSymbols(),
                 "disassemble-native" => HandleDisassembleNative(request),
 
+                // Pre-ILC correlation
+                "correlate-method" => HandleCorrelateMethod(request),
+
                 // Diff
                 "diff" => HandleDiff(request),
 
@@ -680,6 +683,28 @@ internal sealed class DotsiderDiagnosticsListener(
             : DotsiderResponse.Ok(new { Symbol = matches[0].ManagedName ?? matches[0].Name, a.Architecture, result.Value.Instructions });
     }
 
+    private DotsiderResponse HandleCorrelateMethod(DotsiderRequest request)
+    {
+        var a = RequireAnalyzer();
+        if (a.BinaryKind != Core.Analysis.Models.BinaryKind.NativeAot)
+            return DotsiderResponse.Fail("correlate-method requires a Native AOT binary");
+
+        var target = request.MethodOrAddress;
+        if (string.IsNullOrWhiteSpace(target))
+            return DotsiderResponse.Fail("methodOrAddress is required");
+
+        var result = Core.Analysis.CorrelationQuery.Resolve(a, target, CancellationToken.None);
+        return result.Outcome switch
+        {
+            Core.Analysis.Models.CorrelationQueryOutcome.Resolved => DotsiderResponse.Ok(result.Report!),
+            Core.Analysis.Models.CorrelationQueryOutcome.Ambiguous => DotsiderResponse.Fail(
+                $"{result.Message}: " + string.Join(", ", result.Candidates.Select(c =>
+                    $"{c.AssemblyName} {c.DeclaringType}::{c.Name} token 0x{c.Token:X8}"
+                    + (c.VirtualAddress is { } va ? $" @ 0x{va:X}" : "")))),
+            _ => DotsiderResponse.Fail(result.Message ?? "correlation unavailable")
+        };
+    }
+
     // --- Diff Handler ---
 
     private static DotsiderResponse HandleDiff(DotsiderRequest request)
@@ -995,8 +1020,7 @@ internal sealed class DotsiderDiagnosticsListener(
             else if (s.NavigationStack.Count > 0)
             {
                 var backTab = s.PopAssembly();
-                if (s.ApphostCompanionDllPath is not null && !s.Analyzer.HasMetadata)
-                    s.ApphostDialogOpen = true;
+                s.ReofferCompanionDialogsAfterPop();
                 s.NavigateToTab(backTab);
                 s.App.Invalidate();
             }
@@ -1030,6 +1054,10 @@ internal sealed class DotsiderDiagnosticsListener(
                         break;
                     case AssemblyOpenResult.NativeAot(var aot):
                         s.PushAssemblyDirect(aot);
+                        // The socket path has no dialog — attach eagerly when attachable,
+                        // mirroring the apphost arm's silent companion redirect below.
+                        if (aot.PreIlcSidecars is { HasAttachableCompanion: true })
+                            s.AttachPreIlc();
                         break;
                     case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                         host.Dispose();

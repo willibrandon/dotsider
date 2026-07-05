@@ -47,6 +47,26 @@ synthesizing labels for intra-window targets.
 public static IReadOnlyList<NativeInstruction> Disassemble(ReadOnlySpan<byte> code, ulong baseAddress, NativeArchitecture arch, NativeSymbolResolver? resolver = null)
 ```
 
+### DisassembleSymbol(AssemblyAnalyzer, NativeSymbol, Func\<ulong, string?\>?)
+
+NativeSymbol) with correlation-aware
+target naming: managedNameResolver is consulted before the symbol
+and import resolvers, so a call target resolves to its pre-ILC companion-backed
+managed name when one exists. The two-argument overload is preserved as shipped
+public API and delegates here with a null resolver.
+
+**Parameters:**
+
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer that recovered the symbol.
+- `symbol` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/)): The symbol to disassemble.
+- `managedNameResolver` ([Func\<UInt64, String\>](https://learn.microsoft.com/dotnet/api/system.func-2)): Maps a target virtual address to a managed display name, or null for none.
+
+**Returns:** [Nullable\<String, NativeInstruction\>, Int32\>\>](https://learn.microsoft.com/dotnet/api/system.nullable-3)
+
+```csharp
+public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)? DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol, Func<ulong, string?>? managedNameResolver)
+```
+
 ### DisassembleSymbol(AssemblyAnalyzer, NativeSymbol)
 
 The convenience the view, CLI, MCP, and session share: disassembles one recovered native

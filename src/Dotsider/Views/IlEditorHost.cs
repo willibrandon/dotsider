@@ -204,7 +204,8 @@ internal static class IlEditorHost
         if (state.IlSelectedMethod is null)
             return;
 
-        var source = state.Analyzer.GetEmbeddedSource(state.IlSelectedMethod);
+        var source = (state.IlSelectedMethodOwner ?? state.MetadataAnalyzer)
+            .GetEmbeddedSource(state.IlSelectedMethod);
         if (source is null)
         {
             state.ShowTransientNotice("No embedded source for this method");

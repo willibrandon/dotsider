@@ -40,6 +40,15 @@ public sealed class DotsiderState : IDisposable
             ApphostDialogOpen = true;
         }
 
+        // AOT binaries offer their pre-ILC build outputs the way apphosts offer their
+        // companion dll. mstat/DGML-only discoveries never open the dialog — their
+        // fallbacks feed the Size Map and Dep Graph silently.
+        if (openResult is AssemblyOpenResult.NativeAot
+            && Analyzer.PreIlcSidecars is { HasAttachableCompanion: true })
+        {
+            PreIlcDialogOpen = true;
+        }
+
         StringExtractor = new StringExtractor(Analyzer);
         if (Analyzer.HasMetadata)
             IlDisassembler = new IlDisassembler(Analyzer);
@@ -207,7 +216,7 @@ public sealed class DotsiderState : IDisposable
     public IlMatch? IlPendingCursorMatch { get; set; }
 
     /// <summary>Method tokens whose IL text matches the confirmed search query. Used to broaden tree filtering.</summary>
-    public HashSet<int>? IlTextMatchMethodTokens { get; set; }
+    public HashSet<(AssemblyAnalyzer? Owner, int Token)>? IlTextMatchMethodTokens { get; set; }
 
     /// <summary>Back stack for IL go-to-definition navigation. Esc pops and restores.</summary>
     public Stack<IlBackEntry> IlBackStack { get; } = new();
@@ -244,6 +253,115 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The field targeted by the last field go-to-definition, displayed in the right pane.</summary>
     public FieldDefInfo? IlSelectedField { get; set; }
+
+    // --- Pre-ILC side-by-side pane state ---
+    // The pair pane renders native code NEXT TO managed IL when a companion set is
+    // attached. Its editor state, caches, and decoration providers are deliberately
+    // separate from the solo-native pipeline: a VA must never yield the same
+    // StatePanelWidget identity in two scopes, and two live editors must never share
+    // span-driven providers.
+
+    /// <summary>The analyzer that defines <see cref="IlSelectedMethod"/> when it came from a pre-ILC local-reference row; null means the routed metadata analyzer.</summary>
+    public AssemblyAnalyzer? IlSelectedMethodOwner { get; set; }
+
+    /// <summary>The pane that owns search and navigation keys while the pair is visible.</summary>
+    public IlPane IlFocusedPane { get; set; }
+
+    /// <summary>The editor state of the native pair pane, or null.</summary>
+    public EditorState? IlPairNativeEditorState { get; set; }
+
+    /// <summary>The symbol loaded in the pair pane, for staleness detection by virtual address.</summary>
+    public NativeSymbol? IlPairNativeSymbol { get; set; }
+
+    /// <summary>
+    /// Cursor offsets pushed before an intra-listing local-label jump in the pair pane, so Esc
+    /// returns to the departure instruction — the pair-pane mirror of the solo native back stack.
+    /// </summary>
+    public Stack<int> IlPairNativeBackStack { get; } = new();
+
+    /// <summary>
+    /// Whether the current pair disassembly was rendered with the correlation index available.
+    /// A symbol selected before the index finished building carries reduced target names; once
+    /// the index arrives this flag drives a one-time rebuild so companion names appear.
+    /// </summary>
+    public bool IlPairNativeBuiltWithIndex { get; set; }
+
+    /// <summary>The decoded instructions of the pair pane's listing, or null.</summary>
+    public IReadOnlyList<NativeInstruction>? IlPairNativeInstructions { get; set; }
+
+    /// <summary>The number of header lines in the pair pane's listing.</summary>
+    public int IlPairNativeHeaderLineCount { get; set; }
+
+    /// <summary>Span-driven syntax highlighting for the pair pane.</summary>
+    public NativeSyntaxDecorationProvider IlPairNativeSyntaxProvider { get; } = new();
+
+    /// <summary>Span-driven target underlining for the pair pane.</summary>
+    public NativeNavigationDecorationProvider IlPairNativeNavigationProvider { get; } = new();
+
+    /// <summary>Search match highlighting for the pair pane.</summary>
+    public IlSearchDecorationProvider IlPairSearchProvider { get; } = new();
+
+    /// <summary>Yank flash decoration provider for the pair pane.</summary>
+    public IlYankDecorationProvider IlPairYankProvider { get; } = new();
+
+    /// <summary>Character offsets of the confirmed search query within the pair listing, for n/N.</summary>
+    public IReadOnlyList<int> IlPairSearchOffsets { get; set; } = [];
+
+    /// <summary>Whether the confirmed IL search was computed for a native listing — recomputed when the focused pane changes scope.</summary>
+    internal bool IlSearchScopeNative { get; set; }
+
+    /// <summary>Identity key for the pair pane's current StatePanelWidget.</summary>
+    internal object? IlPairEditorKey { get; set; }
+
+    /// <summary>Stable parent StatePanelWidget key for the pair editor scope.</summary>
+    internal object IlPairEditorScopeKey { get; } = new object();
+
+    /// <summary>Pair-pane editor identity keys by (analyzer, virtual address) — separate from <see cref="IlNativeEditorKeyCache"/>.</summary>
+    internal Dictionary<(AssemblyAnalyzer, ulong), object> IlPairNativeEditorKeyCache { get; } = [];
+
+    /// <summary>Cached pair-pane editor states for symbols not currently visible.</summary>
+    internal Dictionary<object, EditorState> IlPairCachedEditors { get; } = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Last measured width of the IL Inspector's right pane area; zero until first measurement.</summary>
+    internal int IlRightPaneWidth { get; set; }
+
+    /// <summary>Returns the stable pair-pane editor identity key for a symbol.</summary>
+    internal object GetOrCreatePairNativeEditorKey(AssemblyAnalyzer analyzer, ulong address)
+    {
+        var cacheKey = (analyzer, address);
+        if (!IlPairNativeEditorKeyCache.TryGetValue(cacheKey, out var key))
+        {
+            key = new object();
+            IlPairNativeEditorKeyCache[cacheKey] = key;
+        }
+
+        return key;
+    }
+
+    /// <summary>Clears the pair pane: editor, caches, providers, and measurements.</summary>
+    internal void ClearPairPaneState()
+    {
+        IlSelectedMethodOwner = null;
+        IlFocusedPane = IlPane.Tree;
+        IlPairNativeEditorState = null;
+        IlPairNativeSymbol = null;
+        IlPairNativeBackStack.Clear();
+        IlPairNativeBuiltWithIndex = false;
+        IlPairNativeInstructions = null;
+        IlPairNativeHeaderLineCount = 0;
+        IlPairNativeSyntaxProvider.Instructions = null;
+        IlPairNativeNavigationProvider.Instructions = null;
+        IlPairSearchProvider.Query = null;
+        IlPairSearchProvider.CurrentMatchStart = null;
+        IlPairSearchProvider.CurrentMatchLength = 0;
+        IlPairYankProvider.HighlightRange = null;
+        IlPairSearchOffsets = [];
+        IlSearchScopeNative = false;
+        IlPairEditorKey = null;
+        IlPairNativeEditorKeyCache.Clear();
+        IlPairCachedEditors.Clear();
+        IlRightPaneWidth = 0;
+    }
 
     /// <summary>Navigation decoration provider that underlines navigable IL operands.</summary>
     public IlNavigationDecorationProvider IlNavigationProvider { get; } = new();
@@ -725,6 +843,257 @@ public sealed class DotsiderState : IDisposable
     /// <summary>The path to the companion managed .dll, or null if not detected.</summary>
     public string? ApphostCompanionDllPath { get; set; }
 
+    // --- Pre-ILC Sidecar State ---
+
+    /// <summary>Whether the pre-ILC sidecar offer dialog is currently shown.</summary>
+    public bool PreIlcDialogOpen { get; set; }
+
+    /// <summary>Whether any modal companion dialog is open — every dialog guard site checks this.</summary>
+    public bool ModalDialogOpen => ApphostDialogOpen || PreIlcDialogOpen;
+
+    /// <summary>
+    /// The analyzer that answers metadata questions: the attached pre-ILC root when the
+    /// current binary has one, otherwise the current analyzer. Metadata-driven views route
+    /// through this; binary views stay on <see cref="Analyzer"/>.
+    /// </summary>
+    public AssemblyAnalyzer MetadataAnalyzer => Analyzer.PreIlcCompanions?.Root ?? Analyzer;
+
+    /// <summary>The IL disassembler for <see cref="MetadataAnalyzer"/>.</summary>
+    public IlDisassembler? MetadataIlDisassembler => GetMetadataIlDisassembler(MetadataAnalyzer);
+
+    /// <summary>The string extractor for <see cref="MetadataAnalyzer"/> — the companion's when attached.</summary>
+    public StringExtractor MetadataStringExtractor
+    {
+        get
+        {
+            if (Analyzer.PreIlcCompanions is null) return StringExtractor;
+            EnsureCompanionUi();
+            return _companionStringExtractor ?? StringExtractor;
+        }
+    }
+
+    /// <summary>
+    /// The managed↔native correlation index for the current analyzer, published by
+    /// <see cref="EnsureManagedNativeIndexAsync"/>; null before the background build lands.
+    /// </summary>
+    public ManagedNativeIndex? PreIlcIndex { get; internal set; }
+
+    /// <summary>Whether a correlation index build is currently running in the background.</summary>
+    public bool PreIlcIndexBuildInProgress { get; internal set; }
+
+    /// <summary>Whether the IL Inspector tree shows the native-symbol view while companions are attached.</summary>
+    public bool IlAotTreeNativeView { get; set; }
+
+    private readonly Dictionary<AssemblyAnalyzer, IlDisassembler> _companionDisassemblers =
+        new(ReferenceEqualityComparer.Instance);
+    private StringExtractor? _companionStringExtractor;
+    private PreIlcCompanionSet? _companionUiFor;
+
+    /// <summary>
+    /// The IL disassembler for a specific member of the companion set (multi-assembly
+    /// trees select methods from local references too), or the current analyzer's own.
+    /// Null when <paramref name="owner"/> is neither.
+    /// </summary>
+    /// <param name="owner">The analyzer that defines the method being disassembled.</param>
+    public IlDisassembler? GetMetadataIlDisassembler(AssemblyAnalyzer owner)
+    {
+        if (ReferenceEquals(owner, Analyzer)) return IlDisassembler;
+
+        EnsureCompanionUi();
+        var set = _companionUiFor;
+        if (set is null || !set.All.Contains(owner)) return null;
+
+        if (!_companionDisassemblers.TryGetValue(owner, out var disassembler))
+        {
+            disassembler = new IlDisassembler(owner);
+            _companionDisassemblers[owner] = disassembler;
+        }
+
+        return disassembler;
+    }
+
+    /// <summary>
+    /// Attaches the probed pre-ILC companions to the current analyzer and starts the
+    /// correlation index build. Unlike the apphost accept, this never replaces the
+    /// analyzer — the native binary stays current and metadata routing takes over.
+    /// </summary>
+    /// <returns>Whether the companions attached.</returns>
+    public bool AttachPreIlc()
+    {
+        PreIlcCompanionSet? set;
+        try
+        {
+            set = Analyzer.AttachPreIlcCompanions();
+        }
+        catch (ObjectDisposedException)
+        {
+            set = null;
+        }
+
+        if (set is null)
+        {
+            ShowTransientNotice("Cannot open pre-ILC sidecar assembly");
+            return false;
+        }
+
+        IlAotTreeNativeView = false;
+        InvalidateMetadataRoutedCaches();
+        EnsureManagedNativeIndexAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Detaches the pre-ILC companions, restoring native-only routing and clearing every
+    /// piece of IL state that referenced a companion analyzer.
+    /// </summary>
+    public void DetachPreIlc()
+    {
+        if (Analyzer.PreIlcCompanions is null) return;
+
+        Analyzer.DetachPreIlcCompanions();
+        PreIlcIndex = null;
+        ClearCompanionIlState();
+        InvalidateMetadataRoutedCaches();
+        ShowTransientNotice("Detached pre-ILC sidecars");
+    }
+
+    /// <summary>
+    /// Kicks off a background build of the managed↔native correlation index for the
+    /// current analyzer's attached companions. No-op while a build is in flight or after
+    /// the index landed; a result for a stale analyzer is discarded. The analyzer-level
+    /// generation guard makes a build racing detach or dispose harmless.
+    /// </summary>
+    public void EnsureManagedNativeIndexAsync()
+    {
+        if (PreIlcIndex is not null || PreIlcIndexBuildInProgress) return;
+        var capturedAnalyzer = Analyzer;
+        if (capturedAnalyzer.PreIlcCompanions is null) return;
+
+        PreIlcIndexBuildInProgress = true;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                ManagedNativeIndex? index;
+                try
+                {
+                    index = capturedAnalyzer.ManagedNativeIndex;
+                }
+                catch (ObjectDisposedException)
+                {
+                    index = null;
+                }
+
+                if (!ReferenceEquals(Analyzer, capturedAnalyzer))
+                    return;
+
+                PreIlcIndex = index;
+            }
+            finally
+            {
+                PreIlcIndexBuildInProgress = false;
+                App.Invalidate();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Re-opens the companion offer dialogs after popping back to an analyzer that still
+    /// has an unaccepted offer — shared by the Esc back handler and the diagnostics
+    /// listener so both navigation paths behave identically.
+    /// </summary>
+    internal void ReofferCompanionDialogsAfterPop()
+    {
+        if (ApphostCompanionDllPath is not null && !Analyzer.HasMetadata)
+            ApphostDialogOpen = true;
+        if (Analyzer.PreIlcSidecars is { HasAttachableCompanion: true } && Analyzer.PreIlcCompanions is null)
+            PreIlcDialogOpen = true;
+    }
+
+    /// <summary>Drops caches whose contents depend on which analyzer answers metadata questions.</summary>
+    private void InvalidateMetadataRoutedCaches()
+    {
+        CachedUserStrings = null;
+        CachedMetadataStrings = null;
+        GeneralInfoEditorState = null;
+        GeneralInfoEditorText = null;
+        ClrHeaderEditorState = null;
+        ClrHeaderEditorText = null;
+        PeFocusedKey = null;
+        GeneralFocusedDep = MetadataAnalyzer.AssemblyRefs.Count > 0
+            ? MetadataAnalyzer.AssemblyRefs[0].Name
+            : null;
+        Search[TabId.IlInspector].Reset();
+        IlSearchMatches = [];
+        IlCurrentMatchIndex = -1;
+        IlLastSearchQuery = null;
+        IlPendingCursorMatch = null;
+        IlTextMatchMethodTokens = null;
+        IlNativeSearchOffsets = [];
+    }
+
+    /// <summary>Clears IL Inspector state that references companion analyzers.</summary>
+    private void ClearCompanionIlState()
+    {
+        ClearPairPaneState();
+        SetIlFocusedTreeKey(null);
+        IlSelectedMethod = null;
+        IlSelectedField = null;
+        IlEditorState = null;
+        IlEditorMethod = null;
+        IlEditorAnalyzer = null;
+        IlEditorKey = null;
+        IlEditorField = null;
+        IlEditorKeyCache.Clear();
+        IlCachedEditors.Clear();
+        IlBackStack.Clear();
+        IlInstructions = null;
+        IlHeaderLineCount = 0;
+        IlNavigationProvider.Instructions = null;
+        IlSourceLinkProvider.Instructions = null;
+        _companionDisassemblers.Clear();
+        _companionStringExtractor = null;
+        _companionUiFor = null;
+    }
+
+    /// <summary>Rebuilds the companion-scoped UI helpers when the attached set changes.</summary>
+    private void EnsureCompanionUi()
+    {
+        var set = Analyzer.PreIlcCompanions;
+        if (ReferenceEquals(_companionUiFor, set)) return;
+
+        _companionDisassemblers.Clear();
+        _companionStringExtractor = set is null ? null : new StringExtractor(set.Root);
+        _companionUiFor = set;
+    }
+
+    /// <summary>
+    /// The pre-ILC local reference that owns <paramref name="analyzer"/>, or null when it
+    /// is the root, the current analyzer, or not a member of the attached set at all.
+    /// </summary>
+    private AssemblyAnalyzer? OwnerOf(AssemblyAnalyzer analyzer) =>
+        Analyzer.PreIlcCompanions is { } set
+        && !ReferenceEquals(analyzer, set.Root)
+        && set.All.Contains(analyzer)
+            ? analyzer
+            : null;
+
+    /// <summary>
+    /// Clears pre-ILC view state that follows the current analyzer: the built index
+    /// reference, the tree-source toggle, and the companion UI helpers. The attachment
+    /// itself lives on the analyzer — it survives pushes and reactivates on pop-back.
+    /// </summary>
+    internal void ResetPreIlcViewState()
+    {
+        IlAotTreeNativeView = false;
+        PreIlcIndex = null;
+        PreIlcIndexBuildInProgress = false;
+        _companionDisassemblers.Clear();
+        _companionStringExtractor = null;
+        _companionUiFor = null;
+        ClearPairPaneState();
+    }
+
     // --- Dynamic Analysis Tab State ---
 
     /// <summary>Whether the assembly has a CLR entry point (executable, not library).</summary>
@@ -836,14 +1205,12 @@ public sealed class DotsiderState : IDisposable
     {
         CrossViewBackStack.Push((CurrentTab, PeSubTab));
 
-        // Expand namespace and type in the IL tree
-        var typeDef = Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
-        var ns = typeDef is not null && !string.IsNullOrEmpty(typeDef.Namespace)
-            ? typeDef.Namespace : "(global)";
-        IlTreeExpansionState[$"ns:{ns}"] = true;
-        IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+        // Expand namespace and type in the IL tree (routed: PE tables answer from the
+        // pre-ILC root when attached, so the method belongs to the metadata analyzer).
+        ExpandIlTreeForMethod(method, owner: null);
 
         IlSelectedMethod = method;
+        IlSelectedMethodOwner = null;
         SetIlFocusedTreeKey($"method:{method.Token}");
 
         NavigateToTab(TabId.IlInspector);
@@ -994,19 +1361,29 @@ public sealed class DotsiderState : IDisposable
     public bool NavigateToIlDefinition(int token)
     {
         // IlEditorMethod reflects the currently-open method body; fall back to the
-        // list selection when the editor hasn't loaded yet. The resolver needs this
-        // to tie bare generic-parameter TypeSpecs ("!N"/"!!N") back to their owner.
+        // list selection when the editor hasn't loaded yet. Tokens resolve in the
+        // analyzer that produced the open listing — the routed metadata analyzer, or the
+        // pre-ILC local reference that owns the method.
+        var sourceAnalyzer = IlEditorAnalyzer ?? MetadataAnalyzer;
+        var owner = OwnerOf(sourceAnalyzer);
+        var prefix = owner is null ? "" : $"{owner.AssemblyName ?? owner.FileName}|";
         var target = IlNavigationResolver.Resolve(
-            Analyzer, token, IlEditorMethod ?? IlSelectedMethod);
+            sourceAnalyzer, token, IlEditorMethod ?? IlSelectedMethod);
         switch (target)
         {
             case IlNavigationTarget.LocalMethod(var method):
-                if (method.Token == IlSelectedMethod?.Token) return false;
+                if (method.Token == IlSelectedMethod?.Token
+                    && ReferenceEquals(owner, IlSelectedMethodOwner))
+                {
+                    return false;
+                }
+
                 PushIlBackEntry(false);
                 IlSelectedMethod = method;
+                IlSelectedMethodOwner = owner;
                 IlSelectedField = null;
-                ExpandIlTreeForMethod(method);
-                SetIlFocusedTreeKey($"method:{method.Token}");
+                ExpandIlTreeForMethod(method, owner);
+                SetIlFocusedTreeKey($"method:{prefix}{method.Token}");
                 App.RequestFocus(node => node is EditorNode);
                 App.Invalidate();
                 return true;
@@ -1017,13 +1394,14 @@ public sealed class DotsiderState : IDisposable
                 // the IL we just left — otherwise tree focus moves but the editor
                 // still renders the previous method and the nav looks half-applied.
                 IlSelectedMethod = null;
+                IlSelectedMethodOwner = null;
                 IlSelectedField = null;
                 IlEditorState = null;
                 IlEditorMethod = null;
                 IlEditorAnalyzer = null;
                 IlEditorField = null;
-                IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
-                SetIlFocusedTreeKey($"type:{type.FullName}");
+                IlTreeExpansionState[$"ns:{prefix}{(!string.IsNullOrEmpty(type.Namespace) ? type.Namespace : "(global)")}"] = true;
+                SetIlFocusedTreeKey($"type:{prefix}{type.FullName}");
                 App.RequestFocus(node => node is ScrollPanelNode);
                 App.Invalidate();
                 return true;
@@ -1031,25 +1409,26 @@ public sealed class DotsiderState : IDisposable
             case IlNavigationTarget.LocalField(var field, var dt):
                 PushIlBackEntry(false);
                 IlSelectedMethod = null;
+                IlSelectedMethodOwner = null;
                 IlSelectedField = field;
                 IlEditorState = null;
                 IlEditorMethod = null;
                 IlEditorAnalyzer = null;
-                IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
-                IlTreeExpansionState[$"type:{dt.FullName}"] = true;
-                SetIlFocusedTreeKey($"type:{dt.FullName}");
+                IlTreeExpansionState[$"ns:{prefix}{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
+                IlTreeExpansionState[$"type:{prefix}{dt.FullName}"] = true;
+                SetIlFocusedTreeKey($"type:{prefix}{dt.FullName}");
                 App.RequestFocus(node => node is ScrollPanelNode);
                 App.Invalidate();
                 return true;
 
             case IlNavigationTarget.ExternalMethod(var memberName, var extDeclType, var signature, var assemblyName):
-                return NavigateToExternalMethod(assemblyName, memberName, signature, extDeclType);
+                return NavigateToExternalMethod(sourceAnalyzer, assemblyName, memberName, signature, extDeclType);
 
             case IlNavigationTarget.ExternalType(var typeRef, var assemblyName):
-                return NavigateToExternalType(assemblyName, typeRef);
+                return NavigateToExternalType(sourceAnalyzer, assemblyName, typeRef);
 
             case IlNavigationTarget.ExternalField(var fieldName, var extFieldDeclType, var assemblyName):
-                return NavigateToExternalField(assemblyName, fieldName, extFieldDeclType);
+                return NavigateToExternalField(sourceAnalyzer, assemblyName, fieldName, extFieldDeclType);
 
             case IlNavigationTarget.GenericInstantiation(_, var reason):
                 ShowTransientNotice($"Cannot decode generic instantiation: {reason}");
@@ -1101,6 +1480,9 @@ public sealed class DotsiderState : IDisposable
         }
 
         IlSelectedMethod = entry.Method;
+        // The entry's analyzer identifies the owner: a pre-ILC local reference restores
+        // as such; the root (or a plain analyzer) restores as the metadata default.
+        IlSelectedMethodOwner = OwnerOf(entry.EditorAnalyzer);
         IlSelectedField = null;
         IlEditorState = entry.EditorState;
         IlEditorMethod = entry.EditorMethod;
@@ -1120,10 +1502,11 @@ public sealed class DotsiderState : IDisposable
             IlCachedEditors.Remove(entry.EditorKey);
         }
 
-        // Restore instruction list for navigation decorations
-        if (IlDisassembler is not null)
+        // Restore instruction list for navigation decorations — from the analyzer that
+        // owns the restored method, which may be a pre-ILC companion.
+        if (GetMetadataIlDisassembler(entry.EditorAnalyzer) is { } restoredDisassembler)
         {
-            var r = IlDisassembler.DisassembleWithText(entry.Method);
+            var r = restoredDisassembler.DisassembleWithText(entry.Method);
             IlInstructions = r?.Instructions;
             IlHeaderLineCount = r?.HeaderLineCount ?? 0;
             IlNavigationProvider.Instructions = IlInstructions;
@@ -1305,22 +1688,55 @@ public sealed class DotsiderState : IDisposable
             treemapSnapshot));
     }
 
-    private void ExpandIlTreeForMethod(MethodDefInfo method)
+    private void ExpandIlTreeForMethod(MethodDefInfo method) =>
+        ExpandIlTreeForMethod(method, owner: null);
+
+    private void ExpandIlTreeForMethod(MethodDefInfo method, AssemblyAnalyzer? owner)
     {
-        var typeDef = Analyzer.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
+        var source = owner ?? MetadataAnalyzer;
+        var prefix = owner is null ? "" : $"{owner.AssemblyName ?? owner.FileName}|";
+        var typeDef = source.TypeDefs.FirstOrDefault(t => t.FullName == method.DeclaringType);
         var ns = typeDef is not null && !string.IsNullOrEmpty(typeDef.Namespace)
             ? typeDef.Namespace : "(global)";
-        IlTreeExpansionState[$"ns:{ns}"] = true;
-        IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+
+        // Multi-assembly pre-ILC trees group under assembly rows — expand the owner's.
+        if (Analyzer.PreIlcCompanions is { LocalReferences.Count: > 0 } set)
+        {
+            var member = owner ?? set.Root;
+            IlTreeExpansionState[$"asm:{member.AssemblyName ?? member.FileName}"] = true;
+        }
+
+        IlTreeExpansionState[$"ns:{prefix}{ns}"] = true;
+        IlTreeExpansionState[$"type:{prefix}{method.DeclaringType}"] = true;
     }
 
-    private bool NavigateToExternalMethod(string assemblyName, string memberName, string signature,
-        string? declaringType = null)
+    /// <summary>
+    /// Selects a pre-ILC method from the native pair pane's go-to-definition, pushing a
+    /// managed back entry so Esc returns to the departure method, and expanding the tree
+    /// path (assembly-prefixed for local references).
+    /// </summary>
+    /// <param name="method">The correlated managed method to select.</param>
+    /// <param name="owner">The defining analyzer when it is a local reference; null for the root.</param>
+    public void NavigateToPreIlcMethod(MethodDefInfo method, AssemblyAnalyzer? owner)
     {
+        PushIlBackEntry(crossAssembly: false);
+        IlSelectedMethod = method;
+        IlSelectedMethodOwner = owner;
+        ExpandIlTreeForMethod(method, owner);
+        var prefix = owner is null ? "" : $"{owner.AssemblyName ?? owner.FileName}|";
+        SetIlFocusedTreeKey($"method:{prefix}{method.Token}");
+        App.Invalidate();
+    }
+
+    private bool NavigateToExternalMethod(AssemblyAnalyzer sourceAnalyzer, string assemblyName,
+        string memberName, string signature, string? declaringType = null)
+    {
+        // Resolve from the assembly that owns the open IL — a local-reference companion in a
+        // multi-assembly set has its own directory, TFM, runtime pack, and bundle context.
         var resolved = ImplementationAssemblyResolver.Resolve(
-            Analyzer.FilePath, assemblyName, declaringType,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
-            RootNetFxBindingContext, Analyzer);
+            sourceAnalyzer.FilePath, assemblyName, declaringType,
+            sourceAnalyzer.TargetFramework, sourceAnalyzer.PreferredRuntimePack, sourceAnalyzer.SourceBundlePath,
+            RootNetFxBindingContext, sourceAnalyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
@@ -1378,12 +1794,12 @@ public sealed class DotsiderState : IDisposable
         return true;
     }
 
-    private bool NavigateToExternalType(string assemblyName, TypeRefInfo typeRef)
+    private bool NavigateToExternalType(AssemblyAnalyzer sourceAnalyzer, string assemblyName, TypeRefInfo typeRef)
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
-            Analyzer.FilePath, assemblyName, typeRef.FullName,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
-            RootNetFxBindingContext, Analyzer);
+            sourceAnalyzer.FilePath, assemblyName, typeRef.FullName,
+            sourceAnalyzer.TargetFramework, sourceAnalyzer.PreferredRuntimePack, sourceAnalyzer.SourceBundlePath,
+            RootNetFxBindingContext, sourceAnalyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
@@ -1424,13 +1840,13 @@ public sealed class DotsiderState : IDisposable
         return true;
     }
 
-    private bool NavigateToExternalField(string assemblyName, string fieldName,
-        string? declaringType = null)
+    private bool NavigateToExternalField(AssemblyAnalyzer sourceAnalyzer, string assemblyName,
+        string fieldName, string? declaringType = null)
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
-            Analyzer.FilePath, assemblyName, declaringType,
-            Analyzer.TargetFramework, Analyzer.PreferredRuntimePack, Analyzer.SourceBundlePath,
-            RootNetFxBindingContext, Analyzer);
+            sourceAnalyzer.FilePath, assemblyName, declaringType,
+            sourceAnalyzer.TargetFramework, sourceAnalyzer.PreferredRuntimePack, sourceAnalyzer.SourceBundlePath,
+            RootNetFxBindingContext, sourceAnalyzer);
         if (resolved is null)
         {
             ShowTransientNotice($"Cannot resolve assembly: {assemblyName}");
@@ -1730,6 +2146,7 @@ public sealed class DotsiderState : IDisposable
         IlNativeNavigationProvider.Instructions = null;
         IlNativeBackStack.Clear();
         IlGdPending = false;
+        ResetPreIlcViewState();
         TransientNotice = null;
         IlYankProvider.HighlightRange = null;
         YankNotification = null;
@@ -1818,8 +2235,10 @@ public sealed class DotsiderState : IDisposable
     {
         var entries = StringsSourceTab switch
         {
-            StringsSubTabId.UserStrings => CachedUserStrings ??= StringExtractor.ExtractUserStrings(),
-            StringsSubTabId.Metadata => CachedMetadataStrings ??= StringExtractor.ExtractMetadataStrings(),
+            // #US and #Strings heaps are metadata: they answer from the pre-ILC companion
+            // when one is attached (the native AOT image has neither).
+            StringsSubTabId.UserStrings => CachedUserStrings ??= MetadataStringExtractor.ExtractUserStrings(),
+            StringsSubTabId.Metadata => CachedMetadataStrings ??= MetadataStringExtractor.ExtractMetadataStrings(),
             StringsSubTabId.RawBinary => GetCachedRawStrings(),
             StringsSubTabId.RawBinaryUtf16 => GetCachedRawUtf16Strings(),
             StringsSubTabId.FrozenObject => CachedFrozenStrings ??= Analyzer.FrozenStrings,

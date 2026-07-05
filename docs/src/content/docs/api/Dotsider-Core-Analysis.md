@@ -54,6 +54,17 @@ distinction so callers can decide how to present each case (e.g. showing an apph
 public static class AssemblyLoader
 ```
 
+### [CorrelationQuery](/api/dotsider.core.analysis.correlationquery/)
+
+Resolves a "method or address" query against an AOT binary's pre-ILC companion set and
+correlation index, producing the one [CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/) the CLI, session, and
+MCP surfaces all render. Attaches the companions on demand and builds the index once;
+ambiguity is surfaced as candidates, never resolved by picking the first match.
+
+```csharp
+public static class CorrelationQuery
+```
+
 ### [DependencyGraphBuilder](/api/dotsider.core.analysis.dependencygraphbuilder/)
 
 Builds the full transitive assembly dependency graph rooted at an analyzed assembly.
@@ -117,6 +128,17 @@ assemblies (e.g., System.Private.CoreLib) by probing for type forwarding.
 
 ```csharp
 public static class ImplementationAssemblyResolver
+```
+
+### [ManagedNativeIndex](/api/dotsider.core.analysis.managednativeindex/)
+
+Joins pre-ILC managed methods to the native evidence of the AOT image they were
+compiled into: native symbols (via IlcNameDemangler, keyed from real
+companion metadata instead of the binary's reduced recovered types) and mstat size
+rows. Built once, queried per-frame — every lookup is a dictionary hit.
+
+```csharp
+public sealed class ManagedNativeIndex
 ```
 
 ### [MstatReader](/api/dotsider.core.analysis.mstatreader/)
@@ -196,6 +218,16 @@ Reads package metadata from .nuspec and lists all contents.
 
 ```csharp
 public sealed class NuGetPackageAnalyzer : IDisposable
+```
+
+### [PreIlcSidecarDetector](/api/dotsider.core.analysis.preilcsidecardetector/)
+
+Locates the pre-ILC build outputs of a Native AOT binary: the managed input assembly
+the compiler consumed, its portable PDB, and the mstat/DGML sidecars in the build's
+intermediate tree.
+
+```csharp
+public static class PreIlcSidecarDetector
 ```
 
 ### [RuntimeTracer](/api/dotsider.core.analysis.runtimetracer/)

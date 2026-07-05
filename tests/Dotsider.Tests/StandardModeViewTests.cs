@@ -3110,6 +3110,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Native AOT (.NET)"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("ILC / RTR Format"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Native Imports"), TimeSpan.FromSeconds(10))

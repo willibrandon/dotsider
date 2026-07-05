@@ -26,11 +26,15 @@ public static class GeneralView
     public static Hex1bWidget Build(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var analyzer = state.Analyzer;
+        // The refs table and drill-down answer from the pre-ILC root when attached; the
+        // info block keeps the native facts and appends the sidecar summary below.
+        var metadataAnalyzer = state.MetadataAnalyzer;
+        var routed = !ReferenceEquals(metadataAnalyzer, analyzer);
         var search = state.Search[TabId.General];
         var query = search.Query;
 
         // Filter assembly refs by search query
-        var refs = (IReadOnlyList<AssemblyRefInfo>)analyzer.AssemblyRefs;
+        var refs = (IReadOnlyList<AssemblyRefInfo>)metadataAnalyzer.AssemblyRefs;
         if (!string.IsNullOrEmpty(query))
         {
             refs = [.. refs
@@ -105,6 +109,29 @@ public static class GeneralView
                 infoLines.Add(symbols.Symbols.Count > 0
                     ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
                     : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
+            }
+
+            if (analyzer.PreIlcCompanions is { } companions)
+            {
+                state.EnsureManagedNativeIndexAsync();
+                var localCount = companions.LocalReferences.Count;
+                infoLines.Add("");
+                infoLines.Add($"  Pre-ILC Sidecars: {companions.Root.FileName}"
+                    + (localCount > 0 ? $" (+{localCount} local ref{(localCount == 1 ? "" : "s")})" : ""));
+                infoLines.Add($"  Sidecar Version:  {companions.Root.AssemblyVersion ?? "(none)"}"
+                    + $" ({companions.Root.TargetFramework ?? "unknown TFM"})");
+                infoLines.Add($"  Sidecar PDB:      {analyzer.PreIlcSidecars?.PdbStatus.ToString() ?? "unknown"}");
+                infoLines.Add(state.PreIlcIndex is { } index
+                    ? $"  Correlation:      {index.ExactCount} of {index.Methods.Count} methods in native image"
+                        + $" ({index.AmbiguousCount} ambiguous, {index.MstatOnlyCount} size-only,"
+                        + $" {index.NotInImageCount} trimmed/inlined)"
+                    : "  Correlation:      correlating IL ↔ native…");
+            }
+            else if (analyzer.PreIlcSidecars is { HasAttachableCompanion: true } offer)
+            {
+                infoLines.Add("");
+                infoLines.Add($"  Pre-ILC Sidecars: found ({Path.GetFileName(offer.ManagedAssemblyPath!)})"
+                    + " — press a to attach");
             }
         }
 
@@ -195,11 +222,12 @@ public static class GeneralView
                     {
                         // Use full identity so net48 roots route through NetFxBinder and
                         // produce the same answer as the Dep Graph and IL navigation.
+                        // The routed analyzer's own context resolves its references.
                         var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
-                            state.Analyzer.FilePath, asmRef,
-                            state.Analyzer.TargetFramework,
-                            state.Analyzer.PreferredRuntimePack,
-                            state.Analyzer.SourceBundlePath,
+                            state.MetadataAnalyzer.FilePath, asmRef,
+                            state.MetadataAnalyzer.TargetFramework,
+                            state.MetadataAnalyzer.PreferredRuntimePack,
+                            state.MetadataAnalyzer.SourceBundlePath,
                             state.RootNetFxBindingContext);
                         if (resolution.Resolved is not null)
                         {
@@ -215,18 +243,18 @@ public static class GeneralView
                         bindings.Key(Hex1bKey.Enter).Action(_ =>
                         {
                             var focusedName = state.GeneralFocusedDep as string
-                                ?? (analyzer.AssemblyRefs.Count > 0 ? analyzer.AssemblyRefs[0].Name : null);
+                                ?? (metadataAnalyzer.AssemblyRefs.Count > 0 ? metadataAnalyzer.AssemblyRefs[0].Name : null);
                             if (focusedName is null) return;
                             // Look up the AssemblyRef matching the focused simple name so the
                             // bind has full identity. Net48 roots route through NetFxBinder.
-                            var asmRef = analyzer.AssemblyRefs.FirstOrDefault(
+                            var asmRef = metadataAnalyzer.AssemblyRefs.FirstOrDefault(
                                 r => string.Equals(r.Name, focusedName, StringComparison.OrdinalIgnoreCase));
                             if (asmRef is null) return;
                             var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
-                                state.Analyzer.FilePath, asmRef,
-                                state.Analyzer.TargetFramework,
-                                state.Analyzer.PreferredRuntimePack,
-                                state.Analyzer.SourceBundlePath,
+                                state.MetadataAnalyzer.FilePath, asmRef,
+                                state.MetadataAnalyzer.TargetFramework,
+                                state.MetadataAnalyzer.PreferredRuntimePack,
+                                state.MetadataAnalyzer.SourceBundlePath,
                                 state.RootNetFxBindingContext);
                             if (resolution.Resolved is not null)
                             {
@@ -235,7 +263,9 @@ public static class GeneralView
                             }
                         }, "Drill into reference");
                     })
-            ).Title($" Assembly References ({refs.Count}) ").Fill());
+            ).Title(routed
+                ? $" Assembly References (pre-ILC) ({refs.Count}) "
+                : $" Assembly References ({refs.Count}) ").Fill());
 
             return [.. widgets];
         })
@@ -248,8 +278,8 @@ public static class GeneralView
                 {
                     // Editor → Table: seed focus to first row if none selected
                     state.GeneralFocusedDep ??=
-                        state.Analyzer.AssemblyRefs.Count > 0
-                            ? state.Analyzer.AssemblyRefs[0].Name : null;
+                        state.MetadataAnalyzer.AssemblyRefs.Count > 0
+                            ? state.MetadataAnalyzer.AssemblyRefs[0].Name : null;
                     state.App.RequestFocus(node =>
                         node.GetType().Name.StartsWith("TableNode"));
                     state.App.Invalidate();
@@ -270,6 +300,32 @@ public static class GeneralView
                     state.App.Invalidate();
                 }
             }, "Esc");
+
+            var isSearchEditing = search.IsActive && !search.IsConfirmed;
+            if (!isSearchEditing && !state.ModalDialogOpen)
+            {
+                // a: re-open the sidecar offer after a decline; d: detach an attached set.
+                if (state.Analyzer.PreIlcSidecars is { HasAttachableCompanion: true }
+                    && state.Analyzer.PreIlcCompanions is null)
+                {
+                    bindings.Key(Hex1bKey.A).Global().Action(_ =>
+                    {
+                        state.VimPending = VimMotionState.Idle;
+                        state.PreIlcDialogOpen = true;
+                        state.App.Invalidate();
+                    }, "Attach sidecar");
+                }
+
+                if (state.Analyzer.PreIlcCompanions is not null)
+                {
+                    bindings.Key(Hex1bKey.D).Global().Action(_ =>
+                    {
+                        state.VimPending = VimMotionState.Idle;
+                        state.DetachPreIlc();
+                        state.App.Invalidate();
+                    }, "Detach sidecar");
+                }
+            }
         })
         .Fill();
     }

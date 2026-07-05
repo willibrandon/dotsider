@@ -1,0 +1,14 @@
+<!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
+    <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

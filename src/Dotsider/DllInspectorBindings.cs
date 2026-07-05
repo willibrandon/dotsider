@@ -217,7 +217,31 @@ public static class DllInspectorBindings
             // Selection clearing moved to DotsiderApp's unified Escape handler
             // to avoid Global Escape binding conflicts with back navigation.
 
-            if (state.IlSelectedMethod is { Rva: > 0 } ilMethod)
+            var preIlcAttached = state.Analyzer.PreIlcCompanions is not null;
+
+            // x: view in hex. In attached managed mode the selected method's RVA belongs
+            // to the COMPANION image — meaningless against the native file — so x targets
+            // the correlated symbol's file offset instead, and unregisters without one.
+            if (preIlcAttached && !state.IlAotTreeNativeView)
+            {
+                if (state.IlSelectedMethod is { } preIlcMethod
+                    && state.PreIlcIndex is { } preIlcIndex
+                    && state.Analyzer.PreIlcCompanions is { } companionSet)
+                {
+                    var ownerName = (state.IlSelectedMethodOwner ?? companionSet.Root).AssemblyName ?? "";
+                    var correlatedOffset = preIlcIndex.Find(ownerName, preIlcMethod.Token)?
+                        .NativeSymbols.FirstOrDefault(sym => sym.FileOffset is not null)?.FileOffset;
+                    if (correlatedOffset is { } fileOffset)
+                    {
+                        bindings.Key(Hex1bKey.X).Global().Action(_ =>
+                        {
+                            resetVimPending?.Invoke();
+                            state.NavigateToHexFileOffset(fileOffset);
+                        }, "View in hex");
+                    }
+                }
+            }
+            else if (state.IlSelectedMethod is { Rva: > 0 } ilMethod && !preIlcAttached)
             {
                 bindings.Key(Hex1bKey.X).Global().Action(_ =>
                 {
@@ -234,11 +258,39 @@ public static class DllInspectorBindings
                 }, "View in hex");
             }
 
+            // t: toggle the tree between the pre-ILC managed view and the native symbols.
+            if (preIlcAttached && !(ilSearch.IsActive && !ilSearch.IsConfirmed))
+            {
+                bindings.Key(Hex1bKey.T).Global().Action(_ =>
+                {
+                    resetVimPending?.Invoke();
+                    state.IlAotTreeNativeView = !state.IlAotTreeNativeView;
+                    ilSearch.Reset();
+                    state.IlSearchMatches = [];
+                    state.IlNativeSearchOffsets = [];
+                    state.IlPairSearchOffsets = [];
+                    state.IlCurrentMatchIndex = -1;
+                    state.IlLastSearchQuery = null;
+                    state.IlTextMatchMethodTokens = null;
+                    state.RequestContentFocus();
+                    app.Invalidate();
+                }, "Toggle tree source");
+            }
+
             bindings.Key(Hex1bKey.L).Global().Action(_ =>
             {
                 resetVimPending?.Invoke();
-                app.RequestFocus(node => node is EditorNode);
-                app.Invalidate();
+                // With the pair visible, l cycles IL ↔ native; otherwise it focuses the editor.
+                if (preIlcAttached && state.IlPairNativeEditorState is not null)
+                {
+                    Views.IlInspectorView.FocusPane(state,
+                        state.IlFocusedPane == IlPane.Native ? IlPane.Il : IlPane.Native);
+                }
+                else
+                {
+                    app.RequestFocus(node => node is EditorNode);
+                    app.Invalidate();
+                }
             }, "Focus IL");
         }
     }
@@ -258,11 +310,13 @@ public static class DllInspectorBindings
             if (state.PeSubTab is PeSubTabId.TypeDef or PeSubTabId.MethodDef)
                 hints.Add(s.Section("g: Go to IL"));
         }
-        else if (state.CurrentTab == TabId.IlInspector && state.IsNativeBinary)
+        else if (state.CurrentTab == TabId.IlInspector && Views.IlInspectorView.IsNativeTreeMode(state))
         {
             if (state.IlSelectedNativeSymbol is not null)
                 hints.Add(s.Section("Enter/gd: Go to def"));
             hints.Add(s.Section("l: Focus"));
+            if (state.Analyzer.PreIlcCompanions is not null)
+                hints.Add(s.Section("t: Managed tree"));
             if (state.IlSelectedNativeSymbol is { FileOffset: not null })
                 hints.Add(s.Section("x: Hex"));
             if (state.IlNativeBackStack.Count > 0)
@@ -270,13 +324,23 @@ public static class DllInspectorBindings
         }
         else if (state.CurrentTab == TabId.IlInspector)
         {
+            var preIlcAttached = state.Analyzer.PreIlcCompanions is not null;
             if (state.IlSelectedMethod is not null)
                 hints.Add(s.Section("Enter/gd: Go to def"));
-            hints.Add(s.Section("l: Focus IL"));
-            if (state.IlSelectedMethod is { Rva: > 0 })
+            hints.Add(s.Section(preIlcAttached && state.IlPairNativeEditorState is not null
+                ? "l: Panes"
+                : "l: Focus IL"));
+            if (preIlcAttached)
+                hints.Add(s.Section("t: Native tree"));
+            if (preIlcAttached
+                ? state.IlSelectedMethod is not null && HasCorrelatedFileOffset(state)
+                : state.IlSelectedMethod is { Rva: > 0 })
+            {
                 hints.Add(s.Section("x: Hex"));
+            }
             if (state.IlSelectedMethod is { } method
-                && state.Analyzer.GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
+                && (state.IlSelectedMethodOwner ?? state.MetadataAnalyzer)
+                    .GetMethodDebugInfo(method).SequencePoints.Any(p => p.HasEmbeddedSource))
                 hints.Add(s.Section("o: Source"));
             if (HasSourceLinkUrlAtIlCursor(state))
                 hints.Add(s.Section("u: Source URL"));
@@ -325,6 +389,13 @@ public static class DllInspectorBindings
         if (yankable)
             hints.Add(s.Section("y: Yank"));
     }
+
+    private static bool HasCorrelatedFileOffset(DotsiderState state) =>
+        state.IlSelectedMethod is { } method
+        && state.PreIlcIndex is { } index
+        && state.Analyzer.PreIlcCompanions is { } companions
+        && index.Find((state.IlSelectedMethodOwner ?? companions.Root).AssemblyName ?? "", method.Token)?
+            .NativeSymbols.Any(sym => sym.FileOffset is not null) == true;
 
     private static bool HasSourceLinkUrlAtIlCursor(DotsiderState state) =>
         state.IlEditorState is { } editorState

@@ -176,6 +176,9 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D8) // Navigate to Dynamic tab
             .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"),
                 TimeSpan.FromSeconds(10))
@@ -204,9 +207,12 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
-        // Wait for initial render
+        // Wait for initial render, then decline the pre-ILC offer so tab navigation isn't blocked.
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(s => !s.ContainsText("Native AOT Sidecars Detected"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
