@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Analysis.ReadyToRun;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -37,7 +38,7 @@ public static class IlInspectorView
             var attached = state.Analyzer.PreIlcCompanions is not null;
             var nativeTextSearch = attached
                 ? state.IlFocusedPane == IlPane.Native && state.IlPairNativeEditorState is not null
-                : state.Analyzer.BinaryKind != BinaryKind.Managed;
+                : !state.Analyzer.HasManagedMetadata;
             if (!string.IsNullOrEmpty(query) && search.IsConfirmed)
             {
                 if (nativeTextSearch)
@@ -295,7 +296,7 @@ public static class IlInspectorView
     /// </summary>
     /// <param name="state">The shared application state.</param>
     internal static bool IsNativeTreeMode(DotsiderState state) =>
-        state.Analyzer.BinaryKind != BinaryKind.Managed
+        !state.Analyzer.HasManagedMetadata
         && (state.Analyzer.PreIlcCompanions is null || state.IlAotTreeNativeView);
 
     /// <summary>Advances the focused pane: tree → IL → native → tree, skipping absent panes.</summary>
@@ -570,11 +571,20 @@ public static class IlInspectorView
     internal static string CorrelationGlyph(IlTreeRow row, DotsiderState state)
     {
         if (row is not { Kind: IlTreeRowKind.Method, Method: { } method }) return "";
+
+        // ReadyToRun: precompiled (✓) vs IL-only (–), keyed off the R2R index.
+        if (state.Analyzer.IsReadyToRun)
+        {
+            if (state.Analyzer.ReadyToRunIndex is not { } r2rIndex) return "";
+            var ownerName = (row.Owner ?? state.MetadataAnalyzer).AssemblyName ?? "";
+            return r2rIndex.Find(ownerName, method.Token) is not null ? "✓ " : "– ";
+        }
+
         if (state.Analyzer.PreIlcCompanions is not { } companions || state.PreIlcIndex is not { } index)
             return "";
 
-        var ownerName = (row.Owner ?? companions.Root).AssemblyName ?? "";
-        return index.Find(ownerName, method.Token)?.Status switch
+        var pilcOwnerName = (row.Owner ?? companions.Root).AssemblyName ?? "";
+        return index.Find(pilcOwnerName, method.Token)?.Status switch
         {
             MethodCorrelationStatus.CorrelatedExact => "✓ ",
             MethodCorrelationStatus.CorrelatedAmbiguous => "~ ",
@@ -672,8 +682,8 @@ public static class IlInspectorView
     private static Hex1bWidget[] BuildEditorPane<T>(
         WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
     {
-        // Native (non-managed) mode: render the selected symbol's native disassembly.
-        if (state.Analyzer.BinaryKind != BinaryKind.Managed && state.Analyzer.PreIlcCompanions is null)
+        // Native (metadata-less) mode: render the selected symbol's native disassembly.
+        if (!state.Analyzer.HasManagedMetadata && state.Analyzer.PreIlcCompanions is null)
             return BuildNativeEditorPane(ctx, state);
 
         return BuildManagedEditorPane(ctx, state,
@@ -689,6 +699,9 @@ public static class IlInspectorView
     private static Hex1bWidget[] BuildRightPane<T>(
         WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
     {
+        if (state.Analyzer.IsReadyToRun)
+            return BuildReadyToRunRightPane(ctx, state);
+
         if (state.Analyzer.PreIlcCompanions is not { } companions)
             return BuildEditorPane(ctx, state);
 
@@ -784,6 +797,92 @@ public static class IlInspectorView
     }
 
     /// <summary>
+    /// Builds the right pane for a ReadyToRun image: the selected managed method's IL beside its
+    /// precompiled native body (all code ranges), or IL alone with an honest status when the method
+    /// is not precompiled, the owner composite is missing, or the architecture has no disassembler.
+    /// Reuses the pre-ILC pair pane with a ReadyToRun-sourced native side.
+    /// </summary>
+    private static Hex1bWidget[] BuildReadyToRunRightPane<T>(
+        WidgetContext<T> ctx, DotsiderState state) where T : Hex1bWidget
+    {
+        MeasureRightPane(state);
+        var owner = state.MetadataAnalyzer;
+        var method = state.IlSelectedMethod;
+        if (method is null)
+            return BuildManagedEditorPane(ctx, state, owner, methodOverride: null);
+
+        var index = state.Analyzer.ReadyToRunIndex;
+        var entry = index?.Find(owner.AssemblyName ?? "", method.Token);
+        var codeImage = state.Analyzer.ReadyToRunCodeImage;
+
+        string status;
+        (string Text, IReadOnlyList<NativeInstruction> Instructions)? nativeDisasm = null;
+        NativeSymbol? hotSymbol = null;
+
+        if (entry is null)
+        {
+            status = " IL only — not precompiled in this image";
+        }
+        else if (codeImage is null)
+        {
+            status = " owner composite missing; native code unavailable";
+        }
+        else if (codeImage.NativeSymbols?.Architecture is not (NativeArchitecture.X64 or NativeArchitecture.Arm64))
+        {
+            status = $" precompiled; disassembly unsupported for {codeImage.NativeSymbols?.Architecture}";
+        }
+        else
+        {
+            string? Resolver(ulong va) =>
+                index!.FindByAddress(va) is { DeclaringType: not null } e ? $"{e.DeclaringType}.{e.Name}" : null;
+            if (ReadyToRunDisassembler.DisassembleMethod(codeImage, entry, Resolver) is { } d
+                && codeImage.NativeSymbols!.TryFindByAddress(entry.CodeRanges[0].VirtualAddress, out var sym))
+            {
+                nativeDisasm = (d.Text, d.Instructions);
+                hotSymbol = sym;
+                var rangeNote = entry.CodeRanges.Count > 1 ? $" · {entry.CodeRanges.Count} ranges" : "";
+                status = $" native: {entry.DeclaringType}.{entry.Name} @ 0x{entry.CodeRanges[0].VirtualAddress:X}"
+                    + $" · {entry.TotalSize}B{rangeNote}";
+            }
+            else
+            {
+                status = " no disassemblable native code";
+            }
+        }
+
+        var showBoth = hotSymbol is not null && nativeDisasm is not null;
+        var collapsed = showBoth && state.IlRightPaneWidth is > 0 and < 80;
+        if (collapsed) status += "  |  l: swap pane";
+
+        Hex1bWidget content;
+        if (showBoth && !collapsed)
+        {
+            var native = nativeDisasm;
+            var sym = hotSymbol!;
+            content = ctx.HSplitter(
+                l => BuildManagedEditorPane(l, state, owner, method),
+                r => BuildPairNativePane(r, state, sym, native),
+                leftWidth: 60).FillWidth().FillHeight();
+        }
+        else if (!showBoth || state.IlFocusedPane != IlPane.Native)
+        {
+            content = new VStackWidget([.. BuildManagedEditorPane(ctx, state, owner, method)])
+                .FillWidth().FillHeight();
+        }
+        else
+        {
+            content = new VStackWidget([.. BuildPairNativePane(ctx, state, hotSymbol!, nativeDisasm)])
+                .FillWidth().FillHeight();
+        }
+
+        return
+        [
+            ctx.Text(status).FixedHeight(1),
+            content,
+        ];
+    }
+
+    /// <summary>
     /// Captures the width of the right-pane area from the arranged editor nodes (the same
     /// last-frame node pattern the tree list uses for viewport height). Both pane
     /// viewports sum to the area regardless of split state; zero until first arrival,
@@ -813,7 +912,8 @@ public static class IlInspectorView
     /// StatePanelWidget scope so it never shares identity with the solo-native pipeline.
     /// </summary>
     private static Hex1bWidget[] BuildPairNativePane<T>(
-        WidgetContext<T> ctx, DotsiderState state, NativeSymbol symbol) where T : Hex1bWidget
+        WidgetContext<T> ctx, DotsiderState state, NativeSymbol symbol,
+        (string Text, IReadOnlyList<NativeInstruction> Instructions)? precomputed = null) where T : Hex1bWidget
     {
         _ = ctx;
         // Rebuild on a symbol change, or once when the correlation index arrives after a symbol
@@ -833,7 +933,11 @@ public static class IlInspectorView
                     ? $"{c.Method.DeclaringType}.{c.Method.Name}"
                     : null;
 
-            var result = NativeDisassembler.DisassembleSymbol(state.Analyzer, symbol, ManagedNameResolver);
+            // A ReadyToRun method's full body (all ranges) is precomputed and rebased; otherwise
+            // disassemble the single selected symbol from the analyzer.
+            var result = precomputed is { } pc
+                ? (pc.Text, pc.Instructions, HeaderLineCount: 0)
+                : NativeDisassembler.DisassembleSymbol(state.Analyzer, symbol, ManagedNameResolver);
             var disassembly = result?.Text
                 ?? $"// {symbol.ManagedName ?? symbol.Name}\n// No disassemblable bytes.";
             var doc = new Hex1bDocument(disassembly);

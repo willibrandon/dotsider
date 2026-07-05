@@ -36,3 +36,7 @@ With the `.codegen.dgml.xml` beside the binary too, press `w` on any method, typ
 When no `.mstat` sits beside a Native AOT binary, the treemap is built from its native symbols instead — the PDB, `.dbg`, or dSYM the publish produced. Functions joined to managed names group under assembly > namespace > type, and the compiler-generated data nodes land in explicit categories (`MethodTables`, `Frozen Objects`, `Stubs`, `Generic Dictionaries`, `Statics`, `Data`), with unjoined names under `Runtime`. The mstat report always wins when present — it is the compiler's own accounting.
 
 With no symbol file either, unwind data still yields nameless function boundaries under an `Unattributed` category — enough for a size histogram, though unwind data can miss leaf and thunk functions, so a boundary-only tree understates slightly.
+
+## ReadyToRun images
+
+For a ReadyToRun (crossgen2) image the treemap sizes the **precompiled native code** — each method's code ranges summed and grouped under assembly > namespace > type — rather than IL bytes, so the map reflects what crossgen2 actually emitted.

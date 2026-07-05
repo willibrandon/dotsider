@@ -274,6 +274,26 @@ file backing (the raw UTF-16 scan surfaces that text instead).
 public IReadOnlyList<StringEntry> FrozenStrings { get; }
 ```
 
+### HasEmbeddedNativeCode
+
+Whether this image has precompiled native method bodies mapped to managed methods.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool HasEmbeddedNativeCode { get; }
+```
+
+### HasManagedMetadata
+
+Whether this image carries ECMA-335 metadata (managed or ReadyToRun).
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool HasManagedMetadata { get; }
+```
+
 ### HasMetadata
 
 Whether the PE file contains .NET metadata.
@@ -324,6 +344,16 @@ Whether the file is read-only on disk.
 
 ```csharp
 public bool IsReadOnly { get; }
+```
+
+### IsReadyToRun
+
+Whether this is a crossgen2 ReadyToRun image.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IsReadyToRun { get; }
 ```
 
 ### LastModified
@@ -529,10 +559,83 @@ Gets the raw bytes of the file for hex editor display.
 public ReadOnlyMemory<byte> RawBytes { get; }
 ```
 
+### ReadyToRunCodeImage
+
+The analyzer whose bytes hold this image's precompiled native code — itself for a
+non-composite or composite image, or the resolved owner composite for a composite
+component. Null when this is not a ReadyToRun image or the code image cannot be resolved.
+
+**Returns:** [AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)
+
+```csharp
+public AssemblyAnalyzer? ReadyToRunCodeImage { get; }
+```
+
+### ReadyToRunComponents
+
+The component assemblies of a composite ReadyToRun image, each with its resolution state, or
+an empty list for a non-composite image or before resolution.
+
+**Returns:** [IReadOnlyList\<ReadyToRunComponent\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<ReadyToRunComponent> ReadyToRunComponents { get; }
+```
+
+### ReadyToRunIndex
+
+The queryable index over this image's precompiled methods, or null when it is not a
+ReadyToRun image. Built lazily from [ReadyToRunMethods](/api/dotsider.core.analysis.assemblyanalyzer.readytorunmethods/).
+
+**Returns:** [ReadyToRunIndex](/api/dotsider.core.analysis.readytorunindex/)
+
+```csharp
+public ReadyToRunIndex? ReadyToRunIndex { get; }
+```
+
+### ReadyToRunInfo
+
+The crossgen2 ReadyToRun header facts, or null when the image does not claim to be
+ReadyToRun. Present (with a diagnostic [Status](/api/dotsider.core.analysis.models.readytoruninfo.status/)) even for a
+corrupt or unsupported header, so a broken image is surfaced rather than hidden. Probed
+lazily regardless of [HasMetadata](/api/dotsider.core.analysis.assemblyanalyzer.hasmetadata/) (composite images have no own metadata).
+
+**Returns:** [ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/)
+
+```csharp
+public ReadyToRunInfo? ReadyToRunInfo { get; }
+```
+
+### ReadyToRunMetadataProviders
+
+The distinct metadata providers backing this ReadyToRun image — itself for a non-composite one,
+or the resolved component assemblies for a composite. Used to find a method that is present in a
+component's metadata but absent from the precompiled map. Empty when this is not a ReadyToRun image.
+
+**Returns:** [IReadOnlyList\<AssemblyAnalyzer\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<AssemblyAnalyzer> ReadyToRunMetadataProviders { get; }
+```
+
+### ReadyToRunMethods
+
+The precompiled methods of a ReadyToRun image joined to their native code ranges, or an
+empty list when this is not a usable ReadyToRun image. Built lazily from the entry-point
+tables. For a non-composite image the code lives in this file; composite resolution is
+layered on in ReadyToRunImageReader.
+
+**Returns:** [IReadOnlyList\<ReadyToRunMethodEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<ReadyToRunMethodEntry> ReadyToRunMethods { get; }
+```
+
 ### ReadyToRunSections
 
-The ReadyToRun section table of a Native AOT binary, or an empty list when this is
-not a Native AOT binary or the table cannot be parsed.
+The ReadyToRun section table — the Native AOT module sections for a Native AOT binary, or
+the crossgen2 sections (ids 100–126) for a classic ReadyToRun image — or an empty list
+otherwise. Both feed the PE/Metadata "R2R Sections" tab.
 
 **Returns:** [IReadOnlyList\<RtrSection\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
@@ -765,6 +868,21 @@ true if the node represents a framework assembly.
 
 ```csharp
 public static bool IsFrameworkAssembly(AssemblyProvenance provenance, AssemblyRefInfo identity, string? targetFramework, string? preferredRuntimePack)
+```
+
+### ReadyToRunMetadataProviderFor(Guid)
+
+The analyzer whose ECMA-335 metadata backs the given module — this image for a non-composite
+one, or the resolved component assembly for a composite. Falls back to this analyzer.
+
+**Parameters:**
+
+- `mvid` ([Guid](https://learn.microsoft.com/dotnet/api/system.guid)): The module version id of the owning assembly.
+
+**Returns:** [AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)
+
+```csharp
+public AssemblyAnalyzer ReadyToRunMetadataProviderFor(Guid mvid)
 ```
 
 ### ResolveAssembly(string, string, string?, string?, string?)

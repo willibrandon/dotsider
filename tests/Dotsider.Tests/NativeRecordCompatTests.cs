@@ -1,3 +1,4 @@
+using System.Reflection.PortableExecutable;
 using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
@@ -5,10 +6,40 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Back-compatibility tests for the #178 shipped-record extensions: the pre-#178 construction and
 /// deconstruction shapes of <see cref="NativeSymbolInfo"/> (five-arg) and <see cref="SizeNode"/>
-/// (five/six-arg) still compile and behave, with the new fields defaulting.
+/// (five/six-arg) still compile and behave, with the new fields defaulting. The #180 ReadyToRun work
+/// adds <see cref="ClrHeader.ManagedNativeHeader"/>; its ten-arg constructor and deconstruction shape
+/// must remain source-compatible.
 /// </summary>
 public class NativeRecordCompatTests
 {
+    /// <summary>Verifies the pre-ManagedNativeHeader ten-argument ClrHeader constructor still works.</summary>
+    [Fact(Timeout = 30_000)]
+    public void ClrHeader_OldConstructor_DefaultsManagedNativeHeader()
+    {
+        var header = new ClrHeader(2, 5, 0x100, 0x200, CorFlags.ILOnly, 0x06000001, 0, 0, 0, 0);
+        Assert.Equal(default, header.ManagedNativeHeader);
+        Assert.Equal(0, header.ManagedNativeHeader.Size);
+    }
+
+    /// <summary>Verifies the old ten-output ClrHeader deconstruction still works.</summary>
+    [Fact(Timeout = 30_000)]
+    public void ClrHeader_OldDeconstruct_YieldsTen()
+    {
+        var header = new ClrHeader(2, 5, 0x100, 0x200, CorFlags.ILOnly, 0x06000001, 0x300, 0x40, 0, 0,
+            new DirectoryEntry(0x500, 0x60));
+        var (major, minor, metadataRva, metadataSize, flags, entryPoint, resRva, resSize, snRva, snSize) = header;
+        Assert.Equal(2, major);
+        Assert.Equal(5, minor);
+        Assert.Equal(0x100, metadataRva);
+        Assert.Equal(0x200, metadataSize);
+        Assert.Equal(CorFlags.ILOnly, flags);
+        Assert.Equal(0x06000001, entryPoint);
+        Assert.Equal(0x300, resRva);
+        Assert.Equal(0x40, resSize);
+        Assert.Equal(0, snRva);
+        Assert.Equal(0, snSize);
+    }
+
     /// <summary>Verifies the old five-argument NativeSymbolInfo constructor still works.</summary>
     [Fact(Timeout = 30_000)]
     public void NativeSymbolInfo_OldConstructor_DefaultsNewFields()

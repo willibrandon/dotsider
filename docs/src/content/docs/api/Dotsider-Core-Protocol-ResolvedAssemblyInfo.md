@@ -3,7 +3,7 @@ title: "ResolvedAssemblyInfo"
 description: "Serialization-safe representation of an assembly resolution result. Used in protocol and MCP responses where ResolvedAssembly cannot be serialized directly (FromBundle contains raw bytes)."
 slug: api/dotsider.core.protocol.resolvedassemblyinfo
 sidebar:
-  order: 3
+  order: 4
 ---
 
 **Namespace:** `Dotsider.Core.Protocol`

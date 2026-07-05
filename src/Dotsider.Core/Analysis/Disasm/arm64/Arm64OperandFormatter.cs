@@ -92,7 +92,7 @@ internal static partial class Arm64OperandFormatter
 
             case Arm64Format.Adr:
             {
-                var imm = SignExtend((word >> 5) & 0x7FFFF | ((word >> 29) & 3) << 19, 21);
+                var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21);
                 target = unchecked(address + (ulong)imm);
                 Reg(ops, R.Gpr(rd, true));
                 Label(ops, target.Value);
@@ -102,7 +102,7 @@ internal static partial class Arm64OperandFormatter
 
             case Arm64Format.Adrp:
             {
-                var imm = SignExtend((word >> 5) & 0x7FFFF | ((word >> 29) & 3) << 19, 21) << 12;
+                var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21) << 12;
                 target = unchecked((address & ~0xFFFUL) + (ulong)imm);
                 Reg(ops, R.Gpr(rd, true));
                 Label(ops, target.Value);
@@ -256,7 +256,7 @@ internal static partial class Arm64OperandFormatter
             case Arm64Format.Crc:
                 Reg(ops, R.Gpr(rd, false));
                 Reg(ops, R.Gpr(rn, false));
-                Reg(ops, R.Gpr(rm, mnem.EndsWith("x")));
+                Reg(ops, R.Gpr(rm, mnem.EndsWith('x')));
                 break;
 
             case Arm64Format.ScalarFp3:

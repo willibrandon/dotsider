@@ -26,7 +26,7 @@ public sealed record ClrHeader : IEquatable<ClrHeader>
 
 ## Constructors
 
-### ClrHeader(int, int, int, int, CorFlags, int, int, int, int, int)
+### ClrHeader(int, int, int, int, CorFlags, int, int, int, int, int, DirectoryEntry)
 
 CLR (Common Language Runtime) header information from the PE file's COR20 header.
 
@@ -42,9 +42,33 @@ CLR (Common Language Runtime) header information from the PE file's COR20 header
 - `ResourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): Size of the managed resources directory.
 - `StrongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): RVA of the strong name signature.
 - `StrongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): Size of the strong name signature.
+- `ManagedNativeHeader` ([DirectoryEntry](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.directoryentry)): The managed native header directory. Non-empty for precompiled images: a crossgen2 ReadyToRun
+image points it at the `READYTORUN_HEADER`. Empty (`Size == 0`) for a plain managed assembly.
 
 ```csharp
-public ClrHeader(int MajorRuntimeVersion, int MinorRuntimeVersion, int MetadataRva, int MetadataSize, CorFlags Flags, int EntryPointToken, int ResourcesRva, int ResourcesSize, int StrongNameSignatureRva, int StrongNameSignatureSize)
+public ClrHeader(int MajorRuntimeVersion, int MinorRuntimeVersion, int MetadataRva, int MetadataSize, CorFlags Flags, int EntryPointToken, int ResourcesRva, int ResourcesSize, int StrongNameSignatureRva, int StrongNameSignatureSize, DirectoryEntry ManagedNativeHeader)
+```
+
+### ClrHeader(int, int, int, int, CorFlags, int, int, int, int, int)
+
+Constructs a header without a managed native header directory. Preserves the original
+ten-argument shape for callers written before [ManagedNativeHeader](/api/dotsider.core.analysis.models.clrheader.managednativeheader/) was added.
+
+**Parameters:**
+
+- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags)): 
+- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+
+```csharp
+public ClrHeader(int majorRuntimeVersion, int minorRuntimeVersion, int metadataRva, int metadataSize, CorFlags flags, int entryPointToken, int resourcesRva, int resourcesSize, int strongNameSignatureRva, int strongNameSignatureSize)
 ```
 
 ## Properties
@@ -77,6 +101,17 @@ Major version of the CLR required.
 
 ```csharp
 public int MajorRuntimeVersion { get; init; }
+```
+
+### ManagedNativeHeader
+
+The managed native header directory. Non-empty for precompiled images: a crossgen2 ReadyToRun
+image points it at the `READYTORUN_HEADER`. Empty (`Size == 0`) for a plain managed assembly.
+
+**Returns:** [DirectoryEntry](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.directoryentry)
+
+```csharp
+public DirectoryEntry ManagedNativeHeader { get; init; }
 ```
 
 ### MetadataRva
@@ -147,5 +182,29 @@ Size of the strong name signature.
 
 ```csharp
 public int StrongNameSignatureSize { get; init; }
+```
+
+## Methods
+
+### Deconstruct(out int, out int, out int, out int, out CorFlags, out int, out int, out int, out int, out int)
+
+Deconstructs the original ten fields, preserving the pre-[ManagedNativeHeader](/api/dotsider.core.analysis.models.clrheader.managednativeheader/)
+positional shape for existing deconstruction sites.
+
+**Parameters:**
+
+- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags)): 
+- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+
+```csharp
+public void Deconstruct(out int majorRuntimeVersion, out int minorRuntimeVersion, out int metadataRva, out int metadataSize, out CorFlags flags, out int entryPointToken, out int resourcesRva, out int resourcesSize, out int strongNameSignatureRva, out int strongNameSignatureSize)
 ```
 

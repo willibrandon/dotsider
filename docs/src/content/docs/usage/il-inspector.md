@@ -50,6 +50,10 @@ Call and branch targets are resolved to names: a direct call shows `call Foo`, a
 
 `Enter` on a resolved call/branch jumps to that function (the target is underlined to signal it's navigable); `Esc` returns. `x` jumps to the function's bytes in the Hex Dump. The Size Map and the PE/Metadata **Symbols** sub-tab cross-navigate into the native listing.
 
+## ReadyToRun images
+
+A ReadyToRun (crossgen2) image keeps its full metadata, so the tree stays in its managed namespace → type → method shape. A glyph marks each method: `✓` precompiled, `–` IL only (not in this image). Selecting a precompiled method splits the right pane — IL on the left, its native code ranges (hot, funclets, cold) on the right — with call targets resolved through the import tables (`call Console.WriteLine`, `call WriteBarrier`, a generic instantiation named with its type arguments). A composite `*.r2r.dll` shows its component assemblies in the tree and navigates across them; a component DLL disassembles from the owner composite it belongs to.
+
 ## Pre-ILC sidecar correlation (Native AOT)
 
 Publishing a Native AOT binary leaves its pre-ILC inputs behind in the build tree — the managed assemblies ILC compiled (root plus local project references), their portable PDBs, and the `.mstat`/`.dgml` size and dependency sidecars. When you open an AOT binary, dotsider probes for them (following the `.ilc.rsp` response file first, then the `obj\<cfg>\<tfm>\<rid>` layout, then a sibling assembly) and, if it finds an attachable managed assembly, offers to attach it:

@@ -35,7 +35,7 @@ A native binary with no CLR metadata and no ReadyToRun header (apphost, unknown 
 **Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
 
 ```csharp
-Native = 2
+Native = 3
 ```
 
 ### NativeAot
@@ -46,6 +46,18 @@ whose image embeds a validated ReadyToRun header.
 **Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
 
 ```csharp
-NativeAot = 1
+NativeAot = 2
+```
+
+### ReadyToRun
+
+A crossgen2 ReadyToRun image: full ECMA-335 metadata plus precompiled native method
+bodies (non-composite, composite, or a composite component). Every managed tab works;
+the native bodies are additionally correlated to their managed methods.
+
+**Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
+
+```csharp
+ReadyToRun = 1
 ```
 

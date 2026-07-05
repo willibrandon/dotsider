@@ -35,9 +35,14 @@ public static class NativeDisassembler
         var windowEnd = baseAddress + (ulong)code.Length;
         var offset = 0;
 
+        // Only x64 and AArch64 have decoders; any other architecture (the report-only R2R arches —
+        // x86, arm32, riscv64, loongarch64, wasm32) must not be silently decoded as x64. Skip the
+        // decode loop so the tail renders every byte as .byte rather than fabricating instructions.
+        var decodable = arch is NativeArchitecture.X64 or NativeArchitecture.Arm64;
+
         try
         {
-            while (offset < code.Length && result.Count < MaxInstructions)
+            while (decodable && offset < code.Length && result.Count < MaxInstructions)
             {
                 var insn = DecodeOne(arch, code, offset, baseAddress);
                 var length = insn.Length < 1 ? 1 : insn.Length;
@@ -58,6 +63,9 @@ public static class NativeDisassembler
             result.Add(ByteFallback(baseAddress + (ulong)offset, code[offset]));
             offset++;
         }
+
+        if (arch == NativeArchitecture.Arm64 && resolver is not null)
+            ResolveArm64IndirectImports(result, resolver);
 
         return ResolveTargets(result, baseAddress, windowEnd, resolver);
     }
@@ -118,6 +126,14 @@ public static class NativeDisassembler
     /// <param name="managedNameResolver">Maps a target virtual address to a managed display name, or null for none.</param>
     public static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
         DisassembleSymbol(AssemblyAnalyzer analyzer, NativeSymbol symbol, Func<ulong, string?>? managedNameResolver)
+        => DisassembleSymbol(analyzer, symbol, managedNameResolver, readyToRunImportResolver: null);
+
+    internal static (string Text, IReadOnlyList<NativeInstruction> Instructions, int HeaderLineCount)?
+        DisassembleSymbol(
+            AssemblyAnalyzer analyzer,
+            NativeSymbol symbol,
+            Func<ulong, string?>? managedNameResolver,
+            NativeSymbolResolver? readyToRunImportResolver)
     {
         var info = analyzer.NativeSymbols;
         if (info is null || symbol.FileOffset is not { } fileOffset || symbol.Size <= 0) return null;
@@ -125,17 +141,26 @@ public static class NativeDisassembler
         var arch = info.Architecture != NativeArchitecture.Unknown
             ? info.Architecture
             : MapArchitecture(analyzer.Architecture);
-        if (arch == NativeArchitecture.Unknown) return null;
+        // Only x64/AArch64 decode; a report-only architecture reports unsupported rather than
+        // decoding its bytes as x64 (which would fabricate plausible-but-wrong instructions).
+        if (arch is not (NativeArchitecture.X64 or NativeArchitecture.Arm64)) return null;
 
-        var raw = analyzer.RawBytes;
+        // A composite component's symbols carry offsets into the owner composite, not this file — the
+        // native code lives in the code image. Slice (and resolve imports) from there for R2R.
+        var codeImage = analyzer.IsReadyToRun ? analyzer.ReadyToRunCodeImage ?? analyzer : analyzer;
+        var raw = codeImage.RawBytes;
         if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
         var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
 
         // Compose the symbol resolver with the import resolver so indirect targets that land on an
         // import slot render as MODULE!Function rather than an unresolved address. The import table
         // is parsed once per image and cached — rebuilding it per call would re-read the whole PE
-        // (copying megabytes) on every function selection.
-        var imports = ImportResolverFor(analyzer);
+        // (copying megabytes) on every function selection. A ReadyToRun image resolves its indirect
+        // call slots through its own ImportSections rather than the PE import directory.
+        var imports = ImportResolverFor(codeImage);
+        var r2rImports = readyToRunImportResolver is null && codeImage.IsReadyToRun
+            ? ReadyToRunImportResolverFor(codeImage)
+            : null;
 
         bool Resolver(ulong va, out NativeSymbolRef sym)
         {
@@ -150,6 +175,12 @@ public static class NativeDisassembler
                     (long)(va - found.VirtualAddress));
                 return true;
             }
+
+            if (readyToRunImportResolver is not null && readyToRunImportResolver(va, out sym))
+                return true;
+
+            if (r2rImports is not null && r2rImports.TryResolve(va, out sym))
+                return true;
 
             if (imports is not null && imports.TryResolve(va, out sym))
                 return true;
@@ -203,6 +234,12 @@ public static class NativeDisassembler
     private static NativeImportResolver? ImportResolverFor(AssemblyAnalyzer analyzer) =>
         ImportResolverCache.GetValue(analyzer, a => new StrongBox<NativeImportResolver?>(
             NativeImportResolver.Build(a.RawBytes, a.NativeSymbols?.Architecture ?? NativeArchitecture.Unknown))).Value;
+
+    private static readonly ConditionalWeakTable<AssemblyAnalyzer, StrongBox<ReadyToRun.ReadyToRunImportMap?>> ReadyToRunImportCache = [];
+
+    private static ReadyToRun.ReadyToRunImportMap? ReadyToRunImportResolverFor(AssemblyAnalyzer analyzer) =>
+        ReadyToRunImportCache.GetValue(
+            analyzer, a => new StrongBox<ReadyToRun.ReadyToRunImportMap?>(ReadyToRun.ReadyToRunImportMap.Build(a))).Value;
 
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {
@@ -326,6 +363,146 @@ public static class NativeDisassembler
 
         return instructions;
     }
+
+    private static void ResolveArm64IndirectImports(
+        List<NativeInstruction> instructions, NativeSymbolResolver resolver)
+    {
+        var registerValues = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var registerImports = new Dictionary<string, NativeSymbolRef>(StringComparer.Ordinal);
+
+        for (var i = 0; i < instructions.Count; i++)
+        {
+            var insn = instructions[i];
+            switch (insn.Mnemonic)
+            {
+                case "adrp":
+                case "adr":
+                    if (RegisterOperand(insn, 0) is { } adrReg && insn.TargetAddress is { } target)
+                    {
+                        SetRegister(registerValues, registerImports, adrReg, target);
+                    }
+                    break;
+
+                case "add":
+                    if (RegisterOperand(insn, 0) is { } addDest
+                        && RegisterOperand(insn, 1) is { } addSource
+                        && ImmediateOperand(insn, 2) is { } addend
+                        && registerValues.TryGetValue(addSource, out var baseAddress))
+                    {
+                        SetRegister(registerValues, registerImports, addDest, unchecked(baseAddress + (ulong)addend));
+                    }
+                    else if (RegisterOperand(insn, 0) is { } unknownAddDest)
+                    {
+                        ClearRegister(registerValues, registerImports, unknownAddDest);
+                    }
+                    break;
+
+                case "mov":
+                    if (RegisterOperand(insn, 0) is { } movDest
+                        && RegisterOperand(insn, 1) is { } movSource)
+                    {
+                        if (registerValues.TryGetValue(movSource, out var sourceValue))
+                        {
+                            SetRegister(registerValues, registerImports, movDest, sourceValue);
+                            if (registerImports.TryGetValue(movSource, out var sourceImport))
+                                registerImports[movDest] = sourceImport;
+                        }
+                        else
+                        {
+                            ClearRegister(registerValues, registerImports, movDest);
+                        }
+                    }
+                    break;
+
+                case "ldr":
+                    if (RegisterOperand(insn, 0) is { } loadDest
+                        && MemoryOperand(insn, 1) is { } memory
+                        && registerValues.TryGetValue(memory.BaseRegister, out var pointerBase))
+                    {
+                        var slot = unchecked(pointerBase + (ulong)memory.Displacement);
+                        ClearRegister(registerValues, registerImports, loadDest);
+                        if (resolver(slot, out var import))
+                            registerImports[loadDest] = import;
+                    }
+                    else if (RegisterOperand(insn, 0) is { } unknownLoadDest)
+                    {
+                        ClearRegister(registerValues, registerImports, unknownLoadDest);
+                    }
+                    break;
+
+                case "blr":
+                case "br":
+                    if (RegisterOperand(insn, 0) is { } branchReg
+                        && registerImports.TryGetValue(branchReg, out var importRef))
+                    {
+                        var name = importRef.Offset == 0
+                            ? importRef.Name
+                            : $"{importRef.Name}+0x{importRef.Offset:x}";
+                        instructions[i] = insn with
+                        {
+                            TargetAddress = importRef.Start,
+                            TargetKind = NativeTargetKind.Import,
+                            TargetName = name,
+                        };
+                    }
+                    break;
+
+                default:
+                    if (MayWriteFirstRegister(insn.Mnemonic) && RegisterOperand(insn, 0) is { } dest)
+                        ClearRegister(registerValues, registerImports, dest);
+                    break;
+            }
+        }
+    }
+
+    private static string? RegisterOperand(NativeInstruction insn, int index) =>
+        index < insn.Operands.Count && NormalizeArm64Register(insn.Operands[index].Register) is { } reg ? reg : null;
+
+    private static long? ImmediateOperand(NativeInstruction insn, int index) =>
+        index < insn.Operands.Count ? insn.Operands[index].Immediate : null;
+
+    private readonly record struct Arm64MemoryOperand(string BaseRegister, long Displacement);
+
+    private static Arm64MemoryOperand? MemoryOperand(NativeInstruction insn, int index)
+    {
+        if (index >= insn.Operands.Count
+            || insn.Operands[index] is not { Kind: NativeOperandKind.Memory, MemoryBase: { } memoryBase } operand
+            || NormalizeArm64Register(memoryBase) is not { } baseRegister)
+        {
+            return null;
+        }
+
+        return new Arm64MemoryOperand(baseRegister, operand.MemoryDisplacement);
+    }
+
+    private static void SetRegister(
+        Dictionary<string, ulong> registerValues,
+        Dictionary<string, NativeSymbolRef> registerImports,
+        string register,
+        ulong value)
+    {
+        registerValues[register] = value;
+        registerImports.Remove(register);
+    }
+
+    private static void ClearRegister(
+        Dictionary<string, ulong> registerValues,
+        Dictionary<string, NativeSymbolRef> registerImports,
+        string register)
+    {
+        registerValues.Remove(register);
+        registerImports.Remove(register);
+    }
+
+    private static string? NormalizeArm64Register(string? register)
+    {
+        if (string.IsNullOrEmpty(register))
+            return null;
+        return register[0] is 'w' or 'x' && register.Length > 1 ? "x" + register[1..] : register;
+    }
+
+    private static bool MayWriteFirstRegister(string mnemonic) =>
+        mnemonic is not ("str" or "strb" or "strh" or "stp" or "stur" or "sturb" or "sturh");
 
     /// <summary>The synthesized label name for an intra-function target address.</summary>
     internal static string LocalLabel(ulong address) => $"loc_{address:x}";

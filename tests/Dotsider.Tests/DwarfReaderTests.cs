@@ -515,7 +515,7 @@ public class DwarfReaderTests
 
         var dies = new DwarfBlob().ULeb(1).ULeb(2).CStr("ok").U64(0x1000).ULeb(0);
         var info = new List<byte>();
-        info.AddRange(Cu(9, new byte[] { 1, 2, 3, 4 }));
+        info.AddRange(Cu(9, [1, 2, 3, 4]));
         info.AddRange(Cu(4, dies.ToArray()));
 
         var result = DwarfReader.ReadFunctions(Sections([.. info], abbrev.ToArray()));

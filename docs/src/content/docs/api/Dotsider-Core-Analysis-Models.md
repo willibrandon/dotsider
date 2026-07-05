@@ -752,6 +752,78 @@ results feed silent fallbacks, while the attach/offer flow gates on
 public sealed record PreIlcSidecars : IEquatable<PreIlcSidecars>
 ```
 
+### [ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/)
+
+One contiguous block of a precompiled ReadyToRun method's native code, derived from a single
+runtime function. A method body is not one slice: it is the ordered list of these ranges
+(hot entry, funclets, cold), each of which is disassembled, sized, and navigated on its own.
+
+```csharp
+public sealed record ReadyToRunCodeRange : IEquatable<ReadyToRunCodeRange>
+```
+
+### [ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/)
+
+One component assembly of a composite ReadyToRun image, from the `ComponentAssemblies`
+section joined to the manifest and its MVIDs. Its native code lives in the composite; its
+metadata is resolved from a sibling assembly matched by name and MVID.
+
+```csharp
+public sealed record ReadyToRunComponent : IEquatable<ReadyToRunComponent>
+```
+
+### [ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/)
+
+The parsed facts about a PE image's crossgen2 ReadyToRun header. Present whenever an image
+claims to be ReadyToRun (a managed native header directory or an `RTR_HEADER` export);
+[Status](/api/dotsider.core.analysis.models.readytoruninfo.status/) says whether it is usable, so a corrupt or unsupported image surfaces
+its diagnostic rather than masquerading as plain managed.
+
+```csharp
+public sealed record ReadyToRunInfo : IEquatable<ReadyToRunInfo>
+```
+
+### [ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/)
+
+A managed method joined to its precompiled ReadyToRun native code: the owning assembly
+identity, the MethodDef token (or the instantiation for a generic), and the full ordered list
+of [ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/) blocks that make up the body.
+
+```csharp
+public sealed record ReadyToRunMethodEntry : IEquatable<ReadyToRunMethodEntry>
+```
+
+### [ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/)
+
+The resolved ReadyToRun correlation for one method, shared verbatim by the CLI
+`--r2r-correlate` option, the MCP `correlate_r2r_method` tool, and the session
+`r2r-correlate` command. Carries both rendered text and structured instruction arrays so
+programmatic callers get the IL and native code, not just formatted output.
+
+```csharp
+public sealed record ReadyToRunMethodReport : IEquatable<ReadyToRunMethodReport>
+```
+
+### [ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/)
+
+The result of a [ReadyToRunCorrelationQuery](/api/dotsider.core.analysis.readytoruncorrelationquery/): an [Outcome](/api/dotsider.core.analysis.models.readytorunqueryresult.outcome/) with exactly
+the payload that outcome carries — a [Report](/api/dotsider.core.analysis.models.readytorunqueryresult.report/) when resolved, a candidate list when
+ambiguous, a [Message](/api/dotsider.core.analysis.models.readytorunqueryresult.message/) explaining a miss or an unavailable image.
+
+```csharp
+public sealed record ReadyToRunQueryResult : IEquatable<ReadyToRunQueryResult>
+```
+
+### [ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/)
+
+One row of a crossgen2 image's `READYTORUN_SECTION` table: a section type and the
+`{RVA, Size}` data directory that locates it. Rendered by the PE/Metadata "R2R Sections"
+tab for ReadyToRun images.
+
+```csharp
+public sealed record ReadyToRunSectionEntry : IEquatable<ReadyToRunSectionEntry>
+```
+
 ### [RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/)
 
 A type recovered from a Native AOT binary's embedded NativeFormat metadata. ILC strips
@@ -1110,6 +1182,56 @@ The portable-PDB situation of a located pre-ILC managed assembly.
 
 ```csharp
 public enum PreIlcPdbStatus
+```
+
+### [ReadyToRunCodeRangeKind](/api/dotsider.core.analysis.models.readytoruncoderangekind/)
+
+What a [ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/) represents within a precompiled method's body. An R2R
+method owns one hot entry, zero or more funclets, and an optional disjoint cold range.
+
+```csharp
+public enum ReadyToRunCodeRangeKind
+```
+
+### [ReadyToRunNativeAvailability](/api/dotsider.core.analysis.models.readytorunnativeavailability/)
+
+Why a managed method does or does not have inspectable ReadyToRun native code. Distinguishing
+these keeps a correlation report honest — a missing composite or unresolved component metadata
+is not the same as a genuinely IL-only method.
+
+```csharp
+public enum ReadyToRunNativeAvailability
+```
+
+### [ReadyToRunQueryOutcome](/api/dotsider.core.analysis.models.readytorunqueryoutcome/)
+
+The outcome of a [ReadyToRunCorrelationQuery](/api/dotsider.core.analysis.readytoruncorrelationquery/): how a method-or-address query
+resolved against a ReadyToRun image.
+
+```csharp
+public enum ReadyToRunQueryOutcome
+```
+
+### [ReadyToRunSectionType](/api/dotsider.core.analysis.models.readytorunsectiontype/)
+
+The `ReadyToRunSectionType` ids from a crossgen2 image's `READYTORUN_SECTION` table
+(`readytorun.h`). Distinct from the Native AOT module-section ids (200–399) that
+[RtrSection](/api/dotsider.core.analysis.models.rtrsection/) names; a classic R2R section table uses these 100-range ids with a
+12-byte `{Type, RVA, Size}` row layout.
+
+```csharp
+public enum ReadyToRunSectionType
+```
+
+### [ReadyToRunStatus](/api/dotsider.core.analysis.models.readytorunstatus/)
+
+The outcome of probing a PE image for a crossgen2 ReadyToRun header. This is a parse status,
+not a coverage measure — whether not every method is precompiled is
+[IsPartialImage](/api/dotsider.core.analysis.models.readytoruninfo.ispartialimage/) (the `READYTORUN_FLAG_PARTIAL` flag), not a
+status value here.
+
+```csharp
+public enum ReadyToRunStatus
 ```
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)

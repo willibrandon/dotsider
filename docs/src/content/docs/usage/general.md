@@ -26,6 +26,10 @@ Opening a Native AOT executable adds a block below the standard fields. ILC stri
 - **Frozen strings** — how many frozen string literals were recovered (the list is in the Strings tab)
 - **Native symbols** — the symbol count and its source (native PDB, DWARF, or dSYM), or — when none loaded — the reason: missing, identity mismatch, corrupt, or boundaries-only fallback (the table is in the PE/Metadata tab)
 
+## ReadyToRun images
+
+A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled native bodies, so the standard fields stay and a **ReadyToRun** block is added, reporting the format version and status (`Valid`, `Corrupt`, or `UnsupportedVersion` — a broken header is surfaced, never hidden), the architecture, whether the image is a composite or a component (and its owner), and how many methods are precompiled. Inspect a method's native code in the IL Inspector or via `--r2r-correlate`.
+
 ## Text selection and copy
 
 The Assembly Info panel is a read-only editor. Click into it or press `Tab` to move focus there, then select text with click-drag or `Shift` + arrow keys. Press `y` to yank the selection to the clipboard.

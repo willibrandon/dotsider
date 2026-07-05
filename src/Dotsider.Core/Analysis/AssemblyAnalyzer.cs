@@ -52,6 +52,13 @@ public sealed class AssemblyAnalyzer : IDisposable
     private bool _dgmlProbed;
     private NativeSymbolInfo? _nativeSymbols;
     private bool _nativeSymbolsProbed;
+    private ReadyToRunInfo? _readyToRunInfo;
+    private bool _readyToRunProbed;
+    private ReadyToRun.ReadyToRunModel? _readyToRunModel;
+    private bool _readyToRunModelProbed;
+    private readonly System.Threading.Lock _readyToRunModelLock = new();
+    private ReadyToRunIndex? _readyToRunIndex;
+    private bool _readyToRunIndexProbed;
     private PreIlcSidecars? _preIlcSidecars;
     private bool _preIlcProbed;
     private PreIlcCompanionSet? _preIlcCompanions;
@@ -247,15 +254,132 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
     }
 
+    /// <summary>
+    /// The crossgen2 ReadyToRun header facts, or null when the image does not claim to be
+    /// ReadyToRun. Present (with a diagnostic <see cref="ReadyToRunInfo.Status"/>) even for a
+    /// corrupt or unsupported header, so a broken image is surfaced rather than hidden. Probed
+    /// lazily regardless of <see cref="HasMetadata"/> (composite images have no own metadata).
+    /// </summary>
+    public ReadyToRunInfo? ReadyToRunInfo
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_readyToRunProbed)
+            {
+                _readyToRunInfo = ReadyToRun.ClassicReadyToRunDetector.Detect(this);
+                _readyToRunProbed = true;
+            }
+
+            return _readyToRunInfo;
+        }
+    }
+
+    /// <summary>
+    /// The precompiled methods of a ReadyToRun image joined to their native code ranges, or an
+    /// empty list when this is not a usable ReadyToRun image. Built lazily from the entry-point
+    /// tables. For a non-composite image the code lives in this file; composite resolution is
+    /// layered on in <see cref="ReadyToRun.ReadyToRunImageReader"/>.
+    /// </summary>
+    public IReadOnlyList<ReadyToRunMethodEntry> ReadyToRunMethods => ReadyToRunModel?.Methods ?? [];
+
+    // The resolved composite/component view, built once. Null when this is not a usable R2R image.
+    private ReadyToRun.ReadyToRunModel? ReadyToRunModel
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_readyToRunModelProbed) return _readyToRunModel;
+            lock (_readyToRunModelLock)
+            {
+                if (_readyToRunModelProbed) return _readyToRunModel;
+                // Only a Valid image's tables are trusted to parse. A corrupt or unsupported-version
+                // image exposes header/section diagnostics only — never a map or disassembly that
+                // would read the current layout out of a header that does not match it.
+                _readyToRunModel = ReadyToRunInfo is { Status: ReadyToRunStatus.Valid } info
+                    ? ReadyToRun.ReadyToRunImageReader.Build(this, info)
+                    : null;
+                _readyToRunModelProbed = true;
+            }
+
+            return _readyToRunModel;
+        }
+    }
+
+    /// <summary>
+    /// The component assemblies of a composite ReadyToRun image, each with its resolution state, or
+    /// an empty list for a non-composite image or before resolution.
+    /// </summary>
+    public IReadOnlyList<ReadyToRunComponent> ReadyToRunComponents => ReadyToRunModel?.Components ?? [];
+
+    /// <summary>
+    /// The analyzer whose ECMA-335 metadata backs the given module — this image for a non-composite
+    /// one, or the resolved component assembly for a composite. Falls back to this analyzer.
+    /// </summary>
+    /// <param name="mvid">The module version id of the owning assembly.</param>
+    public AssemblyAnalyzer ReadyToRunMetadataProviderFor(Guid mvid) =>
+        ReadyToRunModel is { } m && m.MetadataProviders.TryGetValue(mvid, out var provider) ? provider : this;
+
+    /// <summary>
+    /// The distinct metadata providers backing this ReadyToRun image — itself for a non-composite one,
+    /// or the resolved component assemblies for a composite. Used to find a method that is present in a
+    /// component's metadata but absent from the precompiled map. Empty when this is not a ReadyToRun image.
+    /// </summary>
+    public IReadOnlyList<AssemblyAnalyzer> ReadyToRunMetadataProviders =>
+        ReadyToRunModel is { } m ? [.. m.MetadataProviders.Values.Distinct()] : [];
+
     /// <summary>Coarse classification of the analyzed binary.</summary>
     public BinaryKind BinaryKind =>
-        HasMetadata ? BinaryKind.Managed
+        ReadyToRunInfo is { Status: ReadyToRunStatus.Valid
+            or ReadyToRunStatus.Corrupt or ReadyToRunStatus.UnsupportedVersion } ? BinaryKind.ReadyToRun
+        : HasMetadata ? BinaryKind.Managed
         : NativeAotInfo is not null ? BinaryKind.NativeAot
         : BinaryKind.Native;
 
+    /// <summary>Whether this image carries ECMA-335 metadata (managed or ReadyToRun).</summary>
+    public bool HasManagedMetadata => HasMetadata;
+
+    /// <summary>Whether this image has precompiled native method bodies mapped to managed methods.</summary>
+    public bool HasEmbeddedNativeCode => BinaryKind is BinaryKind.ReadyToRun or BinaryKind.NativeAot;
+
+    /// <summary>Whether this is a crossgen2 ReadyToRun image.</summary>
+    public bool IsReadyToRun => BinaryKind == BinaryKind.ReadyToRun;
+
     /// <summary>
-    /// The ReadyToRun section table of a Native AOT binary, or an empty list when this is
-    /// not a Native AOT binary or the table cannot be parsed.
+    /// The queryable index over this image's precompiled methods, or null when it is not a
+    /// ReadyToRun image. Built lazily from <see cref="ReadyToRunMethods"/>.
+    /// </summary>
+    public ReadyToRunIndex? ReadyToRunIndex
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_readyToRunIndexProbed)
+            {
+                // Only a Valid image builds a model (and thus a usable index); a corrupt or unsupported
+                // image has no map, so the index is null rather than a misleading empty one.
+                _readyToRunIndex = ReadyToRunModel is not null ? ReadyToRunIndex.Build(ReadyToRunMethods) : null;
+                _readyToRunIndexProbed = true;
+            }
+
+            return _readyToRunIndex;
+        }
+    }
+
+    /// <summary>
+    /// The analyzer whose bytes hold this image's precompiled native code — itself for a
+    /// non-composite or composite image, or the resolved owner composite for a composite
+    /// component. Null when this is not a ReadyToRun image or the code image cannot be resolved.
+    /// </summary>
+    public AssemblyAnalyzer? ReadyToRunCodeImage =>
+        !IsReadyToRun ? null
+        : ReadyToRunModel is { OwnerCompositeMissing: true } ? null // component whose owner is not on disk
+        : ReadyToRunModel?.CodeImage ?? this;
+
+    /// <summary>
+    /// The ReadyToRun section table — the Native AOT module sections for a Native AOT binary, or
+    /// the crossgen2 sections (ids 100–126) for a classic ReadyToRun image — or an empty list
+    /// otherwise. Both feed the PE/Metadata "R2R Sections" tab.
     /// </summary>
     public IReadOnlyList<RtrSection> ReadyToRunSections
     {
@@ -264,10 +388,21 @@ public sealed class AssemblyAnalyzer : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_readyToRunSections is not null) return _readyToRunSections;
 
-            if (NativeAotInfo is { } info && AddressSpace is { } space)
+            if (ReadyToRunInfo is { } r2r && r2r.Sections.Count > 0
+                && r2r.Status is not ReadyToRunStatus.UnrecognizedNativeHeader)
+            {
+                var imageBase = PeHeaders?.ImageBase ?? 0;
+                _readyToRunSections = [.. r2r.Sections.Select(s => new RtrSection(
+                    s.Type, s.Name, imageBase + (uint)s.Rva, s.Size, s.FileOffset))];
+            }
+            else if (NativeAotInfo is { } info && AddressSpace is { } space)
+            {
                 _readyToRunSections = ReadyToRunReader.ReadSections(_rawBytes, info, space);
+            }
             else
+            {
                 _readyToRunSections = [];
+            }
 
             return _readyToRunSections;
         }
@@ -390,9 +525,14 @@ public sealed class AssemblyAnalyzer : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_nativeSymbolsProbed)
             {
-                _nativeSymbols = BinaryKind != BinaryKind.Managed
-                    ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
-                    : null;
+                _nativeSymbols = IsReadyToRun
+                    ? ReadyToRun.ReadyToRunSymbolBuilder.Build(
+                        ReadyToRunMethods, ReadyToRunInfo!.Architecture,
+                        mapUsable: ReadyToRunInfo.Status == ReadyToRunStatus.Valid && ReadyToRunMethods.Count > 0,
+                        diagnostic: ReadyToRunInfo.Diagnostic)
+                    : BinaryKind != BinaryKind.Managed
+                        ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
+                        : null;
                 _nativeSymbolsProbed = true;
             }
 
@@ -1081,6 +1221,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         companions?.Dispose();
+        // Sibling analyzers opened to resolve composite components / the owner composite are owned here.
+        if (_readyToRunModel is { Owned: { Count: > 0 } owned })
+            foreach (var sibling in owned)
+                sibling.Dispose();
         _pdbReaderProvider?.Dispose();
         _peReader?.Dispose();
         _stream.Dispose();
@@ -1255,7 +1399,8 @@ public sealed class AssemblyAnalyzer : IDisposable
             ResourcesRva: corHeader.ResourcesDirectory.RelativeVirtualAddress,
             ResourcesSize: corHeader.ResourcesDirectory.Size,
             StrongNameSignatureRva: corHeader.StrongNameSignatureDirectory.RelativeVirtualAddress,
-            StrongNameSignatureSize: corHeader.StrongNameSignatureDirectory.Size);
+            StrongNameSignatureSize: corHeader.StrongNameSignatureDirectory.Size,
+            ManagedNativeHeader: corHeader.ManagedNativeHeaderDirectory);
     }
 
     private void ReadDebugInformation()

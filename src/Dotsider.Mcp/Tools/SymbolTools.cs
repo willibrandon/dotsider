@@ -72,6 +72,13 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
 
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
+
+            // A ReadyToRun method's body is several code ranges that share one managed name; resolve to
+            // the method and render all ranges through the shared query rather than reporting each range
+            // as an "ambiguous" symbol.
+            if (analyzer.IsReadyToRun)
+                return DisassembleReadyToRun(analyzer, target, ct);
+
             if (analyzer.NativeSymbols is not { } info || info.Symbols.Count == 0)
                 return "Error: managed assembly; no native symbols to disassemble.";
 
@@ -102,5 +109,29 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
         }
 
         return "Error: Either assemblyPath or sessionId is required.";
+    }
+
+    private static string DisassembleReadyToRun(
+        Dotsider.Core.Analysis.AssemblyAnalyzer analyzer, string target, CancellationToken ct)
+    {
+        var result = Dotsider.Core.Analysis.ReadyToRunCorrelationQuery.Resolve(analyzer, target, ct);
+        switch (result.Outcome)
+        {
+            case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.Ambiguous:
+                return JsonSerializer.Serialize(
+                    new { Error = "ambiguous", Target = target, result.Candidates }, DotsiderJsonOptions.Default);
+            case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.NotFound:
+            case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.Unavailable:
+                return $"Error: {result.Message}";
+        }
+
+        var report = result.Report!;
+        if (report.NativeText is null)
+            return $"Error: '{report.Method}' has no precompiled native code"
+                + (report.Diagnostic is { } d ? $" ({d})" : "") + ".";
+
+        return JsonSerializer.Serialize(
+            new { Symbol = report.Method, analyzer.Architecture, Instructions = report.NativeInstructions },
+            DotsiderJsonOptions.Default);
     }
 }

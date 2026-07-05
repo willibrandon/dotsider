@@ -527,7 +527,7 @@ public static class PeMetadataView
                 return
                 [
                     .. merged
-                        ? new[] { r.Cell(c => FocusHighlightCell(c, row.Origin, query, true, rs.IsFocused)) }
+                        ? [r.Cell(c => FocusHighlightCell(c, row.Origin, query, true, rs.IsFocused))]
                         : (TableCell[])[],
                     r.Cell(c => FocusHighlightCell(c,d.Type.ToString(), query, true, rs.IsFocused)),
                     r.Cell(c => FocusStyle(c,HexCell(c, $"0x{d.Stamp:X8}"), rs.IsFocused)),

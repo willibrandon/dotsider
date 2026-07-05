@@ -51,7 +51,7 @@ public class NativeResolutionTests
         // call rel32 to 0x2000, then call rel32 to 0x2005.
         byte[] code = [0xE8, 0xFB, 0x0F, 0x00, 0x00, 0xE8, 0xFB, 0x0F, 0x00, 0x00];
 
-        bool Resolver(ulong va, out NativeSymbolRef sym)
+        static bool Resolver(ulong va, out NativeSymbolRef sym)
         {
             if (va >= 0x2000 && va < 0x2100)
             {

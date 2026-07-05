@@ -230,6 +230,29 @@ intermediate tree.
 public static class PreIlcSidecarDetector
 ```
 
+### [ReadyToRunCorrelationQuery](/api/dotsider.core.analysis.readytoruncorrelationquery/)
+
+Resolves a "method or address" query against a ReadyToRun image and builds the one
+[ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/) the CLI, MCP, and session surfaces all render. A method
+name, a `0x06…` token, or a `0x…` native address all resolve here; a value that is
+both a valid token and a covered address is reported ambiguous rather than guessed. Methods
+present in metadata but not precompiled resolve as IL-only rather than "not found".
+
+```csharp
+public static class ReadyToRunCorrelationQuery
+```
+
+### [ReadyToRunIndex](/api/dotsider.core.analysis.readytorunindex/)
+
+Queryable view of a ReadyToRun image's precompiled methods: managed-method lookup by owning
+assembly identity and token, and reverse lookup by native address over the methods' disjoint
+code ranges. The token is qualified by assembly name because a composite spans several
+assemblies whose tokens collide. Built once, every lookup a dictionary or binary-search hit.
+
+```csharp
+public sealed class ReadyToRunIndex
+```
+
 ### [RuntimeTracer](/api/dotsider.core.analysis.runtimetracer/)
 
 Manages launching a .NET assembly as a child process and collecting

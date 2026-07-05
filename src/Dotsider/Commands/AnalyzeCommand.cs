@@ -79,6 +79,13 @@ internal static class AnalyzeCommand
         Arity = ArgumentArity.ZeroOrOne
     };
 
+    private static readonly Option<string?> s_r2rCorrelateOption = new("--r2r-correlate")
+    {
+        Description = "Correlate a ReadyToRun image's managed methods with their precompiled native code. "
+            + "Bare: print precompiled-method stats. With a value (Type.Method, 0xTOKEN, or 0xVA): print IL and native code together.",
+        Arity = ArgumentArity.ZeroOrOne
+    };
+
     private static readonly Option<bool> s_fieldsOption = new("--fields")
     {
         Description = "List field definitions"
@@ -114,6 +121,7 @@ internal static class AnalyzeCommand
             s_disasmOption,
             s_whyOption,
             s_correlateOption,
+            s_r2rCorrelateOption,
             s_fieldsOption,
             s_bundleOption,
             s_outputOption
@@ -246,6 +254,10 @@ internal static class AnalyzeCommand
                     return Task.FromResult(PrintCorrelate(
                         analyzer, parseResult.GetValue(s_correlateOption), formatter));
 
+                if (parseResult.GetResult(s_r2rCorrelateOption) is not null)
+                    return Task.FromResult(PrintR2rCorrelate(
+                        analyzer, parseResult.GetValue(s_r2rCorrelateOption), formatter));
+
                 if (parseResult.GetValue(s_fieldsOption))
                     return Task.FromResult(PrintFields(analyzer, formatter));
 
@@ -283,6 +295,7 @@ internal static class AnalyzeCommand
                 NativeSymbolStatus = a.NativeSymbols?.Status,
                 a.NativeSymbolsPath,
                 PreIlc = BuildPreIlcProbeJson(a),
+                ReadyToRun = BuildReadyToRunJson(a),
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -314,6 +327,19 @@ internal static class AnalyzeCommand
 
                 if (a.PreIlcSidecars is { } sidecars)
                     WritePreIlcProbeSummary(sidecars, fmt);
+            }
+            else if (a.ReadyToRunInfo is { } r2r)
+            {
+                fmt.WriteLine("Kind:       ReadyToRun (.NET)");
+                fmt.WriteLine($"R2R Format: v{r2r.MajorVersion}.{r2r.MinorVersion} ({r2r.Status}, {r2r.SectionCount} sections)");
+                fmt.WriteLine($"Composite:  {r2r.IsComposite}{(r2r.IsComponent ? " (component)" : "")}{(r2r.IsPartialImage ? ", partial" : "")}");
+                if (r2r.OwnerCompositeExecutable is { } owner)
+                    fmt.WriteLine($"Owner:      {owner}");
+                if (a.ReadyToRunIndex is { } index)
+                    fmt.WriteLine($"Precompiled: {index.Methods.Count} methods "
+                        + $"({index.InstantiationCount} instantiations), {DotsiderState.FormatSize(index.TotalCodeSize)}");
+                if (r2r.Diagnostic is { } diagnostic)
+                    fmt.WriteLine($"Note:       {diagnostic}");
             }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");
@@ -452,6 +478,12 @@ internal static class AnalyzeCommand
 
     private static int PrintDisasm(AssemblyAnalyzer a, string target, OutputFormatter fmt)
     {
+        // A ReadyToRun method's body is several code ranges that share one managed name; resolve to the
+        // method and render every range, rather than treating each range as a separate ("ambiguous")
+        // symbol. This routes through the same query the correlate surface uses.
+        if (a.IsReadyToRun)
+            return PrintReadyToRunDisasm(a, target, fmt);
+
         var info = a.NativeSymbols;
         if (info is null || info.Symbols.Count == 0)
         {
@@ -491,6 +523,43 @@ internal static class AnalyzeCommand
         }
 
         fmt.WriteLine(text);
+        return 0;
+    }
+
+    private static int PrintReadyToRunDisasm(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        var result = ReadyToRunCorrelationQuery.Resolve(a, target, CancellationToken.None);
+        switch (result.Outcome)
+        {
+            case ReadyToRunQueryOutcome.Unavailable:
+            case ReadyToRunQueryOutcome.NotFound:
+                OutputFormatter.WriteError($"Error: {result.Message}");
+                return 1;
+
+            case ReadyToRunQueryOutcome.Ambiguous:
+                OutputFormatter.WriteError($"Error: {result.Message}:");
+                foreach (var c in result.Candidates)
+                    OutputFormatter.WriteError(
+                        $"  {c.AssemblyName}  {c.DeclaringType}::{c.Name}  token 0x{c.Token:X8}"
+                        + (c.VirtualAddress is { } va ? $"  @ 0x{va:X}" : ""));
+                return 2;
+        }
+
+        var report = result.Report!;
+        if (report.NativeText is not { } native)
+        {
+            OutputFormatter.WriteError($"Error: '{report.Method}' has no precompiled native code"
+                + (report.Diagnostic is { } d ? $" ({d})" : ""));
+            return 1;
+        }
+
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new { Symbol = report.Method, a.Architecture, Instructions = report.NativeInstructions });
+            return 0;
+        }
+
+        fmt.WriteLine(native);
         return 0;
     }
 
@@ -750,8 +819,8 @@ internal static class AnalyzeCommand
         if (matches.Count > 1)
         {
             Console.Error.WriteLine($"Error: '{target}' is ambiguous ({matches.Count} matches):");
-            foreach (var candidate in matches.Take(10))
-                Console.Error.WriteLine($"  {candidate.Display}");
+            foreach (var (Display, NodeName) in matches.Take(10))
+                Console.Error.WriteLine($"  {Display}");
             if (matches.Count > 10)
                 Console.Error.WriteLine($"  ... and {matches.Count - 10} more");
             return 1;
@@ -835,6 +904,32 @@ internal static class AnalyzeCommand
             s.UnresolvedReferencePaths,
             s.HasAttachableCompanion,
             s.Details
+        };
+    }
+
+    /// <summary>
+    /// Builds the JSON <c>readyToRun</c> summary: status, version, composite/component flags,
+    /// architecture, and precompiled-method counts. Returns null when the image is not ReadyToRun.
+    /// </summary>
+    private static object? BuildReadyToRunJson(AssemblyAnalyzer a)
+    {
+        if (a.ReadyToRunInfo is not { } info)
+            return null;
+
+        return new
+        {
+            Status = info.Status.ToString(),
+            info.MajorVersion,
+            info.MinorVersion,
+            info.IsComposite,
+            info.IsComponent,
+            info.IsPartialImage,
+            Architecture = info.Architecture.ToString(),
+            info.OwnerCompositeExecutable,
+            PrecompiledMethods = a.ReadyToRunIndex?.Methods.Count ?? 0,
+            InstantiationCount = a.ReadyToRunIndex?.InstantiationCount ?? 0,
+            TotalCodeSize = a.ReadyToRunIndex?.TotalCodeSize ?? 0,
+            info.Diagnostic
         };
     }
 
@@ -983,6 +1078,130 @@ internal static class AnalyzeCommand
             fmt.WriteLine(report.MstatSize > 0
                 ? "(size only from mstat; no native symbol to disassemble)"
                 : "(not in native image — trimmed or inlined)");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// The <c>--r2r-correlate</c> action. Bare prints the ReadyToRun stats; with a value it
+    /// resolves one method (by name, <c>0x</c> token, or <c>0x</c> address) and prints its IL and
+    /// precompiled native code. An ambiguous query lists candidates and exits non-zero.
+    /// </summary>
+    private static int PrintR2rCorrelate(AssemblyAnalyzer a, string? target, OutputFormatter fmt)
+    {
+        if (a.BinaryKind != BinaryKind.ReadyToRun)
+        {
+            OutputFormatter.WriteError("Error: --r2r-correlate requires a ReadyToRun image");
+            return 1;
+        }
+
+        return string.IsNullOrWhiteSpace(target) ? PrintR2rStats(a, fmt) : PrintR2rMethod(a, target, fmt);
+    }
+
+    private static int PrintR2rStats(AssemblyAnalyzer a, OutputFormatter fmt)
+    {
+        var info = a.ReadyToRunInfo!;
+        var index = a.ReadyToRunIndex;
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(new
+            {
+                Status = info.Status.ToString(),
+                info.MajorVersion,
+                info.MinorVersion,
+                info.IsComposite,
+                info.IsComponent,
+                info.IsPartialImage,
+                Architecture = info.Architecture.ToString(),
+                info.OwnerCompositeExecutable,
+                PrecompiledMethods = index?.Methods.Count ?? 0,
+                InstantiationCount = index?.InstantiationCount ?? 0,
+                TotalCodeSize = index?.TotalCodeSize ?? 0
+            });
+            return 0;
+        }
+
+        fmt.WriteLine($"ReadyToRun: v{info.MajorVersion}.{info.MinorVersion} ({info.Status})");
+        fmt.WriteLine($"Arch:       {info.Architecture}");
+        fmt.WriteLine($"Composite:  {info.IsComposite}{(info.IsComponent ? " (component)" : "")}{(info.IsPartialImage ? ", partial image" : "")}");
+        if (info.OwnerCompositeExecutable is { } owner)
+            fmt.WriteLine($"Owner:      {owner}");
+        fmt.WriteLine($"Precompiled: {index?.Methods.Count ?? 0} methods "
+            + $"({index?.InstantiationCount ?? 0} instantiations), "
+            + $"{DotsiderState.FormatSize(index?.TotalCodeSize ?? 0)}");
+        if (info.Diagnostic is { } diagnostic)
+            fmt.WriteLine($"Note:       {diagnostic}");
+        return 0;
+    }
+
+    private static int PrintR2rMethod(AssemblyAnalyzer a, string target, OutputFormatter fmt)
+    {
+        var result = ReadyToRunCorrelationQuery.Resolve(a, target, CancellationToken.None);
+        switch (result.Outcome)
+        {
+            case ReadyToRunQueryOutcome.Unavailable:
+                OutputFormatter.WriteError($"Error: {result.Message}");
+                return 1;
+
+            case ReadyToRunQueryOutcome.NotFound:
+                OutputFormatter.WriteError($"Error: {result.Message}");
+                return 1;
+
+            case ReadyToRunQueryOutcome.Ambiguous:
+                if (fmt.JsonMode)
+                {
+                    fmt.WriteJson(new { Ambiguous = true, result.Message, result.Candidates });
+                }
+                else
+                {
+                    OutputFormatter.WriteError($"Error: {result.Message}:");
+                    foreach (var c in result.Candidates)
+                        OutputFormatter.WriteError(
+                            $"  {c.AssemblyName}  {c.DeclaringType}::{c.Name}  token 0x{c.Token:X8}"
+                            + (c.VirtualAddress is { } va ? $"  @ 0x{va:X}" : ""));
+                }
+
+                return 2;
+
+            default:
+                return PrintR2rReport(result.Report!, fmt);
+        }
+    }
+
+    private static int PrintR2rReport(ReadyToRunMethodReport report, OutputFormatter fmt)
+    {
+        if (fmt.JsonMode)
+        {
+            fmt.WriteJson(report);
+            return 0;
+        }
+
+        fmt.WriteLine($"Method:     {report.Method}");
+        fmt.WriteLine($"Assembly:   {report.Assembly}"
+            + (report.IsComposite ? $" (composite; owner {report.OwnerComponent})" : ""));
+        fmt.WriteLine($"Token:      0x{report.Token:X8}");
+        fmt.WriteLine($"Native:     {report.Availability}"
+            + (report.Diagnostic is { } d ? $" — {d}" : ""));
+        if (report.Ranges.Count > 0)
+        {
+            fmt.WriteLine($"Ranges ({report.Ranges.Count}), {DotsiderState.FormatSize(report.NativeSize)}:");
+            foreach (var r in report.Ranges)
+                fmt.WriteLine($"  {r.Name,-9} 0x{r.VirtualAddress:X}  {DotsiderState.FormatSize(r.Size)}");
+        }
+
+        if (report.Il is { } il)
+        {
+            fmt.WriteLine("");
+            fmt.WriteLine("--- IL ---");
+            fmt.WriteLine(il);
+        }
+
+        if (report.NativeText is { } native)
+        {
+            fmt.WriteLine("");
+            fmt.WriteLine("--- Native ---");
+            fmt.WriteLine(native);
         }
 
         return 0;
