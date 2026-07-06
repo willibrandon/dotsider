@@ -8,10 +8,8 @@ namespace Dotsider.Views;
 /// </summary>
 public sealed class DiffSearchDecorationProvider : ITextDecorationProvider
 {
-    private static readonly TextDecoration MatchDecoration = new()
-    {
-        Background = HighlightHelper.MatchBgColor
-    };
+    private static readonly TextDecoration MatchDecoration =
+        HighlightHelper.CreateSearchMatchDecoration();
 
     /// <summary>The current search query, or null/empty when no search is active.</summary>
     public string? Query { get; set; }

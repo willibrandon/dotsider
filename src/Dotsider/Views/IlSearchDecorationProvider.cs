@@ -1,5 +1,4 @@
 using Hex1b.Documents;
-using Hex1b.Theming;
 
 namespace Dotsider.Views;
 
@@ -9,17 +8,11 @@ namespace Dotsider.Views;
 /// </summary>
 public sealed class IlSearchDecorationProvider : ITextDecorationProvider
 {
-    private static readonly TextDecoration MatchDecoration = new()
-    {
-        Background = HighlightHelper.MatchBgColor
-        // Foreground is null — syntax colors show through
-    };
+    private static readonly TextDecoration MatchDecoration =
+        HighlightHelper.CreateSearchMatchDecoration();
 
-    private static readonly TextDecoration CurrentMatchDecoration = new()
-    {
-        Background = Hex1bColor.FromRgb(255, 165, 0),
-        Foreground = Hex1bColor.Black
-    };
+    private static readonly TextDecoration CurrentMatchDecoration =
+        HighlightHelper.CreateSearchMatchDecoration(current: true);
 
     /// <summary>The current search query, or null/empty when no search is active.</summary>
     public string? Query { get; set; }

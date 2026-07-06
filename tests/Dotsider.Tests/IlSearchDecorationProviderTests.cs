@@ -39,10 +39,10 @@ public class IlSearchDecorationProviderTests
     }
 
     /// <summary>
-    /// Verifies single match returns match bg span.
+    /// Verifies single match returns a readable match span.
     /// </summary>
     [Fact(Timeout = 30_000)]
-    public void SingleMatch_ReturnsMatchBgSpan()
+    public void SingleMatch_ReturnsReadableMatchSpan()
     {
         var doc = new Hex1bDocument("hello world");
         var provider = new IlSearchDecorationProvider { Query = "world" };
@@ -58,7 +58,8 @@ public class IlSearchDecorationProviderTests
         Assert.Equal(10, span.Priority);
         Assert.NotNull(span.Decoration.Background);
         AssertColorEquals(HighlightHelper.MatchBgColor, span.Decoration.Background.Value);
-        Assert.Null(span.Decoration.Foreground);
+        Assert.NotNull(span.Decoration.Foreground);
+        AssertColorEquals(HighlightHelper.MatchFgColor, span.Decoration.Foreground.Value);
     }
 
     /// <summary>
@@ -84,9 +85,19 @@ public class IlSearchDecorationProviderTests
         Assert.Equal(new DocumentPosition(1, 12), span.End);
         Assert.Equal(20, span.Priority);
         Assert.NotNull(span.Decoration.Background);
-        AssertColorEquals(Hex1bColor.FromRgb(255, 165, 0), span.Decoration.Background.Value);
+        AssertColorEquals(HighlightHelper.CurrentMatchBgColor, span.Decoration.Background.Value);
         Assert.NotNull(span.Decoration.Foreground);
-        AssertColorEquals(Hex1bColor.Black, span.Decoration.Foreground.Value);
+        AssertColorEquals(HighlightHelper.MatchFgColor, span.Decoration.Foreground.Value);
+    }
+
+    /// <summary>
+    /// Verifies editor search colors clear WCAG AA contrast for normal and current matches.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void SearchMatchColors_ClearWcagAa()
+    {
+        Assert.True(ContrastRatio(HighlightHelper.MatchFgColor, HighlightHelper.MatchBgColor) >= 4.5);
+        Assert.True(ContrastRatio(HighlightHelper.MatchFgColor, HighlightHelper.CurrentMatchBgColor) >= 4.5);
     }
 
     /// <summary>
@@ -154,5 +165,27 @@ public class IlSearchDecorationProviderTests
         Assert.Equal(expected.R, actual.R);
         Assert.Equal(expected.G, actual.G);
         Assert.Equal(expected.B, actual.B);
+    }
+
+    private static double ContrastRatio(Hex1bColor a, Hex1bColor b)
+    {
+        var l1 = RelativeLuminance(a);
+        var l2 = RelativeLuminance(b);
+        if (l1 < l2)
+            (l1, l2) = (l2, l1);
+        return (l1 + 0.05) / (l2 + 0.05);
+    }
+
+    private static double RelativeLuminance(Hex1bColor color)
+    {
+        static double Channel(byte value)
+        {
+            var c = value / 255.0;
+            return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Channel(color.R)
+            + 0.7152 * Channel(color.G)
+            + 0.0722 * Channel(color.B);
     }
 }
