@@ -102,6 +102,16 @@ Trace event category filter.
 public string? CategoryFilter { get; set; }
 ```
 
+### IncludeCompilerGenerated
+
+Whether member search includes compiler-generated members.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IncludeCompilerGenerated { get; set; }
+```
+
 ### IncludeDebugInfo
 
 Whether IL responses should include portable PDB debug information.
@@ -120,6 +130,16 @@ Whether a diff-size response includes the delta tree.
 
 ```csharp
 public bool IncludeTree { get; set; }
+```
+
+### IncludeWhy
+
+Whether Native AOT contributor responses should include DGML why chains.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IncludeWhy { get; set; }
 ```
 
 ### LeftPath
@@ -142,6 +162,16 @@ Byte count for read-bytes.
 public int? Length { get; set; }
 ```
 
+### MaxCandidates
+
+Maximum ambiguous candidates returned by Native AOT explanation tools.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? MaxCandidates { get; set; }
+```
+
 ### MaxNodes
 
 The delta-tree node cap for diff-size when [IncludeTree](/api/dotsider.core.protocol.dotsiderrequest.includetree/) is set.
@@ -160,6 +190,16 @@ Maximum number of results to return.
 
 ```csharp
 public int? MaxResults { get; set; }
+```
+
+### MaxWhyChains
+
+Maximum DGML chains returned for one aggregated Native AOT contributor.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? MaxWhyChains { get; set; }
 ```
 
 ### Method
@@ -202,6 +242,16 @@ Minimum string length for raw string extraction.
 public int? MinLength { get; set; }
 ```
 
+### NamespaceName
+
+Namespace filter for Native AOT size contributor tools.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? NamespaceName { get; set; }
+```
+
 ### Offset
 
 Byte offset for read-bytes.
@@ -232,6 +282,16 @@ Right assembly path for diff.
 public string? RightPath { get; set; }
 ```
 
+### Section
+
+mstat section filter for Native AOT size contributor tools.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? Section { get; set; }
+```
+
 ### SymbolAddress
 
 Native symbol virtual address (hex `0x…` or decimal) for disassemble-native.
@@ -260,6 +320,16 @@ Tab identifier for navigation.
 
 ```csharp
 public int? TabId { get; set; }
+```
+
+### Target
+
+Target name, path, key, or node label for Native AOT size explanation tools.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? Target { get; set; }
 ```
 
 ### Token

@@ -55,7 +55,16 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 | Tool | Description |
 |------|-------------|
 | `get_size_breakdown` | Hierarchical size tree: namespace > type > method |
-| `get_largest_methods` | Top methods by IL byte size |
+| `get_largest_methods` | Top methods by IL byte size, or Native AOT native size when mstat is available |
+
+### Native AOT
+
+| Tool | Description |
+|------|-------------|
+| `get_native_aot_info` | Native AOT identity, RTR header facts, recovered metadata counts, and sidecar availability |
+| `list_native_aot_sections` | Native AOT ReadyToRun module sections with VA, size, and file offset |
+| `get_native_aot_size_contributors` | Top mstat contributors, with optional filters and DGML why chains |
+| `explain_native_aot_size` | Explain why a type, method, frozen object, or data node is rooted in the binary |
 
 ### Strings
 

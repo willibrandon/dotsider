@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
-using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -10,7 +9,7 @@ namespace Dotsider.Mcp.Tools;
 /// MCP tools for analyzing assembly size: hierarchical size trees and largest method ranking.
 /// </summary>
 [McpServerToolType]
-public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILogger<SizeTools> logger)
+public sealed partial class SizeTools(DotsiderSessionManager sessionManager)
 {
     /// <summary>
     /// Gets a hierarchical size breakdown of namespaces, types, and methods.
@@ -61,26 +60,9 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            var max = maxResults ?? 20;
-            var methods = analyzer.MethodDefs
-                .Select(m =>
-                {
-                    try
-                    {
-                        var body = analyzer.GetMethodBody(m);
-                        return new { Method = m, Size = body?.GetILBytes()?.Length ?? 0 };
-                    }
-                    catch (Exception ex)
-                    {
-                        LogIlBodyError(logger, ex, m.DeclaringType, m.Name);
-                        return new { Method = m, Size = 0 };
-                    }
-                })
-                .OrderByDescending(x => x.Size)
-                .Take(max)
-                .ToList();
-
-            return JsonSerializer.Serialize(methods, DotsiderJsonOptions.Default);
+            return JsonSerializer.Serialize(
+                NativeAotPayloadBuilder.BuildLargestMethods(analyzer, maxResults),
+                DotsiderJsonOptions.Default);
         }
 
         if (sessionId is not null)
@@ -91,7 +73,4 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager, ILo
 
         return "Error: Either assemblyPath or sessionId is required.";
     }
-
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Cannot read IL body for {Type}.{Method}")]
-    private static partial void LogIlBodyError(ILogger logger, Exception exception, string type, string method);
 }

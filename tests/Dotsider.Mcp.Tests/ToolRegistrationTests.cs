@@ -54,6 +54,12 @@ public class ToolRegistrationTests : McpServerTestBase
         Assert.Contains("get_native_symbols", names);
         Assert.Contains("get_native_disassembly", names);
 
+        // Native AOT tools
+        Assert.Contains("get_native_aot_info", names);
+        Assert.Contains("list_native_aot_sections", names);
+        Assert.Contains("get_native_aot_size_contributors", names);
+        Assert.Contains("explain_native_aot_size", names);
+
         // Correlation tools
         Assert.Contains("correlate_method", names);
         Assert.Contains("correlate_r2r_method", names);

@@ -189,14 +189,9 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            var methods = analyzer.MethodDefs.AsEnumerable();
-            if (!string.IsNullOrEmpty(typeName))
-                methods = methods.Where(m => m.DeclaringType.Contains(typeName, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrEmpty(query))
-                methods = methods.Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
-            if (maxResults is > 0)
-                methods = methods.Take(maxResults.Value);
-            return JsonSerializer.Serialize(methods.ToList(), DotsiderJsonOptions.Default);
+            return JsonSerializer.Serialize(
+                NativeAotPayloadBuilder.BuildMethodInventory(analyzer, typeName, query, maxResults),
+                DotsiderJsonOptions.Default);
         }
 
         if (sessionId is not null)
@@ -231,32 +226,21 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            var max = maxResults ?? 100;
-
-            var types = analyzer.TypeDefs
-                .Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
-            var methods = analyzer.MethodDefs
-                .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase));
-
-            if (!includeCompilerGenerated)
-            {
-                types = types.Where(t => !t.Name.StartsWith("<>") && !t.Name.Contains("__"));
-                methods = methods.Where(m => !m.DeclaringType.StartsWith("<>"));
-            }
-
-            return JsonSerializer.Serialize(new
-            {
-                Types = types.Take(max).ToList(),
-                Methods = methods.Take(max).ToList(),
-                MemberRefs = analyzer.MemberRefs.Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(max).ToList()
-            }, DotsiderJsonOptions.Default);
+            return JsonSerializer.Serialize(
+                NativeAotPayloadBuilder.BuildMemberSearch(analyzer, query, maxResults, includeCompilerGenerated),
+                DotsiderJsonOptions.Default);
         }
 
         if (sessionId is not null)
         {
             return await sessionManager.GetTarget(sessionId.Value)
-                .SendAndUnwrapAsync(new DotsiderRequest { Method = "find-members", Query = query, MaxResults = maxResults }, ct);
+                .SendAndUnwrapAsync(new DotsiderRequest
+                {
+                    Method = "find-members",
+                    Query = query,
+                    MaxResults = maxResults,
+                    IncludeCompilerGenerated = includeCompilerGenerated
+                }, ct);
         }
 
         return "Error: Either assemblyPath or sessionId is required.";

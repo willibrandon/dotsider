@@ -26,6 +26,9 @@ public sealed class DotsiderRequest
     /// <summary>Search query for find-members or search-il-opcodes.</summary>
     public string? Query { get; set; }
 
+    /// <summary>Target name, path, key, or node label for Native AOT size explanation tools.</summary>
+    public string? Target { get; set; }
+
     /// <summary>Metadata token for resolve-token.</summary>
     public int? Token { get; set; }
 
@@ -59,8 +62,17 @@ public sealed class DotsiderRequest
     /// <summary>Assembly name to resolve (e.g. "System.Runtime"), used by resolve-assembly and push-assembly.</summary>
     public string? AssemblyName { get; set; }
 
+    /// <summary>Namespace filter for Native AOT size contributor tools.</summary>
+    public string? NamespaceName { get; set; }
+
+    /// <summary>mstat section filter for Native AOT size contributor tools.</summary>
+    public string? Section { get; set; }
+
     /// <summary>Whether IL responses should include portable PDB debug information.</summary>
     public bool IncludeDebugInfo { get; set; }
+
+    /// <summary>Whether member search includes compiler-generated members.</summary>
+    public bool IncludeCompilerGenerated { get; set; }
 
     /// <summary>Native symbol name for disassemble-native (managed name, raw name, or suffix).</summary>
     public string? SymbolName { get; set; }
@@ -85,6 +97,15 @@ public sealed class DotsiderRequest
 
     /// <summary>How many top contributors diff-size and check-size-budgets responses carry.</summary>
     public int? TopN { get; set; }
+
+    /// <summary>Whether Native AOT contributor responses should include DGML why chains.</summary>
+    public bool IncludeWhy { get; set; }
+
+    /// <summary>Maximum ambiguous candidates returned by Native AOT explanation tools.</summary>
+    public int? MaxCandidates { get; set; }
+
+    /// <summary>Maximum DGML chains returned for one aggregated Native AOT contributor.</summary>
+    public int? MaxWhyChains { get; set; }
 
     /// <summary>Whether a diff-size response includes the delta tree.</summary>
     public bool IncludeTree { get; set; }

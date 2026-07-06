@@ -417,4 +417,59 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         var names = json.EnumerateArray().Select(e => e.GetProperty("fullName").GetString()).ToList();
         Assert.Contains("Program", names);
     }
+
+    /// <summary>
+    /// list_methods falls back to recovered Native AOT method names when ECMA metadata is absent.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ListMethods_NativeAot_ReturnsRecoveredMethods()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("list_methods",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["typeName"] = "Program"
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal(JsonValueKind.Array, json.ValueKind);
+        Assert.True(json.GetArrayLength() > 0);
+        Assert.All(json.EnumerateArray(), e =>
+            Assert.Equal("RecoveredNativeAot", e.GetProperty("source").GetString()));
+    }
+
+    /// <summary>
+    /// find_members searches recovered Native AOT types and methods instead of metadata-only tables.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task FindMembers_NativeAot_SearchesRecoveredInventory()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("find_members",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["query"] = "Program"
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(json.GetProperty("types").GetArrayLength() > 0
+            || json.GetProperty("methods").GetArrayLength() > 0);
+        Assert.Equal(0, json.GetProperty("memberRefs").GetArrayLength());
+    }
 }
