@@ -178,6 +178,27 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleIlcRsp { get; private set; }
 
     /// <summary>
+    /// Path to the published V2 NativeAOT sample executable. The project folder is
+    /// <c>NativeAotConsoleV2</c> but its AssemblyName is pinned to <c>NativeAotConsole</c> so
+    /// the mstat pair diffs as two builds of the same application — the output file is named
+    /// <c>NativeAotConsole</c>, disambiguated by folder.
+    /// </summary>
+    public string? NativeAotConsoleV2Exe { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC size report published next to the V2 NativeAOT sample, or null when the
+    /// publish did not produce one. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleV2Mstat { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC dependency-graph DGML published next to the V2 NativeAOT sample (the
+    /// codegen graph, falling back to the scan graph), or null when the publish did not
+    /// produce one. Tests gate on this with <c>Assert.SkipWhen</c>.
+    /// </summary>
+    public string? NativeAotConsoleV2Dgml { get; private set; }
+
+    /// <summary>
     /// Path to the NativeAOT sample published with <c>UseArtifactsOutput</c> — the exe under
     /// <c>artifacts\publish\&lt;proj&gt;\&lt;pivot&gt;</c> — or null when the publish did not run.
     /// Tests gate on this with <c>Assert.SkipWhen</c>.
@@ -281,6 +302,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         }
 
         builds.Add(PublishNativeAotProject("samples/NativeAotConsole"));
+        builds.Add(PublishNativeAotProject("samples/NativeAotConsoleV2"));
         builds.Add(PublishNativeAotProject("samples/NativeAotArtifactsConsole"));
         builds.Add(PublishNativeAotProject("samples/NativeAotLibrary"));
         builds.Add(PublishNativeAotProject("samples/HardwareIntrinsics"));
@@ -374,6 +396,18 @@ public class SampleAssemblyFixture : IAsyncLifetime
         NativeAotConsoleManagedPdb = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.pdb"));
         NativeAotConsoleIlcRsp = ExistingPathOrNull(
             Path.Combine(aotObjDir, "native", "NativeAotConsole.ilc.rsp"));
+
+        // V2 of the AOT sample: same AssemblyName, so the publish output is also named
+        // NativeAotConsole — the project folder is what tells the two builds apart.
+        var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
+            "bin", "Release", tfm, rid, "publish");
+        NativeAotConsoleV2Exe = ExistingPathOrNull(
+            Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}"));
+        NativeAotConsoleV2Mstat = ExistingPathOrNull(
+            Path.Combine(aotV2PublishDir, "NativeAotConsole.mstat"));
+        NativeAotConsoleV2Dgml =
+            ExistingPathOrNull(Path.Combine(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml"))
+            ?? ExistingPathOrNull(Path.Combine(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml"));
 
         // Artifacts-layout pivot names are SDK-internal; glob for the exe instead of parsing.
         NativeAotArtifactsExe = FindArtifactsPublishOutput(

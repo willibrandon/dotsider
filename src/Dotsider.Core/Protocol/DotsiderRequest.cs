@@ -70,4 +70,25 @@ public sealed class DotsiderRequest
 
     /// <summary>Method name (optionally <c>Type.Method</c>) or <c>0x…</c> native address for correlate-method.</summary>
     public string? MethodOrAddress { get; set; }
+
+    /// <summary>Baseline binary or mstat path for check-size-budgets.</summary>
+    public string? BaselinePath { get; set; }
+
+    /// <summary>Budget spec strings for check-size-budgets, in the size-budget grammar.</summary>
+    public string[]? Budgets { get; set; }
+
+    /// <summary>An inline size-budget JSON document for check-size-budgets (the budget-file schema).</summary>
+    public string? BudgetsJson { get; set; }
+
+    /// <summary>Path to a size-budget JSON file for check-size-budgets.</summary>
+    public string? BudgetFilePath { get; set; }
+
+    /// <summary>How many top contributors diff-size and check-size-budgets responses carry.</summary>
+    public int? TopN { get; set; }
+
+    /// <summary>Whether a diff-size response includes the delta tree.</summary>
+    public bool IncludeTree { get; set; }
+
+    /// <summary>The delta-tree node cap for diff-size when <see cref="IncludeTree"/> is set.</summary>
+    public int? MaxNodes { get; set; }
 }

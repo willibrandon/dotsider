@@ -52,6 +52,46 @@ Path to an assembly file (for direct analysis or diff).
 public string? AssemblyPath { get; set; }
 ```
 
+### BaselinePath
+
+Baseline binary or mstat path for check-size-budgets.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? BaselinePath { get; set; }
+```
+
+### BudgetFilePath
+
+Path to a size-budget JSON file for check-size-budgets.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? BudgetFilePath { get; set; }
+```
+
+### Budgets
+
+Budget spec strings for check-size-budgets, in the size-budget grammar.
+
+**Returns:** [String[]](https://learn.microsoft.com/dotnet/api/system.string[])
+
+```csharp
+public string[]? Budgets { get; set; }
+```
+
+### BudgetsJson
+
+An inline size-budget JSON document for check-size-budgets (the budget-file schema).
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string? BudgetsJson { get; set; }
+```
+
 ### CategoryFilter
 
 Trace event category filter.
@@ -72,6 +112,16 @@ Whether IL responses should include portable PDB debug information.
 public bool IncludeDebugInfo { get; set; }
 ```
 
+### IncludeTree
+
+Whether a diff-size response includes the delta tree.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IncludeTree { get; set; }
+```
+
 ### LeftPath
 
 Left assembly path for diff.
@@ -90,6 +140,16 @@ Byte count for read-bytes.
 
 ```csharp
 public int? Length { get; set; }
+```
+
+### MaxNodes
+
+The delta-tree node cap for diff-size when [IncludeTree](/api/dotsider.core.protocol.dotsiderrequest.includetree/) is set.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? MaxNodes { get; set; }
 ```
 
 ### MaxResults
@@ -210,6 +270,16 @@ Metadata token for resolve-token.
 
 ```csharp
 public int? Token { get; set; }
+```
+
+### TopN
+
+How many top contributors diff-size and check-size-budgets responses carry.
+
+**Returns:** [Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+
+```csharp
+public int? TopN { get; set; }
 ```
 
 ### TypeName

@@ -163,7 +163,7 @@ public static class ReadyToRunCorrelationQuery
             {
                 var importMap = ReadyToRunImportMap.Build(
                     codeImage, analyzer.ReadyToRunComponents, analyzer.ReadyToRunMetadataProviderFor);
-                importResolver = (ulong va, out NativeSymbolRef symbol) =>
+                importResolver = (va, out symbol) =>
                 {
                     if (importMap is not null && importMap.TryResolve(va, out symbol))
                         return true;

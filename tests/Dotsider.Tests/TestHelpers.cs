@@ -58,4 +58,48 @@ internal static class TestHelpers
         }
         throw new InvalidOperationException("Could not find repo root (Dotsider.slnx)");
     }
+
+    private static readonly string s_dotsiderProjectPath = Path.Combine(GetRepoRoot(), "src", "Dotsider");
+
+    private static readonly string s_dotsiderBuildConfig = DetectBuildConfig();
+
+    private static string DetectBuildConfig()
+    {
+        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
+                return parts[i + 1];
+        }
+
+        return "Debug";
+    }
+
+    /// <summary>
+    /// Runs the real dotsider CLI as a subprocess (via <c>dotnet run --no-build</c>) and
+    /// captures its exit code and streams — the harness for command-surface integration tests.
+    /// </summary>
+    internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
+        params string[] arguments)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --no-build -c {s_dotsiderBuildConfig} --project \"{s_dotsiderProjectPath}\" -- "
+                + string.Join(' ', arguments.Select(QuoteArg)),
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        var process = Process.Start(psi)!;
+        var stdout = await process.StandardOutput.ReadToEndAsync();
+        var stderr = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        return (process.ExitCode, stdout, stderr);
+    }
+
+    private static string QuoteArg(string arg)
+        => arg.Contains(' ') ? $"\"{arg}\"" : arg;
 }

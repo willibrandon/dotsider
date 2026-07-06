@@ -5,9 +5,9 @@
 ## Modes
 
 - **TUI mode** — `dotsider MyApp.dll` opens an interactive terminal UI with tabbed navigation. The IL Inspector shows portable PDB source spans, local names, and compact Source Link markers when available.
-- **Diff mode** — `dotsider diff Left.dll Right.dll` compares two assemblies side-by-side
+- **Diff mode** — `dotsider diff Left.dll Right.dll` compares two assemblies side-by-side; two mstat-backed inputs (Native AOT) open the size-diff view with a delta treemap instead
 - **NuGet mode** — `dotsider MyPackage.nupkg` inspects package contents and embedded assemblies
-- **CLI mode** — `dotsider analyze`, `dotsider sessions`, `dotsider agent` for headless scripting
+- **CLI mode** — `dotsider analyze`, `dotsider size-check`, `dotsider sessions`, `dotsider agent` for headless scripting
 
 ## CLI Commands
 
@@ -61,10 +61,27 @@ dotsider agent init --path /tmp/SKILL.md    # write to explicit path
 
 ### diff
 
-Compare two assemblies in an interactive TUI.
+Compare two assemblies in an interactive TUI — or two Native AOT builds by size when both
+inputs are mstat-backed (a bare `.mstat` size report or an AOT binary with the sidecar
+beside it).
 
 ```
-dotsider diff Left.dll Right.dll
+dotsider diff Left.dll Right.dll                # metadata diff
+dotsider diff before.mstat after.mstat          # AOT size diff (delta treemap)
+dotsider diff before.mstat after.mstat --json   # headless size-diff document
+```
+
+### size-check
+
+Headless Native AOT size-regression report and CI budget gate. Exit codes: 0 pass, 1 error,
+2 budget exceeded.
+
+```
+dotsider size-check out/pr/app --baseline baseline/app.mstat
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --budget total:growth=1% --budget ns=MyApp.Generated:growth=0
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --format markdown --summary-file "$GITHUB_STEP_SUMMARY"
 ```
 
 ## Global Options

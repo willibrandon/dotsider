@@ -212,7 +212,7 @@ public static class SizeTreemapView
                     if (target?.AotNodeName is null) return;
 
                     state.SizeMapWhyContent = state.Analyzer.Dgml is { } dgml
-                        ? FormatWhyChain(dgml, target)
+                        ? WhyChainFormatter.FormatWhyChain(dgml, target.FullPath, target.AotNodeName!)
                         : $"{target.FullPath}\n\nNo DGML dependency graph next to the binary.\nPublish with IlcGenerateDgmlFile and keep the\n*.codegen.dgml.xml beside the executable.";
                     state.App.Invalidate();
                 }, "Why in binary");
@@ -315,35 +315,6 @@ public static class SizeTreemapView
                 })
                 : null
         ]).Fill();
-    }
-
-    /// <summary>
-    /// Formats the root-to-node dependency chain for the why popup: the root kept step 2,
-    /// step 2 kept step 3, and so on down to the node that was asked about.
-    /// </summary>
-    private static string FormatWhyChain(DgmlGraph dgml, SizeNode target)
-    {
-        var path = dgml.PathToRoot(target.AotNodeName!);
-        if (path.Count == 0)
-        {
-            return $"{target.FullPath}\n\nNot present in the DGML dependency graph. The scan\ngraph can differ from the compiled output; publish\nwith the codegen graph next to the binary for an\nexact join.";
-        }
-
-        var lines = new List<string>
-        {
-            target.FullPath,
-            "",
-            "Kept by (root first):",
-            "",
-        };
-        for (var i = 0; i < path.Count; i++)
-        {
-            lines.Add($"{i + 1,3}. {path[i].Label}");
-            if (path[i].Reason is { } reason)
-                lines.Add($"     reason: {reason}");
-        }
-
-        return string.Join('\n', lines);
     }
 
     private static string BuildBreadcrumb(DotsiderState state)

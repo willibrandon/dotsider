@@ -60,6 +60,8 @@ public class ToolRegistrationTests : McpServerTestBase
 
         // Diff tools
         Assert.Contains("diff_assemblies", names);
+        Assert.Contains("diff_size", names);
+        Assert.Contains("check_size_budgets", names);
 
         // NuGet tools
         Assert.Contains("analyze_nupkg", names);

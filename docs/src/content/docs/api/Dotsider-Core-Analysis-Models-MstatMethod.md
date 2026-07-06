@@ -28,7 +28,7 @@ public sealed record MstatMethod : IEquatable<MstatMethod>
 
 ## Constructors
 
-### MstatMethod(string, string, string, string, int, int, int, string?)
+### MstatMethod(string, string, string, string, int, int, int, string?, string)
 
 One compiled method body from an ILC size report. Sizes are bytes of native artifact, not
 IL: ILC compiles each body once, so the sum over all methods is the code contribution to
@@ -46,9 +46,34 @@ the binary.
 - `NodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The compiler's dependency-graph node name (format 2.0+), or null in 1.x reports. The same
 string appears as the node `Label` in the DGML graphs `IlcGenerateDgmlFile` emits,
 which is how a size entry joins to its dependency chain.
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The rendered parameter-type list of the method's definition (for example
+`(string, int)`), or an empty string when the signature could not be decoded.
+Overloads share a [Name](/api/dotsider.core.analysis.models.mstatmethod.name/) but never a signature, so
+([AssemblyName](/api/dotsider.core.analysis.models.mstatmethod.assemblyname/), [DeclaringType](/api/dotsider.core.analysis.models.mstatmethod.declaringtype/), [Name](/api/dotsider.core.analysis.models.mstatmethod.name/),
+[Signature](/api/dotsider.core.analysis.models.mstatmethod.signature/)) identifies a method stably across builds.
 
 ```csharp
-public MstatMethod(string Name, string DeclaringType, string Namespace, string AssemblyName, int Size, int GcInfoSize, int EhInfoSize, string? NodeName)
+public MstatMethod(string Name, string DeclaringType, string Namespace, string AssemblyName, int Size, int GcInfoSize, int EhInfoSize, string? NodeName, string Signature)
+```
+
+### MstatMethod(string, string, string, string, int, int, int, string?)
+
+The pre-signature shape (eight arguments), preserved so existing construction sites keep
+compiling. [Signature](/api/dotsider.core.analysis.models.mstatmethod.signature/) defaults to an empty string.
+
+**Parameters:**
+
+- `name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The method name.
+- `declaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The declaring type's display name.
+- `namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The declaring type's namespace.
+- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The simple name of the defining assembly.
+- `size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The native code size in bytes.
+- `gcInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The GC info size in bytes.
+- `ehInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The EH info size in bytes.
+- `nodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The compiler's dependency-graph node name, or null.
+
+```csharp
+public MstatMethod(string name, string declaringType, string @namespace, string assemblyName, int size, int gcInfoSize, int ehInfoSize, string? nodeName)
 ```
 
 ## Properties
@@ -125,6 +150,20 @@ which is how a size entry joins to its dependency chain.
 public string? NodeName { get; init; }
 ```
 
+### Signature
+
+The rendered parameter-type list of the method's definition (for example
+`(string, int)`), or an empty string when the signature could not be decoded.
+Overloads share a [Name](/api/dotsider.core.analysis.models.mstatmethod.name/) but never a signature, so
+([AssemblyName](/api/dotsider.core.analysis.models.mstatmethod.assemblyname/), [DeclaringType](/api/dotsider.core.analysis.models.mstatmethod.declaringtype/), [Name](/api/dotsider.core.analysis.models.mstatmethod.name/),
+[Signature](/api/dotsider.core.analysis.models.mstatmethod.signature/)) identifies a method stably across builds.
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public string Signature { get; init; }
+```
+
 ### Size
 
 The native code size in bytes.
@@ -133,5 +172,26 @@ The native code size in bytes.
 
 ```csharp
 public int Size { get; init; }
+```
+
+## Methods
+
+### Deconstruct(out string, out string, out string, out string, out int, out int, out int, out string?)
+
+The pre-signature eight-output deconstruction, preserved alongside the generated nine-output one.
+
+**Parameters:**
+
+- `name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The method name.
+- `declaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The declaring type's display name.
+- `namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The declaring type's namespace.
+- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The simple name of the defining assembly.
+- `size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The native code size in bytes.
+- `gcInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The GC info size in bytes.
+- `ehInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The EH info size in bytes.
+- `nodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The compiler's dependency-graph node name, or null.
+
+```csharp
+public void Deconstruct(out string name, out string declaringType, out string @namespace, out string assemblyName, out int size, out int gcInfoSize, out int ehInfoSize, out string? nodeName)
 ```
 

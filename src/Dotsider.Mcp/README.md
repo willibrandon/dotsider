@@ -76,6 +76,8 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 | Tool | Description |
 |------|-------------|
 | `diff_assemblies` | Compare two assemblies: added/removed/changed types, methods, refs |
+| `diff_size` | Compare two Native AOT builds via their mstat size reports: summary, per-assembly/namespace deltas, top contributors, optional capped delta tree |
+| `check_size_budgets` | Evaluate size budgets against a build (optionally vs a baseline): per-budget pass/fail with scoped top regressions; budgets as grammar strings, inline JSON, or a file |
 
 ### NuGet
 

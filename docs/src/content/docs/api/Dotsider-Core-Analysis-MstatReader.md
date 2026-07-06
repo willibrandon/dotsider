@@ -32,6 +32,43 @@ public static class MstatReader
 
 ## Methods
 
+### Probe(Stream)
+
+Cheaply tests whether a stream looks like an ILC size report. The stream is left open.
+See [String)](/api/dotsider.core.analysis.mstatreader.probe(system.string)/) for what the probe checks.
+
+**Parameters:**
+
+- `stream` ([Stream](https://learn.microsoft.com/dotnet/api/system.io.stream)): A readable, seekable stream positioned at the start of the file.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+True when the content plausibly is an mstat; false otherwise.
+
+```csharp
+public static bool Probe(Stream stream)
+```
+
+### Probe(string)
+
+Cheaply tests whether a file looks like an ILC size report, without decoding any IL
+streams or node names: the PE must carry metadata, the assembly version major must be a
+known format version, and `&lt;Module&gt;` must declare a global `Methods` or
+`Types` method. A positive probe is a sniff, not a guarantee — follow it with
+[String)](/api/dotsider.core.analysis.mstatreader.read(system.string)/) for the decoded report. Never throws.
+
+**Parameters:**
+
+- `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The path of the candidate file.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+True when the file plausibly is an mstat; false otherwise.
+
+```csharp
+public static bool Probe(string filePath)
+```
+
 ### Read(Stream)
 
 Reads an ILC size report from a stream. The stream is left open.

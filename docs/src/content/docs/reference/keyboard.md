@@ -79,6 +79,20 @@ description: All keyboard shortcuts for navigating dotsider.
 | `y` | Yank focused row or selected text |
 | `Tab` | Cycle focus between summary panels |
 
+## Size-diff mode
+
+| Key | Action |
+|-----|--------|
+| `1`–`2` | Switch tabs (Summary / Size Map) |
+| `f` | Cycle direction filters (All / Added / Removed / Grown / Shrunk) |
+| `Enter` / click | Drill into the selected subtree |
+| `Esc` / right-click | Go up one level (dismisses popups and search first) |
+| `←` `→` | Cycle rectangle selection |
+| `/` then `n` `N` | Search the current level, jump between matches |
+| `w` | Why is this in the binary — dependency chain; press again on a changed entry to flip sides |
+| `d` | Disassemble the native body (binary-backed pairs); repeated presses cycle an aggregate's symbols and, for changed entries, both builds' bodies |
+| `y` | Yank selected text in the summary or popups |
+
 ## NuGet mode
 
 | Key | Action |
