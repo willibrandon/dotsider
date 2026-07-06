@@ -216,6 +216,8 @@ internal sealed class DotsiderDiagnosticsListener(
                 "list-types" => HandleListTypes(request),
                 "list-methods" => HandleListMethods(request),
                 "find-members" => HandleFindMembers(request),
+                "get-native-aot-info" => HandleGetNativeAotInfo(),
+                "list-native-aot-sections" => HandleListNativeAotSections(),
 
                 // IL
                 "disassemble" => HandleDisassemble(request),
@@ -243,6 +245,8 @@ internal sealed class DotsiderDiagnosticsListener(
                 // Size
                 "get-size-tree" => HandleGetSizeTree(),
                 "get-largest-methods" => HandleGetLargestMethods(request),
+                "get-native-aot-size-contributors" => HandleGetNativeAotSizeContributors(request),
+                "explain-native-aot-size" => HandleExplainNativeAotSize(request),
 
                 // Symbols
                 "get-native-symbols" => HandleGetNativeSymbols(),
@@ -383,23 +387,8 @@ internal sealed class DotsiderDiagnosticsListener(
 
     private DotsiderResponse HandleListMethods(DotsiderRequest request)
     {
-        var methods = RequireAnalyzer().MethodDefs;
-        if (!string.IsNullOrEmpty(request.TypeName))
-        {
-            methods = [.. methods.Where(m =>
-                m.DeclaringType.Contains(request.TypeName, StringComparison.OrdinalIgnoreCase))];
-        }
-
-        if (!string.IsNullOrEmpty(request.Query))
-        {
-            methods = [.. methods.Where(m =>
-                m.Name.Contains(request.Query, StringComparison.OrdinalIgnoreCase))];
-        }
-
-        if (request.MaxResults is > 0)
-            methods = [.. methods.Take(request.MaxResults.Value)];
-
-        return DotsiderResponse.Ok(methods);
+        return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildMethodInventory(
+            RequireAnalyzer(), request.TypeName, request.Query, request.MaxResults));
     }
 
     private DotsiderResponse HandleFindMembers(DotsiderRequest request)
@@ -407,32 +396,32 @@ internal sealed class DotsiderDiagnosticsListener(
         if (string.IsNullOrEmpty(request.Query))
             return DotsiderResponse.Fail("Query is required for find-members");
 
-        var analyzer = RequireAnalyzer();
-        var query = request.Query;
-        var max = request.MaxResults ?? 100;
+        return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildMemberSearch(
+            RequireAnalyzer(), request.Query, request.MaxResults, request.IncludeCompilerGenerated));
+    }
 
-        var matchingTypes = analyzer.TypeDefs
-            .Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Take(max)
-            .ToList();
-
-        var matchingMethods = analyzer.MethodDefs
-            .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Take(max)
-            .ToList();
-
-        var matchingMemberRefs = analyzer.MemberRefs
-            .Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Take(max)
-            .ToList();
-
-        return DotsiderResponse.Ok(new
+    private DotsiderResponse HandleGetNativeAotInfo()
+    {
+        try
         {
-            Types = matchingTypes,
-            Methods = matchingMethods,
-            MemberRefs = matchingMemberRefs
-        });
+            return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildInfo(RequireAnalyzer()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
+    }
+
+    private DotsiderResponse HandleListNativeAotSections()
+    {
+        try
+        {
+            return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildSections(RequireAnalyzer()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
     }
 
     // --- IL Handlers ---
@@ -631,25 +620,52 @@ internal sealed class DotsiderDiagnosticsListener(
 
     private DotsiderResponse HandleGetLargestMethods(DotsiderRequest request)
     {
-        var state = RequireState();
-        var max = request.MaxResults ?? 20;
-        var methods = state.Analyzer.MethodDefs
-            .Select(m =>
-            {
-                try
-                {
-                    var body = state.Analyzer.GetMethodBody(m);
-                    return new { Method = m, Size = body?.GetILBytes()?.Length ?? 0 };
-                }
-                catch
-                {
-                    return new { Method = m, Size = 0 };
-                }
-            })
-            .OrderByDescending(x => x.Size)
-            .Take(max);
+        return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildLargestMethods(
+            RequireAnalyzer(), request.MaxResults));
+    }
 
-        return DotsiderResponse.Ok(methods);
+    private DotsiderResponse HandleGetNativeAotSizeContributors(DotsiderRequest request)
+    {
+        try
+        {
+            var source = NativeAotPayloadBuilder.ResolveMstatSource(RequireAnalyzer());
+            if (source is null)
+            {
+                return DotsiderResponse.Fail(
+                    "Native AOT size contributors require an mstat sidecar; publish with IlcGenerateMstatFile.");
+            }
+
+            return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildSizeContributors(
+                source, request.Query, request.Section, request.AssemblyName, request.NamespaceName,
+                request.TopN, request.IncludeWhy, request.MaxWhyChains));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
+    }
+
+    private DotsiderResponse HandleExplainNativeAotSize(DotsiderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Target))
+            return DotsiderResponse.Fail("target is required");
+
+        try
+        {
+            var source = NativeAotPayloadBuilder.ResolveMstatSource(RequireAnalyzer());
+            if (source is null)
+            {
+                return DotsiderResponse.Fail(
+                    "Native AOT size explanations require an mstat sidecar; publish with IlcGenerateMstatFile.");
+            }
+
+            return DotsiderResponse.Ok(NativeAotPayloadBuilder.BuildWhy(
+                source, request.Target, request.MaxCandidates, request.MaxWhyChains));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
     }
 
     // --- Symbols Handler ---

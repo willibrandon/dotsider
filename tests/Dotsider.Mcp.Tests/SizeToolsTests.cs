@@ -99,4 +99,35 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
         Assert.Contains("category", text);
         Assert.Contains("System.Private.CoreLib", text);
     }
+
+    /// <summary>
+    /// get_largest_methods uses Native AOT mstat method sizes when IL bodies are absent.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetLargestMethods_NativeAot_ReturnsMstatMethods()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "get_largest_methods",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["maxResults"] = 5
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var methods = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.True(methods.GetArrayLength() > 0);
+        Assert.All(methods.EnumerateArray(), m =>
+        {
+            Assert.Equal("Mstat", m.GetProperty("source").GetString());
+            Assert.True(m.GetProperty("size").GetInt64() > 0);
+        });
+    }
 }

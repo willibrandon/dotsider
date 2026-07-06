@@ -52,10 +52,13 @@ public static bool Probe(Stream stream)
 ### Probe(string)
 
 Cheaply tests whether a file looks like an ILC size report, without decoding any IL
-streams or node names: the PE must carry metadata, the assembly version major must be a
-known format version, and `&lt;Module&gt;` must declare a global `Methods` or
-`Types` method. A positive probe is a sniff, not a guarantee — follow it with
-[String)](/api/dotsider.core.analysis.mstatreader.read(system.string)/) for the decoded report. Never throws.
+streams or node names: the PE must carry metadata, the assembly version must be a
+known format version with the writer's unset Build/Revision sentinels, and
+`&lt;Module&gt;` must declare both the `Methods` and `Types` global
+methods — every format version emits both, and requiring the pair keeps an ordinary
+managed module that happens to define one such global method from being misclassified.
+A positive probe is a sniff, not a guarantee — follow it with [String)](/api/dotsider.core.analysis.mstatreader.read(system.string)/)
+for the decoded report. Never throws.
 
 **Parameters:**
 

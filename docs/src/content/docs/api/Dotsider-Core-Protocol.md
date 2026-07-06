@@ -48,6 +48,15 @@ Includes the full path and the runtime pack that provided it.
 public sealed record FrameworkAssemblyInfo : IEquatable<FrameworkAssemblyInfo>
 ```
 
+### [NativeAotPayloadBuilder](/api/dotsider.core.protocol.nativeaotpayloadbuilder/)
+
+Builds JSON-ready Native AOT payloads shared by direct MCP tools and the diagnostics session
+protocol, so the two transports return the same facts and error semantics.
+
+```csharp
+public static class NativeAotPayloadBuilder
+```
+
 ### [ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/)
 
 Serialization-safe representation of an assembly resolution result.
