@@ -11,10 +11,25 @@ namespace Dotsider.Views;
 /// </summary>
 public sealed class InfoLabelDecorationProvider : ITextDecorationProvider
 {
-    private static readonly TextDecoration LabelDecoration = new()
+    private static readonly Hex1bColor DefaultLabelColor = Hex1bColor.FromRgb(100, 130, 160);
+    private readonly TextDecoration _labelDecoration;
+
+    /// <summary>
+    /// Creates the default info label provider.
+    /// </summary>
+    public InfoLabelDecorationProvider()
+        : this(DefaultLabelColor)
     {
-        Foreground = Hex1bColor.FromRgb(100, 130, 160)
-    };
+    }
+
+    /// <summary>
+    /// Creates an info label provider with a caller-supplied label color.
+    /// </summary>
+    /// <param name="labelColor">The foreground color applied to label spans.</param>
+    public InfoLabelDecorationProvider(Hex1bColor labelColor)
+    {
+        _labelDecoration = new TextDecoration { Foreground = labelColor };
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<TextDecorationSpan> GetDecorations(
@@ -76,7 +91,7 @@ public sealed class InfoLabelDecorationProvider : ITextDecorationProvider
                     spans.Add(new TextDecorationSpan(
                         new DocumentPosition(line, spanCol),
                         new DocumentPosition(line, colonIdx + 2),
-                        LabelDecoration,
+                        _labelDecoration,
                         5));
                     isFirstOnLine = false;
                 }

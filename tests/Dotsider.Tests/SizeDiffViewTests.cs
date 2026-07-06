@@ -236,8 +236,29 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(
             _ => _state is { TreemapSelectedIndex: >= 0 }, description: "an item is selected");
         await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
-        await auto.WaitUntilTextAsync("Why in binary");
+        Hex1b.Automation.Hex1bTerminalSnapshot? popupSnapshot = null;
+        await auto.WaitUntilAsync(s =>
+        {
+            if (!ScreenText(s).Contains("Why in binary", StringComparison.Ordinal))
+                return false;
+            popupSnapshot = s;
+            return true;
+        }, description: "why popup rendered");
         Assert.NotNull(_state!.WhyContent);
+        AssertPopupSurfaceReadable(popupSnapshot!, "Why in binary", "[right/current:");
+        var selectedBeforeDismiss = _state.TreemapSelectedIndex;
+        var visibleCount = (_state.TreemapCurrentLevel ?? _state.FilteredRoot)!.Children.Count;
+        Assert.True(visibleCount > 1, "The fixture must expose more than one treemap item.");
+        var expectedSelection = (selectedBeforeDismiss + 1) % visibleCount;
+
+        await auto.KeyAsync(Hex1bKey.Escape, ct: cts.Token);
+        await auto.WaitUntilAsync(
+            _ => _state is { WhyContent: null },
+            description: "why popup dismissed");
+        await auto.KeyAsync(Hex1bKey.RightArrow, ct: cts.Token);
+        await auto.WaitUntilAsync(
+            _ => _state!.TreemapSelectedIndex == expectedSelection,
+            description: "treemap focus restored after popup dismiss");
 
         cts.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -263,8 +284,19 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(
             _ => _state is { TreemapSelectedIndex: >= 0 }, description: "an item is selected");
         await auto.KeyAsync(Hex1bKey.D, ct: cts.Token);
-        await auto.WaitUntilAsync(
-            _ => _state is { DisasmContent: not null }, description: "disasm popup content set");
+        Hex1b.Automation.Hex1bTerminalSnapshot? popupSnapshot = null;
+        await auto.WaitUntilAsync(s =>
+        {
+            if (_state is not { DisasmContent: not null }
+                || !ScreenText(s).Contains("Native disassembly", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            popupSnapshot = s;
+            return true;
+        }, description: "disasm popup rendered");
+        AssertPopupSurfaceReadable(popupSnapshot!, "Native disassembly");
 
         cts.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -293,26 +325,45 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
                 ? predicate(node)
                 : node.Children.Any(c => ContainsLeaf(c, predicate));
 
+        static void AssertRecomputedNodeNames(SizeDiffNode node)
+        {
+            if (node.Children.Count == 0) return;
+
+            Assert.Equal(
+                node.Children.SelectMany(c => c.LeftNodeNames).Distinct(StringComparer.Ordinal),
+                node.LeftNodeNames);
+            Assert.Equal(
+                node.Children.SelectMany(c => c.RightNodeNames).Distinct(StringComparer.Ordinal),
+                node.RightNodeNames);
+            foreach (var child in node.Children)
+                AssertRecomputedNodeNames(child);
+        }
+
         // The V2 build pulls new BCL surface in, so common accessor names like get_Name()
         // exist as *added* entries elsewhere — the fixture's own members are identified by
         // their full paths, never by bare display names.
         const string GetNamePath = "NativeAotConsole/Greeter::get_Name()";
         const string GreetStringPath = "NativeAotConsole/Greeter::Greet(string)";
 
+        AssertRecomputedNodeNames(diff.Root);
+
         var removed = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Removed);
         Assert.True(ContainsLeaf(removed, n => n.FullPath == GetNamePath));
         Assert.False(ContainsLeaf(removed, n => n.FullPath.Contains("Telemetry")));
         Assert.All(removed.Children, AssertRecomputedSums);
         Assert.All(removed.Children, n => AssertAllDirections(n, DiffKind.Removed));
+        AssertRecomputedNodeNames(removed);
 
         var added = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Added);
         Assert.False(ContainsLeaf(added, n => n.FullPath == GetNamePath));
         Assert.True(ContainsLeaf(added, n => n.FullPath.Contains("Telemetry")));
         Assert.All(added.Children, n => AssertAllDirections(n, DiffKind.Added));
+        AssertRecomputedNodeNames(added);
 
         var grown = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Grown);
         Assert.True(ContainsLeaf(grown, n => n.FullPath == GreetStringPath));
         Assert.False(ContainsLeaf(grown, n => n.FullPath == GetNamePath));
+        AssertRecomputedNodeNames(grown);
 
         static void AssertRecomputedSums(SizeDiffNode node)
         {
@@ -442,6 +493,23 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the popup palette clears WCAG AA on its owned dark surface.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void PopupPalette_ClearsWcagAa()
+    {
+        Assert.True(ContrastRatio(
+            SizeDiffTreemapView.PopupForeground,
+            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
+        Assert.True(ContrastRatio(
+            SizeDiffTreemapView.PopupLabelForeground,
+            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
+        Assert.True(ContrastRatio(
+            SizeDiffTreemapView.PopupBorderColor,
+            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
+    }
+
+    /// <summary>
     /// Verifies the two-sided why-chain data: an added Telemetry method's node names resolve
     /// to chains in the V2 graph, and the removed accessor's node names resolve in the V1
     /// graph — each side answers only for its own build.
@@ -469,6 +537,41 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.Empty(removed.RightNodeNames);
         var removedChain = WhyChainFormatter.FormatWhyChains(leftDgml, removed.FullPath, removed.LeftNodeNames);
         Assert.Contains("Kept by", removedChain);
+    }
+
+    /// <summary>
+    /// Verifies an aggregate treemap tile can explain its growth directly by rolling up the
+    /// child dependency-graph node names, so users do not need to drill to a leaf first.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void WhyChains_AggregateNodeRollsUpDescendantNames()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleV2Dgml is null, "V2 DGML sidecar was not produced");
+        var diff = DiffV1V2();
+        var rightDgml = DgmlReader.Read(samples.NativeAotConsoleV2Dgml!);
+        Assert.NotNull(rightDgml);
+
+        static SizeDiffNode? FindNode(SizeDiffNode node, string fullPath)
+        {
+            if (node.FullPath == fullPath) return node;
+            foreach (var child in node.Children)
+            {
+                if (FindNode(child, fullPath) is { } found) return found;
+            }
+
+            return null;
+        }
+
+        var aggregate = FindNode(diff.Root, "System.Private.TypeLoader/Internal.Runtime.TypeLoader");
+        Assert.NotNull(aggregate);
+        Assert.NotEmpty(aggregate.RightNodeNames);
+        Assert.True(aggregate.Children.Count > 0);
+
+        var chain = WhyChainFormatter.FormatWhyChains(
+            rightDgml, aggregate.FullPath, aggregate.RightNodeNames);
+
+        Assert.Contains("aggregated nodes", chain);
+        Assert.Contains("root first", chain);
     }
 
     /// <summary>
@@ -513,6 +616,117 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         for (var y = 0; y < s.Height; y++)
             lines.Add(s.GetLine(y));
         return string.Join('\n', lines);
+    }
+
+    private static void AssertPopupSurfaceReadable(
+        Hex1b.Automation.Hex1bTerminalSnapshot snapshot,
+        string title,
+        string? contentNeedle = null)
+    {
+        var titleY = FindLine(snapshot, title);
+        Assert.True(titleY >= 0, $"Could not locate popup title '{title}'.");
+
+        var panelCells = 0;
+        var sampleY = Math.Min(snapshot.Height - 1, titleY + 1);
+        for (var x = 0; x < snapshot.Width; x++)
+        {
+            if (ColorsEqual(snapshot.GetCell(x, sampleY).Background,
+                    SizeDiffTreemapView.PopupPanelBackground))
+            {
+                panelCells++;
+            }
+        }
+
+        Assert.True(panelCells >= 90, $"Popup row only had {panelCells} cells with the panel background.");
+
+        int contentX;
+        int contentY;
+        if (contentNeedle is not null)
+        {
+            contentY = FindLine(snapshot, contentNeedle);
+            Assert.True(contentY >= 0, $"Could not locate popup content '{contentNeedle}'.");
+            contentX = snapshot.GetLine(contentY).IndexOf(contentNeedle, StringComparison.Ordinal);
+            Assert.True(contentX >= 0);
+        }
+        else
+        {
+            (contentX, contentY) = FindPopupTextCell(snapshot, titleY);
+            Assert.True(contentX >= 0 && contentY >= 0, "Could not locate popup text.");
+        }
+
+        var cell = snapshot.GetCell(contentX, contentY);
+        Assert.NotNull(cell.Foreground);
+        Assert.NotNull(cell.Background);
+        AssertColorEquals(SizeDiffTreemapView.PopupPanelBackground, cell.Background.Value);
+        Assert.True(ContrastRatio(cell.Foreground.Value, cell.Background.Value) >= 4.5);
+    }
+
+    private static int FindLine(Hex1b.Automation.Hex1bTerminalSnapshot snapshot, string text)
+    {
+        for (var y = 0; y < snapshot.Height; y++)
+        {
+            if (snapshot.GetLine(y).Contains(text, StringComparison.Ordinal))
+                return y;
+        }
+
+        return -1;
+    }
+
+    private static (int X, int Y) FindPopupTextCell(
+        Hex1b.Automation.Hex1bTerminalSnapshot snapshot, int titleY)
+    {
+        for (var y = titleY + 1; y < snapshot.Height; y++)
+        {
+            for (var x = 0; x < snapshot.Width; x++)
+            {
+                var cell = snapshot.GetCell(x, y);
+                if (!ColorsEqual(cell.Background, SizeDiffTreemapView.PopupPanelBackground)
+                    || string.IsNullOrWhiteSpace(cell.Character)
+                    || IsBorderGlyph(cell.Character))
+                {
+                    continue;
+                }
+
+                return (x, y);
+            }
+        }
+
+        return (-1, -1);
+    }
+
+    private static bool IsBorderGlyph(string value) =>
+        value is "┌" or "┐" or "└" or "┘" or "─" or "│";
+
+    private static bool ColorsEqual(Hex1bColor? actual, Hex1bColor expected) =>
+        actual is { } color
+        && color.R == expected.R
+        && color.G == expected.G
+        && color.B == expected.B;
+
+    private static void AssertColorEquals(Hex1bColor expected, Hex1bColor actual)
+    {
+        Assert.Equal(expected.R, actual.R);
+        Assert.Equal(expected.G, actual.G);
+        Assert.Equal(expected.B, actual.B);
+    }
+
+    private static double ContrastRatio(Hex1bColor a, Hex1bColor b)
+    {
+        var la = Luminance(a);
+        var lb = Luminance(b);
+        var (lighter, darker) = la >= lb ? (la, lb) : (lb, la);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double Luminance(Hex1bColor c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
     }
 
     /// <summary>

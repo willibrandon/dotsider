@@ -26,6 +26,12 @@ public static class SizeDiffTreemapView
     private static readonly Hex1bColor ShrunkColor = Hex1bColor.FromRgb(95, 150, 100);
     private static readonly Hex1bColor MixedColor = Hex1bColor.FromRgb(110, 110, 140);
     private static readonly Hex1bColor SelectionBorder = Hex1bColor.FromRgb(255, 255, 255);
+    internal static readonly Hex1bColor PopupPanelBackground = Hex1bColor.FromRgb(24, 24, 32);
+    internal static readonly Hex1bColor PopupForeground = Hex1bColor.FromRgb(230, 230, 240);
+    internal static readonly Hex1bColor PopupLabelForeground = Hex1bColor.FromRgb(140, 170, 205);
+    internal static readonly Hex1bColor PopupBorderColor = Hex1bColor.FromRgb(120, 150, 190);
+    private static readonly Hex1bColor PopupSelectionForeground = Hex1bColor.White;
+    private static readonly Hex1bColor PopupSelectionBackground = Hex1bColor.FromRgb(65, 70, 90);
 
     /// <summary>
     /// Builds the size-diff treemap widget tree.
@@ -182,6 +188,7 @@ public static class SizeDiffTreemapView
                             state.VimPending = VimMotionState.Idle;
                             CloseWhyPopup(state);
                             CloseDisasmPopup(state);
+                            state.RequestContentFocus();
                             state.App.Invalidate();
                         }, "Dismiss popup");
                     }
@@ -453,38 +460,52 @@ public static class SizeDiffTreemapView
         string? content, EditorState? editorState, string title, Action close)
     {
         if (content is null || editorState is null) return null;
-        return z.Backdrop(
-            z.Border(
-                z.ThemePanel(t => t
-                    .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
-                    .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
-                z.Editor(editorState)
-                    .ViewRenderer(InfoEditorViewRenderer.Instance)
-                    .Decorations(new InfoLabelDecorationProvider())
-                    .InputBindings(bindings =>
+
+        var editor = z.Editor(editorState)
+            .ViewRenderer(InfoEditorViewRenderer.Instance)
+            .Decorations(new InfoLabelDecorationProvider(PopupLabelForeground))
+            .InputBindings(bindings =>
+            {
+                TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                    bindings,
+                    editorState,
+                    () => state.VimPending,
+                    () => state.VimPendingEditor,
+                    () => state.VimPendingCursorOffset,
+                    () => state.VimPendingTimestamp,
+                    (s, e, o) =>
                     {
-                        TextObjectHelper.ConfigureReadOnlyEditorBindings(
-                            bindings,
-                            editorState,
-                            () => state.VimPending,
-                            () => state.VimPendingEditor,
-                            () => state.VimPendingCursorOffset,
-                            () => state.VimPendingTimestamp,
-                            (s, e, o) =>
-                            {
-                                state.VimPending = s;
-                                state.VimPendingEditor = e;
-                                state.VimPendingCursorOffset = o;
-                                state.VimPendingTimestamp = DateTime.UtcNow;
-                            },
-                            state.PerformEditorYank,
-                            () => state.App.Invalidate());
-                    })
-                    .FillWidth().FillHeight())
-            ).Title(title).FixedWidth(100).FixedHeight(24)
-        ).OnClickAway(() =>
+                        state.VimPending = s;
+                        state.VimPendingEditor = e;
+                        state.VimPendingCursorOffset = o;
+                        state.VimPendingTimestamp = DateTime.UtcNow;
+                    },
+                    state.PerformEditorYank,
+                    () => state.App.Invalidate());
+            })
+            .FillWidth().FillHeight();
+
+        var popup = z.ThemePanel(t => t
+                .Set(GlobalTheme.ForegroundColor, PopupForeground)
+                .Set(GlobalTheme.BackgroundColor, PopupPanelBackground)
+                .Set(EditorTheme.ForegroundColor, PopupForeground)
+                .Set(EditorTheme.BackgroundColor, PopupPanelBackground)
+                .Set(EditorTheme.SelectionForegroundColor, PopupSelectionForeground)
+                .Set(EditorTheme.SelectionBackgroundColor, PopupSelectionBackground)
+                .Set(BorderTheme.BorderColor, PopupBorderColor)
+                .Set(BorderTheme.TitleColor, PopupForeground)
+                .Set(BorderTheme.TopBorderColor, PopupBorderColor)
+                .Set(BorderTheme.BottomBorderColor, PopupBorderColor)
+                .Set(BorderTheme.LeftBorderColor, PopupBorderColor)
+                .Set(BorderTheme.RightBorderColor, PopupBorderColor),
+            new BackgroundPanelWidget(
+                PopupPanelBackground,
+                z.Border(editor).Title(title).FixedWidth(100).FixedHeight(24)));
+
+        return z.Backdrop(popup).OnClickAway(() =>
         {
             close();
+            state.RequestContentFocus();
             state.App.Invalidate();
         });
     }
@@ -542,8 +563,16 @@ public static class SizeDiffTreemapView
             Delta = children.Sum(c => c.Delta),
             LeftEntryCount = children.Sum(c => c.LeftEntryCount),
             RightEntryCount = children.Sum(c => c.RightEntryCount),
+            LeftNodeNames = MergeNodeNames(children, static c => c.LeftNodeNames),
+            RightNodeNames = MergeNodeNames(children, static c => c.RightNodeNames),
         };
     }
+
+    private static List<string> MergeNodeNames(
+        List<SizeDiffNode> children, Func<SizeDiffNode, IReadOnlyList<string>> selector) =>
+        [.. children
+            .SelectMany(selector)
+            .Distinct(StringComparer.Ordinal)];
 
     /// <summary>
     /// The treemap area weight of a node: its absolute delta, or for an interior whose

@@ -52,7 +52,7 @@ public static class WhyChainFormatter
     {
         if (nodeNames.Count == 0)
         {
-            return $"{displayPath}\n\nNo dependency-graph node names recorded for this entry\n(format 1.x mstat, or names stripped). Publish with a\n2.0+ SDK to join sizes to dependency chains.";
+            return $"{displayPath}\n\nNo dependency-graph node names recorded for this entry.\nSome data-only entries, such as metadata blobs or\nresources, have size rows but no DGML node. Format\n1.x mstat files can also lack these names.";
         }
 
         if (nodeNames.Count == 1)

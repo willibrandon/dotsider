@@ -1,5 +1,6 @@
 using Dotsider.Views;
 using Hex1b.Documents;
+using Hex1b.Theming;
 
 namespace Dotsider.Tests;
 
@@ -25,6 +26,22 @@ public class InfoDecorationProviderTests
         Assert.Equal(1, spans[0].Start.Column);
         // Second span covers "  Version:" on line 2
         Assert.Equal(2, spans[1].Start.Line);
+    }
+
+    /// <summary>
+    /// Verifies callers can supply a contrast-safe label color for popup surfaces.
+    /// </summary>
+    [Fact]
+    public void InfoLabel_UsesCustomLabelColor()
+    {
+        var color = Hex1bColor.FromRgb(140, 170, 205);
+        var provider = new InfoLabelDecorationProvider(color);
+        var doc = new Hex1bDocument("  Side: current");
+
+        var span = Assert.Single(provider.GetDecorations(1, 1, doc));
+
+        Assert.NotNull(span.Decoration.Foreground);
+        AssertColorEquals(color, span.Decoration.Foreground.Value);
     }
 
     /// <summary>
@@ -232,5 +249,12 @@ public class InfoDecorationProviderTests
         var spans = provider.GetDecorations(1, 1, doc);
 
         Assert.Equal(4, spans.Count);
+    }
+
+    private static void AssertColorEquals(Hex1bColor expected, Hex1bColor actual)
+    {
+        Assert.Equal(expected.R, actual.R);
+        Assert.Equal(expected.G, actual.G);
+        Assert.Equal(expected.B, actual.B);
     }
 }

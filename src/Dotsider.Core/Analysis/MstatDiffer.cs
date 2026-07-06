@@ -250,13 +250,21 @@ public static class MstatDiffer
             : children.All(c => c.Diff == DiffKind.Added) ? DiffKind.Added
             : children.All(c => c.Diff == DiffKind.Removed) ? DiffKind.Removed
             : DiffKind.Changed;
+        var leftNodeNames = MergeNodeNames(children, static c => c.LeftNodeNames);
+        var rightNodeNames = MergeNodeNames(children, static c => c.RightNodeNames);
         return new SizeDiffNode(
             name, fullPath, kind, diff,
             children.Sum(c => c.LeftSize), children.Sum(c => c.RightSize), children.Sum(c => c.Delta),
             children,
             children.Sum(c => c.LeftEntryCount), children.Sum(c => c.RightEntryCount),
-            [], []);
+            leftNodeNames, rightNodeNames);
     }
+
+    private static List<string> MergeNodeNames(
+        List<SizeDiffNode> children, Func<SizeDiffNode, IReadOnlyList<string>> selector) =>
+        [.. children
+            .SelectMany(selector)
+            .Distinct(StringComparer.Ordinal)];
 
     private static List<SizeDiffNode> Order(List<SizeDiffNode> nodes) => [.. nodes
         .OrderByDescending(n => Math.Abs(n.Delta))

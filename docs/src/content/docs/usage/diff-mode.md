@@ -86,12 +86,15 @@ Keys: `Enter`/click drills into a subtree, `Esc`/right-click goes back up, `←`
 selection, `/` searches with `n`/`N`, and `f` cycles five direction filters (All, Added,
 Removed, Grown, Shrunk). `w` opens the dependency chain that keeps the entry in the binary —
 added entries answer from the new build's graph, removed entries from the old build's, and
-pressing `w` again on a changed entry flips sides (the popup header names the side). `d` on a
-method disassembles its native body, resolved by the entry's mangled ILC node name — exact
-per overload and per instantiation. Repeated presses cycle through every candidate body: an
-aggregate's symbols, and for a changed entry both builds — new first, then baseline — so a
-grown method's before and after are one key apart. The popup header names the side and which
-of how many is showing.
+pressing `w` again on a changed entry flips sides (the popup header names the side).
+Namespace, type, assembly, and category tiles roll up the child DGML node names and show
+representative root-first chains, so you do not have to drill to a method leaf just to ask
+why a large subtree grew. Entries that truly have no DGML node, such as metadata blobs or
+resources, say that directly. `d` on a method disassembles its native body, resolved by the
+entry's mangled ILC node name — exact per overload and per instantiation. Repeated presses
+cycle through every candidate body: an aggregate's symbols, and for a changed entry both
+builds — new first, then baseline — so a grown method's before and after are one key apart.
+The popup header names the side and which of how many is showing.
 
 The **Summary** tab prints the same figures the headless `size-check` report does: totals on
 every applicable basis, per-kind direction counts, and the top regressions and improvements.
