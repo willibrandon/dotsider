@@ -40,6 +40,71 @@ public static class MstatReader
     }
 
     /// <summary>
+    /// Cheaply tests whether a file looks like an ILC size report, without decoding any IL
+    /// streams or node names: the PE must carry metadata, the assembly version must be a
+    /// known format version with the writer's unset Build/Revision sentinels, and
+    /// <c>&lt;Module&gt;</c> must declare both the <c>Methods</c> and <c>Types</c> global
+    /// methods — every format version emits both, and requiring the pair keeps an ordinary
+    /// managed module that happens to define one such global method from being misclassified.
+    /// A positive probe is a sniff, not a guarantee — follow it with <see cref="Read(string)"/>
+    /// for the decoded report. Never throws.
+    /// </summary>
+    /// <param name="filePath">The path of the candidate file.</param>
+    /// <returns>True when the file plausibly is an mstat; false otherwise.</returns>
+    public static bool Probe(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            return Probe(stream);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Cheaply tests whether a stream looks like an ILC size report. The stream is left open.
+    /// See <see cref="Probe(string)"/> for what the probe checks.
+    /// </summary>
+    /// <param name="stream">A readable, seekable stream positioned at the start of the file.</param>
+    /// <returns>True when the content plausibly is an mstat; false otherwise.</returns>
+    public static bool Probe(Stream stream)
+    {
+        try
+        {
+            using var pe = new PEReader(stream, PEStreamOptions.LeaveOpen);
+            if (!pe.HasMetadata) return false;
+
+            var mr = pe.GetMetadataReader();
+            var version = mr.GetAssemblyDefinition().Version;
+            if (version.Major is not (1 or 2)) return false;
+            // The writer leaves Build/Revision unset, which reads back as the 65535 sentinel;
+            // a real assembly versioned 1.x/2.x almost never does.
+            if (version.Build != 65535 || version.Revision != 65535) return false;
+            if (mr.TypeDefinitions.Count == 0) return false;
+
+            var hasMethods = false;
+            var hasTypes = false;
+            var moduleType = mr.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
+            foreach (var handle in moduleType.GetMethods())
+            {
+                var name = mr.GetString(mr.GetMethodDefinition(handle).Name);
+                if (name == "Methods") hasMethods = true;
+                else if (name == "Types") hasTypes = true;
+                if (hasMethods && hasTypes) return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Reads an ILC size report from a stream. The stream is left open.
     /// </summary>
     /// <param name="stream">A readable, seekable stream positioned at the start of the file.</param>
@@ -183,7 +248,8 @@ public static class MstatReader
             result.Add(new MstatMethod(
                 method.Name, method.Type.Display, method.Type.Namespace, method.Type.AssemblyName,
                 size, gcInfoSize, ehInfoSize,
-                hasNames ? ReadName(names, nameOffset) : null));
+                hasNames ? ReadName(names, nameOffset) : null,
+                method.Signature));
         }
 
         return result;
@@ -237,7 +303,7 @@ public static class MstatReader
             var field = resolver.ResolveMethod(token); // MemberRef: same shape as a method ref
             result.Add(new MstatRvaField(
                 $"{field.Type.Display}::{field.Name}", field.Type.AssemblyName, size,
-                ReadName(names, nameOffset)));
+                ReadName(names, nameOffset), field.Type.Namespace));
         }
 
         return result;
@@ -257,14 +323,24 @@ public static class MstatReader
             // The fourth element is always present: an owning-type token for serialized
             // statics, or a zero constant for everything else (string literals).
             string? owningType = null;
+            string? owningAssembly = null;
+            string? owningNamespace = null;
             if (cursor.TryReadToken(out var ownerToken))
-                owningType = resolver.ResolveType(ownerToken).Display;
+            {
+                var owner = resolver.ResolveType(ownerToken);
+                owningType = owner.Display;
+                owningAssembly = owner.AssemblyName;
+                owningNamespace = owner.Namespace;
+            }
             else if (!cursor.TryReadInt(out _))
+            {
                 break;
+            }
 
             var type = resolver.ResolveType(token);
             result.Add(new MstatFrozenObject(
-                type.Display, type.AssemblyName, size, ReadName(names, nameOffset), owningType));
+                type.Display, type.AssemblyName, size, ReadName(names, nameOffset),
+                owningType, owningAssembly, owningNamespace));
         }
 
         return result;
@@ -381,8 +457,11 @@ public static class MstatReader
         public static readonly TypeAttribution Unknown = new("?", "", "");
     }
 
-    /// <summary>A resolved method or field reference: its name and its declaring type.</summary>
-    private readonly record struct MemberAttribution(string Name, TypeAttribution Type);
+    /// <summary>
+    /// A resolved method or field reference: its name, its declaring type, and — for methods —
+    /// the rendered parameter-type list that keeps overloads apart.
+    /// </summary>
+    private readonly record struct MemberAttribution(string Name, TypeAttribution Type, string Signature = "");
 
     /// <summary>
     /// Resolves mstat entity tokens to display names with assembly attribution. Types resolve
@@ -451,7 +530,26 @@ public static class MstatReader
                     _mr.GetTypeSpecification((TypeSpecificationHandle)member.Parent).DecodeSignature(this, null),
                 _ => TypeAttribution.Unknown,
             };
-            return new MemberAttribution(_mr.GetString(member.Name), type);
+
+            // Decode the method's parameter types so overloads stay distinct: two builds of the
+            // same source always render the same signature, so it extends the stable identity.
+            // Field references (RVA field entries route through here too) carry field
+            // signatures, which have no parameter list.
+            var signature = "";
+            if (member.GetKind() == MemberReferenceKind.Method)
+            {
+                try
+                {
+                    var decoded = member.DecodeMethodSignature(this, null);
+                    signature = $"({string.Join(", ", decoded.ParameterTypes.Select(p => p.Display))})";
+                }
+                catch (BadImageFormatException)
+                {
+                    // A damaged signature blob degrades to the name-only identity.
+                }
+            }
+
+            return new MemberAttribution(_mr.GetString(member.Name), type, signature);
         }
 
         private TypeAttribution ResolveTypeRef(TypeReferenceHandle handle)

@@ -550,6 +550,16 @@ body and pointed these identical methods at it, so only the original contributes
 public sealed record MstatDeduplicatedMethod : IEquatable<MstatDeduplicatedMethod>
 ```
 
+### [MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/)
+
+The complete result of comparing two ILC size reports: a hierarchical delta tree for
+treemap rendering, headline figures, the flat contributor list a CI log prints, and the
+per-assembly / per-namespace aggregates that size budgets evaluate against.
+
+```csharp
+public sealed record MstatDiffResult : IEquatable<MstatDiffResult>
+```
+
 ### [MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/)
 
 One frozen object from an ILC size report (format 2.1+) — an object allocated at compile
@@ -588,6 +598,27 @@ also summed into the `FieldRvaData` blob entry.
 
 ```csharp
 public sealed record MstatRvaField : IEquatable<MstatRvaField>
+```
+
+### [MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/)
+
+One normalized entry of an [MstatSizeIndex](/api/dotsider.core.analysis.mstatsizeindex/): raw report
+rows aggregated under a build-stable identity key, with the structured hierarchy fields a
+consumer needs to place the entry in an assembly → namespace → type → leaf tree without
+parsing display strings.
+
+```csharp
+public sealed record MstatSizeEntry : IEquatable<MstatSizeEntry>
+```
+
+### [MstatSource](/api/dotsider.core.analysis.models.mstatsource/)
+
+A resolved mstat input: the decoded report plus where it came from. Produced by
+[MstatLocator](/api/dotsider.core.analysis.mstatlocator/) from either a bare `.mstat` file or
+a Native AOT binary with a size-report sidecar.
+
+```csharp
+public sealed record MstatSource : IEquatable<MstatSource>
 ```
 
 ### [MstatType](/api/dotsider.core.analysis.models.mstattype/)
@@ -892,6 +923,97 @@ A source sequence point decoded from a portable PDB.
 public sealed record SequencePointInfo : IEquatable<SequencePointInfo>
 ```
 
+### [SizeBudget](/api/dotsider.core.analysis.models.sizebudget/)
+
+One size budget: a scope plus at least one limit. Parsed from the spec grammar
+(`[scope:]limit(,limit)*` — for example `total:max=25mb,growth=1%` or
+`ns=System.Text.Json:growth=10kb`) by
+[SizeBudgetParser](/api/dotsider.core.analysis.sizebudgetparser/), or from a budget file's object form
+which can also carry a name, description, severity, and per-budget contributor count.
+
+```csharp
+public sealed record SizeBudget : IEquatable<SizeBudget>
+```
+
+### [SizeBudgetEvaluation](/api/dotsider.core.analysis.models.sizebudgetevaluation/)
+
+The outcome of evaluating one size budget: the measured values, any breached limits, and
+the top positive regressions inside the budget's scope — the rows that explain a growth
+breach, never diluted by improvements elsewhere.
+
+```csharp
+public sealed record SizeBudgetEvaluation : IEquatable<SizeBudgetEvaluation>
+```
+
+### [SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/)
+
+The outcome of checking a build against a set of size budgets. The check fails —
+[Passed](/api/dotsider.core.analysis.models.sizebudgetreport.passed/) is false — only when an error-severity budget breached; warning
+breaches surface through [HasWarnings](/api/dotsider.core.analysis.models.sizebudgetreport.haswarnings/) without failing the check.
+
+```csharp
+public sealed record SizeBudgetReport : IEquatable<SizeBudgetReport>
+```
+
+### [SizeBudgetViolation](/api/dotsider.core.analysis.models.sizebudgetviolation/)
+
+One breached limit of a size budget. Every figure is expressed in bytes — for the percent
+metric the limit is resolved against the baseline so the overage stays a byte count — with
+the percentages carried alongside where they apply.
+
+```csharp
+public sealed record SizeBudgetViolation : IEquatable<SizeBudgetViolation>
+```
+
+### [SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/)
+
+The byte totals of one assembly or namespace on both sides of a size diff. Aggregates
+cover all attributable bytes for their scope — methods, MethodTables, RVA fields, frozen
+objects via their owner, and (for assemblies) resources — so a scoped size budget measures
+what the scope actually contributes.
+
+```csharp
+public sealed record SizeDiffAggregate : IEquatable<SizeDiffAggregate>
+```
+
+### [SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/)
+
+One changed entry of a size diff in flat form — the shape a CI log or a budget violation
+prints. Contributors carry the same identity and attribution as their tree leaves.
+
+```csharp
+public sealed record SizeDiffContributor : IEquatable<SizeDiffContributor>
+```
+
+### [SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/)
+
+Entry counts for one node kind in a size diff, split by direction. Grown and shrunk are
+the two signs of a changed entry; unchanged entries are counted here but never appear in
+the delta tree.
+
+```csharp
+public sealed record SizeDiffKindCounts : IEquatable<SizeDiffKindCounts>
+```
+
+### [SizeDiffNode](/api/dotsider.core.analysis.models.sizediffnode/)
+
+A node in the hierarchical size-difference tree between two Native AOT builds. The tree
+contains changed subtrees only — added, removed, grown, and shrunk entries; unchanged mass
+is summarized in [SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/) instead of carried as zero-delta nodes.
+
+```csharp
+public sealed record SizeDiffNode : IEquatable<SizeDiffNode>
+```
+
+### [SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/)
+
+The headline figures of a size diff between two Native AOT builds. Totals are mstat
+attributable bytes — the same figures `analyze --size` reports for each build alone.
+
+```csharp
+public sealed record SizeDiffSummary : IEquatable<SizeDiffSummary>
+```
+
 ### [SizeNode](/api/dotsider.core.analysis.models.sizenode/)
 
 A node in the size treemap hierarchy. Can be assembly, namespace, type, or method — or,
@@ -899,6 +1021,16 @@ for Native AOT trees, a data category and its entries.
 
 ```csharp
 public sealed record SizeNode : IEquatable<SizeNode>
+```
+
+### [SizeTotals](/api/dotsider.core.analysis.models.sizetotals/)
+
+The basis-resolved totals of a size comparison: file sizes when every provided input is a
+binary, mstat attributable totals when a bare `.mstat` is anywhere in the pair — both
+sides always share one basis so the figures stay comparable.
+
+```csharp
+public sealed record SizeTotals : IEquatable<SizeTotals>
 ```
 
 ### [SourceLinkInfo](/api/dotsider.core.analysis.models.sourcelinkinfo/)
@@ -958,6 +1090,20 @@ public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 ```
 
 ## Structs
+
+### [MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/)
+
+Decides which of an mstat's 2.1+ detail sections carry the bytes that the format
+double-reports into blob buckets. Every 2.x report sums frozen object, field RVA, and
+resource bytes into the `ArrayOfFrozenObjects`, `FieldRvaData`, and
+`ResourceData` blobs for back-compat; a reader must pick, per section, either the
+detail entries or the bucket blob — never both. Sharing this policy between
+[SizeAnalyzer](/api/dotsider.core.analysis.sizeanalyzer/), [MstatSizeIndex](/api/dotsider.core.analysis.mstatsizeindex/),
+and [MstatDiffer](/api/dotsider.core.analysis.mstatdiffer/) is what keeps their totals identical.
+
+```csharp
+public readonly record struct MstatSectionPolicy : IEquatable<MstatSectionPolicy>
+```
 
 ### [NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/)
 
@@ -1046,6 +1192,15 @@ How a pre-ILC managed method relates to the native image it was compiled into.
 
 ```csharp
 public enum MethodCorrelationStatus
+```
+
+### [MstatSectionKind](/api/dotsider.core.analysis.models.mstatsectionkind/)
+
+The report section a normalized [MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/) came from. Each section has its
+own identity key shape and attribution rules; see [MstatSizeIndex](/api/dotsider.core.analysis.mstatsizeindex/).
+
+```csharp
+public enum MstatSectionKind
 ```
 
 ### [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
@@ -1232,6 +1387,41 @@ status value here.
 
 ```csharp
 public enum ReadyToRunStatus
+```
+
+### [SizeBasis](/api/dotsider.core.analysis.models.sizebasis/)
+
+What a total-size figure measures. A binary on disk and the sum of its mstat entries are
+different numbers (headers, alignment, and unreported bytes sit between them), so every
+report states which basis it used.
+
+```csharp
+public enum SizeBasis
+```
+
+### [SizeBudgetMetric](/api/dotsider.core.analysis.models.sizebudgetmetric/)
+
+The limit a size budget enforces.
+
+```csharp
+public enum SizeBudgetMetric
+```
+
+### [SizeBudgetScope](/api/dotsider.core.analysis.models.sizebudgetscope/)
+
+What a size budget measures: the whole binary, one namespace subtree, or one assembly.
+
+```csharp
+public enum SizeBudgetScope
+```
+
+### [SizeBudgetSeverity](/api/dotsider.core.analysis.models.sizebudgetseverity/)
+
+How a failed size budget affects the outcome: an error fails the check (the CI gate exits
+non-zero), a warning is reported but never changes the exit code.
+
+```csharp
+public enum SizeBudgetSeverity
 ```
 
 ### [SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/)

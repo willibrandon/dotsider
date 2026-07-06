@@ -51,7 +51,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**44 tools** across:
+**46 tools** across:
 
 | Category | Tools |
 |----------|-------|
@@ -64,7 +64,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 | Native symbols | `get_native_symbols`, `get_native_disassembly` |
 | Correlation | `correlate_method`, `correlate_r2r_method` |
 | String extraction | `extract_strings` |
-| Diffing | `diff_assemblies` |
+| Diffing | `diff_assemblies`, `diff_size`, `check_size_budgets` |
 | NuGet packages | `analyze_nupkg` |
 | Bundle inspection | `get_bundle_info`, `list_bundle_entries` |
 | Runtime discovery | `find_framework_assembly`, `resolve_assembly` |
@@ -82,6 +82,8 @@ Single-file executables and native apphosts are handled transparently in direct 
 Native AOT executables are recognized by their embedded ReadyToRun header: `get_assembly_info` reports `binaryKind` (`managed`, `nativeAot`, or `native`), a `nativeAotInfo` object with the RTR format version, section count, and heuristically recovered runtime version, plus `readyToRunSectionCount`, `recoveredTypeCount`, and `frozenStringCount`. `list_types` falls back to the types recovered from the embedded NativeFormat metadata, so it names a stripped binary's own types. `extract_strings` returns `rawStrings` (ASCII), `rawUtf16Strings`, and `frozenStrings` alongside the metadata heaps — for AOT binaries the raw scans and frozen literals are the populated categories, and the frozen strings are the AOT counterpart of the #US heap.
 
 ReadyToRun (crossgen2) images keep their full metadata: `get_assembly_info` reports `binaryKind` `readyToRun` and a `readyToRun` object (version, status, architecture, composite/component, method counts). `correlate_r2r_method` takes a `Type.Method`, a `0x06…` token, or a `0x…` native address and returns the method's IL beside its precompiled native code ranges with import-resolved call targets; an overloaded name raises an error listing the candidates. It follows a composite across its component assemblies in both directions, resolving them by name and MVID.
+
+`diff_size` compares two Native AOT builds via their mstat size reports (bare `.mstat` files or binaries with sidecars): summary, per-assembly and per-namespace deltas, top contributors, and — only on request — the delta tree, pruned to a node cap with explicit truncation metadata. `check_size_budgets` evaluates size budgets against a build (optionally versus a baseline) and returns the per-budget report; budgets arrive as grammar strings, an inline budgets JSON document, or a budgets file path, at full parity with the CLI including named budgets and warning severity. See [Size Regression](/usage/size-regression/).
 
 Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
 

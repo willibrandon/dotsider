@@ -57,8 +57,9 @@ dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you
 ### Additional modes
 
 ```
-dotsider diff v1.dll v2.dll     # side-by-side assembly comparison
-dotsider package.nupkg          # browse NuGet package contents, inspect any DLL inside
+dotsider diff v1.dll v2.dll             # side-by-side assembly comparison
+dotsider diff before.mstat after.mstat  # Native AOT size diff — delta treemap of two builds
+dotsider package.nupkg                  # browse NuGet package contents, inspect any DLL inside
 ```
 
 ## Building
@@ -76,9 +77,10 @@ The binary lands at `src/Dotsider/bin/Debug/net10.0/dotsider`.
 ```
 dotsider <assembly.dll|.exe>    # TUI mode — interactive assembly explorer
 dotsider <package.nupkg>        # TUI mode — browse NuGet package contents
-dotsider diff <left> <right>    # TUI mode — side-by-side assembly comparison
+dotsider diff <left> <right>    # TUI mode — assembly comparison; AOT size diff for mstat inputs
 
 dotsider analyze <file> [opts]  # CLI mode — headless analysis to stdout or file
+dotsider size-check <target>    # CLI mode — AOT size regression report and CI budget gate
 dotsider sessions <command>     # CLI mode — interact with running dotsider instances
 dotsider agent init [opts]      # CLI mode — generate AI skill file for a provider
 dotsider agent mcp              # CLI mode — launch the dotsider MCP server
@@ -116,6 +118,28 @@ dotsider analyze MyLib.dll --types -o out.txt   # write to file
 dotsider analyze MyApp.exe                      # apphost .exe → auto-redirects to MyApp.dll
 dotsider analyze MyApp                          # single-file bundle → extracts and analyzes entry assembly
 ```
+
+### CLI: `dotsider size-check`
+
+Native AOT size-regression checking for CI: compare a build against a baseline via their
+mstat size reports (`IlcGenerateMstatFile`), enforce size budgets, and exit non-zero when one
+breaks. Inputs are bare `.mstat` files or AOT binaries with the sidecar beside them.
+
+```
+dotsider size-check out/pr/app --baseline baseline/app.mstat            # delta report, exit 0
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --budget total:growth=1% --budget ns=MyApp.Generated:growth=0         # gate: exit 2 on breach
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --format markdown --summary-file "$GITHUB_STEP_SUMMARY"               # GitHub step summary
+dotsider size-check out/pr/app --budget max=25mb                        # absolute cap, no baseline
+```
+
+Budgets: `[scope:]limit(,limit)*` — scope `total` / `ns=<Namespace>` (covers sub-namespaces) /
+`asm=<Assembly>`; limits `max=SIZE` and `growth=SIZE|PERCENT` (`25mb`, `10kb`, `1%`).
+`--budget-file` adds a JSON document whose object entries carry names, descriptions,
+`severity: "warning"` (reported, never fails), and per-budget contributor counts. `--why`
+attaches the ILC dependency chain for top added contributors. Exit codes: 0 pass, 1 error,
+2 budget exceeded.
 
 ### CLI: `dotsider sessions`
 
@@ -186,7 +210,7 @@ Info panels (Assembly Info, PE Headers, CLR Header, detail popups, string detail
 
 In insert mode, type two hex digits (0-9, a-f) to overwrite one byte. The first digit sets the high nibble; the second commits the edit. Saving validates the PE image before writing — invalid edits are rejected.
 
-Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). NuGet mode uses `Esc` to return from DLL inspection to the package browser.
+Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). The size-diff view (mstat inputs) adds Grown and Shrunk to the filter cycle, `Enter`/`Esc` to drill and back out of the delta treemap, `w` for the dependency chain that keeps an entry in the binary (again to flip sides on a changed entry), and `d` to disassemble a method's native body. NuGet mode uses `Esc` to return from DLL inspection to the package browser.
 
 ## How it works
 
@@ -250,7 +274,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**44 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**46 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, size diffing and budget gating, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
@@ -275,6 +299,7 @@ src/Dotsider/
   DotsiderApp.cs      Main app shell (tab panel, key bindings, hints bar)
   DotsiderState.cs    All mutable UI state in one place
   DiffApp.cs          Diff mode shell
+  SizeDiffApp.cs      Size-diff mode shell (Native AOT mstat pairs)
   NuGetApp.cs         NuGet mode shell
   Program.cs          CLI entry point and mode routing
 
@@ -294,6 +319,7 @@ samples/
   EmptyLib/           Minimal library (edge case testing)
   NetFxConsole/       .NET Framework 4.8 console app (Dynamic tab guard testing)
   NativeAotConsole/   NativeAOT-published console app (Dynamic tab tracing tests)
+  NativeAotConsoleV2/ Same app rebuilt with deliberate size deltas (AOT size-diff fixture)
   SelfContainedConsole/ Self-contained single-file bundle (bundle reading, resolution tests)
   Dotted.Name.App/    Console app with a dotted assembly name (apphost detection)
   NetFxBindingRedirects/  .NET Framework 4.8 fixture for the netfx binder — GAC, framework
@@ -335,6 +361,16 @@ dotnet build samples/RichLibraryV2
 dotsider diff \
   samples/RichLibrary/bin/Debug/net10.0/RichLibrary.dll \
   samples/RichLibraryV2/bin/Debug/net10.0/RichLibrary.dll
+```
+
+Try the Native AOT size diff with the two AOT builds (publishes with ILC — takes a minute):
+
+```
+dotnet publish samples/NativeAotConsole -c Release
+dotnet publish samples/NativeAotConsoleV2 -c Release
+dotsider diff \
+  samples/NativeAotConsole/bin/Release/net10.0/<rid>/publish/NativeAotConsole.mstat \
+  samples/NativeAotConsoleV2/bin/Release/net10.0/<rid>/publish/NativeAotConsole.mstat
 ```
 
 ## License

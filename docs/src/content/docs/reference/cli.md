@@ -8,9 +8,10 @@ description: Complete command reference for the dotsider CLI.
 ```
 dotsider <assembly.dll|.exe>    # TUI — interactive assembly explorer
 dotsider <package.nupkg>        # TUI — browse NuGet package contents
-dotsider diff <left> <right>    # TUI — side-by-side assembly comparison
+dotsider diff <left> <right>    # TUI — assembly comparison, or AOT size diff for mstat inputs
 
 dotsider analyze <file> [opts]  # CLI — headless analysis
+dotsider size-check <target>    # CLI — AOT size regression report and CI budget gate
 dotsider sessions <command>     # CLI — interact with running instances
 dotsider agent <command>        # CLI — MCP server and AI skill generation
 ```
@@ -80,6 +81,75 @@ A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled nati
 | `--bundle` | Show single-file bundle manifest |
 | `--json` | Output as JSON |
 | `-o`, `--output <file>` | Write output to a file |
+
+## `dotsider diff`
+
+Compares two inputs side by side. The input kinds decide the mode:
+
+- **Two managed assemblies** open the metadata diff TUI (types, methods, references) — see
+  [Diff Mode](/usage/diff-mode/).
+- **Two mstat-backed inputs** — bare `.mstat` size reports, or Native AOT binaries with mstat
+  sidecars beside them — open the size-diff TUI (Summary + delta treemap). With the global
+  `--json` flag the TUI is skipped and the machine-readable size-diff document prints instead.
+- **A mixed pair** (mstat-backed against anything else) is an error and exits 1: the two
+  sides would measure different things.
+
+```
+dotsider diff v1.dll v2.dll                      # metadata diff TUI
+dotsider diff before.mstat after.mstat           # AOT size-diff TUI
+dotsider diff bin/v1/publish/app bin/v2/publish/app   # same, via mstat sidecars
+dotsider diff before.mstat after.mstat --json    # headless size-diff document
+```
+
+| Option | Description |
+|--------|-------------|
+| `-e`, `--escape-timeout <ms>` | Escape key timeout in milliseconds (default 100) |
+| `--json` | For mstat-backed pairs: print the size-diff JSON document instead of the TUI |
+
+## `dotsider size-check`
+
+Headless size-regression checking for CI: compares a Native AOT build against a baseline via
+their mstat size reports and enforces size budgets. See
+[Size Regression](/usage/size-regression/) for the workflow and pipeline recipes.
+
+```
+dotsider size-check out/pr/app --baseline baseline/app.mstat --top 20
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --budget max=25mb --budget growth=1% --budget ns=System.Text.Json:growth=10kb
+dotsider size-check out/pr/app --baseline baseline/app.mstat \
+  --format markdown --summary-file "$GITHUB_STEP_SUMMARY"
+```
+
+The target and baseline are each a bare `.mstat` or a Native AOT binary with the sidecar
+beside it. Binaries measure file size on disk; a bare `.mstat` anywhere makes both sides
+measure mstat attributable totals — the report always states which basis applied. Namespace
+and assembly budgets always measure mstat aggregates, with frozen objects attributed via
+their owning type and ownerless bytes (string literals) in an explicit `(unattributed)`
+bucket.
+
+Budgets use the grammar `[scope:]limit(,limit)*` with scope `total` (default), `ns=<Namespace>`
+(covers sub-namespaces), or `asm=<Assembly>`, and limits `max=SIZE` and `growth=SIZE|PERCENT`
+(sizes like `25mb`, `10kb`, `4096`; 1 kb = 1024). Growth limits need `--baseline`; `max=`
+works without one. `--budget-file` adds a JSON document whose entries are spec strings or
+objects (`name`, `description`, `scope`, `max`, `growth`, `severity`, `topN`) — `severity:
+"warning"` reports a breach without failing the gate.
+
+| Option | Description |
+|--------|-------------|
+| `--baseline <file>` | Baseline binary or `.mstat` to diff against |
+| `--budget <spec>` | Size budget in the grammar above; repeatable |
+| `--budget-file <file>` | JSON budgets document (string and object entries) |
+| `--top <n>` | Top contributors per section and per violated budget (default 10) |
+| `--why` | Attach ILC dependency chains for top added contributors (needs the target's DGML sidecar) |
+| `--format <text\|json\|markdown>` | Output format (default text; `--json` ≡ `--format json`) |
+| `--summary-file <file>` | Additionally write the markdown report to a file (e.g. `$GITHUB_STEP_SUMMARY`) |
+| `-o`, `--output <file>` | Write output to a file |
+
+| Exit code | Meaning |
+|-----------|---------|
+| 0 | Report produced; every error-severity budget passed |
+| 1 | Usage or input error |
+| 2 | An error-severity budget was exceeded |
 
 ## `dotsider sessions`
 

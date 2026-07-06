@@ -64,6 +64,18 @@ public static class DiffSummaryView
             "",
             $"  Size delta: {(summary.SizeDelta >= 0 ? "+" : "")}{DotsiderState.FormatSize(Math.Abs(summary.SizeDelta))}");
 
+        // Two AOT binaries carry no managed metadata, so the tabs above show zero changes.
+        // The size diff is what such a pair needs — point at the sidecar that unlocks it.
+        if (state.Left.BinaryKind == Core.Analysis.Models.BinaryKind.NativeAot
+            && state.Right.BinaryKind == Core.Analysis.Models.BinaryKind.NativeAot
+            && (state.Left.Mstat is null || state.Right.Mstat is null))
+        {
+            var missing = state.Left.Mstat is null ? state.Left.FileName : state.Right.FileName;
+            statsText += "\n\n"
+                + $"  No .mstat sidecar beside {missing} — publish with\n"
+                + "  IlcGenerateMstatFile for a size diff of the two builds.";
+        }
+
         if (state.ChangeStatsEditorText != statsText)
         {
             state.ChangeStatsEditorText = statsText;

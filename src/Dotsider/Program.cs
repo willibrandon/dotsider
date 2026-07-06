@@ -3,8 +3,6 @@ using System.CommandLine;
 using System.Text;
 using Dotsider;
 using Dotsider.Commands;
-using Dotsider.Core.Analysis;
-using Dotsider.Core.Analysis.Models;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
@@ -14,7 +12,7 @@ Console.OutputEncoding = Encoding.UTF8;
 
 // --- Detect TUI mode (file arg anywhere, not a subcommand) ---
 
-var subcommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "diff", "sessions", "analyze", "agent" };
+var subcommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "diff", "sessions", "analyze", "agent", "size-check" };
 
 // Find the first positional argument (not an option and not a known subcommand).
 // This handles both "dotsider file.dll --tab 2" and "dotsider --tab 2 file.dll".
@@ -62,191 +60,8 @@ var jsonOption = new Option<bool>("--json")
 var rootCommand = new RootCommand("dotsider — .NET assembly analysis TUI and CLI");
 rootCommand.Options.Add(jsonOption);
 
-// Diff subcommand
-var diffLeftArg = new Argument<FileInfo>("left") { Description = "First assembly" };
-var diffRightArg = new Argument<FileInfo>("right") { Description = "Second assembly" };
-
-var escapeTimeoutOption = new Option<int>("--escape-timeout", "-e")
-{
-    Description = "Escape key timeout in milliseconds (default 100)",
-    DefaultValueFactory = _ => 100
-};
-
-var diffCommand = new Command("diff", "Compare two assemblies side-by-side")
-{
-    diffLeftArg,
-    diffRightArg
-};
-diffCommand.Options.Add(escapeTimeoutOption);
-
-diffCommand.SetAction(async (parseResult, ct) =>
-{
-    var left = parseResult.GetValue(diffLeftArg)!;
-    var right = parseResult.GetValue(diffRightArg)!;
-
-    if (!left.Exists)
-    {
-        Console.Error.WriteLine($"Error: File not found: {left.FullName}");
-        return 1;
-    }
-
-    if (!right.Exists)
-    {
-        Console.Error.WriteLine($"Error: File not found: {right.FullName}");
-        return 1;
-    }
-
-    var leftPath = left.FullName;
-    var rightPath = right.FullName;
-
-    var leftResult = AssemblyLoader.Open(leftPath);
-    AssemblyAnalyzer leftAnalyzer;
-    switch (leftResult)
-    {
-        case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
-            host.Dispose();
-            Console.Error.WriteLine(
-                $"Note: {left.Name} is a native apphost. "
-                + $"Analyzing {Path.GetFileName(companion)} instead.");
-            leftAnalyzer = new AssemblyAnalyzer(companion);
-            break;
-        case AssemblyOpenResult.BundleEntry(var entry, _):
-            Console.Error.WriteLine(
-                $"Note: {left.Name} is a single-file bundle. "
-                + $"Analyzing entry assembly {entry.FileName} instead.");
-            leftAnalyzer = entry;
-            break;
-        case AssemblyOpenResult.NativeAot(var aot):
-            leftAnalyzer = aot;
-            break;
-        default:
-            leftAnalyzer = ((AssemblyOpenResult.Direct)leftResult).Analyzer;
-            break;
-    }
-
-    var rightResult = AssemblyLoader.Open(rightPath);
-    AssemblyAnalyzer rightAnalyzer;
-    switch (rightResult)
-    {
-        case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
-            host.Dispose();
-            Console.Error.WriteLine(
-                $"Note: {right.Name} is a native apphost. "
-                + $"Analyzing {Path.GetFileName(companion)} instead.");
-            rightAnalyzer = new AssemblyAnalyzer(companion);
-            break;
-        case AssemblyOpenResult.BundleEntry(var entry, _):
-            Console.Error.WriteLine(
-                $"Note: {right.Name} is a single-file bundle. "
-                + $"Analyzing entry assembly {entry.FileName} instead.");
-            rightAnalyzer = entry;
-            break;
-        case AssemblyOpenResult.NativeAot(var aot):
-            rightAnalyzer = aot;
-            break;
-        default:
-            rightAnalyzer = ((AssemblyOpenResult.Direct)rightResult).Analyzer;
-            break;
-    }
-
-    DiffState? capturedDiffState = null;
-
-    await using var diagnosticsListener = new DotsiderDiagnosticsListener(
-        () => null,
-        assemblyInfoProvider: () =>
-        {
-            var s = capturedDiffState;
-            if (s is null) return null;
-            return new
-            {
-                Mode = "diff",
-                FileName = $"{s.Left.FileName} \u2194 {s.Right.FileName}",
-                Left = new
-                {
-                    s.Left.FilePath,
-                    s.Left.FileName,
-                    s.Left.FileSize,
-                    s.Left.AssemblyName,
-                    s.Left.AssemblyVersion,
-                    s.Left.TargetFramework,
-                },
-                Right = new
-                {
-                    s.Right.FilePath,
-                    s.Right.FileName,
-                    s.Right.FileSize,
-                    s.Right.AssemblyName,
-                    s.Right.AssemblyVersion,
-                    s.Right.TargetFramework,
-                },
-            };
-        },
-        currentViewProvider: () =>
-        {
-            var s = capturedDiffState;
-            if (s is null) return null;
-            return new
-            {
-                Mode = "diff",
-                Tab = s.CurrentTab + 1,
-                s.FilterMode,
-            };
-        });
-
-    var escTimeoutMs = Math.Max(10, parseResult.GetValue(escapeTimeoutOption));
-    var diffEscAdapter = new EscapeTimeoutPresentationAdapter(
-        new ConsolePresentationAdapter(enableMouse: true),
-        TimeSpan.FromMilliseconds(escTimeoutMs));
-
-    var diffWorkload = new Hex1bAppWorkloadAdapter(diffEscAdapter.Capabilities);
-    var diffTerminalOptions = new Hex1bTerminalOptions
-    {
-        PresentationAdapter = diffEscAdapter,
-        WorkloadAdapter = diffWorkload
-    };
-    diffTerminalOptions.PresentationFilters.Add(new McpDiagnosticsPresentationFilter("dotsider-diff"));
-    await using var diffTerminal = new Hex1bTerminal(diffTerminalOptions);
-    diffEscAdapter.Terminal = diffTerminal;
-
-    var diffAppOptions = new Hex1bAppOptions
-    {
-        WorkloadAdapter = diffWorkload,
-        Theme = DotsiderTheme.Create(),
-        EnableMouse = true
-    };
-
-    DiffApp? diffApp = null;
-    Hex1bApp? diffHex1bApp = null;
-
-    diffHex1bApp = new Hex1bApp(ctx =>
-    {
-        if (capturedDiffState is null)
-        {
-            var diffState = new DiffState(diffHex1bApp!, leftAnalyzer, rightAnalyzer);
-            capturedDiffState = diffState;
-            diffApp = new DiffApp(diffState);
-        }
-        return diffApp!.Build(ctx);
-    }, diffAppOptions);
-
-    diagnosticsListener.StartListening();
-
-    CursorColorHelper.SetThemeCursorColor();
-
-    try
-    {
-        await diffHex1bApp.RunAsync(ct);
-    }
-    finally
-    {
-        CursorColorHelper.ResetCursorColor();
-        diffHex1bApp.Dispose();
-    }
-
-    return 0;
-});
-
-rootCommand.Subcommands.Add(diffCommand);
+rootCommand.Subcommands.Add(DiffCommand.Create(jsonOption));
+rootCommand.Subcommands.Add(SizeCheckCommand.Create(jsonOption));
 rootCommand.Subcommands.Add(SessionsCommand.Create(jsonOption));
 rootCommand.Subcommands.Add(AnalyzeCommand.Create(jsonOption));
 rootCommand.Subcommands.Add(AgentCommand.Create(jsonOption));

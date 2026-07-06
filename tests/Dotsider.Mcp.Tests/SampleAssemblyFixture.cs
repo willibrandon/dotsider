@@ -75,6 +75,26 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? NativeAotConsoleManagedDll { get; private set; }
 
     /// <summary>
+    /// Path to the published V2 NativeAOT sample executable, or null when not built. The
+    /// project folder is <c>NativeAotConsoleV2</c> but its AssemblyName is pinned to
+    /// <c>NativeAotConsole</c>, so the output file is named <c>NativeAotConsole</c> and the
+    /// folder tells the two builds apart.
+    /// </summary>
+    public string? NativeAotConsoleV2Exe { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC size report published next to the V2 NativeAOT sample, or null when
+    /// the publish did not produce one. Size-diff tool tests gate on it.
+    /// </summary>
+    public string? NativeAotConsoleV2Mstat { get; private set; }
+
+    /// <summary>
+    /// Path to the ILC dependency-graph DGML published next to the V2 NativeAOT sample
+    /// (codegen preferred, scan fallback), or null when the publish did not produce one.
+    /// </summary>
+    public string? NativeAotConsoleV2Dgml { get; private set; }
+
+    /// <summary>
     /// Path to the published non-composite ReadyToRun assembly (crossgen'd in place), or null when the
     /// crossgen2 publish did not run for this RID. R2R MCP tool tests gate on it.
     /// </summary>
@@ -98,6 +118,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
         await BuildProject("samples/MinimalApi");
         await PublishSelfContainedProject("samples/SelfContainedConsole");
         await PublishNativeAotProject("samples/NativeAotConsole");
+        await PublishNativeAotProject("samples/NativeAotConsoleV2");
         await PublishReadyToRunProject("samples/ReadyToRunConsole");
 
         const string config = "Debug";
@@ -152,6 +173,20 @@ public class SampleAssemblyFixture : IAsyncLifetime
             var managedDll = Path.Combine(aotObjDir, "NativeAotConsole.dll");
             NativeAotConsoleManagedDll = File.Exists(managedDll) ? managedDll : null;
         }
+
+        // V2 of the AOT sample: same AssemblyName, so the publish output is also named
+        // NativeAotConsole — the project folder is what tells the two builds apart.
+        var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
+            "bin", "Release", tfm, rid, "publish");
+        var v2Exe = Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}");
+        NativeAotConsoleV2Exe = File.Exists(v2Exe) ? v2Exe : null;
+        var v2Mstat = Path.Combine(aotV2PublishDir, "NativeAotConsole.mstat");
+        NativeAotConsoleV2Mstat = File.Exists(v2Mstat) ? v2Mstat : null;
+        var v2CodegenDgml = Path.Combine(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml");
+        var v2ScanDgml = Path.Combine(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml");
+        NativeAotConsoleV2Dgml = File.Exists(v2CodegenDgml) ? v2CodegenDgml
+            : File.Exists(v2ScanDgml) ? v2ScanDgml
+            : null;
     }
 
     /// <summary>

@@ -58,3 +58,13 @@ cannot be serialized directly (FromBundle contains raw bytes).
 public sealed record ResolvedAssemblyInfo : IEquatable<ResolvedAssemblyInfo>
 ```
 
+### [SizeDiffPayloadBuilder](/api/dotsider.core.protocol.sizediffpayloadbuilder/)
+
+Builds the serializable payloads the `diff-size` and `check-size-budgets`
+surfaces return. The MCP server's direct mode and the running-session protocol handler
+both call these, so the two transports cannot drift apart in shape or semantics.
+
+```csharp
+public static class SizeDiffPayloadBuilder
+```
+

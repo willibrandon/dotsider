@@ -188,16 +188,15 @@ public static class SizeAnalyzer
     /// </summary>
     private static SizeNode BuildAotSizeTree(AssemblyAnalyzer analyzer, MstatData mstat)
     {
+        var index = MstatSizeIndex.Create(mstat);
         var roots = new List<SizeNode>();
-        roots.AddRange(BuildAssemblyNodes(mstat));
+        roots.AddRange(BuildAssemblyNodes(index));
 
         // The 2.1+ detail sections re-report bytes that older readers found in these blob
         // buckets; showing both would double-count, so each bucket yields to its detail
-        // section when that section has entries.
-        var excluded = new HashSet<string>(StringComparer.Ordinal);
-        if (mstat.FrozenObjects.Count > 0) excluded.Add("ArrayOfFrozenObjects");
-        if (mstat.RvaFields.Count > 0) excluded.Add("FieldRvaData");
-        if (mstat.ManifestResources.Count > 0) excluded.Add("ResourceData");
+        // section when that section has entries. The policy is shared with MstatDiffer and
+        // budget evaluation so every consumer draws the same totals.
+        var excluded = index.Policy.ExcludedBlobNames();
 
         var blobs = mstat.Blobs
             .Where(b => b.Size > 0 && !excluded.Contains(b.Name))
@@ -243,29 +242,32 @@ public static class SizeAnalyzer
     }
 
     /// <summary>
-    /// Groups mstat methods and types into assembly &gt; namespace &gt; type subtrees. A type
-    /// node's children are its methods plus a MethodTable leaf carrying the type's runtime
-    /// structure size and dependency-graph node name.
+    /// Groups the index's method and MethodTable entries into assembly &gt; namespace &gt; type
+    /// subtrees. A type node's children are its methods plus a MethodTable leaf carrying the
+    /// type's runtime structure size and dependency-graph node name. The index has already
+    /// folded display collisions and summed method totals, so the tree and the diff engine
+    /// cannot disagree about a byte.
     /// </summary>
-    private static List<SizeNode> BuildAssemblyNodes(MstatData mstat)
+    private static List<SizeNode> BuildAssemblyNodes(MstatSizeIndex index)
     {
-        var methodsByType = mstat.Methods
-            .GroupBy(m => (m.AssemblyName, m.DeclaringType))
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        // Two constructed types can render to the same display name; fold them into one
-        // MethodTable entry, keeping the first node name for the why-chain join.
-        var typesByKey = new Dictionary<(string Assembly, string Type), (long Size, string? NodeName, string Namespace)>();
-        foreach (var t in mstat.Types)
+        var methodsByType = new Dictionary<(string Assembly, string Type), List<MstatSizeEntry>>();
+        var tablesByType = new Dictionary<(string Assembly, string Type), MstatSizeEntry>();
+        foreach (var entry in index.Entries)
         {
-            var key = (t.AssemblyName, t.Name);
-            typesByKey[key] = typesByKey.TryGetValue(key, out var existing)
-                ? (existing.Size + t.Size, existing.NodeName, existing.Namespace)
-                : (t.Size, t.NodeName, t.Namespace);
+            var key = (entry.AssemblyName, entry.TypeName);
+            switch (entry.Section)
+            {
+                case MstatSectionKind.Method:
+                    (methodsByType.TryGetValue(key, out var list) ? list : methodsByType[key] = []).Add(entry);
+                    break;
+                case MstatSectionKind.MethodTable:
+                    tablesByType[key] = entry;
+                    break;
+            }
         }
 
         // A type can appear with methods but no MethodTable, or the reverse; join over both.
-        var typeKeys = methodsByType.Keys.Union(typesByKey.Keys);
+        var typeKeys = methodsByType.Keys.Union(tablesByType.Keys);
 
         var assemblies = new Dictionary<string, Dictionary<string, List<SizeNode>>>(StringComparer.Ordinal);
         foreach (var (assemblyName, typeName) in typeKeys)
@@ -273,14 +275,15 @@ public static class SizeAnalyzer
             var children = new List<SizeNode>();
 
             var ns = "";
-            if (typesByKey.TryGetValue((assemblyName, typeName), out var methodTable))
+            if (tablesByType.TryGetValue((assemblyName, typeName), out var methodTable))
             {
                 ns = methodTable.Namespace;
                 if (methodTable.Size > 0)
                 {
                     children.Add(new SizeNode(
                         "MethodTable", $"{assemblyName}/{typeName}::MethodTable",
-                        methodTable.Size, SizeNodeKind.MethodTable, [], methodTable.NodeName));
+                        methodTable.Size, SizeNodeKind.MethodTable, [],
+                        methodTable.NodeNames.Count > 0 ? methodTable.NodeNames[0] : null));
                 }
             }
 
@@ -288,12 +291,12 @@ public static class SizeAnalyzer
             {
                 ns = methods[0].Namespace;
                 children.AddRange(methods
-                    .Select(m => (Method: m, Total: (long)m.Size + m.GcInfoSize + m.EhInfoSize))
-                    .Where(m => m.Total > 0)
-                    .OrderByDescending(m => m.Total)
+                    .Where(m => m.Size > 0)
+                    .OrderByDescending(m => m.Size)
                     .Select(m => new SizeNode(
-                        m.Method.Name, $"{assemblyName}/{typeName}::{m.Method.Name}",
-                        m.Total, SizeNodeKind.Method, [], m.Method.NodeName)));
+                        m.DisplayName, $"{assemblyName}/{typeName}::{m.DisplayName}",
+                        m.Size, SizeNodeKind.Method, [],
+                        m.NodeNames.Count > 0 ? m.NodeNames[0] : null)));
             }
 
             if (children.Count == 0) continue;
@@ -330,7 +333,7 @@ public static class SizeAnalyzer
     }
 
     /// <summary>Strips the namespace prefix from a namespace-qualified type display name.</summary>
-    private static string StripNamespace(string typeName, string ns) =>
+    internal static string StripNamespace(string typeName, string ns) =>
         ns.Length > 0 && typeName.StartsWith(ns + ".", StringComparison.Ordinal)
             ? typeName[(ns.Length + 1)..]
             : typeName;

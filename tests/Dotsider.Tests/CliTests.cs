@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace Dotsider.Tests;
 
 /// <summary>
@@ -9,23 +7,6 @@ namespace Dotsider.Tests;
 [Collection("SampleAssemblies")]
 public class CliTests(SampleAssemblyFixture fixture)
 {
-    private static readonly string s_projectPath = Path.Combine(
-        TestHelpers.GetRepoRoot(), "src", "Dotsider");
-
-    private static readonly string s_buildConfig = DetectBuildConfig();
-
-    private static string DetectBuildConfig()
-    {
-        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        for (var i = 0; i < parts.Length - 1; i++)
-        {
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        }
-
-        return "Debug";
-    }
-
     // --- Default analyze output ---
 
     /// <summary>
@@ -856,26 +837,6 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     // --- Helpers ---
 
-    private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
-        params string[] arguments)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"run --no-build -c {s_buildConfig} --project \"{s_projectPath}\" -- {string.Join(' ', arguments.Select(QuoteArg))}",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-
-        var process = Process.Start(psi)!;
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        return (process.ExitCode, stdout, stderr);
-    }
-
-    private static string QuoteArg(string arg)
-        => arg.Contains(' ') ? $"\"{arg}\"" : arg;
+    private static Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
+        params string[] arguments) => TestHelpers.RunDotsiderAsync(arguments);
 }

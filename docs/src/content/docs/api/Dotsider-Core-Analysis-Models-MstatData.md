@@ -85,6 +85,17 @@ Method bodies folded into an identical original (format 2.2+).
 public IReadOnlyList<MstatDeduplicatedMethod> DeduplicatedMethods { get; init; }
 ```
 
+### Empty
+
+A report with no entries and format version 0.0 — the baseline for size-budget checks
+that run without one, where every entry of the build under check diffs as added.
+
+**Returns:** [MstatData](/api/dotsider.core.analysis.models.mstatdata/)
+
+```csharp
+public static MstatData Empty { get; }
+```
+
 ### FormatMajorVersion
 
 The format major version (1 = .NET 7, 2 = .NET 8+).

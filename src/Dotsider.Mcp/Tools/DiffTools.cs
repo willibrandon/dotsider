@@ -2,6 +2,7 @@ using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Dotsider.Mcp.Tools;
@@ -80,5 +81,153 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
         }
 
         return JsonSerializer.Serialize(result, DotsiderJsonOptions.Default);
+    }
+
+    /// <summary>
+    /// Compares the size of two Native AOT builds via their mstat size reports. Inputs are
+    /// bare .mstat files or AOT binaries with mstat sidecars. Returns the summary, per-assembly
+    /// and per-namespace deltas, and the top contributors; the delta tree only on request,
+    /// pruned to a node cap with truncation metadata.
+    /// </summary>
+    /// <param name="leftPath">The baseline .mstat or AOT binary.</param>
+    /// <param name="rightPath">The .mstat or AOT binary under comparison.</param>
+    /// <param name="sessionId">PID of a running dotsider instance (forwards to the session).</param>
+    /// <param name="topN">How many top contributors to return (default: 20).</param>
+    /// <param name="includeTree">Include the hierarchical delta tree (default: false — it is large).</param>
+    /// <param name="maxNodes">Delta-tree node cap when includeTree is set (default: 500).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON size-diff result.</returns>
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
+    public async partial Task<string> DiffSize(
+        string leftPath,
+        string rightPath,
+        int? sessionId = null,
+        int? topN = null,
+        bool includeTree = false,
+        int? maxNodes = null,
+        CancellationToken ct = default)
+    {
+        if (sessionId is not null)
+        {
+            return await sessionManager.GetTarget(sessionId.Value)
+                .SendAndUnwrapAsync(new DotsiderRequest
+                {
+                    Method = "diff-size",
+                    LeftPath = leftPath,
+                    RightPath = rightPath,
+                    TopN = topN,
+                    IncludeTree = includeTree,
+                    MaxNodes = maxNodes,
+                }, ct);
+        }
+
+        var left = ResolveMstatSource(leftPath, "leftPath");
+        var right = ResolveMstatSource(rightPath, "rightPath");
+        var payload = SizeDiffPayloadBuilder.BuildDiffPayload(left, right, topN, includeTree, maxNodes);
+        return JsonSerializer.Serialize(payload, DotsiderJsonOptions.Default);
+    }
+
+    /// <summary>
+    /// Checks a Native AOT build against size budgets, optionally versus a baseline. Budgets
+    /// come as grammar strings (e.g. "max=25mb", "ns=System.Text.Json:growth=10kb"), an inline
+    /// budgets JSON document, and/or a budgets file — the object form carries names, severity
+    /// (error/warning), and per-budget contributor counts. The report fails only on
+    /// error-severity breaches.
+    /// </summary>
+    /// <param name="targetPath">The .mstat or AOT binary to check.</param>
+    /// <param name="budgets">Budget spec strings in the size-budget grammar.</param>
+    /// <param name="budgetsJson">An inline budgets document ({ "budgets": [spec or object, ...] }).</param>
+    /// <param name="budgetFilePath">Path to a budgets JSON file in the same schema.</param>
+    /// <param name="baselinePath">The baseline .mstat or AOT binary; required by growth budgets.</param>
+    /// <param name="sessionId">PID of a running dotsider instance (forwards to the session).</param>
+    /// <param name="topN">Contributors per violated budget (default: 20).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>JSON budget report with per-budget evaluations.</returns>
+    [McpServerTool(ReadOnly = true, OpenWorld = false)]
+    public async partial Task<string> CheckSizeBudgets(
+        string targetPath,
+        string[]? budgets = null,
+        string? budgetsJson = null,
+        string? budgetFilePath = null,
+        string? baselinePath = null,
+        int? sessionId = null,
+        int? topN = null,
+        CancellationToken ct = default)
+    {
+        if (sessionId is not null)
+        {
+            return await sessionManager.GetTarget(sessionId.Value)
+                .SendAndUnwrapAsync(new DotsiderRequest
+                {
+                    Method = "check-size-budgets",
+                    AssemblyPath = targetPath,
+                    BaselinePath = baselinePath,
+                    Budgets = budgets,
+                    BudgetsJson = budgetsJson,
+                    BudgetFilePath = budgetFilePath,
+                    TopN = topN,
+                }, ct);
+        }
+
+        var parsed = ParseBudgets(budgets, budgetsJson, budgetFilePath);
+        var target = ResolveMstatSource(targetPath, "targetPath");
+        MstatSource? baseline = null;
+        if (baselinePath is not null)
+            baseline = ResolveMstatSource(baselinePath, "baselinePath");
+
+        if (baseline is null)
+        {
+            var growth = parsed.FirstOrDefault(b =>
+                b.MaxGrowthBytes is not null || b.MaxGrowthPercent is not null);
+            if (growth is not null)
+            {
+                throw new McpException(
+                    $"Budget '{growth.Name ?? growth.ToString()}' limits growth, which needs baselinePath.");
+            }
+        }
+
+        var payload = SizeDiffPayloadBuilder.BuildBudgetPayload(target, baseline, parsed, topN);
+        return JsonSerializer.Serialize(payload, DotsiderJsonOptions.Default);
+    }
+
+    private static List<SizeBudget> ParseBudgets(
+        string[]? budgets, string? budgetsJson, string? budgetFilePath)
+    {
+        var parsed = new List<SizeBudget>();
+        try
+        {
+            if (budgetFilePath is not null)
+            {
+                ToolHelpers.ValidateFilePath(budgetFilePath, "budgetFilePath");
+                parsed.AddRange(SizeBudgetFile.Load(budgetFilePath));
+            }
+
+            if (budgetsJson is not null)
+                parsed.AddRange(SizeBudgetFile.Parse(budgetsJson));
+
+            foreach (var spec in budgets ?? [])
+                parsed.Add(SizeBudgetParser.Parse(spec));
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+        {
+            throw new McpException(ex.Message);
+        }
+
+        if (parsed.Count == 0)
+        {
+            throw new McpException(
+                "At least one budget source is required: budgets, budgetsJson, or budgetFilePath.");
+        }
+
+        return parsed;
+    }
+
+    private static MstatSource ResolveMstatSource(string path, string label)
+    {
+        ToolHelpers.ValidateFilePath(path, label);
+        return MstatLocator.Resolve(path)
+            ?? throw new McpException(
+                $"{label} is not mstat-backed: pass a .mstat size report or a Native AOT binary "
+                + "published with IlcGenerateMstatFile (sidecar beside the binary).");
     }
 }

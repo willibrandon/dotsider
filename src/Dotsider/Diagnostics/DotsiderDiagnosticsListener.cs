@@ -256,6 +256,8 @@ internal sealed class DotsiderDiagnosticsListener(
 
                 // Diff
                 "diff" => HandleDiff(request),
+                "diff-size" => HandleDiffSize(request),
+                "check-size-budgets" => HandleCheckSizeBudgets(request),
 
                 // NuGet
                 "analyze-nupkg" => HandleAnalyzeNupkg(request),
@@ -767,6 +769,61 @@ internal sealed class DotsiderDiagnosticsListener(
         using var right = new AssemblyAnalyzer(request.RightPath);
         var result = AssemblyDiffer.Compare(left, right);
         return DotsiderResponse.Ok(result);
+    }
+
+    private static DotsiderResponse HandleDiffSize(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.LeftPath) || string.IsNullOrEmpty(request.RightPath))
+            return DotsiderResponse.Fail("LeftPath and RightPath are required for diff-size");
+
+        if (MstatLocator.Resolve(request.LeftPath) is not { } left)
+            return DotsiderResponse.Fail($"{request.LeftPath} is not mstat-backed");
+        if (MstatLocator.Resolve(request.RightPath) is not { } right)
+            return DotsiderResponse.Fail($"{request.RightPath} is not mstat-backed");
+
+        return DotsiderResponse.Ok(SizeDiffPayloadBuilder.BuildDiffPayload(
+            left, right, request.TopN, request.IncludeTree, request.MaxNodes));
+    }
+
+    private static DotsiderResponse HandleCheckSizeBudgets(DotsiderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.AssemblyPath))
+            return DotsiderResponse.Fail("AssemblyPath is required for check-size-budgets");
+
+        var budgets = new List<SizeBudget>();
+        try
+        {
+            if (!string.IsNullOrEmpty(request.BudgetFilePath))
+                budgets.AddRange(SizeBudgetFile.Load(request.BudgetFilePath));
+            if (!string.IsNullOrEmpty(request.BudgetsJson))
+                budgets.AddRange(SizeBudgetFile.Parse(request.BudgetsJson));
+            foreach (var spec in request.Budgets ?? [])
+                budgets.Add(SizeBudgetParser.Parse(spec));
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
+
+        if (budgets.Count == 0)
+            return DotsiderResponse.Fail("At least one budget is required for check-size-budgets");
+
+        if (MstatLocator.Resolve(request.AssemblyPath) is not { } target)
+            return DotsiderResponse.Fail($"{request.AssemblyPath} is not mstat-backed");
+
+        MstatSource? baseline = null;
+        if (!string.IsNullOrEmpty(request.BaselinePath))
+        {
+            baseline = MstatLocator.Resolve(request.BaselinePath);
+            if (baseline is null)
+                return DotsiderResponse.Fail($"{request.BaselinePath} is not mstat-backed");
+        }
+
+        if (baseline is null && budgets.Any(b => b.MaxGrowthBytes is not null || b.MaxGrowthPercent is not null))
+            return DotsiderResponse.Fail("A growth budget needs BaselinePath");
+
+        return DotsiderResponse.Ok(SizeDiffPayloadBuilder.BuildBudgetPayload(
+            target, baseline, budgets, request.TopN));
     }
 
     // --- NuGet Handler ---

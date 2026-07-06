@@ -256,6 +256,17 @@ internal static class AgentCommand
 
         ```bash
         dotsider diff Left.dll Right.dll                # interactive diff TUI
+        dotsider diff old/App.mstat new/App.mstat       # AOT size diff (delta treemap)
+        dotsider diff old/App.mstat new/App.mstat --json # headless size-diff document
+        ```
+
+        ### Check AOT size regressions (CI gate)
+
+        ```bash
+        dotsider size-check new/App --baseline old/App.mstat          # delta report, exit 0
+        dotsider size-check new/App --baseline old/App.mstat \
+          --budget total:growth=1% --budget ns=MyApp.Generated:growth=0  # exit 2 on breach
+        dotsider size-check new/App --budget max=25mb                 # absolute cap, no baseline
         ```
 
         ## Workflows
@@ -277,6 +288,12 @@ internal static class AgentCommand
         1. `dotsider analyze MyApp.dll --deps --json` for assembly references
         2. Check versions, public key tokens, culture settings
         3. Compare against known-good baselines with `dotsider diff`
+
+        ### Size regression triage (Native AOT)
+        1. Publish both builds with `IlcGenerateMstatFile` (and `IlcGenerateDgmlFile` for why-chains)
+        2. `dotsider size-check new/App --baseline old/App.mstat --json` for the delta document
+        3. `dotsider size-check ... --budget ns=<Namespace>:growth=0 --why` to gate and explain growth
+        4. `dotsider diff old/App.mstat new/App.mstat` for the interactive delta treemap
 
         ## Tips
 

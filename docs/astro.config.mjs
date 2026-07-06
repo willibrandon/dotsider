@@ -84,6 +84,7 @@ export default defineConfig({
                     { label: 'Size Map', slug: 'usage/size-map' },
                     { label: 'Dynamic', slug: 'usage/dynamic' },
                     { label: 'Diff Mode', slug: 'usage/diff-mode' },
+                    { label: 'Size Regression', slug: 'usage/size-regression' },
                     { label: 'NuGet Mode', slug: 'usage/nuget-mode' },
                 ],
             },

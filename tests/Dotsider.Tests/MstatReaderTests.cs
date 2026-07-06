@@ -62,6 +62,67 @@ public class MstatReaderTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>
+    /// Verifies method signatures decode from the MemberRef signature blobs: the fixture's
+    /// Greet overloads share a display name but carry distinct rendered parameter lists —
+    /// the identity that keeps overloads apart in a size diff.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Read_FixtureMstat_MethodSignaturesDecoded()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var data = MstatReader.Read(samples.NativeAotConsoleMstat!);
+
+        Assert.NotNull(data);
+        var greets = data.Methods
+            .Where(m => m.AssemblyName == "NativeAotConsole" && m.Name == "Greet")
+            .ToList();
+        Assert.Equal(2, greets.Count);
+        Assert.Equal(2, greets.Select(m => m.Signature).Distinct().Count());
+        Assert.Contains(greets, m => m.Signature == "(string)");
+        Assert.Contains(greets, m => m.Signature == "(int)");
+    }
+
+    /// <summary>
+    /// Verifies frozen-object owner attribution: string literals carry no owner, so their
+    /// owner attribution fields stay null — the bytes are honestly unattributable.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Read_FixtureMstat_OwnerlessFrozenObjectsCarryNoOwnerAttribution()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var data = MstatReader.Read(samples.NativeAotConsoleMstat!);
+
+        Assert.NotNull(data);
+        Assert.All(
+            data.FrozenObjects.Where(f => f.OwningType is null),
+            f =>
+            {
+                Assert.Null(f.OwningAssemblyName);
+                Assert.Null(f.OwningNamespace);
+            });
+        Assert.All(
+            data.FrozenObjects.Where(f => f.OwningType is not null),
+            f => Assert.NotNull(f.OwningAssemblyName));
+    }
+
+    /// <summary>
+    /// Verifies the bounded probe accepts the real report and rejects ordinary managed
+    /// assemblies — an mstat is itself a valid ECMA-335 assembly, so the probe is what keeps
+    /// the two input kinds apart without a full decode.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void Probe_AcceptsMstatRejectsManagedAssembly()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        Assert.True(MstatReader.Probe(samples.NativeAotConsoleMstat!));
+        Assert.False(MstatReader.Probe(samples.RichLibraryDll));
+        Assert.False(MstatReader.Probe(Path.Combine(Path.GetTempPath(), "missing.mstat")));
+    }
+
+    /// <summary>
     /// Verifies the sample's own Program type appears among the constructed types.
     /// </summary>
     [Fact(Timeout = 30_000)]

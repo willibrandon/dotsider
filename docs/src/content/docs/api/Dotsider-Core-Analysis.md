@@ -141,6 +141,31 @@ rows. Built once, queried per-frame — every lookup is a dictionary hit.
 public sealed class ManagedNativeIndex
 ```
 
+### [MstatDiffer](/api/dotsider.core.analysis.mstatdiffer/)
+
+Compares two ILC size reports and explains where the bytes went: a hierarchical delta tree
+(assembly → namespace → type → method, beside the binary's data categories), flat top
+contributors, and per-assembly / per-namespace aggregate deltas. Entries are matched by the
+build-stable identity keys of [MstatSizeIndex](/api/dotsider.core.analysis.mstatsizeindex/), so overloads, folded
+MethodTables, and owner-grouped frozen objects compare correctly across builds.
+
+```csharp
+public static class MstatDiffer
+```
+
+### [MstatLocator](/api/dotsider.core.analysis.mstatlocator/)
+
+Resolves a size-comparison input to its mstat report. A bare `.mstat` file is read
+directly (detected by extension or by [String)](/api/dotsider.core.analysis.mstatreader.probe(system.string)/) — an mstat is
+itself a valid ECMA-335 assembly, so probing must come before any managed-assembly
+interpretation); a Native AOT binary resolves through its sidecar discovery
+(`app.mstat` beside the binary, or the ILC intermediate output tree). Anything else —
+a managed assembly, a native binary without a size report — resolves to null.
+
+```csharp
+public static class MstatLocator
+```
+
 ### [MstatReader](/api/dotsider.core.analysis.mstatreader/)
 
 Reads an ILC size report (`.mstat`), the file `IlcGenerateMstatFile` emits when
@@ -157,6 +182,19 @@ yields the entries parsed before the damage.
 
 ```csharp
 public static class MstatReader
+```
+
+### [MstatSizeIndex](/api/dotsider.core.analysis.mstatsizeindex/)
+
+The normalized view of an ILC size report that every size consumer shares: raw rows
+aggregated under build-stable identity keys, one double-count policy for the 2.1+ detail
+sections, owner-based attribution for frozen objects, and per-assembly / per-namespace byte
+totals. [SizeAnalyzer](/api/dotsider.core.analysis.sizeanalyzer/) builds the Size Map from it, [MstatDiffer](/api/dotsider.core.analysis.mstatdiffer/)
+compares two of them, and budget evaluation reads its aggregates — so a total shown in one
+place always equals the same total shown in another.
+
+```csharp
+public sealed class MstatSizeIndex
 ```
 
 ### [NativeAotDetector](/api/dotsider.core.analysis.nativeaotdetector/)
@@ -281,6 +319,56 @@ mstat, the binary's merged native symbols carry the tree.
 
 ```csharp
 public static class SizeAnalyzer
+```
+
+### [SizeBasisResolver](/api/dotsider.core.analysis.sizebasisresolver/)
+
+Resolves the total-size basis for a comparison of mstat inputs. The rule is shared by the
+CLI, the MCP server, and the session protocol so a size figure never changes meaning
+between surfaces: binaries measure file size on disk; a bare `.mstat` anywhere forces
+mstat totals for both sides.
+
+```csharp
+public static class SizeBasisResolver
+```
+
+### [SizeBudgetEvaluator](/api/dotsider.core.analysis.sizebudgetevaluator/)
+
+Evaluates size budgets against a size diff. Total budgets measure the caller's
+basis-resolved totals (file size for binaries, mstat total for bare reports); namespace and
+assembly budgets always measure the diff's mstat aggregates, with namespace targets
+covering their sub-namespaces. Each breach carries the scope's top positive regressions —
+the rows that explain the growth.
+
+```csharp
+public static class SizeBudgetEvaluator
+```
+
+### [SizeBudgetFile](/api/dotsider.core.analysis.sizebudgetfile/)
+
+Reads a size-budget document: `{ "budgets": [ ... ] }` where each entry is either a
+spec string in the [SizeBudgetParser](/api/dotsider.core.analysis.sizebudgetparser/) grammar or an object
+`{ "name", "description", "scope", "max", "growth", "severity", "topN" }` — the object
+form is how a team names its budgets, downgrades one to a warning, or pins a per-budget
+contributor count. Both forms mix freely in one document. The CLI's `--budget-file`
+and the MCP server's inline budget JSON share this one parser.
+
+```csharp
+public static class SizeBudgetFile
+```
+
+### [SizeBudgetParser](/api/dotsider.core.analysis.sizebudgetparser/)
+
+Parses size-budget spec strings. The grammar is
+`[scope:]limit(,limit)*` where scope is `total` (the default), `ns=NAME`, or
+`asm=NAME`, and each limit is `max=SIZE` or `growth=SIZE|PERCENT`. Sizes
+accept `b`, `kb`, `mb`, and `gb` suffixes (1 kb = 1024 bytes; a bare
+number is bytes); percentages (`growth=1%`) apply to growth only. Examples:
+`max=25mb` · `growth=1%` · `total:max=25mb,growth=50kb` ·
+`ns=System.Text.Json:growth=10kb` · `asm=MyApp:max=2mb`.
+
+```csharp
+public static class SizeBudgetParser
 ```
 
 ### [StringExtractor](/api/dotsider.core.analysis.stringextractor/)

@@ -26,4 +26,11 @@ public sealed record MstatData(
     IReadOnlyList<MstatRvaField> RvaFields,
     IReadOnlyList<MstatFrozenObject> FrozenObjects,
     IReadOnlyList<MstatManifestResource> ManifestResources,
-    IReadOnlyList<MstatDeduplicatedMethod> DeduplicatedMethods);
+    IReadOnlyList<MstatDeduplicatedMethod> DeduplicatedMethods)
+{
+    /// <summary>
+    /// A report with no entries and format version 0.0 — the baseline for size-budget checks
+    /// that run without one, where every entry of the build under check diffs as added.
+    /// </summary>
+    public static MstatData Empty { get; } = new(0, 0, [], [], [], [], [], [], [], []);
+}
