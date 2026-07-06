@@ -214,10 +214,12 @@ Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). The size-
 
 ## How it works
 
-dotsider reads assemblies using APIs that ship with the .NET runtime itself — no third-party analysis libraries needed:
+dotsider starts with the low-level APIs that ship with .NET, then layers its own readers on top for the binary formats the runtime libraries do not expose directly:
 
-- **`System.Reflection.Metadata`** provides `MetadataReader` for traversing the metadata tables (types, methods, references, custom attributes, string heaps)
-- **`System.Reflection.PortableExecutable`** provides `PEReader` for the PE structure (COFF header, sections, CLR header, method bodies)
+- **`System.Reflection.Metadata`** provides `MetadataReader` for traversing ECMA-335 metadata tables (types, methods, references, custom attributes, string heaps)
+- **`System.Reflection.PortableExecutable`** provides `PEReader` for PE structure (COFF header, sections, CLR header, method bodies)
+- Custom Native AOT and ReadyToRun readers parse RTR section tables, recovered NativeFormat metadata, frozen objects, mstat/DGML sidecars, native symbols, and precompiled method maps
+- From-scratch x86-64 and AArch64 decoders render native disassembly for AOT and R2R code
 - **`System.IO.Compression`** handles NuGet packages (which are just ZIP files containing a `.nuspec` manifest and DLLs)
 
 The dynamic analysis tab uses `Microsoft.Diagnostics.NETCore.Client` to connect to a running .NET process via EventPipe — the same diagnostic infrastructure that powers `dotnet-trace` and `dotnet-counters`. It launches your assembly with a reverse-connect diagnostic port, so events are captured from the very first instruction.
@@ -274,7 +276,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**46 tools** across assembly analysis, IL disassembly, native disassembly, portable PDB debug info, metadata inspection, dependency graphs, size analysis, size diffing and budget gating, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**50 tools** across assembly analysis, IL disassembly, native disassembly, Native AOT analysis, portable PDB debug info, metadata inspection, dependency graphs, size analysis, size diffing and budget gating, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
