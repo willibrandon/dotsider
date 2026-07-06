@@ -1,4 +1,5 @@
 using System.Text;
+using Hex1b.Documents;
 using Hex1b;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -15,11 +16,27 @@ public static class HighlightHelper
     /// <summary>The highlight background color applied to matching substrings (warm yellow).</summary>
     public static readonly Hex1bColor MatchBgColor = Hex1bColor.FromRgb(255, 220, 100);
 
+    /// <summary>The highlight foreground color applied to matching substrings.</summary>
+    public static readonly Hex1bColor MatchFgColor = Hex1bColor.Black;
+
+    /// <summary>The current-match background color applied to the active editor match.</summary>
+    public static readonly Hex1bColor CurrentMatchBgColor = Hex1bColor.FromRgb(255, 165, 0);
+
     /// <summary>The dim color applied to non-matching items in spatial views.</summary>
     public static readonly Hex1bColor DimColor = Hex1bColor.FromRgb(50, 50, 60);
 
     private static readonly string MatchBgAnsi = MatchBgColor.ToBackgroundAnsi();
-    private static readonly string BlackFgAnsi = Hex1bColor.Black.ToForegroundAnsi();
+    private static readonly string MatchFgAnsi = MatchFgColor.ToForegroundAnsi();
+
+    /// <summary>
+    /// Creates an editor search decoration with both foreground and background set so
+    /// syntax colors cannot reduce contrast against the match background.
+    /// </summary>
+    public static TextDecoration CreateSearchMatchDecoration(bool current = false) => new()
+    {
+        Foreground = MatchFgColor,
+        Background = current ? CurrentMatchBgColor : MatchBgColor
+    };
 
     /// <summary>
     /// Wraps each case-insensitive match of <paramref name="query"/> in <paramref name="text"/>
@@ -54,7 +71,7 @@ public static class HighlightHelper
                 sb.Append(text, pos, idx - pos);
 
             sb.Append(MatchBgAnsi);
-            sb.Append(BlackFgAnsi);
+            sb.Append(MatchFgAnsi);
             sb.Append(text, idx, query.Length);
             sb.Append(restoreAnsi);
 

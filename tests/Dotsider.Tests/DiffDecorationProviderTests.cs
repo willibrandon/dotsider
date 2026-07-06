@@ -1,5 +1,6 @@
 using Dotsider.Views;
 using Hex1b.Documents;
+using Hex1b.Theming;
 
 namespace Dotsider.Tests;
 
@@ -25,6 +26,24 @@ public class DiffDecorationProviderTests
         Assert.Equal(2, spans.Count);
         Assert.Equal(1, spans[0].Start.Line);
         Assert.Equal(3, spans[1].Start.Line);
+    }
+
+    /// <summary>
+    /// Verifies diff search matches own foreground and background colors.
+    /// </summary>
+    [Fact]
+    public void DiffSearch_MatchesOwnForegroundAndBackground()
+    {
+        var provider = new DiffSearchDecorationProvider { Query = "rich" };
+        var doc = new Hex1bDocument("RichLibrary");
+
+        var spans = provider.GetDecorations(1, 1, doc);
+
+        var span = Assert.Single(spans);
+        Assert.NotNull(span.Decoration.Foreground);
+        Assert.NotNull(span.Decoration.Background);
+        AssertColorEquals(HighlightHelper.MatchFgColor, span.Decoration.Foreground.Value);
+        AssertColorEquals(HighlightHelper.MatchBgColor, span.Decoration.Background.Value);
     }
 
     /// <summary>
@@ -148,5 +167,12 @@ public class DiffDecorationProviderTests
         var doc = new Hex1bDocument("\n\n");
 
         Assert.Empty(provider.GetDecorations(1, 3, doc));
+    }
+
+    private static void AssertColorEquals(Hex1bColor expected, Hex1bColor actual)
+    {
+        Assert.Equal(expected.R, actual.R);
+        Assert.Equal(expected.G, actual.G);
+        Assert.Equal(expected.B, actual.B);
     }
 }
