@@ -51,13 +51,11 @@ public sealed partial class ScriptConventionTests : IDisposable
         string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
         string outputDirectory = Path.Combine(_tempRoot, "oracles");
 
-        RunDotnet(root, "build", scriptPath, "--nologo", "--verbosity", "quiet");
         var (exitCode, _, _) = RunDotnet(
             root,
             "run",
             "--file",
             scriptPath,
-            "--no-build",
             "--",
             "-Architecture",
             "test",
