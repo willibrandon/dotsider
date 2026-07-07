@@ -38,7 +38,27 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("dotnet clean file-based-apps", readme);
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
         Assert.Contains("documented app", readme);
+        Assert.Contains("Native architecture oracles", readme);
+        Assert.Contains("run-runtime-cross-target", readme);
         Assert.Contains("scripts/*.cs text eol=lf", attributes);
+    }
+
+    /// <summary>
+    /// Verifies the native architecture oracle workflow uses the file-based capture app.
+    /// The outer-loop workflow should refresh artifacts without changing normal PR CI cost.
+    /// Runtime cross-target entries stay pinned to the same container family as dotnet/runtime.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NativeArchitectureOracleWorkflow_UsesCaptureAppAndRuntimeCrossImages()
+    {
+        string root = FindRepositoryRoot();
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "native-arch-oracles.yml"));
+
+        Assert.Contains("Capture-DisasmOracle.cs", workflow);
+        Assert.Contains("dotnet workload install wasm-tools", workflow);
+        Assert.Contains("azurelinux-3.0-net11.0-cross-riscv64", workflow);
+        Assert.Contains("azurelinux-3.0-net11.0-cross-loongarch64", workflow);
+        Assert.Contains("run-runtime-cross-target", workflow);
     }
 
     /// <summary>

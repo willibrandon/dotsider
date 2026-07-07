@@ -80,6 +80,35 @@ The .NET runtime repo validates RISC-V64 and LoongArch64 through its
 cross-target runtime pipeline and SuperPMI/crossgen2 collections, so dotsider CI
 does not try to build private runtime packs as part of normal test execution.
 
+The `Native architecture oracles` workflow is the outer-loop capture pipeline.
+It can be run manually from GitHub Actions and also refreshes SDK-backed oracle
+captures on a weekly schedule. The default path installs `wasm-tools`, publishes
+the browser-wasm fixture, opportunistically tries SDK ReadyToRun publishes for
+`linux-riscv64` and `linux-loongarch64`, captures any available oracle output
+with `Capture-DisasmOracle.cs`, and uploads the unreviewed artifacts.
+
+When public SDK packs are unavailable, run the workflow manually with
+`run-runtime-cross-target=true`. That opt-in path checks out `dotnet/runtime` at
+the requested ref and uses the same pinned Azure Linux cross-build containers
+and rootfs paths that runtime uses for RISC-V64 and LoongArch64. The resulting
+runtime logs and artifact locations are uploaded for review; promoted fixtures
+should still flow through `Capture-DisasmOracle.cs` so every committed oracle
+records the producer ref, fixture hash, and command line.
+
+For local development, the same shape applies:
+
+```powershell
+$env:DOTSIDER_RUNTIME_ROOT = "D:\SRC\runtime"
+dotnet build ./scripts/Capture-DisasmOracle.cs --nologo --verbosity quiet
+dotnet run --file ./scripts/Capture-DisasmOracle.cs --no-build -- `
+  -Architecture loongarch64 `
+  -Fixture artifacts/oracles/input/loongarch64-smoke.bin `
+  -OraclePath llvm-objdump `
+  -RuntimeRoot $env:DOTSIDER_RUNTIME_ROOT `
+  -OutputDirectory artifacts/oracles/disasm `
+  -- -d artifacts/oracles/input/loongarch64-smoke.bin
+```
+
 Current utilities:
 
 | App | Purpose |
