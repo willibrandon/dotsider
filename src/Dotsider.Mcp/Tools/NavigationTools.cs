@@ -29,7 +29,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     /// Navigates to a specific tab in the running dotsider TUI.
     /// </summary>
     /// <param name="sessionId">PID of the running dotsider instance.</param>
-    /// <param name="tabId">Tab number (1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic).</param>
+    /// <param name="tabId">Tab number (1=General, 2=PE/Metadata, 3=IL / Native, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON confirmation that navigation was queued.</returns>
     [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
@@ -74,7 +74,7 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
     }
 
     /// <summary>
-    /// Navigates to the definition of a metadata token in the IL Inspector.
+    /// Navigates to the definition of a metadata token in tab 3's IL view.
     /// Works for method calls, field accesses, type references, and other
     /// token-bearing IL instructions. Cross-assembly navigation is supported.
     /// </summary>

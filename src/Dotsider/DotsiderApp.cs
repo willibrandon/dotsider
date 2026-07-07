@@ -94,7 +94,7 @@ public sealed class DotsiderApp(DotsiderState state)
             [
                 tp.Tab("General", _ => []).Selected(_state.CurrentTab == TabId.General),
                 tp.Tab("PE/Metadata", _ => []).Selected(_state.CurrentTab == TabId.PeMetadata),
-                tp.Tab("IL Inspector", _ => []).Selected(_state.CurrentTab == TabId.IlInspector),
+                tp.Tab(IlInspectorTabLabel.For(_state), _ => []).Selected(_state.CurrentTab == TabId.IlInspector),
                 tp.Tab("Strings", _ => []).Selected(_state.CurrentTab == TabId.Strings),
                 tp.Tab("Hex Dump", _ => []).Selected(_state.CurrentTab == TabId.HexDump),
                 tp.Tab("Dep Graph", _ => []).Selected(_state.CurrentTab == TabId.DepGraph),

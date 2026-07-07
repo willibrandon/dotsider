@@ -1,11 +1,11 @@
 ---
 title: IL Inspector
-description: Namespace/type/method tree with IL disassembly.
+description: Managed IL, native disassembly, and side-by-side IL/native views.
 ---
 
 ![IL Inspector tab](../../../assets/screenshots/il-inspector.png)
 
-The **IL Inspector** tab (`3`) shows a tree of all namespaces, types, and methods. Select a method to see its IL bytecode in the right pane.
+Tab `3` is the IL/native code view. Its label changes with the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when managed IL is paired with native code. For ordinary managed assemblies, it shows a tree of all namespaces, types, and methods. Select a method to see its IL bytecode in the right pane.
 
 Each instruction shows:
 
@@ -44,7 +44,7 @@ Press `/` to search method names or IL content. Matches are highlighted in both 
 
 ## Native mode (Native AOT)
 
-Open a Native AOT binary and the IL Inspector switches to native mode: the left tree lists the recovered **functions** bucketed namespace → type → function (managed-named functions parsed from the symbols), plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. Selecting a function disassembles it to real x86-64 or AArch64 assembly on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
+Open a Native AOT binary and tab `3` is labeled **Disassembly** in native mode: the left tree lists the recovered **functions** bucketed namespace → type → function (managed-named functions parsed from the symbols), plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. Selecting a function disassembles it to real x86-64 or AArch64 assembly on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
 
 Call and branch targets are resolved to names: a direct call shows `call Foo`, a target landing inside a function shows `Foo+0x12`, an intra-function jump becomes a synthesized `loc_…` label, a RIP-relative load names the referenced data symbol, and an indirect call through the import table resolves to `MODULE!Function`. Where the debug sidecar carries line data, `// file:line` annotations mark the source.
 
@@ -52,7 +52,7 @@ Call and branch targets are resolved to names: a direct call shows `call Foo`, a
 
 ## ReadyToRun images
 
-A ReadyToRun (crossgen2) image keeps its full metadata, so the tree stays in its managed namespace → type → method shape. A glyph marks each method: `✓` precompiled, `–` IL only (not in this image). Selecting a precompiled method splits the right pane — IL on the left, its native code ranges (hot, funclets, cold) on the right — with call targets resolved through the import tables (`call Console.WriteLine`, `call WriteBarrier`, a generic instantiation named with its type arguments). A composite `*.r2r.dll` shows its component assemblies in the tree and navigates across them; a component DLL disassembles from the owner composite it belongs to.
+A ReadyToRun (crossgen2) image keeps its full metadata, so tab `3` is labeled **IL + Native** and the tree stays in its managed namespace → type → method shape. A glyph marks each method: `✓` precompiled, `–` IL only (not in this image). Selecting a precompiled method splits the right pane — IL on the left, its native code ranges (hot, funclets, cold) on the right — with call targets resolved through the import tables (`call Console.WriteLine`, `call WriteBarrier`, a generic instantiation named with its type arguments). A composite `*.r2r.dll` shows its component assemblies in the tree and navigates across them; a component DLL disassembles from the owner composite it belongs to.
 
 ## Pre-ILC sidecar correlation (Native AOT)
 
@@ -64,12 +64,12 @@ Publishing a Native AOT binary leaves its pre-ILC inputs behind in the build tre
  Enter: Attach | Esc: No, native only
 ```
 
-Press `Enter` to attach or `Esc` to stay native-only. When attached, the metadata tabs (PE/Metadata, Strings, General references) fill from the managed assembly while the binary tabs stay native, and a method's IL and native code show **side by side**.
+Press `Enter` to attach or `Esc` to stay native-only. When attached, the metadata tabs (PE/Metadata, Strings, General references) fill from the managed assembly while the binary tabs stay native, and tab `3` is labeled **IL + Native** so a method's IL and native code can show side by side.
 
 - The tree shows correlation markers: `✓` correlated exactly, `~` shared with overloads (ambiguous), `±` size-only (mstat evidence but no native symbol), `–` not in the native image (trimmed or inlined).
 - Selecting a correlated method splits the right pane: pre-ILC IL on the left, native disassembly on the right, with call targets named from the companion metadata. A status line reports the native address and size.
 - Overloads that ILC's mangling collapses are reported as ambiguous with the shared size, never guessed apart. A generic method with several instantiations shows every native symbol.
-- `t` toggles between the managed and native tree; `l` cycles focus between the IL and native panes (and swaps the visible pane when the terminal is too narrow to split); `Tab` steps tree → IL → native. Search (`/`) follows the focused pane. `x` opens the Hex Dump at the correlated symbol's file offset.
+- `t` toggles between the managed and native tree; the tab label switches between **IL + Native** and **Disassembly** with that mode. `l` cycles focus between the IL and native panes (and swaps the visible pane when the terminal is too narrow to split); `Tab` steps tree → IL → native. Search (`/`) follows the focused pane. `x` opens the Hex Dump at the correlated symbol's file offset.
 - On the **General** tab, `a` re-opens the offer and `d` detaches; the tab also reports the correlation counts (`{exact} of {total} methods in native image`).
 
 The same correlation is available headlessly:

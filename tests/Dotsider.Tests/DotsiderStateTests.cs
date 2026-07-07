@@ -719,6 +719,66 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies tab 3 keeps its managed label for ordinary IL inspection.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void IlInspectorTabLabel_ManagedAssembly_IsIlInspector()
+    {
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.HelloWorldDll);
+
+        Assert.Equal(IlInspectorTabLabel.IlInspector, IlInspectorTabLabel.For(state));
+    }
+
+    /// <summary>
+    /// Verifies tab 3 names the native-only AOT surface as disassembly.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void IlInspectorTabLabel_NativeAotWithoutAttachment_IsDisassembly()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
+
+        Assert.Equal(IlInspectorTabLabel.Disassembly, IlInspectorTabLabel.For(state));
+    }
+
+    /// <summary>
+    /// Verifies tab 3 names ReadyToRun as an IL plus native surface.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void IlInspectorTabLabel_ReadyToRun_IsIlAndNative()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, "ReadyToRun crossgen2 publish did not run on this leg.");
+
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.ReadyToRunConsoleDll!);
+
+        Assert.Equal(IlInspectorTabLabel.IlAndNative, IlInspectorTabLabel.For(state));
+    }
+
+    /// <summary>
+    /// Verifies the pre-ILC sidecar toggle switches tab 3 between paired IL/native and native disassembly.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void IlInspectorTabLabel_PreIlcAttachment_FollowsTreeToggle()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+
+        var app = CreateApp();
+        using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
+
+        Assert.True(state.AttachPreIlc());
+        Assert.Equal(IlInspectorTabLabel.IlAndNative, IlInspectorTabLabel.For(state));
+
+        state.IlAotTreeNativeView = true;
+
+        Assert.Equal(IlInspectorTabLabel.Disassembly, IlInspectorTabLabel.For(state));
+    }
+
+    /// <summary>
     /// Disposes test resources created during the run.
     /// </summary>
     public void Dispose()

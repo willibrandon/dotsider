@@ -4,7 +4,7 @@
 
 ## Modes
 
-- **TUI mode** — `dotsider MyApp.dll` opens an interactive terminal UI with tabbed navigation. The IL Inspector shows portable PDB source spans, local names, and compact Source Link markers when available.
+- **TUI mode** — `dotsider MyApp.dll` opens an interactive terminal UI with tabbed navigation. Tab 3 shows managed IL, native disassembly, or paired IL/native code depending on the loaded image, with portable PDB source spans, local names, and compact Source Link markers when available.
 - **Diff mode** — `dotsider diff Left.dll Right.dll` compares two assemblies side-by-side; two mstat-backed inputs (Native AOT) open the size-diff view with a delta treemap instead
 - **NuGet mode** — `dotsider MyPackage.nupkg` inspects package contents and embedded assemblies
 - **CLI mode** — `dotsider analyze`, `dotsider size-check`, `dotsider sessions`, `dotsider agent` for headless scripting

@@ -39,4 +39,4 @@ On table rows, press `y` to copy the focused row as tab-separated values.
 
 ## Jump to IL
 
-Select a TypeDef or MethodDef and press `g` to jump directly to its IL disassembly in tab 3. The IL Inspector opens with that item pre-selected.
+Select a TypeDef or MethodDef and press `g` to jump directly to its IL disassembly in tab 3. The IL view opens with that item pre-selected.

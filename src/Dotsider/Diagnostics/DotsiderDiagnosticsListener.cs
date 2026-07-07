@@ -971,6 +971,7 @@ internal sealed class DotsiderDiagnosticsListener(
         return DotsiderResponse.Ok(new
         {
             Tab = state.CurrentTab + 1,
+            TabLabel = CurrentTabLabel(state),
             state.PeSubTab,
             state.DynamicSubTab,
             AssemblyPath = state.Analyzer.FilePath,
@@ -982,6 +983,20 @@ internal sealed class DotsiderDiagnosticsListener(
             state.IsNetFramework
         });
     }
+
+    private static string CurrentTabLabel(DotsiderState state) =>
+        state.CurrentTab switch
+        {
+            TabId.General => "General",
+            TabId.PeMetadata => "PE/Metadata",
+            TabId.IlInspector => IlInspectorTabLabel.For(state),
+            TabId.Strings => "Strings",
+            TabId.HexDump => "Hex Dump",
+            TabId.DepGraph => "Dep Graph",
+            TabId.SizeMap => "Size Map",
+            TabId.Dynamic => "Dynamic",
+            _ => state.CurrentTab.ToString()
+        };
 
     private DotsiderResponse HandleNavigate(DotsiderRequest request)
     {

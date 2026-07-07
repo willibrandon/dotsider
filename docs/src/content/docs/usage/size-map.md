@@ -14,7 +14,7 @@ The **Size Map** tab (`7`) shows a treemap of IL code size:
 
 ## Drill in
 
-Click or press `Enter` on any region to drill into it. When you reach a method leaf, pressing `Enter` jumps to its IL disassembly in tab 3.
+Click or press `Enter` on any region to drill into it. When you reach a method leaf, pressing `Enter` jumps to its IL disassembly in tab 3's IL view.
 
 This is useful for finding unexpectedly large methods or identifying which parts of your codebase contribute the most to assembly size.
 

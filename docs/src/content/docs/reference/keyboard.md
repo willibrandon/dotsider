@@ -28,9 +28,9 @@ description: All keyboard shortcuts for navigating dotsider.
 | Key | Action |
 |-----|--------|
 | `Tab` | Cycle focus: PE Headers → CLR Header → metadata table |
-| `g` | Jump to IL Inspector for focused TypeDef/MethodDef |
+| `g` | Jump to tab 3's IL view for focused TypeDef/MethodDef |
 
-## IL Inspector tab
+## Tab 3: IL / Native
 
 | Key | Action |
 |-----|--------|

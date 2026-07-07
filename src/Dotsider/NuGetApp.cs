@@ -516,7 +516,7 @@ public sealed class NuGetApp(NuGetState state)
                 .Selected(dllState.CurrentTab == 0),
             tp.Tab("PE/Metadata", t => [PeMetadataView.Build(t, dllState)])
                 .Selected(dllState.CurrentTab == 1),
-            tp.Tab("IL Inspector", t => [IlInspectorView.Build(t, dllState)])
+            tp.Tab(IlInspectorTabLabel.For(dllState), t => [IlInspectorView.Build(t, dllState)])
                 .Selected(dllState.CurrentTab == 2),
             tp.Tab("Strings", t => [StringsView.Build(t, dllState)])
                 .Selected(dllState.CurrentTab == 3),

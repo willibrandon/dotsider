@@ -28,7 +28,7 @@ Opening a Native AOT executable adds a block below the standard fields. ILC stri
 
 ## ReadyToRun images
 
-A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled native bodies, so the standard fields stay and a **ReadyToRun** block is added, reporting the format version and status (`Valid`, `Corrupt`, or `UnsupportedVersion` — a broken header is surfaced, never hidden), the architecture, whether the image is a composite or a component (and its owner), and how many methods are precompiled. Inspect a method's native code in the IL Inspector or via `--r2r-correlate`.
+A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled native bodies, so the standard fields stay and a **ReadyToRun** block is added, reporting the format version and status (`Valid`, `Corrupt`, or `UnsupportedVersion` — a broken header is surfaced, never hidden), the architecture, whether the image is a composite or a component (and its owner), and how many methods are precompiled. Inspect a method's native code in tab 3's **IL + Native** view or via `--r2r-correlate`.
 
 ## Text selection and copy
 
