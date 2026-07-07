@@ -101,6 +101,25 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? ReadyToRunConsoleDll { get; private set; }
 
     /// <summary>
+    /// Path to the SDK-produced browser Wasm runtime module when the wasm-tools workload is present.
+    /// MCP symbol and assembly-info tests gate on it because not every developer machine has the
+    /// workload installed.
+    /// </summary>
+    public string? ReadyToRunConsoleWasmNativeWasm { get; private set; }
+
+    /// <summary>
+    /// Path to the dedicated SDK-produced browser Wasm runtime module from <c>samples/WasmConsole</c>.
+    /// MCP raw Wasm tests prefer this focused fixture when the wasm-tools workload is installed.
+    /// </summary>
+    public string? WasmConsoleNativeWasm { get; private set; }
+
+    /// <summary>
+    /// Path to the Webcil-wrapped managed app assembly from <c>samples/WasmConsole</c>.
+    /// MCP managed Webcil tests use this to verify normal metadata tools still work.
+    /// </summary>
+    public string? WasmConsoleWebcilWasm { get; private set; }
+
+    /// <summary>
     /// Builds all sample projects once per collection and resolves their output paths.
     /// </summary>
     public async ValueTask InitializeAsync()
@@ -120,6 +139,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
         await PublishNativeAotProject("samples/NativeAotConsole");
         await PublishNativeAotProject("samples/NativeAotConsoleV2");
         await PublishReadyToRunProject("samples/ReadyToRunConsole");
+        await PublishWasmProject("samples/ReadyToRunConsole");
+        await PublishWasmProject("samples/WasmConsole");
 
         const string config = "Debug";
         const string tfm = "net10.0";
@@ -146,6 +167,15 @@ public class SampleAssemblyFixture : IAsyncLifetime
         var r2rConsoleDll = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", "Release", tfm, rid, "publish", "ReadyToRunConsole.dll");
         ReadyToRunConsoleDll = File.Exists(r2rConsoleDll) ? r2rConsoleDll : null;
+        var wasmNative = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm");
+        ReadyToRunConsoleWasmNativeWasm = File.Exists(wasmNative) ? wasmNative : null;
+        var wasmConsoleNative = Path.Combine(_repoRoot, "samples", "WasmConsole",
+            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm");
+        WasmConsoleNativeWasm = File.Exists(wasmConsoleNative) ? wasmConsoleNative : null;
+        var wasmConsoleWebcil = Path.Combine(_repoRoot, "samples", "WasmConsole",
+            "bin", "Release", tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm");
+        WasmConsoleWebcilWasm = File.Exists(wasmConsoleWebcil) ? wasmConsoleWebcil : null;
 
         Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
         Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
@@ -365,6 +395,61 @@ public class SampleAssemblyFixture : IAsyncLifetime
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // A non-zero exit means crossgen2 is unavailable for this RID; the outputs stay absent.
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    private async Task PublishWasmProject(string relativePath)
+    {
+        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+            "bin", "Release", "net10.0", "browser-wasm", "publish", "dotnet.native.wasm");
+
+        if (File.Exists(expectedOutput))
+            return;
+
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + "-browser-wasm.lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            if (File.Exists(expectedOutput))
+            {
+                lockFile.Dispose();
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "publish -c Release -r browser-wasm --self-contained true "
+                    + "-p:PublishReadyToRun=false -v q",
+                WorkingDirectory = Path.Combine(_repoRoot, relativePath),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            var process = Process.Start(psi)!;
+            _ = await process.StandardOutput.ReadToEndAsync();
+            _ = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            // A non-zero exit means wasm-tools is unavailable; the output stays absent.
         }
         finally
         {

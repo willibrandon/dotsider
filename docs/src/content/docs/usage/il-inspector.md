@@ -42,11 +42,13 @@ Select text in the disassembly pane with click-drag or `Shift` + arrow keys, the
 
 Press `/` to search method names or IL content. Matches are highlighted in both the tree and disassembly panes.
 
-## Native mode (Native AOT)
+## Native mode (Native AOT and WebAssembly)
 
-Open a Native AOT binary and tab `3` is labeled **Disassembly** in native mode: the left tree lists the recovered **functions** bucketed namespace → type → function (managed-named functions parsed from the symbols), plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. Selecting a function disassembles it to real native code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, or Wasm32 on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
+Open a Native AOT binary or a raw `dotnet.native.wasm` module and tab `3` is labeled **Disassembly** in native mode. Native AOT shows recovered **functions** bucketed namespace → type → function where symbols can be joined to managed names, plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. A Wasm module shows SDK function symbols from `dotnet.native.js.symbols`, the Wasm name section, exports, or synthetic `func_N` names. Selecting a function disassembles it to real native code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, or Wasm32 on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
 
-Call and branch targets are resolved to names: a direct call shows `call Foo`, a target landing inside a function shows `Foo+0x12`, an intra-function jump becomes a synthesized `loc_…` label, a RIP-relative load names the referenced data symbol, and an indirect call through the import table resolves to `MODULE!Function`. Where the debug sidecar carries line data, `// file:line` annotations mark the source.
+Call and branch targets are resolved to names: a direct call shows `call Foo`, a target landing inside a function shows `Foo+0x12`, an intra-function jump becomes a synthesized `loc_…` label, a RIP-relative load names the referenced data symbol, and an indirect call through the import table resolves to `MODULE!Function`. Wasm direct calls resolve by function index to imported or defined function names; indirect calls name their type/table operands, and local/global/table operands are annotated from the parsed standard sections when the module records enough type information. Where the debug sidecar carries line data, `// file:line` annotations mark the source.
+
+Webcil app assemblies such as `_framework/MyApp.wasm` are not shown in native mode. They unwrap to managed metadata, so tab `3` remains **IL Inspector** and the tree, IL, PDB, locals, Source Link, and go-to-definition behavior match a normal managed DLL.
 
 `Enter` on a resolved call/branch jumps to that function (the target is underlined to signal it's navigable); `Esc` returns. `x` jumps to the function's bytes in the Hex Dump. The Size Map and the PE/Metadata **Symbols** sub-tab cross-navigate into the native listing.
 

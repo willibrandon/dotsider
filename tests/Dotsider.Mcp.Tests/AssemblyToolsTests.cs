@@ -261,6 +261,30 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     }
 
     /// <summary>
+    /// list_types unwraps Webcil browser app assemblies and returns their managed type definitions.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task ListTypes_WebcilWasm_ReturnsManagedTypes()
+    {
+        Assert.SkipWhen(samples.WasmConsoleWebcilWasm is null,
+            "browser-wasm publish did not produce the Webcil app assembly on this leg.");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "list_types",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.WasmConsoleWebcilWasm },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var types = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Contains(types.EnumerateArray(), static type =>
+            type.GetProperty("fullName").GetString() == "WasmCalculator");
+    }
+
+    /// <summary>
     /// get_assembly_info exposes displayName, bundle flags, and preferred runtime pack.
     /// </summary>
     [Fact(Timeout = 30_000)]
@@ -307,6 +331,67 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(aotInfo.GetProperty("majorVersion").GetInt32() >= 1);
         Assert.True(aotInfo.GetProperty("sectionCount").GetInt32() >= 1);
         Assert.False(json.GetProperty("hasMetadata").GetBoolean());
+    }
+
+    /// <summary>
+    /// get_assembly_info reports a raw <c>dotnet.native.wasm</c> module as WebAssembly and includes
+    /// function, code, data, and symbol-map facts from the SDK-produced module.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_Wasm_ReportsModuleFacts()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = wasmPath },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal("wasm", json.GetProperty("binaryKind").GetString());
+        Assert.Equal("Wasm32", json.GetProperty("architecture").GetString());
+        Assert.False(json.GetProperty("hasMetadata").GetBoolean());
+        var wasm = json.GetProperty("wasm");
+        Assert.True(wasm.GetProperty("definedFunctionCount").GetInt32() > 0);
+        Assert.True(wasm.GetProperty("importedFunctionCount").GetInt32() > 0);
+        Assert.True(wasm.GetProperty("codeSize").GetInt64() > 0);
+        Assert.True(wasm.GetProperty("dataSize").GetInt64() > 0);
+        Assert.Equal("Loaded", wasm.GetProperty("symbolMapStatus").GetString());
+    }
+
+    /// <summary>
+    /// get_assembly_info reports a Webcil-wrapped browser app assembly as normal managed metadata
+    /// with Webcil payload facts attached, not as the raw runtime WebAssembly module.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetAssemblyInfo_WebcilWasm_ReportsManagedMetadata()
+    {
+        Assert.SkipWhen(samples.WasmConsoleWebcilWasm is null,
+            "browser-wasm publish did not produce the Webcil app assembly on this leg.");
+
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync("get_assembly_info",
+            new Dictionary<string, object?> { ["assemblyPath"] = samples.WasmConsoleWebcilWasm },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.NotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        Assert.Equal("managed", json.GetProperty("binaryKind").GetString());
+        Assert.Equal("Wasm32", json.GetProperty("architecture").GetString());
+        Assert.True(json.GetProperty("hasMetadata").GetBoolean());
+        Assert.Equal("WasmConsole", json.GetProperty("assemblyName").GetString());
+        Assert.False(json.TryGetProperty("wasm", out _));
+        var webcil = json.GetProperty("webcil");
+        Assert.True(webcil.GetProperty("isWasmWrapped").GetBoolean());
+        Assert.True(webcil.GetProperty("sectionCount").GetInt32() > 0);
+        Assert.True(webcil.GetProperty("metadataSize").GetInt32() > 0);
     }
 
     /// <summary>
@@ -471,5 +556,13 @@ public class AssemblyToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
         Assert.True(json.GetProperty("types").GetArrayLength() > 0
             || json.GetProperty("methods").GetArrayLength() > 0);
         Assert.Equal(0, json.GetProperty("memberRefs").GetArrayLength());
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm publish did not run on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 }

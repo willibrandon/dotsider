@@ -4,7 +4,7 @@ namespace Dotsider.Core.Analysis;
 
 /// <summary>
 /// Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
-/// single-file bundles (entry assembly extraction), Native AOT binaries, and direct
+/// single-file bundles (entry assembly extraction), Native AOT binaries, raw Wasm modules, and direct
 /// .dll/.exe loading. Returns an <see cref="AssemblyOpenResult"/> that preserves the
 /// distinction so callers can decide how to present each case (e.g. showing an apphost dialog).
 /// </summary>
@@ -19,7 +19,8 @@ public static class AssemblyLoader
     /// <see cref="AssemblyOpenResult.Direct"/> for regular assemblies,
     /// <see cref="AssemblyOpenResult.ApphostWithCompanion"/> for native apphosts with a companion .dll,
     /// <see cref="AssemblyOpenResult.BundleEntry"/> for single-file bundles,
-    /// or <see cref="AssemblyOpenResult.NativeAot"/> for Native AOT compiled binaries.
+    /// <see cref="AssemblyOpenResult.NativeAot"/> for Native AOT compiled binaries,
+    /// or <see cref="AssemblyOpenResult.Direct"/> for raw Wasm modules.
     /// </returns>
     public static AssemblyOpenResult Open(string filePath)
     {

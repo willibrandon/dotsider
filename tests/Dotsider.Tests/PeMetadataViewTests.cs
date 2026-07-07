@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
@@ -1082,6 +1083,66 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
 
         cts.Cancel();
         await runTask;
+    }
+
+    /// <summary>
+    /// Verifies raw WebAssembly modules reuse the metadata sub-tabs with Wasm-specific tables.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PeMetadata_Wasm_SubTabsRenderWasmTables()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        var (terminal, app) = CreateDotsiderApp(wasmPath);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        var builder = new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Payload Offset"), TimeSpan.FromSeconds(10));
+
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.TypeDef, "Types", "Params");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.MethodDef, "Functions", "Kind");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.TypeRef, "Tables", "Ref Type");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.MemberRef, "Memories", "Min Pages");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.Attributes, "Globals", "Mutable");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.Resources, "Data", "Mode");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.DebugDirectory, "Custom", "Offset");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.Imports, "Imports", "Module");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.Exports, "Exports", "Name");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.LoadConfig, "Elements", "Element");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.RtrSections, "Tags", "Attribute");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.AotTypes, "Module", "Version");
+        builder = ExpectNextWasmSubTab(builder, PeSubTabId.Symbols, "Symbols", "Address");
+
+        await builder
+            .WaitUntil(s => !s.ContainsText("TypeDef") && !s.ContainsText("MethodDef"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.Equal(BinaryKind.Wasm, _state.Analyzer.BinaryKind);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    private Hex1bTerminalInputSequenceBuilder ExpectNextWasmSubTab(
+        Hex1bTerminalInputSequenceBuilder builder, int expectedSubTab, string label, string tableText) =>
+        builder
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == expectedSubTab, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText(label), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText(tableText), TimeSpan.FromSeconds(10));
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm sample publish did not produce dotnet.native.wasm on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>

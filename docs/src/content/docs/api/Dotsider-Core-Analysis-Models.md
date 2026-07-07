@@ -57,8 +57,8 @@ public sealed record AssemblyOpenResult.BundleEntry : AssemblyOpenResult, IEquat
 
 ### [AssemblyOpenResult.Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/)
 
-Direct load — the file is a .dll or .exe with metadata, or a native binary
-with no metadata and no ReadyToRun header (unknown format).
+Direct load — the file is a .dll or .exe with metadata, a raw WebAssembly module,
+or a native binary with no metadata and no ReadyToRun header (unknown format).
 
 ```csharp
 public sealed record AssemblyOpenResult.Direct : AssemblyOpenResult, IEquatable<AssemblyOpenResult>, IEquatable<AssemblyOpenResult.Direct>
@@ -1089,6 +1089,120 @@ Information about a referenced type from the TypeRef metadata table.
 public sealed record TypeRefInfo : IEquatable<TypeRefInfo>
 ```
 
+### [WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/)
+
+One WebAssembly data segment.
+
+```csharp
+public sealed record WasmDataSegmentInfo : IEquatable<WasmDataSegmentInfo>
+```
+
+### [WasmElementSegmentInfo](/api/dotsider.core.analysis.models.wasmelementsegmentinfo/)
+
+One WebAssembly element segment declaration.
+
+```csharp
+public sealed record WasmElementSegmentInfo : IEquatable<WasmElementSegmentInfo>
+```
+
+### [WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/)
+
+One WebAssembly export entry.
+
+```csharp
+public sealed record WasmExportInfo : IEquatable<WasmExportInfo>
+```
+
+### [WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/)
+
+A WebAssembly function, imported or defined in the code section.
+
+```csharp
+public sealed record WasmFunctionInfo : IEquatable<WasmFunctionInfo>
+```
+
+### [WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/)
+
+One WebAssembly global declaration.
+
+```csharp
+public sealed record WasmGlobalInfo : IEquatable<WasmGlobalInfo>
+```
+
+### [WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/)
+
+One WebAssembly import entry.
+
+```csharp
+public sealed record WasmImportInfo : IEquatable<WasmImportInfo>
+```
+
+### [WasmLocalInfo](/api/dotsider.core.analysis.models.wasmlocalinfo/)
+
+A run-length encoded local declaration inside a WebAssembly function body.
+
+```csharp
+public sealed record WasmLocalInfo : IEquatable<WasmLocalInfo>
+```
+
+### [WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/)
+
+One WebAssembly memory declaration.
+
+```csharp
+public sealed record WasmMemoryInfo : IEquatable<WasmMemoryInfo>
+```
+
+### [WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/)
+
+Parsed facts for a WebAssembly module, including its functions and optional .NET symbol map.
+
+```csharp
+public sealed record WasmModuleInfo : IEquatable<WasmModuleInfo>
+```
+
+### [WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/)
+
+One section in a WebAssembly module, including custom sections.
+
+```csharp
+public sealed record WasmSectionInfo : IEquatable<WasmSectionInfo>
+```
+
+### [WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/)
+
+One WebAssembly table declaration.
+
+```csharp
+public sealed record WasmTableInfo : IEquatable<WasmTableInfo>
+```
+
+### [WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/)
+
+One WebAssembly exception tag declaration.
+
+```csharp
+public sealed record WasmTagInfo : IEquatable<WasmTagInfo>
+```
+
+### [WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/)
+
+One WebAssembly function type from the type section.
+
+```csharp
+public sealed record WasmTypeInfo : IEquatable<WasmTypeInfo>
+```
+
+### [WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/)
+
+Parsed provenance for a Webcil managed assembly, including whether it was wrapped inside
+a WebAssembly module. Webcil is a .NET metadata container used by browser-wasm publishes,
+so dotsider routes it through the managed metadata and IL experience.
+
+```csharp
+public sealed record WebcilInfo : IEquatable<WebcilInfo>
+```
+
 ## Structs
 
 ### [MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/)
@@ -1456,5 +1570,21 @@ Current state of the traced process lifecycle.
 
 ```csharp
 public enum TraceProcessState
+```
+
+### [WasmExternalKind](/api/dotsider.core.analysis.models.wasmexternalkind/)
+
+The external item kind used by WebAssembly import and export sections.
+
+```csharp
+public enum WasmExternalKind
+```
+
+### [WasmSymbolMapStatus](/api/dotsider.core.analysis.models.wasmsymbolmapstatus/)
+
+The outcome of probing a WebAssembly module's `dotnet.native.js.symbols` sidecar.
+
+```csharp
+public enum WasmSymbolMapStatus
 ```
 

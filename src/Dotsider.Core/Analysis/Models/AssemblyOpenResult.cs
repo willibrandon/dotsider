@@ -8,8 +8,8 @@ namespace Dotsider.Core.Analysis.Models;
 public abstract record AssemblyOpenResult
 {
     /// <summary>
-    /// Direct load — the file is a .dll or .exe with metadata, or a native binary
-    /// with no metadata and no ReadyToRun header (unknown format).
+    /// Direct load — the file is a .dll or .exe with metadata, a raw WebAssembly module,
+    /// or a native binary with no metadata and no ReadyToRun header (unknown format).
     /// </summary>
     /// <param name="Analyzer">The analyzer for the opened file.</param>
     public sealed record Direct(AssemblyAnalyzer Analyzer) : AssemblyOpenResult;

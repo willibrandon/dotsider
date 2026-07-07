@@ -13,7 +13,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
     /// <summary>
     /// Gets assembly metadata including name, version, framework, architecture, and member counts.
     /// </summary>
-    /// <param name="assemblyPath">Path to assembly file (.dll or .exe).</param>
+    /// <param name="assemblyPath">Path to an assembly file or supported native module.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>JSON with assembly identity and statistics.</returns>
@@ -53,7 +53,9 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 NativeSymbolSource = analyzer.NativeSymbols?.Source,
                 NativeSymbolStatus = analyzer.NativeSymbols?.Status,
                 PreIlc = BuildPreIlcSummary(analyzer),
-                ReadyToRun = BuildReadyToRunSummary(analyzer)
+                ReadyToRun = BuildReadyToRunSummary(analyzer),
+                Webcil = WebcilPayloadBuilder.BuildSummary(analyzer),
+                Wasm = WasmPayloadBuilder.BuildSummary(analyzer)
             }, DotsiderJsonOptions.Default);
         }
 

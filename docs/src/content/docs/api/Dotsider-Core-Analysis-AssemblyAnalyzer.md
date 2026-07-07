@@ -1,6 +1,6 @@
 ---
 title: "AssemblyAnalyzer"
-description: "Core analyzer that reads a .NET assembly and extracts PE, metadata, IL, and string information. Uses PEReader and MetadataReader from the BCL."
+description: "Core analyzer that reads .NET assemblies, Webcil app assemblies, native binaries, and raw Wasm modules. It uses BCL metadata/PE readers where possible and routes runtime-native formats through dotsider's format readers for IL, strings, symbols, disassembly, and size data."
 slug: api/dotsider.core.analysis.assemblyanalyzer
 sidebar:
   order: 0
@@ -10,8 +10,9 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Core analyzer that reads a .NET assembly and extracts PE, metadata, IL, and string information.
-Uses [PEReader](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.pereader) and [MetadataReader](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.metadatareader) from the BCL.
+Core analyzer that reads .NET assemblies, Webcil app assemblies, native binaries, and raw Wasm
+modules. It uses BCL metadata/PE readers where possible and routes runtime-native formats
+through dotsider's format readers for IL, strings, symbols, disassembly, and size data.
 
 ```csharp
 public sealed class AssemblyAnalyzer : IDisposable
@@ -724,6 +725,29 @@ Gets the TypeRef metadata table entries.
 
 ```csharp
 public IReadOnlyList<TypeRefInfo> TypeRefs { get; }
+```
+
+### WasmModuleInfo
+
+Parsed WebAssembly module facts when this file is a raw `.wasm` module, or null for
+PE, ELF, and Mach-O inputs. The main .NET browser-wasm native module is
+`dotnet.native.wasm`.
+
+**Returns:** [WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/)
+
+```csharp
+public WasmModuleInfo? WasmModuleInfo { get; }
+```
+
+### WebcilInfo
+
+Parsed Webcil provenance when this analyzer opened a Webcil managed assembly directly or
+unwrapped one from a WebAssembly container. Null for PE, raw Wasm, ELF, and Mach-O inputs.
+
+**Returns:** [WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/)
+
+```csharp
+public WebcilInfo? WebcilInfo { get; }
 ```
 
 ## Methods

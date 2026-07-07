@@ -41,6 +41,12 @@ With no symbol file either, unwind data still yields nameless function boundarie
 
 For a ReadyToRun (crossgen2) image the treemap sizes the **precompiled native code** — each method's hot, funclet, and cold code ranges summed and grouped under assembly > namespace > type — rather than IL bytes, so the map reflects what crossgen2 actually emitted. Composite images group by the resolved component assembly metadata.
 
+## WebAssembly modules
+
+For a raw `dotnet.native.wasm` module the treemap sizes the Wasm payload itself. The top level splits into function bodies, data segments, and remaining sections, with code/data section overhead called out separately. This is a file-size view of the SDK-produced runtime module, not a managed assembly size view.
+
+For a Webcil app assembly such as `_framework/MyApp.wasm`, the treemap uses the managed IL view. The file is a WebAssembly-compatible container, but the code being analyzed is still ECMA-335 metadata and IL.
+
 ## Comparing two builds
 
 To see where the bytes went *between* two AOT builds — the same treemap, but weighted by delta — see the size diff in [Diff Mode](/usage/diff-mode/) and the CI gate in [Size Regression](/usage/size-regression/).

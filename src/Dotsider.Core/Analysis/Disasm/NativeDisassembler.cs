@@ -148,6 +148,9 @@ public static class NativeDisassembler
         if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
         var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
 
+        if (arch == NativeArchitecture.Wasm32 && codeImage.WasmModuleInfo is not null)
+            return Wasm.WasmDisassembler.DisassembleSymbol(codeImage, symbol);
+
         // Compose the symbol resolver with the import resolver so indirect targets that land on an
         // import slot render as MODULE!Function rather than an unresolved address. The import table
         // is parsed once per image and cached — rebuilding it per call would re-read the whole PE
@@ -203,6 +206,13 @@ public static class NativeDisassembler
     /// <param name="target">The address or name to resolve.</param>
     public static IReadOnlyList<NativeSymbol> FindExecutableSymbols(NativeSymbolInfo info, string target)
     {
+        if (info.Source == NativeSymbolSource.WebAssembly)
+        {
+            var wasmMatches = FindWasmSymbols(info, target);
+            if (wasmMatches.Count > 0)
+                return wasmMatches;
+        }
+
         if (target.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
                 ? ulong.TryParse(target.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var va)
                 : ulong.TryParse(target, out va))
@@ -222,7 +232,25 @@ public static class NativeDisassembler
         List<NativeSymbol> raw = [.. executables.Where(s => string.Equals(s.Name, target, StringComparison.Ordinal))];
         if (raw.Count > 0) return raw;
 
+        List<NativeSymbol> alias = [.. executables.Where(s => s.Aliases.Contains(target, StringComparer.Ordinal))];
+        if (alias.Count > 0) return alias;
+
         return [.. executables.Where(s => (s.ManagedName ?? s.Name).EndsWith(target, StringComparison.Ordinal))];
+    }
+
+    private static IReadOnlyList<NativeSymbol> FindWasmSymbols(NativeSymbolInfo info, string target)
+    {
+        var normalized = target.StartsWith("func:", StringComparison.OrdinalIgnoreCase)
+            ? target
+            : uint.TryParse(target, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                ? $"func:{index}"
+                : null;
+        if (normalized is null)
+            return [];
+
+        return [.. info.Symbols.Where(s =>
+            s.Kind == NativeSymbolKind.Function
+            && s.Aliases.Contains(normalized, StringComparer.Ordinal))];
     }
 
     private static readonly ConditionalWeakTable<AssemblyAnalyzer, StrongBox<NativeImportResolver?>> ImportResolverCache = [];
@@ -468,7 +496,7 @@ public static class NativeDisassembler
     /// <summary>The synthesized label name for an intra-function target address.</summary>
     internal static string LocalLabel(ulong address) => $"loc_{address:x}";
 
-    private static (string, IReadOnlyList<NativeInstruction>, int) Render(
+    internal static (string, IReadOnlyList<NativeInstruction>, int) Render(
         IReadOnlyList<NativeInstruction> instructions, string? header)
     {
         var lines = new List<string>();

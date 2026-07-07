@@ -41,7 +41,7 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. Apphost executables are handled as first-class inputs: when an `.exe` has no .NET metadata, dotsider offers to open the companion managed `.dll`. Self-contained single-file apps work too — dotsider reads the bundle, extracts the entry assembly, and analyzes it directly.
+dotsider opens .NET DLLs, EXEs, and supported `.wasm` outputs and lets you explore them across 8 tabs. Apphost executables are handled as first-class inputs: when an `.exe` has no .NET metadata, dotsider offers to open the companion managed `.dll`. Self-contained single-file apps work too — dotsider reads the bundle, extracts the entry assembly, and analyzes it directly.
 
 Native AOT binaries get native treatment instead of an empty metadata view. dotsider validates the embedded ReadyToRun header, walks the runtime sections, surfaces imports, exports, load config, recovered AOT types, recovered methods, and frozen string literals, then renders native disassembly for every .NET architecture it recognizes: x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32.
 
@@ -49,11 +49,13 @@ When the Native AOT build tree is available, dotsider can attach the pre-ILC man
 
 ReadyToRun (crossgen2) images keep their full managed metadata, and dotsider joins that metadata to the precompiled method bodies in the same file or composite image. You can see IL beside native code, named call targets from import tables, and component assemblies followed in both directions.
 
+Browser-wasm outputs split into two useful views. Point dotsider at `dotnet.native.wasm` and it parses the runtime module's Wasm sections, type/table/memory/global declarations, imports, exports, element and data segments, function bodies, and `dotnet.native.js.symbols`, then renders Wasm32 disassembly with direct-call targets and typed operands named from the same indexes the runtime uses. Point it at a Webcil app assembly such as `WasmConsole.wasm` and it unwraps the managed metadata and IL instead of treating the container as runtime code.
+
 | Tab | What you see |
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
-| **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, load config, ReadyToRun sections, and recovered AOT types. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL / Native** | The label reflects the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when IL is paired with native code. Managed assemblies show a namespace/type/method tree with IL disassembly, PDB source spans, Source Link markers, locals, go-to-definition, and hex jumps. Native AOT binaries list recovered functions and render real native disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32 with named call/branch/data targets, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. ReadyToRun images keep the managed tree, mark precompiled methods, and show IL beside native ranges (hot, funclets, cold). Attached pre-ILC sidecars do the same for Native AOT methods. |
+| **2 PE/Metadata** | COFF headers, CLR header, PE/Wasm sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, load config, ReadyToRun sections, recovered AOT types, and native/Wasm symbols. Press `g` on a TypeDef or MethodDef to jump to its IL. |
+| **3 IL / Native** | The label reflects the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when IL is paired with native code. Managed assemblies show a namespace/type/method tree with IL disassembly, PDB source spans, Source Link markers, locals, go-to-definition, and hex jumps. Native AOT binaries and raw Wasm modules list recovered functions and render real disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32 with named call/branch/data targets, `Foo+0x12`, `loc_…` labels, `MODULE!Function` imports, and Wasm function-index calls. ReadyToRun images keep the managed tree, mark precompiled methods, and show IL beside native ranges (hot, funclets, cold). Attached pre-ILC sidecars do the same for Native AOT methods. |
 | **4 Strings** | User strings, metadata strings, raw ASCII and UTF-16 binary scans, and frozen AOT string literals, with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -81,7 +83,7 @@ The binary lands at `src/Dotsider/bin/Debug/net10.0/dotsider`.
 ## Usage
 
 ```
-dotsider <assembly.dll|.exe>    # TUI mode — interactive assembly explorer
+dotsider <assembly.dll|.exe|.wasm> # TUI mode — interactive assembly/native module explorer
 dotsider <package.nupkg>        # TUI mode — browse NuGet package contents
 dotsider diff <left> <right>    # TUI mode — assembly comparison; AOT size diff for mstat inputs
 
@@ -113,6 +115,8 @@ dotsider analyze MyAotApp.exe --correlate       # correlate with pre-ILC assembl
 dotsider analyze MyAotApp.exe --correlate Type.Method  # IL and native code side by side (name or 0xVA)
 dotsider analyze MyR2RApp.dll --r2r-correlate   # ReadyToRun stats (precompiled methods, composite)
 dotsider analyze MyR2RApp.dll --r2r-correlate Type.Method  # IL beside precompiled native (name or 0xVA)
+dotsider analyze dotnet.native.wasm --symbols   # list SDK Wasm function symbols
+dotsider analyze dotnet.native.wasm --disasm 0x1234  # disassemble a Wasm function body
 dotsider analyze MyLib.dll --embedded-source Type.Method # print embedded source
 dotsider analyze MyLib.dll --deps               # assembly references
 dotsider analyze MyLib.dll --strings            # extract strings
@@ -224,8 +228,8 @@ dotsider starts with the low-level APIs that ship with .NET, then layers its own
 
 - **`System.Reflection.Metadata`** provides `MetadataReader` for traversing ECMA-335 metadata tables (types, methods, references, custom attributes, string heaps)
 - **`System.Reflection.PortableExecutable`** provides `PEReader` for PE structure (COFF header, sections, CLR header, method bodies)
-- Custom Native AOT and ReadyToRun readers parse RTR section tables, recovered NativeFormat metadata, frozen objects, mstat/DGML sidecars, native symbols, and precompiled method maps
-- From-scratch native decoders render AOT and R2R code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32
+- Custom Native AOT, ReadyToRun, WebAssembly, and Webcil readers parse RTR section tables, recovered NativeFormat metadata, frozen objects, mstat/DGML sidecars, native symbols, precompiled method maps, Wasm standard/custom sections, function bodies, SDK symbol maps, and managed `.wasm` app payloads
+- From-scratch native decoders render AOT, R2R, native, and Wasm code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32
 - **`System.IO.Compression`** handles NuGet packages (which are just ZIP files containing a `.nuspec` manifest and DLLs)
 
 The dynamic analysis tab uses `Microsoft.Diagnostics.NETCore.Client` to connect to a running .NET process via EventPipe — the same diagnostic infrastructure that powers `dotnet-trace` and `dotnet-counters`. It launches your assembly with a reverse-connect diagnostic port, so events are captured from the very first instruction.

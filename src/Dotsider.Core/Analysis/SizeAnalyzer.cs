@@ -32,6 +32,9 @@ public static class SizeAnalyzer
         if (analyzer.IsReadyToRun && analyzer.ReadyToRunIndex is { Methods.Count: > 0 })
             return BuildReadyToRunSizeTree(analyzer);
 
+        if (analyzer.BinaryKind == BinaryKind.Wasm && analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmSizeTree(analyzer, wasm);
+
         // Get method sizes
         var methodSizes = new List<(MethodDefInfo Method, long Size)>();
         foreach (var method in analyzer.MethodDefs)
@@ -111,6 +114,111 @@ public static class SizeAnalyzer
             namespaceNodes.Sum(n => n.Size),
             SizeNodeKind.Assembly,
             [.. namespaceNodes.OrderByDescending(n => n.Size)]);
+    }
+
+    /// <summary>
+    /// Builds the size tree of a raw WebAssembly module from its function bodies, data segments,
+    /// and remaining section payload bytes. Function and data entries are file-backed slices, so
+    /// the map answers where the SDK-produced <c>dotnet.native.wasm</c> bytes went.
+    /// </summary>
+    private static SizeNode BuildWasmSizeTree(AssemblyAnalyzer analyzer, WasmModuleInfo wasm)
+    {
+        var roots = new List<SizeNode>();
+
+        var functionNodes = wasm.Functions
+            .Where(static f => !f.IsImported && f.BodySize > 0 && f.BodyOffset is not null)
+            .OrderByDescending(static f => f.BodySize)
+            .Select(static f => new SizeNode(
+                f.Name,
+                $"Functions/{f.Name}@0x{f.BodyOffset!.Value:x}",
+                f.BodySize,
+                SizeNodeKind.Function,
+                []))
+            .ToList();
+
+        var codePayloadSize = wasm.Sections.FirstOrDefault(static s => s.Id == 10)?.Size ?? 0;
+        var functionPayloadSize = functionNodes.Sum(static n => n.Size);
+        if (codePayloadSize > functionPayloadSize)
+        {
+            functionNodes.Add(new SizeNode(
+                "Code section overhead",
+                "Functions/Code section overhead",
+                codePayloadSize - functionPayloadSize,
+                SizeNodeKind.Blob,
+                []));
+        }
+
+        if (functionNodes.Count > 0)
+        {
+            roots.Add(new SizeNode(
+                "Functions",
+                "Functions",
+                functionNodes.Sum(static n => n.Size),
+                SizeNodeKind.Category,
+                [.. functionNodes.OrderByDescending(static n => n.Size)]));
+        }
+
+        var dataNodes = wasm.DataSegments
+            .Where(static d => d.Size > 0)
+            .OrderByDescending(static d => d.Size)
+            .Select(static d => new SizeNode(
+                $"segment {d.Index} ({d.Mode})",
+                $"Data/segment-{d.Index}@0x{d.FileOffset:x}",
+                d.Size,
+                SizeNodeKind.Blob,
+                []))
+            .ToList();
+
+        var dataPayloadSize = wasm.Sections.FirstOrDefault(static s => s.Id == 11)?.Size ?? 0;
+        var dataSegmentSize = dataNodes.Sum(static n => n.Size);
+        if (dataPayloadSize > dataSegmentSize)
+        {
+            dataNodes.Add(new SizeNode(
+                "Data section overhead",
+                "Data/Data section overhead",
+                dataPayloadSize - dataSegmentSize,
+                SizeNodeKind.Blob,
+                []));
+        }
+
+        if (dataNodes.Count > 0)
+        {
+            roots.Add(new SizeNode(
+                "Data",
+                "Data",
+                dataNodes.Sum(static n => n.Size),
+                SizeNodeKind.Category,
+                [.. dataNodes.OrderByDescending(static n => n.Size)]));
+        }
+
+        var accountedSectionIds = new HashSet<int> { 10, 11 };
+        var sectionNodes = wasm.Sections
+            .Where(s => s.Size > 0 && !accountedSectionIds.Contains(s.Id))
+            .OrderByDescending(static s => s.Size)
+            .Select(static s => new SizeNode(
+                s.Name,
+                $"Sections/{s.Name}@0x{s.FileOffset:x}",
+                s.Size,
+                SizeNodeKind.Blob,
+                []))
+            .ToList();
+
+        if (sectionNodes.Count > 0)
+        {
+            roots.Add(new SizeNode(
+                "Sections",
+                "Sections",
+                sectionNodes.Sum(static n => n.Size),
+                SizeNodeKind.Category,
+                sectionNodes));
+        }
+
+        return new SizeNode(
+            $"{analyzer.FileName} (Wasm)",
+            analyzer.FileName,
+            roots.Sum(static r => r.Size),
+            SizeNodeKind.Assembly,
+            [.. roots.OrderByDescending(static r => r.Size)]);
     }
 
     /// <summary>

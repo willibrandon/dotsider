@@ -15,9 +15,9 @@ namespace Dotsider.Mcp.Tools;
 internal static class ToolHelpers
 {
     /// <summary>
-    /// Validates that an assembly path is provided and points to an existing file.
+    /// Validates that an analysis input path is provided and points to an existing file.
     /// </summary>
-    /// <param name="path">The assembly file path to validate.</param>
+    /// <param name="path">The assembly or native module path to validate.</param>
     /// <exception cref="McpException">
     /// Thrown when <paramref name="path"/> is null/empty or the file does not exist.
     /// </exception>
@@ -46,11 +46,11 @@ internal static class ToolHelpers
     }
 
     /// <summary>
-    /// Opens an assembly file, handling apphosts and single-file bundles.
+    /// Opens an analysis input, handling apphosts, single-file bundles, and raw native modules.
     /// For apphosts, silently redirects to the companion managed .dll.
     /// For single-file bundles, extracts and returns the entry assembly.
     /// </summary>
-    /// <param name="path">Path to the assembly file.</param>
+    /// <param name="path">Path to the assembly or native module file.</param>
     /// <returns>The opened analyzer.</returns>
     /// <exception cref="McpException">Thrown if the file cannot be opened.</exception>
     internal static AssemblyAnalyzer OpenAnalyzer(string path)

@@ -21,6 +21,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
         => CreateDotsiderAppCore(dllPath, initialTab, enableMouse: false, enableInputCoalescing: false);
 
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderAppWithDimensions(
+        string dllPath,
+        int width,
+        int height,
+        int? initialTab = null)
+        => CreateDotsiderAppCore(dllPath, initialTab, enableMouse: false,
+            enableInputCoalescing: false, width, height);
+
     /// <summary>
     /// Variant of <see cref="CreateDotsiderApp"/> that turns on mouse support, matching the
     /// production <c>EnableMouse = true</c> knob set at <c>Program.cs:209/319/376</c>. Used
@@ -45,13 +53,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             enableInputCoalescing: enableInputCoalescing);
 
     private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderAppCore(
-        string dllPath, int? initialTab, bool enableMouse, bool enableInputCoalescing)
+        string dllPath,
+        int? initialTab,
+        bool enableMouse,
+        bool enableInputCoalescing,
+        int width = 120,
+        int height = 30)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
             .WithHeadless()
-            .WithDimensions(120, 30)
+            .WithDimensions(width, height)
             .Build();
         DotsiderApp? dotsiderApp = null;
         _hex1bApp = new Hex1bApp(
@@ -210,6 +223,142 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Disassembly"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies tab3 is labeled as disassembly for a raw SDK browser-wasm runtime module.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab3_Label_Wasm_IsDisassembly()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(wasmPath);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Disassembly"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Wasm General tab keeps the references section visible in a
+    /// short terminal even though the WebAssembly summary is taller than the pane.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task General_Wasm_ShortTerminal_KeepsAssemblyReferencesVisible()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithDimensions(wasmPath, width: 110, height: 20);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("dotnet.native.wasm"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Wasm32"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Assembly References"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Wasm General tab does not reserve a large blank area
+    /// between the content-sized summary and the references section.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task General_Wasm_TallTerminal_DoesNotPadBeforeAssemblyReferences()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithDimensions(wasmPath, width: 160, height: 50);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        int sourceLinkLine = -1;
+        int refsLine = -1;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("dotnet.native.wasm"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s =>
+            {
+                var sourceLink = s.FindText("Source Link");
+                var references = s.FindText("Assembly References");
+                if (sourceLink.Count == 0 || references.Count == 0)
+                    return false;
+
+                sourceLinkLine = sourceLink[0].Line;
+                refsLine = references[0].Line;
+                return true;
+            }, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.InRange(refsLine - sourceLinkLine, 1, 4);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the PE/Metadata tab routes raw Wasm modules to WebAssembly section rows.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab1_Wasm_ShowsWebAssemblySections()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(wasmPath, TabId.PeMetadata);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Payload Offset"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("code") || s.ContainsText("type"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies the Disassembly tab presents raw Wasm functions through Wasm-specific groups.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab3_Wasm_ShowsWasmFunctionGroups()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(wasmPath, TabId.IlInspector);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("(imports)"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("(exports)") || s.ContainsText("(functions)"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -3185,7 +3334,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Native Imports"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("R2R Sections"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Recovered Types"), TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Native Symbols"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -3194,9 +3342,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
         Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
         Assert.NotNull(_state.Analyzer.NativeSymbols);
+        Assert.NotEmpty(_state.Analyzer.NativeSymbols.Symbols);
 
         cts.Cancel();
         await runTask;
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm publish did not run on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>

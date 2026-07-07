@@ -32,5 +32,11 @@ public enum NativeSymbolSource
     /// A crossgen2 ReadyToRun image's method entry-point tables: named, sized function ranges
     /// (one per hot/funclet/cold runtime function) recovered directly from the R2R sections.
     /// </summary>
-    ReadyToRun
+    ReadyToRun,
+
+    /// <summary>
+    /// A WebAssembly module's function/code sections, optionally named from
+    /// <c>dotnet.native.js.symbols</c>, the Wasm name section, or exports.
+    /// </summary>
+    WebAssembly
 }

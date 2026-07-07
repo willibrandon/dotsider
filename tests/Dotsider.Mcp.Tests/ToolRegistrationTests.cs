@@ -54,6 +54,10 @@ public class ToolRegistrationTests : McpServerTestBase
         Assert.Contains("get_native_symbols", names);
         Assert.Contains("get_native_disassembly", names);
 
+        // WebAssembly tools
+        Assert.Contains("list_wasm_sections", names);
+        Assert.Contains("list_wasm_functions", names);
+
         // Native AOT tools
         Assert.Contains("get_native_aot_info", names);
         Assert.Contains("list_native_aot_sections", names);

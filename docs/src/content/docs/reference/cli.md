@@ -6,7 +6,7 @@ description: Complete command reference for the dotsider CLI.
 ## Synopsis
 
 ```
-dotsider <assembly.dll|.exe>    # TUI — interactive assembly explorer
+dotsider <assembly.dll|.exe|.wasm> # TUI — interactive assembly/native module explorer
 dotsider <package.nupkg>        # TUI — browse NuGet package contents
 dotsider diff <left> <right>    # TUI — assembly comparison, or AOT size diff for mstat inputs
 
@@ -49,6 +49,10 @@ dotsider analyze MyAotApp.exe --why System.Text.Json.JsonSerializer  # AOT depen
 dotsider analyze MyAotApp.exe --symbols       # native symbols with addresses, sizes, and file:line
 dotsider analyze MyAotApp.exe --disasm 'Program.<Main>$'  # disassemble a native function by name
 dotsider analyze MyAotApp.exe --disasm 0x140001300        # disassemble a native function by address
+dotsider analyze dotnet.native.wasm --symbols             # SDK Wasm function symbols
+dotsider analyze dotnet.native.wasm --disasm 0x1234       # Wasm function body by file/code offset
+dotsider analyze dotnet.native.wasm --disasm func:42      # Wasm function body by function index
+dotsider analyze WasmConsole.wasm --il WasmCalculator.Add # Webcil app assembly → managed IL
 ```
 
 If the file is a native apphost with a companion `.dll`, `analyze` auto-redirects. If it's a self-contained single-file bundle, `analyze` extracts the entry assembly from the bundle. Both cases print a note to stderr.
@@ -63,6 +67,8 @@ When portable PDB data is available, default output reports where it came from, 
 
 A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled native bodies. The default output reports a `ReadyToRun` line (version, status, architecture, composite/component). `--r2r-correlate` with no argument prints the precompiled-method stats; with a `Type.Method`, a `0x06…` token, or a `0x…` native address it prints the method's IL beside its native code ranges, resolving call targets through the import tables. An overloaded name lists the candidates and exits non-zero. A composite `*.r2r.dll` resolves its component assemblies by name and MVID from the siblings beside it; a component DLL routes its native code to the owner composite. `--json` carries the structured per-range IL and native arrays.
 
+Raw `dotnet.native.wasm` modules from a browser-wasm publish open directly. Default output reports a `WebAssembly (.NET)` block with section, type/table/memory/global, function, code, data, import/export, and symbol-map counts. `--symbols` lists file-backed Wasm functions named from `dotnet.native.js.symbols`, the Wasm name section, exports, or `func_N` fallbacks. `--disasm <0xoffset-or-name-or-func:index>` decodes a Wasm32 function body, resolves direct calls through the module's function index, and annotates locals, globals, tables, and indirect-call types from the parsed standard sections. Webcil app assemblies such as `WasmConsole.wasm` are different: dotsider unwraps their managed metadata, reports a `Webcil` line, and uses the normal `--types`, `--methods`, `--il`, PDB, and Source Link paths.
+
 | Option | Description |
 |--------|-------------|
 | `--types` | List type definitions |
@@ -74,8 +80,8 @@ A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled nati
 | `-n`, `--min-len <n>` | Minimum length for raw string extraction (default: 4) |
 | `--fields` | List field definitions |
 | `--size` | Show size breakdown |
-| `--symbols` | List native symbols with provenance (Native AOT and other native binaries) |
-| `--disasm <name-or-0xVA>` | Disassemble a native function to assembly (Native AOT and other native binaries) |
+| `--symbols` | List native symbols with provenance (Native AOT, ReadyToRun, Wasm, and native binaries) |
+| `--disasm <name-or-0xVA>` | Disassemble a native or Wasm function |
 | `--why <name>` | Explain why a type or method is in a Native AOT binary |
 | `--r2r-correlate [name-or-0xVA]` | ReadyToRun stats, or a method's IL beside its precompiled native code |
 | `--bundle` | Show single-file bundle manifest |

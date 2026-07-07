@@ -101,3 +101,14 @@ A crossgen2 ReadyToRun image's method entry-point tables: named, sized function 
 ReadyToRun = 7
 ```
 
+### WebAssembly
+
+A WebAssembly module's function/code sections, optionally named from
+`dotnet.native.js.symbols`, the Wasm name section, or exports.
+
+**Returns:** [NativeSymbolSource](/api/dotsider.core.analysis.models.nativesymbolsource/)
+
+```csharp
+WebAssembly = 8
+```
+

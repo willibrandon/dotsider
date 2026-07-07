@@ -59,8 +59,6 @@ internal static class TestHelpers
         throw new InvalidOperationException("Could not find repo root (Dotsider.slnx)");
     }
 
-    private static readonly string s_dotsiderProjectPath = Path.Combine(GetRepoRoot(), "src", "Dotsider");
-
     private static readonly string s_dotsiderBuildConfig = DetectBuildConfig();
 
     private static string DetectBuildConfig()
@@ -82,11 +80,15 @@ internal static class TestHelpers
     internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
         params string[] arguments)
     {
+        var copiedCli = Path.Combine(AppContext.BaseDirectory, "dotsider.dll");
+        var runArgs = File.Exists(copiedCli)
+            ? $"\"{copiedCli}\" "
+            : $"run --no-build -c {s_dotsiderBuildConfig} --project \"{Path.Combine(GetRepoRoot(), "src", "Dotsider")}\" -- ";
+
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build -c {s_dotsiderBuildConfig} --project \"{s_dotsiderProjectPath}\" -- "
-                + string.Join(' ', arguments.Select(QuoteArg)),
+            Arguments = runArgs + string.Join(' ', arguments.Select(QuoteArg)),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

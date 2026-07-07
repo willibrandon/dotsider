@@ -550,6 +550,28 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies a raw Wasm function can jump to its file-backed bytes in the Hex Dump.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void NavigateToHexFileOffset_WasmFunction_SetsCursorPosition()
+    {
+        var wasmPath = GetWasmNativePath();
+        var app = CreateApp();
+        using var state = new DotsiderState(app, wasmPath);
+        state.CurrentTab = TabId.IlInspector;
+
+        var symbol = state.Analyzer.NativeSymbols!.Symbols.First(s => s.FileOffset is not null && s.Size > 0);
+        state.IlSelectedNativeSymbol = symbol;
+        state.NavigateToHexFileOffset(symbol.FileOffset!.Value);
+
+        Assert.Equal(TabId.HexDump, state.CurrentTab);
+        Assert.Equal((int)symbol.FileOffset.Value, state.HexEditorState.ByteCursorOffset);
+        Assert.Equal(symbol.FileOffset.Value, state.HexScrollTarget);
+        Assert.NotNull(state.CrossViewBackTarget);
+        Assert.Equal(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
+    }
+
+    /// <summary>
     /// Verifies navigate to hex offset invalid rva no tab switch.
     /// </summary>
     [Fact(Timeout = 30_000)]
@@ -787,5 +809,13 @@ public class DotsiderStateTests(SampleAssemblyFixture samples) : IDisposable
         _terminal?.Dispose();
         _workload?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm sample publish did not produce dotnet.native.wasm on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 }
