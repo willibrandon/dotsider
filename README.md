@@ -41,7 +41,13 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 ## What it does
 
-dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. If you open an apphost `.exe` that has no .NET metadata, dotsider detects the missing metadata and offers to open the companion managed `.dll` instead. If you open a self-contained single-file executable, dotsider reads the bundle, extracts the entry assembly, and analyzes it directly — no unpacking needed. If you open a Native AOT executable, dotsider validates its embedded ReadyToRun header and walks its runtime sections — surfacing the binary kind, toolchain format version, runtime version, native import/export/load-config tables, the ReadyToRun section table, the types and methods recovered from the embedded metadata, and frozen string literals. It also probes the build tree for the binary's pre-ILC managed assemblies and their mstat/DGML sidecars and offers to attach them, filling the metadata tabs and showing each method's IL beside its native code. If you open a ReadyToRun (crossgen2) image, dotsider keeps its full metadata and surfaces which managed methods carry precompiled native bodies — IL beside native code, call targets resolved through the import tables, and composite images followed across their component assemblies in both directions.
+dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. Apphost executables are handled as first-class inputs: when an `.exe` has no .NET metadata, dotsider offers to open the companion managed `.dll`. Self-contained single-file apps work too — dotsider reads the bundle, extracts the entry assembly, and analyzes it directly.
+
+Native AOT binaries get native treatment instead of an empty metadata view. dotsider validates the embedded ReadyToRun header, walks the runtime sections, surfaces imports, exports, load config, recovered AOT types, recovered methods, and frozen string literals, then renders x86-64 or AArch64 disassembly for native functions.
+
+When the Native AOT build tree is available, dotsider can attach the pre-ILC managed assemblies plus their mstat/DGML sidecars. That fills the metadata tabs from the original managed inputs and shows each method's IL beside its native code.
+
+ReadyToRun (crossgen2) images keep their full managed metadata, and dotsider joins that metadata to the precompiled method bodies in the same file or composite image. You can see IL beside native code, named call targets from import tables, and component assemblies followed in both directions.
 
 | Tab | What you see |
 |-----|-------------|
@@ -210,7 +216,7 @@ Info panels (Assembly Info, PE Headers, CLR Header, detail popups, string detail
 
 In insert mode, type two hex digits (0-9, a-f) to overwrite one byte. The first digit sets the high nibble; the second commits the edit. Saving validates the PE image before writing — invalid edits are rejected.
 
-Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). The size-diff view (mstat inputs) adds Grown and Shrunk to the filter cycle, `Enter`/`Esc` to drill and back out of the delta treemap, `w` for the dependency chain that keeps an entry in the binary (again to flip sides on a changed entry), and `d` to disassemble a method's native body. NuGet mode uses `Esc` to return from DLL inspection to the package browser.
+Diff mode adds `f` to cycle filters (All / Added / Removed / Changed). The size-diff view (mstat inputs) adds Grown and Shrunk to the filter cycle, `Enter`/`Esc` to drill and back out of the delta treemap, `w` for the dependency chain that keeps an entry in the binary (aggregate tiles show representative child chains; press again to flip sides on a changed entry), and `d` to disassemble a method's native body. NuGet mode uses `Esc` to return from DLL inspection to the package browser.
 
 ## How it works
 

@@ -89,7 +89,7 @@ description: All keyboard shortcuts for navigating dotsider.
 | `Esc` / right-click | Go up one level (dismisses popups and search first) |
 | `←` `→` | Cycle rectangle selection |
 | `/` then `n` `N` | Search the current level, jump between matches |
-| `w` | Why is this in the binary — dependency chain; press again on a changed entry to flip sides |
+| `w` | Why is this in the binary — dependency chain; aggregate tiles show representative child chains; press again on a changed entry to flip sides |
 | `d` | Disassemble the native body (binary-backed pairs); repeated presses cycle an aggregate's symbols and, for changed entries, both builds' bodies |
 | `y` | Yank selected text in the summary or popups |
 
