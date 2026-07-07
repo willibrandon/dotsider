@@ -13,6 +13,12 @@ Run a utility with:
 dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
 ```
 
+Large disassembly tools can emit very large streams. Use
+`-MaxOutputCharacters` to cap retained stdout/stderr while still draining the
+process to completion, and `-AllowOracleFailure` when the capture should upload
+diagnostics from a failing oracle tool instead of failing before artifacts are
+saved.
+
 For automation or repeated invocations, build first and run without rebuilding:
 
 ```powershell

@@ -297,16 +297,20 @@ internal static class ScriptSupport
     }
 
     /// <summary>
-    /// Runs an external process and captures output.
+    /// Runs an external process and captures bounded output.
+    /// The process streams are drained fully so large oracle output cannot deadlock or exhaust memory.
+    /// Captured text is truncated after the requested character limit for each stream.
     /// </summary>
     /// <param name="filePath">The process executable.</param>
     /// <param name="arguments">The process arguments.</param>
     /// <param name="workingDirectory">The process working directory.</param>
-    /// <returns>The exit code, stdout, and stderr.</returns>
-    internal static (int ExitCode, string Stdout, string Stderr) RunProcess(
+    /// <param name="maxOutputCharacters">The maximum characters to retain per stream.</param>
+    /// <returns>The exit code, stdout, stderr, and truncation state.</returns>
+    internal static (int ExitCode, string Stdout, string Stderr, bool StdoutTruncated, bool StderrTruncated) RunProcess(
         string filePath,
         IEnumerable<string> arguments,
-        string workingDirectory)
+        string workingDirectory,
+        int maxOutputCharacters = int.MaxValue)
     {
         var startInfo = new ProcessStartInfo(filePath)
         {
@@ -322,10 +326,11 @@ internal static class ScriptSupport
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Failed to start '{filePath}'.");
-        string stdout = process.StandardOutput.ReadToEnd();
-        string stderr = process.StandardError.ReadToEnd();
+        Task<(string Text, bool Truncated)> stdoutTask = Task.Run(() => ReadBoundedToEnd(process.StandardOutput, maxOutputCharacters));
+        Task<(string Text, bool Truncated)> stderrTask = Task.Run(() => ReadBoundedToEnd(process.StandardError, maxOutputCharacters));
         process.WaitForExit();
-        return (process.ExitCode, stdout, stderr);
+        Task.WaitAll(stdoutTask, stderrTask);
+        return (process.ExitCode, stdoutTask.Result.Text, stderrTask.Result.Text, stdoutTask.Result.Truncated, stderrTask.Result.Truncated);
     }
 
     /// <summary>
@@ -343,8 +348,50 @@ internal static class ScriptSupport
 
         var gitArguments = new List<string> { "-C", repositoryPath };
         gitArguments.AddRange(arguments);
-        (int exitCode, string stdout, _) = RunProcess("git", gitArguments, Directory.GetCurrentDirectory());
+        (int exitCode, string stdout, _, _, _) = RunProcess("git", gitArguments, Directory.GetCurrentDirectory());
         return exitCode == 0 ? stdout.Trim() : string.Empty;
+    }
+
+    /// <summary>
+    /// Reads a text stream to completion while retaining only a bounded prefix.
+    /// This keeps large external-tool captures reviewable without unbounded memory growth.
+    /// The caller still gets a truncation flag for metadata and diagnostics.
+    /// </summary>
+    /// <param name="reader">The stream reader to drain.</param>
+    /// <param name="maxCharacters">The maximum characters to retain.</param>
+    /// <returns>The retained text and whether additional content was discarded.</returns>
+    private static (string Text, bool Truncated) ReadBoundedToEnd(
+        StreamReader reader,
+        int maxCharacters)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxCharacters);
+
+        var builder = new StringBuilder(Math.Min(maxCharacters, 8192));
+        var buffer = new char[8192];
+        var truncated = false;
+        int read;
+        while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            int remaining = maxCharacters - builder.Length;
+            if (remaining > 0)
+            {
+                int count = Math.Min(read, remaining);
+                builder.Append(buffer, 0, count);
+            }
+
+            if (read > remaining)
+            {
+                truncated = true;
+            }
+        }
+
+        if (truncated)
+        {
+            builder.AppendLine();
+            builder.AppendLine($"[output truncated after {maxCharacters} characters]");
+        }
+
+        return (builder.ToString(), truncated);
     }
 
     /// <summary>

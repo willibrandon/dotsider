@@ -101,6 +101,80 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     /// <summary>
+    /// Verifies oracle capture can retain bounded output without failing.
+    /// Large disassembly tools can produce very large streams in CI.
+    /// The capture metadata records truncation instead of growing memory without bound.
+    /// </summary>
+    [Fact]
+    public void CaptureDisasmOracle_TruncatesLargeOutput()
+    {
+        string root = FindRepositoryRoot();
+        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Combine(_tempRoot, "truncated-oracles");
+
+        var (exitCode, _, _) = RunDotnet(
+            root,
+            "run",
+            "--file",
+            scriptPath,
+            "--",
+            "-Architecture",
+            "test",
+            "-Fixture",
+            "README.md",
+            "-OraclePath",
+            "dotnet",
+            "-OutputDirectory",
+            outputDirectory,
+            "-MaxOutputCharacters",
+            "20",
+            "--",
+            "--info");
+
+        Assert.Equal(0, exitCode);
+        string stdout = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.txt"));
+        string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
+        Assert.Contains("[output truncated after 20 characters]", stdout);
+        Assert.Contains("\"StdoutTruncated\": true", metadata);
+    }
+
+    /// <summary>
+    /// Verifies allowed oracle failures still produce reviewable artifacts.
+    /// Outer-loop capture workflows should upload evidence from failed oracle tools.
+    /// The script exits successfully only when the caller explicitly allows the oracle failure.
+    /// </summary>
+    [Fact]
+    public void CaptureDisasmOracle_AllowsOracleFailure()
+    {
+        string root = FindRepositoryRoot();
+        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Combine(_tempRoot, "failure-oracles");
+
+        var (exitCode, _, _) = RunDotnet(
+            root,
+            "run",
+            "--file",
+            scriptPath,
+            "--",
+            "-Architecture",
+            "test",
+            "-Fixture",
+            "README.md",
+            "-OraclePath",
+            "dotnet",
+            "-OutputDirectory",
+            outputDirectory,
+            "-AllowOracleFailure",
+            "--",
+            "definitely-not-a-dotnet-command");
+
+        Assert.Equal(0, exitCode);
+        string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
+        Assert.Contains("\"OracleExitCode\":", metadata);
+        Assert.DoesNotContain("\"OracleExitCode\": 0", metadata);
+    }
+
+    /// <summary>
     /// Verifies new top-level utility and decoder test types have three-line summaries.
     /// This keeps internal helper types documented enough for editor hovers.
     /// The file list is intentionally scoped to the new file-based app and architecture work.

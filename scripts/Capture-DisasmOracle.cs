@@ -26,6 +26,7 @@ internal static class CaptureDisasmOracleApp
     /// Runs the native-disassembly oracle capture app.
     /// Arguments use the repository script option parser and forward trailing values to the oracle.
     /// The return code mirrors the oracle unless failures are explicitly allowed.
+    /// Large oracle streams are retained up to the configured output limit.
     /// </summary>
     /// <param name="args">The command-line arguments.</param>
     /// <returns>The process exit code.</returns>
@@ -33,7 +34,7 @@ internal static class CaptureDisasmOracleApp
     {
         (Dictionary<string, List<string>> values, HashSet<string> switches) = ScriptSupport.ParseArguments(
             args,
-            ["Architecture", "Fixture", "OraclePath", "OutputDirectory", "RuntimeRoot", "WorkingDirectory"],
+            ["Architecture", "Fixture", "OraclePath", "OutputDirectory", "RuntimeRoot", "WorkingDirectory", "MaxOutputCharacters"],
             ["AdditionalArguments"],
             ["AllowOracleFailure"]);
 
@@ -47,6 +48,9 @@ internal static class CaptureDisasmOracleApp
             "RuntimeRoot",
             Environment.GetEnvironmentVariable("DOTSIDER_RUNTIME_ROOT") ?? Path.Combine(Directory.GetParent(repositoryRoot)?.FullName ?? repositoryRoot, "runtime"));
         string workingDirectory = ScriptSupport.GetString(values, "WorkingDirectory");
+        int maxOutputCharacters = ParsePositiveInt(
+            ScriptSupport.GetString(values, "MaxOutputCharacters", "4000000"),
+            "MaxOutputCharacters");
         string[] oracleArguments = ScriptSupport.GetStringArray(values, "AdditionalArguments", splitCommas: false);
         bool allowOracleFailure = ScriptSupport.GetSwitch(switches, "AllowOracleFailure");
 
@@ -73,10 +77,11 @@ internal static class CaptureDisasmOracleApp
         string stderrPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.stderr.txt");
         string metadataPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.json");
 
-        (int exitCode, string stdout, string stderr) = ScriptSupport.RunProcess(
+        (int exitCode, string stdout, string stderr, bool stdoutTruncated, bool stderrTruncated) = ScriptSupport.RunProcess(
             resolvedOraclePath,
             oracleArguments,
-            resolvedWorkingDirectory);
+            resolvedWorkingDirectory,
+            maxOutputCharacters);
         ScriptSupport.WriteTextFile(stdoutPath, NormalizeText(stdout));
         ScriptSupport.WriteTextFile(stderrPath, NormalizeText(stderr));
 
@@ -90,6 +95,9 @@ internal static class CaptureDisasmOracleApp
             ["OraclePath"] = resolvedOraclePath,
             ["OracleArguments"] = ScriptSupport.ToJsonArray(oracleArguments),
             ["OracleExitCode"] = exitCode,
+            ["MaxOutputCharacters"] = maxOutputCharacters,
+            ["StdoutTruncated"] = stdoutTruncated,
+            ["StderrTruncated"] = stderrTruncated,
             ["StdoutPath"] = stdoutPath,
             ["StderrPath"] = stderrPath,
             ["RuntimeRoot"] = Directory.Exists(runtimeRoot) ? Path.GetFullPath(runtimeRoot) : runtimeRoot,
@@ -107,7 +115,25 @@ internal static class CaptureDisasmOracleApp
 
         Console.Out.WriteLine(stdoutPath);
         Console.Out.WriteLine(metadataPath);
-        return exitCode;
+        return allowOracleFailure ? 0 : exitCode;
+    }
+
+    /// <summary>
+    /// Parses a positive integer script option.
+    /// The capture app uses this for bounded oracle output retention.
+    /// Invalid values fail early with the option name in the diagnostic.
+    /// </summary>
+    /// <param name="value">The option value.</param>
+    /// <param name="optionName">The option name.</param>
+    /// <returns>The parsed positive integer.</returns>
+    private static int ParsePositiveInt(string value, string optionName)
+    {
+        if (!int.TryParse(value, out int result) || result <= 0)
+        {
+            throw new ArgumentException($"-{optionName} must be a positive integer.");
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -146,7 +172,7 @@ internal static class CaptureDisasmOracleApp
     /// <returns>The SDK version, or an empty string on failure.</returns>
     private static string GetDotnetVersion()
     {
-        (int exitCode, string stdout, _) = ScriptSupport.RunProcess("dotnet", ["--version"], Directory.GetCurrentDirectory());
+        (int exitCode, string stdout, _, _, _) = ScriptSupport.RunProcess("dotnet", ["--version"], Directory.GetCurrentDirectory());
         return exitCode == 0 ? stdout.Trim() : string.Empty;
     }
 }
