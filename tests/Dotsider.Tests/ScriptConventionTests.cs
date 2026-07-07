@@ -57,7 +57,10 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("Capture-DisasmOracle.cs", workflow);
         Assert.Contains("dotnet workload install wasm-tools", workflow);
         Assert.Contains("azurelinux-3.0-net11.0-cross-riscv64", workflow);
+        Assert.Contains("sha256:7d882ca090cfc0fb146dcb0c4fa97f4bd1b9c160822d0652d21d666897bf7f4f", workflow);
         Assert.Contains("azurelinux-3.0-net11.0-cross-loongarch64", workflow);
+        Assert.Contains("sdk-publish.log", workflow);
+        Assert.Contains("::notice title=SDK publish unavailable::", workflow);
         Assert.Contains("run-runtime-cross-target", workflow);
     }
 

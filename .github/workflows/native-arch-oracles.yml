@@ -93,8 +93,9 @@ jobs:
               continue
             fi
 
+            log_path="artifacts/oracles/disasm/${architecture}-sdk-publish.log"
             set +e
-            dotnet publish samples/ReadyToRunConsole -c Release -r "${rid}" --self-contained true
+            dotnet publish samples/ReadyToRunConsole -c Release -r "${rid}" --self-contained true > "${log_path}" 2>&1
             publish_status=$?
             set -e
 
@@ -106,6 +107,7 @@ jobs:
                 echo "- ${architecture}: SDK publish for ${rid} was unavailable on this runner."
                 echo "  Use the optional runtime-cross-target job or a local runtime clone to produce reviewed inputs."
               } >> artifacts/oracles/disasm/skips.md
+              echo "::notice title=SDK publish unavailable::${rid} packs were not available on this runner; see ${log_path}."
             fi
           done
 
@@ -123,17 +125,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: riscv64
-            container: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-riscv64@sha256:7d882ca090cfc0fb146dcb0c4fa97f4bd1b9c160822d0652d21d666897bf7f
-            rootfs: /crossrootfs/riscv64
-          - arch: loongarch64
-            container: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-loongarch64@sha256:58b88c4c24c81d5e610ac7a3f0cc92ae234c6a070510f01e3fd2a750262edd3b
-            rootfs: /crossrootfs/loongarch64
+        arch: [riscv64, loongarch64]
     container:
-      image: ${{ matrix.container }}
+      image: ${{ matrix.arch == 'riscv64' && 'mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-riscv64@sha256:7d882ca090cfc0fb146dcb0c4fa97f4bd1b9c160822d0652d21d666897bf7f4f' || 'mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-loongarch64@sha256:58b88c4c24c81d5e610ac7a3f0cc92ae234c6a070510f01e3fd2a750262edd3b' }}
       env:
-        ROOTFS_DIR: ${{ matrix.rootfs }}
+        ROOTFS_DIR: ${{ matrix.arch == 'riscv64' && '/crossrootfs/riscv64' || '/crossrootfs/loongarch64' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -173,7 +169,7 @@ jobs:
         env:
           matrix_arch: ${{ matrix.arch }}
           runtime_ref: ${{ github.event.inputs['runtime-ref'] || 'main' }}
-          rootfs: ${{ matrix.rootfs }}
+          rootfs: ${{ matrix.arch == 'riscv64' && '/crossrootfs/riscv64' || '/crossrootfs/loongarch64' }}
 
       - name: Upload runtime cross-target artifacts
         uses: actions/upload-artifact@v7
