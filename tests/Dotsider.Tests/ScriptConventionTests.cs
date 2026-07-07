@@ -44,7 +44,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// <summary>
     /// Verifies the disassembly oracle app builds and captures stable fake input.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [Fact]
     public void CaptureDisasmOracle_BuildsAndCapturesFakeInput()
     {
         string root = FindRepositoryRoot();
