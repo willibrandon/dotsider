@@ -30,6 +30,12 @@ Opening a Native AOT executable adds a block below the standard fields. ILC stri
 
 A ReadyToRun (crossgen2) image keeps its full metadata and adds precompiled native bodies, so the standard fields stay and a **ReadyToRun** block is added, reporting the format version and status (`Valid`, `Corrupt`, or `UnsupportedVersion` — a broken header is surfaced, never hidden), the architecture, whether the image is a composite or a component (and its owner), and how many methods are precompiled. Inspect a method's native code in tab 3's **IL + Native** view or via `--r2r-correlate`.
 
+## WebAssembly modules
+
+Opening `dotnet.native.wasm` from a browser-wasm publish adds a **WebAssembly (.NET)** block. The module has no ECMA-335 metadata of its own, so the dependency table is empty, but the General tab reports the Wasm version, section count, type/table/memory/global counts, element and data counts, the start function when present, defined/imported functions, code and data sizes, import/export counts, and whether `dotnet.native.js.symbols` was loaded for function names. Function symbols and disassembly live in tab 3 and the PE/Metadata **Symbols** sub-tab.
+
+Opening a Webcil app assembly from the same publish, for example `_framework/MyApp.wasm`, keeps the normal managed assembly view. The General tab adds a compact **Managed Webcil (.NET)** block showing the Webcil version, whether the payload was Wasm-wrapped, section count, and metadata size, while dependencies, metadata tables, IL, PDBs, and Source Link behave like any other managed assembly.
+
 ## Text selection and copy
 
 The Assembly Info panel is a read-only editor. Click into it or press `Tab` to move focus there, then select text with click-drag or `Shift` + arrow keys. Press `y` to yank the selection to the clipboard.

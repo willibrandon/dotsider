@@ -2,7 +2,7 @@
 
 MCP server for .NET assembly analysis. Works in two modes:
 
-- **Direct mode** — pass an `assemblyPath` to analyze any `.dll` or `.exe` on disk
+- **Direct mode** — pass an `assemblyPath` to analyze any `.dll`, `.exe`, Webcil app `.wasm`, or supported native module such as `dotnet.native.wasm` on disk
 - **Session mode** — pass a `sessionId` (PID) to query a running dotsider TUI instance over its Unix domain socket
 
 Most tools accept either parameter. Session-only tools (navigation, tracing) require a running instance.
@@ -25,7 +25,7 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `get_assembly_info` | Name, version, framework, architecture, binary kind, and member counts |
+| `get_assembly_info` | Name, version, framework, architecture, binary kind, member counts, and native-format summaries |
 | `list_types` | Type definitions with optional name filter and limit |
 | `list_methods` | Method definitions with optional type/name filter |
 | `find_members` | Search types, methods, and member refs by query string |
@@ -54,7 +54,7 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `get_size_breakdown` | Hierarchical size tree: namespace > type > method |
+| `get_size_breakdown` | Hierarchical size tree: IL, Native AOT, ReadyToRun, or Wasm payload size depending on input |
 | `get_largest_methods` | Top methods by IL byte size, or Native AOT native size when mstat is available |
 
 ### Native AOT
@@ -70,8 +70,15 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `get_native_symbols` | Native symbols from Native AOT, ReadyToRun, and native binaries |
-| `get_native_disassembly` | Native disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32 |
+| `get_native_symbols` | Native symbols from Native AOT, ReadyToRun, raw Wasm modules, and native binaries |
+| `get_native_disassembly` | Native disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32; raw Wasm accepts names, `func:N`, decimal function indexes, and `0x…` offsets |
+
+### WebAssembly
+
+| Tool | Description |
+|------|-------------|
+| `list_wasm_sections` | Raw Wasm section table with payload offsets and sizes |
+| `list_wasm_functions` | Imported and defined Wasm functions in function-index order |
 
 ### Correlation
 

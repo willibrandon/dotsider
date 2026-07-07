@@ -32,3 +32,5 @@ Press `Esc` to return to normal mode.
 ## Saving
 
 Press `Ctrl+S` in normal mode when bytes have been modified. The editor validates the PE image before writing — invalid edits are rejected.
+
+Raw `dotnet.native.wasm` modules and Webcil app assemblies open read-only in the Hex Dump. `x` from the Disassembly tab jumps to a raw Wasm function body; `x` from managed Webcil IL jumps to the Webcil-contained method body bytes.

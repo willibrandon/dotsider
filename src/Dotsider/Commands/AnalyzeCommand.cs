@@ -1,19 +1,21 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Protocol;
 using Dotsider.Infrastructure;
 using System.CommandLine;
 
 namespace Dotsider.Commands;
 
 /// <summary>
-/// Headless assembly analysis command: types, methods, IL, deps, strings, size, symbols.
+/// Headless file analysis command: managed metadata, IL, deps, strings, size, native symbols,
+/// ReadyToRun correlation, Native AOT sidecars, and raw WebAssembly modules.
 /// </summary>
 internal static class AnalyzeCommand
 {
     private static readonly Argument<FileInfo> s_fileArg = new("file")
     {
-        Description = "Assembly file to analyze (.dll or .exe)"
+        Description = "Assembly or native module to analyze (.dll, .exe, or .wasm)"
     };
 
     private static readonly Option<bool> s_typesOption = new("--types")
@@ -296,6 +298,8 @@ internal static class AnalyzeCommand
                 a.NativeSymbolsPath,
                 PreIlc = BuildPreIlcProbeJson(a),
                 ReadyToRun = BuildReadyToRunJson(a),
+                Webcil = WebcilPayloadBuilder.BuildSummary(a),
+                Wasm = WasmPayloadBuilder.BuildSummary(a),
                 Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
             });
         }
@@ -340,6 +344,30 @@ internal static class AnalyzeCommand
                         + $"({index.InstantiationCount} instantiations), {DotsiderState.FormatSize(index.TotalCodeSize)}");
                 if (r2r.Diagnostic is { } diagnostic)
                     fmt.WriteLine($"Note:       {diagnostic}");
+            }
+            else if (a.WasmModuleInfo is { } wasm)
+            {
+                fmt.WriteLine("Kind:       WebAssembly (.NET)");
+                fmt.WriteLine($"Wasm:       v{wasm.Version}, {wasm.Sections.Count} sections");
+                fmt.WriteLine($"Functions:  {wasm.DefinedFunctionCount} defined, {wasm.ImportedFunctionCount} imported");
+                fmt.WriteLine($"Code:       {DotsiderState.FormatSize(wasm.CodeSize)}");
+                fmt.WriteLine($"Data:       {wasm.DataSegments.Count} segments, {DotsiderState.FormatSize(wasm.DataSize)}");
+                fmt.WriteLine($"Imports:    {wasm.Imports.Count} entries");
+                fmt.WriteLine($"Exports:    {wasm.Exports.Count} entries");
+                fmt.WriteLine($"Symbols:    {wasm.SymbolMapStatus}"
+                    + (wasm.SymbolMapEntryCount > 0 ? $", {wasm.SymbolMapEntryCount} names" : ""));
+                if (wasm.SymbolMapPath is { } symbolMapPath)
+                    fmt.WriteLine($"Symbol Map: {symbolMapPath}");
+                if (wasm.Diagnostic is { } diagnostic)
+                    fmt.WriteLine($"Note:       {diagnostic}");
+            }
+            else if (a.WebcilInfo is { } webcil)
+            {
+                fmt.WriteLine("Kind:       Managed");
+                fmt.WriteLine($"Webcil:     v{webcil.VersionMajor}.{webcil.VersionMinor}"
+                    + (webcil.IsWasmWrapped ? " (Wasm-wrapped)" : ""));
+                fmt.WriteLine($"Webcil:     {webcil.SectionCount} sections, "
+                    + $"{DotsiderState.FormatSize(webcil.MetadataSize)} metadata");
             }
             fmt.WriteLine($"PDB:        {a.PdbProvenance}");
             fmt.WriteLine($"SourceLink: {(a.SourceLink.IsPresent ? $"present, {a.SourceLink.Mappings.Count} mappings" : "not present")}");

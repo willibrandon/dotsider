@@ -1,6 +1,6 @@
 ---
 title: "AssemblyLoader"
-description: "Shared factory for opening assembly files. Handles apphosts (companion .dll redirect), single-file bundles (entry assembly extraction), Native AOT binaries, and direct .dll/.exe loading. Returns an AssemblyOpenResult that preserves the distinction so callers can decide how to present each case (e.g. showing an apphost dialog)."
+description: "Shared factory for opening assembly files. Handles apphosts (companion .dll redirect), single-file bundles (entry assembly extraction), Native AOT binaries, raw Wasm modules, and direct .dll/.exe loading. Returns an AssemblyOpenResult that preserves the distinction so callers can decide how to present each case (e.g. showing an apphost dialog)."
 slug: api/dotsider.core.analysis.assemblyloader
 sidebar:
   order: 0
@@ -11,7 +11,7 @@ sidebar:
 **Assembly:** Dotsider.Core.dll
 
 Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
-single-file bundles (entry assembly extraction), Native AOT binaries, and direct
+single-file bundles (entry assembly extraction), Native AOT binaries, raw Wasm modules, and direct
 .dll/.exe loading. Returns an [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) that preserves the
 distinction so callers can decide how to present each case (e.g. showing an apphost dialog).
 
@@ -39,7 +39,8 @@ An [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) 
 [Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/) for regular assemblies,
 [ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/) for native apphosts with a companion .dll,
 [BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/) for single-file bundles,
-or [NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/) for Native AOT compiled binaries.
+[NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/) for Native AOT compiled binaries,
+or [Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/) for raw Wasm modules.
 
 ```csharp
 public static AssemblyOpenResult Open(string filePath)

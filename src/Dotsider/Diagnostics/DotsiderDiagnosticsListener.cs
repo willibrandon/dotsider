@@ -252,6 +252,10 @@ internal sealed class DotsiderDiagnosticsListener(
                 "get-native-symbols" => HandleGetNativeSymbols(),
                 "disassemble-native" => HandleDisassembleNative(request),
 
+                // WebAssembly
+                "list-wasm-sections" => HandleListWasmSections(),
+                "list-wasm-functions" => HandleListWasmFunctions(),
+
                 // Pre-ILC correlation
                 "correlate-method" => HandleCorrelateMethod(request),
 
@@ -352,7 +356,9 @@ internal sealed class DotsiderDiagnosticsListener(
             FrozenStringCount = a.FrozenStrings.Count,
             NativeSymbolCount = a.NativeSymbols?.Symbols.Count ?? 0,
             NativeSymbolSource = a.NativeSymbols?.Source,
-            NativeSymbolStatus = a.NativeSymbols?.Status
+            NativeSymbolStatus = a.NativeSymbols?.Status,
+            Webcil = WebcilPayloadBuilder.BuildSummary(a),
+            Wasm = WasmPayloadBuilder.BuildSummary(a)
         });
     }
 
@@ -707,6 +713,30 @@ internal sealed class DotsiderDiagnosticsListener(
         return result is null
             ? DotsiderResponse.Fail($"'{matches[0].ManagedName ?? matches[0].Name}' has no disassemblable bytes")
             : DotsiderResponse.Ok(new { Symbol = matches[0].ManagedName ?? matches[0].Name, a.Architecture, result.Value.Instructions });
+    }
+
+    private DotsiderResponse HandleListWasmSections()
+    {
+        try
+        {
+            return DotsiderResponse.Ok(WasmPayloadBuilder.BuildSections(RequireAnalyzer()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
+    }
+
+    private DotsiderResponse HandleListWasmFunctions()
+    {
+        try
+        {
+            return DotsiderResponse.Ok(WasmPayloadBuilder.BuildFunctions(RequireAnalyzer()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return DotsiderResponse.Fail(ex.Message);
+        }
     }
 
     private static DotsiderResponse HandleDisassembleReadyToRun(Core.Analysis.AssemblyAnalyzer a, string target)

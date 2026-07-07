@@ -102,6 +102,56 @@ public class SessionSymbolTests(SampleAssemblyFixture samples) : IAsyncDisposabl
     }
 
     /// <summary>
+    /// Verifies <c>get-native-symbols</c> returns WebAssembly function symbols from a raw SDK
+    /// browser-wasm runtime module opened in the TUI.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetNativeSymbols_Wasm_ReturnsSymbolsWithProvenance()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(wasmPath, ct);
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "get-native-symbols" }, ct);
+
+        Assert.True(response.Success);
+        var data = (response.Data as JsonElement?)!.Value;
+        Assert.Equal("webAssembly", data.GetProperty("source").GetString());
+        Assert.Equal("wasm32", data.GetProperty("architecture").GetString());
+        Assert.True(data.GetProperty("symbols").GetArrayLength() > 0);
+    }
+
+    /// <summary>
+    /// Verifies <c>disassemble-native</c> accepts WebAssembly <c>func:N</c> identifiers through
+    /// the diagnostics socket, matching the CLI and MCP native-disassembly surfaces.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task DisassembleNative_Wasm_ByFunctionIndex_ReturnsInstructions()
+    {
+        var wasmPath = GetWasmNativePath();
+        string funcAlias;
+        using (var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(wasmPath))
+        {
+            var symbol = analyzer.NativeSymbols!.Symbols.First(s =>
+                s.Aliases.Any(static alias => alias.StartsWith("func:", StringComparison.Ordinal)));
+            funcAlias = symbol.Aliases.First(static alias => alias.StartsWith("func:", StringComparison.Ordinal));
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(wasmPath, ct);
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "disassemble-native", SymbolName = funcAlias }, ct);
+
+        Assert.True(response.Success);
+        var data = (response.Data as JsonElement?)!.Value;
+        Assert.Equal("Wasm32", data.GetProperty("architecture").GetString());
+        Assert.True(data.GetProperty("instructions").GetArrayLength() > 0);
+    }
+
+    /// <summary>
     /// Verifies <c>assembly-info</c> carries the native symbol count, source, and status for a
     /// Native AOT binary.
     /// </summary>
@@ -121,6 +171,14 @@ public class SessionSymbolTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(data.GetProperty("nativeSymbolCount").GetInt32() > 0);
         Assert.False(string.IsNullOrEmpty(data.GetProperty("nativeSymbolSource").GetString()));
         Assert.False(string.IsNullOrEmpty(data.GetProperty("nativeSymbolStatus").GetString()));
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm publish did not run on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>

@@ -154,6 +154,42 @@ public static class GeneralView
             if (r2r.Diagnostic is { } diagnostic)
                 infoLines.Add($"  Note:             {diagnostic}");
         }
+        else if (analyzer.WasmModuleInfo is { } wasm)
+        {
+            infoLines.Add("");
+            infoLines.Add("  Binary Kind:      WebAssembly (.NET)");
+            infoLines.Add($"  Wasm Version:     {wasm.Version}");
+            infoLines.Add($"  Wasm Sections:    {wasm.Sections.Count}");
+            infoLines.Add($"  Types:            {wasm.Types.Count}");
+            infoLines.Add($"  Functions:        {wasm.DefinedFunctionCount} defined, {wasm.ImportedFunctionCount} imported");
+            infoLines.Add($"  Code Size:        {DotsiderState.FormatSize(wasm.CodeSize)}");
+            infoLines.Add($"  Tables/Memories:  {wasm.Tables.Count} / {wasm.Memories.Count}");
+            infoLines.Add($"  Globals/Elements: {wasm.Globals.Count} / {wasm.Elements.Count}");
+            infoLines.Add($"  Data Segments:    {wasm.DataSegments.Count}, {DotsiderState.FormatSize(wasm.DataSize)}");
+            if (wasm.StartFunctionIndex is { } start)
+                infoLines.Add($"  Start Function:   func:{start}");
+            infoLines.Add($"  Imports:          {wasm.Imports.Count}");
+            infoLines.Add($"  Exports:          {wasm.Exports.Count}");
+            infoLines.Add($"  Symbol Map:       {wasm.SymbolMapStatus}"
+                + (wasm.SymbolMapEntryCount > 0 ? $" ({wasm.SymbolMapEntryCount} names)" : ""));
+            if (wasm.SymbolMapPath is { } symbolMapPath)
+                infoLines.Add($"  Symbol Map Path:  {symbolMapPath}");
+            if (analyzer.NativeSymbols is { } symbols)
+                infoLines.Add(symbols.Symbols.Count > 0
+                    ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
+                    : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
+            if (wasm.Diagnostic is { } diagnostic)
+                infoLines.Add($"  Note:             {diagnostic}");
+        }
+        else if (analyzer.WebcilInfo is { } webcil)
+        {
+            infoLines.Add("");
+            infoLines.Add("  Binary Kind:      Managed Webcil (.NET)");
+            infoLines.Add($"  Webcil Format:    v{webcil.VersionMajor}.{webcil.VersionMinor}");
+            infoLines.Add($"  Wasm Wrapped:     {(webcil.IsWasmWrapped ? "Yes" : "No")}");
+            infoLines.Add($"  Webcil Sections:  {webcil.SectionCount}");
+            infoLines.Add($"  Webcil Metadata:  {DotsiderState.FormatSize(webcil.MetadataSize)}");
+        }
 
         var infoText = string.Join("\n", infoLines);
 
@@ -161,7 +197,10 @@ public static class GeneralView
         // horizontal scrollbar (long publish-dir PDB paths overflow the width)
         // doesn't cover the last info line.
         var infoHeight = infoLines.Count
-            + (analyzer.NativeAotInfo is null && analyzer.ReadyToRunInfo is null ? 2 : 3);
+            + (analyzer.NativeAotInfo is null
+                && analyzer.ReadyToRunInfo is null
+                && analyzer.WasmModuleInfo is null
+                && analyzer.WebcilInfo is null ? 2 : 3);
 
         if (state.GeneralInfoEditorText != infoText)
         {
@@ -180,9 +219,7 @@ public static class GeneralView
 
         return ctx.VStack(outer =>
         {
-            var widgets = new List<Hex1bWidget>
-            {
-                // Assembly Info section (read-only editor for text selection + yank)
+            var infoPanel =
                 outer.Border(
                     outer.ThemePanel(t => t
                         .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
@@ -205,7 +242,13 @@ public static class GeneralView
                                 () => state.App.Invalidate());
                         })
                         .FillWidth().FillHeight())
-                ).Title(" Assembly Info ").FixedHeight(infoHeight)
+                ).Title(" Assembly Info ");
+
+            var widgets = new List<Hex1bWidget>
+            {
+                // Rich binary summaries can outgrow the viewport; split those with
+                // the references table so neither section disappears after resize.
+                infoHeight > 20 ? infoPanel.FillHeight(2) : infoPanel.FixedHeight(infoHeight)
             };
 
             // Search bar

@@ -10,14 +10,16 @@ using System.Security.Cryptography;
 namespace Dotsider.Core.Analysis;
 
 /// <summary>
-/// Core analyzer that reads a .NET assembly and extracts PE, metadata, IL, and string information.
-/// Uses <see cref="PEReader"/> and <see cref="MetadataReader"/> from the BCL.
+/// Core analyzer that reads .NET assemblies, Webcil app assemblies, native binaries, and raw Wasm
+/// modules. It uses BCL metadata/PE readers where possible and routes runtime-native formats
+/// through dotsider's format readers for IL, strings, symbols, disassembly, and size data.
 /// </summary>
 public sealed class AssemblyAnalyzer : IDisposable
 {
     private readonly Stream _stream;
-    private readonly PEReader? _peReader;
-    private readonly MetadataReader? _metadataReader;
+    private PEReader? _peReader;
+    private MetadataReader? _metadataReader;
+    private MetadataReaderProvider? _metadataReaderProvider;
     private MetadataReaderProvider? _pdbReaderProvider;
     private MetadataReader? _pdbReader;
     private readonly byte[] _rawBytes;
@@ -59,6 +61,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     private readonly System.Threading.Lock _readyToRunModelLock = new();
     private ReadyToRunIndex? _readyToRunIndex;
     private bool _readyToRunIndexProbed;
+    private Wasm.WebcilImageReader? _webcilReader;
+    private WebcilInfo? _webcilInfo;
+    private WasmModuleInfo? _wasmModuleInfo;
+    private bool _wasmModuleProbed;
     private PreIlcSidecars? _preIlcSidecars;
     private bool _preIlcProbed;
     private PreIlcCompanionSet? _preIlcCompanions;
@@ -89,6 +95,9 @@ public sealed class AssemblyAnalyzer : IDisposable
         IsReadOnly = fileInfo.IsReadOnly;
 
         _stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (TryInitializeWebcil(_rawBytes))
+            return;
+
         try
         {
             _peReader = new PEReader(_stream);
@@ -107,7 +116,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         catch (BadImageFormatException) when (IsNativeExecutable(_rawBytes))
         {
             // Non-PE native binary (ELF or Mach-O on Linux/macOS), such as a
-            // .NET apphost or NativeAOT output. Raw bytes are already loaded
+            // .NET apphost, NativeAOT output, or raw WebAssembly module. Raw bytes are already loaded
             // for hex dump; PE-specific analysis will be empty.
             _peReader?.Dispose();
             _peReader = null;
@@ -152,6 +161,9 @@ public sealed class AssemblyAnalyzer : IDisposable
         CreatedTime = DateTime.UtcNow;
 
         _stream = new MemoryStream(bytes, writable: false);
+        if (TryInitializeWebcil(_rawBytes))
+            return;
+
         try
         {
             _peReader = new PEReader(_stream);
@@ -234,6 +246,12 @@ public sealed class AssemblyAnalyzer : IDisposable
     public bool HasMetadata => _metadataReader is not null;
 
     /// <summary>
+    /// Parsed Webcil provenance when this analyzer opened a Webcil managed assembly directly or
+    /// unwrapped one from a WebAssembly container. Null for PE, raw Wasm, ELF, and Mach-O inputs.
+    /// </summary>
+    public WebcilInfo? WebcilInfo => _webcilInfo;
+
+    /// <summary>
     /// Facts from the embedded ReadyToRun header when this is a Native AOT binary,
     /// or null. Only probed for metadata-less files — a managed ReadyToRun assembly
     /// also embeds the header, but there it accompanies metadata rather than
@@ -272,6 +290,28 @@ public sealed class AssemblyAnalyzer : IDisposable
             }
 
             return _readyToRunInfo;
+        }
+    }
+
+    /// <summary>
+    /// Parsed WebAssembly module facts when this file is a raw <c>.wasm</c> module, or null for
+    /// PE, ELF, and Mach-O inputs. The main .NET browser-wasm native module is
+    /// <c>dotnet.native.wasm</c>.
+    /// </summary>
+    public WasmModuleInfo? WasmModuleInfo
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_wasmModuleProbed)
+            {
+                _wasmModuleInfo = _webcilReader is null && Wasm.WasmModuleReader.IsWasmModule(_rawBytes)
+                    ? Wasm.WasmModuleReader.Read(_rawBytes, FilePath)
+                    : null;
+                _wasmModuleProbed = true;
+            }
+
+            return _wasmModuleInfo;
         }
     }
 
@@ -334,13 +374,14 @@ public sealed class AssemblyAnalyzer : IDisposable
             or ReadyToRunStatus.Corrupt or ReadyToRunStatus.UnsupportedVersion } ? BinaryKind.ReadyToRun
         : HasMetadata ? BinaryKind.Managed
         : NativeAotInfo is not null ? BinaryKind.NativeAot
+        : WasmModuleInfo is not null ? BinaryKind.Wasm
         : BinaryKind.Native;
 
     /// <summary>Whether this image carries ECMA-335 metadata (managed or ReadyToRun).</summary>
     public bool HasManagedMetadata => HasMetadata;
 
     /// <summary>Whether this image has precompiled native method bodies mapped to managed methods.</summary>
-    public bool HasEmbeddedNativeCode => BinaryKind is BinaryKind.ReadyToRun or BinaryKind.NativeAot;
+    public bool HasEmbeddedNativeCode => BinaryKind is BinaryKind.ReadyToRun or BinaryKind.NativeAot or BinaryKind.Wasm;
 
     /// <summary>Whether this is a crossgen2 ReadyToRun image.</summary>
     public bool IsReadyToRun => BinaryKind == BinaryKind.ReadyToRun;
@@ -530,6 +571,8 @@ public sealed class AssemblyAnalyzer : IDisposable
                         ReadyToRunMethods, ReadyToRunInfo!.Architecture,
                         mapUsable: ReadyToRunInfo.Status == ReadyToRunStatus.Valid && ReadyToRunMethods.Count > 0,
                         diagnostic: ReadyToRunInfo.Diagnostic)
+                    : WasmModuleInfo is { } wasm
+                        ? Wasm.WasmSymbolBuilder.Build(wasm)
                     : BinaryKind != BinaryKind.Managed
                         ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
                         : null;
@@ -948,7 +991,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (method.Rva == 0 || _peReader is null) return null;
+        if (method.Rva == 0) return null;
+        if (_webcilReader is not null) return _webcilReader.GetMethodBody(method.Rva);
+        if (_peReader is null) return null;
         return _peReader.GetMethodBody(method.Rva);
     }
 
@@ -1226,6 +1271,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             foreach (var sibling in owned)
                 sibling.Dispose();
         _pdbReaderProvider?.Dispose();
+        _metadataReaderProvider?.Dispose();
         _peReader?.Dispose();
         _stream.Dispose();
     }
@@ -1239,6 +1285,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         if (bytes.Length < 4) return false;
 
+        if (Wasm.WasmModuleReader.IsWasmModule(bytes))
+            return true;
+
         // ELF: \x7fELF
         if (bytes[0] == 0x7F && bytes[1] == 0x45 && bytes[2] == 0x4C && bytes[3] == 0x46)
             return true;
@@ -1251,6 +1300,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<ImportedModuleInfo> ReadNativeImports()
     {
         if (_peReader is not null) return PeDirectoryReader.ReadImports(_peReader);
+        if (WasmModuleInfo is { } wasm) return ReadWasmImports(wasm);
         if (ElfImageReader.IsElf(_rawBytes)) return ElfImageReader.ReadImports(_rawBytes);
         if (MachOImageReader.IsMachO(_rawBytes)) return MachOImageReader.ReadImports(_rawBytes);
         return [];
@@ -1259,10 +1309,34 @@ public sealed class AssemblyAnalyzer : IDisposable
     private IReadOnlyList<ExportedFunctionInfo> ReadNativeExports()
     {
         if (_peReader is not null) return PeDirectoryReader.ReadExports(_peReader);
+        if (WasmModuleInfo is { } wasm) return ReadWasmExports(wasm);
         if (ElfImageReader.IsElf(_rawBytes)) return ElfImageReader.ReadExports(_rawBytes);
         if (MachOImageReader.IsMachO(_rawBytes)) return MachOImageReader.ReadExports(_rawBytes);
         return [];
     }
+
+    private static IReadOnlyList<ImportedModuleInfo> ReadWasmImports(WasmModuleInfo wasm) =>
+    [
+        .. wasm.Imports
+            .Where(static i => i.Kind == WasmExternalKind.Function)
+            .GroupBy(static i => i.ModuleName, StringComparer.Ordinal)
+            .OrderBy(static g => g.Key, StringComparer.Ordinal)
+            .Select(static g => new ImportedModuleInfo(
+                g.Key,
+                [.. g.Select(static i => new ImportedFunctionInfo(i.Name, Ordinal: null, Hint: null))]))
+    ];
+
+    private static IReadOnlyList<ExportedFunctionInfo> ReadWasmExports(WasmModuleInfo wasm) =>
+    [
+        .. wasm.Exports
+            .Where(static e => e.Kind == WasmExternalKind.Function)
+            .OrderBy(static e => e.Name, StringComparer.Ordinal)
+            .Select(static e => new ExportedFunctionInfo(
+                Ordinal: e.Index,
+                Name: e.Name,
+                Rva: e.Index,
+                ForwardedTo: null))
+    ];
 
     /// <summary>
     /// Reads the target architecture from an ELF or Mach-O header. The bytes have
@@ -1271,6 +1345,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     private static string GetNativeArchitecture(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length < 8) return "Unknown";
+
+        if (Wasm.WasmModuleReader.IsWasmModule(bytes))
+            return "Wasm32";
 
         // ELF: e_machine is a u16 at offset 18; EI_DATA at offset 5 selects endianness
         if (bytes[0] == 0x7F && bytes[1] == 0x45 && bytes[2] == 0x4C && bytes[3] == 0x46)
@@ -1305,6 +1382,24 @@ public sealed class AssemblyAnalyzer : IDisposable
             0x0000000C => "ARM",
             _ => "Unknown",
         };
+    }
+
+    private bool TryInitializeWebcil(ReadOnlySpan<byte> bytes)
+    {
+        if (!Wasm.WebcilImageReader.TryRead(bytes, out var webcil) || webcil is null)
+            return false;
+
+        _peReader = null;
+        _webcilReader = webcil;
+        _webcilInfo = webcil.Info;
+        _metadataReaderProvider = webcil.CreateMetadataReaderProvider();
+        _metadataReader = _metadataReaderProvider.GetMetadataReader();
+        ClrHeader = webcil.ClrHeader;
+        Architecture = "Wasm32";
+        ReadAssemblyIdentity();
+        ReadTargetFramework();
+        ReadDebugInformation();
+        return true;
     }
 
     private void ReadAssemblyIdentity()
@@ -1405,6 +1500,14 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private void ReadDebugInformation()
     {
+        if (_webcilReader is not null)
+        {
+            _debugDirectory = [.. _webcilReader.ReadDebugDirectory()];
+            OpenPortablePdb();
+            _sourceLink = PortablePdbUtilities.ReadSourceLink(_pdbReader);
+            return;
+        }
+
         if (_peReader is null)
         {
             _debugDirectory = [];
@@ -1479,6 +1582,12 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private void OpenPortablePdb()
     {
+        if (_webcilReader is not null)
+        {
+            OpenWebcilPortablePdb();
+            return;
+        }
+
         if (_peReader is null)
         {
             PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
@@ -1574,6 +1683,84 @@ public sealed class AssemblyAnalyzer : IDisposable
                     PdbProvenanceKind.UnsupportedWindowsPdb,
                     foundPath,
                     $"UnsupportedWindowsPdb ({foundPath})");
+        }
+    }
+
+    private void OpenWebcilPortablePdb()
+    {
+        if (_webcilReader is null)
+            return;
+
+        if (_debugDirectory is not { Count: > 0 })
+        {
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        var embeddedEntry = _webcilReader.EmbeddedPortablePdbEntry();
+        if (embeddedEntry is not null && TryOpenWebcilEmbeddedPortablePdb(embeddedEntry.Value))
+            return;
+
+        var codeViewEntry = _webcilReader.CodeViewEntry();
+        if (codeViewEntry is null)
+        {
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            return;
+        }
+
+        Wasm.WebcilCodeViewData codeViewData;
+        try
+        {
+            codeViewData = _webcilReader.ReadCodeView(codeViewEntry.Value);
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or IOException)
+        {
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.UnsupportedWindowsPdb,
+                Details: $"UnsupportedWindowsPdb ({ex.Message})");
+            return;
+        }
+
+        var probePaths = GetSidecarProbePaths(codeViewData.Path);
+        var foundPath = probePaths.FirstOrDefault(File.Exists);
+        if (foundPath is null)
+        {
+            var expected = probePaths.Count > 0 ? probePaths[0] : codeViewData.Path;
+            PdbProvenance = new PdbProvenance(
+                PdbProvenanceKind.CodeViewSidecarMissing,
+                expected,
+                $"CodeViewSidecarMissing ({expected})");
+            return;
+        }
+
+        if (!TryOpenPortablePdbFile(foundPath, codeViewData.Guid, codeViewData.Age, out var mismatch))
+        {
+            PdbProvenance = mismatch
+                ? new PdbProvenance(
+                    PdbProvenanceKind.CodeViewSidecarMismatched,
+                    foundPath,
+                    $"CodeViewSidecarMismatched ({foundPath})")
+                : new PdbProvenance(
+                    PdbProvenanceKind.UnsupportedWindowsPdb,
+                    foundPath,
+                    $"UnsupportedWindowsPdb ({foundPath})");
+        }
+    }
+
+    private bool TryOpenWebcilEmbeddedPortablePdb(Wasm.WebcilDebugEntry entry)
+    {
+        if (_webcilReader is null) return false;
+
+        try
+        {
+            _pdbReaderProvider = _webcilReader.ReadEmbeddedPortablePdb(entry);
+            _pdbReader = _pdbReaderProvider.GetMetadataReader();
+            PdbProvenance = new PdbProvenance(PdbProvenanceKind.Embedded);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -1776,7 +1963,21 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private List<SectionInfo> ReadSections()
     {
-        if (_peReader is null) return [];
+        if (_webcilReader is not null)
+            return [.. _webcilReader.ReadSections()];
+
+        if (_peReader is null)
+        {
+            if (WasmModuleInfo is not { } wasm) return [];
+            return [.. wasm.Sections.Select(s => new SectionInfo(
+                Name: s.Name,
+                VirtualAddress: checked((int)s.FileOffset),
+                VirtualSize: s.Size,
+                RawDataOffset: checked((int)s.FileOffset),
+                RawDataSize: s.Size,
+                Characteristics: 0))];
+        }
+
         return [.. _peReader.PEHeaders.SectionHeaders
             .Select(s => new SectionInfo(
                 Name: s.Name,
@@ -2040,14 +2241,22 @@ public sealed class AssemblyAnalyzer : IDisposable
                 try
                 {
                     var resourcesRva = ClrHeader.ResourcesRva;
-                    var sectionData = _peReader!.GetSectionData(resourcesRva);
-                    if (sectionData.Length > 0)
+                    if (_webcilReader is not null)
                     {
-                        var reader = sectionData.GetReader();
-                        reader.Offset += offset;
-                        if (reader.RemainingBytes >= 4)
+                        if (_webcilReader.TryReadInt32AtRva(resourcesRva, offset, out var webcilSize))
+                            size = webcilSize;
+                    }
+                    else if (_peReader is not null)
+                    {
+                        var sectionData = _peReader.GetSectionData(resourcesRva);
+                        if (sectionData.Length > 0)
                         {
-                            size = reader.ReadInt32();
+                            var reader = sectionData.GetReader();
+                            reader.Offset += offset;
+                            if (reader.RemainingBytes >= 4)
+                            {
+                                size = reader.ReadInt32();
+                            }
                         }
                     }
                 }

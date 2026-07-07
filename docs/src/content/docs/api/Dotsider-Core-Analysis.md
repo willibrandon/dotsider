@@ -17,8 +17,9 @@ public static class ApphostDetector
 
 ### [AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)
 
-Core analyzer that reads a .NET assembly and extracts PE, metadata, IL, and string information.
-Uses [PEReader](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.pereader) and [MetadataReader](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.metadatareader) from the BCL.
+Core analyzer that reads .NET assemblies, Webcil app assemblies, native binaries, and raw Wasm
+modules. It uses BCL metadata/PE readers where possible and routes runtime-native formats
+through dotsider's format readers for IL, strings, symbols, disassembly, and size data.
 
 ```csharp
 public sealed class AssemblyAnalyzer : IDisposable
@@ -46,7 +47,7 @@ public static class AssemblyIdentityFormat
 ### [AssemblyLoader](/api/dotsider.core.analysis.assemblyloader/)
 
 Shared factory for opening assembly files. Handles apphosts (companion .dll redirect),
-single-file bundles (entry assembly extraction), Native AOT binaries, and direct
+single-file bundles (entry assembly extraction), Native AOT binaries, raw Wasm modules, and direct
 .dll/.exe loading. Returns an [AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/) that preserves the
 distinction so callers can decide how to present each case (e.g. showing an apphost dialog).
 

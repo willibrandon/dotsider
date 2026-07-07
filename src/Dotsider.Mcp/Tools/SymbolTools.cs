@@ -6,14 +6,15 @@ using System.Text.Json;
 namespace Dotsider.Mcp.Tools;
 
 /// <summary>
-/// MCP tools for native symbols: function names, addresses, and sizes read from a Native AOT
-/// binary's PDB, DWARF, or dSYM — or unwind-data boundaries when no symbol file exists.
+/// MCP tools for native symbols: function names, addresses, and sizes recovered from Native AOT,
+/// ReadyToRun, raw WebAssembly, and platform-native binaries. Provenance identifies whether names
+/// came from symbol files, runtime maps, Wasm sidecars, or fallback boundaries.
 /// </summary>
 [McpServerToolType]
 public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
 {
     /// <summary>
-    /// Gets a binary's native symbols with their provenance (source, status, symbol file path).
+    /// Gets a binary's native symbols with their provenance (source, status, and optional sidecar path).
     /// </summary>
     /// <param name="assemblyPath">Path to the binary file.</param>
     /// <param name="sessionId">PID of a running dotsider instance.</param>

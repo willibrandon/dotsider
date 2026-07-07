@@ -16,6 +16,12 @@ public enum BinaryKind
     ReadyToRun,
 
     /// <summary>
+    /// A WebAssembly module, most commonly the <c>dotnet.native.wasm</c> runtime module from a
+    /// .NET browser-wasm publish. It has native Wasm code but no ECMA-335 metadata of its own.
+    /// </summary>
+    Wasm,
+
+    /// <summary>
     /// A Native AOT compiled .NET binary: a native executable with no CLR metadata
     /// whose image embeds a validated ReadyToRun header.
     /// </summary>

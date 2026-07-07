@@ -273,6 +273,27 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? ReadyToRunConsoleWasmNativeWasm { get; private set; }
 
     /// <summary>
+    /// Path to the dedicated SDK-produced browser Wasm runtime module from <c>samples/WasmConsole</c>.
+    /// Raw Wasm open, symbols, disassembly, and size tests prefer this focused fixture.
+    /// <see langword="null"/> means the current SDK/workload set cannot publish browser Wasm.
+    /// </summary>
+    public string? WasmConsoleNativeWasm { get; private set; }
+
+    /// <summary>
+    /// Path to the AOT-compiled browser Wasm runtime module from <c>samples/WasmConsole</c>.
+    /// This fixture is produced with <c>RunAOTCompilation=true</c> when the SDK supports it.
+    /// <see langword="null"/> means the current SDK/workload set cannot publish browser Wasm AOT.
+    /// </summary>
+    public string? WasmConsoleAotNativeWasm { get; private set; }
+
+    /// <summary>
+    /// Path to the Webcil-wrapped managed app assembly from <c>samples/WasmConsole</c>.
+    /// Managed Webcil tests use this to verify .wasm opens as metadata/IL, not native Wasm.
+    /// <see langword="null"/> means the current SDK/workload set cannot publish browser Wasm.
+    /// </summary>
+    public string? WasmConsoleWebcilWasm { get; private set; }
+
+    /// <summary>
     /// Path to the composite global image (<c>ReadyToRunComposite.r2r.dll</c>) — metadata-less native
     /// PE whose components resolve from siblings — or null when the composite publish did not run.
     /// </summary>
@@ -352,9 +373,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
         builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "linux-riscv64", selfContained: true));
         builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "linux-loongarch64", selfContained: true));
         builds.Add(PublishWasmProject("samples/ReadyToRunConsole"));
+        builds.Add(PublishWasmProject("samples/WasmConsole"));
         builds.Add(PublishReadyToRunProject("samples/ReadyToRunComposite", selfContained: true));
 
         await Task.WhenAll(builds);
+        await PublishWasmProject("samples/WasmConsole", runAotCompilation: true);
 
         var config = "Debug";
         var tfm = "net10.0";
@@ -481,6 +504,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
             "bin", "Release", tfm, "linux-loongarch64", "publish", "ReadyToRunConsole.dll"));
         ReadyToRunConsoleWasmNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
+        WasmConsoleNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
+        WasmConsoleAotNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+            "bin", "Release", tfm, "browser-wasm-aot", "publish", "dotnet.native.wasm"));
+        WasmConsoleWebcilWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+            "bin", "Release", tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm"));
 
         var r2rCompositeDir = Path.Combine(_repoRoot, "samples", "ReadyToRunComposite",
             "bin", "Release", tfm, rid, "publish");
@@ -712,9 +741,15 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// The produced <c>dotnet.native.wasm</c> module still contains real runtime Wasm code.
     /// A missing wasm-tools workload leaves the outputs absent so dependent tests can skip.
     /// </summary>
-    private async Task PublishWasmProject(string relativePath)
+    private async Task PublishWasmProject(string relativePath, bool runAotCompilation = false)
     {
-        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + "-browser-wasm.lock";
+        var wasmRid = runAotCompilation ? "browser-wasm-aot" : "browser-wasm";
+        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+            "bin", "Release", "net10.0", wasmRid, "publish", "dotnet.native.wasm");
+        if (File.Exists(expectedOutput))
+            return;
+
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + $"-{wasmRid}.lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
@@ -734,11 +769,19 @@ public class SampleAssemblyFixture : IAsyncLifetime
         try
         {
             var projectDir = Path.Combine(_repoRoot, relativePath);
+            var arguments = "publish -c Release -r browser-wasm --self-contained true "
+                + "-p:PublishReadyToRun=false -p:WasmEmitSymbolMap=true ";
+            if (runAotCompilation)
+            {
+                arguments += "-p:RunAOTCompilation=true "
+                    + "-p:WasmAppDir=bin\\Release\\net10.0\\browser-wasm-aot\\AppBundle "
+                    + "-p:PublishDir=bin\\Release\\net10.0\\browser-wasm-aot\\publish\\ ";
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "publish -c Release -r browser-wasm --self-contained true "
-                    + "-p:PublishReadyToRun=false -v q",
+                Arguments = arguments + "-v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,

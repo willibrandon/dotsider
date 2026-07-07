@@ -589,8 +589,67 @@ public class CliTests(SampleAssemblyFixture fixture)
         Assert.Contains("managed", stderr);
     }
 
+    /// <summary>
+    /// Verifies default and JSON analyze output report a raw SDK WebAssembly module as Wasm.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Wasm_PrintsModuleSummary()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Kind:       WebAssembly (.NET)", stdout);
+        Assert.Contains("Functions:", stdout);
+        Assert.Contains("Symbols:", stdout);
+
+        var (jsonExitCode, jsonStdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--json");
+
+        Assert.Equal(0, jsonExitCode);
+        var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(jsonStdout);
+        Assert.Equal("wasm", json.GetProperty("binaryKind").GetString());
+        Assert.Equal("Wasm32", json.GetProperty("architecture").GetString());
+        Assert.True(json.GetProperty("wasm").GetProperty("definedFunctionCount").GetInt32() > 0);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --symbols</c> on a raw Wasm module prints WebAssembly provenance.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Symbols_Wasm_PrintsTable()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--symbols");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("WebAssembly", stdout);
+        Assert.Contains("Symbols (", stdout);
+        Assert.Contains("0x", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --size</c> on a raw Wasm module reports the Wasm function tree.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Size_Wasm_PrintsFunctionBreakdown()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--size");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("(Wasm)", stdout);
+        Assert.Contains("Functions", stdout);
+    }
+
     /// <summary>Verifies <c>analyze --disasm 0xVA</c> on a Native AOT binary prints a named listing.</summary>
-    [Fact(Timeout = 60_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Analyze_Disasm_NativeAot_ByAddress_PrintsListing()
     {
         Assert.SkipWhen(fixture.NativeAotConsoleExe is null || !File.Exists(fixture.NativeAotConsoleExe),
@@ -611,6 +670,77 @@ public class CliTests(SampleAssemblyFixture fixture)
 
         Assert.Equal(0, exitCode);
         Assert.Contains($"0x{va:x}:", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --disasm</c> on a raw Wasm module decodes a real function body.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Disasm_Wasm_ByAddress_PrintsListing()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        ulong va;
+        using (var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(wasmPath))
+        {
+            var symbol = FindWasmFunctionWithNamedCall(analyzer);
+            va = symbol.VirtualAddress;
+        }
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--disasm", $"0x{va:x}");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains($"0x{va:x}:", stdout);
+        Assert.Contains("call", stdout);
+    }
+
+    /// <summary>
+    /// Verifies <c>analyze --disasm</c> accepts WebAssembly function identifiers in the forms users
+    /// see in wasm tooling: <c>func:N</c> and a bare decimal function index.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_Disasm_Wasm_ByFunctionIndex_PrintsListing()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        string funcAlias;
+        string funcIndex;
+        using (var analyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(wasmPath))
+        {
+            var symbol = analyzer.NativeSymbols!.Symbols.First(s =>
+                s.Aliases.Any(static alias => alias.StartsWith("func:", StringComparison.Ordinal)));
+            funcAlias = symbol.Aliases.First(static alias => alias.StartsWith("func:", StringComparison.Ordinal));
+            funcIndex = funcAlias["func:".Length..];
+        }
+
+        var (aliasExitCode, aliasStdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--disasm", funcAlias);
+        var (indexExitCode, indexStdout, _) = await RunDotsiderAsync(
+            "analyze", wasmPath, "--disasm", funcIndex);
+
+        Assert.Equal(0, aliasExitCode);
+        Assert.Equal(0, indexExitCode);
+        Assert.Contains("func[", aliasStdout);
+        Assert.Contains("func[", indexStdout);
+    }
+
+    /// <summary>
+    /// Verifies Webcil-wrapped <c>.wasm</c> app assemblies use managed metadata CLI behavior.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Analyze_WebcilWasm_PrintsManagedMetadata()
+    {
+        Assert.SkipWhen(fixture.WasmConsoleWebcilWasm is null,
+            "browser-wasm publish did not produce the Webcil app assembly on this leg.");
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze", fixture.WasmConsoleWebcilWasm!);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Kind:       Managed", stdout);
+        Assert.Contains("Webcil:", stdout);
+        Assert.DoesNotContain("Kind:       WebAssembly (.NET)", stdout);
     }
 
     /// <summary>Verifies <c>analyze --disasm</c> on a managed assembly exits 1 with a native-symbols error.</summary>
@@ -839,4 +969,30 @@ public class CliTests(SampleAssemblyFixture fixture)
 
     private static Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
         params string[] arguments) => TestHelpers.RunDotsiderAsync(arguments);
+
+    private static Dotsider.Core.Analysis.Models.NativeSymbol FindWasmFunctionWithNamedCall(
+        Dotsider.Core.Analysis.AssemblyAnalyzer analyzer)
+    {
+        var info = analyzer.NativeSymbols;
+        Assert.NotNull(info);
+        foreach (var symbol in info.Symbols.Take(512))
+        {
+            var result = Dotsider.Core.Analysis.Disasm.NativeDisassembler.DisassembleSymbol(analyzer, symbol);
+            if (result is null)
+                continue;
+
+            if (result.Value.Instructions.Any(static instruction => instruction.TargetName is not null))
+                return symbol;
+        }
+
+        throw new InvalidOperationException("No Wasm function with a named direct call was found.");
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(fixture.WasmConsoleNativeWasm is null && fixture.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm publish did not run on this leg.");
+
+        return fixture.WasmConsoleNativeWasm ?? fixture.ReadyToRunConsoleWasmNativeWasm!;
+    }
 }

@@ -77,3 +77,23 @@ both call these, so the two transports cannot drift apart in shape or semantics.
 public static class SizeDiffPayloadBuilder
 ```
 
+### [WasmPayloadBuilder](/api/dotsider.core.protocol.wasmpayloadbuilder/)
+
+Builds JSON-ready WebAssembly payloads shared by direct MCP tools, the CLI, and the
+diagnostics session protocol. The payloads describe raw SDK-produced Wasm modules such as
+`dotnet.native.wasm`, not ECMA-335 metadata assemblies.
+
+```csharp
+public static class WasmPayloadBuilder
+```
+
+### [WebcilPayloadBuilder](/api/dotsider.core.protocol.webcilpayloadbuilder/)
+
+Builds JSON-ready Webcil payloads shared by CLI, MCP, and diagnostics session output.
+Webcil is a managed assembly container used in browser-wasm publishes, so the payload is
+provenance beside the normal metadata/IL facts rather than a separate native module view.
+
+```csharp
+public static class WebcilPayloadBuilder
+```
+

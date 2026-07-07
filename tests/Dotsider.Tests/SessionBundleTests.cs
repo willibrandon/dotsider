@@ -535,6 +535,32 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
     }
 
     /// <summary>
+    /// Verifies that push-assembly by path accepts a raw SDK-produced WebAssembly runtime module.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task PushAssembly_ByWasmPath_OpensRawWasmModule()
+    {
+        var wasmPath = GetWasmNativePath();
+        var ct = TestContext.Current.CancellationToken;
+        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(samples.RichLibraryDll, ct);
+
+        var pushResponse = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "push-assembly", AssemblyPath = wasmPath }, ct);
+        Assert.True(pushResponse.Success);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.Analyzer.BinaryKind == global::Dotsider.Core.Analysis.Models.BinaryKind.Wasm,
+            TimeSpan.FromSeconds(5));
+
+        var info = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "assembly-info" }, ct);
+        Assert.True(info.Success);
+        var data = (info.Data as JsonElement?)!.Value;
+        Assert.Equal("wasm", data.GetProperty("binaryKind").GetString());
+        Assert.False(data.GetProperty("hasMetadata").GetBoolean());
+        Assert.True(data.GetProperty("wasm").GetProperty("definedFunctionCount").GetInt32() > 0);
+    }
+
+    /// <summary>
     /// Verifies that push-assembly by path correctly handles an apphost exe
     /// by loading the companion managed assembly instead of the native host.
     /// </summary>
@@ -619,6 +645,15 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         // The apphost dialog must be reopened so the user can navigate to the companion
         Assert.True(_state.ApphostDialogOpen);
         Assert.NotNull(_state.ApphostCompanionDllPath);
+    }
+
+    private string GetWasmNativePath()
+    {
+        Assert.SkipWhen(
+            samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+            "browser-wasm publish did not run on this leg.");
+
+        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>

@@ -63,6 +63,23 @@ public static class PeMetadataView
             // Ensure the first row is focused when arriving at a sub-tab
             state.PeFocusedKey ??= state.PeSubTab switch
                 {
+                    PeSubTabId.Sections when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm =>
+                        GetWasmSectionKey(wasm.Sections[0]),
+                    PeSubTabId.TypeDef when analyzer.WasmModuleInfo is { Types.Count: > 0 } wasm =>
+                        GetWasmTypeKey(wasm.Types[0]),
+                    PeSubTabId.MethodDef when analyzer.WasmModuleInfo is { Functions.Count: > 0 } wasm =>
+                        GetWasmFunctionKey(wasm.Functions[0]),
+                    PeSubTabId.TypeRef when analyzer.WasmModuleInfo is { Tables.Count: > 0 } wasm =>
+                        GetWasmTableKey(wasm.Tables[0]),
+                    PeSubTabId.MemberRef when analyzer.WasmModuleInfo is { Memories.Count: > 0 } wasm =>
+                        GetWasmMemoryKey(wasm.Memories[0]),
+                    PeSubTabId.Attributes when analyzer.WasmModuleInfo is { Globals.Count: > 0 } wasm =>
+                        GetWasmGlobalKey(wasm.Globals[0]),
+                    PeSubTabId.Resources when analyzer.WasmModuleInfo is { DataSegments.Count: > 0 } wasm =>
+                        GetWasmDataSegmentKey(wasm.DataSegments[0]),
+                    PeSubTabId.DebugDirectory when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm
+                        && wasm.Sections.FirstOrDefault(static s => s.Id == 0) is { } custom =>
+                        GetWasmSectionKey(custom),
                     PeSubTabId.Sections when analyzer.Sections.Count > 0 => analyzer.Sections[0].Name,
                     PeSubTabId.TypeDef when metadataAnalyzer.TypeDefs.Count > 0 => metadataAnalyzer.TypeDefs[0].Token,
                     PeSubTabId.MethodDef when metadataAnalyzer.MethodDefs.Count > 0 => metadataAnalyzer.MethodDefs[0].Token,
@@ -73,14 +90,24 @@ public static class PeMetadataView
                     PeSubTabId.Resources when metadataAnalyzer.Resources.Count > 0 => metadataAnalyzer.Resources[0].Name,
                     PeSubTabId.DebugDirectory when GetDebugDirectoryRows(state).Count > 0 =>
                         GetDebugDirectoryRowKey(GetDebugDirectoryRows(state)[0]),
+                    PeSubTabId.Imports when analyzer.WasmModuleInfo is { Imports.Count: > 0 } wasm =>
+                        GetWasmImportKey(wasm.Imports[0]),
                     PeSubTabId.Imports when GetImportRows(analyzer).Count > 0 =>
                         GetImportRows(analyzer)[0].Key,
+                    PeSubTabId.Exports when analyzer.WasmModuleInfo is { Exports.Count: > 0 } wasm =>
+                        GetWasmExportKey(wasm.Exports[0]),
                     PeSubTabId.Exports when analyzer.Exports.Count > 0 =>
                         analyzer.Exports[0].Ordinal,
+                    PeSubTabId.LoadConfig when analyzer.WasmModuleInfo is { Elements.Count: > 0 } wasm =>
+                        GetWasmElementKey(wasm.Elements[0]),
                     PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
                         GetLoadConfigRows(analyzer.LoadConfig)[0].Field,
+                    PeSubTabId.RtrSections when analyzer.WasmModuleInfo is { Tags.Count: > 0 } wasm =>
+                        GetWasmTagKey(wasm.Tags[0]),
                     PeSubTabId.RtrSections when analyzer.ReadyToRunSections.Count > 0 =>
                         analyzer.ReadyToRunSections[0].SectionId,
+                    PeSubTabId.AotTypes when analyzer.WasmModuleInfo is not null =>
+                        GetWasmModuleInfoKey("version"),
                     PeSubTabId.AotTypes when analyzer.RecoveredTypes.Count > 0 =>
                         analyzer.RecoveredTypes[0].FullName,
                     PeSubTabId.Symbols when GetSymbolRows(analyzer).Count > 0 =>
@@ -227,33 +254,33 @@ public static class PeMetadataView
                 // Bottom section: Metadata tables in sub-tabs
                 Hex1bWidget metadataTabs = outer.TabPanel(tp =>
                 [
-                    tp.Tab("Sections", t => [BuildSectionsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Sections), t => [BuildSectionsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Sections),
-                    tp.Tab("TypeDef", t => [BuildTypeDefsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.TypeDef), t => [BuildTypeDefsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.TypeDef),
-                    tp.Tab("MethodDef", t => [BuildMethodDefsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.MethodDef), t => [BuildMethodDefsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.MethodDef),
-                    tp.Tab("TypeRef", t => [BuildTypeRefsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.TypeRef), t => [BuildTypeRefsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.TypeRef),
-                    tp.Tab("MemberRef", t => [BuildMemberRefsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.MemberRef), t => [BuildMemberRefsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.MemberRef),
-                    tp.Tab("Attributes", t => [BuildAttributesTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Attributes), t => [BuildAttributesTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Attributes),
-                    tp.Tab("Resources", t => [BuildResourcesTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Resources), t => [BuildResourcesTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Resources),
-                    tp.Tab("Debug Directory", t => [BuildDebugDirectoryTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.DebugDirectory), t => [BuildDebugDirectoryTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.DebugDirectory),
-                    tp.Tab("Imports", t => [BuildImportsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Imports), t => [BuildImportsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Imports),
-                    tp.Tab("Exports", t => [BuildExportsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Exports), t => [BuildExportsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Exports),
-                    tp.Tab("Load Config", t => [BuildLoadConfigTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.LoadConfig), t => [BuildLoadConfigTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.LoadConfig),
-                    tp.Tab("R2R Sections", t => [BuildRtrSectionsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.RtrSections), t => [BuildRtrSectionsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.RtrSections),
-                    tp.Tab("AOT Types", t => [BuildAotTypesTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.AotTypes), t => [BuildAotTypesTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.AotTypes),
-                    tp.Tab("Symbols", t => [BuildSymbolsTable(t, state)])
+                    tp.Tab(GetPeSubTabLabel(state, PeSubTabId.Symbols), t => [BuildSymbolsTable(t, state)])
                         .Selected(state.PeSubTab == PeSubTabId.Symbols)
                 ])
                 .OnSelectionChanged(e =>
@@ -431,7 +458,93 @@ public static class PeMetadataView
         ]).Fill();
     }
 
-    private static TableWidget<SectionInfo> BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmSectionsTable(ctx, state, wasm);
+
+        return BuildPeSectionsTable(ctx, state);
+    }
+
+    private static string GetPeSubTabLabel(DotsiderState state, int subTab) =>
+        state.Analyzer.WasmModuleInfo is not null
+            ? subTab switch
+            {
+                PeSubTabId.Sections => "Sections",
+                PeSubTabId.TypeDef => "Types",
+                PeSubTabId.MethodDef => "Functions",
+                PeSubTabId.TypeRef => "Tables",
+                PeSubTabId.MemberRef => "Memories",
+                PeSubTabId.Attributes => "Globals",
+                PeSubTabId.Resources => "Data",
+                PeSubTabId.DebugDirectory => "Custom",
+                PeSubTabId.Imports => "Imports",
+                PeSubTabId.Exports => "Exports",
+                PeSubTabId.LoadConfig => "Elements",
+                PeSubTabId.RtrSections => "Tags",
+                PeSubTabId.AotTypes => "Module",
+                PeSubTabId.Symbols => "Symbols",
+                _ => "",
+            }
+            : subTab switch
+            {
+                PeSubTabId.Sections => "Sections",
+                PeSubTabId.TypeDef => "TypeDef",
+                PeSubTabId.MethodDef => "MethodDef",
+                PeSubTabId.TypeRef => "TypeRef",
+                PeSubTabId.MemberRef => "MemberRef",
+                PeSubTabId.Attributes => "Attributes",
+                PeSubTabId.Resources => "Resources",
+                PeSubTabId.DebugDirectory => "Debug Directory",
+                PeSubTabId.Imports => "Imports",
+                PeSubTabId.Exports => "Exports",
+                PeSubTabId.LoadConfig => "Load Config",
+                PeSubTabId.RtrSections => "R2R Sections",
+                PeSubTabId.AotTypes => "AOT Types",
+                PeSubTabId.Symbols => "Symbols",
+                _ => "",
+            };
+
+    private static TableWidget<WasmSectionInfo> BuildWasmSectionsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Sections, query, s => $"{s.Id} {s.Name}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmSectionKey)
+            .Header(h =>
+            [
+                h.Cell("Id").Width(SizeHint.Fixed(6)),
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Payload Offset").Width(SizeHint.Fixed(16)),
+                h.Cell("Payload Size").Width(SizeHint.Fixed(14))
+            ])
+            .Row((r, s, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(s.Id.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, s.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.FileOffset:X}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize(s.Size, state)), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, s) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Section",
+                    $"Id: {s.Id}",
+                    $"Name: {s.Name}",
+                    $"Payload Offset: 0x{s.FileOffset:X}",
+                    $"Payload Size: {s.Size} (0x{s.Size:X})");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<SectionInfo> BuildPeSectionsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.Sections, query,
@@ -497,10 +610,13 @@ public static class PeMetadataView
     internal static string GetDebugDirectoryRowKey(DebugDirectoryRow row) =>
         $"{row.Origin}:{GetDebugDirectoryKey(row.Info)}";
 
-    private static TableWidget<DebugDirectoryRow> BuildDebugDirectoryTable(
+    private static Hex1bWidget BuildDebugDirectoryTable(
         WidgetContext<VStackWidget> ctx,
         DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmCustomSectionsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var merged = state.Analyzer.PreIlcCompanions is not null;
         var data = ApplySearch(GetDebugDirectoryRows(state), query,
@@ -564,8 +680,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<TypeDefInfo> BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildTypeDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmTypesTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.TypeDefs, query,
             t => $"{t.FullName} {t.BaseType} {t.Attributes}");
@@ -608,8 +727,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<MethodDefInfo> BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildMethodDefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmFunctionsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.MethodDefs, query,
             m => $"{m.DeclaringType} {m.Name} {m.Signature}");
@@ -652,8 +774,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<TypeRefInfo> BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildTypeRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmTablesTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.TypeRefs, query,
             t => $"{t.FullName} {t.ResolutionScope}");
@@ -689,8 +814,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<MemberRefInfo> BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildMemberRefsTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmMemoriesTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.MemberRefs, query,
             m => $"{m.DeclaringType} {m.Name}");
@@ -723,8 +851,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<CustomAttributeInfo> BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildAttributesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmGlobalsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.CustomAttributes, query,
             a => $"{a.Parent} {a.Constructor} {a.Value}");
@@ -759,8 +890,11 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<ResourceInfo> BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
+    private static Hex1bWidget BuildResourcesTable(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmDataSegmentsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.MetadataAnalyzer.Resources, query,
             r => $"{r.Name} {r.Visibility}");
@@ -797,6 +931,335 @@ public static class PeMetadataView
                 state.App.RequestFocus(node => node is EditorNode);
                 state.App.Invalidate();
             })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmTypeInfo> BuildWasmTypesTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Types, query, t => $"type {t.Index} {FormatWasmSignature(t.ParamTypes, t.ResultTypes)}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmTypeKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Params").Width(SizeHint.Fill),
+                h.Cell("Results").Width(SizeHint.Fill)
+            ])
+            .Row((r, t, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(t.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, FormatWasmTypes(t.ParamTypes), query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, FormatWasmTypes(t.ResultTypes), query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, t) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Type",
+                    $"Index: {t.Index}",
+                    $"Signature: {FormatWasmSignature(t.ParamTypes, t.ResultTypes)}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmFunctionInfo> BuildWasmFunctionsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Functions, query,
+            f => $"{f.Index} {f.Name} {f.NameSource} {f.ImportModule} {f.ImportName} {f.TypeIndex}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmFunctionKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Kind").Width(SizeHint.Fixed(9)),
+                h.Cell("Type").Width(SizeHint.Fixed(8)),
+                h.Cell("Offset").Width(SizeHint.Fixed(12)),
+                h.Cell("Size").Width(SizeHint.Fixed(10))
+            ])
+            .Row((r, f, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(f.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, f.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(f.IsImported ? "import" : "defined"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(f.TypeIndex?.ToString() ?? ""), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, f.CodeOffset is { } o ? $"0x{o:X}" : ""), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(f.CodeSize > 0 ? FormatSize(f.CodeSize, state) : ""), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, f) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Function",
+                    $"Index: {f.Index}",
+                    $"Name: {f.Name}",
+                    $"Name Source: {f.NameSource}",
+                    $"Kind: {(f.IsImported ? "import" : "defined")}",
+                    $"Import: {(f.IsImported ? $"{f.ImportModule}!{f.ImportName}" : "(none)")}",
+                    $"Type Index: {f.TypeIndex?.ToString() ?? "(none)"}",
+                    $"Signature: {FormatWasmSignature(f.ParamTypes, f.ResultTypes)}",
+                    $"Body Offset: {(f.BodyOffset is { } body ? $"0x{body:X}" : "(imported)")}",
+                    $"Body Size: {f.BodySize}",
+                    $"Code Offset: {(f.CodeOffset is { } code ? $"0x{code:X}" : "(imported)")}",
+                    $"Code Size: {f.CodeSize}",
+                    $"Exports: {(f.ExportNames.Count == 0 ? "(none)" : string.Join(", ", f.ExportNames))}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmTableInfo> BuildWasmTablesTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Tables, query, t => $"{t.Index} {t.RefType} {t.Minimum} {t.Maximum}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmTableKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Ref Type").Width(SizeHint.Fill),
+                h.Cell("Minimum").Width(SizeHint.Fixed(12)),
+                h.Cell("Maximum").Width(SizeHint.Fixed(12))
+            ])
+            .Row((r, t, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(t.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, t.RefType, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.Minimum.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.Maximum?.ToString() ?? ""), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmMemoryInfo> BuildWasmMemoriesTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Memories, query, m => $"{m.Index} {m.MinimumPages} {m.MaximumPages} {m.IsShared} {m.IsMemory64}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmMemoryKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Min Pages").Width(SizeHint.Fixed(12)),
+                h.Cell("Max Pages").Width(SizeHint.Fixed(12)),
+                h.Cell("Shared").Width(SizeHint.Fixed(9)),
+                h.Cell("Memory64").Width(SizeHint.Fixed(10))
+            ])
+            .Row((r, m, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(m.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(m.MinimumPages.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(m.MaximumPages?.ToString() ?? ""), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(m.IsShared ? "yes" : "no"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(m.IsMemory64 ? "yes" : "no"), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmGlobalInfo> BuildWasmGlobalsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Globals, query, g => $"{g.Index} {g.ValueTypeName} {g.IsMutable}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmGlobalKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Type").Width(SizeHint.Fill),
+                h.Cell("Mutable").Width(SizeHint.Fixed(10))
+            ])
+            .Row((r, g, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(g.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, g.ValueTypeName, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(g.IsMutable ? "yes" : "no"), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmDataSegmentInfo> BuildWasmDataSegmentsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.DataSegments, query, d => $"{d.Index} {d.Mode} {d.FileOffset:X} {d.Size}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmDataSegmentKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Mode").Width(SizeHint.Fill),
+                h.Cell("Offset").Width(SizeHint.Fixed(14)),
+                h.Cell("Size").Width(SizeHint.Fixed(12))
+            ])
+            .Row((r, d, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(d.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, d.Mode, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{d.FileOffset:X}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize(d.Size, state)), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmSectionInfo> BuildWasmCustomSectionsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(GetWasmCustomSections(wasm), query, s => $"{s.Id} {s.Name} {s.FileOffset:X} {s.Size}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmSectionKey)
+            .Header(h =>
+            [
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Offset").Width(SizeHint.Fixed(14)),
+                h.Cell("Size").Width(SizeHint.Fixed(12))
+            ])
+            .Row((r, s, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c, s.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, HexCell(c, $"0x{s.FileOffset:X}"), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(FormatSize(s.Size, state)), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, s) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Custom Section",
+                    $"Name: {s.Name}",
+                    $"File Offset: 0x{s.FileOffset:X}",
+                    $"Payload Size: {s.Size}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmElementSegmentInfo> BuildWasmElementsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Elements, query,
+            e => $"{e.Index} {e.Mode} {e.TableIndex} {e.ElementType} {e.ElementCount}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmElementKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Mode").Width(SizeHint.Fill),
+                h.Cell("Table").Width(SizeHint.Fixed(8)),
+                h.Cell("Type").Width(SizeHint.Fixed(14)),
+                h.Cell("Count").Width(SizeHint.Fixed(9))
+            ])
+            .Row((r, e, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(e.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, e.Mode, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(e.TableIndex?.ToString() ?? ""), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, e.ElementType, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(e.ElementCount.ToString()), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, e) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Element Segment",
+                    $"Index: {e.Index}",
+                    $"Mode: {e.Mode}",
+                    $"Table: {e.TableIndex?.ToString() ?? "(implicit)"}",
+                    $"Element Type: {e.ElementType}",
+                    $"Element Count: {e.ElementCount}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmTagInfo> BuildWasmTagsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Tags, query, t => $"{t.Index} {t.Attribute} {t.TypeIndex}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmTagKey)
+            .Header(h =>
+            [
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Attribute").Width(SizeHint.Fill),
+                h.Cell("Type").Width(SizeHint.Fixed(8))
+            ])
+            .Row((r, t, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(t.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, t.Attribute.ToString(), query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(t.TypeIndex.ToString()), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .Compact().Fill();
+    }
+
+    private static TableWidget<WasmModuleRow> BuildWasmModuleTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var rows = GetWasmModuleRows(wasm);
+        var data = ApplySearch(rows, query, r => $"{r.Field} {r.Value}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(r => GetWasmModuleInfoKey(r.Field))
+            .Header(h =>
+            [
+                h.Cell("Field").Width(SizeHint.Fixed(24)),
+                h.Cell("Value").Width(SizeHint.Fill)
+            ])
+            .Row((r, row, rs) =>
+            [
+                r.Cell(c => FocusHighlightCell(c, row.Field, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, row.Value, query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
             .Compact().Fill();
     }
 
@@ -849,31 +1312,57 @@ public static class PeMetadataView
         var metadataAnalyzer = state.MetadataAnalyzer;
         return state.PeSubTab switch
         {
+            PeSubTabId.Sections when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Sections, query,
+                s => $"{s.Id} {s.Name}").Select(s => (object)GetWasmSectionKey(s))],
             PeSubTabId.Sections => [.. ApplySearch(analyzer.Sections, query,
                 s => $"{s.Name} {s.Characteristics}").Select(s => (object)s.Name)],
+            PeSubTabId.TypeDef when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Types, query,
+                t => $"type {t.Index} {FormatWasmSignature(t.ParamTypes, t.ResultTypes)}").Select(t => (object)GetWasmTypeKey(t))],
             PeSubTabId.TypeDef => [.. ApplySearch(metadataAnalyzer.TypeDefs, query,
                 t => $"{t.FullName} {t.BaseType} {t.Attributes}").Select(t => (object)t.Token)],
+            PeSubTabId.MethodDef when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Functions, query,
+                f => $"{f.Index} {f.Name} {f.NameSource} {f.ImportModule} {f.ImportName} {f.TypeIndex}").Select(f => (object)GetWasmFunctionKey(f))],
             PeSubTabId.MethodDef => [.. ApplySearch(metadataAnalyzer.MethodDefs, query,
                 m => $"{m.DeclaringType} {m.Name} {m.Signature}").Select(m => (object)m.Token)],
+            PeSubTabId.TypeRef when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Tables, query,
+                t => $"{t.Index} {t.RefType} {t.Minimum} {t.Maximum}").Select(t => (object)GetWasmTableKey(t))],
             PeSubTabId.TypeRef => [.. ApplySearch(metadataAnalyzer.TypeRefs, query,
                 t => $"{t.FullName} {t.ResolutionScope}").Select(t => (object)t.Token)],
+            PeSubTabId.MemberRef when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Memories, query,
+                m => $"{m.Index} {m.MinimumPages} {m.MaximumPages} {m.IsShared} {m.IsMemory64}").Select(m => (object)GetWasmMemoryKey(m))],
             PeSubTabId.MemberRef => [.. ApplySearch(metadataAnalyzer.MemberRefs, query,
                 m => $"{m.DeclaringType} {m.Name}").Select(m => (object)m.Token)],
+            PeSubTabId.Attributes when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Globals, query,
+                g => $"{g.Index} {g.ValueTypeName} {g.IsMutable}").Select(g => (object)GetWasmGlobalKey(g))],
             PeSubTabId.Attributes => [.. ApplySearch(metadataAnalyzer.CustomAttributes, query,
                 a => $"{a.Parent} {a.Constructor} {a.Value}").Select(a => (object)$"{a.Parent}|{a.Constructor}")],
+            PeSubTabId.Resources when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.DataSegments, query,
+                d => $"{d.Index} {d.Mode} {d.FileOffset:X} {d.Size}").Select(d => (object)GetWasmDataSegmentKey(d))],
             PeSubTabId.Resources => [.. ApplySearch(metadataAnalyzer.Resources, query,
                 r => $"{r.Name} {r.Visibility}").Select(r => (object)r.Name)],
+            PeSubTabId.DebugDirectory when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(GetWasmCustomSections(wasm), query,
+                s => $"{s.Id} {s.Name} {s.FileOffset:X} {s.Size}").Select(s => (object)GetWasmSectionKey(s))],
             PeSubTabId.DebugDirectory => [.. ApplySearch(GetDebugDirectoryRows(state), query,
                 r => $"{r.Origin} {r.Info.Type} {r.Info.Stamp:X8} {r.Info.Payload}").Select(r => (object)GetDebugDirectoryRowKey(r))],
+            PeSubTabId.Imports when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Imports, query,
+                i => $"{i.ModuleName} {i.Name} {i.Kind}").Select(i => (object)GetWasmImportKey(i))],
             PeSubTabId.Imports => [.. ApplySearch(GetImportRows(analyzer), query,
                 r => $"{r.Module} {r.Function.Name}").Select(r => (object)r.Key)],
+            PeSubTabId.Exports when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Exports, query,
+                e => $"{e.Name} {e.Kind} {e.Index}").Select(e => (object)GetWasmExportKey(e))],
             PeSubTabId.Exports => [.. ApplySearch(analyzer.Exports, query,
                 e => $"{e.Name} {e.Ordinal} {e.ForwardedTo}").Select(e => (object)e.Ordinal)],
+            PeSubTabId.LoadConfig when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Elements, query,
+                e => $"{e.Index} {e.Mode} {e.TableIndex} {e.ElementType} {e.ElementCount}").Select(e => (object)GetWasmElementKey(e))],
             PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
                 [.. ApplySearch(GetLoadConfigRows(analyzer.LoadConfig), query,
                     r => $"{r.Field} {r.Value}").Select(r => (object)r.Field)],
+            PeSubTabId.RtrSections when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(wasm.Tags, query,
+                t => $"{t.Index} {t.Attribute} {t.TypeIndex}").Select(t => (object)GetWasmTagKey(t))],
             PeSubTabId.RtrSections => [.. ApplySearch(analyzer.ReadyToRunSections, query,
                 s => $"{s.SectionId} {s.Name}").Select(s => (object)s.SectionId)],
+            PeSubTabId.AotTypes when analyzer.WasmModuleInfo is { } wasm => [.. ApplySearch(GetWasmModuleRows(wasm), query,
+                r => $"{r.Field} {r.Value}").Select(r => (object)GetWasmModuleInfoKey(r.Field))],
             PeSubTabId.AotTypes => [.. ApplySearch(analyzer.RecoveredTypes, query,
                 t => t.FullName).Select(t => (object)t.FullName)],
             PeSubTabId.Symbols => [.. ApplySearch(GetSymbolRows(analyzer), query,
@@ -882,7 +1371,58 @@ public static class PeMetadataView
         };
     }
 
-    private static TableWidget<ImportRow> BuildImportsTable(
+    private static Hex1bWidget BuildImportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmImportsTable(ctx, state, wasm);
+
+        return BuildPeImportsTable(ctx, state);
+    }
+
+    private static TableWidget<WasmImportInfo> BuildWasmImportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Imports, query, i => $"{i.ModuleName} {i.Name} {i.Kind}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmImportKey)
+            .Header(h =>
+            [
+                h.Cell("Kind").Width(SizeHint.Fixed(10)),
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Module").Width(SizeHint.Fixed(26)),
+                h.Cell("Name").Width(SizeHint.Fill),
+                h.Cell("Type").Width(SizeHint.Fixed(8))
+            ])
+            .Row((r, i, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(i.Kind.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(i.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, i.ModuleName, query, true, rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, i.Name, query, true, rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(i.TypeIndex?.ToString() ?? ""), rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, i) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Import",
+                    $"Kind: {i.Kind}",
+                    $"Index: {i.Index}",
+                    $"Module: {i.ModuleName}",
+                    $"Name: {i.Name}",
+                    $"Type Index: {i.TypeIndex?.ToString() ?? "(none)"}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<ImportRow> BuildPeImportsTable(
         WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
@@ -922,7 +1462,52 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<ExportedFunctionInfo> BuildExportsTable(
+    private static Hex1bWidget BuildExportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state)
+    {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmExportsTable(ctx, state, wasm);
+
+        return BuildPeExportsTable(ctx, state);
+    }
+
+    private static TableWidget<WasmExportInfo> BuildWasmExportsTable(
+        WidgetContext<VStackWidget> ctx, DotsiderState state, WasmModuleInfo wasm)
+    {
+        var query = state.Search[TabId.PeMetadata].Query;
+        var data = ApplySearch(wasm.Exports, query, e => $"{e.Name} {e.Kind} {e.Index}");
+        state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
+
+        return ctx.Table(data)
+            .RowKey(GetWasmExportKey)
+            .Header(h =>
+            [
+                h.Cell("Kind").Width(SizeHint.Fixed(10)),
+                h.Cell("Index").Width(SizeHint.Fixed(8)),
+                h.Cell("Name").Width(SizeHint.Fill)
+            ])
+            .Row((r, e, rs) =>
+            [
+                r.Cell(c => FocusStyle(c, c.Text(e.Kind.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusStyle(c, c.Text(e.Index.ToString()), rs.IsFocused)),
+                r.Cell(c => FocusHighlightCell(c, e.Name, query, true, rs.IsFocused))
+            ])
+            .Focus(state.PeDetailContent is not null || state.App.FocusedNode is EditorNode ? null : state.PeFocusedKey)
+            .OnFocusChanged(key => state.PeFocusedKey = key)
+            .OnRowActivated((_, e) =>
+            {
+                state.PeDetailContent = string.Join("\n",
+                    "WebAssembly Export",
+                    $"Kind: {e.Kind}",
+                    $"Index: {e.Index}",
+                    $"Name: {e.Name}");
+                state.App.RequestFocus(node => node is EditorNode);
+                state.App.Invalidate();
+            })
+            .Compact().Fill();
+    }
+
+    private static TableWidget<ExportedFunctionInfo> BuildPeExportsTable(
         WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
         var query = state.Search[TabId.PeMetadata].Query;
@@ -962,9 +1547,12 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<LoadConfigRow> BuildLoadConfigTable(
+    private static Hex1bWidget BuildLoadConfigTable(
         WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmElementsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         IReadOnlyList<LoadConfigRow> rows = state.Analyzer.LoadConfig is { } loadConfig
             ? GetLoadConfigRows(loadConfig)
@@ -997,9 +1585,12 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<RtrSection> BuildRtrSectionsTable(
+    private static Hex1bWidget BuildRtrSectionsTable(
         WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmTagsTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.ReadyToRunSections, query, s => $"{s.SectionId} {s.Name}");
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
@@ -1039,9 +1630,12 @@ public static class PeMetadataView
             .Compact().Fill();
     }
 
-    private static TableWidget<RecoveredType> BuildAotTypesTable(
+    private static Hex1bWidget BuildAotTypesTable(
         WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmModuleTable(ctx, state, wasm);
+
         var query = state.Search[TabId.PeMetadata].Query;
         var data = ApplySearch(state.Analyzer.RecoveredTypes, query, t => t.FullName);
         state.Search[TabId.PeMetadata].SetMatchCount(data.Count);
@@ -1156,11 +1750,122 @@ public static class PeMetadataView
     private static string ImportFunctionDisplay(ImportedFunctionInfo function) =>
         function.Name ?? $"#{function.Ordinal}";
 
+    /// <summary>Builds a stable key for a WebAssembly section row.</summary>
+    private static string GetWasmSectionKey(WasmSectionInfo section) =>
+        $"{section.FileOffset}:{section.Id}:{section.Name}";
+
+    /// <summary>Builds a stable key for a WebAssembly type row.</summary>
+    private static string GetWasmTypeKey(WasmTypeInfo type) =>
+        $"wasm:type:{type.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly function row.</summary>
+    private static string GetWasmFunctionKey(WasmFunctionInfo function) =>
+        $"wasm:function:{function.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly table row.</summary>
+    private static string GetWasmTableKey(WasmTableInfo table) =>
+        $"wasm:table:{table.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly memory row.</summary>
+    private static string GetWasmMemoryKey(WasmMemoryInfo memory) =>
+        $"wasm:memory:{memory.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly global row.</summary>
+    private static string GetWasmGlobalKey(WasmGlobalInfo global) =>
+        $"wasm:global:{global.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly data-segment row.</summary>
+    private static string GetWasmDataSegmentKey(WasmDataSegmentInfo dataSegment) =>
+        $"wasm:data:{dataSegment.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly import row.</summary>
+    private static string GetWasmImportKey(WasmImportInfo import) =>
+        $"{import.Kind}:{import.Index}:{import.ModuleName}:{import.Name}";
+
+    /// <summary>Builds a stable key for a WebAssembly export row.</summary>
+    private static string GetWasmExportKey(WasmExportInfo export) =>
+        $"{export.Kind}:{export.Index}:{export.Name}";
+
+    /// <summary>Builds a stable key for a WebAssembly element-segment row.</summary>
+    private static string GetWasmElementKey(WasmElementSegmentInfo element) =>
+        $"wasm:element:{element.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly tag row.</summary>
+    private static string GetWasmTagKey(WasmTagInfo tag) =>
+        $"wasm:tag:{tag.Index}";
+
+    /// <summary>Builds a stable key for a WebAssembly module-summary row.</summary>
+    private static string GetWasmModuleInfoKey(string field) =>
+        $"wasm:module:{field}";
+
+    /// <summary>Returns custom sections for the WebAssembly custom-section table.</summary>
+    private static IReadOnlyList<WasmSectionInfo> GetWasmCustomSections(WasmModuleInfo wasm) =>
+        [.. wasm.Sections.Where(static s => s.Id == 0)];
+
+    /// <summary>Projects module-level WebAssembly facts into field/value rows.</summary>
+    private static IReadOnlyList<WasmModuleRow> GetWasmModuleRows(WasmModuleInfo wasm) =>
+    [
+        new("Version", wasm.Version.ToString()),
+        new("Sections", wasm.Sections.Count.ToString()),
+        new("Types", wasm.Types.Count.ToString()),
+        new("Functions", $"{wasm.Functions.Count} ({wasm.ImportedFunctionCount} imported, {wasm.DefinedFunctionCount} defined)"),
+        new("Tables", wasm.Tables.Count.ToString()),
+        new("Memories", wasm.Memories.Count.ToString()),
+        new("Globals", wasm.Globals.Count.ToString()),
+        new("Elements", wasm.Elements.Count.ToString()),
+        new("Data", $"{wasm.DataSegments.Count} segments, {wasm.DataSize} bytes"),
+        new("Tags", wasm.Tags.Count.ToString()),
+        new("Start", wasm.StartFunctionIndex?.ToString() ?? "(none)"),
+        new("Data Count", wasm.DataCount?.ToString() ?? "(none)"),
+        new("Symbol Map", wasm.SymbolMapStatus.ToString()),
+        new("Symbol Map Entries", wasm.SymbolMapEntryCount.ToString()),
+        new("Symbol Map Path", wasm.SymbolMapPath ?? "(none)"),
+        new("Target Features", wasm.TargetFeatures.Count == 0 ? "(none)" : string.Join(", ", wasm.TargetFeatures)),
+        new("Producers", wasm.ProducerFields.Count == 0 ? "(none)" : string.Join(", ", wasm.ProducerFields)),
+        new("Diagnostic", wasm.Diagnostic ?? "(none)")
+    ];
+
+    /// <summary>Formats a WebAssembly function signature for display.</summary>
+    private static string FormatWasmSignature(IReadOnlyList<byte> paramTypes, IReadOnlyList<byte> resultTypes) =>
+        $"({FormatWasmTypes(paramTypes)}) -> {FormatWasmTypes(resultTypes)}";
+
+    /// <summary>Formats WebAssembly value-type bytes for display.</summary>
+    private static string FormatWasmTypes(IReadOnlyList<byte> valueTypes) =>
+        valueTypes.Count == 0
+            ? "void"
+            : string.Join(", ", valueTypes.Select(FormatWasmType));
+
+    /// <summary>Formats a WebAssembly value-type byte for display.</summary>
+    private static string FormatWasmType(byte valueType) =>
+        valueType switch
+        {
+            0x7F => "i32",
+            0x7E => "i64",
+            0x7D => "f32",
+            0x7C => "f64",
+            0x7B => "v128",
+            0x70 => "funcref",
+            0x6F => "externref",
+            0x68 => "i31ref",
+            0x67 => "structref",
+            0x66 => "arrayref",
+            0x64 => "exnref",
+            0x63 => "anyref",
+            0x62 => "eqref",
+            0x6C => "nullexternref",
+            0x6D => "nullref",
+            0x6E => "nullfuncref",
+            _ => $"0x{valueType:X2}"
+        };
+
     /// <summary>A single imported function flattened with its owning module.</summary>
     private sealed record ImportRow(string Module, ImportedFunctionInfo Function, string Key);
 
     /// <summary>A load-configuration field projected for table display.</summary>
     private sealed record LoadConfigRow(string Field, string Value);
+
+    /// <summary>A WebAssembly module fact projected for table display.</summary>
+    private sealed record WasmModuleRow(string Field, string Value);
 
     private static string GetDebugDirectoryKey(DebugDirectoryInfo info) =>
         $"{info.Type}:{info.AddressOfRawData:X8}:{info.PointerToRawData:X8}";

@@ -466,6 +466,9 @@ public static class IlInspectorView
     /// <param name="state">The current application state.</param>
     internal static List<IlTreeRow> BuildNativeTreeRows(DotsiderState state)
     {
+        if (state.Analyzer.WasmModuleInfo is { } wasm)
+            return BuildWasmTreeRows(state, wasm);
+
         var rows = new List<IlTreeRow>();
         var info = state.Analyzer.NativeSymbols;
         if (info is null) return rows;
@@ -533,6 +536,113 @@ public static class IlInspectorView
         }
 
         return rows;
+    }
+
+    private static List<IlTreeRow> BuildWasmTreeRows(DotsiderState state, WasmModuleInfo wasm)
+    {
+        var rows = new List<IlTreeRow>();
+        var query = state.Search[TabId.IlInspector].Query ?? string.Empty;
+        IReadOnlyDictionary<long, NativeSymbol> symbolByOffset = state.Analyzer.NativeSymbols?.Symbols
+            .Where(static s => s.FileOffset is not null)
+            .ToDictionary(static s => s.FileOffset!.Value)
+            ?? [];
+
+        AddWasmImportRows(state, rows, wasm, query);
+        AddWasmFunctionGroup(state, rows, wasm, symbolByOffset, query,
+            "(exports)",
+            static f => !f.IsImported && f.IsExported,
+            static f => $"func[{f.Index}] {f.ExportNames[0]} -> {f.Name}");
+        AddWasmFunctionGroup(state, rows, wasm, symbolByOffset, query,
+            "(functions)",
+            static f => !f.IsImported && !f.IsExported && f.NameSource != "synthetic",
+            static f => $"func[{f.Index}] {f.Name}");
+        AddWasmFunctionGroup(state, rows, wasm, symbolByOffset, query,
+            "(synthetic)",
+            static f => !f.IsImported && !f.IsExported && f.NameSource == "synthetic",
+            static f => $"func[{f.Index}] {f.Name}");
+
+        return rows;
+    }
+
+    private static void AddWasmImportRows(
+        DotsiderState state,
+        List<IlTreeRow> rows,
+        WasmModuleInfo wasm,
+        string query)
+    {
+        var imports = wasm.Functions
+            .Where(static f => f.IsImported)
+            .Where(f => WasmFunctionMatches(f, query))
+            .OrderBy(static f => f.Index)
+            .ToList();
+        if (imports.Count == 0) return;
+
+        var groupKey = "wasm:imports";
+        var expanded = GetExpansionState(state, groupKey, defaultExpanded: query.Length > 0);
+        rows.Add(new IlTreeRow(groupKey, 0, IlTreeRowKind.Namespace,
+            "(imports)", null, CanExpand: true, IsExpanded: expanded, groupKey));
+        if (!expanded) return;
+
+        foreach (var byModule in imports.GroupBy(static f => f.ImportModule ?? "(module)", StringComparer.Ordinal))
+        {
+            var moduleKey = $"wasm:import-module:{byModule.Key}";
+            var moduleExpanded = GetExpansionState(state, moduleKey, defaultExpanded: query.Length > 0);
+            rows.Add(new IlTreeRow(moduleKey, 1, IlTreeRowKind.Type,
+                HighlightHelper.HighlightSubstring(byModule.Key, query), null,
+                CanExpand: true, IsExpanded: moduleExpanded, moduleKey));
+            if (!moduleExpanded) continue;
+
+            foreach (var function in byModule)
+            {
+                var label = $"func[{function.Index}] {function.ImportName ?? function.Name}";
+                rows.Add(new IlTreeRow($"wasm:import:{function.Index}", 2, IlTreeRowKind.Method,
+                    HighlightHelper.HighlightSubstring(label, query), null,
+                    CanExpand: false, IsExpanded: false, ""));
+            }
+        }
+    }
+
+    private static void AddWasmFunctionGroup(
+        DotsiderState state,
+        List<IlTreeRow> rows,
+        WasmModuleInfo wasm,
+        IReadOnlyDictionary<long, NativeSymbol> symbolByOffset,
+        string query,
+        string groupName,
+        Func<WasmFunctionInfo, bool> predicate,
+        Func<WasmFunctionInfo, string> label)
+    {
+        var functions = wasm.Functions
+            .Where(predicate)
+            .Where(f => f.CodeOffset is not null && symbolByOffset.ContainsKey(f.CodeOffset.Value))
+            .Where(f => WasmFunctionMatches(f, query))
+            .OrderBy(static f => f.Index)
+            .ToList();
+        if (functions.Count == 0) return;
+
+        var groupKey = $"wasm:{groupName}";
+        var expanded = GetExpansionState(state, groupKey, defaultExpanded: query.Length > 0);
+        rows.Add(new IlTreeRow(groupKey, 0, IlTreeRowKind.Namespace,
+            groupName, null, CanExpand: true, IsExpanded: expanded, groupKey));
+        if (!expanded) return;
+
+        foreach (var function in functions)
+        {
+            var symbol = symbolByOffset[function.CodeOffset!.Value];
+            var rowLabel = label(function);
+            rows.Add(new IlTreeRow($"wasm:func:{function.Index}", 1, IlTreeRowKind.Method,
+                HighlightHelper.HighlightSubstring(rowLabel, query), null,
+                CanExpand: false, IsExpanded: false, "", symbol));
+        }
+    }
+
+    private static bool WasmFunctionMatches(WasmFunctionInfo function, string query)
+    {
+        if (query.Length == 0) return true;
+        return function.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || function.ImportModule?.Contains(query, StringComparison.OrdinalIgnoreCase) == true
+            || function.ImportName?.Contains(query, StringComparison.OrdinalIgnoreCase) == true
+            || function.ExportNames.Any(e => e.Contains(query, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

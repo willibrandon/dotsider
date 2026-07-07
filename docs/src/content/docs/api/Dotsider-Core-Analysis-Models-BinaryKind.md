@@ -35,7 +35,7 @@ A native binary with no CLR metadata and no ReadyToRun header (apphost, unknown 
 **Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
 
 ```csharp
-Native = 3
+Native = 4
 ```
 
 ### NativeAot
@@ -46,7 +46,7 @@ whose image embeds a validated ReadyToRun header.
 **Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
 
 ```csharp
-NativeAot = 2
+NativeAot = 3
 ```
 
 ### ReadyToRun
@@ -59,5 +59,16 @@ the native bodies are additionally correlated to their managed methods.
 
 ```csharp
 ReadyToRun = 1
+```
+
+### Wasm
+
+A WebAssembly module, most commonly the `dotnet.native.wasm` runtime module from a
+.NET browser-wasm publish. It has native Wasm code but no ECMA-335 metadata of its own.
+
+**Returns:** [BinaryKind](/api/dotsider.core.analysis.models.binarykind/)
+
+```csharp
+Wasm = 2
 ```
 
