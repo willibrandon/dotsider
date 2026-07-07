@@ -780,7 +780,7 @@ jobs:
           }
 
           $commitJson = @{
-            message="Update willibrandon.dotsider to $version"
+            message="Update willibrandon.dotsider to $version [skip actions]"
             tree=$newTreeSha
             parents=@($forkRef)
           } | ConvertTo-Json -Compress
@@ -907,7 +907,7 @@ jobs:
           }
 
           $commitJson = @{
-            message="Update willibrandon.dotsider-mcp to $version"
+            message="Update willibrandon.dotsider-mcp to $version [skip actions]"
             tree=$newTreeSha
             parents=@($forkRef)
           } | ConvertTo-Json -Compress
