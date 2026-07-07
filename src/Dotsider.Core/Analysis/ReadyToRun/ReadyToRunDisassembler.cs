@@ -18,8 +18,8 @@ public static class ReadyToRunDisassembler
 
     /// <summary>
     /// Disassembles <paramref name="entry"/>'s ranges from <paramref name="codeImage"/>. Returns
-    /// null when no range is disassemblable (unsupported architecture or no file-backed bytes) —
-    /// callers distinguish that from "not precompiled".
+    /// null when no range is disassemblable, such as an unknown architecture or no file-backed
+    /// bytes, so callers can distinguish that state from "not precompiled".
     /// </summary>
     /// <param name="codeImage">The analyzer whose bytes hold the native code (self, or the owner composite).</param>
     /// <param name="entry">The method whose ranges to disassemble.</param>

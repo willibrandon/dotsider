@@ -1,0 +1,19 @@
+{
+  "architecture": "Arm32",
+  "baseAddress": "0x2000",
+  "hex": "70 B5 01 20 00 F0 00 F8 70 BD",
+  "oracle": {
+    "kind": "reviewed-runtime-thumb2",
+    "script": "scripts/Capture-DisasmOracle.cs"
+  },
+  "runtimeFiles": [
+    "src/coreclr/vm/arm/stubs.cpp",
+    "src/coreclr/pal/inc/rt/ntimage.h"
+  ],
+  "expected": [
+    { "offset": 0, "mnemonic": "push", "length": 2, "flow": "Sequential", "operandText": "{r4, r5, r6, lr}" },
+    { "offset": 2, "mnemonic": "movs", "length": 2, "flow": "Sequential", "operandText": "r0, #0x1" },
+    { "offset": 4, "mnemonic": "bl", "length": 4, "flow": "Call", "operandText": "0x2008", "target": "0x2008" },
+    { "offset": 8, "mnemonic": "pop", "length": 2, "flow": "Return", "operandText": "{r4, r5, r6, pc}" }
+  ]
+}

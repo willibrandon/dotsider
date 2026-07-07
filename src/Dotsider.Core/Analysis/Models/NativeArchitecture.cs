@@ -5,12 +5,6 @@ namespace Dotsider.Core.Analysis.Models;
 /// <see cref="NativeSymbolInfo"/> from the real image (or the selected fat-Mach-O slice) so the
 /// disassembler never has to guess from an ambiguous machine string.
 /// </summary>
-/// <remarks>
-/// Only <see cref="X64"/> and <see cref="Arm64"/> have decoders. The remaining values are
-/// report-only: an image (for example a ReadyToRun binary) can identify its real machine so the
-/// UI can say "disassembly unsupported for {arch}" rather than misreport it as
-/// <see cref="Unknown"/> or imply the code is absent.
-/// </remarks>
 public enum NativeArchitecture
 {
     /// <summary>The architecture could not be determined (managed or unrecognized image).</summary>
@@ -22,18 +16,18 @@ public enum NativeArchitecture
     /// <summary>AArch64 (ARM64). Disassembly supported.</summary>
     Arm64,
 
-    /// <summary>x86 (32-bit). Report-only; disassembly unsupported.</summary>
+    /// <summary>x86 (32-bit). Disassembly supported.</summary>
     X86,
 
-    /// <summary>ARM 32-bit (Thumb-2). Report-only; disassembly unsupported.</summary>
+    /// <summary>ARM 32-bit (Thumb-2). Disassembly supported.</summary>
     Arm32,
 
-    /// <summary>RISC-V 64-bit. Report-only; disassembly unsupported.</summary>
+    /// <summary>RISC-V 64-bit. Disassembly supported.</summary>
     RiscV64,
 
-    /// <summary>LoongArch 64-bit. Report-only; disassembly unsupported.</summary>
+    /// <summary>LoongArch 64-bit. Disassembly supported.</summary>
     LoongArch64,
 
-    /// <summary>WebAssembly 32-bit. Report-only; disassembly unsupported.</summary>
+    /// <summary>WebAssembly 32-bit. Disassembly supported.</summary>
     Wasm32,
 }

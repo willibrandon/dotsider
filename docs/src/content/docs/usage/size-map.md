@@ -39,7 +39,7 @@ With no symbol file either, unwind data still yields nameless function boundarie
 
 ## ReadyToRun images
 
-For a ReadyToRun (crossgen2) image the treemap sizes the **precompiled native code** — each method's code ranges summed and grouped under assembly > namespace > type — rather than IL bytes, so the map reflects what crossgen2 actually emitted.
+For a ReadyToRun (crossgen2) image the treemap sizes the **precompiled native code** — each method's hot, funclet, and cold code ranges summed and grouped under assembly > namespace > type — rather than IL bytes, so the map reflects what crossgen2 actually emitted. Composite images group by the resolved component assembly metadata.
 
 ## Comparing two builds
 

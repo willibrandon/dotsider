@@ -1,0 +1,77 @@
+# Scripts
+
+dotsider repository utilities are .NET file-based apps. They require the .NET 10
+SDK.
+
+The implementation follows the Microsoft file-based app guidance:
+
+https://learn.microsoft.com/en-us/dotnet/core/sdk/file-based-apps
+
+Run a utility with:
+
+```powershell
+dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
+```
+
+For automation or repeated invocations, build first and run without rebuilding:
+
+```powershell
+dotnet build ./scripts/Capture-DisasmOracle.cs --nologo --verbosity quiet
+dotnet run --file ./scripts/Capture-DisasmOracle.cs --no-build -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
+```
+
+The build-first pattern avoids file-based app cache contention when multiple
+processes might run the same utility at the same time.
+
+If the SDK cache gets stale or contested, clear all file-based app cache output:
+
+```powershell
+dotnet clean file-based-apps
+```
+
+To force a clean build for one utility:
+
+```powershell
+dotnet clean ./scripts/Capture-DisasmOracle.cs
+dotnet build ./scripts/Capture-DisasmOracle.cs
+```
+
+The executable utilities have a Unix shebang:
+
+```text
+#!/usr/bin/env -S dotnet --
+```
+
+The repository uses LF line endings through `.gitattributes`, which is required
+for direct Unix execution. On Unix-like systems, executable files can also be run
+directly after checkout when the executable bit is present:
+
+```bash
+./scripts/Capture-DisasmOracle.cs -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
+```
+
+Keep file-based apps under `scripts/`, outside project directories. The local
+`scripts/Directory.Build.props` intentionally isolates utility app settings from
+package metadata and project settings used by the shipped dotsider projects.
+
+Repository tests build every executable utility app with `dotnet build` and run
+stable fake-input coverage for the disassembly oracle capture app. When adding a
+utility, keep its top-level launcher thin and put behavior in a documented app
+class or documented helper methods so XML documentation and convention tests
+cover hoverable code.
+
+dotsider decoder tests prefer real sample assemblies over hand-written byte
+fixtures. The shared test fixture publishes cross-RID ReadyToRun samples for
+architecture-specific coverage when the SDK provides the RID packs. Use
+`Capture-DisasmOracle.cs` for architectures that require runtime-built inputs or
+external oracle captures, then review and promote the normalized artifacts into
+committed fixtures.
+
+Current utilities:
+
+| App | Purpose |
+| --- | --- |
+| `Capture-DisasmOracle.cs` | Capture external native-disassembly oracle output and metadata. |
+
+Oracle captures stay under ignored `artifacts/` paths until they have been
+reviewed and normalized into committed test fixtures.

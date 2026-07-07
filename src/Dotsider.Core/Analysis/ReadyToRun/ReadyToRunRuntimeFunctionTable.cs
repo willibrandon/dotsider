@@ -5,9 +5,9 @@ namespace Dotsider.Core.Analysis.ReadyToRun;
 /// <summary>
 /// The <c>RuntimeFunctions</c> section (102): a start-RVA-sorted table of precompiled code ranges.
 /// Each record is 12 bytes on amd64 (<c>Start</c>, <c>End</c>, <c>Unwind</c> RVAs) and 8 bytes
-/// elsewhere (<c>Start</c>, <c>Unwind</c>). A range's size is <c>End − Start</c> on amd64, and the
-/// gap to the next record's start otherwise (the final record is bounded by its file segment) —
-/// this avoids parsing per-architecture unwind info while keeping ranges correct.
+/// elsewhere (<c>Start</c>, <c>Unwind</c>). A range's size is <c>End − Start</c> on amd64. On other
+/// architectures, non-final ranges are bounded by the next runtime-function start; the final range
+/// is bounded by architecture unwind length so data after the last body is not treated as code.
 /// </summary>
 internal sealed class ReadyToRunRuntimeFunctionTable
 {
@@ -23,6 +23,7 @@ internal sealed class ReadyToRunRuntimeFunctionTable
         var count = sectionSize / recordSize;
         _startRva = new int[count];
         var endRva = arch == NativeArchitecture.X64 ? new int[count] : null;
+        var unwindRva = endRva is null ? new int[count] : null;
 
         for (var i = 0; i < count; i++)
         {
@@ -30,7 +31,7 @@ internal sealed class ReadyToRunRuntimeFunctionTable
             var start = ApplyStartFixup(reader.ReadInt32(ref offset), arch);
             _startRva[i] = start;
             endRva?[i] = reader.ReadInt32(ref offset);
-            // The unwind RVA (final dword) is not needed for range extents.
+            unwindRva?[i] = reader.ReadInt32(ref offset);
         }
 
         _size = new long[count];
@@ -41,6 +42,8 @@ internal sealed class ReadyToRunRuntimeFunctionTable
                 size = Math.Max(0, endRva[i] - _startRva[i]);
             else if (i + 1 < count)
                 size = Math.Max(0, _startRva[i + 1] - _startRva[i]);
+            else if (TryReadUnwindLength(reader, imageBase, addressSpace, arch, unwindRva![i], out var unwindLength))
+                size = unwindLength;
             else
                 size = 0;
 
@@ -66,5 +69,43 @@ internal sealed class ReadyToRunRuntimeFunctionTable
         // WASM stores the funclet flag in bit 31 and the virtual IP in bits 30:0.
         NativeArchitecture.Wasm32 => startRva & 0x7FFF_FFFF,
         _ => startRva,
-    };
+        };
+
+    private static bool TryReadUnwindLength(
+        R2RNativeReader reader,
+        ulong imageBase,
+        NativeAddressSpace addressSpace,
+        NativeArchitecture arch,
+        int unwindRva,
+        out long length)
+    {
+        length = 0;
+        if (!addressSpace.TryGetFileOffset(imageBase + (uint)unwindRva, out var offset, out _))
+            return false;
+
+        try
+        {
+            switch (arch)
+            {
+                case NativeArchitecture.X86:
+                    length = reader.DecodeUnsignedGc(ref offset);
+                    return length > 0;
+
+                case NativeArchitecture.Arm32:
+                {
+                    var header = reader.ReadInt32(ref offset);
+                    length = (header & 0x3FFFF) * 2L;
+                    return length > 0;
+                }
+
+                default:
+                    return false;
+            }
+        }
+        catch (BadImageFormatException)
+        {
+            length = 0;
+            return false;
+        }
+    }
 }

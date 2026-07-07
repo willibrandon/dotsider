@@ -49,7 +49,7 @@ its diagnostic rather than masquerading as plain managed.
 - `SectionCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The number of rows in the section table.
 - `Status` ([ReadyToRunStatus](/api/dotsider.core.analysis.models.readytorunstatus/)): The parse status.
 - `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string)): A human-readable explanation when the status is not [Valid](/api/dotsider.core.analysis.models.readytorunstatus.valid/), otherwise null.
-- `Architecture` ([NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)): The image's real machine architecture (report-only when it has no disassembler).
+- `Architecture` ([NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)): The image's real machine architecture.
 - `OwnerCompositeExecutable` ([String](https://learn.microsoft.com/dotnet/api/system.string)): For a component image, the filename of the composite that holds its native code, otherwise null.
 - `Sections` ([IReadOnlyList\<ReadyToRunSectionEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): The section table rows.
 - `Components` ([IReadOnlyList\<ReadyToRunComponent\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): The composite component assemblies, empty for a non-composite image.
@@ -64,7 +64,7 @@ public ReadyToRunInfo(uint Signature, int MajorVersion, int MinorVersion, uint F
 
 ### Architecture
 
-The image's real machine architecture (report-only when it has no disassembler).
+The image's real machine architecture.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 

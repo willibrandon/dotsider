@@ -228,6 +228,8 @@ public sealed class NativeImportResolver
 
         var wanted = architecture switch
         {
+            NativeArchitecture.X86 => 7u,             // CPU_TYPE_X86
+            NativeArchitecture.Arm32 => 12u,          // CPU_TYPE_ARM
             NativeArchitecture.X64 => 0x0100_0007u,   // CPU_TYPE_X86_64
             NativeArchitecture.Arm64 => 0x0100_000Cu, // CPU_TYPE_ARM64
             _ => 0u,

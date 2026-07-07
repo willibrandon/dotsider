@@ -1,0 +1,22 @@
+{
+  "architecture": "RiscV64",
+  "baseAddress": "0x4000",
+  "hex": "13 05 10 00 01 00 2F 36 B5 00 33 F5 C5 40 13 95 05 60 33 A5 C5 20 67 80 00 00",
+  "oracle": {
+    "kind": "reviewed-riscv-unprivileged-and-runtime",
+    "script": "scripts/Capture-DisasmOracle.cs"
+  },
+  "runtimeFiles": [
+    "src/coreclr/jit/emitfmtsriscv64.h",
+    "src/coreclr/pal/prebuilt/inc/cordebug.h"
+  ],
+  "expected": [
+    { "offset": 0, "mnemonic": "addi", "length": 4, "flow": "Sequential", "operandText": "a0, zero, 0x1" },
+    { "offset": 4, "mnemonic": "c.nop", "length": 2, "flow": "Sequential" },
+    { "offset": 6, "mnemonic": "amoadd.d", "length": 4, "flow": "Sequential", "operandText": "a2, a1, (a0)" },
+    { "offset": 10, "mnemonic": "andn", "length": 4, "flow": "Sequential", "operandText": "a0, a1, a2" },
+    { "offset": 14, "mnemonic": "clz", "length": 4, "flow": "Sequential", "operandText": "a0, a1" },
+    { "offset": 18, "mnemonic": "sh1add", "length": 4, "flow": "Sequential", "operandText": "a0, a1, a2" },
+    { "offset": 22, "mnemonic": "jalr", "length": 4, "flow": "Return", "operandText": "zero, 0(ra)" }
+  ]
+}

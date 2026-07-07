@@ -22,7 +22,7 @@ public enum NativeArchitecture
 
 ### Arm32
 
-ARM 32-bit (Thumb-2). Report-only; disassembly unsupported.
+ARM 32-bit (Thumb-2). Disassembly supported.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 
@@ -42,7 +42,7 @@ Arm64 = 2
 
 ### LoongArch64
 
-LoongArch 64-bit. Report-only; disassembly unsupported.
+LoongArch 64-bit. Disassembly supported.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 
@@ -52,7 +52,7 @@ LoongArch64 = 6
 
 ### RiscV64
 
-RISC-V 64-bit. Report-only; disassembly unsupported.
+RISC-V 64-bit. Disassembly supported.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 
@@ -72,7 +72,7 @@ Unknown = 0
 
 ### Wasm32
 
-WebAssembly 32-bit. Report-only; disassembly unsupported.
+WebAssembly 32-bit. Disassembly supported.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 
@@ -92,18 +92,11 @@ X64 = 1
 
 ### X86
 
-x86 (32-bit). Report-only; disassembly unsupported.
+x86 (32-bit). Disassembly supported.
 
 **Returns:** [NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/)
 
 ```csharp
 X86 = 3
 ```
-
-## Remarks
-
-Only [X64](/api/dotsider.core.analysis.models.nativearchitecture.x64/) and [Arm64](/api/dotsider.core.analysis.models.nativearchitecture.arm64/) have decoders. The remaining values are
-report-only: an image (for example a ReadyToRun binary) can identify its real machine so the
-UI can say "disassembly unsupported for {arch}" rather than misreport it as
-[Unknown](/api/dotsider.core.analysis.models.nativearchitecture.unknown/) or imply the code is absent.
 

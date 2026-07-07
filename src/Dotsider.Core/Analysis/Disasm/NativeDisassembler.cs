@@ -7,7 +7,7 @@ namespace Dotsider.Core.Analysis.Disasm;
 
 /// <summary>
 /// Disassembles a native code window into <see cref="NativeInstruction"/>s and a rendered listing,
-/// dispatching to the table-driven x86-64 and A64 decoders. The listing mirrors the IL disassembly
+/// dispatching to the architecture-specific decoders. The listing mirrors the IL disassembly
 /// shape (<c>IlDisassembler.DisassembleWithText</c>): an optional header, then one line per
 /// instruction, <c>loc_…:</c> labels for intra-function targets, and each rendered line's column
 /// spans recorded on <see cref="NativeInstruction.Layout"/> so the TUI decorates structurally.
@@ -35,16 +35,14 @@ public static class NativeDisassembler
         var windowEnd = baseAddress + (ulong)code.Length;
         var offset = 0;
 
-        // Only x64 and AArch64 have decoders; any other architecture (the report-only R2R arches —
-        // x86, arm32, riscv64, loongarch64, wasm32) must not be silently decoded as x64. Skip the
-        // decode loop so the tail renders every byte as .byte rather than fabricating instructions.
-        var decodable = arch is NativeArchitecture.X64 or NativeArchitecture.Arm64;
+        var decodable = NativeDecoderRegistry.IsSupported(arch);
 
         try
         {
             while (decodable && offset < code.Length && result.Count < MaxInstructions)
             {
-                var insn = DecodeOne(arch, code, offset, baseAddress);
+                if (!NativeDecoderRegistry.TryDecode(arch, code, offset, baseAddress, out var insn))
+                    break;
                 var length = insn.Length < 1 ? 1 : insn.Length;
                 result.Add(insn.Length < 1 ? insn with { Length = 1 } : insn);
                 offset += length;
@@ -141,9 +139,7 @@ public static class NativeDisassembler
         var arch = info.Architecture != NativeArchitecture.Unknown
             ? info.Architecture
             : MapArchitecture(analyzer.Architecture);
-        // Only x64/AArch64 decode; a report-only architecture reports unsupported rather than
-        // decoding its bytes as x64 (which would fabricate plausible-but-wrong instructions).
-        if (arch is not (NativeArchitecture.X64 or NativeArchitecture.Arm64)) return null;
+        if (!NativeDecoderRegistry.IsSupported(arch)) return null;
 
         // A composite component's symbols carry offsets into the owner composite, not this file — the
         // native code lives in the code image. Slice (and resolve imports) from there for R2R.
@@ -244,7 +240,16 @@ public static class NativeDisassembler
     private static NativeArchitecture MapArchitecture(string architecture) => architecture.ToUpperInvariant() switch
     {
         "X64" => NativeArchitecture.X64,
+        "X86" => NativeArchitecture.X86,
+        "I386" => NativeArchitecture.X86,
         "ARM64" => NativeArchitecture.Arm64,
+        "ARM" => NativeArchitecture.Arm32,
+        "ARM32" => NativeArchitecture.Arm32,
+        "RISCV64" => NativeArchitecture.RiscV64,
+        "RISC-V64" => NativeArchitecture.RiscV64,
+        "LOONGARCH64" => NativeArchitecture.LoongArch64,
+        "WASM32" => NativeArchitecture.Wasm32,
+        "WASM" => NativeArchitecture.Wasm32,
         _ => NativeArchitecture.Unknown,
     };
 
@@ -274,50 +279,6 @@ public static class NativeDisassembler
 
         return name;
     }
-
-    /// <summary>
-    /// Decodes a single instruction at <paramref name="offset"/>, dispatching to the per-arch
-    /// decoder. The A64 decoder lands later; until then A64 uses the exact-width word fallback.
-    /// </summary>
-    private static NativeInstruction DecodeOne(
-        NativeArchitecture arch, ReadOnlySpan<byte> code, int offset, ulong baseAddress) =>
-        arch == NativeArchitecture.Arm64
-            ? arm64.Arm64Decoder.Decode(code, offset, baseAddress + (ulong)offset)
-            : x64.XarchDecoder.Decode(code, offset, baseAddress + (ulong)offset);
-
-    /// <summary>One-byte <c>.byte 0x..</c> safety net for x64.</summary>
-    private static NativeInstruction FallbackByte(ReadOnlySpan<byte> code, int offset, ulong baseAddress)
-    {
-        var b = code[offset];
-        return Fallback(baseAddress + (ulong)offset, [b], ".byte", $"0x{b:x2}");
-    }
-
-    /// <summary>One 32-bit <c>.word 0x........</c> safety net for A64 (or bytes at a truncated tail).</summary>
-    private static NativeInstruction FallbackWord(ReadOnlySpan<byte> code, int offset, ulong baseAddress)
-    {
-        if (offset + 4 > code.Length)
-        {
-            var b = code[offset];
-            return Fallback(baseAddress + (ulong)offset, [b], ".byte", $"0x{b:x2}");
-        }
-
-        var word = (uint)(code[offset] | (code[offset + 1] << 8) | (code[offset + 2] << 16) | (code[offset + 3] << 24));
-        return Fallback(baseAddress + (ulong)offset, [.. code.Slice(offset, 4)], ".word", $"0x{word:x8}");
-    }
-
-    private static NativeInstruction Fallback(ulong address, byte[] bytes, string mnemonic, string operandText) =>
-        new(
-            Address: address,
-            Rva: null,
-            FileOffset: null,
-            Bytes: bytes,
-            Length: bytes.Length,
-            Mnemonic: mnemonic,
-            Operands: [new NativeOperand(NativeOperandKind.Immediate, operandText)],
-            OperandText: operandText,
-            Category: NativeInstructionCategory.Unknown,
-            Flow: NativeFlowKind.Sequential,
-            IsFallback: true);
 
     /// <summary>
     /// Names each instruction's target and refines its kind: a target inside the window becomes a

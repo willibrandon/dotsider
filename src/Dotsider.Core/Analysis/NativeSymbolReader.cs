@@ -50,8 +50,12 @@ public static class NativeSymbolReader
         if (peOffset < 0 || peOffset + 6 > image.Length) return NativeArchitecture.Unknown;
         return BinaryPrimitives.ReadUInt16LittleEndian(image[(peOffset + 4)..]) switch
         {
+            0x014C => NativeArchitecture.X86,
+            0x01C0 or 0x01C2 or 0x01C4 => NativeArchitecture.Arm32,
             0x8664 => NativeArchitecture.X64,
             0xAA64 => NativeArchitecture.Arm64,
+            0x5064 => NativeArchitecture.RiscV64,
+            0x6264 => NativeArchitecture.LoongArch64,
             _ => NativeArchitecture.Unknown,
         };
     }
@@ -61,8 +65,12 @@ public static class NativeSymbolReader
         span.Length < 20 ? NativeArchitecture.Unknown
             : BinaryPrimitives.ReadUInt16LittleEndian(span[18..]) switch
             {
+                3 => NativeArchitecture.X86,       // EM_386
+                40 => NativeArchitecture.Arm32,    // EM_ARM
                 62 => NativeArchitecture.X64,    // EM_X86_64
                 183 => NativeArchitecture.Arm64, // EM_AARCH64
+                243 => NativeArchitecture.RiscV64, // EM_RISCV
+                258 => NativeArchitecture.LoongArch64, // EM_LOONGARCH
                 _ => NativeArchitecture.Unknown,
             };
 
@@ -71,6 +79,8 @@ public static class NativeSymbolReader
         thin.Length < 8 ? NativeArchitecture.Unknown
             : BinaryPrimitives.ReadUInt32LittleEndian(thin[4..]) switch
             {
+                7 => NativeArchitecture.X86,          // CPU_TYPE_X86
+                12 => NativeArchitecture.Arm32,       // CPU_TYPE_ARM
                 0x0100_0007 => NativeArchitecture.X64,   // CPU_TYPE_X86_64
                 0x0100_000C => NativeArchitecture.Arm64, // CPU_TYPE_ARM64
                 _ => NativeArchitecture.Unknown,

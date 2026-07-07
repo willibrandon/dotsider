@@ -25,7 +25,7 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `get_assembly_info` | Name, version, framework, architecture, member counts |
+| `get_assembly_info` | Name, version, framework, architecture, binary kind, and member counts |
 | `list_types` | Type definitions with optional name filter and limit |
 | `list_methods` | Method definitions with optional type/name filter |
 | `find_members` | Search types, methods, and member refs by query string |
@@ -65,6 +65,20 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 | `list_native_aot_sections` | Native AOT ReadyToRun module sections with VA, size, and file offset |
 | `get_native_aot_size_contributors` | Top mstat contributors, with optional filters and DGML why chains |
 | `explain_native_aot_size` | Explain why a type, method, frozen object, or data node is rooted in the binary |
+
+### Native disassembly
+
+| Tool | Description |
+|------|-------------|
+| `get_native_symbols` | Native symbols from Native AOT, ReadyToRun, and native binaries |
+| `get_native_disassembly` | Native disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32 |
+
+### Correlation
+
+| Tool | Description |
+|------|-------------|
+| `correlate_method` | Native AOT pre-ILC IL beside native code when build sidecars are available |
+| `correlate_r2r_method` | ReadyToRun IL beside all precompiled native ranges for a method, token, or address |
 
 ### Strings
 

@@ -28,8 +28,8 @@ public static class ReadyToRunDisassembler
 ### DisassembleMethod(AssemblyAnalyzer, ReadyToRunMethodEntry, Func\<ulong, string?\>?)
 
 Disassembles entry's ranges from codeImage. Returns
-null when no range is disassemblable (unsupported architecture or no file-backed bytes) —
-callers distinguish that from "not precompiled".
+null when no range is disassemblable, such as an unknown architecture or no file-backed
+bytes, so callers can distinguish that state from "not precompiled".
 
 **Parameters:**
 

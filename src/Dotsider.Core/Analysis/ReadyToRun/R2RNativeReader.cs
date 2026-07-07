@@ -154,6 +154,26 @@ internal sealed class R2RNativeReader(ReadOnlyMemory<byte> image)
     }
 
     /// <summary>
+    /// Decodes the compact unsigned integer codec used by ReadyToRun GC and unwind payloads.
+    /// Each byte contributes seven value bits, with bit 7 indicating continuation.
+    /// The method advances <paramref name="offset"/> past the encoded integer.
+    /// </summary>
+    /// <param name="offset">The current image offset, advanced past the encoded value.</param>
+    public uint DecodeUnsignedGc(ref int offset)
+    {
+        var data = ReadByte(ref offset);
+        uint value = (uint)data & 0x7F;
+        while ((data & 0x80) != 0)
+        {
+            data = ReadByte(ref offset);
+            value <<= 7;
+            value += (uint)data & 0x7F;
+        }
+
+        return value;
+    }
+
+    /// <summary>
     /// Reads an ECMA-335 compressed unsigned integer at <paramref name="offset"/> (the codec R2R
     /// signatures use), advancing it. The high bits of the first byte select a 1-, 2-, or 4-byte form.
     /// </summary>

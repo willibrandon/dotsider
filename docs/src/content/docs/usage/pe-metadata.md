@@ -19,7 +19,7 @@ The **PE / Metadata** tab (`2`) exposes the raw structure of the Portable Execut
 - **Imports** — the native import table, one row per imported function with module, hint, and ordinal
 - **Exports** — the native export table, including forwarders and ordinal-only exports
 - **Load Config** — the load configuration directory: security cookie, SEH handler count, and decoded Control Flow Guard flags
-- **R2R Sections** — the ReadyToRun section table of a Native AOT binary, each region's id, virtual address, size, and file offset
+- **R2R Sections** — the ReadyToRun section table of a Native AOT or crossgen2 ReadyToRun image, each region's id, virtual address, size, and file offset
 - **AOT Types** — types recovered from a Native AOT binary's embedded metadata; press Enter to see a type's methods
 - **Symbols** — native symbols with addresses, sizes, and kinds, demangled to managed names where the binary's own metadata allows; press Enter for the mangled name, aliases, section, and source location
 
@@ -27,7 +27,7 @@ Imports and Exports need no CLR header, so they light up for native apphosts and
 
 R2R Sections and AOT Types apply to Native AOT binaries. ILC strips ECMA-335 metadata, but every AOT image embeds a ReadyToRun header that locates its runtime regions, and the reflection and stack-trace metadata it keeps still names the binary's own types and methods — so a stripped binary describes itself. Both work on every platform where the data is file-backed. For a crossgen2 ReadyToRun image the R2R Sections tab lists its classic section table instead (RuntimeFunctions, MethodDefEntryPoints, ImportSections, and the composite tables), each with its id, virtual address, size, and file offset.
 
-Symbols reads whichever artifact the platform's publish produced — a native PDB on Windows, a `.dbg` ELF sidecar on Linux, or a dSYM bundle on macOS — after validating it against the binary's identity (PDB GUID and age, GNU build id / debuglink CRC, or Mach-O UUID; a mismatching file is rejected, never misread). ILC's mangled names are demangled by joining against the binary's own recovered metadata, so a managed name is marked exact only when the join is unambiguous. Functions carry their declaring source file and line when the symbol file records them. Without a symbol file, unwind data (`.pdata`, `.eh_frame`, or `LC_FUNCTION_STARTS`) still recovers nameless function boundaries — enough for counts and size histograms, though unwind data can miss leaf and thunk functions.
+Symbols reads whichever artifact the platform's publish produced — a native PDB on Windows, a `.dbg` ELF sidecar on Linux, or a dSYM bundle on macOS — after validating it against the binary's identity (PDB GUID and age, GNU build id / debuglink CRC, or Mach-O UUID; a mismatching file is rejected, never misread). ILC's mangled names are demangled by joining against the binary's own recovered metadata, so a managed name is marked exact only when the join is unambiguous. ReadyToRun symbols come from the runtime-function map and carry the owning MethodDef token. Functions carry their declaring source file and line when the symbol file records them. Without a symbol file, unwind data (`.pdata`, `.eh_frame`, or `LC_FUNCTION_STARTS`) still recovers nameless function boundaries — enough for counts and size histograms, though unwind data can miss leaf and thunk functions.
 
 ## Text selection and copy
 

@@ -25,6 +25,9 @@ dotsider analyze MyApp.dll --deps           # assembly references
 dotsider analyze MyApp.dll --strings        # extract strings
 dotsider analyze MyApp.dll --fields         # field definitions
 dotsider analyze MyApp.dll --size           # size breakdown
+dotsider analyze MyAotApp.exe --symbols     # native symbols
+dotsider analyze MyAotApp.exe --disasm Type.Method # native disassembly
+dotsider analyze MyR2RApp.dll --r2r-correlate Type.Method # ReadyToRun IL + native
 dotsider analyze MyApp.dll --bundle         # single-file bundle manifest
 dotsider analyze MyApp.dll --json           # JSON output
 dotsider analyze MyApp.dll -o report.txt    # write to file
