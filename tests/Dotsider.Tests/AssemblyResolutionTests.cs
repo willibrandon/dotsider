@@ -1,9 +1,9 @@
+using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
-using Dotsider.Core.Analysis;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Tests;
 

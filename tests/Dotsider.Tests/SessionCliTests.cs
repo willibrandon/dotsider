@@ -1,6 +1,6 @@
+using Dotsider.Infrastructure;
 using System.Diagnostics;
 using System.Text.Json;
-using Dotsider.Infrastructure;
 
 namespace Dotsider.Tests;
 

@@ -1,7 +1,7 @@
-using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
+using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 

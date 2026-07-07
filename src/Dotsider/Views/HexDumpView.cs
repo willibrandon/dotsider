@@ -1,8 +1,8 @@
-using System.Diagnostics;
-using System.Globalization;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Widgets;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace Dotsider.Views;
 

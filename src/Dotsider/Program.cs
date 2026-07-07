@@ -1,12 +1,12 @@
-using System.Collections.Concurrent;
-using System.CommandLine;
-using System.Text;
 using Dotsider;
 using Dotsider.Commands;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Diagnostics;
+using System.Collections.Concurrent;
+using System.CommandLine;
+using System.Text;
 
 Console.OutputEncoding = Encoding.UTF8;
 

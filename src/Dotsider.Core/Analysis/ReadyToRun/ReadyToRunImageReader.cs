@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
-using System.Reflection.Metadata;
 using Dotsider.Core.Analysis.Models;
+using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Core.Analysis.ReadyToRun;
 

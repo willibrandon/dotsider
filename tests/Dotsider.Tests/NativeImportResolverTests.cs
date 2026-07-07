@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
-using System.Text;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
+using System.Buffers.Binary;
+using System.Text;
 
 namespace Dotsider.Tests;
 

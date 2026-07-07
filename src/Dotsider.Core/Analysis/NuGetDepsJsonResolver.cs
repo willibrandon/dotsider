@@ -1,6 +1,6 @@
+using Dotsider.Core.Analysis.Models;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

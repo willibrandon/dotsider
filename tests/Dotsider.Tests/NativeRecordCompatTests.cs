@@ -1,5 +1,5 @@
-using System.Reflection.PortableExecutable;
 using Dotsider.Core.Analysis.Models;
+using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Tests;
 

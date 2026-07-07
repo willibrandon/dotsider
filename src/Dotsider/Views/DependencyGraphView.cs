@@ -1,4 +1,3 @@
-using System.Text;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Input;
@@ -6,6 +5,7 @@ using Hex1b.Nodes;
 using Hex1b.Surfaces;
 using Hex1b.Theming;
 using Hex1b.Widgets;
+using System.Text;
 
 namespace Dotsider.Views;
 

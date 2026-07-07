@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Diagnostics;
 
 namespace Dotsider.Benchmarks;
 

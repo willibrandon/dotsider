@@ -1,7 +1,3 @@
-using System.IO.Pipelines;
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Text.Json;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Protocol;
 using Dotsider.Mcp;
@@ -10,6 +6,10 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using System.IO.Pipelines;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace Dotsider.Benchmarks;
 

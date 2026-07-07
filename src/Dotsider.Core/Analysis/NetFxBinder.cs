@@ -1,6 +1,6 @@
+using Dotsider.Core.Analysis.Models;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

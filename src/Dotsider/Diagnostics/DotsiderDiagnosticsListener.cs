@@ -1,8 +1,8 @@
-using System.Net.Sockets;
-using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
+using System.Net.Sockets;
+using System.Text.Json;
 
 namespace Dotsider.Diagnostics;
 

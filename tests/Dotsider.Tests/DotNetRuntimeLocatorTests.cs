@@ -1,5 +1,5 @@
-using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 

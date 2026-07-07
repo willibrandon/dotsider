@@ -1,6 +1,6 @@
+using Dotsider.Core.Protocol;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using Dotsider.Core.Protocol;
 
 namespace Dotsider.Core.Analysis;
 

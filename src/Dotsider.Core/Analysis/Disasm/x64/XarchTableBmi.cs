@@ -1,7 +1,7 @@
 namespace Dotsider.Core.Analysis.Disasm.x64;
 
-using K = OperandKind;
 using F = OpFlags;
+using K = OperandKind;
 
 /// <summary>
 /// Registers BMI1, BMI2, and the ADX opcodes. The BMI ops are VEX-encoded but keep their plain

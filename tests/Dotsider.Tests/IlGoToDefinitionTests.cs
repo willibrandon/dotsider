@@ -1,5 +1,3 @@
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
@@ -8,6 +6,8 @@ using Hex1b.Automation;
 using Hex1b.Documents;
 using Hex1b.Input;
 using Hex1b.Widgets;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Dotsider.Tests;
 

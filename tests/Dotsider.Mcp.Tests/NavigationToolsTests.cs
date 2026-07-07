@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Dotsider.Core.Analysis;
 using Dotsider.Diagnostics;
 using Hex1b;
 using Hex1b.Widgets;
+using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
 

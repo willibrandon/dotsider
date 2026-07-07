@@ -1,5 +1,5 @@
-using System.Text.Json;
 using Dotsider.Core.Protocol;
+using System.Text.Json;
 
 namespace Dotsider.Infrastructure;
 

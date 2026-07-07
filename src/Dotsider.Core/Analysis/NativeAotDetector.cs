@@ -1,7 +1,7 @@
+using Dotsider.Core.Analysis.Models;
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.RegularExpressions;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

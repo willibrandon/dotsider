@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using Dotsider.Diagnostics;
 using Hex1b;
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 

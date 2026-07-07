@@ -1,8 +1,8 @@
-using System.Runtime.InteropServices;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
 using Hex1b.Widgets;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 

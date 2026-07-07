@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Analysis.NativePdb;
+using System.Buffers.Binary;
 
 namespace Dotsider.Benchmarks;
 

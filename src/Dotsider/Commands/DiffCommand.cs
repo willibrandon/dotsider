@@ -1,10 +1,10 @@
-using System.CommandLine;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Diagnostics;
+using System.CommandLine;
 
 namespace Dotsider.Commands;
 

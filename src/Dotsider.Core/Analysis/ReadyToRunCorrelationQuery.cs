@@ -1,7 +1,7 @@
-using System.Globalization;
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Analysis.ReadyToRun;
+using System.Globalization;
 
 namespace Dotsider.Core.Analysis;
 

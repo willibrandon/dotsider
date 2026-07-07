@@ -1,8 +1,8 @@
-using System.IO.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using System.IO.Pipelines;
 
 namespace Dotsider.Mcp.Tests;
 

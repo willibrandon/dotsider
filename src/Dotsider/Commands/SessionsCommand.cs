@@ -1,7 +1,7 @@
-using System.CommandLine;
-using System.Text.Json;
 using Dotsider.Core.Protocol;
 using Dotsider.Infrastructure;
+using System.CommandLine;
+using System.Text.Json;
 
 namespace Dotsider.Commands;
 

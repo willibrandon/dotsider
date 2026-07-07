@@ -1,9 +1,9 @@
-using System.Collections.Concurrent;
-using System.Threading.Channels;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
+using System.Collections.Concurrent;
+using System.Threading.Channels;
 
 namespace Dotsider.Tests;
 

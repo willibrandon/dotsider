@@ -1,6 +1,6 @@
-using System.Reflection;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Reflection;
 
 namespace Dotsider.Tests;
 
