@@ -46,7 +46,7 @@ jobs:
             os: ubuntu-latest
             artifact: dotsider-linux-arm64
           - rid: osx-arm64
-            os: macos-latest
+            os: macos-26
             artifact: dotsider-osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
@@ -681,6 +681,73 @@ jobs:
           $branch = "dotsider-$version"
           $manifestDir = "manifests/w/willibrandon/dotsider/$version"
 
+          function Upsert-WingetBranch {
+            param(
+              [Parameter(Mandatory=$true)][string]$Branch,
+              [Parameter(Mandatory=$true)][string]$Sha
+            )
+
+            $refPath = "heads/$Branch"
+            $updated = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $updated; $attempt++) {
+              gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --silent 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                gh api "repos/willibrandon/winget-pkgs/git/refs/$refPath" -X PATCH -f sha="$Sha" -F force=true --silent
+              } else {
+                gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/$refPath" -f sha="$Sha" --silent
+              }
+
+              $updated = $LASTEXITCODE -eq 0
+              if (-not $updated -and $attempt -lt 3) {
+                Write-Host "Winget branch upsert failed on attempt $attempt; retrying..."
+                Start-Sleep -Seconds 2
+              }
+            }
+
+            if (-not $updated) {
+              throw "Failed to create or update winget branch $Branch"
+            }
+
+            $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha'
+            if ($LASTEXITCODE -ne 0 -or $resolvedSha -ne $Sha) {
+              throw "Winget branch $Branch points to $resolvedSha, expected $Sha"
+            }
+
+            Write-Host "Branch $Branch updated to $Sha"
+          }
+
+          function New-WingetPullRequest {
+            param(
+              [Parameter(Mandatory=$true)][string]$Branch,
+              [Parameter(Mandatory=$true)][string]$Title,
+              [Parameter(Mandatory=$true)][string]$Body
+            )
+
+            $existingJson = gh api "repos/microsoft/winget-pkgs/pulls?state=open&head=willibrandon:$Branch&base=master" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $existing = $existingJson | ConvertFrom-Json | Select-Object -First 1
+              if ($existing) {
+                Write-Host "Winget PR already exists: $($existing.html_url)"
+                return
+              }
+            }
+
+            @{
+              title = $Title
+              head = "willibrandon:$Branch"
+              base = "master"
+              body = $Body
+              maintainer_can_modify = $true
+            } | ConvertTo-Json -Compress | Out-File -FilePath winget-pr.json -Encoding utf8NoBOM
+
+            $prUrl = gh api repos/microsoft/winget-pkgs/pulls -X POST --input winget-pr.json --jq '.html_url'
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create winget PR for $Branch"
+            }
+
+            Write-Host "Created winget PR: $prUrl"
+          }
+
           Write-Host "Syncing fork with upstream..."
           gh api repos/willibrandon/winget-pkgs/merge-upstream -X POST -f branch="master"
 
@@ -707,6 +774,10 @@ jobs:
           $newTree = gh api repos/willibrandon/winget-pkgs/git/trees -X POST --input tree.json
           $newTreeSha = $newTree | ConvertFrom-Json | Select-Object -ExpandProperty sha
           Write-Host "New tree SHA: $newTreeSha"
+          if ($newTreeSha -eq $baseTreeSha) {
+            Write-Host "No dotsider winget manifest changes to submit."
+            exit 0
+          }
 
           $commitJson = @{
             message="Update willibrandon.dotsider to $version"
@@ -718,13 +789,7 @@ jobs:
           $newCommitSha = $newCommit | ConvertFrom-Json | Select-Object -ExpandProperty sha
           Write-Host "New commit SHA: $newCommitSha"
 
-          $refExists = gh api "repos/willibrandon/winget-pkgs/git/ref/heads/$branch" 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh api "repos/willibrandon/winget-pkgs/git/refs/heads/$branch" -X PATCH -f sha="$newCommitSha" -F force=true
-          } else {
-            gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/heads/$branch" -f sha="$newCommitSha"
-          }
-          Write-Host "Branch $branch updated to $newCommitSha"
+          Upsert-WingetBranch -Branch $branch -Sha $newCommitSha
 
           $exists = "${{ steps.check.outputs.exists }}"
           if ($exists -eq "true") {
@@ -735,12 +800,7 @@ jobs:
             $prBody = "## Description`n`nAdd dotsider version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
           }
 
-          gh pr create `
-            --repo microsoft/winget-pkgs `
-            --base master `
-            --head willibrandon:$branch `
-            --title $prTitle `
-            --body $prBody
+          New-WingetPullRequest -Branch $branch -Title $prTitle -Body $prBody
 
       - name: Submit dotsider-mcp winget PR via GitHub API
         shell: pwsh
@@ -750,6 +810,73 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $branch = "dotsider-mcp-$version"
           $manifestDir = "manifests-mcp/w/willibrandon/dotsider-mcp/$version"
+
+          function Upsert-WingetBranch {
+            param(
+              [Parameter(Mandatory=$true)][string]$Branch,
+              [Parameter(Mandatory=$true)][string]$Sha
+            )
+
+            $refPath = "heads/$Branch"
+            $updated = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $updated; $attempt++) {
+              gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --silent 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                gh api "repos/willibrandon/winget-pkgs/git/refs/$refPath" -X PATCH -f sha="$Sha" -F force=true --silent
+              } else {
+                gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/$refPath" -f sha="$Sha" --silent
+              }
+
+              $updated = $LASTEXITCODE -eq 0
+              if (-not $updated -and $attempt -lt 3) {
+                Write-Host "Winget branch upsert failed on attempt $attempt; retrying..."
+                Start-Sleep -Seconds 2
+              }
+            }
+
+            if (-not $updated) {
+              throw "Failed to create or update winget branch $Branch"
+            }
+
+            $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha'
+            if ($LASTEXITCODE -ne 0 -or $resolvedSha -ne $Sha) {
+              throw "Winget branch $Branch points to $resolvedSha, expected $Sha"
+            }
+
+            Write-Host "Branch $Branch updated to $Sha"
+          }
+
+          function New-WingetPullRequest {
+            param(
+              [Parameter(Mandatory=$true)][string]$Branch,
+              [Parameter(Mandatory=$true)][string]$Title,
+              [Parameter(Mandatory=$true)][string]$Body
+            )
+
+            $existingJson = gh api "repos/microsoft/winget-pkgs/pulls?state=open&head=willibrandon:$Branch&base=master" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $existing = $existingJson | ConvertFrom-Json | Select-Object -First 1
+              if ($existing) {
+                Write-Host "Winget PR already exists: $($existing.html_url)"
+                return
+              }
+            }
+
+            @{
+              title = $Title
+              head = "willibrandon:$Branch"
+              base = "master"
+              body = $Body
+              maintainer_can_modify = $true
+            } | ConvertTo-Json -Compress | Out-File -FilePath winget-pr-mcp.json -Encoding utf8NoBOM
+
+            $prUrl = gh api repos/microsoft/winget-pkgs/pulls -X POST --input winget-pr-mcp.json --jq '.html_url'
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create winget PR for $Branch"
+            }
+
+            Write-Host "Created winget PR: $prUrl"
+          }
 
           $forkRef = gh api repos/willibrandon/winget-pkgs/git/ref/heads/master --jq '.object.sha'
           Write-Host "Fork master SHA: $forkRef"
@@ -774,6 +901,10 @@ jobs:
           $newTree = gh api repos/willibrandon/winget-pkgs/git/trees -X POST --input tree-mcp.json
           $newTreeSha = $newTree | ConvertFrom-Json | Select-Object -ExpandProperty sha
           Write-Host "New tree SHA: $newTreeSha"
+          if ($newTreeSha -eq $baseTreeSha) {
+            Write-Host "No dotsider-mcp winget manifest changes to submit."
+            exit 0
+          }
 
           $commitJson = @{
             message="Update willibrandon.dotsider-mcp to $version"
@@ -785,13 +916,7 @@ jobs:
           $newCommitSha = $newCommit | ConvertFrom-Json | Select-Object -ExpandProperty sha
           Write-Host "New commit SHA: $newCommitSha"
 
-          $refExists = gh api "repos/willibrandon/winget-pkgs/git/ref/heads/$branch" 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh api "repos/willibrandon/winget-pkgs/git/refs/heads/$branch" -X PATCH -f sha="$newCommitSha" -F force=true
-          } else {
-            gh api repos/willibrandon/winget-pkgs/git/refs -X POST -f ref="refs/heads/$branch" -f sha="$newCommitSha"
-          }
-          Write-Host "Branch $branch updated to $newCommitSha"
+          Upsert-WingetBranch -Branch $branch -Sha $newCommitSha
 
           $exists = "${{ steps.check_mcp.outputs.exists }}"
           if ($exists -eq "true") {
@@ -802,9 +927,4 @@ jobs:
             $prBody = "## Description`n`nAdd dotsider-mcp version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
           }
 
-          gh pr create `
-            --repo microsoft/winget-pkgs `
-            --base master `
-            --head willibrandon:$branch `
-            --title $prTitle `
-            --body $prBody
+          New-WingetPullRequest -Branch $branch -Title $prTitle -Body $prBody
