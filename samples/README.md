@@ -9,10 +9,17 @@ Sample .NET projects used as test fixtures for dotsider's analysis, diff, and tr
 | [EmptyLib](EmptyLib/) | Library | Minimal metadata edge cases (near-empty assembly) |
 | [MinimalApi](MinimalApi/) | ASP.NET Web | Web SDK analysis, middleware, record types, route endpoints |
 | [NativeLib](NativeLib/) | Library | P/Invoke, unsafe code, pointer arithmetic, fixed buffers |
+| [HardwareIntrinsics](HardwareIntrinsics/) | Console app | SIMD, hardware intrinsic, and vectorized code paths for native decoder coverage |
 | [RichLibrary](RichLibrary/) | Library (NuGet) | Feature-rich baseline: generics, attributes, extension methods, dual JSON serializers |
 | [RichLibraryV2](RichLibraryV2/) | Library | Breaking changes from RichLibrary v1 for assembly diff testing |
 | [NetFxConsole](NetFxConsole/) | Console app (.NET Fx) | .NET Framework 4.8 target for Dynamic tab guard testing |
-| [NativeAotConsole](NativeAotConsole/) | Console app (NativeAOT) | NativeAOT-published binary for Dynamic tab tracing tests |
+| [NativeAotConsole](NativeAotConsole/) | Console app (Native AOT) | Native AOT executable with mstat/DGML sidecars, pre-ILC companion metadata, native symbols, source maps, and IL/native correlation |
+| [NativeAotConsoleV2](NativeAotConsoleV2/) | Console app (Native AOT) | Versioned Native AOT fixture paired with NativeAotConsole for size-diff regressions and dependency-chain reporting |
+| [NativeAotArtifactsConsole](NativeAotArtifactsConsole/) | Console app (Native AOT, artifacts output) | UseArtifactsOutput fixture proving obj-tree sidecar discovery without sibling-copied mstat/DGML files |
+| [NativeAotLibrary](NativeAotLibrary/) | Native AOT library | Native library output (`.dll`, `.so`, `.dylib`) with exported unmanaged entry points and tree/rsp sidecar probing |
+| [ReadyToRunConsole](ReadyToRunConsole/) | Console app (ReadyToRun) | Non-composite crossgen2 fixture for method-to-native-body maps, cross-RID decoder coverage, apphost redirect, and browser-wasm runtime module coverage |
+| [ReadyToRunComposite](ReadyToRunComposite/) | Console app (composite ReadyToRun) | Composite crossgen2 image that resolves component assemblies by name and MVID in both directions |
+| [ReadyToRunComponentLib](ReadyToRunComponentLib/) | Library (composite ReadyToRun component) | Component metadata fixture used by the composite image and owner-composite resolution tests |
 | [Dotted.Name.App](Dotted.Name.App/) | Console app | Dotted assembly name for cross-platform apphost detection testing |
 | [SelfContainedConsole](SelfContainedConsole/) | Console app (single-file) | Self-contained single-file bundle for bundle reading and resolution testing |
 | [AppLocalRollForward](AppLocalRollForward/) | Library | Reproduces the AppLocal framework-PKT roll-forward scenario: TraceEvent's stale `AssemblyRef` to `Microsoft.Diagnostics.NETCore.Client v0.2.10.10501` paired with a higher app-local deployment (`v0.2.13.11903`) under the same well-known framework PKT |
@@ -33,4 +40,5 @@ Sample .NET projects used as test fixtures for dotsider's analysis, diff, and tr
 | [NetFxBindingRedirects.Clr2.CulturedLib](NetFxBindingRedirects.Clr2.CulturedLib/) | Library (.NET Fx 3.5) | Neutral + French satellite for CLR 2 culture-aware probing. Satellite is built via the v3.5 framework `csc.exe` (the SDK's `al.exe` only emits CLR4 metadata); the build target skips on hosts without the legacy framework toolchain |
 
 All managed samples target .NET 10 with nullable reference types enabled unless noted otherwise.
+Native-code fixture publishes are intentionally tolerant. The shared test fixture attempts the current RID, `win-x86`, `linux-arm`, `linux-riscv64`, `linux-loongarch64`, and `browser-wasm` where relevant; missing runtime packs or workloads leave those paths null and the dependent tests skip with a targeted reason. The committed disassembly oracle fixtures under `tests/Dotsider.Tests/Fixtures/Disasm` cover architectures that the public SDK cannot always publish locally.
 The `NetFxBindingRedirects*` projects build only on Windows: the six original projects target `net48` (CLR 4); the eight `NetFxBindingRedirects.Clr2*` siblings target `net35` (CLR 2). Both cohorts compile against the `Microsoft.NETFramework.ReferenceAssemblies` package so neither requires a Windows SDK install; the CLR 2 satellite-build step further requires .NET Framework 3.5 to be enabled on the build host (skipped cleanly otherwise).

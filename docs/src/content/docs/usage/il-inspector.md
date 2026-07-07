@@ -44,7 +44,7 @@ Press `/` to search method names or IL content. Matches are highlighted in both 
 
 ## Native mode (Native AOT)
 
-Open a Native AOT binary and tab `3` is labeled **Disassembly** in native mode: the left tree lists the recovered **functions** bucketed namespace → type → function (managed-named functions parsed from the symbols), plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. Selecting a function disassembles it to real x86-64 or AArch64 assembly on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
+Open a Native AOT binary and tab `3` is labeled **Disassembly** in native mode: the left tree lists the recovered **functions** bucketed namespace → type → function (managed-named functions parsed from the symbols), plus `(runtime)`, `(stubs)`, and `(functions)` buckets for the rest. Selecting a function disassembles it to real native code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, or Wasm32 on the right, with the same subtle syntax highlighting as the IL pane — address, mnemonic, registers, immediates, and the resolved target comment.
 
 Call and branch targets are resolved to names: a direct call shows `call Foo`, a target landing inside a function shows `Foo+0x12`, an intra-function jump becomes a synthesized `loc_…` label, a RIP-relative load names the referenced data symbol, and an indirect call through the import table resolves to `MODULE!Function`. Where the debug sidecar carries line data, `// file:line` annotations mark the source.
 

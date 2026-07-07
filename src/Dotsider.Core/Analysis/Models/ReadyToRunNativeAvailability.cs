@@ -19,6 +19,6 @@ public enum ReadyToRunNativeAvailability
     /// <summary>The owning component's metadata could not be resolved by name and MVID.</summary>
     ComponentMetadataUnavailable,
 
-    /// <summary>The method is precompiled, but its architecture has no disassembler.</summary>
+    /// <summary>The method is precompiled, but the image architecture could not be identified.</summary>
     ArchUnsupported,
 }

@@ -10,7 +10,7 @@ sidebar:
 ### [NativeDisassembler](/api/dotsider.core.analysis.disasm.nativedisassembler/)
 
 Disassembles a native code window into [NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/)s and a rendered listing,
-dispatching to the table-driven x86-64 and A64 decoders. The listing mirrors the IL disassembly
+dispatching to the architecture-specific decoders. The listing mirrors the IL disassembly
 shape (`IlDisassembler.DisassembleWithText`): an optional header, then one line per
 instruction, `loc_…:` labels for intra-function targets, and each rendered line's column
 spans recorded on [Layout](/api/dotsider.core.analysis.models.nativeinstruction.layout/) so the TUI decorates structurally.

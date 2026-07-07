@@ -43,7 +43,7 @@ Grab a standalone binary from [Releases](https://github.com/willibrandon/dotside
 
 dotsider opens any .NET DLL or EXE and lets you explore it across 8 tabs. Apphost executables are handled as first-class inputs: when an `.exe` has no .NET metadata, dotsider offers to open the companion managed `.dll`. Self-contained single-file apps work too — dotsider reads the bundle, extracts the entry assembly, and analyzes it directly.
 
-Native AOT binaries get native treatment instead of an empty metadata view. dotsider validates the embedded ReadyToRun header, walks the runtime sections, surfaces imports, exports, load config, recovered AOT types, recovered methods, and frozen string literals, then renders x86-64 or AArch64 disassembly for native functions.
+Native AOT binaries get native treatment instead of an empty metadata view. dotsider validates the embedded ReadyToRun header, walks the runtime sections, surfaces imports, exports, load config, recovered AOT types, recovered methods, and frozen string literals, then renders native disassembly for every .NET architecture it recognizes: x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32.
 
 When the Native AOT build tree is available, dotsider can attach the pre-ILC managed assemblies plus their mstat/DGML sidecars. That fills the metadata tabs from the original managed inputs and shows each method's IL beside its native code.
 
@@ -53,7 +53,7 @@ ReadyToRun (crossgen2) images keep their full managed metadata, and dotsider joi
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, load config, ReadyToRun sections, and recovered AOT types. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL / Native** | The label reflects the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when IL is paired with native code. Managed assemblies show a namespace/type/method tree with IL disassembly, PDB source spans, Source Link markers, locals, go-to-definition, and hex jumps. Native AOT binaries list recovered functions and render real **x86-64 or AArch64 disassembly** (from-scratch x64 and A64 decoders, including VEX/EVEX and SVE) with named call/branch/data targets, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. ReadyToRun images keep the managed tree, mark precompiled methods, and show IL beside native ranges (hot, funclets, cold). Attached pre-ILC sidecars do the same for Native AOT methods. |
+| **3 IL / Native** | The label reflects the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when IL is paired with native code. Managed assemblies show a namespace/type/method tree with IL disassembly, PDB source spans, Source Link markers, locals, go-to-definition, and hex jumps. Native AOT binaries list recovered functions and render real native disassembly for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32 with named call/branch/data targets, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. ReadyToRun images keep the managed tree, mark precompiled methods, and show IL beside native ranges (hot, funclets, cold). Attached pre-ILC sidecars do the same for Native AOT methods. |
 | **4 Strings** | User strings, metadata strings, raw ASCII and UTF-16 binary scans, and frozen AOT string literals, with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -225,7 +225,7 @@ dotsider starts with the low-level APIs that ship with .NET, then layers its own
 - **`System.Reflection.Metadata`** provides `MetadataReader` for traversing ECMA-335 metadata tables (types, methods, references, custom attributes, string heaps)
 - **`System.Reflection.PortableExecutable`** provides `PEReader` for PE structure (COFF header, sections, CLR header, method bodies)
 - Custom Native AOT and ReadyToRun readers parse RTR section tables, recovered NativeFormat metadata, frozen objects, mstat/DGML sidecars, native symbols, and precompiled method maps
-- From-scratch x86-64 and AArch64 decoders render native disassembly for AOT and R2R code
+- From-scratch native decoders render AOT and R2R code for x64, Arm64, x86, Arm32/Thumb-2, RISC-V64, LoongArch64, and Wasm32
 - **`System.IO.Compression`** handles NuGet packages (which are just ZIP files containing a `.nuspec` manifest and DLLs)
 
 The dynamic analysis tab uses `Microsoft.Diagnostics.NETCore.Client` to connect to a running .NET process via EventPipe — the same diagnostic infrastructure that powers `dotnet-trace` and `dotnet-counters`. It launches your assembly with a reverse-connect diagnostic port, so events are captured from the very first instruction.
@@ -351,7 +351,15 @@ tests/Dotsider.Mcp.Tests/
 dotnet test
 ```
 
-Integration tests run against real .NET assemblies. The test fixture builds all sample projects automatically. First run takes longer due to NuGet restore; subsequent runs use cache.
+Integration tests run against real .NET assemblies. The test fixture builds all sample projects automatically, including cross-RID ReadyToRun publishes for architecture-specific native decoder coverage when the SDK has the required packs. First run takes longer due to NuGet restore; subsequent runs use cache.
+
+Native-disassembly goldens are regenerated explicitly with the .NET file-based oracle tool:
+
+```powershell
+dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
+```
+
+Set `DOTSIDER_RUNTIME_ROOT` when the runtime clone is not at `D:\SRC\runtime`. The tool records the oracle command, SDK version, runtime commit, and normalized output beside the golden so decoder changes stay reviewable. See `scripts/README.md` for the build-first form used by automation.
 
 ## Samples
 

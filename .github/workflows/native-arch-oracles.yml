@@ -1,0 +1,181 @@
+name: Native architecture oracles
+
+on:
+  workflow_dispatch:
+    inputs:
+      architectures:
+        description: Comma-separated architectures to capture.
+        required: true
+        default: wasm32,riscv64,loongarch64
+      runtime-ref:
+        description: dotnet/runtime ref for optional runtime cross-target builds.
+        required: true
+        default: main
+      run-runtime-cross-target:
+        description: Build runtime cross-target artifacts for RISC-V64 and LoongArch64.
+        type: boolean
+        required: true
+        default: false
+  schedule:
+    - cron: '37 8 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  sdk-oracles:
+    name: SDK oracle captures
+    runs-on: ubuntu-latest
+    env:
+      ARCHITECTURES: ${{ github.event.inputs.architectures || 'wasm32,riscv64,loongarch64' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install oracle tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm
+          dotnet workload install wasm-tools --skip-manifest-update
+
+      - name: Build oracle capture app
+        run: dotnet build ./scripts/Capture-DisasmOracle.cs --nologo --verbosity quiet
+
+      - name: Capture SDK-produced oracles
+        shell: bash
+        run: |
+          set -euo pipefail
+          archs="$(echo "${ARCHITECTURES}" | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
+          mkdir -p artifacts/oracles/disasm
+          : > artifacts/oracles/disasm/skips.md
+
+          contains_arch() {
+            [[ ",${archs}," == *",$1,"* ]]
+          }
+
+          capture_oracle() {
+            local architecture="$1"
+            local fixture="$2"
+            shift 2
+            dotnet run --file ./scripts/Capture-DisasmOracle.cs --no-build -- \
+              -Architecture "${architecture}" \
+              -Fixture "${fixture}" \
+              -OraclePath llvm-objdump \
+              -OutputDirectory artifacts/oracles/disasm \
+              -AllowOracleFailure \
+              -- "$@" "${fixture}"
+          }
+
+          if contains_arch wasm32; then
+            dotnet publish samples/ReadyToRunConsole -c Release -r browser-wasm --self-contained true -p:PublishReadyToRun=false
+            wasm_fixture="samples/ReadyToRunConsole/bin/Release/net10.0/browser-wasm/publish/dotnet.native.wasm"
+            if [[ -f "${wasm_fixture}" ]]; then
+              capture_oracle wasm32 "${wasm_fixture}" -d --no-show-raw-insn
+            else
+              echo "- wasm32: browser-wasm publish did not produce dotnet.native.wasm." >> artifacts/oracles/disasm/skips.md
+            fi
+          fi
+
+          for item in "riscv64 linux-riscv64" "loongarch64 linux-loongarch64"; do
+            read -r architecture rid <<< "${item}"
+            if ! contains_arch "${architecture}"; then
+              continue
+            fi
+
+            set +e
+            dotnet publish samples/ReadyToRunConsole -c Release -r "${rid}" --self-contained true
+            publish_status=$?
+            set -e
+
+            fixture="samples/ReadyToRunConsole/bin/Release/net10.0/${rid}/publish/ReadyToRunConsole.dll"
+            if [[ ${publish_status} -eq 0 && -f "${fixture}" ]]; then
+              capture_oracle "${architecture}" "${fixture}" -d --no-show-raw-insn
+            else
+              {
+                echo "- ${architecture}: SDK publish for ${rid} was unavailable on this runner."
+                echo "  Use the optional runtime-cross-target job or a local runtime clone to produce reviewed inputs."
+              } >> artifacts/oracles/disasm/skips.md
+            fi
+          done
+
+      - name: Upload SDK oracle artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-architecture-sdk-oracles
+          path: artifacts/oracles/disasm
+
+  runtime-cross-target:
+    name: Runtime cross-target artifacts (${{ matrix.arch }})
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs['run-runtime-cross-target'] == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: riscv64
+            container: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-riscv64@sha256:7d882ca090cfc0fb146dcb0c4fa97f4bd1b9c160822d0652d21d666897bf7f
+            rootfs: /crossrootfs/riscv64
+          - arch: loongarch64
+            container: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-loongarch64@sha256:58b88c4c24c81d5e610ac7a3f0cc92ae234c6a070510f01e3fd2a750262edd3b
+            rootfs: /crossrootfs/loongarch64
+    container:
+      image: ${{ matrix.container }}
+      env:
+        ROOTFS_DIR: ${{ matrix.rootfs }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: dotsider
+
+      - uses: actions/checkout@v6
+        with:
+          repository: dotnet/runtime
+          ref: ${{ github.event.inputs['runtime-ref'] || 'main' }}
+          path: runtime
+
+      - name: Build runtime cross-target artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd runtime
+          ./build.sh --subset clr+libs --configuration Release --cross --arch "${{ matrix.arch }}" --os linux --bootstrap
+
+      - name: Collect runtime artifact locations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dotsider/artifacts/oracles/runtime-cross-target
+          {
+            echo "# Runtime cross-target ${matrix_arch}"
+            echo
+            echo "runtime_ref=${runtime_ref}"
+            echo "rootfs=${rootfs}"
+            echo
+            echo "## crossgen2"
+            find runtime/artifacts -path '*crossgen2*' -print | sort || true
+            echo
+            echo "## r2rdump"
+            find runtime/artifacts \( -name 'r2rdump' -o -name 'r2rdump.dll' \) -print | sort || true
+          } > "dotsider/artifacts/oracles/runtime-cross-target/${matrix_arch}.md"
+        env:
+          matrix_arch: ${{ matrix.arch }}
+          runtime_ref: ${{ github.event.inputs['runtime-ref'] || 'main' }}
+          rootfs: ${{ matrix.rootfs }}
+
+      - name: Upload runtime cross-target artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-architecture-runtime-${{ matrix.arch }}
+          path: |
+            dotsider/artifacts/oracles/runtime-cross-target
+            runtime/artifacts/log

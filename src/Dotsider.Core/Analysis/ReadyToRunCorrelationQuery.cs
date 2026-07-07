@@ -149,10 +149,10 @@ public static class ReadyToRunCorrelationQuery
             availability = ReadyToRunNativeAvailability.OwnerCompositeMissing;
             diagnostic = "owner composite missing; native code unavailable";
         }
-        else if (codeImage.ReadyToRunInfo?.Architecture is not (NativeArchitecture.X64 or NativeArchitecture.Arm64))
+        else if (codeImage.ReadyToRunInfo?.Architecture is NativeArchitecture.Unknown)
         {
             availability = ReadyToRunNativeAvailability.ArchUnsupported;
-            diagnostic = $"precompiled; disassembly unsupported for {codeImage.ReadyToRunInfo?.Architecture}";
+            diagnostic = "precompiled; architecture unknown";
         }
         else
         {

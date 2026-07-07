@@ -17,7 +17,7 @@ namespace Dotsider.Core.Analysis.Models;
 /// <param name="SectionCount">The number of rows in the section table.</param>
 /// <param name="Status">The parse status.</param>
 /// <param name="Diagnostic">A human-readable explanation when the status is not <see cref="ReadyToRunStatus.Valid"/>, otherwise null.</param>
-/// <param name="Architecture">The image's real machine architecture (report-only when it has no disassembler).</param>
+/// <param name="Architecture">The image's real machine architecture.</param>
 /// <param name="OwnerCompositeExecutable">For a component image, the filename of the composite that holds its native code, otherwise null.</param>
 /// <param name="Sections">The section table rows.</param>
 /// <param name="Components">The composite component assemblies, empty for a non-composite image.</param>

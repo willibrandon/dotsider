@@ -1,0 +1,27 @@
+{
+  "architecture": "Wasm32",
+  "baseAddress": "0x0",
+  "hex": "02 40 20 02 41 2A 10 03 FC 08 01 00 FD 00 04 10 FD 0C 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F FD 15 03 FB 00 01 FB 02 02 03 FB 18 00 01 02 0B",
+  "oracle": {
+    "kind": "reviewed-runtime-r2rdump-wasm",
+    "script": "scripts/Capture-DisasmOracle.cs"
+  },
+  "runtimeFiles": [
+    "src/coreclr/tools/r2rdump/WasmDisassembler.cs",
+    "src/coreclr/tools/aot/ILCompiler.ReadyToRun/Compiler/DependencyAnalysis/ReadyToRun/WasmImportThunk.cs"
+  ],
+  "expected": [
+    { "offset": 0, "mnemonic": "block", "length": 2, "flow": "Sequential", "operandText": "empty" },
+    { "offset": 2, "mnemonic": "local.get", "length": 2, "flow": "Sequential", "operandText": "#2" },
+    { "offset": 4, "mnemonic": "i32.const", "length": 2, "flow": "Sequential", "operandText": "0x2a" },
+    { "offset": 6, "mnemonic": "call", "length": 2, "flow": "Call", "operandText": "#3" },
+    { "offset": 8, "mnemonic": "memory.init", "length": 4, "flow": "Sequential", "operandText": "data 1, memory 0" },
+    { "offset": 12, "mnemonic": "v128.load", "length": 4, "flow": "Sequential", "operandText": "align=16, offset=16" },
+    { "offset": 16, "mnemonic": "v128.const", "length": 18, "flow": "Sequential", "operandText": "0x000102030405060708090a0b0c0d0e0f" },
+    { "offset": 34, "mnemonic": "i8x16.extract_lane_s", "length": 3, "flow": "Sequential", "operandText": "lane 3" },
+    { "offset": 37, "mnemonic": "struct.new", "length": 3, "flow": "Sequential", "operandText": "type 1" },
+    { "offset": 40, "mnemonic": "struct.get", "length": 4, "flow": "Sequential", "operandText": "type 2, field 3" },
+    { "offset": 44, "mnemonic": "br_on_cast", "length": 5, "flow": "ConditionalBranch", "operandText": "label 0, from 1, to 2" },
+    { "offset": 49, "mnemonic": "end", "length": 1, "flow": "Sequential" }
+  ]
+}

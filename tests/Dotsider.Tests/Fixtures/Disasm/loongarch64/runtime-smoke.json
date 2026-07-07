@@ -1,0 +1,22 @@
+{
+  "architecture": "LoongArch64",
+  "baseAddress": "0x6000",
+  "hex": "00 00 40 03 64 40 C0 02 65 20 00 28 24 00 00 1A 85 08 00 58 00 10 00 54 61 20 00 2B",
+  "oracle": {
+    "kind": "reviewed-r2rdump-loongarch64-quirks",
+    "script": "scripts/Capture-DisasmOracle.cs"
+  },
+  "runtimeFiles": [
+    "src/coreclr/tools/r2rdump/CoreDisTools.cs",
+    "src/coreclr/pal/prebuilt/inc/cordebug.h"
+  ],
+  "expected": [
+    { "offset": 0, "mnemonic": "nop", "length": 4, "flow": "Sequential" },
+    { "offset": 4, "mnemonic": "addi.d", "length": 4, "flow": "Sequential", "operandText": "r4, sp, 0x10" },
+    { "offset": 8, "mnemonic": "ld.b", "length": 4, "flow": "Sequential", "operandText": "r5, 8(sp)" },
+    { "offset": 12, "mnemonic": "pcalau12i", "length": 4, "flow": "Sequential", "operandText": "r4, 0x1000" },
+    { "offset": 16, "mnemonic": "beq", "length": 4, "flow": "ConditionalBranch", "operandText": "r4, r5, 0x6018", "target": "0x6018" },
+    { "offset": 20, "mnemonic": "bl", "length": 4, "flow": "Call", "operandText": "0x6024", "target": "0x6024" },
+    { "offset": 24, "mnemonic": "fld.s", "length": 4, "flow": "Sequential", "operandText": "f1, 8(sp)" }
+  ]
+}

@@ -14,7 +14,7 @@ internal static class ReadyToRunSymbolBuilder
 {
     /// <summary>Builds the R2R native symbol info from the method entries.</summary>
     /// <param name="methods">The precompiled method entries with their code ranges.</param>
-    /// <param name="architecture">The image's architecture (disassembly needs X64 or Arm64).</param>
+    /// <param name="architecture">The image's architecture.</param>
     /// <param name="mapUsable">Whether the method map parsed from a valid image; false → diagnostic status.</param>
     /// <param name="diagnostic">A reason to carry when <paramref name="mapUsable"/> is false.</param>
     public static NativeSymbolInfo Build(
@@ -67,11 +67,11 @@ internal static class ReadyToRunSymbolBuilder
 
         symbols.Sort(static (a, b) => a.VirtualAddress.CompareTo(b.VirtualAddress));
 
-        var disassemblable = architecture is NativeArchitecture.X64 or NativeArchitecture.Arm64;
+        var disassemblable = architecture != NativeArchitecture.Unknown;
         return new NativeSymbolInfo(
             symbols, NativeSymbolSource.ReadyToRun, NativeSymbolStatus.Loaded,
             Path: null,
-            Diagnostic: disassemblable ? null : $"precompiled; disassembly unsupported for {architecture}",
+            Diagnostic: disassemblable ? null : "precompiled; architecture unknown",
             Architecture: architecture,
             SourceMap: null);
     }

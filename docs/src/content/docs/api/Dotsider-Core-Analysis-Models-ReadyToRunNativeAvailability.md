@@ -22,7 +22,7 @@ public enum ReadyToRunNativeAvailability
 
 ### ArchUnsupported
 
-The method is precompiled, but its architecture has no disassembler.
+The method is precompiled, but the image architecture could not be identified.
 
 **Returns:** [ReadyToRunNativeAvailability](/api/dotsider.core.analysis.models.readytorunnativeavailability/)
 

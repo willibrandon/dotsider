@@ -799,7 +799,7 @@ public static class IlInspectorView
     /// <summary>
     /// Builds the right pane for a ReadyToRun image: the selected managed method's IL beside its
     /// precompiled native body (all code ranges), or IL alone with an honest status when the method
-    /// is not precompiled, the owner composite is missing, or the architecture has no disassembler.
+    /// is not precompiled, the owner composite is missing, or the architecture could not be identified.
     /// Reuses the pre-ILC pair pane with a ReadyToRun-sourced native side.
     /// </summary>
     private static Hex1bWidget[] BuildReadyToRunRightPane<T>(
@@ -827,9 +827,9 @@ public static class IlInspectorView
         {
             status = " owner composite missing; native code unavailable";
         }
-        else if (codeImage.NativeSymbols?.Architecture is not (NativeArchitecture.X64 or NativeArchitecture.Arm64))
+        else if (codeImage.NativeSymbols?.Architecture is NativeArchitecture.Unknown)
         {
-            status = $" precompiled; disassembly unsupported for {codeImage.NativeSymbols?.Architecture}";
+            status = " precompiled; architecture unknown";
         }
         else
         {

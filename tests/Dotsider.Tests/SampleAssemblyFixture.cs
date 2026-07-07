@@ -238,6 +238,41 @@ public class SampleAssemblyFixture : IAsyncLifetime
     public string? ReadyToRunConsoleExe { get; private set; }
 
     /// <summary>
+    /// Path to the real <c>win-x86</c> ReadyToRun console DLL when the SDK can publish it.
+    /// Decoder tests use this crossgen2 output to exercise the x86 path against a real image.
+    /// <see langword="null"/> means the current SDK feed lacks that RID's packs.
+    /// </summary>
+    public string? ReadyToRunConsoleX86Dll { get; private set; }
+
+    /// <summary>
+    /// Path to the real <c>linux-arm</c> ReadyToRun console DLL when the SDK can publish it.
+    /// Decoder tests use this crossgen2 output to exercise the ARM32 Thumb path against a real image.
+    /// <see langword="null"/> means the current SDK feed lacks that RID's packs.
+    /// </summary>
+    public string? ReadyToRunConsoleArm32Dll { get; private set; }
+
+    /// <summary>
+    /// Path to the real <c>linux-riscv64</c> ReadyToRun console DLL when the SDK can publish it.
+    /// Decoder tests use this crossgen2 output to exercise the RISC-V64 path against a real image.
+    /// <see langword="null"/> means the current SDK feed lacks that RID's packs.
+    /// </summary>
+    public string? ReadyToRunConsoleRiscV64Dll { get; private set; }
+
+    /// <summary>
+    /// Path to the real <c>linux-loongarch64</c> ReadyToRun console DLL when the SDK can publish it.
+    /// Decoder tests use this crossgen2 output to exercise the LoongArch64 path against a real image.
+    /// <see langword="null"/> means the current SDK feed lacks that RID's packs.
+    /// </summary>
+    public string? ReadyToRunConsoleLoongArch64Dll { get; private set; }
+
+    /// <summary>
+    /// Path to the SDK-produced browser Wasm runtime module when the wasm-tools workload is present.
+    /// Decoder tests parse the module's code section and disassemble real function bodies.
+    /// <see langword="null"/> means the current SDK/workload set cannot publish browser Wasm.
+    /// </summary>
+    public string? ReadyToRunConsoleWasmNativeWasm { get; private set; }
+
+    /// <summary>
     /// Path to the composite global image (<c>ReadyToRunComposite.r2r.dll</c>) — metadata-less native
     /// PE whose components resolve from siblings — or null when the composite publish did not run.
     /// </summary>
@@ -312,6 +347,11 @@ public class SampleAssemblyFixture : IAsyncLifetime
         // the composite self-contained (crossgen bundles the app assemblies into a *.r2r.dll with the
         // components beside it). Tolerant of a RID without crossgen2 — R2R tests then skip.
         builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", selfContained: false));
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "win-x86", selfContained: false));
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "linux-arm", selfContained: true));
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "linux-riscv64", selfContained: true));
+        builds.Add(PublishReadyToRunProject("samples/ReadyToRunConsole", "linux-loongarch64", selfContained: true));
+        builds.Add(PublishWasmProject("samples/ReadyToRunConsole"));
         builds.Add(PublishReadyToRunProject("samples/ReadyToRunComposite", selfContained: true));
 
         await Task.WhenAll(builds);
@@ -431,6 +471,16 @@ public class SampleAssemblyFixture : IAsyncLifetime
             "bin", "Release", tfm, rid, "publish");
         ReadyToRunConsoleDll = ExistingPathOrNull(Path.Combine(r2rConsoleDir, "ReadyToRunConsole.dll"));
         ReadyToRunConsoleExe = ExistingPathOrNull(Path.Combine(r2rConsoleDir, $"ReadyToRunConsole{apphostExt}"));
+        ReadyToRunConsoleX86Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "win-x86", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleArm32Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "linux-arm", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleRiscV64Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "linux-riscv64", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleLoongArch64Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "linux-loongarch64", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleWasmNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
 
         var r2rCompositeDir = Path.Combine(_repoRoot, "samples", "ReadyToRunComposite",
             "bin", "Release", tfm, rid, "publish");
@@ -609,7 +659,10 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// Publishes a ReadyToRun (crossgen2) sample. Tolerant: a crossgen2 failure (an unsupported RID)
     /// leaves the publish outputs absent, so the dependent tests skip rather than the fixture failing.
     /// </summary>
-    private async Task PublishReadyToRunProject(string relativePath, bool selfContained)
+    private Task PublishReadyToRunProject(string relativePath, bool selfContained) =>
+        PublishReadyToRunProject(relativePath, RuntimeInformation.RuntimeIdentifier, selfContained);
+
+    private async Task PublishReadyToRunProject(string relativePath, string rid, bool selfContained)
     {
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
@@ -634,7 +687,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} "
+                Arguments = $"publish -c Release -r {rid} "
                     + $"--self-contained {(selfContained ? "true" : "false")} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
@@ -647,6 +700,56 @@ public class SampleAssemblyFixture : IAsyncLifetime
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // A non-zero exit means crossgen2 is unavailable for this RID; leave the outputs absent.
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Publishes a browser Wasm sample without ReadyToRun, which the SDK does not support for Wasm.
+    /// The produced <c>dotnet.native.wasm</c> module still contains real runtime Wasm code.
+    /// A missing wasm-tools workload leaves the outputs absent so dependent tests can skip.
+    /// </summary>
+    private async Task PublishWasmProject(string relativePath)
+    {
+        var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + "-browser-wasm.lock";
+        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+
+        FileStream lockFile;
+        while (true)
+        {
+            try
+            {
+                lockFile = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                break;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200);
+            }
+        }
+
+        try
+        {
+            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "publish -c Release -r browser-wasm --self-contained true "
+                    + "-p:PublishReadyToRun=false -v q",
+                WorkingDirectory = projectDir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            var process = Process.Start(psi)!;
+            _ = await process.StandardOutput.ReadToEndAsync();
+            _ = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            // A non-zero exit means wasm-tools is unavailable; leave the outputs absent.
         }
         finally
         {
