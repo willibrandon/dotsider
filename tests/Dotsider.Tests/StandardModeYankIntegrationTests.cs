@@ -729,8 +729,16 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     [Fact(Timeout = 60_000)]
     public async Task EscBack_CrossViewTakesPriorityOverAssemblyStack()
     {
-        // Use RichLibrary — its refs resolve to BCL assemblies in the runtime dir
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        // Start on a real referenced assembly, then push RichLibrary through the
+        // app's normal navigation path. That gives the test an assembly back-stack
+        // while keeping RichLibrary's real TypeDefs active for the cross-view jump.
+        using var richAnalyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(samples.RichLibraryDll);
+        var refName = richAnalyzer.AssemblyRefs[0].Name;
+        var resolvedPath = Dotsider.Core.Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
+            richAnalyzer.FilePath, refName);
+        Assert.NotNull(resolvedPath);
+
+        var (terminal, app, ct) = Launch(resolvedPath);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -739,50 +747,36 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Real drill via PushAssembly — resolve a BCL ref from the runtime directory
-        var refName = _state!.Analyzer.AssemblyRefs[0].Name;
-        var resolvedPath = Dotsider.Core.Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
-            _state.Analyzer.FilePath, refName);
-        Assert.NotNull(resolvedPath);
-        Assert.True(_state.PushAssembly(resolvedPath),
-            $"PushAssembly should succeed for resolved ref '{refName}'");
+        Assert.True(_state!.PushAssembly(samples.RichLibraryDll),
+            "PushAssembly should return to RichLibrary through the normal navigation path.");
         _state.App.Invalidate();
-        await Task.Delay(200, ct);
-
-        Assert.True(_state.NavigationStack.Count > 0);
-
-        // The drilled BCL assembly may lack user types with methods.
-        // Navigate back to push RichLibrary again so we have real types for g.
-        _state.PopAssembly();
-        _state.App.Invalidate();
-        await Task.Delay(100, ct);
-
-        // Re-push so NavigationStack > 0, but stay on the RichLibrary analyzer
-        Assert.True(_state.PushAssembly(resolvedPath));
-        _state.App.Invalidate();
-        await Task.Delay(100, ct);
-
-        // Pop back to RichLibrary — now NavigationStack has the BCL assembly
-        _state.PopAssembly();
-
-        // Push the BCL one more time so we have NavigationStack > 0
-        // while the current analyzer is RichLibrary (which has real types)
-        _state.NavigationStack.Push(new Dotsider.Core.Analysis.AssemblyAnalyzer(resolvedPath));
-        _state.App.Invalidate();
-        await Task.Delay(100, ct);
-
-        Assert.True(_state.NavigationStack.Count > 0);
-
-        // Switch to PE/Metadata TypeDef sub-tab
         await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.D2) // PE/Metadata
-            .WaitUntil(s => s.ContainsText("TypeDef") || s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state.NavigationStack.Count == 1
+                && string.Equals(
+                    Path.GetFullPath(_state.Analyzer.FilePath),
+                    Path.GetFullPath(samples.RichLibraryDll),
+                    StringComparison.OrdinalIgnoreCase),
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        // Switch to PE/Metadata through the normal tab binding, then route the
+        // test to TypeDef once the PE view has rendered.
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.D2)
+            .WaitUntil(_ => _state.CurrentTab == TabId.PeMetadata, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("Sections"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
         _state.PeSubTab = PeSubTabId.TypeDef;
+        _state.RequestContentFocus();
         _state.App.Invalidate();
-        await Task.Delay(200, ct);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("TypeDef"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // RichLibrary has real types with methods
         var typeDef = _state.Analyzer.TypeDefs.FirstOrDefault(t =>
@@ -790,13 +784,19 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         Assert.NotNull(typeDef);
 
         _state.PeFocusedKey = typeDef.Token;
+        _state.RequestContentFocus();
         _state.App.Invalidate();
-        await Task.Delay(100, ct);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => Equals(_state.PeFocusedKey, typeDef.Token), TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Press g to trigger cross-view jump to IL Inspector
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("g")
-            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector
+                && _state.CrossViewBackTarget is not null,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -814,13 +814,12 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         Assert.True(_state.NavigationStack.Count > 0,
             "Assembly stack should still have the parent");
 
-        // Allow bindings to rebuild after cross-view back
-        await Task.Delay(200, ct);
-
         // Esc 2: pop assembly and return to General
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.CurrentTab == TabId.General, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.CurrentTab == TabId.General
+                && _state.NavigationStack.Count == 0,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
