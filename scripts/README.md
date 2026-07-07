@@ -67,6 +67,16 @@ architecture-specific coverage when the SDK provides the RID packs. Use
 external oracle captures, then review and promote the normalized artifacts into
 committed fixtures.
 
+Normal `dotnet publish` cannot always produce every decoder target on every
+machine. Current public SDK feeds may not include runtime/host packs for
+`linux-riscv64` or `linux-loongarch64`; those ReadyToRun fixture paths are null
+when restore cannot resolve the packs. Browser and WASI Wasm do not support
+ReadyToRun publishing; the browser-wasm fixture publishes with
+`PublishReadyToRun=false` and decodes the real SDK-produced
+`dotnet.native.wasm` module instead. If a runtime-built input or an external
+oracle is needed, capture it with the file-based utility and commit the reviewed
+fixture metadata, including the runtime source files used as ground truth.
+
 Current utilities:
 
 | App | Purpose |

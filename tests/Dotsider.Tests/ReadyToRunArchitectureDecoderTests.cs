@@ -87,6 +87,76 @@ public class ReadyToRunArchitectureDecoderTests(SampleAssemblyFixture samples)
         AssertRealReadyToRunRangesDecode(analyzer, NativeArchitecture.Arm32);
     }
 
+    /// <summary>
+    /// Resolves a real RISC-V64 ReadyToRun method and decodes its native body when SDK packs exist.
+    /// Public SDK feeds do not always ship this RID, so the fixture path is optional.
+    /// When present, the image is crossgen2 output rather than a hand-authored byte fixture.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RiscV64_RealReadyToRunMethod_DecodesWithoutFallback()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleRiscV64Dll is null, SkipReason);
+
+        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleRiscV64Dll!);
+        var report = ResolveGreeterName(analyzer);
+
+        Assert.Equal(NativeArchitecture.RiscV64, analyzer.ReadyToRunInfo!.Architecture);
+        Assert.Equal(ReadyToRunNativeAvailability.Precompiled, report.Availability);
+        Assert.NotNull(report.NativeInstructions);
+        Assert.NotEmpty(report.NativeInstructions!);
+        Assert.DoesNotContain(report.NativeInstructions!, i => i.IsFallback);
+    }
+
+    /// <summary>
+    /// Verifies every file-backed RISC-V64 ReadyToRun range decodes length-exact with no fallback.
+    /// The range list comes from a real runtime-function table when the SDK can publish the RID.
+    /// The committed oracle fixtures cover this decoder on SDKs that lack the RID packs.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void RiscV64_RealReadyToRunRanges_AreLengthExactWithoutFallback()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleRiscV64Dll is null, SkipReason);
+
+        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleRiscV64Dll!);
+
+        AssertRealReadyToRunRangesDecode(analyzer, NativeArchitecture.RiscV64);
+    }
+
+    /// <summary>
+    /// Resolves a real LoongArch64 ReadyToRun method and decodes its native body when SDK packs exist.
+    /// Public SDK feeds do not always ship this RID, so the fixture path is optional.
+    /// When present, the image is crossgen2 output rather than a hand-authored byte fixture.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void LoongArch64_RealReadyToRunMethod_DecodesWithoutFallback()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleLoongArch64Dll is null, SkipReason);
+
+        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleLoongArch64Dll!);
+        var report = ResolveGreeterName(analyzer);
+
+        Assert.Equal(NativeArchitecture.LoongArch64, analyzer.ReadyToRunInfo!.Architecture);
+        Assert.Equal(ReadyToRunNativeAvailability.Precompiled, report.Availability);
+        Assert.NotNull(report.NativeInstructions);
+        Assert.NotEmpty(report.NativeInstructions!);
+        Assert.DoesNotContain(report.NativeInstructions!, i => i.IsFallback);
+    }
+
+    /// <summary>
+    /// Verifies every file-backed LoongArch64 ReadyToRun range decodes length-exact with no fallback.
+    /// The range list comes from a real runtime-function table when the SDK can publish the RID.
+    /// The committed oracle fixtures cover this decoder on SDKs that lack the RID packs.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public void LoongArch64_RealReadyToRunRanges_AreLengthExactWithoutFallback()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleLoongArch64Dll is null, SkipReason);
+
+        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleLoongArch64Dll!);
+
+        AssertRealReadyToRunRangesDecode(analyzer, NativeArchitecture.LoongArch64);
+    }
+
     private static ReadyToRunMethodReport ResolveGreeterName(AssemblyAnalyzer analyzer)
     {
         var result = ReadyToRunCorrelationQuery.Resolve(
