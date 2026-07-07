@@ -708,8 +708,23 @@ jobs:
               throw "Failed to create or update winget branch $Branch"
             }
 
-            $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha'
-            if ($LASTEXITCODE -ne 0 -or $resolvedSha -ne $Sha) {
+            $resolvedSha = $null
+            $resolvedExitCode = 1
+            for ($attempt = 1; $attempt -le 5; $attempt++) {
+              $resolvedSha = $null
+              $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha' 2>$null
+              $resolvedExitCode = $LASTEXITCODE
+              if ($resolvedExitCode -eq 0 -and $resolvedSha -eq $Sha) {
+                break
+              }
+
+              if ($attempt -lt 5) {
+                Write-Host "Winget branch $Branch has not resolved to $Sha yet; retrying..."
+                Start-Sleep -Seconds 2
+              }
+            }
+
+            if ($resolvedExitCode -ne 0 -or $resolvedSha -ne $Sha) {
               throw "Winget branch $Branch points to $resolvedSha, expected $Sha"
             }
 
@@ -838,8 +853,23 @@ jobs:
               throw "Failed to create or update winget branch $Branch"
             }
 
-            $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha'
-            if ($LASTEXITCODE -ne 0 -or $resolvedSha -ne $Sha) {
+            $resolvedSha = $null
+            $resolvedExitCode = 1
+            for ($attempt = 1; $attempt -le 5; $attempt++) {
+              $resolvedSha = $null
+              $resolvedSha = gh api "repos/willibrandon/winget-pkgs/git/ref/$refPath" --jq '.object.sha' 2>$null
+              $resolvedExitCode = $LASTEXITCODE
+              if ($resolvedExitCode -eq 0 -and $resolvedSha -eq $Sha) {
+                break
+              }
+
+              if ($attempt -lt 5) {
+                Write-Host "Winget branch $Branch has not resolved to $Sha yet; retrying..."
+                Start-Sleep -Seconds 2
+              }
+            }
+
+            if ($resolvedExitCode -ne 0 -or $resolvedSha -ne $Sha) {
               throw "Winget branch $Branch points to $resolvedSha, expected $Sha"
             }
 
