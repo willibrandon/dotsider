@@ -1,8 +1,8 @@
+using Dotsider.Core.Analysis.Models;
 using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

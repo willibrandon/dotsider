@@ -1,8 +1,8 @@
+using Hex1b;
+using Hex1b.Input;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Threading.Channels;
-using Hex1b;
-using Hex1b.Input;
 
 namespace Dotsider.Tests;
 

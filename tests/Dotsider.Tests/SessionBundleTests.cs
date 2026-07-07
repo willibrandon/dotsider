@@ -1,11 +1,11 @@
-using System.Collections.Concurrent;
-using System.Text.Json;
 using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Widgets;
+using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -130,6 +130,7 @@ public class SessionBundleTests(SampleAssemblyFixture samples) : IAsyncDisposabl
         Assert.True(response.Success);
 
         var data = (response.Data as JsonElement?)!.Value;
+        Assert.Equal("General", data.GetProperty("tabLabel").GetString());
         Assert.True(data.GetProperty("hasEntryPoint").GetBoolean());
         Assert.False(data.GetProperty("hexIsDirty").GetBoolean());
         Assert.False(data.GetProperty("isNativeAot").GetBoolean());

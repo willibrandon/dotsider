@@ -1,5 +1,5 @@
-using System.Text;
 using Dotsider.Core.Analysis;
+using System.Text;
 
 namespace Dotsider.Tests;
 

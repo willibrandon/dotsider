@@ -1,7 +1,7 @@
-using System.Text;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using Dotsider.Core.Analysis;
+using System.Text;
 
 namespace Dotsider.Benchmarks;
 

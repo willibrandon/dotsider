@@ -1,8 +1,8 @@
-using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Benchmarks;
 

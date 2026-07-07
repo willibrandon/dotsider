@@ -1,8 +1,8 @@
+using Dotsider.Core.Analysis.Models;
 using System.Buffers.Binary;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis.ReadyToRun;
 

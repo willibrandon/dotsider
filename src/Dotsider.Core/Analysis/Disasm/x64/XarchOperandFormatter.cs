@@ -1,5 +1,5 @@
-using System.Text;
 using Dotsider.Core.Analysis.Models;
+using System.Text;
 
 namespace Dotsider.Core.Analysis.Disasm.x64;
 

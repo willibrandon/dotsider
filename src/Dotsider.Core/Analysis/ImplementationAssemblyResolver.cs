@@ -1,7 +1,7 @@
+using Dotsider.Core.Analysis.Models;
 using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

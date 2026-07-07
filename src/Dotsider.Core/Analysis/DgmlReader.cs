@@ -1,5 +1,5 @@
-using System.Xml;
 using Dotsider.Core.Analysis.Models;
+using System.Xml;
 
 namespace Dotsider.Core.Analysis;
 

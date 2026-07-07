@@ -164,8 +164,75 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
+            .Key(Hex1bKey.D3) // Tab 3 — IL / Native
             .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies tab3 keeps the managed IL Inspector label for ordinary managed assemblies.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab3_Label_ManagedAssembly_IsIlInspector()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("IL Inspector"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies tab3 is labeled as disassembly for a native-only AOT view.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab3_Label_NativeAot_IsDisassembly()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Disassembly"), TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies tab3 is labeled as IL plus native for ReadyToRun images.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task Tab3_Label_ReadyToRun_IsIlAndNative()
+    {
+        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, "ReadyToRun crossgen2 publish did not run on this leg.");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(samples.ReadyToRunConsoleDll!);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("IL + Native"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 

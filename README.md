@@ -6,7 +6,7 @@ A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, depend
 dotsider HelloWorld.dll
 ```
 
-![dotsider IL Inspector](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/tinytooltown.png)
+![dotsider IL and native inspection](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/tinytooltown.png)
 
 ## Installation
 
@@ -53,7 +53,7 @@ ReadyToRun (crossgen2) images keep their full managed metadata, and dotsider joi
 |-----|-------------|
 | **1 General** | Assembly identity, target framework, architecture, dependency table. Press Enter on a reference to drill into it. |
 | **2 PE/Metadata** | COFF headers, CLR header, sections, TypeDefs, MethodDefs, AssemblyRefs, custom attributes, resources, debug directory, native imports, exports, load config, ReadyToRun sections, and recovered AOT types. Press `g` on a TypeDef or MethodDef to jump to its IL. |
-| **3 IL Inspector** | Namespace/Type/Method tree with IL disassembly. Portable PDBs add source spans, Source Link markers, and local names when available. Press `u` on a `[source link]` marker to copy its resolved URL. Press `Enter` or `gd` on a `call`, `ldfld`, `newobj`, etc. to go to the target — works across assemblies. Press `Esc` to go back. Press `x` to jump to the method body in the hex dump. For a Native AOT binary the same tree lists recovered functions and the right pane shows real **x86-64 or AArch64 disassembly** (a from-scratch, VEX/EVEX-aware x64 decoder and an A64 decoder incl. SVE), with call/branch/data targets resolved to names, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. For a ReadyToRun image the tree keeps its managed shape, a glyph marks the precompiled methods, and the right pane shows the method's IL beside its native code ranges (hot, funclets, cold). |
+| **3 IL / Native** | The label reflects the loaded image: **IL Inspector** for managed IL, **Disassembly** for native-only views, and **IL + Native** when IL is paired with native code. Managed assemblies show a namespace/type/method tree with IL disassembly, PDB source spans, Source Link markers, locals, go-to-definition, and hex jumps. Native AOT binaries list recovered functions and render real **x86-64 or AArch64 disassembly** (from-scratch x64 and A64 decoders, including VEX/EVEX and SVE) with named call/branch/data targets, `Foo+0x12`, `loc_…` labels, and `MODULE!Function` imports. ReadyToRun images keep the managed tree, mark precompiled methods, and show IL beside native ranges (hot, funclets, cold). Attached pre-ILC sidecars do the same for Native AOT methods. |
 | **4 Strings** | User strings, metadata strings, raw ASCII and UTF-16 binary scans, and frozen AOT string literals, with configurable minimum length. |
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
@@ -191,10 +191,10 @@ Supported `--ai` providers: claude, gemini, copilot, cursor-agent, opencode, cod
 | `iW` | Select inner WORD (whitespace-delimited — grabs fully-qualified names) |
 | `yiw` / `yiW` | Select + yank word/WORD in one motion |
 | `Tab` | Cycle focus between info panels and tables |
-| `Enter` / `gd` | Go to definition (IL Inspector tab, cursor on a token-bearing instruction) |
-| `g` | Go to IL Inspector for the focused TypeDef/MethodDef (PE/Metadata tab) |
-| `u` | Copy Source Link URL from a `[source link]` marker in the IL Inspector |
-| `x` | Jump to method body in Hex Dump (IL Inspector tab, when a method with RVA is selected) |
+| `Enter` / `gd` | Go to definition (tab 3 IL/native view, cursor on a token-bearing instruction) |
+| `g` | Go to tab 3 for the focused TypeDef/MethodDef (PE/Metadata tab) |
+| `u` | Copy Source Link URL from a `[source link]` marker in tab 3's IL view |
+| `x` | Jump to method body in Hex Dump (tab 3, when a file-backed method or symbol is selected) |
 | `/` | Search (highlights matches inline) |
 | `n` / `N` | Next / previous search match |
 | `s` | Toggle human-readable sizes |

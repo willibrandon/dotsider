@@ -1,6 +1,6 @@
+using Dotsider.Core.Analysis.Models;
 using System.Reflection.PortableExecutable;
 using System.Text;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

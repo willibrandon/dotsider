@@ -1,7 +1,7 @@
 namespace Dotsider.Core.Analysis.Disasm.x64;
 
-using K = OperandKind;
 using F = OpFlags;
+using K = OperandKind;
 
 /// <summary>
 /// Registers the EVEX-only AVX-512 / AVX10 / VNNI opcodes — the ones without a legacy or VEX form:

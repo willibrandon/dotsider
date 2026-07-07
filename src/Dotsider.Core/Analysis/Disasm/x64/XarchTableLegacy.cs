@@ -1,7 +1,7 @@
 namespace Dotsider.Core.Analysis.Disasm.x64;
 
-using K = OperandKind;
 using F = OpFlags;
+using K = OperandKind;
 
 /// <summary>
 /// Registers the legacy x86-64 surface: the full one-byte opcode map, the 0F integer / control /

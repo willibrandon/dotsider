@@ -1,9 +1,9 @@
-using System.Diagnostics;
-using System.Reflection;
 using Dotsider.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Reflection;
 
 if (args is ["--help" or "-h"])
 {

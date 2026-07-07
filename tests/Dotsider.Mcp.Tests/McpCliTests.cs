@@ -1,8 +1,8 @@
+using Hex1b;
+using ModelContextProtocol.Client;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Hex1b;
-using ModelContextProtocol.Client;
 
 namespace Dotsider.Mcp.Tests;
 

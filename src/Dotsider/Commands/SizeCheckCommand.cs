@@ -1,7 +1,7 @@
-using System.CommandLine;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Infrastructure;
+using System.CommandLine;
 
 namespace Dotsider.Commands;
 

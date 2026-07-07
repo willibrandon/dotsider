@@ -1,9 +1,9 @@
+using Dotsider.Core.Analysis.Models;
 using System.Numerics;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Text;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

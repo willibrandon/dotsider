@@ -36,7 +36,7 @@ Sleep 4s
 Screenshot docs/src/assets/screenshots/pe-metadata.png
 Sleep 2s
 
-# Tab 3: IL Inspector — navigate to a method to show IL disassembly
+# Tab 3: IL view — navigate to a method to show IL disassembly
 Type "3"
 Sleep 4s
 

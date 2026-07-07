@@ -1,6 +1,6 @@
+using Dotsider.Infrastructure;
 using System.CommandLine;
 using System.Diagnostics;
-using Dotsider.Infrastructure;
 
 namespace Dotsider.Commands;
 
@@ -299,7 +299,7 @@ internal static class AgentCommand
 
         - All commands support `--json` for machine-readable output
         - Session commands require a running dotsider TUI instance
-        - Tab numbers: 1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic
+        - Tab numbers: 1=General, 2=PE/Metadata, 3=IL / Native, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic
         - Capture outputs plain text of the current TUI screen
         """;
 }

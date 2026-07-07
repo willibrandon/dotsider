@@ -1,7 +1,7 @@
+using Dotsider.Core.Analysis;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
-using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 

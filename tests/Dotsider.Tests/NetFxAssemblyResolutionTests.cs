@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 

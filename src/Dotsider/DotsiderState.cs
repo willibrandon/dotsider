@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
@@ -6,6 +5,7 @@ using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Nodes;
 using Hex1b.Widgets;
+using System.Collections.Concurrent;
 
 namespace Dotsider;
 

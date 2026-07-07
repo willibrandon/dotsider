@@ -1,7 +1,7 @@
-using System.Text;
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
+using System.Text;
 
 namespace Dotsider.Infrastructure;
 

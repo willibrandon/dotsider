@@ -1,7 +1,7 @@
-using System.CommandLine;
-using System.Text.Json;
 using Dotsider.Core.Protocol;
 using Dotsider.Infrastructure;
+using System.CommandLine;
+using System.Text.Json;
 
 namespace Dotsider.Commands;
 
@@ -12,15 +12,21 @@ internal static class SessionsCommand
 {
     /// <summary>Tab index → display name mapping (matches TabId constants).</summary>
     private static readonly string[] s_tabNames =
-        ["General", "PE/Metadata", "IL Inspector", "Strings", "Hex Dump", "Dep Graph", "Size Map", "Dynamic"];
+        ["General", "PE/Metadata", "IL / Native", "Strings", "Hex Dump", "Dep Graph", "Size Map", "Dynamic"];
 
     /// <summary>Returns a human-readable tab name for a numeric tab index.</summary>
-    private static string FormatTabName(JsonElement? element)
+    private static string FormatTabName(JsonElement? element, JsonElement? labelElement = null)
     {
         if (element is null) return "unknown";
         if (element.Value.ValueKind == JsonValueKind.Number)
         {
             var tab = element.Value.GetInt32();
+            var label = labelElement?.ValueKind == JsonValueKind.String
+                ? labelElement.Value.GetString()
+                : null;
+            if (!string.IsNullOrWhiteSpace(label))
+                return $"{label} ({tab})";
+
             var idx = tab - 1;
             return idx >= 0 && idx < s_tabNames.Length ? $"{s_tabNames[idx]} ({tab})" : tab.ToString();
         }
@@ -197,7 +203,7 @@ internal static class SessionsCommand
                 formatter.WriteLine($"Traceable:  {(traceable ? "yes" : "no")}");
 
                 formatter.WriteLine("");
-                formatter.WriteLine($"Tab:        {FormatTabName(view?.GetPropertyOrNull("tab"))}");
+                formatter.WriteLine($"Tab:        {FormatTabName(view?.GetPropertyOrNull("tab"), view?.GetPropertyOrNull("tabLabel"))}");
                 formatter.WriteLine($"Tracer:     {view?.GetPropertyOrNull("tracerState")?.GetDisplayString("none") ?? "none"}");
             }
 
@@ -231,7 +237,7 @@ internal static class SessionsCommand
             else
             {
                 var data = response.Data as JsonElement?;
-                formatter.WriteLine($"Tab:           {FormatTabName(data?.GetPropertyOrNull("tab"))}");
+                formatter.WriteLine($"Tab:           {FormatTabName(data?.GetPropertyOrNull("tab"), data?.GetPropertyOrNull("tabLabel"))}");
                 formatter.WriteLine($"PE Sub-tab:    {data?.GetPropertyOrNull("peSubTab")?.GetDisplayString() ?? ""}");
                 formatter.WriteLine($"Dynamic Sub:   {data?.GetPropertyOrNull("dynamicSubTab")?.GetDisplayString() ?? ""}");
                 formatter.WriteLine($"Assembly:      {data?.GetPropertyOrNull("assemblyPath")?.GetDisplayString() ?? ""}");
@@ -249,7 +255,7 @@ internal static class SessionsCommand
     {
         var tabArg = new Argument<int>("tab")
         {
-            Description = "Tab to navigate to (1=General, 2=PE/Metadata, 3=IL Inspector, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic)"
+            Description = "Tab to navigate to (1=General, 2=PE/Metadata, 3=IL / Native, 4=Strings, 5=Hex Dump, 6=Dep Graph, 7=Size Map, 8=Dynamic)"
         };
 
         var command = new Command("navigate", "Switch to a specific tab in a running instance")

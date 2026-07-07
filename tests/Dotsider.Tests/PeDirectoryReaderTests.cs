@@ -1,6 +1,6 @@
+using Dotsider.Core.Analysis;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
-using Dotsider.Core.Analysis;
 
 namespace Dotsider.Tests;
 

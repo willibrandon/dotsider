@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis.Models;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Metadata;
@@ -5,7 +6,6 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

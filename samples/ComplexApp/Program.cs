@@ -1,5 +1,5 @@
-using System.Reflection;
 using ComplexApp.Pipeline;
+using System.Reflection;
 
 // Load and display embedded resource
 var assembly = Assembly.GetExecutingAssembly();

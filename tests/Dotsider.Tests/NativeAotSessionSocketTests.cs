@@ -1,10 +1,10 @@
-using System.Collections.Concurrent;
-using System.Text.Json;
 using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
+using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -75,6 +75,29 @@ public class NativeAotSessionSocketTests(SampleAssemblyFixture samples) : IAsync
         var data = (response.Data as JsonElement?)!.Value;
         Assert.Equal("nativeAot", data.GetProperty("binaryKind").GetString());
         Assert.True(data.GetProperty("readyToRunSections").GetInt32() > 0);
+    }
+
+    /// <summary>get-current-view reports the native tab 3 label for Native AOT sessions.</summary>
+    [Fact(Timeout = 30_000)]
+    public async Task GetCurrentView_NativeAot_Tab3LabelIsDisassembly()
+    {
+        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+
+        var ct = TestContext.Current.CancellationToken;
+        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+
+        var navigate = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
+        Assert.True(navigate.Success, navigate.Error);
+        await Task.Delay(500, ct);
+
+        var response = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest { Method = "get-current-view" }, ct);
+
+        Assert.True(response.Success, response.Error);
+        var data = (response.Data as JsonElement?)!.Value;
+        Assert.Equal(3, data.GetProperty("tab").GetInt32());
+        Assert.Equal("Disassembly", data.GetProperty("tabLabel").GetString());
     }
 
     /// <summary>get-native-aot-size-contributors returns mstat contributors from a running session.</summary>

@@ -1,11 +1,10 @@
+using Dotsider.Core.Analysis.Models;
 using System.IO.Compression;
 using System.IO.MemoryMappedFiles;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 using System.Text;
-
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

@@ -1,5 +1,5 @@
-using System.Buffers.Binary;
 using Dotsider.Core.Analysis;
+using System.Buffers.Binary;
 
 namespace Dotsider.Tests;
 

@@ -1,5 +1,5 @@
-using System.Text.Json;
 using Dotsider.Core.Analysis.Models;
+using System.Text.Json;
 
 namespace Dotsider.Core.Analysis;
 

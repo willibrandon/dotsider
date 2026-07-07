@@ -1,5 +1,5 @@
-using System.Reflection.Metadata;
 using Dotsider.Core.Analysis.Models;
+using System.Reflection.Metadata;
 
 namespace Dotsider.Core.Analysis.ReadyToRun;
 

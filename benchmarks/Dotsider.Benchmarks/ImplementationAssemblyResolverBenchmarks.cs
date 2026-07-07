@@ -1,7 +1,7 @@
-using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using Dotsider.Core.Analysis;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Benchmarks;
 

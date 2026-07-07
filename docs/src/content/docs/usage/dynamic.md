@@ -35,7 +35,7 @@ On the Counters and Summary editors, select text with click-drag or `Shift` + ar
 
 ## Cross-tab navigation
 
-Press `Enter` on a JIT compilation event to jump to that method's IL disassembly in tab 3.
+Press `Enter` on a JIT compilation event to jump to that method's IL disassembly in tab 3's IL view.
 
 ## Re-running
 

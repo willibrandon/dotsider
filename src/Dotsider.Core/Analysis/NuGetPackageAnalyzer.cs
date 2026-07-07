@@ -1,6 +1,6 @@
+using Dotsider.Core.Analysis.Models;
 using System.IO.Compression;
 using System.Xml.Linq;
-using Dotsider.Core.Analysis.Models;
 
 namespace Dotsider.Core.Analysis;
 

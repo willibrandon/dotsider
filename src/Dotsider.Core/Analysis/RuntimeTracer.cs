@@ -1,11 +1,11 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.Globalization;
 using Dotsider.Core.Analysis.Models;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Tracing;
+using System.Globalization;
 using TraceEventCategory = Dotsider.Core.Analysis.Models.TraceEventCategory;
 using TraceEventEntry = Dotsider.Core.Analysis.Models.TraceEventEntry;
 
