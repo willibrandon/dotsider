@@ -75,8 +75,8 @@ internal static class Wasm32Decoder
 
     private static NativeInstruction Block(ReadOnlySpan<byte> code, int start, ref int pos, ulong address, string mnemonic)
     {
-        var blockType = ReadBlockType(code, ref pos);
-        return Simple(code, start, pos, address, mnemonic, [NativeDecoderSupport.Imm(blockType.Value, blockType.Text)],
+        var (Value, Text) = ReadBlockType(code, ref pos);
+        return Simple(code, start, pos, address, mnemonic, [NativeDecoderSupport.Imm(Value, Text)],
             NativeInstructionCategory.Control);
     }
 

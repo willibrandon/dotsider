@@ -8,7 +8,7 @@ namespace Dotsider.Tests;
 /// The checks mirror the repository's Picket-style script policy.
 /// New file-based apps stay documented, buildable, and friendly to editor hovers.
 /// </summary>
-public sealed class ScriptConventionTests : IDisposable
+public sealed partial class ScriptConventionTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "dotsider-script-tests", Guid.NewGuid().ToString("N"));
 
@@ -160,14 +160,11 @@ public sealed class ScriptConventionTests : IDisposable
 
     private static bool HasThreeLineSummaryBeforeFirstType(string text)
     {
-        Match typeMatch = Regex.Match(text, @"(?m)^(?:internal|public)\s+(?:sealed\s+|static\s+|abstract\s+|partial\s+)*(?:class|record|struct|enum|interface)\s+");
+        Match typeMatch = TopLevelTypeRegex().Match(text);
         Assert.True(typeMatch.Success, "No top-level type declaration found.");
 
         string beforeType = text[..typeMatch.Index];
-        MatchCollection summaries = Regex.Matches(
-            beforeType,
-            @"/// <summary>\r?\n(?<body>(?:/// .+\r?\n)+)/// </summary>",
-            RegexOptions.CultureInvariant);
+        MatchCollection summaries = SummaryRegex().Matches(beforeType);
         if (summaries.Count == 0)
         {
             return false;
@@ -176,4 +173,10 @@ public sealed class ScriptConventionTests : IDisposable
         string body = summaries[^1].Groups["body"].Value;
         return body.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries).Length >= 3;
     }
+
+    [GeneratedRegex(@"(?m)^(?:internal|public)\s+(?:sealed\s+|static\s+|abstract\s+|partial\s+)*(?:class|record|struct|enum|interface)\s+")]
+    private static partial Regex TopLevelTypeRegex();
+
+    [GeneratedRegex(@"/// <summary>\r?\n(?<body>(?:/// .+\r?\n)+)/// </summary>", RegexOptions.CultureInvariant)]
+    private static partial Regex SummaryRegex();
 }
