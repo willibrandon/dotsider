@@ -15,9 +15,9 @@ dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fi
 
 Large disassembly tools can emit very large streams. Use
 `-MaxOutputCharacters` to cap retained stdout/stderr while still draining the
-process to completion, and `-AllowOracleFailure` when the capture should upload
-diagnostics from a failing oracle tool instead of failing before artifacts are
-saved.
+process to completion, `-TimeoutSeconds` to kill long-running oracle tools, and
+`-AllowOracleFailure` when the capture should upload diagnostics from a failing
+oracle tool instead of failing before artifacts are saved.
 
 For automation or repeated invocations, build first and run without rebuilding:
 

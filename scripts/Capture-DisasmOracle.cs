@@ -27,6 +27,7 @@ internal static class CaptureDisasmOracleApp
     /// Arguments use the repository script option parser and forward trailing values to the oracle.
     /// The return code mirrors the oracle unless failures are explicitly allowed.
     /// Large oracle streams are retained up to the configured output limit.
+    /// Long-running oracle processes are killed after the configured timeout.
     /// </summary>
     /// <param name="args">The command-line arguments.</param>
     /// <returns>The process exit code.</returns>
@@ -34,7 +35,7 @@ internal static class CaptureDisasmOracleApp
     {
         (Dictionary<string, List<string>> values, HashSet<string> switches) = ScriptSupport.ParseArguments(
             args,
-            ["Architecture", "Fixture", "OraclePath", "OutputDirectory", "RuntimeRoot", "WorkingDirectory", "MaxOutputCharacters"],
+            ["Architecture", "Fixture", "OraclePath", "OutputDirectory", "RuntimeRoot", "WorkingDirectory", "MaxOutputCharacters", "TimeoutSeconds"],
             ["AdditionalArguments"],
             ["AllowOracleFailure"]);
 
@@ -51,6 +52,9 @@ internal static class CaptureDisasmOracleApp
         int maxOutputCharacters = ParsePositiveInt(
             ScriptSupport.GetString(values, "MaxOutputCharacters", "4000000"),
             "MaxOutputCharacters");
+        int timeoutSeconds = ParsePositiveInt(
+            ScriptSupport.GetString(values, "TimeoutSeconds", "300"),
+            "TimeoutSeconds");
         string[] oracleArguments = ScriptSupport.GetStringArray(values, "AdditionalArguments", splitCommas: false);
         bool allowOracleFailure = ScriptSupport.GetSwitch(switches, "AllowOracleFailure");
 
@@ -77,11 +81,12 @@ internal static class CaptureDisasmOracleApp
         string stderrPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.stderr.txt");
         string metadataPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.json");
 
-        (int exitCode, string stdout, string stderr, bool stdoutTruncated, bool stderrTruncated) = ScriptSupport.RunProcess(
+        (int exitCode, string stdout, string stderr, bool stdoutTruncated, bool stderrTruncated, bool timedOut) = ScriptSupport.RunProcess(
             resolvedOraclePath,
             oracleArguments,
             resolvedWorkingDirectory,
-            maxOutputCharacters);
+            maxOutputCharacters,
+            TimeSpan.FromSeconds(timeoutSeconds));
         ScriptSupport.WriteTextFile(stdoutPath, NormalizeText(stdout));
         ScriptSupport.WriteTextFile(stderrPath, NormalizeText(stderr));
 
@@ -95,7 +100,9 @@ internal static class CaptureDisasmOracleApp
             ["OraclePath"] = resolvedOraclePath,
             ["OracleArguments"] = ScriptSupport.ToJsonArray(oracleArguments),
             ["OracleExitCode"] = exitCode,
+            ["OracleTimedOut"] = timedOut,
             ["MaxOutputCharacters"] = maxOutputCharacters,
+            ["TimeoutSeconds"] = timeoutSeconds,
             ["StdoutTruncated"] = stdoutTruncated,
             ["StderrTruncated"] = stderrTruncated,
             ["StdoutPath"] = stdoutPath,
@@ -107,6 +114,11 @@ internal static class CaptureDisasmOracleApp
             ["CapturedUtc"] = DateTimeOffset.UtcNow.ToString("O"),
         };
         ScriptSupport.WriteJsonFile(metadataPath, metadata);
+
+        if (timedOut && !allowOracleFailure)
+        {
+            throw new InvalidOperationException($"Disassembly oracle timed out after {timeoutSeconds} seconds. See '{stderrPath}'.");
+        }
 
         if (exitCode != 0 && !allowOracleFailure)
         {
@@ -172,7 +184,7 @@ internal static class CaptureDisasmOracleApp
     /// <returns>The SDK version, or an empty string on failure.</returns>
     private static string GetDotnetVersion()
     {
-        (int exitCode, string stdout, _, _, _) = ScriptSupport.RunProcess("dotnet", ["--version"], Directory.GetCurrentDirectory());
+        (int exitCode, string stdout, _, _, _, _) = ScriptSupport.RunProcess("dotnet", ["--version"], Directory.GetCurrentDirectory());
         return exitCode == 0 ? stdout.Trim() : string.Empty;
     }
 }

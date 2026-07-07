@@ -72,6 +72,7 @@ jobs:
               -OraclePath llvm-objdump \
               -OutputDirectory artifacts/oracles/disasm \
               -MaxOutputCharacters 2000000 \
+              -TimeoutSeconds 180 \
               -AllowOracleFailure \
               -- "$@" "${fixture}"
           }
@@ -116,7 +117,7 @@ jobs:
           path: artifacts/oracles/disasm
 
   runtime-cross-target:
-    name: Runtime cross-target artifacts (${{ matrix.arch }})
+    name: Runtime cross-target artifacts
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs['run-runtime-cross-target'] == 'true' }}
     runs-on: ubuntu-latest
     strategy:

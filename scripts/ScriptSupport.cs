@@ -305,12 +305,14 @@ internal static class ScriptSupport
     /// <param name="arguments">The process arguments.</param>
     /// <param name="workingDirectory">The process working directory.</param>
     /// <param name="maxOutputCharacters">The maximum characters to retain per stream.</param>
-    /// <returns>The exit code, stdout, stderr, and truncation state.</returns>
-    internal static (int ExitCode, string Stdout, string Stderr, bool StdoutTruncated, bool StderrTruncated) RunProcess(
+    /// <param name="timeout">The optional process timeout.</param>
+    /// <returns>The exit code, stdout, stderr, truncation state, and timeout state.</returns>
+    internal static (int ExitCode, string Stdout, string Stderr, bool StdoutTruncated, bool StderrTruncated, bool TimedOut) RunProcess(
         string filePath,
         IEnumerable<string> arguments,
         string workingDirectory,
-        int maxOutputCharacters = int.MaxValue)
+        int maxOutputCharacters = int.MaxValue,
+        TimeSpan? timeout = null)
     {
         var startInfo = new ProcessStartInfo(filePath)
         {
@@ -328,9 +330,44 @@ internal static class ScriptSupport
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Failed to start '{filePath}'.");
         Task<(string Text, bool Truncated)> stdoutTask = Task.Run(() => ReadBoundedToEnd(process.StandardOutput, maxOutputCharacters));
         Task<(string Text, bool Truncated)> stderrTask = Task.Run(() => ReadBoundedToEnd(process.StandardError, maxOutputCharacters));
-        process.WaitForExit();
+        var timedOut = false;
+        if (timeout is { } processTimeout)
+        {
+            int milliseconds = checked((int)Math.Min(processTimeout.TotalMilliseconds, int.MaxValue));
+            if (milliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be positive.");
+            }
+
+            if (!process.WaitForExit(milliseconds))
+            {
+                timedOut = true;
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // The process exited between WaitForExit and Kill.
+                }
+
+                process.WaitForExit();
+            }
+        }
+        else
+        {
+            process.WaitForExit();
+        }
+
         Task.WaitAll(stdoutTask, stderrTask);
-        return (process.ExitCode, stdoutTask.Result.Text, stderrTask.Result.Text, stdoutTask.Result.Truncated, stderrTask.Result.Truncated);
+        string stderr = stderrTask.Result.Text;
+        if (timedOut)
+        {
+            stderr += $"{Environment.NewLine}[process killed after {timeout!.Value}]";
+        }
+
+        int exitCode = timedOut ? -1 : process.ExitCode;
+        return (exitCode, stdoutTask.Result.Text, stderr, stdoutTask.Result.Truncated, stderrTask.Result.Truncated, timedOut);
     }
 
     /// <summary>
@@ -348,7 +385,7 @@ internal static class ScriptSupport
 
         var gitArguments = new List<string> { "-C", repositoryPath };
         gitArguments.AddRange(arguments);
-        (int exitCode, string stdout, _, _, _) = RunProcess("git", gitArguments, Directory.GetCurrentDirectory());
+        (int exitCode, string stdout, _, _, _, _) = RunProcess("git", gitArguments, Directory.GetCurrentDirectory());
         return exitCode == 0 ? stdout.Trim() : string.Empty;
     }
 
