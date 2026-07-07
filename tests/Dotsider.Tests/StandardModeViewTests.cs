@@ -280,6 +280,45 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>
+    /// Verifies the Wasm General tab does not reserve a large blank area
+    /// between the content-sized summary and the references section.
+    /// </summary>
+    [Fact(Timeout = 30_000)]
+    public async Task General_Wasm_TallTerminal_DoesNotPadBeforeAssemblyReferences()
+    {
+        var wasmPath = GetWasmNativePath();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderAppWithDimensions(wasmPath, width: 160, height: 50);
+        var runTask = app.RunAsync(cts.Token);
+        await Task.Delay(100, cts.Token);
+
+        int sourceLinkLine = -1;
+        int refsLine = -1;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("dotnet.native.wasm"), TimeSpan.FromSeconds(10))
+            .WaitUntil(s =>
+            {
+                var sourceLink = s.FindText("Source Link");
+                var references = s.FindText("Assembly References");
+                if (sourceLink.Count == 0 || references.Count == 0)
+                    return false;
+
+                sourceLinkLine = sourceLink[0].Line;
+                refsLine = references[0].Line;
+                return true;
+            }, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.InRange(refsLine - sourceLinkLine, 1, 4);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// Verifies the PE/Metadata tab routes raw Wasm modules to WebAssembly section rows.
     /// </summary>
     [Fact(Timeout = 30_000)]
@@ -3295,7 +3334,6 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText("Native Imports"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("R2R Sections"), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Recovered Types"), TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Native Symbols"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
@@ -3304,6 +3342,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
         Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
         Assert.NotNull(_state.Analyzer.NativeSymbols);
+        Assert.NotEmpty(_state.Analyzer.NativeSymbols.Symbols);
 
         cts.Cancel();
         await runTask;

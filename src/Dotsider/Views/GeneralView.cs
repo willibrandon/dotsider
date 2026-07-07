@@ -16,6 +16,11 @@ namespace Dotsider.Views;
 public static class GeneralView
 {
     private static readonly Hex1bColor LabelColor = Hex1bColor.FromRgb(100, 130, 160);
+    private const int RichSummaryHeightThreshold = 20;
+    private const int CompactSummaryViewportHeight = 10;
+    private const int StandardSummaryViewportHeight = 16;
+    private const int StandardSummaryTerminalHeight = 24;
+    private const int ReferencesReserveHeight = 12;
 
     /// <summary>
     /// Builds the General view widget tree.
@@ -78,7 +83,11 @@ public static class GeneralView
             $"  Target Framework: {state.EffectiveTargetFrameworkDisplay}",
             $"  Culture:          {analyzer.Culture ?? "neutral"}",
             $"  Public Key Token: {analyzer.PublicKeyToken ?? "(none)"}",
-            "",
+        };
+
+        var binaryLines = new List<string>();
+        var fileLines = new List<string>
+        {
             $"  File Size:        {state.FormatSizeToggleable(analyzer.FileSize)}",
             $"  Architecture:     {analyzer.Architecture}",
             $"  Last Modified:    {analyzer.LastModified:yyyy-MM-dd HH:mm:ss UTC}",
@@ -92,21 +101,20 @@ public static class GeneralView
         if (analyzer.NativeAotInfo is { } aot)
         {
             var imports = analyzer.Imports;
-            infoLines.Add("");
-            infoLines.Add("  Binary Kind:      Native AOT (.NET)");
-            infoLines.Add($"  ILC / RTR Format: v{aot.MajorVersion}.{aot.MinorVersion} "
+            binaryLines.Add("  Binary Kind:      Native AOT (.NET)");
+            binaryLines.Add($"  ILC / RTR Format: v{aot.MajorVersion}.{aot.MinorVersion} "
                 + $"({aot.SectionCount} sections @ 0x{aot.HeaderOffset:X})");
-            infoLines.Add($"  Runtime Version:  {aot.RuntimeVersion ?? "(not detected)"}");
-            infoLines.Add($"  Native Imports:   {imports.Count} modules, "
+            binaryLines.Add($"  Runtime Version:  {aot.RuntimeVersion ?? "(not detected)"}");
+            binaryLines.Add($"  Native Imports:   {imports.Count} modules, "
                 + $"{imports.Sum(m => m.Functions.Count)} functions");
-            infoLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
+            binaryLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
             var recoveredTypes = analyzer.RecoveredTypes;
-            infoLines.Add($"  Recovered Types:  {recoveredTypes.Count} types, "
+            binaryLines.Add($"  Recovered Types:  {recoveredTypes.Count} types, "
                 + $"{recoveredTypes.Sum(t => t.MethodNames.Count)} methods");
-            infoLines.Add($"  Frozen Strings:   {analyzer.FrozenStrings.Count}");
+            binaryLines.Add($"  Frozen Strings:   {analyzer.FrozenStrings.Count}");
             if (analyzer.NativeSymbols is { } symbols)
             {
-                infoLines.Add(symbols.Symbols.Count > 0
+                binaryLines.Add(symbols.Symbols.Count > 0
                     ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
                     : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
             }
@@ -115,13 +123,13 @@ public static class GeneralView
             {
                 state.EnsureManagedNativeIndexAsync();
                 var localCount = companions.LocalReferences.Count;
-                infoLines.Add("");
-                infoLines.Add($"  Pre-ILC Sidecars: {companions.Root.FileName}"
+                binaryLines.Add("");
+                binaryLines.Add($"  Pre-ILC Sidecars: {companions.Root.FileName}"
                     + (localCount > 0 ? $" (+{localCount} local ref{(localCount == 1 ? "" : "s")})" : ""));
-                infoLines.Add($"  Sidecar Version:  {companions.Root.AssemblyVersion ?? "(none)"}"
+                binaryLines.Add($"  Sidecar Version:  {companions.Root.AssemblyVersion ?? "(none)"}"
                     + $" ({companions.Root.TargetFramework ?? "unknown TFM"})");
-                infoLines.Add($"  Sidecar PDB:      {analyzer.PreIlcSidecars?.PdbStatus.ToString() ?? "unknown"}");
-                infoLines.Add(state.PreIlcIndex is { } index
+                binaryLines.Add($"  Sidecar PDB:      {analyzer.PreIlcSidecars?.PdbStatus.ToString() ?? "unknown"}");
+                binaryLines.Add(state.PreIlcIndex is { } index
                     ? $"  Correlation:      {index.ExactCount} of {index.Methods.Count} methods in native image"
                         + $" ({index.AmbiguousCount} ambiguous, {index.MstatOnlyCount} size-only,"
                         + $" {index.NotInImageCount} trimmed/inlined)"
@@ -129,67 +137,73 @@ public static class GeneralView
             }
             else if (analyzer.PreIlcSidecars is { HasAttachableCompanion: true } offer)
             {
-                infoLines.Add("");
-                infoLines.Add($"  Pre-ILC Sidecars: found ({Path.GetFileName(offer.ManagedAssemblyPath!)})"
+                binaryLines.Add("");
+                binaryLines.Add($"  Pre-ILC Sidecars: found ({Path.GetFileName(offer.ManagedAssemblyPath!)})"
                     + " — press a to attach");
             }
         }
         else if (analyzer.ReadyToRunInfo is { } r2r)
         {
-            infoLines.Add("");
-            infoLines.Add("  Binary Kind:      ReadyToRun (.NET)");
-            infoLines.Add($"  R2R Format:       v{r2r.MajorVersion}.{r2r.MinorVersion} ({r2r.Status})");
-            infoLines.Add($"  Composite:        {r2r.IsComposite}"
+            binaryLines.Add("  Binary Kind:      ReadyToRun (.NET)");
+            binaryLines.Add($"  R2R Format:       v{r2r.MajorVersion}.{r2r.MinorVersion} ({r2r.Status})");
+            binaryLines.Add($"  Composite:        {r2r.IsComposite}"
                 + (r2r.IsComponent ? " (component)" : "") + (r2r.IsPartialImage ? ", partial image" : ""));
             if (r2r.OwnerCompositeExecutable is { } owner)
-                infoLines.Add($"  Owner Composite:  {owner}");
-            infoLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
+                binaryLines.Add($"  Owner Composite:  {owner}");
+            binaryLines.Add($"  R2R Sections:     {analyzer.ReadyToRunSections.Count}");
             if (analyzer.ReadyToRunIndex is { } index)
-                infoLines.Add($"  Precompiled:      {index.Methods.Count} methods, "
+                binaryLines.Add($"  Precompiled:      {index.Methods.Count} methods, "
                     + $"{index.InstantiationCount} instantiations, {DotsiderState.FormatSize(index.TotalCodeSize)}");
             if (analyzer.NativeSymbols is { } symbols)
-                infoLines.Add(symbols.Symbols.Count > 0
+                binaryLines.Add(symbols.Symbols.Count > 0
                     ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
                     : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
             if (r2r.Diagnostic is { } diagnostic)
-                infoLines.Add($"  Note:             {diagnostic}");
+                binaryLines.Add($"  Note:             {diagnostic}");
         }
         else if (analyzer.WasmModuleInfo is { } wasm)
         {
-            infoLines.Add("");
-            infoLines.Add("  Binary Kind:      WebAssembly (.NET)");
-            infoLines.Add($"  Wasm Version:     {wasm.Version}");
-            infoLines.Add($"  Wasm Sections:    {wasm.Sections.Count}");
-            infoLines.Add($"  Types:            {wasm.Types.Count}");
-            infoLines.Add($"  Functions:        {wasm.DefinedFunctionCount} defined, {wasm.ImportedFunctionCount} imported");
-            infoLines.Add($"  Code Size:        {DotsiderState.FormatSize(wasm.CodeSize)}");
-            infoLines.Add($"  Tables/Memories:  {wasm.Tables.Count} / {wasm.Memories.Count}");
-            infoLines.Add($"  Globals/Elements: {wasm.Globals.Count} / {wasm.Elements.Count}");
-            infoLines.Add($"  Data Segments:    {wasm.DataSegments.Count}, {DotsiderState.FormatSize(wasm.DataSize)}");
+            binaryLines.Add("  Binary Kind:      WebAssembly (.NET)");
+            binaryLines.Add($"  Wasm Version:     {wasm.Version}");
+            binaryLines.Add($"  Wasm Sections:    {wasm.Sections.Count}");
+            binaryLines.Add($"  Types:            {wasm.Types.Count}");
+            binaryLines.Add($"  Functions:        {wasm.DefinedFunctionCount} defined, {wasm.ImportedFunctionCount} imported");
+            binaryLines.Add($"  Code Size:        {DotsiderState.FormatSize(wasm.CodeSize)}");
+            binaryLines.Add($"  Tables/Memories:  {wasm.Tables.Count} / {wasm.Memories.Count}");
+            binaryLines.Add($"  Globals/Elements: {wasm.Globals.Count} / {wasm.Elements.Count}");
+            binaryLines.Add($"  Data Segments:    {wasm.DataSegments.Count}, {DotsiderState.FormatSize(wasm.DataSize)}");
             if (wasm.StartFunctionIndex is { } start)
-                infoLines.Add($"  Start Function:   func:{start}");
-            infoLines.Add($"  Imports:          {wasm.Imports.Count}");
-            infoLines.Add($"  Exports:          {wasm.Exports.Count}");
-            infoLines.Add($"  Symbol Map:       {wasm.SymbolMapStatus}"
+                binaryLines.Add($"  Start Function:   func:{start}");
+            binaryLines.Add($"  Imports:          {wasm.Imports.Count}");
+            binaryLines.Add($"  Exports:          {wasm.Exports.Count}");
+            binaryLines.Add($"  Symbol Map:       {wasm.SymbolMapStatus}"
                 + (wasm.SymbolMapEntryCount > 0 ? $" ({wasm.SymbolMapEntryCount} names)" : ""));
             if (wasm.SymbolMapPath is { } symbolMapPath)
-                infoLines.Add($"  Symbol Map Path:  {symbolMapPath}");
+                binaryLines.Add($"  Symbol Map Path:  {symbolMapPath}");
             if (analyzer.NativeSymbols is { } symbols)
-                infoLines.Add(symbols.Symbols.Count > 0
+                binaryLines.Add(symbols.Symbols.Count > 0
                     ? $"  Native Symbols:   {symbols.Symbols.Count} from {symbols.Source}"
                     : $"  Native Symbols:   {symbols.Diagnostic ?? symbols.Status.ToString()}");
             if (wasm.Diagnostic is { } diagnostic)
-                infoLines.Add($"  Note:             {diagnostic}");
+                binaryLines.Add($"  Note:             {diagnostic}");
         }
         else if (analyzer.WebcilInfo is { } webcil)
         {
-            infoLines.Add("");
-            infoLines.Add("  Binary Kind:      Managed Webcil (.NET)");
-            infoLines.Add($"  Webcil Format:    v{webcil.VersionMajor}.{webcil.VersionMinor}");
-            infoLines.Add($"  Wasm Wrapped:     {(webcil.IsWasmWrapped ? "Yes" : "No")}");
-            infoLines.Add($"  Webcil Sections:  {webcil.SectionCount}");
-            infoLines.Add($"  Webcil Metadata:  {DotsiderState.FormatSize(webcil.MetadataSize)}");
+            binaryLines.Add("  Binary Kind:      Managed Webcil (.NET)");
+            binaryLines.Add($"  Webcil Format:    v{webcil.VersionMajor}.{webcil.VersionMinor}");
+            binaryLines.Add($"  Wasm Wrapped:     {(webcil.IsWasmWrapped ? "Yes" : "No")}");
+            binaryLines.Add($"  Webcil Sections:  {webcil.SectionCount}");
+            binaryLines.Add($"  Webcil Metadata:  {DotsiderState.FormatSize(webcil.MetadataSize)}");
         }
+
+        if (binaryLines.Count > 0)
+        {
+            infoLines.Add("");
+            infoLines.AddRange(binaryLines);
+        }
+
+        infoLines.Add("");
+        infoLines.AddRange(fileLines);
 
         var infoText = string.Join("\n", infoLines);
 
@@ -217,45 +231,38 @@ public static class GeneralView
                 ref state.GeneralInfoPrevCursorPosition);
         }
 
-        return ctx.VStack(outer =>
+        static Hex1bWidget BuildInfoPanel(
+            WidgetContext<VStackWidget> outer,
+            DotsiderState state)
         {
-            var infoPanel =
-                outer.Border(
-                    outer.ThemePanel(t => t
-                        .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
-                        .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
-                    outer.Editor(state.GeneralInfoEditorState!)
-                        .ViewRenderer(InfoEditorViewRenderer.Instance)
-                        .Decorations(new InfoLabelDecorationProvider())
-                        .Decorations(state.GeneralInfoYankProvider)
-                        .InputBindings(bindings =>
-                        {
-                            TextObjectHelper.ConfigureReadOnlyEditorBindings(
-                                bindings,
-                                state.GeneralInfoEditorState!,
-                                () => state.VimPending,
-                                () => state.VimPendingEditor,
-                                () => state.VimPendingCursorOffset,
-                                () => state.VimPendingTimestamp,
-                                (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
-                                state.PerformEditorYank,
-                                () => state.App.Invalidate());
-                        })
-                        .FillWidth().FillHeight())
-                ).Title(" Assembly Info ");
+            return outer.Border(
+                outer.ThemePanel(t => t
+                    .Set(EditorTheme.SelectionForegroundColor, Hex1bColor.Default)
+                    .Set(EditorTheme.SelectionBackgroundColor, Hex1bColor.FromRgb(79, 82, 88)),
+                outer.Editor(state.GeneralInfoEditorState!)
+                    .ViewRenderer(InfoEditorViewRenderer.Instance)
+                    .Decorations(new InfoLabelDecorationProvider())
+                    .Decorations(state.GeneralInfoYankProvider)
+                    .InputBindings(bindings =>
+                    {
+                        TextObjectHelper.ConfigureReadOnlyEditorBindings(
+                            bindings,
+                            state.GeneralInfoEditorState!,
+                            () => state.VimPending,
+                            () => state.VimPendingEditor,
+                            () => state.VimPendingCursorOffset,
+                            () => state.VimPendingTimestamp,
+                            (s, e, o) => { state.VimPending = s; state.VimPendingEditor = e; state.VimPendingCursorOffset = o; state.VimPendingTimestamp = DateTime.UtcNow; },
+                            state.PerformEditorYank,
+                            () => state.App.Invalidate());
+                    })
+                    .FillWidth().FillHeight())
+            ).Title(" Assembly Info ");
+        }
 
-            var widgets = new List<Hex1bWidget>
-            {
-                // Rich binary summaries can outgrow the viewport; split those with
-                // the references table so neither section disappears after resize.
-                infoHeight > 20 ? infoPanel.FillHeight(2) : infoPanel.FixedHeight(infoHeight)
-            };
-
-            // Search bar
-            SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
-
-            // Assembly References table
-            widgets.Add(outer.Border(
+        Hex1bWidget BuildReferencesPanel(WidgetContext<VStackWidget> outer)
+        {
+            return outer.Border(
                 outer.Table(refs)
                     .RowKey(r => r.Name)
                     .Header(h =>
@@ -329,10 +336,47 @@ public static class GeneralView
                     })
             ).Title(routed
                 ? $" Assembly References (pre-ILC) ({refs.Count}) "
-                : $" Assembly References ({refs.Count}) ").Fill());
+                : $" Assembly References ({refs.Count}) ").Fill();
+        }
 
-            return [.. widgets];
-        })
+        Hex1bWidget BuildGeneralStack<T>(WidgetContext<T> outer, int panelHeight) where T : Hex1bWidget
+        {
+            return outer.VStack(v =>
+            {
+                var widgets = new List<Hex1bWidget>
+                {
+                    BuildInfoPanel(v, state).FixedHeight(panelHeight)
+                };
+
+                SearchBarHelper.AddSearchBar(widgets, v, search, state.App);
+                widgets.Add(BuildReferencesPanel(v));
+
+                return [.. widgets];
+            }).Fill();
+        }
+
+        var compactInfoHeight = infoHeight > RichSummaryHeightThreshold
+            ? Math.Min(infoHeight, CompactSummaryViewportHeight)
+            : infoHeight;
+        var standardInfoHeight = infoHeight > RichSummaryHeightThreshold
+            ? Math.Min(infoHeight, StandardSummaryViewportHeight)
+            : infoHeight;
+
+        // Decide the rich-summary height at the root of the General view, where Hex1b
+        // has the real viewport height. This keeps tall terminals content-sized while
+        // short terminals reserve space for the references table.
+        Hex1bWidget content = infoHeight > RichSummaryHeightThreshold
+            ? ctx.Responsive(r =>
+            [
+                r.When((_, height) => height >= infoHeight + ReferencesReserveHeight,
+                    outer => BuildGeneralStack(outer, infoHeight)),
+                r.When((_, height) => height >= StandardSummaryTerminalHeight,
+                    outer => BuildGeneralStack(outer, standardInfoHeight)),
+                r.Otherwise(outer => BuildGeneralStack(outer, compactInfoHeight))
+            ]).Fill()
+            : BuildGeneralStack(ctx, infoHeight);
+
+        return content
         .InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
