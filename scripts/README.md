@@ -76,6 +76,9 @@ ReadyToRun publishing; the browser-wasm fixture publishes with
 `dotnet.native.wasm` module instead. If a runtime-built input or an external
 oracle is needed, capture it with the file-based utility and commit the reviewed
 fixture metadata, including the runtime source files used as ground truth.
+The .NET runtime repo validates RISC-V64 and LoongArch64 through its
+cross-target runtime pipeline and SuperPMI/crossgen2 collections, so dotsider CI
+does not try to build private runtime packs as part of normal test execution.
 
 Current utilities:
 
