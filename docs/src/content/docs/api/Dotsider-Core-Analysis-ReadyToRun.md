@@ -3,6 +3,8 @@ title: "Dotsider.Core.Analysis.ReadyToRun"
 slug: api/dotsider.core.analysis.readytorun
 sidebar:
   order: 3
+  attrs:
+    data-api-namespace: "true"
 ---
 
 ## Classes

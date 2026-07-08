@@ -3,6 +3,8 @@ title: "Dotsider.Core.Protocol"
 slug: api/dotsider.core.protocol
 sidebar:
   order: 4
+  attrs:
+    data-api-namespace: "true"
 ---
 
 ## Classes

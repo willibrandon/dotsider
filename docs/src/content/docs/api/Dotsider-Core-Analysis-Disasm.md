@@ -3,6 +3,8 @@ title: "Dotsider.Core.Analysis.Disasm"
 slug: api/dotsider.core.analysis.disasm
 sidebar:
   order: 1
+  attrs:
+    data-api-namespace: "true"
 ---
 
 ## Classes

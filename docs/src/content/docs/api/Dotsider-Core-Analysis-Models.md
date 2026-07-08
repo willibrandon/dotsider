@@ -3,6 +3,8 @@ title: "Dotsider.Core.Analysis.Models"
 slug: api/dotsider.core.analysis.models
 sidebar:
   order: 2
+  attrs:
+    data-api-namespace: "true"
 ---
 
 ## Classes

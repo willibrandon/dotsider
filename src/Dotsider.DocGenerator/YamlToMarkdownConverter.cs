@@ -238,6 +238,11 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         {
             sb.AppendLine("sidebar:");
             sb.AppendLine($"  order: {sidebarOrder}");
+            if (item.Type == "Namespace")
+            {
+                sb.AppendLine("  attrs:");
+                sb.AppendLine("    data-api-namespace: \"true\"");
+            }
         }
 
         sb.AppendLine("---");
