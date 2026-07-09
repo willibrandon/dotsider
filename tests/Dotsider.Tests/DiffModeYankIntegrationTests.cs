@@ -551,6 +551,7 @@ public class DiffModeYankIntegrationTests : IDisposable
                 var s = _state!.Search[_state.CurrentTab];
                 return s.IsActive && s.IsConfirmed;
             }, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("n/N: navigate"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -558,9 +559,9 @@ public class DiffModeYankIntegrationTests : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("n")
+            .WaitUntil(_ => !Equals(_state!.DiffFocusedKey, first), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
         Assert.AreNotEqual(first, second);
@@ -568,9 +569,9 @@ public class DiffModeYankIntegrationTests : IDisposable
         // N → previous match (moves to a different row)
         await new Hex1bTerminalInputSequenceBuilder()
             .Shift().Key(Hex1bKey.N)
+            .WaitUntil(_ => !Equals(_state!.DiffFocusedKey, second), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
 
         Assert.AreNotEqual(second, _state.DiffFocusedKey);
 
@@ -609,6 +610,7 @@ public class DiffModeYankIntegrationTests : IDisposable
                 var s = _state!.Search[_state.CurrentTab];
                 return s.IsActive && s.IsConfirmed;
             }, TimeSpan.FromSeconds(5))
+            .WaitUntil(s => s.ContainsText("n/N: navigate"), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -616,9 +618,9 @@ public class DiffModeYankIntegrationTests : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("n")
+            .WaitUntil(_ => !Equals(_state!.DiffFocusedKey, first), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
         Assert.AreNotEqual(first, second);
@@ -626,9 +628,9 @@ public class DiffModeYankIntegrationTests : IDisposable
         // N → previous match (moves to a different row)
         await new Hex1bTerminalInputSequenceBuilder()
             .Shift().Key(Hex1bKey.N)
+            .WaitUntil(_ => !Equals(_state!.DiffFocusedKey, second), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(100, ct);
 
         Assert.AreNotEqual(second, _state.DiffFocusedKey);
 

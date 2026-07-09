@@ -112,10 +112,13 @@ internal static class ReadyToRunMethodMapReader
             return;
 
         var table = new R2RNativeHashtable(reader, instance.Offset, instance.Offset + instance.Size);
+        Func<int, MetadataReader?>? resolveMetadata =
+            moduleContext is null ? null : moduleContext.ResolveMetadata;
         foreach (var entryOffset in table.AllEntryOffsets())
         {
             // The payload is a method signature followed by the runtime-function index.
-            var sig = ReadyToRunSignatureWalker.ParseMethod(reader, entryOffset, instance.Metadata);
+            var sig = ReadyToRunSignatureWalker.ParseMethod(
+                reader, entryOffset, instance.Metadata, resolveMetadata);
             var entryId = DecodeRuntimeFunctionIndex(reader, sig.Offset);
             if (entryId < 0 || entryId >= isEntryPoint.Length)
                 continue;
@@ -127,7 +130,8 @@ internal static class ReadyToRunMethodMapReader
             if (sig.ModuleIndex >= 0 && moduleContext?.Resolve(sig.ModuleIndex) is { } module)
             {
                 var reparsed = module.Provider is { } p
-                    ? ReadyToRunSignatureWalker.ParseMethod(reader, entryOffset, p.GetMetadataReader())
+                    ? ReadyToRunSignatureWalker.ParseMethod(
+                        reader, entryOffset, p.GetMetadataReader(), resolveMetadata)
                     : sig;
                 var crossToken = (reparsed.MethodToken & 0xFF00_0000) == 0x0600_0000 ? reparsed.MethodToken : 0;
                 var source = module.Provider is { } provider

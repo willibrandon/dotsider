@@ -22,6 +22,8 @@ public class ConnectionLimitTests : IAsyncDisposable
     private Hex1bApp? _app;
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
+    private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     private async Task<string> StartTuiWithDiagnosticsAsync(CancellationToken ct)
     {
@@ -50,7 +52,8 @@ public class ConnectionLimitTests : IAsyncDisposable
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
-        _ = _app.RunAsync(ct);
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -66,15 +69,22 @@ public class ConnectionLimitTests : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        _appCts?.Cancel();
         if (_listener is not null)
         {
             _listener.TestDelayHook = null;
             await _listener.DisposeAsync();
         }
 
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _state?.Dispose();
         _app?.Dispose();
         if (_terminal is not null) await _terminal.DisposeAsync();
+        _appCts?.Dispose();
     }
 
     /// <summary>

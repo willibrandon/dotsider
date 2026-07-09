@@ -303,7 +303,9 @@ public static class GeneralView
                         if (resolution.Resolved is not null)
                         {
                             state.PushAssembly(resolution.Resolved);
+                            state.RequestContentFocus();
                             state.App.Invalidate();
+                            state.RequestExtraFrame();
                         }
                     })
                     .Compact()
@@ -330,7 +332,9 @@ public static class GeneralView
                             if (resolution.Resolved is not null)
                             {
                                 state.PushAssembly(resolution.Resolved);
+                                state.RequestContentFocus();
                                 state.App.Invalidate();
+                                state.RequestExtraFrame();
                             }
                         }, "Drill into reference");
                     })

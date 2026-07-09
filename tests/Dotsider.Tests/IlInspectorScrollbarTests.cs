@@ -125,15 +125,14 @@ public class IlInspectorScrollbarTests : IDisposable
 
     /// <summary>
     /// Copies the focus ring to an array, treating the transient
-    /// <see cref="InvalidOperationException"/> a concurrent render-thread rebuild can raise
-    /// mid-enumeration as an empty result. Hex1b rebuilds the ring (a plain list) after every
-    /// frame, so a read from the test poll thread must tolerate that race and retry rather than
-    /// fault the test.
+    /// exceptions a concurrent render-thread rebuild can raise mid-copy as an empty result.
+    /// Hex1b rebuilds the ring (a plain list) after every frame, so a read from the test poll
+    /// thread must tolerate that race and retry rather than fault the test.
     /// </summary>
     private static Hex1bNode[] SnapshotFocusables(Hex1bApp app)
     {
         try { return [.. app.Focusables]; }
-        catch (InvalidOperationException) { return []; }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException) { return []; }
     }
 
     private static ScrollPanelNode? FindPanel(Hex1bApp app)
@@ -1008,12 +1007,28 @@ public class IlInspectorScrollbarTests : IDisposable
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
         await auto.WaitUntilAsync(_ => TreeOffset == TreeMaxOffset(sp), description: "scrolled to end");
 
-        // Collapse all types — content height shrinks dramatically.
-        foreach (var t in _state!.Analyzer.TypeDefs)
-            _state!.IlTreeExpansionState[$"type:{t.FullName}"] = false;
-        _state!.App.Invalidate();
+        // Collapse all types on the render thread. Direct test-thread mutation can
+        // race the headless render loop and leave the terminal showing the old,
+        // expanded rows even though the test already requested an invalidate.
+        var collapseApplied = 0;
+        _state!.PendingMutations.Enqueue(s =>
+        {
+            foreach (var t in s.Analyzer.TypeDefs)
+                s.IlTreeExpansionState[$"type:{t.FullName}"] = false;
 
-        await auto.WaitUntilAsync(_ => TreeOffset <= TreeMaxOffset(sp),
+            Volatile.Write(ref collapseApplied, 1);
+            s.App.Invalidate();
+            s.RequestExtraFrame();
+        });
+        _state.App.Invalidate();
+        _state.RequestExtraFrame();
+
+        await auto.WaitUntilAsync(_ =>
+        {
+            _state.App.Invalidate();
+            return Volatile.Read(ref collapseApplied) == 1
+                && TreeOffset <= TreeMaxOffset(sp);
+        },
             description: "Offset clamped after collapse");
         Assert.IsLessThanOrEqualTo(TreeMaxOffset(sp), TreeOffset, $"Offset={TreeOffset} MaxOffset={TreeMaxOffset(sp)}");
 

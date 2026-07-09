@@ -105,6 +105,17 @@ public class StandardModeYankIntegrationTests : IDisposable
         }
     }
 
+    private async Task<string> TypeYAndCaptureNotificationAsync(Hex1bTerminal terminal, CancellationToken ct)
+    {
+        string? notification = null;
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Type("y")
+            .WaitUntil(_ => (notification = _state!.YankNotification) is not null, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        return notification!;
+    }
+
     // --- General tab ---
 
     /// <summary>
@@ -174,16 +185,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.Contains("\t", expectedPayload); // Tab-separated
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        var notification = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         // Notification contains the payload (truncated if long)
-        Assert.IsNotNull(_state.YankNotification);
         var firstRef = _state.Analyzer.AssemblyRefs.First(r => r.Name == _state.GeneralFocusedDep as string);
-        Assert.Contains(firstRef.Name, _state.YankNotification);
+        Assert.Contains(firstRef.Name, notification);
 
         // Verify the actual OSC 52 clipboard payload emitted by ctx.CopyToClipboard
         Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
@@ -316,7 +322,7 @@ public class StandardModeYankIntegrationTests : IDisposable
         // Escape closes popup
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.PeDetailContent is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -348,13 +354,7 @@ public class StandardModeYankIntegrationTests : IDisposable
 
         Assert.IsNotNull(_state!.StringsFocusedKey);
 
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -427,15 +427,10 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        var notification = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         // Verify payload is uppercase hex
-        Assert.IsNotNull(_state!.YankNotification);
-        Assert.MatchesRegex(@"Yanked: [0-9A-F]{2} [0-9A-F]{2}", _state.YankNotification);
+        Assert.MatchesRegex(@"Yanked: [0-9A-F]{2} [0-9A-F]{2}", notification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -512,13 +507,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state!.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -554,18 +543,12 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state!.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         // Escape closes popup
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.PeDetailContent is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -605,13 +588,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state!.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -920,7 +897,10 @@ public class StandardModeYankIntegrationTests : IDisposable
         // Go back to HelloWorld (we need the executable for Dynamic tab)
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state!.NavigationStack.Count == 0, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.CurrentTab == TabId.General
+                && _state.NavigationStack.Count == 0
+                && _state.GeneralFocusedDep is not null,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1439,7 +1419,8 @@ public class StandardModeYankIntegrationTests : IDisposable
                     return false;
 
                 return es.Document.GetText(es.Cursor.SelectionRange)
-                    .StartsWith("IL_0000:", StringComparison.Ordinal);
+                    .StartsWith("IL_0000:", StringComparison.Ordinal)
+                    && IsFocusedOnEditor(es);
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1709,13 +1690,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state!.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1748,13 +1723,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Yank the selection
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsNotNull(_state!.YankNotification);
+        _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }

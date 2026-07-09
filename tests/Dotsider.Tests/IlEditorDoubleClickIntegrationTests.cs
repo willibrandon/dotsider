@@ -78,6 +78,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
         _state.IlSelectedMethod = method;
         _state.IlFocusedTreeKey = $"method:{method.Token}";
         _state.App.Invalidate();
+        _state.RequestExtraFrame();
     }
 
     /// <summary>
@@ -125,6 +126,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
         // Simulate double-click: SelectWordAt is what EditorNode.cs:281 calls
         editorState.SelectWordAt(new DocumentOffset(systemIdx));
         _state.App.Invalidate();
+        _state.RequestExtraFrame();
 
         // Wait for the render cycle to process AdjustWordSelectionCursorOneShot —
         // the one-shot pulls the cursor from the trailing '.' back onto the last

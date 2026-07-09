@@ -65,8 +65,11 @@ public sealed class IlTreeVirtualizationTests : IDisposable
             _state.ExtraFrameArmed = false;
             IlInspectorView.SyncTreeScroll(_state, _rows!);
             var tree = IlTreeList.Build(
-                _rows!, formatted, _state,
-                selectionChanged: i => _state!.IlFocusedTreeKey = _rows![i].Key,
+                _rows!,
+                formatted,
+                getRows: () => _rows!,
+                state: _state,
+                selectionChanged: row => _state!.IlFocusedTreeKey = row.Key,
                 itemActivated: null, expandRow: null, collapseRow: null);
             return Task.FromResult<Hex1bWidget>(new VStackWidget(
             [

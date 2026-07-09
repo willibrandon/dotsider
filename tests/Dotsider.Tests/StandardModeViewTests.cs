@@ -2929,18 +2929,25 @@ public class StandardModeViewTests : IDisposable
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
-        //Navigate to IL Inspector tab
+        // Navigate to PE/Metadata MethodDef, then use the production Go-to-IL
+        // binding so the cross-view back target is created on the UI path.
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D2) // Tab 2 — PE/Metadata
+            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.MethodDef, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.PeFocusedKey is int, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.G)
+            .WaitUntil(_ => _state!.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.CrossViewBackTarget is { Tab: TabId.PeMetadata }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        // Programmatically set a cross-view back target (simulating a g/x navigation)
-        _state!.CrossViewBackStack.Push((TabId.PeMetadata, PeSubTabId.TypeDef));
-        _hex1bApp!.Invalidate();
+        var state = _state!;
 
         // Wait for "Esc: Back" hint to appear
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2951,16 +2958,16 @@ public class StandardModeViewTests : IDisposable
         // Open search — type "test" then press Escape
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.T).Key(Hex1bKey.E).Key(Hex1bKey.S).Key(Hex1bKey.T) // type "test"
             .Key(Hex1bKey.Escape) // should dismiss search, NOT navigate back
-            .WaitUntil(_ => !_state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
         // Verify we stayed on IL Inspector — Escape dismissed search, didn't navigate back
-        Assert.AreEqual(TabId.IlInspector, _state.CurrentTab);
-        Assert.IsNotNull(_state.CrossViewBackTarget); // Back target still present
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.IsNotNull(state.CrossViewBackTarget); // Back target still present
 
         cts.Cancel();
         await runTask;

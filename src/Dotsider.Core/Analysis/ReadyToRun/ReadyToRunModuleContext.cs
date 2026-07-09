@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using System.Reflection.Metadata;
 
 namespace Dotsider.Core.Analysis.ReadyToRun;
 
@@ -56,6 +57,10 @@ internal sealed class ReadyToRunModuleContext
         var component = _components[i];
         return new ModuleRef(component.AssemblyName, component.Mvid, _providerFor(component.Mvid));
     }
+
+    /// <summary>Resolves an override index directly to component metadata, or null when unavailable.</summary>
+    public MetadataReader? ResolveMetadata(int moduleIndex) =>
+        Resolve(moduleIndex)?.Provider?.GetMetadataReader();
 
     // Component assembly indices start at two from R2R major 6.3 (readytorun.h version history); the
     // manifest reserves index 1 for itself, so a component is index (position + offset).

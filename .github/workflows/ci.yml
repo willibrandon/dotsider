@@ -32,6 +32,7 @@ jobs:
         run: dotnet build --no-restore
 
       - name: Test
+        timeout-minutes: 30
         shell: bash
         run: |
           set -euo pipefail
@@ -41,7 +42,10 @@ jobs:
             tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj \
             tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj
           do
-            dotnet test "$project" --no-build --report-trx --results-directory "TestResults/${{ matrix.os }}/$(basename "$(dirname "$project")")" --coverage --coverage-output-format cobertura
+            project_name="$(basename "$(dirname "$project")")"
+            export DOTSIDER_R2R_DIAGNOSTICS=1
+            export DOTSIDER_R2R_DIAGNOSTICS_PATH="TestResults/${{ matrix.os }}/${project_name}/r2r-diagnostics.log"
+            dotnet test "$project" --no-build --report-trx --results-directory "TestResults/${{ matrix.os }}/${project_name}" --coverage --coverage-output-format cobertura
           done
 
       - name: Upload test artifacts
@@ -52,6 +56,7 @@ jobs:
           path: |
             TestResults/**/*.trx
             TestResults/**/*.cobertura.xml
+            TestResults/**/*.log
 
   deploy-tests:
     runs-on: ubuntu-latest

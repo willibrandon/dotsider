@@ -23,6 +23,7 @@ public class SessionSymbolTests : IAsyncDisposable
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
     private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     /// <summary>
     /// Starts a headless dotsider TUI with the diagnostics socket listener,
@@ -57,7 +58,7 @@ public class SessionSymbolTests : IAsyncDisposable
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = _app.RunAsync(_appCts.Token);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -197,7 +198,13 @@ public class SessionSymbolTests : IAsyncDisposable
         _appCts?.Cancel();
         if (_listener is not null)
             await _listener.DisposeAsync();
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _state?.Dispose();
+        _app?.Dispose();
         if (_terminal is not null)
             await _terminal.DisposeAsync();
         _appCts?.Dispose();

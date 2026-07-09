@@ -220,6 +220,8 @@ internal sealed class ReadyToRunImportMap
         R2RNativeReader reader, int offset, MetadataReader? metadata, IReadOnlyList<MethodDefInfo> methodDefs,
         ReadyToRunModuleContext? moduleContext)
     {
+        Func<int, MetadataReader?>? resolveMetadata =
+            moduleContext is null ? null : moduleContext.ResolveMetadata;
         uint fixup = reader.ReadByte(ref offset);
         string? modulePrefix = null;
         if ((fixup & FixupModuleOverride) != 0)
@@ -245,7 +247,8 @@ internal sealed class ReadyToRunImportMap
         {
             case FixupMethodEntry or FixupMethodHandle or FixupVirtualEntry:
             {
-                var sig = ReadyToRunSignatureWalker.ParseMethod(reader, offset, metadata);
+                var sig = ReadyToRunSignatureWalker.ParseMethod(
+                    reader, offset, metadata, resolveMetadata);
                 return DecorateMethod(sig, metadata, methodDefs, modulePrefix);
             }
 
@@ -257,7 +260,8 @@ internal sealed class ReadyToRunImportMap
 
             case FixupPInvokeTarget or FixupIndirectPInvokeTarget:
             {
-                var sig = ReadyToRunSignatureWalker.ParseMethod(reader, offset, metadata);
+                var sig = ReadyToRunSignatureWalker.ParseMethod(
+                    reader, offset, metadata, resolveMetadata);
                 var name = DecorateMethod(sig, metadata, methodDefs, modulePrefix);
                 return name is null ? null : $"{name} (pinvoke)";
             }

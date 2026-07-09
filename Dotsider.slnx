@@ -69,8 +69,8 @@
     <File Path="scripts/Capture-DisasmOracle.cs" />
     <File Path="scripts/Directory.Build.props" />
     <File Path="scripts/README.md" />
+    <File Path="scripts/Run-Tests.cs" />
     <File Path="scripts/ScriptSupport.cs" />
-    <File Path="scripts/test/Run-Tests.cs" />
   </Folder>
 
   <Folder Name="/benchmarks/">

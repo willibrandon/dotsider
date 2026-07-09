@@ -23,6 +23,8 @@ public class SessionNugetNavigateTests : IAsyncDisposable
     private Hex1bApp? _app;
     private NuGetState? _nugetState;
     private DotsiderDiagnosticsListener? _listener;
+    private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     /// <summary>
     /// Starts a headless NuGet TUI with the diagnostics socket listener,
@@ -84,10 +86,11 @@ public class SessionNugetNavigateTests : IAsyncDisposable
                     Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
                 };
-            });
+        });
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
-        _ = _app.RunAsync(ct);
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -258,10 +261,18 @@ public class SessionNugetNavigateTests : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        _appCts?.Cancel();
         if (_listener is not null)
             await _listener.DisposeAsync();
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _nugetState?.Dispose();
+        _app?.Dispose();
         if (_terminal is not null)
             await _terminal.DisposeAsync();
+        _appCts?.Dispose();
     }
 }

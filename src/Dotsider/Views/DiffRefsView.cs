@@ -46,20 +46,8 @@ public static class DiffRefsView
         // Set up match navigation — cycle through filtered rows
         if (filtered.Count > 0 && !string.IsNullOrEmpty(query))
         {
-            var keys = filtered.Select(e =>
-                e.Kind.ToString() + ":" + (e.Left?.Name ?? e.Right?.Name ?? "")).ToList();
-            state.NavigateNextMatch = () =>
-            {
-                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
-                idx = (idx + 1) % keys.Count;
-                state.DiffFocusedKey = keys[idx];
-            };
-            state.NavigatePrevMatch = () =>
-            {
-                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
-                idx = idx <= 0 ? keys.Count - 1 : idx - 1;
-                state.DiffFocusedKey = keys[idx];
-            };
+            state.NavigateNextMatch = () => NavigateMatch(state, forward: true);
+            state.NavigatePrevMatch = () => NavigateMatch(state, forward: false);
         }
         else
         {
@@ -76,7 +64,7 @@ public static class DiffRefsView
 
             // Table
             widgets.Add(outer.Table(filtered)
-                .RowKey(r => r.Kind.ToString() + ":" + (r.Left?.Name ?? r.Right?.Name ?? ""))
+                .RowKey(KeyFor)
                 .Header(h =>
                 [
                     h.Cell("").Width(SizeHint.Fixed(3)),
@@ -140,6 +128,39 @@ public static class DiffRefsView
             DiffFilterMode.ChangedOnly => [.. entries.Where(e => e.Kind != DiffKind.Unchanged)],
             _ => entries
         };
+
+    private static List<string> GetMatchingKeys(DiffState state)
+    {
+        var search = state.Search[3];
+        var query = search.Query;
+        if (string.IsNullOrEmpty(query)) return [];
+
+        return [.. FilterEntries(state.DiffResult.AssemblyRefDiffs, state.FilterMode)
+            .Where(e =>
+            {
+                var name = e.Right?.Name ?? e.Left?.Name ?? "";
+                var leftVer = e.Left?.Version ?? "";
+                var rightVer = e.Right?.Version ?? "";
+                return $"{name} {leftVer} {rightVer}"
+                    .Contains(query, StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(KeyFor)];
+    }
+
+    private static void NavigateMatch(DiffState state, bool forward)
+    {
+        var keys = GetMatchingKeys(state);
+        if (keys.Count == 0) return;
+
+        var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
+        idx = forward
+            ? (idx + 1) % keys.Count
+            : idx <= 0 ? keys.Count - 1 : idx - 1;
+        state.DiffFocusedKey = keys[idx];
+    }
+
+    private static string KeyFor(DiffEntry<AssemblyRefInfo> entry) =>
+        entry.Kind + ":" + (entry.Left?.Name ?? entry.Right?.Name ?? "");
 
     private static (string Prefix, Hex1bColor Color) GetDiffStyle(DiffKind kind) => kind switch
     {

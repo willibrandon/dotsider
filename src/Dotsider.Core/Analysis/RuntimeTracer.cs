@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using TraceEventCategory = Dotsider.Core.Analysis.Models.TraceEventCategory;
 using TraceEventEntry = Dotsider.Core.Analysis.Models.TraceEventEntry;
 
@@ -25,12 +26,14 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     private readonly bool _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
     private Process? _process;
+    private DiagnosticsClientConnector? _connector;
     private EventPipeSession? _session;
     private EventPipeEventSource? _eventSource;
     private Task? _processingTask;
     private CancellationTokenSource? _cts;
     private Stopwatch? _stopwatch;
     private Timer? _invalidateTimer;
+    private string? _diagnosticPort;
 
     // Ring buffer for events — lock protects both read and write
     private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
@@ -54,6 +57,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
     // Dirty flag for throttled invalidation
     private int _dirty;
+    private int _invalidateTimerCallbackActive;
 
     // Process output
     private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
@@ -149,6 +153,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     {
         _cts = new CancellationTokenSource();
         _stopwatch = Stopwatch.StartNew();
+        _diagnosticPort = CreateDiagnosticPort();
+        var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        connectCts.CancelAfter(ConnectTimeout);
+        var connectorTask = DiagnosticsClientConnector.FromDiagnosticPort(_diagnosticPort, connectCts.Token);
 
         // Launch with diagnostic port suspend so we can attach EventPipe
         // before Main() runs — this captures events even for short-lived processes
@@ -160,7 +168,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        psi.Environment["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
+        psi.Environment["DOTNET_DiagnosticPorts"] = _diagnosticPort;
+        psi.Environment.Remove("DOTNET_DefaultDiagnosticPortSuspend");
         if (!psi.Environment.ContainsKey("ASPNETCORE_URLS")
             && !psi.Environment.ContainsKey("DOTNET_URLS"))
         {
@@ -176,6 +185,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 _processState = TraceProcessState.Error;
             }
 
+            connectCts.Cancel();
+            connectCts.Dispose();
             MarkDirty();
             return;
         }
@@ -189,9 +200,10 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
+            int? exitCode = TryReadExitCode();
             lock (_stateLock)
             {
-                _exitCode = _process.HasExited ? _process.ExitCode : null;
+                _exitCode = exitCode;
             }
 
             _stopwatch?.Stop();
@@ -206,27 +218,41 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         // Otherwise, only invalidate when the dirty flag is set.
         _invalidateTimer = new Timer(_ =>
         {
-            if (Interlocked.Exchange(ref _dirty, 0) == 1
-                || ProcessState == TraceProcessState.Running)
-                invalidate();
+            if (Interlocked.Exchange(ref _invalidateTimerCallbackActive, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                if (Interlocked.Exchange(ref _dirty, 0) == 1
+                    || IsProcessRunning())
+                {
+                    invalidate();
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref _invalidateTimerCallbackActive, 0);
+            }
         }, null, 0, 100);
 
-        // Connection + event processing on background task.
-        // The process is suspended (DOTNET_DefaultDiagnosticPortSuspend=1)
-        // so it won't exit while we're connecting.
+        // Connection + event processing on background task. The process is
+        // suspended by DOTNET_DiagnosticPorts until we attach EventPipe and
+        // send ResumeRuntime.
         var providers = BuildProviders();
-        var pid = _process.Id;
         _processingTask = Task.Factory.StartNew(async () =>
         {
             try
             {
-                var client = new DiagnosticsClient(pid);
+                _connector = await connectorTask.ConfigureAwait(false);
+                var client = _connector.Instance;
                 var session = await TryStartEventPipeSessionAsync(client, providers);
                 if (session is null)
                 {
                     lock (_stateLock)
                     {
-                        _errorMessage = "Timed out connecting to runtime diagnostics (5s). Is this a valid .NET assembly?";
+                        _errorMessage = $"Timed out starting runtime diagnostics after {ConnectTimeout.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)}s. Is this a valid .NET assembly?";
                         _processState = TraceProcessState.Error;
                     }
 
@@ -240,13 +266,23 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 MarkDirty();
 
                 // Resume the suspended runtime now that EventPipe is attached
-                client!.ResumeRuntime();
+                client.ResumeRuntime();
 
                 // Process events — blocks until session ends
                 ProcessEventsLoop(session);
                 MarkExitedIfStarted();
             }
-            catch (OperationCanceledException) { /* user cancelled */ }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested) { /* user cancelled */ }
+            catch (OperationCanceledException)
+            {
+                lock (_stateLock)
+                {
+                    _errorMessage = $"Timed out connecting to runtime diagnostics after {ConnectTimeout.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)}s. Is this a valid .NET assembly?";
+                    _processState = TraceProcessState.Error;
+                }
+
+                try { _process.Kill(); } catch { }
+            }
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
             {
                 // Expected: process exited (pipe broke) or user cancelled
@@ -262,6 +298,9 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             }
             finally
             {
+                connectCts.Dispose();
+                DisposeDiagnosticConnector();
+                CleanupDiagnosticPort();
                 _stopwatch?.Stop();
                 invalidate();
             }
@@ -286,15 +325,18 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
         _invalidateTimer?.Dispose();
         _invalidateTimer = null;
+        DisposeDiagnosticConnector();
+        CleanupDiagnosticPort();
         _stopwatch?.Stop();
 
+        int? exitCode = TryReadExitCode();
         bool stopped;
         lock (_stateLock)
         {
             stopped = _processState is TraceProcessState.Running or TraceProcessState.Starting;
             if (stopped)
             {
-                _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                _exitCode = exitCode;
                 _processState = TraceProcessState.Exited;
             }
         }
@@ -314,15 +356,71 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
     private void MarkDirty() => Volatile.Write(ref _dirty, 1);
 
+    private static string CreateDiagnosticPort()
+    {
+        var name = $"dotsider-{Environment.ProcessId}-{Guid.NewGuid():N}";
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? name
+            : Path.Combine("/tmp", $"{name}.socket");
+    }
+
+    private void DisposeDiagnosticConnector()
+    {
+        var connector = Interlocked.Exchange(ref _connector, null);
+        if (connector is null)
+            return;
+
+        try { connector.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
+    }
+
+    private void CleanupDiagnosticPort()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return;
+
+        var diagnosticPort = _diagnosticPort;
+        if (string.IsNullOrEmpty(diagnosticPort))
+            return;
+
+        try { File.Delete(diagnosticPort); } catch { }
+    }
+
     private void MarkExitedIfStarted()
     {
+        int? exitCode = TryReadExitCode();
         lock (_stateLock)
         {
             if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
             {
-                _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                _exitCode = exitCode;
                 _processState = TraceProcessState.Exited;
             }
+        }
+    }
+
+    private bool IsProcessRunning()
+    {
+        lock (_stateLock)
+        {
+            return _processState == TraceProcessState.Running;
+        }
+    }
+
+    private int? TryReadExitCode()
+    {
+        var process = _process;
+        if (process is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return process.HasExited ? process.ExitCode : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
         }
     }
 

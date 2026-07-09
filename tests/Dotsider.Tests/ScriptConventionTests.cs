@@ -36,16 +36,15 @@ public sealed partial class ScriptConventionTests : IDisposable
     {
         string root = FindRepositoryRoot();
         string readme = File.ReadAllText(Path.Combine(root, "scripts", "README.md"));
+        string runTestsScript = File.ReadAllText(Path.Combine(root, "scripts", "Run-Tests.cs"));
         string attributes = File.ReadAllText(Path.Combine(root, ".gitattributes"));
 
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
-        Assert.Contains("dotnet build ./scripts/Capture-DisasmOracle.cs", readme);
-        Assert.Contains("dotnet run --file ./scripts/test/Run-Tests.cs", readme);
-        Assert.Contains("dotnet clean file-based-apps", readme);
+        Assert.Contains("dotnet run --file ./scripts/Run-Tests.cs", readme);
+        Assert.Contains("FullyQualifiedName~", runTestsScript);
+        Assert.Contains("dotnet-suggest", runTestsScript);
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
-        Assert.Contains("documented app", readme);
-        Assert.Contains("Native architecture oracles", readme);
-        Assert.Contains("run-runtime-cross-target", readme);
+        Assert.Contains("Current utilities", readme);
         Assert.Contains("scripts/*.cs text eol=lf", attributes);
         Assert.Contains("scripts/**/*.cs text eol=lf", attributes);
     }
@@ -185,7 +184,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void RunTests_BuildsAndPrintsHelp()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "test", "Run-Tests.cs");
+        string scriptPath = CopyRunTestsApp(root);
 
         var (runExitCode, stdout, _) = RunFileApp(root, scriptPath, "-Help");
         Assert.AreEqual(0, runExitCode);
@@ -206,7 +205,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         string[] relativePaths =
         [
             "scripts/Capture-DisasmOracle.cs",
-            "scripts/test/Run-Tests.cs",
+            "scripts/Run-Tests.cs",
             "scripts/ScriptSupport.cs",
             "src/Dotsider.Core/Analysis/Disasm/NativeDecoderRegistry.cs",
             "src/Dotsider.Core/Analysis/Disasm/NativeDecoderSupport.cs",
@@ -269,6 +268,19 @@ public sealed partial class ScriptConventionTests : IDisposable
         }
 
         return (process.ExitCode, stdout, stderr);
+    }
+
+    private string CopyRunTestsApp(string root)
+    {
+        string scriptsRoot = Path.Combine(_tempRoot, "run-tests-app", "scripts");
+        Directory.CreateDirectory(scriptsRoot);
+
+        File.Copy(
+            Path.Combine(root, "scripts", "ScriptSupport.cs"),
+            Path.Combine(scriptsRoot, "ScriptSupport.cs"));
+        string scriptPath = Path.Combine(scriptsRoot, "Run-Tests.cs");
+        File.Copy(Path.Combine(root, "scripts", "Run-Tests.cs"), scriptPath);
+        return scriptPath;
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, params string[] arguments)

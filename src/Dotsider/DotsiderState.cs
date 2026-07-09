@@ -1216,8 +1216,10 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.IlInspector);
         var ilSearch = Search[TabId.IlInspector];
         ilSearch.Reset();
+        IlFocusedPane = IlPane.Tree;
         App.RequestFocus(node => node is ScrollPanelNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>
@@ -1245,6 +1247,7 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.HexDump);
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>Navigates to the Hex Dump tab, jumping directly to a file offset (native mode).</summary>
@@ -1268,6 +1271,7 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.HexDump);
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>
@@ -1943,6 +1947,7 @@ public sealed class DotsiderState : IDisposable
         // single source of truth — IL → ScrollPanelNode, Hex → EditorNode, etc.
         RequestContentFocus();
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>

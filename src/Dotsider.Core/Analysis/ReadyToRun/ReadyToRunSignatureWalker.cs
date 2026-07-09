@@ -35,18 +35,30 @@ internal static class ReadyToRunSignatureWalker
     /// <param name="reader">The image reader.</param>
     /// <param name="offset">The file offset of the signature.</param>
     /// <param name="metadata">The metadata reader for resolving token names, or null.</param>
-    public static MethodSignature ParseMethod(R2RNativeReader reader, int offset, MetadataReader? metadata)
+    /// <param name="moduleMetadata">Resolves a ReadyToRun module override index to metadata, or null when unavailable.</param>
+    public static MethodSignature ParseMethod(
+        R2RNativeReader reader,
+        int offset,
+        MetadataReader? metadata,
+        Func<int, MetadataReader?>? moduleMetadata = null)
     {
-        var walker = new Walker(reader, offset, metadata);
+        var walker = new Walker(reader, offset, metadata, moduleMetadata);
         walker.ParseMethod();
         return new MethodSignature(
             walker.Offset, walker.MethodToken, walker.RenderInstantiation(), walker.CrossModule, walker.ModuleIndex);
     }
 
-    private sealed class Walker(R2RNativeReader reader, int offset, MetadataReader? metadata)
+    private sealed class Walker(
+        R2RNativeReader reader,
+        int offset,
+        MetadataReader? metadata,
+        Func<int, MetadataReader?>? moduleMetadata)
     {
         private readonly List<string> _instantiation = [];
+        private readonly MetadataReader? _outerMetadata = metadata;
+        private readonly int _startOffset = offset;
         private int _offset = offset;
+        private MetadataReader? _metadata = metadata;
         private string? _ownerDisplay;
 
         private int _topLevelModuleIndex = -1;
@@ -70,13 +82,27 @@ internal static class ReadyToRunSignatureWalker
         public void ParseMethod()
         {
             var flags = ReadUInt();
+            ReadyToRunDiagnostics.Write($"method-start offset=0x{_startOffset:X} flags=0x{flags:X}");
             if ((flags & SigUpdateContext) != 0)
             {
                 _topLevelModuleIndex = (int)ReadUInt(); // the token resolves in the module at this index
                 CrossModule = true;
                 flags &= ~SigUpdateContext;
+                ReadyToRunDiagnostics.Write(
+                    $"method-update-context start=0x{_startOffset:X} module={_topLevelModuleIndex} next=0x{_offset:X}");
+                WithMetadata(moduleMetadata?.Invoke(_topLevelModuleIndex), () => ParseMethodBody(flags));
+                ReadyToRunDiagnostics.Write(
+                    $"method-end start=0x{_startOffset:X} end=0x{_offset:X} token=0x{MethodToken:X8} module={ModuleIndex}");
+                return;
             }
 
+            ParseMethodBody(flags);
+            ReadyToRunDiagnostics.Write(
+                $"method-end start=0x{_startOffset:X} end=0x{_offset:X} token=0x{MethodToken:X8} module={ModuleIndex}");
+        }
+
+        private void ParseMethodBody(uint flags)
+        {
             if ((flags & SigOwnerType) != 0)
             {
                 _ownerDisplay = SkipType();
@@ -117,6 +143,8 @@ internal static class ReadyToRunSignatureWalker
         private string SkipType()
         {
             var elementType = reader.ReadByte(ref _offset) & 0x7F;
+            ReadyToRunDiagnostics.Write(
+                $"type start=0x{_startOffset:X} offset=0x{_offset - 1:X} element=0x{elementType:X2}");
             switch (elementType)
             {
                 case 0x01: return "void";
@@ -151,7 +179,9 @@ internal static class ReadyToRunSignatureWalker
                     // one seen is the owner's; capture it so the method token attributes correctly.
                     var moduleIndex = (int)ReadUInt();
                     if (_ownerModuleIndex < 0) { _ownerModuleIndex = moduleIndex; CrossModule = true; }
-                    return SkipType();
+                    ReadyToRunDiagnostics.Write(
+                        $"type-module start=0x{_startOffset:X} module={moduleIndex} next=0x{_offset:X}");
+                    return WithMetadata(moduleMetadata?.Invoke(moduleIndex), SkipType);
                 }
                 case 0x3b: ReadUInt(); return "var";                 // VAR_ZAPSIG
                 case 0x3d: return SkipType();                        // NATIVE_VALUETYPE_ZAPSIG
@@ -173,8 +203,13 @@ internal static class ReadyToRunSignatureWalker
                 {
                     var generic = SkipType();
                     var argCount = ReadUInt();
+                    ReadyToRunDiagnostics.Write(
+                        $"type-genericinst start=0x{_startOffset:X} args={argCount} next=0x{_offset:X}");
                     var args = new string[argCount];
-                    for (var i = 0; i < argCount; i++) args[i] = SkipType();
+                    WithMetadata(_outerMetadata, () =>
+                    {
+                        for (var i = 0; i < argCount; i++) args[i] = SkipType();
+                    });
                     return $"{generic}<{string.Join(", ", args)}>";
                 }
                 case 0x1b:                                           // FNPTR
@@ -198,16 +233,18 @@ internal static class ReadyToRunSignatureWalker
 
         private string TypeTokenName(int token)
         {
-            if (metadata is null) return "Type";
+            if (_metadata is null) return "Type";
             try
             {
                 var handle = MetadataTokens.EntityHandle(token);
+                ReadyToRunDiagnostics.Write(
+                    $"type-token offset=0x{_offset:X} token=0x{token:X8} kind={handle.Kind} row={MetadataTokens.GetRowNumber(handle)}");
                 return handle.Kind switch
                 {
-                    HandleKind.TypeDefinition => metadata.GetString(
-                        metadata.GetTypeDefinition((TypeDefinitionHandle)handle).Name),
-                    HandleKind.TypeReference => metadata.GetString(
-                        metadata.GetTypeReference((TypeReferenceHandle)handle).Name),
+                    HandleKind.TypeDefinition => _metadata.GetString(
+                        _metadata.GetTypeDefinition((TypeDefinitionHandle)handle).Name),
+                    HandleKind.TypeReference => _metadata.GetString(
+                        _metadata.GetTypeReference((TypeReferenceHandle)handle).Name),
                     _ => "Type",
                 };
             }
@@ -234,5 +271,33 @@ internal static class ReadyToRunSignatureWalker
         private uint ReadUInt() => reader.ReadCompressedUInt(ref _offset);
 
         private int ReadInt() => reader.ReadCompressedInt(ref _offset);
+
+        private void WithMetadata(MetadataReader? next, Action action)
+        {
+            var previous = _metadata;
+            _metadata = next;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                _metadata = previous;
+            }
+        }
+
+        private string WithMetadata(MetadataReader? next, Func<string> action)
+        {
+            var previous = _metadata;
+            _metadata = next;
+            try
+            {
+                return action();
+            }
+            finally
+            {
+                _metadata = previous;
+            }
+        }
     }
 }

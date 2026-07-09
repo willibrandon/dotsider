@@ -233,6 +233,7 @@ public class NuGetModeViewTests : IDisposable
         var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
+        var chainPrepared = false;
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -245,14 +246,19 @@ public class NuGetModeViewTests : IDisposable
                 // Set up a PE → IL → Hex chain on the inner DLL state, then drive
                 // real Esc keys through the NuGet Escape handler.
                 var dllState = _state!.SelectedDllState!;
-                dllState.CurrentTab = TabId.PeMetadata;
-                dllState.PeSubTab = PeSubTabId.MethodDef;
-                var method = dllState.Analyzer.MethodDefs.First(m => m.Rva > 0);
-                dllState.NavigateToIlMethod(method);
-                dllState.NavigateToHexOffset(method.Rva);
-                _state.App.Invalidate();
-                return dllState.CurrentTab == TabId.HexDump;
+                if (!chainPrepared)
+                {
+                    dllState.CurrentTab = TabId.PeMetadata;
+                    dllState.PeSubTab = PeSubTabId.MethodDef;
+                    var method = dllState.Analyzer.MethodDefs.First(m => m.Rva > 0);
+                    dllState.NavigateToIlMethod(method);
+                    dllState.NavigateToHexOffset(method.Rva);
+                    chainPrepared = true;
+                }
+
+                return dllState.CurrentTab == TabId.HexDump && dllState.CrossViewBackTarget is not null;
             }, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.SelectedDllState!.CurrentTab == TabId.IlInspector,
                 TimeSpan.FromSeconds(10))

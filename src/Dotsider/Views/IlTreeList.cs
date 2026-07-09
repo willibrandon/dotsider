@@ -34,10 +34,14 @@ internal static class IlTreeList
     /// </summary>
     /// <param name="rows">The flattened tree rows.</param>
     /// <param name="formattedRows">Pre-formatted display strings (one per row).</param>
+    /// <param name="getRows">Returns the current flattened tree rows for input
+    /// dispatch. This can differ from <paramref name="rows"/> when a queued key
+    /// arrives after search, expansion, or mode state changed but before the
+    /// next rendered tree replaces this binding closure.</param>
     /// <param name="state">The shared application state. Read live by every binding so
     /// coalesced input batches operate on post-mutation selection.</param>
     /// <param name="selectionChanged">Invoked by keyboard navigation and row clicks
-    /// after the new index is computed. The caller is expected to assign
+    /// after the new row is computed. The caller is expected to assign
     /// <c>state.IlFocusedTreeKey</c> directly (no <see cref="DotsiderState.SetIlFocusedTreeKey"/>),
     /// because the keyboard path manages scroll-into-view itself and must not arm
     /// <see cref="DotsiderState.IlScrollSelectionIntoViewPending"/>.</param>
@@ -51,11 +55,12 @@ internal static class IlTreeList
     internal static Hex1bWidget Build(
         IReadOnlyList<IlTreeRow> rows,
         IReadOnlyList<string> formattedRows,
+        Func<IReadOnlyList<IlTreeRow>> getRows,
         DotsiderState state,
-        Action<int>? selectionChanged,
-        Action<int>? itemActivated,
-        Action<int>? expandRow,
-        Action<int>? collapseRow)
+        Action<IlTreeRow>? selectionChanged,
+        Action<IlTreeRow>? itemActivated,
+        Action<IlTreeRow>? expandRow,
+        Action<IlTreeRow>? collapseRow)
     {
         var selectedIndex = ResolveEffectiveIndex(rows, state.IlFocusedTreeKey);
 
@@ -122,79 +127,86 @@ internal static class IlTreeList
                 bindings.Remove(ScrollPanelWidget.MouseScrollDownAction);
 
                 bindings.Key(Hex1bKey.UpArrow).Action(e =>
-                    MoveSelection(e, rows, state, selectionChanged, -1), "Move up");
+                    MoveSelection(e, getRows(), state, selectionChanged, -1), "Move up");
 
                 bindings.Key(Hex1bKey.DownArrow).Action(e =>
-                    MoveSelection(e, rows, state, selectionChanged, +1), "Move down");
+                    MoveSelection(e, getRows(), state, selectionChanged, +1), "Move down");
 
                 bindings.Key(Hex1bKey.Home).Action(e =>
-                    SetSelection(e, rows, state, selectionChanged, 0), "Top");
+                    SetSelection(e, getRows(), state, selectionChanged, 0), "Top");
 
                 bindings.Key(Hex1bKey.End).Action(e =>
-                    SetSelection(e, rows, state, selectionChanged, rows.Count - 1), "Bottom");
+                {
+                    var currentRows = getRows();
+                    SetSelection(e, currentRows, state, selectionChanged, currentRows.Count - 1);
+                }, "Bottom");
 
                 bindings.Key(Hex1bKey.PageUp).Action(e =>
                 {
                     if (e.FocusedNode is not ScrollPanelNode sp) return;
+                    var currentRows = getRows();
                     var step = Math.Max(1, sp.ViewportSize - 1);
-                    MoveSelection(e, rows, state, selectionChanged, -step);
+                    MoveSelection(e, currentRows, state, selectionChanged, -step);
                 }, "Page up");
 
                 bindings.Key(Hex1bKey.PageDown).Action(e =>
                 {
                     if (e.FocusedNode is not ScrollPanelNode sp) return;
+                    var currentRows = getRows();
                     var step = Math.Max(1, sp.ViewportSize - 1);
-                    MoveSelection(e, rows, state, selectionChanged, +step);
+                    MoveSelection(e, currentRows, state, selectionChanged, +step);
                 }, "Page down");
 
                 bindings.Key(Hex1bKey.Enter).Action(_ =>
-                    ActivateCurrent(rows, state, itemActivated), "Activate");
+                    ActivateCurrent(getRows(), state, itemActivated), "Activate");
 
                 bindings.Key(Hex1bKey.Spacebar).Action(_ =>
-                    ActivateCurrent(rows, state, itemActivated), "Activate");
+                    ActivateCurrent(getRows(), state, itemActivated), "Activate");
 
                 bindings.Key(Hex1bKey.LeftArrow).Action(e =>
-                    HandleLeft(e, rows, state, selectionChanged, collapseRow), "Collapse / parent");
+                    HandleLeft(e, getRows(), state, selectionChanged, collapseRow), "Collapse / parent");
 
                 bindings.Key(Hex1bKey.RightArrow).Action(e =>
-                    HandleRight(e, rows, state, selectionChanged, expandRow), "Expand / child");
+                    HandleRight(e, getRows(), state, selectionChanged, expandRow), "Expand / child");
 
                 // Wheel scrolls the viewport only — the selection stays put, even
                 // offscreen, mirroring the old panel's decoupled wheel behavior.
                 bindings.Mouse(MouseButton.ScrollUp).Action(_ =>
-                    ScrollViewport(state, rows.Count, -3), "Scroll up");
+                    ScrollViewport(state, getRows().Count, -3), "Scroll up");
 
                 bindings.Mouse(MouseButton.ScrollDown).Action(_ =>
-                    ScrollViewport(state, rows.Count, +3), "Scroll down");
+                    ScrollViewport(state, getRows().Count, +3), "Scroll down");
 
                 // Gutter presses: thumb drag or track-click paging. Row-area presses
                 // return an empty handler, which Hex1b treats as a rejected drag and
                 // falls through to the Left-click row selection below.
                 bindings.Drag(MouseButton.Left).Action((localX, localY) =>
                 {
+                    var currentRows = getRows();
                     var sp = state.IlScrollPanelNode;
-                    if (sp is null || rows.Count <= sp.ViewportSize) return new DragHandler();
+                    if (sp is null || currentRows.Count <= sp.ViewportSize) return new DragHandler();
                     if (localX < sp.Bounds.Width - 1) return new DragHandler();
-                    return IlTreeScrollbar.HandleDrag(state, rows.Count, sp.ViewportSize, localY);
+                    return IlTreeScrollbar.HandleDrag(state, currentRows.Count, sp.ViewportSize, localY);
                 }, "Drag scrollbar");
 
                 bindings.Mouse(MouseButton.Left).Action(e =>
                 {
+                    var currentRows = getRows();
                     if (e.FocusedNode is not ScrollPanelNode sp) return;
-                    if (rows.Count == 0) return;
+                    if (currentRows.Count == 0) return;
 
                     // The rightmost column is the scrollbar gutter only when the tree
                     // actually overflows; when content fits, that column is normal row
                     // area and a click there must still select the row.
                     var localX = e.MouseX - sp.Bounds.X;
                     if (localX < 0 || localX >= sp.Bounds.Width) return;
-                    if (rows.Count > sp.ViewportSize && localX >= sp.Bounds.Width - 1) return;
+                    if (currentRows.Count > sp.ViewportSize && localX >= sp.Bounds.Width - 1) return;
 
                     var rowIndex = (e.MouseY - sp.Bounds.Y) + state.IlTreeScrollOffset;
-                    if (rowIndex < 0 || rowIndex >= rows.Count) return;
+                    if (rowIndex < 0 || rowIndex >= currentRows.Count) return;
 
-                    selectionChanged?.Invoke(rowIndex);
-                    itemActivated?.Invoke(rowIndex);
+                    selectionChanged?.Invoke(currentRows[rowIndex]);
+                    itemActivated?.Invoke(currentRows[rowIndex]);
                 }, "Select row");
             })
             .Fill();
@@ -261,7 +273,7 @@ internal static class IlTreeList
         InputBindingActionContext e,
         IReadOnlyList<IlTreeRow> rows,
         DotsiderState state,
-        Action<int>? selectionChanged,
+        Action<IlTreeRow>? selectionChanged,
         int delta)
     {
         if (e.FocusedNode is not ScrollPanelNode sp) return;
@@ -280,7 +292,7 @@ internal static class IlTreeList
             return;
         }
 
-        selectionChanged?.Invoke(newIndex);
+        selectionChanged?.Invoke(rows[newIndex]);
         IlInspectorView.EnsureSelectionVisible(state, sp, newIndex, rows.Count);
         state.App.Invalidate();
     }
@@ -289,7 +301,7 @@ internal static class IlTreeList
         InputBindingActionContext e,
         IReadOnlyList<IlTreeRow> rows,
         DotsiderState state,
-        Action<int>? selectionChanged,
+        Action<IlTreeRow>? selectionChanged,
         int target)
     {
         if (e.FocusedNode is not ScrollPanelNode sp) return;
@@ -305,7 +317,7 @@ internal static class IlTreeList
             return;
         }
 
-        selectionChanged?.Invoke(newIndex);
+        selectionChanged?.Invoke(rows[newIndex]);
         IlInspectorView.EnsureSelectionVisible(state, sp, newIndex, rows.Count);
         state.App.Invalidate();
     }
@@ -313,20 +325,20 @@ internal static class IlTreeList
     private static void ActivateCurrent(
         IReadOnlyList<IlTreeRow> rows,
         DotsiderState state,
-        Action<int>? itemActivated)
+        Action<IlTreeRow>? itemActivated)
     {
         if (rows.Count == 0) return;
         var idx = ResolveEffectiveIndex(rows, state.IlFocusedTreeKey);
         if (idx >= 0 && idx < rows.Count)
-            itemActivated?.Invoke(idx);
+            itemActivated?.Invoke(rows[idx]);
     }
 
     private static void HandleLeft(
         InputBindingActionContext e,
         IReadOnlyList<IlTreeRow> rows,
         DotsiderState state,
-        Action<int>? selectionChanged,
-        Action<int>? collapseRow)
+        Action<IlTreeRow>? selectionChanged,
+        Action<IlTreeRow>? collapseRow)
     {
         if (e.FocusedNode is not ScrollPanelNode sp) return;
         if (rows.Count == 0) return;
@@ -336,7 +348,7 @@ internal static class IlTreeList
         var row = rows[idx];
         if (row is { CanExpand: true, IsExpanded: true })
         {
-            collapseRow?.Invoke(idx);
+            collapseRow?.Invoke(row);
             return;
         }
 
@@ -346,7 +358,7 @@ internal static class IlTreeList
         {
             if (rows[i].Depth < row.Depth)
             {
-                selectionChanged?.Invoke(i);
+                selectionChanged?.Invoke(rows[i]);
                 IlInspectorView.EnsureSelectionVisible(state, sp, i, rows.Count);
                 state.App.Invalidate();
                 return;
@@ -358,8 +370,8 @@ internal static class IlTreeList
         InputBindingActionContext e,
         IReadOnlyList<IlTreeRow> rows,
         DotsiderState state,
-        Action<int>? selectionChanged,
-        Action<int>? expandRow)
+        Action<IlTreeRow>? selectionChanged,
+        Action<IlTreeRow>? expandRow)
     {
         if (e.FocusedNode is not ScrollPanelNode sp) return;
         if (rows.Count == 0) return;
@@ -369,7 +381,7 @@ internal static class IlTreeList
         var row = rows[idx];
         if (row is { CanExpand: true, IsExpanded: false })
         {
-            expandRow?.Invoke(idx);
+            expandRow?.Invoke(row);
             return;
         }
 
@@ -377,7 +389,7 @@ internal static class IlTreeList
         if (row.IsExpanded && idx + 1 < rows.Count && rows[idx + 1].Depth == row.Depth + 1)
         {
             var childIdx = idx + 1;
-            selectionChanged?.Invoke(childIdx);
+            selectionChanged?.Invoke(rows[childIdx]);
             IlInspectorView.EnsureSelectionVisible(state, sp, childIdx, rows.Count);
             state.App.Invalidate();
         }

@@ -22,6 +22,7 @@ public class PreIlcRoutingTests : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path)
     {
@@ -47,7 +48,7 @@ public class PreIlcRoutingTests : IDisposable
     private async Task<Hex1bTerminalAutomator> AttachAsync()
     {
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        _ = app.RunAsync(ct);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -66,7 +67,7 @@ public class PreIlcRoutingTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        _ = app.RunAsync(ct);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -139,6 +140,9 @@ public class PreIlcRoutingTests : IDisposable
     {
         GC.SuppressFinalize(this);
         _cts?.Cancel();
+        try { _runTask?.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { }
+        catch (OperationCanceledException) { }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();

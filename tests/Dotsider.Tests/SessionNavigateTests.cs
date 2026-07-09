@@ -23,6 +23,8 @@ public class SessionNavigateTests : IAsyncDisposable
     private Hex1bApp? _app;
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
+    private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     /// <summary>
     /// Starts a headless dotsider TUI with the diagnostics socket listener,
@@ -58,7 +60,8 @@ public class SessionNavigateTests : IAsyncDisposable
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         // Start the TUI and wait for first render
-        _ = _app.RunAsync(ct);
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -138,10 +141,18 @@ public class SessionNavigateTests : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        _appCts?.Cancel();
         if (_listener is not null)
             await _listener.DisposeAsync();
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _state?.Dispose();
+        _app?.Dispose();
         if (_terminal is not null)
             await _terminal.DisposeAsync();
+        _appCts?.Dispose();
     }
 }

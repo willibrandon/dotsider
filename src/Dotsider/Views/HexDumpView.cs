@@ -124,6 +124,7 @@ public static class HexDumpView
                         state.HexMatchPatternLength = 0;
                         state.HexLastSearchQuery = null;
                         state.HexLiveSearchTooSlow = false;
+                        state.RequestContentFocus();
                         state.App.Invalidate();
                     }
                 }, "Esc");

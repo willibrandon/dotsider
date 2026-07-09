@@ -174,19 +174,39 @@ public class IlInspectorViewTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Trigger cross-view jump
-        _state!.PeSubTab = PeSubTabId.MethodDef;
         var method = _state.Analyzer.MethodDefs.First(m => m.Rva > 0);
-        _state.NavigateToIlMethod(method);
+        var navigationApplied = false;
+        _state.PendingMutations.Enqueue(s =>
+        {
+            s.PeSubTab = PeSubTabId.MethodDef;
+            s.NavigateToIlMethod(method);
+            System.Threading.Volatile.Write(ref navigationApplied, true);
+        });
+        _state.RequestExtraFrame();
 
         // Wait for IL content and for the jump's RequestFocus to be applied
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await auto.WaitUntilTextAsync("IL_");
+        await auto.WaitUntilAsync(_ => System.Threading.Volatile.Read(ref navigationApplied),
+            description: "cross-view jump mutation applied");
+        var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                try { return _state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode; }
-                catch (NullReferenceException) { return false; }
+                try
+                {
+                    if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode)
+                        stableCount++;
+                    else
+                        stableCount = 0;
+                }
+                catch (NullReferenceException)
+                {
+                    stableCount = 0;
+                }
+
+                return stableCount >= 3;
             },
-            description: "focus to return to tree");
+            description: "focus stable on tree after cross-view jump");
 
         // The jumped-to method must be selected in state
         Assert.AreEqual(method, _state.IlSelectedMethod);

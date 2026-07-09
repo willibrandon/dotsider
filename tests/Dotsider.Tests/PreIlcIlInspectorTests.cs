@@ -23,6 +23,7 @@ public class PreIlcIlInspectorTests : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path, int width, int height)
     {
@@ -48,7 +49,7 @@ public class PreIlcIlInspectorTests : IDisposable
     private async Task<Hex1bTerminalAutomator> AttachAndOpenIlAsync(int width = 160, int height = 40)
     {
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!, width, height);
-        _ = app.RunAsync(ct);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -143,7 +144,7 @@ public class PreIlcIlInspectorTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!, 160, 40);
-        _ = app.RunAsync(ct);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -164,6 +165,9 @@ public class PreIlcIlInspectorTests : IDisposable
     {
         GC.SuppressFinalize(this);
         _cts?.Cancel();
+        try { _runTask?.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { }
+        catch (OperationCanceledException) { }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
