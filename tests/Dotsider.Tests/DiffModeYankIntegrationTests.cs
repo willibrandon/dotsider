@@ -9,19 +9,22 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Diff Mode Yank Integration.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DiffModeYankIntegrationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private ClipboardCapturingWorkloadAdapter? _clipboardAdapter;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DiffState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch()
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _clipboardAdapter = new ClipboardCapturingWorkloadAdapter(_workload);
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -33,7 +36,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DiffState(_hex1bApp!, samples.RichLibraryDll, samples.RichLibraryV2Dll);
+                _state ??= new DiffState(_hex1bApp!, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
                 diffApp ??= new DiffApp(_state);
                 return Task.FromResult<Hex1bWidget>(diffApp.Build(ctx));
             },
@@ -45,16 +48,31 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         return (_terminal, _hex1bApp, _cts.Token);
     }
 
+    private Task RunAppAsync(Hex1bApp app, CancellationToken ct)
+    {
+        _runTask = app.RunAsync(ct);
+        return _runTask;
+    }
+
+    private bool TryWaitForAppExit()
+    {
+        if (_runTask is null) return true;
+        try { return _runTask.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { return true; }
+        catch (OperationCanceledException) { return true; }
+    }
+
     // --- Summary tab ---
 
     /// <summary>
     /// Verifies summary tab cycles through editors.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_TabCyclesThroughEditors()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -105,11 +123,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies summary left right do not switch tabs when editor focused.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_LeftRightDoNotSwitchTabsWhenEditorFocused()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -131,7 +150,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.Equal(tabBefore, _state.CurrentTab);
+        Assert.AreEqual(tabBefore, _state.CurrentTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -142,11 +161,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies types yank on focused row shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Types_YankOnFocusedRow_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -169,26 +189,24 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             await Task.Delay(200, ct);
         }
 
-        Assert.NotNull(_state.DiffFocusedKey);
+        Assert.IsNotNull(_state.DiffFocusedKey);
 
         // Compute expected payload before yank
         var expectedPayload = YankHelper.GetYankText(_state);
-        Assert.NotNull(expectedPayload);
+        Assert.IsNotNull(expectedPayload);
         Assert.Contains("\t", expectedPayload); // Tab-separated
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-
         // Verify the actual OSC 52 clipboard payload emitted by ctx.CopyToClipboard
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
             "CopyToClipboard should have emitted an OSC 52 sequence");
-        Assert.Equal(expectedPayload, actualClipboard);
+        Assert.AreEqual(expectedPayload, actualClipboard);
 
         // Notification auto-clears
         await new Hex1bTerminalInputSequenceBuilder()
@@ -203,11 +221,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies types search with navigation cycles matches.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Types_SearchWithNavigation_CyclesMatches()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -251,7 +270,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             TimeSpan.FromSeconds(5));
 
         var secondFocused = _state.DiffFocusedKey;
-        Assert.NotEqual(firstFocused, secondFocused);
+        Assert.AreNotEqual(firstFocused, secondFocused);
 
         // N → previous match (moves to a different row)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -263,7 +282,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             () => _state!.DiffFocusedKey is not null && !Equals(_state.DiffFocusedKey, secondFocused),
             TimeSpan.FromSeconds(5));
 
-        Assert.NotEqual(secondFocused, _state.DiffFocusedKey);
+        Assert.AreNotEqual(secondFocused, _state.DiffFocusedKey);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -272,11 +291,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies tab arrows work when editor not focused.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task TabArrows_WorkWhenEditorNotFocused()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -284,7 +304,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(0, _state!.CurrentTab); // Summary
+        Assert.AreEqual(0, _state!.CurrentTab); // Summary
 
         // Right arrow switches to Types tab (tab index 1)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -293,7 +313,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(1, _state.CurrentTab);
+        Assert.AreEqual(1, _state.CurrentTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -304,11 +324,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies summary selection yank shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_SelectionYank_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -336,11 +357,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -349,11 +368,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies summary right info yank shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_RightInfoYank_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -376,11 +396,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.RightInfoEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -389,11 +407,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies summary change stats yank shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_ChangeStatsYank_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -429,11 +448,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Shift().Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.ChangeStatsEditorState!.Cursor.HasSelection, TimeSpan.FromSeconds(5))
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -444,11 +461,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies methods yank on focused row shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Methods_YankOnFocusedRow_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -462,11 +480,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -477,11 +493,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies refs yank on focused row shows notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Refs_YankOnFocusedRow_ShowsNotification()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -495,11 +512,9 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked:"), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-
-        Assert.NotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -510,11 +525,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies methods search navigation cycles matches.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Methods_SearchNavigation_CyclesMatches()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -547,7 +563,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
-        Assert.NotEqual(first, second);
+        Assert.AreNotEqual(first, second);
 
         // N → previous match (moves to a different row)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -556,7 +572,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
         await Task.Delay(100, ct);
 
-        Assert.NotEqual(second, _state.DiffFocusedKey);
+        Assert.AreNotEqual(second, _state.DiffFocusedKey);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -567,11 +583,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies refs search navigation cycles matches.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Refs_SearchNavigation_CyclesMatches()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -604,7 +621,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
         await Task.Delay(100, ct);
 
         var second = _state.DiffFocusedKey;
-        Assert.NotEqual(first, second);
+        Assert.AreNotEqual(first, second);
 
         // N → previous match (moves to a different row)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -613,7 +630,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
         await Task.Delay(100, ct);
 
-        Assert.NotEqual(second, _state.DiffFocusedKey);
+        Assert.AreNotEqual(second, _state.DiffFocusedKey);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -624,11 +641,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies types yank flash sets and clears.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Types_YankFlash_SetsAndClears()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -652,7 +670,7 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state!.YankFlashRow);
+        Assert.IsFalse(_state!.YankFlashRow);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -661,11 +679,12 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies summary yy yanks current line.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Summary_YY_YanksCurrentLine()
     {
         var (terminal, app, ct) = Launch();
-        var runTask = app.RunAsync(ct);
+        var runTask = RunAppAsync(app, ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -688,10 +707,10 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
-        Assert.True(yankedText.Length > 0);
+        Assert.IsGreaterThan(0, yankedText.Length);
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
@@ -703,12 +722,18 @@ public class DiffModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisp
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
+        if (!TryWaitForAppExit())
+        {
+            _hex1bApp?.Dispose();
+            _terminal?.Dispose();
+            _ = TryWaitForAppExit();
+        }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

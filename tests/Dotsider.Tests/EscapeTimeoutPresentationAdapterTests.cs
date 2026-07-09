@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Escape Timeout Presentation Adapter.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples)
+[TestClass]
+public class EscapeTimeoutPresentationAdapterTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     // ========================================
     // Test infrastructure
     // ========================================
@@ -113,10 +115,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies standalone escape produces escape event.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StandaloneEscape_ProducesEscapeEvent()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -154,10 +157,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies split escape sequence within timeout produces up arrow.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SplitEscapeSequence_WithinTimeout_ProducesUpArrow()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -198,10 +202,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies complete escape sequence single read produces up arrow.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CompleteEscapeSequence_SingleRead_ProducesUpArrow()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -241,10 +246,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies coalesced prefix and esc i before escape.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CoalescedPrefixAndEsc_IBeforeEscape()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -282,16 +288,17 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         var eventList = events.ToArray();
         var iIndex = Array.IndexOf(eventList, "i");
         var escIndex = Array.IndexOf(eventList, "escape");
-        Assert.True(iIndex < escIndex, $"Expected 'i' before 'escape', got i={iIndex} esc={escIndex}");
+        Assert.IsLessThan(escIndex, iIndex, $"Expected 'i' before 'escape', got i={iIndex} esc={escIndex}");
     }
 
     /// <summary>
     /// Verifies standalone esc then literal bracket not combined into csi.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StandaloneEsc_ThenLiteralBracket_NotCombinedIntoCsi()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -340,10 +347,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies standalone escape followed by mouse event produces escape event.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StandaloneEscape_FollowedByMouseEvent_ProducesEscapeEvent()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -388,11 +396,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
         var escIndex = Array.IndexOf(eventList, "escape");
         var mouseIndex = Array.IndexOf(eventList, "mouse-click");
         var upIndex = Array.IndexOf(eventList, "up");
-        Assert.True(escIndex >= 0, "Expected escape event");
-        Assert.True(mouseIndex >= 0, "Expected mouse-click event (mouse packet not silently dropped)");
-        Assert.True(upIndex >= 0, "Expected up event");
-        Assert.True(escIndex < mouseIndex, $"Expected escape before mouse-click, got esc={escIndex} mouse={mouseIndex}");
-        Assert.True(mouseIndex < upIndex, $"Expected mouse-click before up, got mouse={mouseIndex} up={upIndex}");
+        Assert.IsGreaterThanOrEqualTo(0, escIndex, "Expected escape event");
+        Assert.IsGreaterThanOrEqualTo(0, mouseIndex, "Expected mouse-click event (mouse packet not silently dropped)");
+        Assert.IsGreaterThanOrEqualTo(0, upIndex, "Expected up event");
+        Assert.IsLessThan(mouseIndex, escIndex, $"Expected escape before mouse-click, got esc={escIndex} mouse={mouseIndex}");
+        Assert.IsLessThan(upIndex, mouseIndex, $"Expected mouse-click before up, got mouse={mouseIndex} up={upIndex}");
     }
 
     /// <summary>
@@ -415,10 +423,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// mouse event therefore proves the overlay is active.
     /// </para>
     /// </remarks>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task WithMouse_EnablesMouseCursorOverlay()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
 
@@ -449,7 +458,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             () => queued.OutputContains(cursorShow),
             TimeSpan.FromSeconds(10));
 
-        Assert.True(queued.OutputContains(cursorShow),
+        Assert.IsTrue(queued.OutputContains(cursorShow),
             "Expected cursor-show sequence (\\x1b[?25h) from mouse cursor overlay");
     }
 
@@ -459,10 +468,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// continuation bytes are processed as literal characters. This is inherent to
     /// timeout-based escape detection (same tradeoff in xterm, vim, tmux, neovim).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task LateSplitSequence_KnownLimitation_DegradedBehavior()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         var events = new ConcurrentQueue<string>();
@@ -512,10 +522,11 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
     /// <summary>
     /// Verifies raw escape exits hex insert mode.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task RawEscape_ExitsHexInsertMode()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         DotsiderState? state = null;
@@ -530,7 +541,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 options.EnableMouse = true;
             }, app => ctx =>
             {
-                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                state ??= new DotsiderState(app, Samples.HelloWorldDll);
                 dotsiderApp ??= new DotsiderApp(state);
                 return dotsiderApp.Build(ctx);
             })
@@ -550,8 +561,8 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(state);
-        Assert.Equal(HexEditMode.Insert, state!.HexMode);
+        Assert.IsNotNull(state);
+        Assert.AreEqual(HexEditMode.Insert, state!.HexMode);
 
         // Send raw ESC through the adapter path
         queued.EnqueueInput(0x1b);
@@ -561,17 +572,18 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             () => state.HexMode == HexEditMode.Normal,
             TimeSpan.FromSeconds(10));
 
-        Assert.Equal(HexEditMode.Normal, state.HexMode);
-        Assert.True(state.HexEditorState.IsReadOnly);
+        Assert.AreEqual(HexEditMode.Normal, state.HexMode);
+        Assert.IsTrue(state.HexEditorState.IsReadOnly);
     }
 
     /// <summary>
     /// Verifies raw escape dismisses editing search.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task RawEscape_DismissesEditingSearch()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         DotsiderState? state = null;
@@ -586,7 +598,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 options.EnableMouse = true;
             }, app => ctx =>
             {
-                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                state ??= new DotsiderState(app, Samples.HelloWorldDll);
                 dotsiderApp ??= new DotsiderApp(state);
                 return dotsiderApp.Build(ctx);
             })
@@ -603,7 +615,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(state);
+        Assert.IsNotNull(state);
         await TestHelpers.WaitUntilAsync(
             () => state!.Search[state.CurrentTab].IsActive && !state.Search[state.CurrentTab].IsConfirmed,
             TimeSpan.FromSeconds(10));
@@ -616,16 +628,17 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             () => !state!.Search[state.CurrentTab].IsActive,
             TimeSpan.FromSeconds(10));
 
-        Assert.False(state.Search[state.CurrentTab].IsActive);
+        Assert.IsFalse(state.Search[state.CurrentTab].IsActive);
     }
 
     /// <summary>
     /// Verifies raw escape dismisses confirmed search.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task RawEscape_DismissesConfirmedSearch()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var queued = new QueuedPresentationAdapter();
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         DotsiderState? state = null;
@@ -640,7 +653,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
                 options.EnableMouse = true;
             }, app => ctx =>
             {
-                state ??= new DotsiderState(app, samples.HelloWorldDll);
+                state ??= new DotsiderState(app, Samples.HelloWorldDll);
                 dotsiderApp ??= new DotsiderApp(state);
                 return dotsiderApp.Build(ctx);
             })
@@ -671,7 +684,7 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(state);
+        Assert.IsNotNull(state);
         await TestHelpers.WaitUntilAsync(
             () => state!.Search[state.CurrentTab].IsConfirmed,
             TimeSpan.FromSeconds(10));
@@ -684,6 +697,6 @@ public class EscapeTimeoutPresentationAdapterTests(SampleAssemblyFixture samples
             () => !state!.Search[state.CurrentTab].IsActive,
             TimeSpan.FromSeconds(10));
 
-        Assert.False(state!.Search[state.CurrentTab].IsActive);
+        Assert.IsFalse(state!.Search[state.CurrentTab].IsActive);
     }
 }

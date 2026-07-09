@@ -7,6 +7,7 @@ namespace Dotsider.Tests;
 /// file-table shapes, the row state machine (special, standard, and extended opcodes), and the
 /// decl-primary source attribution — driven with hand-built <c>.debug_line</c> blobs.
 /// </summary>
+[TestClass]
 public class DwarfLineProgramTests
 {
     private static readonly byte[] StandardLengths = [0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1];
@@ -41,7 +42,8 @@ public class DwarfLineProgramTests
     /// Verifies a v4 program joins directories into file names, decodes copy/advance rows, ends
     /// coverage at the end-sequence row, and attributes decl-first with row fallback.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_V4_RowsAndDeclPrimaryAttribution()
     {
         var ops = new DwarfBlob()
@@ -58,25 +60,25 @@ public class DwarfLineProgramTests
         var line = Program(4, ops, ["src"], [("main.cs", 1), ("/abs/other.cs", 1)]);
         var program = DwarfLineProgram.Parse(Sections(line), 0);
 
-        Assert.NotNull(program);
-        Assert.Equal("src/main.cs", program.FileName(1));
-        Assert.Equal("/abs/other.cs", program.FileName(2)); // rooted names are not joined
-        Assert.Null(program.FileName(0));                   // v4 tables are 1-based
-        Assert.Null(program.FileName(3));
+        Assert.IsNotNull(program);
+        Assert.AreEqual("src/main.cs", program.FileName(1));
+        Assert.AreEqual("/abs/other.cs", program.FileName(2)); // rooted names are not joined
+        Assert.IsNull(program.FileName(0));                   // v4 tables are 1-based
+        Assert.IsNull(program.FileName(3));
 
-        Assert.True(program.TryFindLine(0x1000, out var file, out var lineNo));
-        Assert.Equal("src/main.cs", file);
-        Assert.Equal(10, lineNo);
-        Assert.True(program.TryFindLine(0x101F, out _, out lineNo));
-        Assert.Equal(10, lineNo);
-        Assert.True(program.TryFindLine(0x102F, out _, out lineNo));
-        Assert.Equal(15, lineNo);
-        Assert.False(program.TryFindLine(0x1030, out _, out _)); // past the sequence
-        Assert.False(program.TryFindLine(0x0FFF, out _, out _)); // before it
+        Assert.IsTrue(program.TryFindLine(0x1000, out var file, out var lineNo));
+        Assert.AreEqual("src/main.cs", file);
+        Assert.AreEqual(10, lineNo);
+        Assert.IsTrue(program.TryFindLine(0x101F, out _, out lineNo));
+        Assert.AreEqual(10, lineNo);
+        Assert.IsTrue(program.TryFindLine(0x102F, out _, out lineNo));
+        Assert.AreEqual(15, lineNo);
+        Assert.IsFalse(program.TryFindLine(0x1030, out _, out _)); // past the sequence
+        Assert.IsFalse(program.TryFindLine(0x0FFF, out _, out _)); // before it
 
-        Assert.Equal(("src/main.cs", 42), program.ResolveSource(1, 42, 0x1000));   // decl primary
-        Assert.Equal(("src/main.cs", 15), program.ResolveSource(-1, 0, 0x1024));   // row fallback
-        Assert.Equal(("src/main.cs", 10), program.ResolveSource(1, 0, 0x1000));    // mixed
+        Assert.AreEqual(("src/main.cs", 42), program.ResolveSource(1, 42, 0x1000));   // decl primary
+        Assert.AreEqual(("src/main.cs", 15), program.ResolveSource(-1, 0, 0x1024));   // row fallback
+        Assert.AreEqual(("src/main.cs", 10), program.ResolveSource(1, 0, 0x1000));    // mixed
     }
 
     /// <summary>
@@ -84,7 +86,8 @@ public class DwarfLineProgramTests
     /// <c>fixed_advance_pc</c>, and that an unknown standard opcode is skipped by its declared
     /// operand count.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_SpecialAndPcOpcodes_AdvanceExactly()
     {
         // opcode_base 14: op 13 is an unknown standard opcode declared with 2 operands.
@@ -103,18 +106,19 @@ public class DwarfLineProgramTests
             lineBase: -3, lineRange: 6, opcodeBase: 14, standardLengths: lengths);
         var program = DwarfLineProgram.Parse(Sections(line), 0);
 
-        Assert.NotNull(program);
-        Assert.True(program.TryFindLine(0x2008, out var file, out var lineNo));
-        Assert.Equal("a.c", file); // directory index 0 resolves to the bare name
-        Assert.Equal(3, lineNo);
-        Assert.True(program.TryFindLine(0x203F, out _, out lineNo));
-        Assert.Equal(3, lineNo);
-        Assert.True(program.TryFindLine(0x2040, out _, out lineNo));
-        Assert.Equal(4, lineNo);
+        Assert.IsNotNull(program);
+        Assert.IsTrue(program.TryFindLine(0x2008, out var file, out var lineNo));
+        Assert.AreEqual("a.c", file); // directory index 0 resolves to the bare name
+        Assert.AreEqual(3, lineNo);
+        Assert.IsTrue(program.TryFindLine(0x203F, out _, out lineNo));
+        Assert.AreEqual(3, lineNo);
+        Assert.IsTrue(program.TryFindLine(0x2040, out _, out lineNo));
+        Assert.AreEqual(4, lineNo);
     }
 
     /// <summary>Verifies a v2 header (no maximum-operations field) still parses and decodes rows.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_V2Header_DecodesRows()
     {
         var ops = new DwarfBlob()
@@ -125,16 +129,17 @@ public class DwarfLineProgramTests
 
         var program = DwarfLineProgram.Parse(Sections(Program(2, ops, [], [("f.c", 0)])), 0);
 
-        Assert.NotNull(program);
-        Assert.True(program.TryFindLine(0x100, out var file, out _));
-        Assert.Equal("f.c", file);
+        Assert.IsNotNull(program);
+        Assert.IsTrue(program.TryFindLine(0x100, out var file, out _));
+        Assert.AreEqual("f.c", file);
     }
 
     /// <summary>
     /// Verifies the v5 form-described tables: directories via <c>line_strp</c>, files carrying
     /// path, directory index, and skipped timestamp/MD5 columns, with 0-based numbering.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_V5Tables_ResolveFormsAndZeroBasedFiles()
     {
         var lineStr = new DwarfBlob().CStr("proj").CStr("src").ToArray(); // offsets 0 and 5
@@ -169,19 +174,20 @@ public class DwarfLineProgramTests
 
         var program = DwarfLineProgram.Parse(Sections(line, lineStr: lineStr), 0);
 
-        Assert.NotNull(program);
-        Assert.Equal("proj/app.cs", program.FileName(0));
-        Assert.Equal("src/util.cs", program.FileName(1));
-        Assert.True(program.TryFindLine(0x9008, out var file, out var lineNo));
-        Assert.Equal("src/util.cs", file);
-        Assert.Equal(1, lineNo);
+        Assert.IsNotNull(program);
+        Assert.AreEqual("proj/app.cs", program.FileName(0));
+        Assert.AreEqual("src/util.cs", program.FileName(1));
+        Assert.IsTrue(program.TryFindLine(0x9008, out var file, out var lineNo));
+        Assert.AreEqual("src/util.cs", file);
+        Assert.AreEqual(1, lineNo);
     }
 
     /// <summary>
     /// Verifies <c>DW_LNE_define_file</c> appends to the v4 file table mid-program and rows can
     /// attribute to the added file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_DefineFile_AppendsToTable()
     {
         var define = new DwarfBlob().CStr("gen.c").ULeb(1).ULeb(0).ULeb(0).ToArray();
@@ -195,14 +201,15 @@ public class DwarfLineProgramTests
 
         var program = DwarfLineProgram.Parse(Sections(Program(4, ops, ["inc"], [("main.c", 0)])), 0);
 
-        Assert.NotNull(program);
-        Assert.Equal("inc/gen.c", program.FileName(2));
-        Assert.True(program.TryFindLine(0x100, out var file, out _));
-        Assert.Equal("inc/gen.c", file);
+        Assert.IsNotNull(program);
+        Assert.AreEqual("inc/gen.c", program.FileName(2));
+        Assert.IsTrue(program.TryFindLine(0x100, out var file, out _));
+        Assert.AreEqual("inc/gen.c", file);
     }
 
     /// <summary>Verifies a DWARF64 header (escaped length, 8-byte header length) parses.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_Dwarf64Header_DecodesRows()
     {
         var tail = new DwarfBlob().U8(1).U8(1).U8(1)
@@ -221,27 +228,28 @@ public class DwarfLineProgramTests
 
         var program = DwarfLineProgram.Parse(Sections(line), 0);
 
-        Assert.NotNull(program);
-        Assert.True(program.TryFindLine(0x100, out var file, out _));
-        Assert.Equal("f.c", file);
+        Assert.IsNotNull(program);
+        Assert.IsTrue(program.TryFindLine(0x100, out var file, out _));
+        Assert.AreEqual("f.c", file);
     }
 
     /// <summary>
     /// Verifies malformed inputs: out-of-range offsets and bad headers yield no program, and a
     /// program whose body breaks mid-opcode keeps the rows decoded before the damage.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Parse_Malformed_FailsClosedOrKeepsPartialRows()
     {
-        Assert.Null(DwarfLineProgram.Parse(Sections([1, 2, 3]), 0x100));
+        Assert.IsNull(DwarfLineProgram.Parse(Sections([1, 2, 3]), 0x100));
 
         var badVersion = Program(4, [], [], []);
         badVersion[4] = 9; // version u16 low byte
-        Assert.Null(DwarfLineProgram.Parse(Sections(badVersion), 0));
+        Assert.IsNull(DwarfLineProgram.Parse(Sections(badVersion), 0));
 
         var zeroRange = Program(4, [], [], []);
         zeroRange[14] = 0; // line_range: length(4) + version(2) + header_length(4) + 4 machine bytes
-        Assert.Null(DwarfLineProgram.Parse(Sections(zeroRange), 0));
+        Assert.IsNull(DwarfLineProgram.Parse(Sections(zeroRange), 0));
 
         // A row, then an extended op whose declared length overruns the unit: row survives.
         var ops = new DwarfBlob()
@@ -250,13 +258,13 @@ public class DwarfLineProgramTests
             .U8(0).ULeb(200)
             .ToArray();
         var program = DwarfLineProgram.Parse(Sections(Program(4, ops, [], [("k.c", 0)])), 0);
-        Assert.NotNull(program);
-        Assert.True(program.TryFindLine(0x500, out var file, out _));
-        Assert.Equal("k.c", file);
+        Assert.IsNotNull(program);
+        Assert.IsTrue(program.TryFindLine(0x500, out var file, out _));
+        Assert.AreEqual("k.c", file);
 
         // An empty program parses but covers nothing.
         var empty = DwarfLineProgram.Parse(Sections(Program(4, [], [], [("e.c", 0)])), 0);
-        Assert.NotNull(empty);
-        Assert.False(empty.TryFindLine(0, out _, out _));
+        Assert.IsNotNull(empty);
+        Assert.IsFalse(empty.TryFindLine(0, out _, out _));
     }
 }

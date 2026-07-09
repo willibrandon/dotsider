@@ -10,6 +10,7 @@ namespace Dotsider.Tests;
 /// Tests that <see cref="InfoEditorViewRenderer"/> blanks filler rows
 /// instead of showing vim-style ~ markers.
 /// </summary>
+[TestClass]
 public class InfoEditorViewRendererTests : IDisposable
 {
     private Hex1bAppWorkloadAdapter? _workload;
@@ -19,7 +20,8 @@ public class InfoEditorViewRendererTests : IDisposable
     /// <summary>
     /// Verifies info renderer never shows tilde in small document.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task InfoRenderer_NeverShowsTilde_InSmallDocument()
     {
         _workload = new Hex1bAppWorkloadAdapter();
@@ -49,7 +51,7 @@ public class InfoEditorViewRendererTests : IDisposable
                 EnableInputCoalescing = false
             });
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = _hex1bApp.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -82,7 +84,7 @@ public class InfoEditorViewRendererTests : IDisposable
             .Build()
             .ApplyAsync(_terminal, cts.Token);
 
-        Assert.False(foundTilde, "InfoEditorViewRenderer should not show ~ filler lines");
+        Assert.IsFalse(foundTilde, "InfoEditorViewRenderer should not show ~ filler lines");
 
         cts.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -93,9 +95,9 @@ public class InfoEditorViewRendererTests : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

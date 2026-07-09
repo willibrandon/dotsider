@@ -3,12 +3,13 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests that guard the advertised MCP tool surface and its metadata quality.
 /// </summary>
+[TestClass]
 public class ToolRegistrationTests : McpServerTestBase
 {
     /// <summary>
     /// Every expected tool across the suite is present in ListTools output.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task ListTools_ReturnsAllRegisteredTools()
     {
         await StartServerAsync();
@@ -110,7 +111,7 @@ public class ToolRegistrationTests : McpServerTestBase
     /// <summary>
     /// No registered tool ships without a human-readable description, which MCP clients rely on.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task AllTools_HaveDescriptions()
     {
         await StartServerAsync();
@@ -120,7 +121,7 @@ public class ToolRegistrationTests : McpServerTestBase
 
         foreach (var tool in tools)
         {
-            Assert.False(string.IsNullOrWhiteSpace(tool.Description),
+            Assert.IsFalse(string.IsNullOrWhiteSpace(tool.Description),
                 $"Tool '{tool.Name}' should have a description");
         }
     }

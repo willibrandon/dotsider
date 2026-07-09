@@ -11,9 +11,11 @@ namespace Dotsider.Tests;
 /// Windows, ELF on Linux, and Mach-O on macOS. A synthetic PE covers export shapes
 /// (forwarders, ordinal-only) that no sample produces.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
+[TestClass]
+public class PeDirectoryReaderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>The core system library name expected in the import table of the running OS.</summary>
     private static string CoreImportLibrary =>
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "kernel32"
@@ -23,16 +25,17 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies the apphost executable's import table lists the platform's core system library.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Imports_ApphostExe_ContainsCoreLibrary()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.HelloWorldExe);
 
         var imports = analyzer.Imports;
 
-        Assert.NotEmpty(imports);
-        Assert.Contains(imports, m =>
-            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotEmpty(imports);
+        Assert.Contains(m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase), imports);
     }
 
     /// <summary>
@@ -40,74 +43,78 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     /// with named functions attributed to it (PE thunks, ELF versioned symbols, or
     /// Mach-O two-level-namespace bindings).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Imports_NativeAotExe_ContainsCoreLibraryWithFunctions()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var imports = analyzer.Imports;
 
-        Assert.NotEmpty(imports);
-        Assert.Contains(imports, m =>
-            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotEmpty(imports);
+        Assert.Contains(m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase), imports);
 
         var named = imports.SelectMany(m => m.Functions).Where(f => f.Name is not null).ToList();
-        Assert.NotEmpty(named);
-        Assert.All(named, f => Assert.Null(f.Ordinal));
+        Assert.IsNotEmpty(named);
+        TestAssert.All(named, f => Assert.IsNull(f.Ordinal));
     }
 
     /// <summary>
     /// Verifies a managed DLL parses without errors — its import table is empty or tiny.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Imports_ManagedDll_WellFormed()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
 
         var imports = analyzer.Imports;
 
-        Assert.NotNull(imports);
-        Assert.All(imports, m => Assert.False(string.IsNullOrEmpty(m.ModuleName)));
+        Assert.IsNotNull(imports);
+        TestAssert.All(imports, m => Assert.IsFalse(string.IsNullOrEmpty(m.ModuleName)));
     }
 
     /// <summary>
     /// Verifies export parsing on real samples never throws — the samples export nothing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Exports_RealSamples_WellFormed()
     {
-        using var apphost = new AssemblyAnalyzer(samples.HelloWorldExe);
-        using var managed = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var apphost = new AssemblyAnalyzer(Samples.HelloWorldExe);
+        using var managed = new AssemblyAnalyzer(Samples.RichLibraryDll);
 
-        Assert.NotNull(apphost.Exports);
-        Assert.NotNull(managed.Exports);
+        Assert.IsNotNull(apphost.Exports);
+        Assert.IsNotNull(managed.Exports);
     }
 
     /// <summary>
     /// Verifies named, forwarded, and ordinal-only exports parse from a synthetic PE.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Exports_SyntheticPe_ParsesNamedForwarderAndOrdinalOnly()
     {
         using var peReader = new PEReader(new MemoryStream(BuildExportTestPe()));
 
         var exports = PeDirectoryReader.ReadExports(peReader);
 
-        Assert.Equal(3, exports.Count);
+        Assert.HasCount(3, exports);
 
-        var alpha = Assert.Single(exports, e => e.Name == "Alpha");
-        Assert.Equal(5, alpha.Ordinal);
-        Assert.Null(alpha.ForwardedTo);
+        var alpha = Assert.ContainsSingle(e => e.Name == "Alpha", exports);
+        Assert.AreEqual(5, alpha.Ordinal);
+        Assert.IsNull(alpha.ForwardedTo);
 
-        var beta = Assert.Single(exports, e => e.Name == "Beta");
-        Assert.Equal(6, beta.Ordinal);
-        Assert.Equal("NTDLL.RtlAllocateHeap", beta.ForwardedTo);
+        var beta = Assert.ContainsSingle(e => e.Name == "Beta", exports);
+        Assert.AreEqual(6, beta.Ordinal);
+        Assert.AreEqual("NTDLL.RtlAllocateHeap", beta.ForwardedTo);
 
-        var ordinalOnly = Assert.Single(exports, e => e.Name is null);
-        Assert.Equal(7, ordinalOnly.Ordinal);
+        var ordinalOnly = Assert.ContainsSingle(e => e.Name is null, exports);
+        Assert.AreEqual(7, ordinalOnly.Ordinal);
     }
 
     /// <summary>
@@ -115,18 +122,19 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     /// exports its runtime debug header; a Windows PE executable typically exports
     /// nothing, which is equally valid.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Exports_NativeAotExe_WellFormed()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var exports = analyzer.Exports;
 
-        Assert.NotNull(exports);
-        Assert.All(exports, e => Assert.False(string.IsNullOrEmpty(e.Name)));
+        Assert.IsNotNull(exports);
+        TestAssert.All(exports, e => Assert.IsFalse(string.IsNullOrEmpty(e.Name)));
     }
 
     /// <summary>
@@ -134,59 +142,63 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
     /// cookie on Windows, where the PE load configuration directory exists. The
     /// directory is a PE-only structure with no ELF or Mach-O equivalent.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void LoadConfig_NativeAotExe_HasSecurityCookie()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
             "the load configuration directory is a PE-only structure");
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var loadConfig = analyzer.LoadConfig;
 
-        Assert.NotNull(loadConfig);
-        Assert.True(loadConfig.Size > 0);
-        Assert.NotEqual(0UL, loadConfig.SecurityCookie);
-        Assert.False(string.IsNullOrEmpty(loadConfig.GuardFlagsDescription));
+        Assert.IsNotNull(loadConfig);
+        Assert.IsGreaterThan(0u, loadConfig.Size);
+        Assert.AreNotEqual(0UL, loadConfig.SecurityCookie);
+        Assert.IsFalse(string.IsNullOrEmpty(loadConfig.GuardFlagsDescription));
     }
 
     /// <summary>
     /// Verifies the apphost executable's load configuration parses on Windows. The
     /// directory is a PE-only structure with no ELF or Mach-O equivalent.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void LoadConfig_ApphostExe_Parses()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
             "the load configuration directory is a PE-only structure");
 
-        using var analyzer = new AssemblyAnalyzer(samples.HelloWorldExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.HelloWorldExe);
 
         var loadConfig = analyzer.LoadConfig;
 
-        Assert.NotNull(loadConfig);
-        Assert.True(loadConfig.Size > 0);
+        Assert.IsNotNull(loadConfig);
+        Assert.IsGreaterThan(0u, loadConfig.Size);
     }
 
     /// <summary>
     /// Verifies an import directory pointing outside every section yields an empty
     /// result rather than throwing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Imports_UnmappedDirectory_ReturnsEmpty()
     {
         using var peReader = new PEReader(
             new MemoryStream(BuildExportTestPe(importDirRva: 0x5000, importDirSize: 0x100)));
 
-        Assert.Empty(PeDirectoryReader.ReadImports(peReader));
+        Assert.IsEmpty(PeDirectoryReader.ReadImports(peReader));
     }
 
     /// <summary>
     /// Verifies all directory properties degrade gracefully for a non-PE native binary.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NonPe_AllDirectories_Empty()
     {
         var elfBytes = new byte[128];
@@ -197,9 +209,9 @@ public class PeDirectoryReaderTests(SampleAssemblyFixture samples)
 
         using var analyzer = new AssemblyAnalyzer(elfBytes, "fake.so");
 
-        Assert.Empty(analyzer.Imports);
-        Assert.Empty(analyzer.Exports);
-        Assert.Null(analyzer.LoadConfig);
+        Assert.IsEmpty(analyzer.Imports);
+        Assert.IsEmpty(analyzer.Exports);
+        Assert.IsNull(analyzer.LoadConfig);
     }
 
     /// <summary>

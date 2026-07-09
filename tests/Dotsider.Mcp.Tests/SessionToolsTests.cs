@@ -11,16 +11,18 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Creates the tests using the shared sample assembly fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class SessionToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     // Use PIDs that won't collide with real processes or other test classes
     private static int s_nextPid = 999_700;
 
     /// <summary>
     /// discover_dotsider_sessions picks up a simulated listening instance by PID.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiscoverDotsiderSessions_FindsRunningInstance()
     {
         await using var socket = new TestDotsiderSocket(999_999, "/tmp/test/HelloWorld.dll");
@@ -33,22 +35,22 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         // Should find our test instance in the JSON array
         var sessions = JsonSerializer.Deserialize<JsonElement[]>(text);
-        Assert.NotNull(sessions);
+        Assert.IsNotNull(sessions);
 
         var testSession = sessions!.FirstOrDefault(s =>
             s.GetProperty("pid").GetInt32() == 999_999);
-        Assert.NotEqual(default, testSession);
-        Assert.Equal(999_999, testSession.GetProperty("pid").GetInt32());
+        Assert.AreNotEqual(default, testSession);
+        Assert.AreEqual(999_999, testSession.GetProperty("pid").GetInt32());
     }
 
     /// <summary>
     /// get_session_info combines the remote assembly-info and current-view payloads into one response.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSessionInfo_ReturnsAssemblyAndViewData()
     {
         await using var socket = new TestDotsiderSocket(999_998, "/tmp/test/HelloWorld.dll");
@@ -69,11 +71,11 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
-        Assert.True(doc.RootElement.TryGetProperty("assembly", out _));
-        Assert.True(doc.RootElement.TryGetProperty("view", out _));
+        Assert.IsTrue(doc.RootElement.TryGetProperty("assembly", out _));
+        Assert.IsTrue(doc.RootElement.TryGetProperty("view", out _));
     }
 
     // --- Diff mode: real DotsiderDiagnosticsListener with real AssemblyAnalyzers ---
@@ -81,7 +83,7 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
     /// <summary>
     /// Discovery surfaces a real diff-mode listener and exposes both left/right assembly metadata.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiscoverDotsiderSessions_FindsDiffModeInstance()
     {
         var (pid, listener, analyzers) = CreateRealDiffListener();
@@ -97,23 +99,23 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var sessions = JsonSerializer.Deserialize<JsonElement[]>(text);
-        Assert.NotNull(sessions);
+        Assert.IsNotNull(sessions);
 
         var diffSession = sessions!.FirstOrDefault(s =>
             s.GetProperty("pid").GetInt32() == pid);
-        Assert.NotEqual(default, diffSession);
-        Assert.Equal("diff", diffSession.GetProperty("info").GetProperty("mode").GetString());
-        Assert.True(diffSession.GetProperty("info").TryGetProperty("left", out _));
-        Assert.True(diffSession.GetProperty("info").TryGetProperty("right", out _));
+        Assert.AreNotEqual(default, diffSession);
+        Assert.AreEqual("diff", diffSession.GetProperty("info").GetProperty("mode").GetString());
+        Assert.IsTrue(diffSession.GetProperty("info").TryGetProperty("left", out _));
+        Assert.IsTrue(diffSession.GetProperty("info").TryGetProperty("right", out _));
     }
 
     /// <summary>
     /// Diff-mode session info carries left/right assembly names plus the current tab and filter mode.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSessionInfo_DiffMode_ReturnsBothAssemblyAndView()
     {
         var (pid, listener, analyzers) = CreateRealDiffListener();
@@ -129,21 +131,21 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
 
         // Assembly info from the real listener's assemblyInfoProvider
         var assembly = doc.RootElement.GetProperty("assembly");
-        Assert.Equal("diff", assembly.GetProperty("mode").GetString());
-        Assert.Equal("RichLibrary", assembly.GetProperty("left").GetProperty("assemblyName").GetString());
-        Assert.Equal("RichLibrary", assembly.GetProperty("right").GetProperty("assemblyName").GetString());
+        Assert.AreEqual("diff", assembly.GetProperty("mode").GetString());
+        Assert.AreEqual("RichLibrary", assembly.GetProperty("left").GetProperty("assemblyName").GetString());
+        Assert.AreEqual("RichLibrary", assembly.GetProperty("right").GetProperty("assemblyName").GetString());
 
         // View from the real listener's currentViewProvider
         var view = doc.RootElement.GetProperty("view");
-        Assert.Equal("diff", view.GetProperty("mode").GetString());
-        Assert.True(view.TryGetProperty("tab", out _));
-        Assert.True(view.TryGetProperty("filterMode", out _));
+        Assert.AreEqual("diff", view.GetProperty("mode").GetString());
+        Assert.IsTrue(view.TryGetProperty("tab", out _));
+        Assert.IsTrue(view.TryGetProperty("filterMode", out _));
     }
 
     // --- NuGet mode: real DotsiderDiagnosticsListener with real NuGetPackageAnalyzer ---
@@ -151,7 +153,7 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
     /// <summary>
     /// Discovery surfaces a real NuGet-mode listener and includes its packageId in the info.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiscoverDotsiderSessions_FindsNugetModeInstance()
     {
         var (pid, listener, package) = CreateRealNugetListener();
@@ -167,23 +169,23 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var sessions = JsonSerializer.Deserialize<JsonElement[]>(text);
-        Assert.NotNull(sessions);
+        Assert.IsNotNull(sessions);
 
         var nugetSession = sessions!.FirstOrDefault(s =>
             s.GetProperty("pid").GetInt32() == pid);
-        Assert.NotEqual(default, nugetSession);
-        Assert.Equal("nuget", nugetSession.GetProperty("info").GetProperty("mode").GetString());
-        Assert.Equal("RichLibrary",
+        Assert.AreNotEqual(default, nugetSession);
+        Assert.AreEqual("nuget", nugetSession.GetProperty("info").GetProperty("mode").GetString());
+        Assert.AreEqual("RichLibrary",
             nugetSession.GetProperty("info").GetProperty("packageId").GetString());
     }
 
     /// <summary>
     /// NuGet-mode session info reports package metadata alongside the browsing-package view state.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSessionInfo_NugetMode_ReturnsBothAssemblyAndView()
     {
         var (pid, listener, package) = CreateRealNugetListener();
@@ -199,31 +201,31 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
 
         // Assembly info from the real listener's assemblyInfoProvider
         var assembly = doc.RootElement.GetProperty("assembly");
-        Assert.Equal("nuget", assembly.GetProperty("mode").GetString());
-        Assert.Equal("RichLibrary", assembly.GetProperty("packageId").GetString());
-        Assert.Equal("2.5.1", assembly.GetProperty("packageVersion").GetString());
-        Assert.True(assembly.GetProperty("dllCount").GetInt32() > 0);
+        Assert.AreEqual("nuget", assembly.GetProperty("mode").GetString());
+        Assert.AreEqual("RichLibrary", assembly.GetProperty("packageId").GetString());
+        Assert.AreEqual("2.5.1", assembly.GetProperty("packageVersion").GetString());
+        Assert.IsGreaterThan(0, assembly.GetProperty("dllCount").GetInt32());
 
         // View from the real listener's currentViewProvider
         var view = doc.RootElement.GetProperty("view");
-        Assert.Equal("nuget", view.GetProperty("mode").GetString());
-        Assert.True(view.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual("nuget", view.GetProperty("mode").GetString());
+        Assert.IsTrue(view.GetProperty("isBrowsingPackage").GetBoolean());
     }
 
     // --- Helpers ---
 
-    private (int pid, DotsiderDiagnosticsListener listener, AnalyzerPair analyzers)
+    private static (int pid, DotsiderDiagnosticsListener listener, AnalyzerPair analyzers)
         CreateRealDiffListener()
     {
         var pid = Interlocked.Increment(ref s_nextPid);
-        var left = new AssemblyAnalyzer(samples.RichLibraryDll);
-        var right = new AssemblyAnalyzer(samples.RichLibraryV2Dll);
+        var left = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        var right = new AssemblyAnalyzer(Samples.RichLibraryV2Dll);
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,
@@ -261,11 +263,11 @@ public class SessionToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
         return (pid, listener, new AnalyzerPair(left, right));
     }
 
-    private (int pid, DotsiderDiagnosticsListener listener, NuGetPackageAnalyzer package)
+    private static (int pid, DotsiderDiagnosticsListener listener, NuGetPackageAnalyzer package)
         CreateRealNugetListener()
     {
         var pid = Interlocked.Increment(ref s_nextPid);
-        var package = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
+        var package = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,

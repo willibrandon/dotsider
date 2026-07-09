@@ -6,63 +6,69 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for the Native AOT detector.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeAotDetectorTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativeAotDetectorTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Verifies detect on a Native AOT executable returns a validated header.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_NativeAotExe_ReturnsValidatedHeader()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var result = NativeAotDetector.Detect(File.ReadAllBytes(samples.NativeAotConsoleExe!));
+        var result = NativeAotDetector.Detect(File.ReadAllBytes(Samples.NativeAotConsoleExe!));
 
-        Assert.NotNull(result);
-        Assert.True(result.HeaderOffset > 0);
-        Assert.InRange(result.MajorVersion, (ushort)1, (ushort)100);
-        Assert.InRange(result.SectionCount, 1, 1000);
-        Assert.InRange(result.EntrySize, (byte)8, (byte)64);
+        Assert.IsNotNull(result);
+        Assert.IsGreaterThan(0, result.HeaderOffset);
+        Assert.IsInRange((ushort)1, (ushort)100, result.MajorVersion);
+        Assert.IsInRange(1, 1000, result.SectionCount);
+        Assert.IsInRange((byte)8, (byte)64, result.EntrySize);
     }
 
     /// <summary>
     /// Verifies detect on a Native AOT executable recovers the runtime version.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_NativeAotExe_FindsRuntimeVersion()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var result = NativeAotDetector.Detect(File.ReadAllBytes(samples.NativeAotConsoleExe!));
+        var result = NativeAotDetector.Detect(File.ReadAllBytes(Samples.NativeAotConsoleExe!));
 
-        Assert.NotNull(result);
-        Assert.NotNull(result.RuntimeVersion);
-        Assert.Matches(@"^\d+\.\d+\.\d+", result.RuntimeVersion);
+        Assert.IsNotNull(result);
+        Assert.IsNotNull(result.RuntimeVersion);
+        Assert.MatchesRegex(@"^\d+\.\d+\.\d+", result.RuntimeVersion);
     }
 
     /// <summary>
     /// Verifies detect on a managed assembly returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_ManagedDll_ReturnsNull()
     {
-        var result = NativeAotDetector.Detect(File.ReadAllBytes(samples.RichLibraryDll));
+        var result = NativeAotDetector.Detect(File.ReadAllBytes(Samples.RichLibraryDll));
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies detect on a native apphost executable returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_ApphostExe_ReturnsNull()
     {
-        var result = NativeAotDetector.Detect(File.ReadAllBytes(samples.HelloWorldExe));
+        var result = NativeAotDetector.Detect(File.ReadAllBytes(Samples.HelloWorldExe));
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
@@ -70,7 +76,8 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
     /// The field values replicate a real code-immediate collision observed in
     /// ILC-generated machine code.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_FakeRtrSignatureFailsValidation_ReturnsNull()
     {
         var bytes = new byte[512];
@@ -79,13 +86,14 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
         WriteHeader(bytes, offset: 64, majorVersion: 35649, minorVersion: 18937,
             sectionCount: 18650, entrySize: 139, entryType: 233, firstSectionId: 15041807);
 
-        Assert.Null(NativeAotDetector.Detect(bytes));
+        Assert.IsNull(NativeAotDetector.Detect(bytes));
     }
 
     /// <summary>
     /// Verifies a well-formed synthetic header is accepted.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_SyntheticValidHeader_ReturnsInfo()
     {
         var bytes = new byte[4096];
@@ -96,19 +104,20 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
 
         var result = NativeAotDetector.Detect(bytes);
 
-        Assert.NotNull(result);
-        Assert.Equal(128, result.HeaderOffset);
-        Assert.Equal(16, result.MajorVersion);
-        Assert.Equal(33, result.SectionCount);
-        Assert.Equal(24, result.EntrySize);
-        Assert.Null(result.RuntimeVersion);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(128, result.HeaderOffset);
+        Assert.AreEqual(16, result.MajorVersion);
+        Assert.AreEqual(33, result.SectionCount);
+        Assert.AreEqual(24, result.EntrySize);
+        Assert.IsNull(result.RuntimeVersion);
     }
 
     /// <summary>
     /// Verifies a header whose section entries would run past the end of the
     /// file is rejected.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_TruncatedHeader_ReturnsNull()
     {
         var bytes = new byte[160];
@@ -119,21 +128,22 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
         WriteHeader(bytes, offset: 128, majorVersion: 16, minorVersion: 0,
             sectionCount: 33, entrySize: 24, entryType: 1, firstSectionId: 201);
 
-        Assert.Null(NativeAotDetector.Detect(bytes));
+        Assert.IsNull(NativeAotDetector.Detect(bytes));
     }
 
     /// <summary>
     /// Verifies bytes without a PE, ELF, or Mach-O magic are rejected even when
     /// they contain a well-formed header.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_NoExecutableMagic_ReturnsNull()
     {
         var bytes = new byte[4096];
         WriteHeader(bytes, offset: 128, majorVersion: 16, minorVersion: 0,
             sectionCount: 33, entrySize: 24, entryType: 1, firstSectionId: 201);
 
-        Assert.Null(NativeAotDetector.Detect(bytes));
+        Assert.IsNull(NativeAotDetector.Detect(bytes));
     }
 
     /// <summary>
@@ -141,7 +151,8 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
     /// header, mirroring real binaries where a code immediate precedes the
     /// genuine header.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_FalsePositiveBeforeRealHeader_FindsRealHeader()
     {
         var bytes = new byte[8192];
@@ -154,8 +165,8 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
 
         var result = NativeAotDetector.Detect(bytes);
 
-        Assert.NotNull(result);
-        Assert.Equal(2048, result.HeaderOffset);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(2048, result.HeaderOffset);
     }
 
     /// <summary>
@@ -163,51 +174,54 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
     /// real Native AOT binary makes detection fail — validation, not just the
     /// signature, is load-bearing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_NativeAotExe_CorruptedHeader_ReturnsNull()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
         var info = NativeAotDetector.Detect(bytes);
-        Assert.NotNull(info);
+        Assert.IsNotNull(info);
 
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(info.HeaderOffset + 4), 35649);
 
-        Assert.Null(NativeAotDetector.Detect(bytes));
+        Assert.IsNull(NativeAotDetector.Detect(bytes));
     }
 
     /// <summary>
     /// Verifies the real Native AOT binary truncated just past its header start
     /// is rejected because the section entries no longer fit.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_NativeAotExe_TruncatedAtHeader_ReturnsNull()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
         var info = NativeAotDetector.Detect(bytes);
-        Assert.NotNull(info);
+        Assert.IsNotNull(info);
 
-        Assert.Null(NativeAotDetector.Detect(bytes.AsSpan(0, info.HeaderOffset + 20)));
+        Assert.IsNull(NativeAotDetector.Detect(bytes.AsSpan(0, info.HeaderOffset + 20)));
     }
 
     /// <summary>
     /// Verifies a self-contained single-file bundle is not classified as Native AOT
     /// even though the ReadyToRun assemblies inside it contain RTR signatures.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_SelfContainedBundle_ReturnsNull()
     {
-        Assert.SkipWhen(samples.SelfContainedConsoleExe is null,
+        TestSkip.When(Samples.SelfContainedConsoleExe is null,
             "Self-contained sample was not built");
 
-        var result = NativeAotDetector.Detect(File.ReadAllBytes(samples.SelfContainedConsoleExe!));
+        var result = NativeAotDetector.Detect(File.ReadAllBytes(Samples.SelfContainedConsoleExe!));
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
@@ -216,7 +230,8 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
     /// the version lands a few hundred bytes past the anchor instead of
     /// immediately before it as in MSVC-linked PEs.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Detect_VersionAfterAnchor_NearestMatchWins()
     {
         var bytes = new byte[8192];
@@ -234,8 +249,8 @@ public class NativeAotDetectorTests(SampleAssemblyFixture samples)
 
         var result = NativeAotDetector.Detect(bytes);
 
-        Assert.NotNull(result);
-        Assert.Equal("10.0.5", result.RuntimeVersion);
+        Assert.IsNotNull(result);
+        Assert.AreEqual("10.0.5", result.RuntimeVersion);
     }
 
     /// <summary>

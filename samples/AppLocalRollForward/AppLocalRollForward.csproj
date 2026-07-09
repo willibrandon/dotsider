@@ -24,7 +24,7 @@
          build of the same package, so the deployed app-local DLL has the same simple
          name and PKT but a strictly greater assembly version. That divergence is the
          scenario the resolver fix exists to handle. -->
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.2" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.4" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
   </ItemGroup>
 </Project>

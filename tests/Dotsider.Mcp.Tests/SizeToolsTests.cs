@@ -8,13 +8,15 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Creates the tests using the shared sample assembly fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class SizeToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// get_size_breakdown produces an error-free hierarchical size payload for a real library.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSizeBreakdown_RichLibrary_ReturnsSizeTree()
     {
         await StartServerAsync();
@@ -22,18 +24,18 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 
         var result = await client.CallToolAsync(
             "get_size_breakdown",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.RichLibraryDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("Error", text);
     }
 
     /// <summary>
     /// get_largest_methods honors maxResults and returns the top-N largest IL bodies.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetLargestMethods_RichLibrary_ReturnsSortedMethods()
     {
         await StartServerAsync();
@@ -43,22 +45,22 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "get_largest_methods",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["maxResults"] = 5
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var methods = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(methods.GetArrayLength() > 0);
-        Assert.True(methods.GetArrayLength() <= 5);
+        Assert.IsGreaterThan(0, methods.GetArrayLength());
+        Assert.IsLessThanOrEqualTo(5, methods.GetArrayLength());
     }
 
     /// <summary>
     /// Without an explicit limit, get_largest_methods caps output at the 20-method default.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetLargestMethods_DefaultCount_Returns20OrFewer()
     {
         await StartServerAsync();
@@ -66,36 +68,36 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
 
         var result = await client.CallToolAsync(
             "get_largest_methods",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.ComplexAppDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.ComplexAppDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var methods = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(methods.GetArrayLength() <= 20);
+        Assert.IsLessThanOrEqualTo(20, methods.GetArrayLength());
     }
 
     /// <summary>
     /// get_size_breakdown on a Native AOT binary with an mstat sidecar returns the AOT tree:
     /// assembly subtrees plus category nodes, not an empty root.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSizeBreakdown_NativeAot_ReturnsAotTree()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync(
             "get_size_breakdown",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.NativeAotConsoleExe },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var tree = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(tree.GetProperty("size").GetInt64() > 0);
+        Assert.IsGreaterThan(0, tree.GetProperty("size").GetInt64());
         Assert.Contains("category", text);
         Assert.Contains("System.Private.CoreLib", text);
     }
@@ -103,10 +105,11 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
     /// <summary>
     /// get_largest_methods uses Native AOT mstat method sizes when IL bodies are absent.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetLargestMethods_NativeAot_ReturnsMstatMethods()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -115,19 +118,19 @@ public class SizeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "get_largest_methods",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["assemblyPath"] = Samples.NativeAotConsoleExe,
                 ["maxResults"] = 5
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var methods = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(methods.GetArrayLength() > 0);
-        Assert.All(methods.EnumerateArray(), m =>
+        Assert.IsGreaterThan(0, methods.GetArrayLength());
+        TestAssert.All(methods.EnumerateArray(), m =>
         {
-            Assert.Equal("Mstat", m.GetProperty("source").GetString());
-            Assert.True(m.GetProperty("size").GetInt64() > 0);
+            Assert.AreEqual("Mstat", m.GetProperty("source").GetString());
+            Assert.IsGreaterThan(0, m.GetProperty("size").GetInt64());
         });
     }
 }

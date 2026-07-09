@@ -9,9 +9,11 @@ namespace Dotsider.Tests;
 /// Reproduces #90: opening a detail popup in PE/Metadata resets the table's
 /// scroll position to the top. The viewport content should stay put.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class TableScrollPopupTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -29,7 +31,7 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll)
                 {
                     CurrentTab = startTab,
                     PeSubTab = subTab
@@ -48,12 +50,13 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata scroll position preserved when popup opens.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ScrollPositionPreservedWhenPopupOpens()
     {
         // MethodDef sub-tab: RichLibrary has many methods, enough to scroll
         var (terminal, app) = CreateDotsiderApp(TabId.PeMetadata, PeSubTabId.MethodDef);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
 
         // We use the second row's token as a scroll marker. When we scroll
@@ -96,7 +99,7 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
 
         // If scroll reset to top, the second row token would reappear
         var snapshot = terminal.CreateSnapshot();
-        Assert.False(snapshot.ContainsText(secondRowToken!),
+        Assert.IsFalse(snapshot.ContainsText(secondRowToken!),
             $"Table scrolled back to top when popup opened — row {secondRowToken} reappeared");
 
         cts.Cancel();
@@ -108,10 +111,10 @@ public class TableScrollPopupTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

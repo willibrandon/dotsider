@@ -12,9 +12,11 @@ namespace Dotsider.Tests;
 /// analyzable — entry assembly loads, references are populated, and drill-down
 /// into bundled System assemblies succeeds.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class SingleFileBundleAnalysisTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -53,17 +55,18 @@ public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples)
     /// <see cref="AssemblyLoader.Open"/> produces a <see cref="AssemblyOpenResult.BundleEntry"/>
     /// with a valid entry analyzer.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenSingleFileExe_LoadsEntryAssembly()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
 
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
-        var bundle = Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
+        var bundle = Assert.IsExactInstanceOfType<AssemblyOpenResult.BundleEntry>(result);
 
-        Assert.True(bundle.EntryAnalyzer.HasMetadata);
-        Assert.Equal("SelfContainedConsole", bundle.EntryAnalyzer.AssemblyName);
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.SourceBundlePath);
+        Assert.IsTrue(bundle.EntryAnalyzer.HasMetadata);
+        Assert.AreEqual("SelfContainedConsole", bundle.EntryAnalyzer.AssemblyName);
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.SourceBundlePath);
 
         bundle.EntryAnalyzer.Dispose();
     }
@@ -72,15 +75,15 @@ public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples)
     /// Verifies that the entry assembly extracted from a single-file bundle
     /// includes System.Runtime in its assembly references.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenSingleFileExe_AssemblyRefs_ContainsSystemRuntime()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
-        var bundle = Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
+        var bundle = Assert.IsExactInstanceOfType<AssemblyOpenResult.BundleEntry>(result);
 
-        Assert.Contains(bundle.EntryAnalyzer.AssemblyRefs,
-            r => r.Name == "System.Runtime");
+        Assert.Contains(r => r.Name == "System.Runtime", bundle.EntryAnalyzer.AssemblyRefs);
 
         bundle.EntryAnalyzer.Dispose();
     }
@@ -89,14 +92,15 @@ public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples)
     /// Opens a single-file bundle in the headless TUI, then drills down into a
     /// referenced assembly to verify that bundle-aware resolution succeeds end-to-end.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task OpenSingleFileExe_DrillDown_SystemRuntime_Succeeds()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(
-            TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.SelfContainedConsoleExe!);
+            CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.SelfContainedConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -113,7 +117,7 @@ public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples)
             .ApplyAsync(terminal, cts.Token);
 
         // Verify we navigated — stack should have the original analyzer
-        Assert.Single(_state!.NavigationStack);
+        Assert.ContainsSingle(_state!.NavigationStack);
 
         cts.Cancel();
         await runTask;
@@ -123,48 +127,50 @@ public sealed class SingleFileBundleAnalysisTests(SampleAssemblyFixture samples)
     /// Verifies that hex save is blocked for bundle-backed analyzers,
     /// no temp file is created, and the bundle file remains unchanged.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenSingleFileExe_HexSave_IsBlocked()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
 
         // Record the bundle's original bytes
-        var originalBytes = File.ReadAllBytes(samples.SelfContainedConsoleExe!);
+        var originalBytes = File.ReadAllBytes(Samples.SelfContainedConsoleExe!);
 
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.SelfContainedConsoleExe!);
+        using var state = new DotsiderState(app, Samples.SelfContainedConsoleExe!);
 
         // Verify the guard blocks save
-        Assert.True(state.Analyzer.IsBundleBacked);
-        Assert.False(state.Analyzer.CanSaveInPlace);
+        Assert.IsTrue(state.Analyzer.IsBundleBacked);
+        Assert.IsFalse(state.Analyzer.CanSaveInPlace);
         DotsiderApp.SaveHexChanges(state);
-        Assert.NotNull(state.HexNotification);
+        Assert.IsNotNull(state.HexNotification);
         Assert.Contains("single-file bundle", state.HexNotification!);
 
         // No temp file should exist
-        Assert.False(File.Exists(samples.SelfContainedConsoleExe + ".tmp"));
+        Assert.IsFalse(File.Exists(Samples.SelfContainedConsoleExe + ".tmp"));
 
         // Bundle file must be unchanged
-        var afterBytes = File.ReadAllBytes(samples.SelfContainedConsoleExe!);
-        Assert.Equal(originalBytes, afterBytes);
+        var afterBytes = File.ReadAllBytes(Samples.SelfContainedConsoleExe!);
+        Assert.AreSequenceEqual(originalBytes, afterBytes);
     }
 
     /// <summary>
     /// Verifies that the <see cref="AssemblyAnalyzer.LaunchPath"/> for a bundle-backed
     /// analyzer points to the bundle executable, enabling Dynamic tab tracing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenSingleFileExe_LaunchPath_PointsToBundleExecutable()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
 
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
-        var bundle = Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
+        var bundle = Assert.IsExactInstanceOfType<AssemblyOpenResult.BundleEntry>(result);
 
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.LaunchPath);
-        Assert.True(File.Exists(bundle.EntryAnalyzer.LaunchPath));
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.LaunchPath);
+        Assert.IsTrue(File.Exists(bundle.EntryAnalyzer.LaunchPath));
 
         bundle.EntryAnalyzer.Dispose();
     }

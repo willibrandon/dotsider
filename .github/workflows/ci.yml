@@ -32,14 +32,26 @@ jobs:
         run: dotnet build --no-restore
 
       - name: Test
-        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Upload coverage
+          for project in \
+            tests/Dotsider.Tests/Dotsider.Tests.csproj \
+            tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj \
+            tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj
+          do
+            dotnet test "$project" --no-build --report-trx --results-directory "TestResults/${{ matrix.os }}/$(basename "$(dirname "$project")")" --coverage --coverage-output-format cobertura
+          done
+
+      - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-${{ matrix.os }}
-          path: '**/TestResults/**/coverage.cobertura.xml'
+          name: test-results-${{ matrix.os }}
+          path: |
+            TestResults/**/*.trx
+            TestResults/**/*.cobertura.xml
 
   deploy-tests:
     runs-on: ubuntu-latest

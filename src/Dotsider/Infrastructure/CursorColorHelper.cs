@@ -14,10 +14,30 @@ public static class CursorColorHelper
     /// <summary>
     /// Writes the OSC 12 sequence to set the cursor color to the dotsider theme teal.
     /// </summary>
-    public static void SetThemeCursorColor() => Console.Write(SetTealSequence);
+    public static void SetThemeCursorColor() => SetThemeCursorColor(Console.Out);
+
+    /// <summary>
+    /// Writes the OSC 12 sequence to set the cursor color to the dotsider theme teal.
+    /// </summary>
+    /// <param name="writer">The writer that receives the escape sequence.</param>
+    public static void SetThemeCursorColor(TextWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        writer.Write(SetTealSequence);
+    }
 
     /// <summary>
     /// Writes the OSC 112 sequence to reset the cursor color to the terminal default.
     /// </summary>
-    public static void ResetCursorColor() => Console.Write(ResetSequence);
+    public static void ResetCursorColor() => ResetCursorColor(Console.Out);
+
+    /// <summary>
+    /// Writes the OSC 112 sequence to reset the cursor color to the terminal default.
+    /// </summary>
+    /// <param name="writer">The writer that receives the escape sequence.</param>
+    public static void ResetCursorColor(TextWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        writer.Write(ResetSequence);
+    }
 }

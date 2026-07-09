@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 namespace Dotsider.Website.Tests;
 
 /// <summary>
-/// Shared xUnit fixture that builds and exposes sample assemblies used across website tests.
+/// Shared MSTest fixture that builds and exposes sample assemblies used across website tests.
 /// </summary>
-public class SampleAssemblyFixture : IAsyncLifetime
+internal class SampleAssemblyFixture : IAsyncDisposable
 {
     private string _repoRoot = null!;
 
@@ -44,8 +44,8 @@ public class SampleAssemblyFixture : IAsyncLifetime
         await PublishWebsite();
         await PublishSample();
 
-        Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
-        Assert.True(File.Exists(WebsitePublishedExe), $"Website not found at {WebsitePublishedExe}");
+        Assert.IsTrue(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
+        Assert.IsTrue(File.Exists(WebsitePublishedExe), $"Website not found at {WebsitePublishedExe}");
     }
 
     /// <summary>

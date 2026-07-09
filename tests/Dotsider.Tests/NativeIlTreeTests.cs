@@ -9,9 +9,11 @@ namespace Dotsider.Tests;
 /// namespace → type → function with the symbol carried on the method rows, so the same tree widget
 /// drives native disassembly.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NativeIlTreeTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class NativeIlTreeTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bApp? _app;
     private Hex1bTerminal? _terminal;
     private Hex1bAppWorkloadAdapter? _workload;
@@ -31,19 +33,20 @@ public sealed class NativeIlTreeTests(SampleAssemblyFixture samples) : IDisposab
     }
 
     /// <summary>Verifies the native tree buckets symbols and carries the symbol on the leaf rows.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildNativeTreeRows_NativeAot_BucketsSymbols()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
+        using var state = new DotsiderState(app, Samples.NativeAotConsoleExe!);
 
         var rows = IlInspectorView.BuildNativeTreeRows(state);
 
-        Assert.NotEmpty(rows);
-        Assert.Contains(rows, r => r.Kind == IlTreeRowKind.Namespace);
+        Assert.IsNotEmpty(rows);
+        Assert.Contains(r => r.Kind == IlTreeRowKind.Namespace, rows);
 
         // Expand every namespace, then every type, so the leaf function rows appear (each level is
         // only emitted once its parent is expanded).
@@ -54,17 +57,18 @@ public sealed class NativeIlTreeTests(SampleAssemblyFixture samples) : IDisposab
         }
 
         var expanded = IlInspectorView.BuildNativeTreeRows(state);
-        Assert.Contains(expanded, r => r.Kind == IlTreeRowKind.Method && r.Symbol is not null);
+        Assert.Contains(r => r.Kind == IlTreeRowKind.Method && r.Symbol is not null, expanded);
     }
 
     /// <summary>Verifies a managed binary produces an empty native tree.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildNativeTreeRows_Managed_IsEmpty()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        using var state = new DotsiderState(app, Samples.HelloWorldDll);
 
-        Assert.Empty(IlInspectorView.BuildNativeTreeRows(state));
+        Assert.IsEmpty(IlInspectorView.BuildNativeTreeRows(state));
     }
 
     /// <inheritdoc />

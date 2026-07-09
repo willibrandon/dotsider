@@ -6,13 +6,16 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests for the MCP WebAssembly tools over real SDK-produced browser-wasm output.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class WasmToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public sealed class WasmToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// list_wasm_sections returns raw Wasm section payload offsets and sizes from dotnet.native.wasm.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListWasmSections_Direct_ReturnsSections()
     {
         var wasmPath = GetWasmNativePath();
@@ -26,17 +29,18 @@ public sealed class WasmToolsTests(SampleAssemblyFixture samples) : McpServerTes
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("sectionCount").GetInt32() > 0);
-        Assert.Contains(json.GetProperty("sections").EnumerateArray(), static section =>
-            section.GetProperty("name").GetString() == "code");
+        Assert.IsGreaterThan(0, json.GetProperty("sectionCount").GetInt32());
+        Assert.Contains(static section =>
+            section.GetProperty("name").GetString() == "code", json.GetProperty("sections").EnumerateArray());
     }
 
     /// <summary>
     /// list_wasm_functions returns imported and file-backed functions in Wasm function-index order.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListWasmFunctions_Direct_ReturnsFunctionInventory()
     {
         var wasmPath = GetWasmNativePath();
@@ -50,18 +54,19 @@ public sealed class WasmToolsTests(SampleAssemblyFixture samples) : McpServerTes
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("functionCount").GetInt32() > 0);
+        Assert.IsGreaterThan(0, json.GetProperty("functionCount").GetInt32());
         var functions = json.GetProperty("functions").EnumerateArray().ToArray();
-        Assert.Contains(functions, static function => function.GetProperty("isImported").GetBoolean());
-        Assert.Contains(functions, static function => !function.GetProperty("isImported").GetBoolean());
+        Assert.Contains(static function => function.GetProperty("isImported").GetBoolean(), functions);
+        Assert.Contains(static function => !function.GetProperty("isImported").GetBoolean(), functions);
     }
 
     /// <summary>
     /// list_wasm_functions forwards session requests to a running dotsider instance unchanged.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListWasmFunctions_Session_ForwardsRequest()
     {
         await using var socket = new TestDotsiderSocket(999_997, "dotnet.native.wasm");
@@ -80,17 +85,17 @@ public sealed class WasmToolsTests(SampleAssemblyFixture samples) : McpServerTes
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal(1, json.GetProperty("functionCount").GetInt32());
-        Assert.Equal("func_0", json.GetProperty("functions")[0].GetProperty("name").GetString());
+        Assert.AreEqual(1, json.GetProperty("functionCount").GetInt32());
+        Assert.AreEqual("func_0", json.GetProperty("functions")[0].GetProperty("name").GetString());
     }
 
-    private string GetWasmNativePath()
+    private static string GetWasmNativePath()
     {
-        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+        TestSkip.When(Samples.WasmConsoleNativeWasm is null && Samples.ReadyToRunConsoleWasmNativeWasm is null,
             "browser-wasm publish did not run on this leg.");
 
-        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
+        return Samples.WasmConsoleNativeWasm ?? Samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 }

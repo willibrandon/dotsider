@@ -14,9 +14,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Il Go To Definition.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class IlGoToDefinitionTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -34,7 +36,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll)
                     {
                         CurrentTab = TabId.IlInspector
                     };
@@ -80,7 +82,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         const string callText = "call RichLibrary.IlNavigationFixture::LocalTarget";
         var text = _state!.IlEditorState!.Document.GetText();
         var callOffset = text.IndexOf(callText, StringComparison.Ordinal);
-        Assert.True(callOffset >= 0, $"Expected rendered IL to contain '{callText}'.");
+        Assert.IsGreaterThanOrEqualTo(0, callOffset, $"Expected rendered IL to contain '{callText}'.");
 
         await SetIlCursorAsync(auto, callOffset, "cursor moved to local call instruction");
 
@@ -115,13 +117,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var marker = $"IL_{instruction.Offset:X4}:";
         var text = _state!.IlEditorState!.Document.GetText();
         var offset = text.IndexOf(marker, StringComparison.Ordinal);
-        Assert.True(offset >= 0, $"Expected rendered IL to contain '{marker}'.");
+        Assert.IsGreaterThanOrEqualTo(0, offset, $"Expected rendered IL to contain '{marker}'.");
 
         await SetIlCursorAsync(auto, offset, $"cursor moved to {marker}");
         var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
             _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
-        Assert.NotNull(instAtCursor);
-        Assert.Equal(instruction.Offset, instAtCursor!.Offset);
+        Assert.IsNotNull(instAtCursor);
+        Assert.AreEqual(instruction.Offset, instAtCursor!.Offset);
     }
 
     /// <inheritdoc/>
@@ -138,49 +140,51 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies resolve method def returns local method.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_MethodDef_ReturnsLocalMethod()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         var callInst = dis.Disassemble(method).First(i => i.OpCode == "call" && i.MetadataToken is not null);
         var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
-        var localMethod = Assert.IsType<IlNavigationTarget.LocalMethod>(target);
-        Assert.Equal("LocalTarget", localMethod.Method.Name);
+        var localMethod = Assert.IsExactInstanceOfType<IlNavigationTarget.LocalMethod>(target);
+        Assert.AreEqual("LocalTarget", localMethod.Method.Name);
     }
 
     /// <summary>
     /// Verifies resolve field def returns local field.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_FieldDef_ReturnsLocalField()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "ReadInstanceField" && m.DeclaringType.Contains("IlNavigationFixture"));
         var fieldInst = dis.Disassemble(method).First(i => i.OpCode == "ldfld" && i.MetadataToken is not null);
-        Assert.Equal("_counter", Assert.IsType<IlNavigationTarget.LocalField>(
+        Assert.AreEqual("_counter", Assert.IsExactInstanceOfType<IlNavigationTarget.LocalField>(
             IlNavigationResolver.Resolve(analyzer, fieldInst.MetadataToken!.Value)).Field.Name);
     }
 
     /// <summary>
     /// Verifies disassemble with text header and instruction counts match.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DisassembleWithText_HeaderAndInstructionCountsMatch()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         var result = dis.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         var sequenceCommentCount = result.Value.Instructions.Count(i => i.SequenceStartLine is not null);
-        Assert.Equal(result.Value.HeaderLineCount + result.Value.Instructions.Count + sequenceCommentCount,
-            result.Value.Text.Split('\n').Length);
+        Assert.HasCount(result.Value.HeaderLineCount + result.Value.Instructions.Count + sequenceCommentCount, result.Value.Text.Split('\n'));
     }
 
     // --- Full end-to-end UI tests ---
@@ -188,10 +192,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies go to def enter screen shows target method il.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GoToDef_Enter_ScreenShowsTargetMethodIL()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -208,7 +213,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilNoTextAsync("// Method: RichLibrary.IlNavigationFixture::CallLocalMethod");
 
         // STATE: IlBackStack should have one entry
-        Assert.Single(_state!.IlBackStack);
+        Assert.ContainsSingle(_state!.IlBackStack);
 
         // HINTS BAR: should show Esc: Back
         await auto.WaitUntilTextAsync("Esc: Back");
@@ -220,10 +225,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies esc back screen restores original method il.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_ScreenRestoresOriginalMethodIL()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -247,10 +253,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilNoTextAsync("// Method: RichLibrary.IlNavigationFixture::LocalTarget");
 
         // STATE: IlBackStack should be empty
-        Assert.Empty(_state!.IlBackStack);
+        Assert.IsEmpty(_state!.IlBackStack);
 
         // STATE: selected method should be CallLocalMethod
-        Assert.Equal("CallLocalMethod", _state.IlSelectedMethod?.Name);
+        Assert.IsNotNull(_state.IlSelectedMethod);
+        Assert.AreEqual("CallLocalMethod", _state.IlSelectedMethod.Name);
 
         cts.Cancel();
         await runTask;
@@ -259,16 +266,17 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies esc back cursor position restored exactly.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_CursorPositionRestoredExactly()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         var cursorBeforeNav = await NavigateToCallLocalMethodAndFocusCallLine(auto, cts.Token);
-        Assert.True(cursorBeforeNav > 0, "Cursor should be past the header lines");
+        Assert.IsGreaterThan(0, cursorBeforeNav, "Cursor should be past the header lines");
 
         // Go to definition
         await auto.EnterAsync(cts.Token);
@@ -281,7 +289,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // CURSOR: must be in the instruction area (past header lines), proving
         // the cursor was restored to the IL bytecode region, not reset to line 1.
         var cursorAfterBack = _state!.IlEditorState?.Cursor.Position.Value ?? -1;
-        Assert.True(cursorAfterBack > 0, "Cursor should be restored past header lines");
+        Assert.IsGreaterThan(0, cursorAfterBack, "Cursor should be restored past header lines");
 
         var text = _state.IlEditorState!.Document.GetText();
         int LineOf(int offset)
@@ -293,8 +301,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         }
 
         var cursorLine = LineOf(cursorAfterBack);
-        Assert.True(cursorLine > _state.IlHeaderLineCount,
-            $"Cursor should be in the instruction area (line {cursorLine}) " +
+        Assert.IsGreaterThan(_state.IlHeaderLineCount, cursorLine, $"Cursor should be in the instruction area (line {cursorLine}) " +
             $"but header has {_state.IlHeaderLineCount} lines");
 
         cts.Cancel();
@@ -304,10 +311,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies esc back scroll works after restore.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_ScrollWorksAfterRestore()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -345,7 +353,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             description: "Up moved editor cursor");
 
         var cursorAfterUp = _state.IlEditorState?.Cursor.Position.Value ?? -1;
-        Assert.NotEqual(cursorAfterScroll, cursorAfterUp);
+        Assert.AreNotEqual(cursorAfterScroll, cursorAfterUp);
 
         // SCREEN: IL bytecode must still be visible after scrolling
         await auto.WaitUntilTextAsync("call RichLibrary.IlNavigationFixture::LocalTarget");
@@ -357,10 +365,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies esc back tree state restored.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_TreeStateRestored()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -382,13 +391,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // TREE STATE: expansion state must match what was saved
         foreach (var (key, value) in treeBefore)
         {
-            Assert.True(_state.IlTreeExpansionState.TryGetValue(key, out var restored),
+            Assert.IsTrue(_state.IlTreeExpansionState.TryGetValue(key, out var restored),
                 $"Tree key '{key}' missing after restore");
-            Assert.Equal(value, restored);
+            Assert.AreEqual(value, restored);
         }
 
         // TREE STATE: focused key must be restored
-        Assert.Equal(focusedKeyBefore, _state.IlFocusedTreeKey);
+        Assert.AreEqual(focusedKeyBefore, _state.IlFocusedTreeKey);
 
         cts.Cancel();
         await runTask;
@@ -396,10 +405,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies diagnostic escape handler fires state changes.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Diagnostic_EscapeHandlerFires_StateChanges()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -411,8 +421,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::LocalTarget");
 
         // Verify back stack has entry
-        Assert.Single(_state!.IlBackStack);
-        Assert.Equal("LocalTarget", _state.IlSelectedMethod?.Name);
+        Assert.ContainsSingle(_state!.IlBackStack);
+        Assert.IsNotNull(_state.IlSelectedMethod);
+        Assert.AreEqual("LocalTarget", _state.IlSelectedMethod.Name);
 
         // Press Escape
         await auto.EscapeAsync(cts.Token);
@@ -424,9 +435,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var methodName = _state.IlSelectedMethod?.Name;
 
         // Diagnostic output
-        Assert.True(backStackEmpty, $"IlBackStack should be empty after Esc but has {_state.IlBackStack.Count} entries. " +
+        Assert.IsTrue(backStackEmpty, $"IlBackStack should be empty after Esc but has {_state.IlBackStack.Count} entries. " +
             $"Method is '{methodName}'. This means the Escape handler did NOT fire.");
-        Assert.Equal("CallLocalMethod", methodName);
+        Assert.AreEqual("CallLocalMethod", methodName);
 
         cts.Cancel();
         await runTask;
@@ -435,13 +446,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies cross assembly back stack survives reset view state.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void CrossAssembly_BackStackSurvivesResetViewState()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         // Select CallExternal and set up editor state
@@ -449,7 +461,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         var doc = new Hex1b.Documents.Hex1bDocument(result.Value.Text);
         state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -458,21 +470,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // Find the call instruction token
         var callInst = result.Value.Instructions.FirstOrDefault(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.NotNull(callInst);
+        Assert.IsNotNull(callInst);
 
         // Navigate to external method
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
         // Back stack must survive PushAssemblyDirect → ResetViewState
-        Assert.True(state.IlBackStack.Count > 0,
-            $"IlBackStack must survive cross-assembly navigation but has {state.IlBackStack.Count} entries");
+        Assert.IsGreaterThan(0, state.IlBackStack.Count, $"IlBackStack must survive cross-assembly navigation but has {state.IlBackStack.Count} entries");
 
         // Restore from back entry
         if (navigated)
         {
             var entry = state.IlBackStack.Pop();
             state.RestoreFromIlBackEntry(entry);
-            Assert.Equal("CallExternal", state.IlSelectedMethod?.Name);
+            Assert.IsNotNull(state.IlSelectedMethod);
+            Assert.AreEqual("CallExternal", state.IlSelectedMethod.Name);
             Assert.Contains("RichLibrary", state.Analyzer.FileName);
         }
     }
@@ -480,20 +492,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies local field go to def clears selected method.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void LocalField_GoToDef_ClearsSelectedMethod()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "ReadInstanceField" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -506,25 +519,28 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         // Field navigation should clear IlSelectedMethod (no method to show)
         // and focus the declaring type in the tree
-        Assert.Null(state.IlSelectedMethod);
-        Assert.Contains("type:", (string?)state.IlFocusedTreeKey);
+        Assert.IsNull(state.IlSelectedMethod);
+        Assert.IsNotNull(state.IlFocusedTreeKey);
+        Assert.Contains("type:", (string)state.IlFocusedTreeKey);
 
         // Back should restore
         var entry = state.IlBackStack.Pop();
         state.RestoreFromIlBackEntry(entry);
-        Assert.Equal("ReadInstanceField", state.IlSelectedMethod?.Name);
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual("ReadInstanceField", state.IlSelectedMethod.Name);
     }
 
     /// <summary>
     /// Verifies normal push assembly clears il back stack.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NormalPushAssembly_ClearsIlBackStack()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         // Set up a local go-to-def so IlBackStack has an entry
@@ -532,7 +548,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -541,12 +557,12 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var callInst = result.Value.Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null);
         state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
-        Assert.Single(state.IlBackStack);
+        Assert.ContainsSingle(state.IlBackStack);
 
         // Normal assembly push (dependency navigation) must clear the back stack
         // because entries reference the old analyzer's state
-        state.PushAssembly(samples.HelloWorldDll);
-        Assert.Empty(state.IlBackStack);
+        state.PushAssembly(Samples.HelloWorldDll);
+        Assert.IsEmpty(state.IlBackStack);
     }
 
     // --- Issue #159: Esc on IL Inspector loses Size Map back target after gd into external ---
@@ -555,24 +571,25 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// Verifies the cross-view back target survives a cross-assembly method gd
     /// round-trip (Size Map → IL Inspector → external method → Esc back).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromCrossAssemblyMethodGd_RestoresSizeMapCrossViewBackTarget()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -582,34 +599,35 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
-        Assert.True(navigated);
-        Assert.Single(state.IlBackStack);
-        Assert.True(state.NavigationStack.Count > 0);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.IsTrue(navigated);
+        Assert.ContainsSingle(state.IlBackStack);
+        Assert.IsGreaterThan(0, state.NavigationStack.Count);
+        Assert.IsNull(state.CrossViewBackTarget);
 
         var entry = state.IlBackStack.Pop();
         state.RestoreFromIlBackEntry(entry);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Empty(state.NavigationStack);
-        Assert.Empty(state.IlBackStack);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.IsEmpty(state.NavigationStack);
+        Assert.IsEmpty(state.IlBackStack);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
+        Assert.IsNull(state.CrossViewBackTarget);
     }
 
     /// <summary>
     /// Verifies the cross-view back target survives a cross-assembly field gd round-trip.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromCrossAssemblyFieldGd_RestoresSizeMapCrossViewBackTarget()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         // GetStringEmpty has body `ldsfld string.Empty` — external FieldRef
         var method = state.Analyzer.MethodDefs.First(m =>
@@ -617,11 +635,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -631,34 +649,35 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "ldsfld" && i.MetadataToken is not null);
         var navigated = state.NavigateToIlDefinition(ldsInst.MetadataToken!.Value);
 
-        Assert.True(navigated);
-        Assert.Single(state.IlBackStack);
-        Assert.True(state.NavigationStack.Count > 0);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.IsTrue(navigated);
+        Assert.ContainsSingle(state.IlBackStack);
+        Assert.IsGreaterThan(0, state.NavigationStack.Count);
+        Assert.IsNull(state.CrossViewBackTarget);
 
         var entry = state.IlBackStack.Pop();
         state.RestoreFromIlBackEntry(entry);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Empty(state.NavigationStack);
-        Assert.Empty(state.IlBackStack);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.IsEmpty(state.NavigationStack);
+        Assert.IsEmpty(state.IlBackStack);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
+        Assert.IsNull(state.CrossViewBackTarget);
     }
 
     /// <summary>
     /// Verifies the cross-view back target survives a cross-assembly type gd round-trip.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromCrossAssemblyTypeGd_RestoresSizeMapCrossViewBackTarget()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         // CastToExternalStream has body `castclass System.IO.Stream` — external TypeRef
         var method = state.Analyzer.MethodDefs.First(m =>
@@ -666,11 +685,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -680,22 +699,22 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "castclass" && i.MetadataToken is not null);
         var navigated = state.NavigateToIlDefinition(castInst.MetadataToken!.Value);
 
-        Assert.True(navigated);
-        Assert.Single(state.IlBackStack);
-        Assert.True(state.NavigationStack.Count > 0);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.IsTrue(navigated);
+        Assert.ContainsSingle(state.IlBackStack);
+        Assert.IsGreaterThan(0, state.NavigationStack.Count);
+        Assert.IsNull(state.CrossViewBackTarget);
 
         var entry = state.IlBackStack.Pop();
         state.RestoreFromIlBackEntry(entry);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Empty(state.NavigationStack);
-        Assert.Empty(state.IlBackStack);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.IsEmpty(state.NavigationStack);
+        Assert.IsEmpty(state.IlBackStack);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
+        Assert.IsNull(state.CrossViewBackTarget);
     }
 
     /// <summary>
@@ -703,24 +722,25 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// back target without going through the snapshot/restore round-trip,
     /// because the local path never calls PushAssemblyDirect → ResetViewState.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromLocalGd_PreservesSizeMapCrossViewBackTarget()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
 
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -730,16 +750,16 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
-        Assert.True(navigated);
-        Assert.Single(state.IlBackStack);
-        Assert.Empty(state.NavigationStack);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.IsTrue(navigated);
+        Assert.ContainsSingle(state.IlBackStack);
+        Assert.IsEmpty(state.NavigationStack);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
     }
 
     /// <summary>
@@ -747,10 +767,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// and confirm two REAL Esc presses return to Size Map. Pre-fix the second
     /// Esc binding de-registers and the user is stuck on IL Inspector.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_FromSizeMapToExternalCall_TwoRealEscapesReturnToSizeMap()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -765,7 +786,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
         _state.CurrentTab = TabId.SizeMap;
         _state.NavigateToIlMethod(callExternal);
-        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.SizeMap, 0), _state.CrossViewBackTarget);
 
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
         await auto.WaitUntilTextAsync("call System.Console::WriteLine");
@@ -789,13 +810,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var instructions = _state!.IlInstructions!.ToList();
         var callIndex = instructions.FindIndex(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.True(callIndex >= 0, "WriteLine call instruction must exist in CallExternal body");
+        Assert.IsGreaterThanOrEqualTo(0, callIndex, "WriteLine call instruction must exist in CallExternal body");
         await SetIlCursorOnInstructionAsync(auto, instructions[callIndex]);
 
         var instAtCursor = IlNavigationHelper.GetInstructionAtCursor(
             _state.IlEditorState!, _state.IlInstructions!, _state.IlHeaderLineCount);
-        Assert.NotNull(instAtCursor);
-        Assert.Equal("call", instAtCursor!.OpCode);
+        Assert.IsNotNull(instAtCursor);
+        Assert.AreEqual("call", instAtCursor!.OpCode);
         Assert.Contains("WriteLine", instAtCursor.Operand);
 
         // Real gd via Enter — crosses into System.Console.dll.
@@ -804,9 +825,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // The IlDisassembler emits "// Method: System.Console::WriteLine" only
         // in the destination's IL header — unique landing marker.
         await auto.WaitUntilTextAsync("// Method: System.Console::WriteLine");
-        Assert.True(_state.NavigationStack.Count > 0);
-        Assert.Single(_state.IlBackStack);
-        Assert.Null(_state.CrossViewBackTarget);
+        Assert.IsGreaterThan(0, _state.NavigationStack.Count);
+        Assert.ContainsSingle(_state.IlBackStack);
+        Assert.IsNull(_state.CrossViewBackTarget);
 
         // First REAL Esc — pops IL back entry, returns to CallExternal IL.
         await auto.EscapeAsync(cts.Token);
@@ -816,16 +837,16 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // binding is registered for the second press. Pre-fix all three back
         // signals are zero/null and the binding de-registers.
         await auto.WaitUntilTextAsync("Esc: Back");
-        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
-        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
-        Assert.Empty(_state.IlBackStack);
-        Assert.Empty(_state.NavigationStack);
+        Assert.AreEqual((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, _state.CurrentTab);
+        Assert.IsEmpty(_state.IlBackStack);
+        Assert.IsEmpty(_state.NavigationStack);
 
         // Second REAL Esc — drives cross-view return to Size Map.
         await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilTextAsync("Total:");
-        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
-        Assert.Null(_state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, _state.CurrentTab);
+        Assert.IsNull(_state.CrossViewBackTarget);
 
         cts.Cancel();
         await runTask;
@@ -846,8 +867,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var typeNode = nsNode.Children.First(c => c.FullPath == method.DeclaringType);
         var methodIdx = typeNode.Children.ToList().FindIndex(c =>
             c.FullPath == $"{method.DeclaringType}::{method.Name}@0x{method.Token:X8}");
-        Assert.True(methodIdx >= 0,
-            $"Method {method.DeclaringType}::{method.Name} not found in size tree");
+        Assert.IsGreaterThanOrEqualTo(0, methodIdx, $"Method {method.DeclaringType}::{method.Name} not found in size tree");
         return (root, nsNode, typeNode, methodIdx);
     }
 
@@ -856,17 +876,18 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// selection, search) is restored after a cross-assembly gd round-trip. Parameterized
     /// across the three external dispatch paths: method, field, type.
     /// </summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData("CallExternal", "call", "WriteLine")]
-    [InlineData("GetStringEmpty", "ldsfld", "")]
-    [InlineData("CastToExternalStream", "castclass", "")]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow("CallExternal", "call", "WriteLine")]
+    [DataRow("GetStringEmpty", "ldsfld", "")]
+    [DataRow("CastToExternalStream", "castclass", "")]
     public void EscBack_FromCrossAssemblyGd_RestoresFullSizeMapDrillState(
         string methodName, string opCode, string operandSubstring)
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
         var origTree = state.CachedSizeTree;
@@ -891,12 +912,12 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
 
-        Assert.Same(type, state.TreemapCurrentLevel);
-        Assert.Equal(2, state.TreemapBreadcrumb.Count);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
+        Assert.HasCount(2, state.TreemapBreadcrumb);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(dis);
+        Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -905,57 +926,58 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var inst = dis.Value.Instructions.First(i =>
             i.OpCode == opCode && i.MetadataToken is not null
             && (operandSubstring.Length == 0 || i.Operand.Contains(operandSubstring)));
-        Assert.True(state.NavigateToIlDefinition(inst.MetadataToken!.Value));
+        Assert.IsTrue(state.NavigateToIlDefinition(inst.MetadataToken!.Value));
 
         // Mid-flight: ResetViewState wiped everything.
-        Assert.Null(state.TreemapCurrentLevel);
-        Assert.Empty(state.TreemapBreadcrumb);
-        Assert.Null(state.CachedSizeTree);
-        Assert.False(state.Search[TabId.SizeMap].IsActive);
+        Assert.IsNull(state.TreemapCurrentLevel);
+        Assert.IsEmpty(state.TreemapBreadcrumb);
+        Assert.IsNull(state.CachedSizeTree);
+        Assert.IsFalse(state.Search[TabId.SizeMap].IsActive);
 
         // First Esc — pop the cross-assembly entry and restore.
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
 
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
-        Assert.Same(origTree, state.CachedSizeTree);
-        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreSame(origTree, state.CachedSizeTree);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
         var stack = state.TreemapBreadcrumb.ToArray();
-        Assert.Equal(2, stack.Length);
-        Assert.Same(ns, stack[0]);
-        Assert.Same(root, stack[1]);
-        Assert.Equal(methodIdx, state.TreemapSelectedIndex);
-        Assert.Same(
+        Assert.HasCount(2, stack);
+        Assert.AreSame(ns, stack[0]);
+        Assert.AreSame(root, stack[1]);
+        Assert.AreEqual(methodIdx, state.TreemapSelectedIndex);
+        Assert.AreSame(
             type.Children[methodIdx],
             state.TreemapCurrentLevel!.Children[state.TreemapSelectedIndex]);
 
         var s = state.Search[TabId.SizeMap];
-        Assert.True(s.IsActive);
-        Assert.True(s.IsConfirmed);
-        Assert.Equal("Call", s.Query);
-        Assert.Equal(2, s.MatchCount);
+        Assert.IsTrue(s.IsActive);
+        Assert.IsTrue(s.IsConfirmed);
+        Assert.AreEqual("Call", s.Query);
+        Assert.AreEqual(2, s.MatchCount);
 
         // Second Esc — back to Size Map at the drilled level.
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
-        Assert.Same(type, state.TreemapCurrentLevel);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
     }
 
     /// <summary>
     /// Regression guard: when the user never drilled (TreemapCurrentLevel == null,
     /// breadcrumb empty), the snapshot/restore round-trip must not invent a breadcrumb.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_NoDrill_NullCurrentLevelStaysNull()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         // No drill: TreemapCurrentLevel left null, breadcrumb empty, no cached tree.
-        Assert.Null(state.TreemapCurrentLevel);
-        Assert.Empty(state.TreemapBreadcrumb);
-        Assert.Null(state.CachedSizeTree);
+        Assert.IsNull(state.TreemapCurrentLevel);
+        Assert.IsEmpty(state.TreemapBreadcrumb);
+        Assert.IsNull(state.CachedSizeTree);
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
@@ -969,14 +991,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+        Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
 
-        Assert.Null(state.TreemapCurrentLevel);
-        Assert.Empty(state.TreemapBreadcrumb);
-        Assert.Equal(-1, state.TreemapSelectedIndex);
-        Assert.False(state.Search[TabId.SizeMap].IsActive);
+        Assert.IsNull(state.TreemapCurrentLevel);
+        Assert.IsEmpty(state.TreemapBreadcrumb);
+        Assert.AreEqual(-1, state.TreemapSelectedIndex);
+        Assert.IsFalse(state.Search[TabId.SizeMap].IsActive);
     }
 
     /// <summary>
@@ -985,18 +1007,19 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// Pre-fix this fails because ResetViewState zeros TreemapCurrentLevel and nothing puts
     /// the root reference back.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_DrilledToRoot_RestoresRootIdentity()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
         var origTree = state.CachedSizeTree;
         state.TreemapCurrentLevel = origTree; // user drilled then popped back to root
-        Assert.Empty(state.TreemapBreadcrumb);
+        Assert.IsEmpty(state.TreemapBreadcrumb);
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
@@ -1010,13 +1033,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+        Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
 
-        Assert.Same(origTree, state.CachedSizeTree);
-        Assert.Same(origTree, state.TreemapCurrentLevel);
-        Assert.Empty(state.TreemapBreadcrumb);
+        Assert.AreSame(origTree, state.CachedSizeTree);
+        Assert.AreSame(origTree, state.TreemapCurrentLevel);
+        Assert.IsEmpty(state.TreemapBreadcrumb);
     }
 
     /// <summary>
@@ -1024,13 +1047,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// the treemap state survives without snapshot/restore. After a local gd round-trip
     /// the original drill state must still be present (object identity preserved).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromLocalGd_PreservesBreadcrumb()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
         var origTree = state.CachedSizeTree;
@@ -1055,19 +1079,19 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
-        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+        Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
         // Local path: ResetViewState was NEVER called — drill state intact.
-        Assert.Same(origTree, state.CachedSizeTree);
-        Assert.Same(type, state.TreemapCurrentLevel);
-        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+        Assert.AreSame(origTree, state.CachedSizeTree);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
+        Assert.HasCount(2, state.TreemapBreadcrumb);
 
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
 
-        Assert.Same(origTree, state.CachedSizeTree);
-        Assert.Same(type, state.TreemapCurrentLevel);
-        Assert.Equal(2, state.TreemapBreadcrumb.Count);
-        Assert.Equal(methodIdx, state.TreemapSelectedIndex);
+        Assert.AreSame(origTree, state.CachedSizeTree);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
+        Assert.HasCount(2, state.TreemapBreadcrumb);
+        Assert.AreEqual(methodIdx, state.TreemapSelectedIndex);
     }
 
     /// <summary>
@@ -1076,10 +1100,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// land back on Size Map at the original drilled type level — proven by waiting
     /// for the rendered breadcrumb to include the type name.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_FromSizeMapDeepDrill_TwoRealEscapesShowBreadcrumb()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1105,7 +1130,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // on the wrong tab and the test wouldn't prove the reopened bug.
         _state.CurrentTab = TabId.SizeMap;
         _state.NavigateToIlMethod(callExternal);
-        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.SizeMap, 0), _state.CrossViewBackTarget);
 
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
 
@@ -1123,7 +1148,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var instructions = _state!.IlInstructions!.ToList();
         var callIndex = instructions.FindIndex(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.True(callIndex >= 0);
+        Assert.IsGreaterThanOrEqualTo(0, callIndex);
         await SetIlCursorOnInstructionAsync(auto, instructions[callIndex]);
 
         // Real gd via Enter — cross-assembly into System.Console.dll.
@@ -1144,9 +1169,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var expectedCrumb = $" {origTree.Name} > {ns.Name} > {type.Name} ";
         await auto.WaitUntilTextAsync(expectedCrumb);
 
-        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
-        Assert.Same(type, _state.TreemapCurrentLevel);
-        Assert.Same(origTree, _state.CachedSizeTree);
+        Assert.AreEqual(TabId.SizeMap, _state.CurrentTab);
+        Assert.AreSame(type, _state.TreemapCurrentLevel);
+        Assert.AreSame(origTree, _state.CachedSizeTree);
 
         cts.Cancel();
         await runTask;
@@ -1159,13 +1184,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// to the original Size Map drill — chained cross-view jumps must each store
     /// their own back frame instead of overwriting one another.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromSizeMapIlHexChain_TwoEscsReturnToSizeMap()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CachedSizeTree = SizeAnalyzer.BuildSizeTree(state.Analyzer);
         var origTree = state.CachedSizeTree;
@@ -1181,62 +1207,63 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         state.NavigateToHexOffset(method.Rva);
-        Assert.Equal(TabId.HexDump, state.CurrentTab);
-        Assert.Equal((TabId.IlInspector, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.HexDump, state.CurrentTab);
+        Assert.AreEqual((TabId.IlInspector, 0), state.CrossViewBackTarget);
 
         // First Esc — Hex → IL Inspector. Pre-fix the back target is null after
         // this because the Hex push clobbered the SizeMap frame.
         state.NavigateBack();
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
 
         // Second Esc — IL → Size Map.
         state.NavigateBack();
-        Assert.Equal(TabId.SizeMap, state.CurrentTab);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, state.CurrentTab);
+        Assert.IsNull(state.CrossViewBackTarget);
 
         // Breadcrumb survives end-to-end (NavigateToHexOffset never calls ResetViewState).
-        Assert.Same(origTree, state.CachedSizeTree);
-        Assert.Same(type, state.TreemapCurrentLevel);
-        Assert.Equal(2, state.TreemapBreadcrumb.Count);
+        Assert.AreSame(origTree, state.CachedSizeTree);
+        Assert.AreSame(type, state.TreemapCurrentLevel);
+        Assert.HasCount(2, state.TreemapBreadcrumb);
     }
 
     /// <summary>
     /// Verifies that the PE → IL → Hex chain unwinds to the originating PE
     /// Metadata sub-tab, proving both Tab and SubTab are stored per frame.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EscBack_FromPeIlHexChain_RestoresPeWithExactSubTab()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CurrentTab = TabId.PeMetadata;
         state.PeSubTab = PeSubTabId.MethodDef;
 
         var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
         state.NavigateToIlMethod(method);
-        Assert.Equal((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
 
         state.NavigateToHexOffset(method.Rva);
         // The Hex frame captures (CurrentTab, PeSubTab) — PeSubTab is unchanged
         // since the user was on IL Inspector, but the SubTab value is unused
         // when NavigateBack returns to a non-PE tab. Only assert the Tab here.
-        Assert.Equal(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
+        Assert.AreEqual(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
 
         state.NavigateBack();
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
-        Assert.Equal((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual((TabId.PeMetadata, PeSubTabId.MethodDef), state.CrossViewBackTarget);
 
         state.NavigateBack();
-        Assert.Equal(TabId.PeMetadata, state.CurrentTab);
-        Assert.Equal(PeSubTabId.MethodDef, state.PeSubTab);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.PeMetadata, state.CurrentTab);
+        Assert.AreEqual(PeSubTabId.MethodDef, state.PeSubTab);
+        Assert.IsNull(state.CrossViewBackTarget);
     }
 
     /// <summary>
@@ -1244,10 +1271,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// Hex Dump → real Esc → real Esc must land back on Size Map at the
     /// originating breadcrumb (proves the chain works through real input).
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_FromSizeMapIlHexChain_RealKeysReturnToSizeMap()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp();
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1269,14 +1297,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         _state.CurrentTab = TabId.SizeMap;
         _state.NavigateToIlMethod(callExternal);
-        Assert.Equal((TabId.SizeMap, 0), _state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.SizeMap, 0), _state.CrossViewBackTarget);
 
         await auto.WaitUntilTextAsync("// Method: RichLibrary.IlNavigationFixture::CallExternal");
 
         // Real x key → NavigateToHexOffset (DllInspectorBindings.cs:221).
         await auto.KeyAsync(Hex1bKey.X, cts.Token);
         await auto.WaitUntilAsync(_ => _state!.CurrentTab == TabId.HexDump);
-        Assert.Equal((TabId.IlInspector, 0), _state.CrossViewBackTarget);
+        Assert.AreEqual((TabId.IlInspector, 0), _state.CrossViewBackTarget);
 
         // First REAL Esc — Hex → IL Inspector.
         await auto.EscapeAsync(cts.Token);
@@ -1290,9 +1318,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         var expectedCrumb = $" {origTree.Name} > {ns.Name} > {type.Name} ";
         await auto.WaitUntilTextAsync(expectedCrumb);
 
-        Assert.Equal(TabId.SizeMap, _state.CurrentTab);
-        Assert.Same(type, _state.TreemapCurrentLevel);
-        Assert.Null(_state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.SizeMap, _state.CurrentTab);
+        Assert.AreSame(type, _state.TreemapCurrentLevel);
+        Assert.IsNull(_state.CrossViewBackTarget);
 
         cts.Cancel();
         await runTask;
@@ -1302,25 +1330,26 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// ResetViewState (triggered by PushAssembly's dependency drill) clears the
     /// entire cross-view back stack, not just the top frame.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResetViewState_ClearsEntireBackStack()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var method = state.Analyzer.MethodDefs.First(m => m.Rva > 0);
         state.CurrentTab = TabId.SizeMap;
         state.NavigateToIlMethod(method);
         state.NavigateToHexOffset(method.Rva);
-        Assert.Equal(2, state.CrossViewBackStack.Count);
+        Assert.HasCount(2, state.CrossViewBackStack);
 
         // PushAssembly → ResetViewState clears everything
-        state.PushAssembly(samples.HelloWorldDll);
+        state.PushAssembly(Samples.HelloWorldDll);
 
-        Assert.Empty(state.CrossViewBackStack);
-        Assert.Null(state.CrossViewBackTarget);
+        Assert.IsEmpty(state.CrossViewBackStack);
+        Assert.IsNull(state.CrossViewBackTarget);
     }
 
     /// <summary>
@@ -1328,13 +1357,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// not just the top tuple. Seeds a 2-deep stack before the gd push so a
     /// single-tuple snapshot implementation would fail the count assertion.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void CrossAssemblyGd_SnapshotsAndRestoresMultiFrameStack()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         // Seed a multi-frame stack — bottom: PE/TypeDef, top: SizeMap.
         state.CrossViewBackStack.Push((TabId.PeMetadata, PeSubTabId.TypeDef));
@@ -1345,7 +1375,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var dis = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(dis);
+        Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1353,49 +1383,51 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var callInst = dis.Value.Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
-        Assert.True(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
+        Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
         // Cross-assembly push cleared the stack mid-flight.
-        Assert.Empty(state.CrossViewBackStack);
+        Assert.IsEmpty(state.CrossViewBackStack);
 
         state.RestoreFromIlBackEntry(state.IlBackStack.Pop());
 
         // Whole stack is restored in correct top-first order.
         var arr = state.CrossViewBackStack.ToArray();
-        Assert.Equal(2, arr.Length);
-        Assert.Equal((TabId.SizeMap, 0), arr[0]);
-        Assert.Equal((TabId.PeMetadata, PeSubTabId.TypeDef), arr[1]);
+        Assert.HasCount(2, arr);
+        Assert.AreEqual((TabId.SizeMap, 0), arr[0]);
+        Assert.AreEqual((TabId.PeMetadata, PeSubTabId.TypeDef), arr[1]);
     }
 
     /// <summary>
     /// NavigateToHexOffset bails out early on an invalid RVA without mutating
     /// the back stack — the early return precedes the push.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NavigateToHexOffset_InvalidRva_DoesNotMutateBackStack()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.CrossViewBackStack.Push((TabId.SizeMap, 0));
-        Assert.Single(state.CrossViewBackStack);
+        Assert.ContainsSingle(state.CrossViewBackStack);
 
         // RvaToFileOffset returns -1 for an out-of-range RVA — early return fires.
         state.NavigateToHexOffset(int.MaxValue);
 
-        Assert.Single(state.CrossViewBackStack);
-        Assert.Equal((TabId.SizeMap, 0), state.CrossViewBackTarget);
+        Assert.ContainsSingle(state.CrossViewBackStack);
+        Assert.AreEqual((TabId.SizeMap, 0), state.CrossViewBackTarget);
     }
 
     /// <summary>
     /// Verifies external method filters by declaring type.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_FiltersByDeclaringType()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
 
         // Find a method that calls an external method with a common name
@@ -1407,7 +1439,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
 
         var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
-        var extMethod = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
+        var extMethod = Assert.IsExactInstanceOfType<IlNavigationTarget.ExternalMethod>(target);
 
         // The resolver must capture the declaring type, not just the method name
         Assert.Contains("Console", extMethod.DeclaringType);
@@ -1416,15 +1448,16 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies net fx external method navigates to mscorlib method.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NetFx_ExternalMethod_NavigatesToMscorlibMethod()
     {
-        if (samples.NetFxConsoleExe is null) return; // Windows-only sample
+        if (Samples.NetFxConsoleExe is null) return; // Windows-only sample
 
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.NetFxConsoleExe);
+        using var state = new DotsiderState(app, Samples.NetFxConsoleExe);
         state.CurrentTab = TabId.IlInspector;
 
         // NetFxConsole.Program::Main calls Console.WriteLine which references mscorlib in net48
@@ -1432,7 +1465,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             m.Name == "Main" && m.DeclaringType.Contains("Program"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1444,42 +1477,44 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         // Resolver must identify this as an external method in mscorlib
         var target = IlNavigationResolver.Resolve(state.Analyzer, callInst.MetadataToken!.Value);
-        var extMethod = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
-        Assert.Equal("mscorlib", extMethod.AssemblyName);
+        var extMethod = Assert.IsExactInstanceOfType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.AreEqual("mscorlib", extMethod.AssemblyName);
 
         // Navigation to mscorlib methods must succeed — the resolver should find
         // System.Console.dll via namespace probing, not land on Internal.Console in CoreLib
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
-        Assert.True(navigated, $"Navigation failed with notice: {state.TransientNotice}");
-        Assert.Null(state.TransientNotice);
-        Assert.NotNull(state.IlSelectedMethod);
-        Assert.Equal("System.Console", state.IlSelectedMethod.DeclaringType);
+        Assert.IsTrue(navigated, $"Navigation failed with notice: {state.TransientNotice}");
+        Assert.IsNull(state.TransientNotice);
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual("System.Console", state.IlSelectedMethod.DeclaringType);
     }
 
     /// <summary>
     /// Verifies mscorlib resolver type forwarders find correct assembly.
     /// </summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData("System.Console", "System.Console")]
-    [InlineData("System.Object", "System.Private.CoreLib")]
-    [InlineData("System.Collections.Queue", "System.Collections.NonGeneric")]
-    [InlineData("Microsoft.Win32.RegistryKey", "Microsoft.Win32.Registry")]
-    [InlineData("System.Environment/SpecialFolder", "System.Private.CoreLib")]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow("System.Console", "System.Console")]
+    [DataRow("System.Object", "System.Private.CoreLib")]
+    [DataRow("System.Collections.Queue", "System.Collections.NonGeneric")]
+    [DataRow("Microsoft.Win32.RegistryKey", "Microsoft.Win32.Registry")]
+    [DataRow("System.Environment/SpecialFolder", "System.Private.CoreLib")]
     public void MscorlibResolver_TypeForwarders_FindCorrectAssembly(
         string declaringType, string expectedAssembly)
     {
         ImplementationAssemblyResolver.ClearCache();
         var resolved = ImplementationAssemblyResolver.Resolve(
-            samples.RichLibraryDll, "mscorlib", declaringType);
-        Assert.NotNull(resolved);
-        var fromFile = Assert.IsType<ResolvedAssembly.FromFile>(resolved);
+            Samples.RichLibraryDll, "mscorlib", declaringType);
+        Assert.IsNotNull(resolved);
+        var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
         Assert.Contains(expectedAssembly, Path.GetFileNameWithoutExtension(fromFile.Path));
     }
 
     /// <summary>
     /// Verifies mscorlib resolver nested type forwarder follows parent chain.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void MscorlibResolver_NestedTypeForwarder_FollowsParentChain()
     {
         // System.Environment forwards to System.Private.CoreLib on modern .NET.
@@ -1487,32 +1522,33 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         // proving the Implementation chain is followed rather than falling back.
         ImplementationAssemblyResolver.ClearCache();
         var parent = ImplementationAssemblyResolver.Resolve(
-            samples.RichLibraryDll, "mscorlib", "System.Environment");
+            Samples.RichLibraryDll, "mscorlib", "System.Environment");
         ImplementationAssemblyResolver.ClearCache();
         var nested = ImplementationAssemblyResolver.Resolve(
-            samples.RichLibraryDll, "mscorlib", "System.Environment/SpecialFolder");
-        Assert.NotNull(parent);
-        Assert.NotNull(nested);
-        Assert.Equal(parent, nested);
+            Samples.RichLibraryDll, "mscorlib", "System.Environment/SpecialFolder");
+        Assert.IsNotNull(parent);
+        Assert.IsNotNull(nested);
+        Assert.AreEqual(parent, nested);
     }
 
     /// <summary>
     /// Verifies external method navigates to correct declaring type.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_NavigatesToCorrectDeclaringType()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CallExternal" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1525,11 +1561,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
         if (navigated)
         {
             // Must have navigated to the correct assembly
-            Assert.True(state.NavigationStack.Count > 0, "Should have pushed assembly");
+            Assert.IsGreaterThan(0, state.NavigationStack.Count, "Should have pushed assembly");
 
             // The selected method's declaring type must contain "Console"
             // (not some other type that also has a WriteLine-like method)
-            Assert.NotNull(state.IlSelectedMethod);
+            Assert.IsNotNull(state.IlSelectedMethod);
             Assert.Contains("Console", state.IlSelectedMethod.DeclaringType);
         }
     }
@@ -1537,13 +1573,14 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies external field navigation sets il selected field.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalField_NavigationSetsIlSelectedField()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         // GetStringEmpty calls string.Empty which is ldsfld → ExternalField
@@ -1552,7 +1589,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1563,23 +1600,24 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
             i.OpCode == "ldsfld" && i.MetadataToken is not null && i.Operand.Contains("Empty"));
 
         var target = IlNavigationResolver.Resolve(state.Analyzer, fieldInst.MetadataToken!.Value);
-        Assert.IsType<IlNavigationTarget.ExternalField>(target);
+        Assert.IsExactInstanceOfType<IlNavigationTarget.ExternalField>(target);
 
         var navigated = state.NavigateToIlDefinition(fieldInst.MetadataToken!.Value);
-        Assert.True(navigated, "External field navigation must succeed");
+        Assert.IsTrue(navigated, "External field navigation must succeed");
 
         // External field navigation must set IlSelectedField for the right pane
-        Assert.NotNull(state.IlSelectedField);
+        Assert.IsNotNull(state.IlSelectedField);
         Assert.Contains("Empty", state.IlSelectedField.Name);
 
         // Must have pushed assembly
-        Assert.True(state.NavigationStack.Count > 0);
+        Assert.IsGreaterThan(0, state.NavigationStack.Count);
 
         // Esc back must restore
         var entry = state.IlBackStack.Pop();
         state.RestoreFromIlBackEntry(entry);
-        Assert.Equal("GetStringEmpty", state.IlSelectedMethod?.Name);
-        Assert.Null(state.IlSelectedField);
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual("GetStringEmpty", state.IlSelectedMethod.Name);
+        Assert.IsNull(state.IlSelectedField);
     }
 
     /// <summary>
@@ -1587,10 +1625,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// UserService.FindByRole) and expects the underlying ExternalMethod target —
     /// not a GenericInstantiation fallback.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_MethodSpec_ReturnsUnderlyingExternalMethod()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "FindByRole" && m.DeclaringType.Contains("UserService"));
@@ -1601,9 +1640,9 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
 
-        var ext = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
-        Assert.Equal("Where", ext.MemberName);
-        Assert.Equal("System.Linq.Enumerable", ext.DeclaringType);
+        var ext = Assert.IsExactInstanceOfType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.AreEqual("Where", ext.MemberName);
+        Assert.AreEqual("System.Linq.Enumerable", ext.DeclaringType);
         // Signature should encode the method generic parameter as !!0, proving
         // we resolved the open-generic definition rather than coincidental match.
         Assert.Contains("!!0", ext.Signature);
@@ -1612,20 +1651,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Navigates from a MethodSpec call site to the open-generic definition in System.Linq.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NavigateToIlDefinition_MethodSpec_LandsOnOpenGenericDefinition()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "FindByRole" && m.DeclaringType.Contains("UserService"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1638,13 +1678,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
-        Assert.True(navigated, "MethodSpec navigation must succeed for Enumerable.Where");
-        Assert.True(state.NavigationStack.Count > 0, "Should have pushed System.Linq");
-        Assert.NotNull(state.IlSelectedMethod);
-        Assert.Equal("Where", state.IlSelectedMethod.Name);
-        Assert.Equal("System.Linq.Enumerable", state.IlSelectedMethod.DeclaringType);
+        Assert.IsTrue(navigated, "MethodSpec navigation must succeed for Enumerable.Where");
+        Assert.IsGreaterThan(0, state.NavigationStack.Count, "Should have pushed System.Linq");
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual("Where", state.IlSelectedMethod.Name);
+        Assert.AreEqual("System.Linq.Enumerable", state.IlSelectedMethod.DeclaringType);
         Assert.Contains("!!0", state.IlSelectedMethod.Signature);
-        Assert.Equal(TabId.IlInspector, state.CurrentTab);
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
     }
 
     /// <summary>
@@ -1653,10 +1693,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// the parent is a TypeSpec, not a TypeRef. The resolver must still identify it as
     /// an ExternalMethod, not return Unsupported.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_MemberRefWithTypeSpecParent_ReturnsExternalMethod()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
 
         var method = analyzer.MethodDefs.First(m =>
@@ -1667,8 +1708,8 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var target = IlNavigationResolver.Resolve(analyzer, callInst.MetadataToken!.Value);
 
-        var ext = Assert.IsType<IlNavigationTarget.ExternalMethod>(target);
-        Assert.Equal("set_Item", ext.MemberName);
+        var ext = Assert.IsExactInstanceOfType<IlNavigationTarget.ExternalMethod>(target);
+        Assert.AreEqual("set_Item", ext.MemberName);
         Assert.Contains("ConcurrentDictionary", ext.DeclaringType);
     }
 
@@ -1676,27 +1717,28 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// A malformed MethodSpec token must surface as GenericInstantiation with a
     /// non-empty Reason, and the DotsiderState arm must report it via TransientNotice.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_InvalidMethodSpecToken_ReturnsGenericInstantiationWithReason()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         // HandleKind.MethodSpecification = 0x2B. Row 0xFFFFFF is well past any real row,
         // so reader.GetMethodSpecification will throw BadImageFormatException.
         var invalidToken = unchecked((int)0x2BFFFFFF);
 
         var target = IlNavigationResolver.Resolve(analyzer, invalidToken);
 
-        var gi = Assert.IsType<IlNavigationTarget.GenericInstantiation>(target);
-        Assert.Equal(invalidToken, gi.Token);
-        Assert.False(string.IsNullOrEmpty(gi.Reason));
+        var gi = Assert.IsExactInstanceOfType<IlNavigationTarget.GenericInstantiation>(target);
+        Assert.AreEqual(invalidToken, gi.Token);
+        Assert.IsFalse(string.IsNullOrEmpty(gi.Reason));
 
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         var navigated = state.NavigateToIlDefinition(invalidToken);
-        Assert.False(navigated);
-        Assert.NotNull(state.TransientNotice);
+        Assert.IsFalse(navigated);
+        Assert.IsNotNull(state.TransientNotice);
         Assert.Contains("generic instantiation", state.TransientNotice, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1707,37 +1749,40 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// List`1 to System.Private.CoreLib. The resolver must land there, not inside
     /// the facade.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_ForwardedFromPartialFacade_Ctor_LandsInCoreLib()
         => AssertForwardedListMemberLandsInCoreLib("newobj", ".ctor");
 
     /// <summary>
     /// Same partial-facade chase, but for the callvirt on List&lt;byte[]&gt;::Add.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_ForwardedFromPartialFacade_Add_LandsInCoreLib()
         => AssertForwardedListMemberLandsInCoreLib("callvirt", "Add");
 
     /// <summary>
     /// Same partial-facade chase, but for the callvirt on List&lt;byte[]&gt;::Clear.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_ForwardedFromPartialFacade_Clear_LandsInCoreLib()
         => AssertForwardedListMemberLandsInCoreLib("callvirt", "Clear");
 
-    private void AssertForwardedListMemberLandsInCoreLib(string opCode, string memberName)
+    private static void AssertForwardedListMemberLandsInCoreLib(string opCode, string memberName)
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.HelloWorldDll);
+        using var state = new DotsiderState(app, Samples.HelloWorldDll);
         state.CurrentTab = TabId.IlInspector;
 
         var moveNext = state.Analyzer.MethodDefs.First(m =>
             m.Name == "MoveNext" && m.DeclaringType.Contains("<Main>$"));
         state.IlSelectedMethod = moveNext;
         var result = state.IlDisassembler!.DisassembleWithText(moveNext);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = moveNext;
@@ -1753,13 +1798,13 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var navigated = state.NavigateToIlDefinition(inst.MetadataToken!.Value);
 
-        Assert.True(navigated, $"Navigation must succeed for List`1::{memberName}");
-        Assert.Null(state.TransientNotice);
-        Assert.True(state.NavigationStack.Count > 0, "Should have pushed assembly");
-        Assert.NotNull(state.IlSelectedMethod);
-        Assert.Equal(memberName, state.IlSelectedMethod.Name);
-        Assert.Equal("System.Collections.Generic.List`1", state.IlSelectedMethod.DeclaringType);
-        Assert.Equal("System.Private.CoreLib.dll",
+        Assert.IsTrue(navigated, $"Navigation must succeed for List`1::{memberName}");
+        Assert.IsNull(state.TransientNotice);
+        Assert.IsGreaterThan(0, state.NavigationStack.Count, "Should have pushed assembly");
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual(memberName, state.IlSelectedMethod.Name);
+        Assert.AreEqual("System.Collections.Generic.List`1", state.IlSelectedMethod.DeclaringType);
+        Assert.AreEqual("System.Private.CoreLib.dll",
             Path.GetFileName(state.Analyzer.FilePath));
     }
 
@@ -1768,20 +1813,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// of System.Collections.dll's real TypeDefs, not a forwarder — the resolver
     /// must stay in the facade rather than over-chasing into CoreLib.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ExternalMethod_LocallyOwnedInPartialFacade_StaysInFacade()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "CreateLinkedList" && m.DeclaringType.Contains("IlNavigationFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1797,11 +1843,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var navigated = state.NavigateToIlDefinition(inst.MetadataToken!.Value);
 
-        Assert.True(navigated, "Navigation must succeed for LinkedList`1::.ctor");
-        Assert.Null(state.TransientNotice);
-        Assert.NotNull(state.IlSelectedMethod);
-        Assert.Equal("System.Collections.Generic.LinkedList`1", state.IlSelectedMethod.DeclaringType);
-        Assert.Equal("System.Collections.dll",
+        Assert.IsTrue(navigated, "Navigation must succeed for LinkedList`1::.ctor");
+        Assert.IsNull(state.TransientNotice);
+        Assert.IsNotNull(state.IlSelectedMethod);
+        Assert.AreEqual("System.Collections.Generic.LinkedList`1", state.IlSelectedMethod.DeclaringType);
+        Assert.AreEqual("System.Collections.dll",
             Path.GetFileName(state.Analyzer.FilePath));
     }
 
@@ -1811,10 +1857,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// context to know which owner "!N" refers to; with that context it routes
     /// to the enclosing type definition (where the GenericParam row lives).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_TypeSpecGenericTypeParam_WithContext_ReturnsEnclosingType()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
@@ -1823,8 +1870,8 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value, method);
 
-        var local = Assert.IsType<IlNavigationTarget.LocalType>(target);
-        Assert.Equal("RichLibrary.GenericParamFixture`2", local.Type.FullName);
+        var local = Assert.IsExactInstanceOfType<IlNavigationTarget.LocalType>(target);
+        Assert.AreEqual("RichLibrary.GenericParamFixture`2", local.Type.FullName);
     }
 
     /// <summary>
@@ -1833,10 +1880,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// signature, so the resolver reports it via Unsupported (a transient notice)
     /// rather than a self-navigation that the UI would silently swallow.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_TypeSpecGenericMethodParam_WithContext_ReportsDefinedBySignature()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "DefaultMethodParam" && m.DeclaringType.Contains("GenericParamFixture"));
@@ -1845,7 +1893,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value, method);
 
-        var unsupported = Assert.IsType<IlNavigationTarget.Unsupported>(target);
+        var unsupported = Assert.IsExactInstanceOfType<IlNavigationTarget.Unsupported>(target);
         Assert.Contains("!!0", unsupported.Reason);
         Assert.Contains("DefaultMethodParam", unsupported.Reason);
     }
@@ -1856,20 +1904,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// UI gets a clear "there's nothing to navigate to" signal instead of a
     /// silent no-op.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NavigateToIlDefinition_TypeSpecGenericMethodParam_RaisesNotice()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "DefaultMethodParam" && m.DeclaringType.Contains("GenericParamFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1880,10 +1929,10 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);
 
-        Assert.False(navigated);
-        Assert.NotNull(state.TransientNotice);
+        Assert.IsFalse(navigated);
+        Assert.IsNotNull(state.TransientNotice);
         Assert.Contains("!!0", state.TransientNotice);
-        Assert.Same(method, state.IlSelectedMethod);
+        Assert.AreSame(method, state.IlSelectedMethod);
     }
 
     /// <summary>
@@ -1891,10 +1940,11 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// resolvable. The resolver should surface a message that explains what's
     /// missing rather than the opaque "Cannot resolve TypeSpec: !1".
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_TypeSpecGenericTypeParam_WithoutContext_ReportsMissingContext()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var dis = new IlDisassembler(analyzer);
         var method = analyzer.MethodDefs.First(m =>
             m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
@@ -1903,7 +1953,7 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var target = IlNavigationResolver.Resolve(analyzer, initobj.MetadataToken!.Value);
 
-        var unsupported = Assert.IsType<IlNavigationTarget.Unsupported>(target);
+        var unsupported = Assert.IsExactInstanceOfType<IlNavigationTarget.Unsupported>(target);
         Assert.Contains("!1", unsupported.Reason);
         Assert.Contains("context", unsupported.Reason, StringComparison.OrdinalIgnoreCase);
     }
@@ -1913,20 +1963,21 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
     /// lands on the enclosing type, clears the selected method, and raises no
     /// transient notice.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NavigateToIlDefinition_TypeSpecGenericTypeParam_LandsOnEnclosingType()
     {
         var app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = new Hex1bAppWorkloadAdapter() });
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.CurrentTab = TabId.IlInspector;
 
         var method = state.Analyzer.MethodDefs.First(m =>
             m.Name == "DefaultValue" && m.DeclaringType.Contains("GenericParamFixture"));
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
             new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
         state.IlEditorMethod = method;
@@ -1937,16 +1988,16 @@ public sealed class IlGoToDefinitionTests(SampleAssemblyFixture samples) : IDisp
 
         var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);
 
-        Assert.True(navigated, "Navigation to generic type parameter's owner must succeed");
-        Assert.Null(state.TransientNotice);
-        Assert.Equal(
+        Assert.IsTrue(navigated, "Navigation to generic type parameter's owner must succeed");
+        Assert.IsNull(state.TransientNotice);
+        Assert.AreEqual(
             "type:RichLibrary.GenericParamFixture`2",
             state.IlFocusedTreeKey as string);
         // Method/editor selection must be cleared so the right pane stops showing
         // DefaultValue's IL. Without that the navigation only half-applies.
-        Assert.Null(state.IlSelectedMethod);
-        Assert.Null(state.IlEditorMethod);
-        Assert.Null(state.IlEditorState);
-        Assert.Null(state.IlEditorAnalyzer);
+        Assert.IsNull(state.IlSelectedMethod);
+        Assert.IsNull(state.IlEditorMethod);
+        Assert.IsNull(state.IlEditorState);
+        Assert.IsNull(state.IlEditorAnalyzer);
     }
 }

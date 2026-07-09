@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// slice selection and ambiguity, and the <c>LC_FUNCTION_STARTS</c> fallback chain — plus the
 /// real NativeAOT fixture on the macOS leg (where its symbol file is a dSYM).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativeSymbolReaderMachOTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const uint ExecFlags = 0x8000_0400;
     private const byte SectType = 0x0E;
 
@@ -52,7 +54,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies an image without a dSYM loads its own nlist as a named primary source.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NlistOnly_LoadsFromImage()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
@@ -66,12 +69,12 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolSource.MachONlist, result.Source);
-            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
-            Assert.Equal(path, result.Path);
-            var symbol = Assert.Single(result.Symbols);
-            Assert.Equal("frost_main", symbol.Name);
-            Assert.Equal("__text", symbol.Section);
+            Assert.AreEqual(NativeSymbolSource.MachONlist, result.Source);
+            Assert.AreEqual(NativeSymbolStatus.Loaded, result.Status);
+            Assert.AreEqual(path, result.Path);
+            var symbol = Assert.ContainsSingle(result.Symbols);
+            Assert.AreEqual("frost_main", symbol.Name);
+            Assert.AreEqual("__text", symbol.Section);
         }
         finally
         {
@@ -83,7 +86,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// Verifies a UUID-matched dSYM merges its DWARF functions and its nlist data symbols, with
     /// file offsets re-anchored onto the analyzed image.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_MatchingDsym_MergesDwarfAndNlist()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
@@ -114,20 +118,20 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolSource.Dsym, result.Source);
-            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
-            Assert.Equal(dsymPath, result.Path);
-            Assert.Null(result.Diagnostic);
+            Assert.AreEqual(NativeSymbolSource.Dsym, result.Source);
+            Assert.AreEqual(NativeSymbolStatus.Loaded, result.Status);
+            Assert.AreEqual(dsymPath, result.Path);
+            Assert.IsNull(result.Diagnostic);
 
-            var function = Assert.Single(result.Symbols, s => s.Kind == NativeSymbolKind.Function);
-            Assert.Equal("frost_main", function.Name);
-            Assert.Equal(0x40, function.Size);
-            Assert.Equal("__text", function.Section); // mapped through the image, not the dSYM
-            Assert.NotNull(function.FileOffset);
+            var function = Assert.ContainsSingle(s => s.Kind == NativeSymbolKind.Function, result.Symbols);
+            Assert.AreEqual("frost_main", function.Name);
+            Assert.AreEqual(0x40, function.Size);
+            Assert.AreEqual("__text", function.Section); // mapped through the image, not the dSYM
+            Assert.IsNotNull(function.FileOffset);
 
-            var data = Assert.Single(result.Symbols, s => s.Kind == NativeSymbolKind.MethodTable);
-            Assert.Equal("_ZTV6Widget", data.Name);
-            Assert.Equal("__const", data.Section); // the dSYM's nlist, re-anchored on the image
+            var data = Assert.ContainsSingle(s => s.Kind == NativeSymbolKind.MethodTable, result.Symbols);
+            Assert.AreEqual("_ZTV6Widget", data.Name);
+            Assert.AreEqual("__const", data.Section); // the dSYM's nlist, re-anchored on the image
         }
         finally
         {
@@ -140,7 +144,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// <see cref="NativeSymbolStatus.IdMismatch"/>, with boundaries recovered from
     /// <c>LC_FUNCTION_STARTS</c>.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_MismatchedDsym_ReportsIdMismatch()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
@@ -160,12 +165,12 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolStatus.IdMismatch, result.Status);
-            Assert.Equal(NativeSymbolSource.FunctionStartsFallback, result.Source);
-            Assert.Contains("UUID", result.Diagnostic);
-            var boundary = Assert.Single(result.Symbols);
-            Assert.Equal(NativeSymbolKind.Boundary, boundary.Kind);
-            Assert.Equal(0xF0, boundary.Size); // clamped to __text's end
+            Assert.AreEqual(NativeSymbolStatus.IdMismatch, result.Status);
+            Assert.AreEqual(NativeSymbolSource.FunctionStartsFallback, result.Source);
+            Assert.Contains("UUID", result.Diagnostic!);
+            var boundary = Assert.ContainsSingle(result.Symbols);
+            Assert.AreEqual(NativeSymbolKind.Boundary, boundary.Kind);
+            Assert.AreEqual(0xF0, boundary.Size); // clamped to __text's end
         }
         finally
         {
@@ -178,7 +183,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// <see cref="NativeSymbolStatus.FallbackOnly"/>, then
     /// <see cref="NativeSymbolStatus.NoSymbolFile"/> when nothing at all is present.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NoSymbols_FallsBackToFunctionStartsThenNoSymbolFile()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
@@ -190,16 +196,16 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
                 functionStarts: new DwarfBlob().ULeb(0x1010).ULeb(0x40).ULeb(0).ToArray()));
             var result = NativeSymbolReader.Read(withStarts, File.ReadAllBytes(withStarts), []);
 
-            Assert.Equal(NativeSymbolStatus.FallbackOnly, result.Status);
-            Assert.Equal(NativeSymbolSource.FunctionStartsFallback, result.Source);
-            Assert.NotEmpty(result.Symbols);
+            Assert.AreEqual(NativeSymbolStatus.FallbackOnly, result.Status);
+            Assert.AreEqual(NativeSymbolSource.FunctionStartsFallback, result.Source);
+            Assert.IsNotEmpty(result.Symbols);
 
             var bare = Path.Combine(dir.FullName, "bare");
             File.WriteAllBytes(bare, SyntheticImageBuilders.BuildMachO([TextSegment()]));
             var empty = NativeSymbolReader.Read(bare, File.ReadAllBytes(bare), []);
 
-            Assert.Equal(NativeSymbolStatus.NoSymbolFile, empty.Status);
-            Assert.Empty(empty.Symbols);
+            Assert.AreEqual(NativeSymbolStatus.NoSymbolFile, empty.Status);
+            Assert.IsEmpty(empty.Symbols);
         }
         finally
         {
@@ -212,7 +218,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// archive), and an undisambiguated archive reports
     /// <see cref="NativeSymbolStatus.AmbiguousImage"/> naming the slices found.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_FatArchive_UuidSelectsSliceOrAmbiguous()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
@@ -231,21 +238,21 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
-            var symbol = Assert.Single(result.Symbols, s => s.Name == "sliced_fn");
+            Assert.AreEqual(NativeSymbolStatus.Loaded, result.Status);
+            var symbol = Assert.ContainsSingle(s => s.Name == "sliced_fn", result.Symbols);
             var slices = MachOImageReader.ReadFatSlices(fat);
-            Assert.True(symbol.FileOffset > slices[1].Offset,
-                "the file offset must be shifted into the chosen slice's archive region");
+            Assert.IsNotNull(symbol.FileOffset);
+            Assert.IsGreaterThan(slices[1].Offset, symbol.FileOffset.Value, "the file offset must be shifted into the chosen slice's archive region");
 
             // No dSYM, no AOT signal: ambiguous, deterministically.
             var bare = Path.Combine(dir.FullName, "bare");
             File.WriteAllBytes(bare, fat);
             var ambiguous = NativeSymbolReader.Read(bare, File.ReadAllBytes(bare), []);
 
-            Assert.Equal(NativeSymbolStatus.AmbiguousImage, ambiguous.Status);
-            Assert.Empty(ambiguous.Symbols);
-            Assert.Contains("0x100000c", ambiguous.Diagnostic);
-            Assert.Contains("0x1000007", ambiguous.Diagnostic);
+            Assert.AreEqual(NativeSymbolStatus.AmbiguousImage, ambiguous.Status);
+            Assert.IsEmpty(ambiguous.Symbols);
+            Assert.Contains("0x100000c", ambiguous.Diagnostic!);
+            Assert.Contains("0x1000007", ambiguous.Diagnostic!);
         }
         finally
         {
@@ -258,7 +265,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// image's UUID is selected and its DWARF read, instead of the fat header failing the
     /// identity check.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_FatDsym_SlicesToMatchingUuid()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
@@ -280,10 +288,10 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolStatus.Loaded, result.Status);
-            Assert.Equal(NativeSymbolSource.Dsym, result.Source);
-            var symbol = Assert.Single(result.Symbols);
-            Assert.Equal("frost_main", symbol.Name);
+            Assert.AreEqual(NativeSymbolStatus.Loaded, result.Status);
+            Assert.AreEqual(NativeSymbolSource.Dsym, result.Source);
+            var symbol = Assert.ContainsSingle(result.Symbols);
+            Assert.AreEqual("frost_main", symbol.Name);
         }
         finally
         {
@@ -295,7 +303,8 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// Verifies a fat dSYM with no slice carrying the image's UUID is rejected as
     /// <see cref="NativeSymbolStatus.IdMismatch"/>, not silently read.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_FatDsym_NoMatchingSlice_ReportsIdMismatch()
     {
         var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
@@ -313,9 +322,9 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
 
-            Assert.Equal(NativeSymbolStatus.IdMismatch, result.Status);
-            Assert.Equal(NativeSymbolSource.FunctionStartsFallback, result.Source);
-            Assert.Contains("UUID", result.Diagnostic);
+            Assert.AreEqual(NativeSymbolStatus.IdMismatch, result.Status);
+            Assert.AreEqual(NativeSymbolSource.FunctionStartsFallback, result.Source);
+            Assert.Contains("UUID", result.Diagnostic!);
         }
         finally
         {
@@ -328,24 +337,23 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// managed names, attributes a function to a source file and line, and carries data
     /// categories.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NativeAotExeWithDsym_UsesDsymSource()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleDsym is null, "dSYM bundle not present on this platform");
+        TestSkip.When(Samples.NativeAotConsoleDsym is null, "dSYM bundle not present on this platform");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var info = NativeSymbolReader.Read(
-            samples.NativeAotConsoleExe!, analyzer.RawBytes.ToArray(), analyzer.RecoveredTypes);
+            Samples.NativeAotConsoleExe!, analyzer.RawBytes.ToArray(), analyzer.RecoveredTypes);
 
-        Assert.Equal(NativeSymbolSource.Dsym, info.Source);
-        Assert.Equal(NativeSymbolStatus.Loaded, info.Status);
-        Assert.True(info.Symbols.Count > 1000,
-            $"expected a real symbol population, got {info.Symbols.Count}");
-        Assert.Contains(info.Symbols, s => s.ManagedName is not null && s.IsExactMatch);
-        Assert.Contains(info.Symbols,
-            s => s.Kind == NativeSymbolKind.Function && s.SourceFile is not null && s.Line > 0);
-        Assert.Contains(info.Symbols, s => s.Kind is NativeSymbolKind.MethodTable
-            or NativeSymbolKind.Statics or NativeSymbolKind.FrozenObject);
+        Assert.AreEqual(NativeSymbolSource.Dsym, info.Source);
+        Assert.AreEqual(NativeSymbolStatus.Loaded, info.Status);
+        Assert.IsGreaterThan(1000, info.Symbols.Count, $"expected a real symbol population, got {info.Symbols.Count}");
+        Assert.Contains(s => s.ManagedName is not null && s.IsExactMatch, info.Symbols);
+        Assert.Contains(s => s.Kind == NativeSymbolKind.Function && s.SourceFile is not null && s.Line > 0, info.Symbols);
+        Assert.Contains(s => s.Kind is NativeSymbolKind.MethodTable
+            or NativeSymbolKind.Statics or NativeSymbolKind.FrozenObject, info.Symbols);
     }
 
     /// <summary>
@@ -353,12 +361,13 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
     /// <c>LC_SYMTAB</c> count zeroed and no dSYM beside it, <c>LC_FUNCTION_STARTS</c> is forced
     /// regardless of what <c>strip -x</c> left in the symbol table.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NativeAotExeSymtabZeroed_ForcesFunctionStarts()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
-        Assert.SkipWhen(!MachOImageReader.IsMachO(bytes), "exe is not a thin Mach-O on this platform");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
+        TestSkip.When(!MachOImageReader.IsMachO(bytes), "exe is not a thin Mach-O on this platform");
 
         // Zero LC_SYMTAB's nsyms in place.
         var commandCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(16));
@@ -379,16 +388,16 @@ public class NativeSymbolReaderMachOTests(SampleAssemblyFixture samples)
         var dir = Directory.CreateTempSubdirectory("dotsider-fstarts-");
         try
         {
-            var copy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
+            var copy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.WriteAllBytes(copy, bytes);
 
             var info = NativeSymbolReader.Read(copy, File.ReadAllBytes(copy), []);
 
-            Assert.Equal(NativeSymbolSource.FunctionStartsFallback, info.Source);
-            Assert.Equal(NativeSymbolStatus.FallbackOnly, info.Status);
-            Assert.NotEmpty(info.Symbols);
-            Assert.All(info.Symbols, s => Assert.Equal(NativeSymbolKind.Boundary, s.Kind));
-            Assert.All(info.Symbols, s => Assert.True(s.Size > 0));
+            Assert.AreEqual(NativeSymbolSource.FunctionStartsFallback, info.Source);
+            Assert.AreEqual(NativeSymbolStatus.FallbackOnly, info.Status);
+            Assert.IsNotEmpty(info.Symbols);
+            TestAssert.All(info.Symbols, s => Assert.AreEqual(NativeSymbolKind.Boundary, s.Kind));
+            TestAssert.All(info.Symbols, s => Assert.IsGreaterThan(0, s.Size));
         }
         finally
         {

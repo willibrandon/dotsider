@@ -17,9 +17,11 @@ namespace Dotsider.Tests;
 /// <see cref="IPeerCredentialVerifier"/> implementations are tested positively
 /// (same-user returns true).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class PeerCredentialTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -40,7 +42,7 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         _app = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_app!, samples.HelloWorldDll, pendingMutations);
+                _state ??= new DotsiderState(_app!, Samples.HelloWorldDll, pendingMutations);
                 var dotsiderApp = new DotsiderApp(_state);
                 return Task.FromResult<Hex1b.Widgets.Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -48,10 +50,10 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-            });
+        });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
-        _listener.StartListening(overridePid: Random.Shared.Next(100_000, 999_999));
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _ = _app.RunAsync(ct);
         await Task.Delay(100, ct);
@@ -78,26 +80,28 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
     /// <summary>
     /// Verifies same user connection accepted.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SameUser_ConnectionAccepted()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Normal same-user connection should succeed
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
     }
 
     /// <summary>
     /// Verifies platform verifier returns true for same user.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PlatformVerifier_ReturnsTrueForSameUser()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Multiple sequential requests all succeed — verifier consistently passes
@@ -105,17 +109,18 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
         {
             var response = await DotsiderClient.SendAsync(socketPath,
                 new DotsiderRequest { Method = "assembly-info" }, ct);
-            Assert.True(response.Success);
+            Assert.IsTrue(response.Success);
         }
     }
 
     /// <summary>
     /// Verifies peer rejection sends error response.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeerRejection_SendsErrorResponse()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         _listener!.ForceRejectPeers = true;
@@ -125,18 +130,19 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
                 DotsiderJsonOptions.Default), ct);
 
         var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
-        Assert.NotNull(response);
-        Assert.False(response.Success);
+        Assert.IsNotNull(response);
+        Assert.IsFalse(response.Success);
         Assert.Contains("peer", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Verifies peer rejection response contains version.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeerRejection_ResponseContainsVersion()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         _listener!.ForceRejectPeers = true;
@@ -146,6 +152,6 @@ public class PeerCredentialTests(SampleAssemblyFixture samples) : IAsyncDisposab
                 DotsiderJsonOptions.Default), ct);
 
         var doc = JsonDocument.Parse(rawResponse);
-        Assert.Equal(1, doc.RootElement.GetProperty("v").GetInt32());
+        Assert.AreEqual(1, doc.RootElement.GetProperty("v").GetInt32());
     }
 }

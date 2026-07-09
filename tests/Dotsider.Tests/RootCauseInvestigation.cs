@@ -8,13 +8,15 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Regression tests for the ldelema operand table bug that caused IL walk desync.
 /// </summary>
+[TestClass]
 public class IlWalkRegressionTests
 {
     /// <summary>
     /// Zero-fallback invariant: walking all token-bearing operands in CoreLib must produce
     /// zero resolver failures. Any failure indicates an operand table bug causing offset desync.
     /// </summary>
-    [Fact(Timeout = 120_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void CoreLib_AllTokenOperands_ResolveWithoutFallback()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
@@ -143,7 +145,7 @@ public class IlWalkRegressionTests
             }
         }
 
-        Assert.True(failures.Count == 0,
+        Assert.IsEmpty(failures,
             $"Found {failures.Count} resolver fallbacks in {tokensChecked} tokens " +
             $"(first 5):\n" + string.Join("\n", failures.Take(5)));
     }
@@ -152,10 +154,10 @@ public class IlWalkRegressionTests
     /// Regression test: ldelema must be decoded with InlineType (4-byte operand).
     /// Before the fix, it mapped to None (0 bytes), causing a 4-byte offset desync.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void GetOperandType_Ldelema_ReturnsInlineType()
     {
-        Assert.Equal(
+        Assert.AreEqual(
             IlDisassembler.OperandKind.InlineType,
             IlDisassembler.GetOperandType(ILOpCode.Ldelema));
     }
@@ -165,7 +167,8 @@ public class IlWalkRegressionTests
     /// the BadImageFormatException fallback in ResolveTokenForComparison.
     /// The original crash was a desync from the missing ldelema operand entry.
     /// </summary>
-    [Fact(Timeout = 120_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void CoreLib_DistinctAnalyzerDiff_NoResolverFallbacks()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
@@ -177,7 +180,7 @@ public class IlWalkRegressionTests
         var result = AssemblyDiffer.Compare(left, right);
 
         // With correct operand table, identity diff should have zero body changes
-        Assert.DoesNotContain(result.MethodDiffs, d =>
-            d.ChangeDescription?.Contains("body") == true);
+        Assert.DoesNotContain(d =>
+            d.ChangeDescription?.Contains("body") == true, result.MethodDiffs);
     }
 }

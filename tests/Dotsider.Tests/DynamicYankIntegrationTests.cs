@@ -2,6 +2,7 @@ using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -10,9 +11,11 @@ namespace Dotsider.Tests;
 /// Integration tests for yank flash, readonly editor yank, and focus management
 /// on the Dynamic tab (issue #103).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DynamicYankIntegrationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private ClipboardCapturingWorkloadAdapter? _clipboardAdapter;
     private Hex1bTerminal? _terminal;
@@ -22,7 +25,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch(string dllPath)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _clipboardAdapter = new ClipboardCapturingWorkloadAdapter(_workload);
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -95,7 +98,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         // at a time (which requires one render cycle per Tab), directly request
         // focus on the subtab strip and wait for it.
         _state!.App.RequestFocus(node =>
-            node.GetType().Name.StartsWith("TabPanelNode"));
+            node is TabPanelNode { MetricName: "dynamic-subtabs" });
         _state.App.Invalidate();
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -119,10 +122,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic events yank on focused row copies payload and flashes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Events_YankOnFocusedRow_CopiesPayload_AndFlashes()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit()
@@ -134,8 +138,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
@@ -145,10 +149,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic output yank on focused row copies payload and flashes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Output_YankOnFocusedRow_CopiesPayload_AndFlashes()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
@@ -168,8 +173,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
@@ -179,10 +184,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic events yank flash during search.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Events_YankFlashDuringSearch()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit()
@@ -201,8 +207,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
@@ -212,10 +218,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic counters selection yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Counters_SelectionYank_Works()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
@@ -226,8 +233,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
@@ -237,10 +244,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic summary selection yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Summary_SelectionYank_Works()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
@@ -253,8 +261,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out _),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
@@ -264,16 +272,17 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic left right navigate sub tabs from editor focus.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_LeftRightNavigateSubTabsFromEditorFocus()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
         await NavigateToCounters().Build().ApplyAsync(terminal, ct);
 
-        Assert.Equal(DynamicSubTabId.Counters, _state!.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Counters, _state!.DynamicSubTab);
 
         // Left from Counters → Events
         await new Hex1bTerminalInputSequenceBuilder()
@@ -282,7 +291,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(DynamicSubTabId.Events, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Events, _state.DynamicSubTab);
 
         // Right from Events → Counters
         await new Hex1bTerminalInputSequenceBuilder()
@@ -291,7 +300,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -300,18 +309,19 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic tab from editor focuses subtab strip stays on sub tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_TabFromEditor_FocusesSubtabStrip_StaysOnSubTab()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
         await NavigateToCounters().Build().ApplyAsync(terminal, ct);
         await TabOutOfCountersEditorsAsync(terminal, ct);
 
-        Assert.Equal(TabId.Dynamic, _state!.CurrentTab);
-        Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
+        Assert.AreEqual(TabId.Dynamic, _state!.CurrentTab);
+        Assert.AreEqual(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
@@ -319,7 +329,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(TabId.Dynamic, _state.CurrentTab);
+        Assert.AreEqual(TabId.Dynamic, _state.CurrentTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -328,10 +338,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic rerun clears dynamic editor caches.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Rerun_ClearsDynamicEditorCaches()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await LaunchTraceAndWaitForExit().Build().ApplyAsync(terminal, ct);
@@ -339,8 +350,8 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         await TabOutOfCountersEditorsAsync(terminal, ct);
         await NavigateFromCountersToSummary().Build().ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.DynamicCpuEditorState);
-        Assert.NotNull(_state.DynamicSummaryEditorState);
+        Assert.IsNotNull(_state!.DynamicCpuEditorState);
+        Assert.IsNotNull(_state.DynamicSummaryEditorState);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Tab)
@@ -356,10 +367,10 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Null(_state.DynamicCpuEditorState);
-        Assert.Null(_state.DynamicCpuEditorText);
-        Assert.Null(_state.DynamicSummaryEditorState);
-        Assert.Null(_state.DynamicSummaryEditorText);
+        Assert.IsNull(_state.DynamicCpuEditorState);
+        Assert.IsNull(_state.DynamicCpuEditorText);
+        Assert.IsNull(_state.DynamicSummaryEditorState);
+        Assert.IsNull(_state.DynamicSummaryEditorText);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -368,10 +379,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic counters live update preserves selection while focused.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Counters_LiveUpdate_PreservesSelectionWhileFocused()
     {
-        var (terminal, app, ct) = Launch(samples.MinimalApiDll);
+        var (terminal, app, ct) = Launch(Samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -395,7 +407,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(1500, ct);
-        Assert.Same(editorStateBefore, _state.DynamicCpuEditorState);
+        Assert.AreSame(editorStateBefore, _state.DynamicCpuEditorState);
 
         _state.Tracer?.Stop();
         _cts!.Cancel();
@@ -405,10 +417,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic summary live update preserves selection while focused.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Summary_LiveUpdate_PreservesSelectionWhileFocused()
     {
-        var (terminal, app, ct) = Launch(samples.MinimalApiDll);
+        var (terminal, app, ct) = Launch(Samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -437,7 +450,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(1500, ct);
-        Assert.Same(editorStateBefore, _state.DynamicSummaryEditorState);
+        Assert.AreSame(editorStateBefore, _state.DynamicSummaryEditorState);
 
         _state.Tracer?.Stop();
         _cts!.Cancel();
@@ -447,10 +460,11 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// <summary>
     /// Verifies dynamic summary post exit refresh updates while focused.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dynamic_Summary_PostExitRefresh_UpdatesWhileFocused()
     {
-        var (terminal, app, ct) = Launch(samples.MinimalApiDll);
+        var (terminal, app, ct) = Launch(Samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
 
         // Launch trace, wait for running, switch to Summary (via Counters)
@@ -473,7 +487,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(IsFocusedOnEditor());
+        Assert.IsTrue(IsFocusedOnEditor());
 
         // Capture the frozen EditorState reference while the process is running.
         // The freeze mechanism keeps this exact instance alive while focused+running.
@@ -494,7 +508,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         await auto.WaitUntilAsync(_ => _state.DynamicSummaryEditorState != frozenState,
             description: "editor state to update after freeze lifts");
 
-        Assert.NotSame(frozenState, _state.DynamicSummaryEditorState);
+        Assert.AreNotSame(frozenState, _state.DynamicSummaryEditorState);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -505,6 +519,7 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Tracer?.Stop();
         _state?.Dispose();
         _hex1bApp?.Dispose();
@@ -512,6 +527,5 @@ public class DynamicYankIntegrationTests(SampleAssemblyFixture samples) : IDispo
         _clipboardAdapter?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

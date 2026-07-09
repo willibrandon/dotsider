@@ -17,7 +17,7 @@ internal static class TestHelpers
     }
 
     /// <summary>
-    /// Logs a diagnostic message with timestamp to stderr (captured by xUnit).
+    /// Logs a diagnostic message with timestamp to stderr (captured by MSTest).
     /// </summary>
     internal static void Diag(string message, [CallerMemberName] string? caller = null)
         => Console.Error.WriteLine($"[DIAG {DateTime.UtcNow:HH:mm:ss.fff}] [{caller}] {message}");
@@ -37,7 +37,7 @@ internal static class TestHelpers
         while (sw.Elapsed < timeout)
         {
             if (condition()) return;
-            await Task.Delay(poll, TestContext.Current.CancellationToken);
+            await Task.Delay(poll, CancellationToken.None);
         }
 
         if (!condition())

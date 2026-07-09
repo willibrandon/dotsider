@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Standard Mode Yank Integration.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class StandardModeYankIntegrationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private ClipboardCapturingWorkloadAdapter? _clipboardAdapter;
     private Hex1bTerminal? _terminal;
@@ -23,7 +25,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch(
         string dllPath, int? initialTab = null)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _clipboardAdapter = new ClipboardCapturingWorkloadAdapter(_workload);
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -48,7 +50,6 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             new Hex1bAppOptions
             {
                 WorkloadAdapter = _clipboardAdapter,
-                EnableInputCoalescing = false,
                 EnableMouse = true,
                 Theme = DotsiderTheme.Create()
             });
@@ -90,15 +91,30 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         }
     }
 
+    private EditorNode? FindEditorNode(EditorState? expectedState)
+    {
+        try
+        {
+            return _hex1bApp?.Focusables
+                .OfType<EditorNode>()
+                .FirstOrDefault(node => node.State == expectedState);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     // --- General tab ---
 
     /// <summary>
     /// Verifies general tab toggles focus between editor and table.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_TabTogglesFocusBetweenEditorAndTable()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -110,7 +126,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Initial focus is on the table (RequestContentFocus excludes EditorNode)
         // Allow render to settle before checking focus
         await Task.Delay(100, ct);
-        Assert.False(IsFocusedOnEditor(),
+        Assert.IsFalse(IsFocusedOnEditor(),
             "Initial focus should not be on the editor");
 
         // Tab → editor
@@ -119,7 +135,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.True(IsFocusedOnEditor());
+        Assert.IsTrue(IsFocusedOnEditor());
 
         // Tab → table
         await new Hex1bTerminalInputSequenceBuilder()
@@ -127,7 +143,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.False(IsFocusedOnEditor());
+        Assert.IsFalse(IsFocusedOnEditor());
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -136,10 +152,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general yank on focused row shows notification and flash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_YankOnFocusedRow_ShowsNotificationAndFlash()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -149,11 +166,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Ensure a ref row is focused
-        Assert.NotNull(_state!.GeneralFocusedDep);
+        Assert.IsNotNull(_state!.GeneralFocusedDep);
 
         // Compute expected payload before yank
         var expectedPayload = YankHelper.GetYankText(_state);
-        Assert.NotNull(expectedPayload);
+        Assert.IsNotNull(expectedPayload);
         Assert.Contains("\t", expectedPayload); // Tab-separated
 
         // Yank
@@ -164,14 +181,14 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Notification contains the payload (truncated if long)
-        Assert.NotNull(_state.YankNotification);
+        Assert.IsNotNull(_state.YankNotification);
         var firstRef = _state.Analyzer.AssemblyRefs.First(r => r.Name == _state.GeneralFocusedDep as string);
         Assert.Contains(firstRef.Name, _state.YankNotification);
 
         // Verify the actual OSC 52 clipboard payload emitted by ctx.CopyToClipboard
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
             "CopyToClipboard should have emitted an OSC 52 sequence");
-        Assert.Equal(expectedPayload, actualClipboard);
+        Assert.AreEqual(expectedPayload, actualClipboard);
 
         // Wait for notification to clear
         await new Hex1bTerminalInputSequenceBuilder()
@@ -188,10 +205,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies pe metadata tab cycles through headers and table.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_TabCyclesThroughHeadersAndTable()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -232,10 +250,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies pe metadata left right do not switch sub tabs when editor focused.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_LeftRightDoNotSwitchSubTabsWhenEditorFocused()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -260,7 +279,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.Equal(initialSubTab, _state.PeSubTab);
+        Assert.AreEqual(initialSubTab, _state.PeSubTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -269,10 +288,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies pe metadata detail popup is editor and esc closes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_DetailPopupIsEditorAndEscCloses()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -289,8 +309,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.PeDetailEditorState);
-        Assert.True(_state.App.FocusedNode is EditorNode,
+        Assert.IsNotNull(_state!.PeDetailEditorState);
+        Assert.IsTrue(_state.App.FocusedNode is EditorNode,
             "Detail popup editor should have focus");
 
         // Escape closes popup
@@ -301,7 +321,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.False(_state.App.FocusedNode is EditorNode,
+        Assert.IsFalse(_state.App.FocusedNode is EditorNode,
             "Focus should return to table after popup closes");
 
         _cts!.Cancel();
@@ -313,10 +333,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies strings yank on focused row copies string value.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_YankOnFocusedRow_CopiesStringValue()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.Strings);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.Strings);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -325,7 +346,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.StringsFocusedKey);
+        Assert.IsNotNull(_state!.StringsFocusedKey);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
@@ -333,7 +354,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state.YankNotification);
+        Assert.IsNotNull(_state.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -342,10 +363,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies strings left right do not switch tabs when popup open.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_LeftRightDoNotSwitchTabsWhenPopupOpen()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.Strings);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.Strings);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -370,7 +392,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.Equal(initialSourceTab, _state.StringsSourceTab);
+        Assert.AreEqual(initialSourceTab, _state.StringsSourceTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -381,10 +403,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump selection yank copies uppercase hex bytes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_SelectionYank_CopiesUppercaseHexBytes()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -411,8 +434,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Verify payload is uppercase hex
-        Assert.NotNull(_state!.YankNotification);
-        Assert.Matches(@"Yanked: [0-9A-F]{2} [0-9A-F]{2}", _state.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.MatchesRegex(@"Yanked: [0-9A-F]{2} [0-9A-F]{2}", _state.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -423,10 +446,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies focus restoration after detail popup close lands on table.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FocusRestoration_AfterDetailPopupClose_LandsOnTable()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -448,7 +472,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         await Task.Delay(100, ct);
 
         // Focus should be on a table, not an editor
-        Assert.False(_state!.App.FocusedNode is EditorNode,
+        Assert.IsFalse(_state!.App.FocusedNode is EditorNode,
             "Focus should land on table after closing detail popup");
 
         _cts!.Cancel();
@@ -460,10 +484,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies pe headers selection yank copies text and flashes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeHeaders_SelectionYank_CopiesTextAndFlashes()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -493,7 +518,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -502,10 +527,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies pe detail popup selection yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeDetailPopup_SelectionYank_Works()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.PeMetadata);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.PeMetadata);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -534,7 +560,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         // Escape closes popup
         await new Hex1bTerminalInputSequenceBuilder()
@@ -552,10 +578,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies strings detail popup selection yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StringsDetailPopup_SelectionYank_Works()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.Strings);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.Strings);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -584,7 +611,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -595,10 +622,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general double click word selection adjusts boundary and yanks.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_DoubleClickWordSelection_AdjustsBoundaryAndYanks()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -621,26 +649,58 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(matches.Count > 0);
-        // Use the first match — coordinates are 0-based screen positions
-        var (row, col) = matches[0];
+        EditorNode? editorNode = null;
+        await TestHelpers.WaitUntilAsync(
+            () =>
+            {
+                editorNode = FindEditorNode(_state!.GeneralInfoEditorState);
+                return editorNode is { Bounds.Width: > 0, Bounds.Height: > 0 };
+            },
+            TimeSpan.FromSeconds(5));
 
-        // Single click to give editor focus, then double-click to select word
+        Assert.IsGreaterThan(0, matches.Count);
+        var bounds = editorNode!.Bounds;
+        var editorMatches = matches
+            .Where(m => m.Line >= bounds.Y
+                     && m.Line < bounds.Y + bounds.Height
+                     && m.Column >= bounds.X
+                     && m.Column < bounds.X + bounds.Width)
+            .ToList();
+        Assert.IsNotEmpty(editorMatches);
+        var (row, col) = editorMatches[0];
+
+        // Focus the editor without consuming a mouse click, then queue two real
+        // clicks so Hex1bApp's click-count state machine observes a double-click.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        await auto.ClickAtAsync(col + 2, row, ct: ct); // +2 to land inside the word
-        await Task.Delay(150, ct);
-        await auto.DoubleClickAtAsync(col + 2, row, ct: ct);
+        _state!.App.RequestFocus(node =>
+            node is EditorNode { State: var es } && es == _state.GeneralInfoEditorState);
+        _state.App.Invalidate();
+        await auto.WaitUntilAsync(_ => IsFocusedOnEditor(_state.GeneralInfoEditorState),
+            description: "general info editor focused");
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(col + 2, row)
+            .ClickAt(col + 2, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Wait for selection to appear
         await TestHelpers.WaitUntilAsync(
-            () => _state!.GeneralInfoEditorState?.Cursor.HasSelection == true,
+            () =>
+            {
+                var es = _state!.GeneralInfoEditorState;
+                if (es?.Cursor.HasSelection != true)
+                    return false;
+
+                var selectedText = es.Document.GetText(es.Cursor.SelectionRange);
+                return selectedText.Length > 0 && selectedText.All(char.IsLetterOrDigit);
+            },
             TimeSpan.FromSeconds(5));
 
         // Verify selection is a clean word
         var es = _state!.GeneralInfoEditorState!;
         var selected = es.Document.GetText(es.Cursor.SelectionRange);
-        Assert.True(selected.Length > 0, "Selection should not be empty");
-        Assert.True(selected.All(char.IsLetterOrDigit),
+        Assert.IsGreaterThan(0, selected.Length, "Selection should not be empty");
+        Assert.IsTrue(selected.All(char.IsLetterOrDigit),
             $"Expected pure word, got '{selected}'");
 
         // Yank the selection
@@ -650,7 +710,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state.YankNotification);
+        Assert.IsNotNull(_state.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -661,10 +721,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies size map select then enter drills.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_SelectThenEnterDrills()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.SizeMap);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -673,7 +734,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Empty(_state!.TreemapBreadcrumb);
+        Assert.IsEmpty(_state!.TreemapBreadcrumb);
 
         // Select with arrow first, then Enter to drill
         await new Hex1bTerminalInputSequenceBuilder()
@@ -684,7 +745,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotEmpty(_state.TreemapBreadcrumb);
+        Assert.IsNotEmpty(_state.TreemapBreadcrumb);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -693,10 +754,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies size map enter without selection does nothing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_EnterWithoutSelection_DoesNothing()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.SizeMap);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -705,8 +767,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Empty(_state!.TreemapBreadcrumb);
-        Assert.Equal(-1, _state.TreemapSelectedIndex);
+        Assert.IsEmpty(_state!.TreemapBreadcrumb);
+        Assert.AreEqual(-1, _state.TreemapSelectedIndex);
 
         // Press Enter with no selection — should be a no-op
         await new Hex1bTerminalInputSequenceBuilder()
@@ -715,7 +777,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(200, ct);
-        Assert.Empty(_state.TreemapBreadcrumb);
+        Assert.IsEmpty(_state.TreemapBreadcrumb);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -726,17 +788,18 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies esc back cross view takes priority over assembly stack.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_CrossViewTakesPriorityOverAssemblyStack()
     {
         // Start on a real referenced assembly, then push RichLibrary through the
         // app's normal navigation path. That gives the test an assembly back-stack
         // while keeping RichLibrary's real TypeDefs active for the cross-view jump.
-        using var richAnalyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(samples.RichLibraryDll);
+        using var richAnalyzer = new Dotsider.Core.Analysis.AssemblyAnalyzer(Samples.RichLibraryDll);
         var refName = richAnalyzer.AssemblyRefs[0].Name;
         var resolvedPath = Dotsider.Core.Analysis.AssemblyAnalyzer.ResolveAssemblyPath(
             richAnalyzer.FilePath, refName);
-        Assert.NotNull(resolvedPath);
+        Assert.IsNotNull(resolvedPath);
 
         var (terminal, app, ct) = Launch(resolvedPath);
         var runTask = app.RunAsync(ct);
@@ -747,14 +810,14 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state!.PushAssembly(samples.RichLibraryDll),
+        Assert.IsTrue(_state!.PushAssembly(Samples.RichLibraryDll),
             "PushAssembly should return to RichLibrary through the normal navigation path.");
         _state.App.Invalidate();
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.NavigationStack.Count == 1
                 && string.Equals(
                     Path.GetFullPath(_state.Analyzer.FilePath),
-                    Path.GetFullPath(samples.RichLibraryDll),
+                    Path.GetFullPath(Samples.RichLibraryDll),
                     StringComparison.OrdinalIgnoreCase),
                 TimeSpan.FromSeconds(10))
             .Build()
@@ -781,7 +844,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // RichLibrary has real types with methods
         var typeDef = _state.Analyzer.TypeDefs.FirstOrDefault(t =>
             !t.FullName.StartsWith('<') && t.MethodCount > 0);
-        Assert.NotNull(typeDef);
+        Assert.IsNotNull(typeDef);
 
         _state.PeFocusedKey = typeDef.Token;
         _state.RequestContentFocus();
@@ -800,8 +863,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state.CrossViewBackTarget);
-        Assert.True(_state.NavigationStack.Count > 0);
+        Assert.IsNotNull(_state.CrossViewBackTarget);
+        Assert.IsGreaterThan(0, _state.NavigationStack.Count);
 
         // Esc 1: cross-view back to PE/Metadata — NOT assembly pop
         await new Hex1bTerminalInputSequenceBuilder()
@@ -810,9 +873,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(TabId.PeMetadata, _state.CurrentTab);
-        Assert.True(_state.NavigationStack.Count > 0,
-            "Assembly stack should still have the parent");
+        Assert.AreEqual(TabId.PeMetadata, _state.CurrentTab);
+        Assert.IsGreaterThan(0, _state.NavigationStack.Count, "Assembly stack should still have the parent");
 
         // Esc 2: pop assembly and return to General
         await new Hex1bTerminalInputSequenceBuilder()
@@ -823,7 +885,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Empty(_state.NavigationStack);
+        Assert.IsEmpty(_state.NavigationStack);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -834,11 +896,12 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies esc back dynamic filter clears before assembly pop.
     /// </summary>
-    [Fact(Timeout = 120_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EscBack_DynamicFilterClearsBeforeAssemblyPop()
     {
         // Use HelloWorld which is executable (has entry point for Dynamic tab)
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -888,7 +951,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // Esc should NOT pop the assembly — the dynamicFilterActive guard blocks it
         await auto.EscapeAsync(ct: ct);
-        Assert.Equal(stackBefore, _state.NavigationStack.Count);
+        Assert.HasCount(stackBefore, _state.NavigationStack);
 
         // Clear the filter and send Esc again — should now pop
         _state.DynamicCategoryFilter = null;
@@ -896,7 +959,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.General,
             description: "Esc to pop back to General tab");
 
-        Assert.Equal(TabId.General, _state.CurrentTab);
+        Assert.AreEqual(TabId.General, _state.CurrentTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -907,10 +970,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies size map enter after zero match search does not drill.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_EnterAfterZeroMatchSearch_DoesNotDrill()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.SizeMap);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.SizeMap);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -922,6 +986,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         // Search for something that won't match
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ =>
+            {
+                try { return _state!.App.FocusedNode is TextBoxNode; }
+                catch (NullReferenceException) { return false; }
+            }, TimeSpan.FromSeconds(5))
             .Type("zzzznotanamespace")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.Search[TabId.SizeMap].IsConfirmed, TimeSpan.FromSeconds(5))
@@ -929,9 +998,9 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Verify the precondition: zero matches, no selection
-        Assert.Equal(-1, _state!.TreemapMatchIndex);
-        Assert.Equal(-1, _state.TreemapSelectedIndex);
-        Assert.Empty(_state.TreemapBreadcrumb);
+        Assert.AreEqual(-1, _state!.TreemapMatchIndex);
+        Assert.AreEqual(-1, _state.TreemapSelectedIndex);
+        Assert.IsEmpty(_state.TreemapBreadcrumb);
 
         // Enter should be a no-op — no match, no selection
         await new Hex1bTerminalInputSequenceBuilder()
@@ -940,8 +1009,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(200, ct);
-        Assert.Empty(_state.TreemapBreadcrumb);
-        Assert.Equal(-1, _state.TreemapMatchIndex);
+        Assert.IsEmpty(_state.TreemapBreadcrumb);
+        Assert.AreEqual(-1, _state.TreemapMatchIndex);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -952,10 +1021,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies strings detail popup shows string content on screen.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StringsDetail_PopupShowsStringContentOnScreen()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.Strings);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.Strings);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -966,7 +1036,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // Capture the string value from the first visible row
         var strings = _state!.GetActiveStrings();
-        Assert.True(strings.Count > 0);
+        Assert.IsGreaterThan(0, strings.Count);
         var firstString = strings[0].Value;
 
         // Navigate to first row and open detail popup
@@ -993,10 +1063,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies yank notification auto clears after1500ms.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task YankNotification_AutoClears_After1500ms()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1013,7 +1084,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Verify notification is set
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         // Wait for auto-clear
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1021,7 +1092,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Null(_state.YankNotification);
+        Assert.IsNull(_state.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1032,10 +1103,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general yank flash sets and clears.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_YankFlash_SetsAndClears()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1045,8 +1117,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Ensure table has focus (not editor)
-        Assert.NotNull(_state!.GeneralFocusedDep);
-        Assert.False(_state.App.FocusedNode is EditorNode);
+        Assert.IsNotNull(_state!.GeneralFocusedDep);
+        Assert.IsFalse(_state.App.FocusedNode is EditorNode);
 
         // Yank — flash should be set briefly then cleared
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1061,7 +1133,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state.YankFlashRow);
+        Assert.IsFalse(_state.YankFlashRow);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1072,13 +1144,13 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // --- Vim Text Object Tests ---
@@ -1086,10 +1158,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general iw selects word in editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_IwSelectsWordInEditor()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1100,8 +1173,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(IsFocusedOnEditor());
-        Assert.False(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+        Assert.IsTrue(IsFocusedOnEditor());
+        Assert.IsFalse(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
 
         // Press i — verify it arms the state machine
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1110,7 +1183,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(VimMotionState.WaitingForTextObject, _state!.VimPending);
+        Assert.AreEqual(VimMotionState.WaitingForTextObject, _state!.VimPending);
 
         // Press w — should select inner word
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1119,8 +1192,8 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(VimMotionState.Idle, _state.VimPending);
-        Assert.True(_state.GeneralInfoEditorState!.Cursor.HasSelection);
+        Assert.AreEqual(VimMotionState.Idle, _state.VimPending);
+        Assert.IsTrue(_state.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1129,10 +1202,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general iw selects word in editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_IWSelectsWORDInEditor()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1152,7 +1226,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+        Assert.IsTrue(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1161,10 +1235,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general yiw yanks word from editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_YiwYanksWordFromEditor()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1182,7 +1257,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(VimMotionState.WaitingForYMotion, _state!.VimPending);
+        Assert.AreEqual(VimMotionState.WaitingForYMotion, _state!.VimPending);
 
         // Press i — advances to WaitingForYTextObject
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1198,10 +1273,10 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var clipboard));
-        Assert.False(string.IsNullOrEmpty(clipboard));
-        Assert.Equal(VimMotionState.Idle, _state.VimPending);
+        Assert.IsNotNull(_state!.YankNotification);
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var clipboard));
+        Assert.IsFalse(string.IsNullOrEmpty(clipboard));
+        Assert.AreEqual(VimMotionState.Idle, _state.VimPending);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1210,10 +1285,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general interrupted by global key does not select.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_InterruptedByGlobalKey_DoesNotSelect()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1233,7 +1309,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(VimMotionState.Idle, _state!.VimPending);
+        Assert.AreEqual(VimMotionState.Idle, _state!.VimPending);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1242,10 +1318,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies general random letter cancels.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_RandomLetterCancels()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1267,7 +1344,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.False(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
+        Assert.IsFalse(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1276,10 +1353,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump y does not arm on hex normal.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_YDoesNotArmOnHexNormal()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, initialTab: TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, initialTab: TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1295,7 +1373,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.Equal(VimMotionState.Idle, _state!.VimPending);
+        Assert.AreEqual(VimMotionState.Idle, _state!.VimPending);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1306,10 +1384,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies il inspector triple click selects only current line.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task IlInspector_TripleClickSelectsOnlyCurrentLine()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1348,18 +1427,25 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Triple-click to select the line: three rapid clicks at the same position
-        // (matches the pattern used by hex1b's own EditorMouseTests)
+        // so Hex1bApp's click-count state machine observes the full sequence.
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(col + 2, row)
             .ClickAt(col + 2, row)
             .ClickAt(col + 2, row)
-            .WaitUntil(_ => _state!.IlEditorState?.Cursor.HasSelection == true,
-                TimeSpan.FromSeconds(5))
+            .WaitUntil(_ =>
+            {
+                var es = _state!.IlEditorState;
+                if (es?.Cursor.HasSelection != true)
+                    return false;
+
+                return es.Document.GetText(es.Cursor.SelectionRange)
+                    .StartsWith("IL_0000:", StringComparison.Ordinal);
+            }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Verify the editor still has focus after triple-click
-        Assert.True(IsFocusedOnEditor(_state.IlEditorState),
+        Assert.IsTrue(IsFocusedOnEditor(_state.IlEditorState),
             "Editor should have focus after triple-click");
 
         // Yank the selection
@@ -1370,7 +1456,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         // Verify clipboard content
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         // The yanked text should be exactly the IL_0000 line — no trailing newline
@@ -1385,10 +1471,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies il inspector shift v selects current line.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task IlInspector_ShiftV_SelectsCurrentLine()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1413,7 +1500,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state.IlEditorState!.Cursor.HasSelection);
+        Assert.IsFalse(_state.IlEditorState!.Cursor.HasSelection);
 
         // Shift+V to select the line
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1427,7 +1514,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var selected = es.Document.GetText(es.Cursor.SelectionRange);
         // SelectLine uses inclusive end, so GetText(range) may miss the last char;
         // yank adds +1, but for this assertion just check the raw selection is clean
-        Assert.True(selected.Length > 0, "Selection should not be empty");
+        Assert.IsGreaterThan(0, selected.Length, "Selection should not be empty");
         Assert.DoesNotContain("\n", selected);
 
         _cts!.Cancel();
@@ -1437,10 +1524,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies il inspector yy yanks current line.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task IlInspector_YY_YanksCurrentLine()
     {
-        var (terminal, app, ct) = Launch(samples.HelloWorldDll);
+        var (terminal, app, ct) = Launch(Samples.HelloWorldDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1473,12 +1561,12 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         // The first line visible is a comment line (// Method: ...)
         // Verify: no newline, no bleed into next line
-        Assert.True(yankedText.Length > 0);
+        Assert.IsGreaterThan(0, yankedText.Length);
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
@@ -1488,10 +1576,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies il inspector source link yank copies the resolved URL.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task IlInspector_SourceLinkUrlYank_CopiesResolvedUrl()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1521,7 +1610,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
         var markerOffset = documentText.IndexOf(
             IlSourceLinkDecorationProvider.SourceLinkMarker,
             StringComparison.Ordinal);
-        Assert.True(markerOffset >= 0, "Expected rendered IL to contain a Source Link marker.");
+        Assert.IsGreaterThanOrEqualTo(0, markerOffset, "Expected rendered IL to contain a Source Link marker.");
 
         _state.IlEditorState.SetCursorPosition(new DocumentOffset(markerOffset));
         _state.App.Invalidate();
@@ -1537,7 +1626,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
         Assert.StartsWith("https://raw.githubusercontent.com/willibrandon/dotsider/", yankedText);
         Assert.EndsWith("samples/RichLibrary/Services/UserService.cs", yankedText);
@@ -1551,10 +1640,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump tab toggles focus between hex editor and data interp.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_TabTogglesFocusBetweenHexEditorAndDataInterp()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1565,7 +1655,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // Initial focus should be on the hex editor
         await Task.Delay(100, ct);
-        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+        Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState),
             "Initial focus should be on the hex editor");
 
         // Tab → data interp editor
@@ -1574,7 +1664,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DataInterpEditorState), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.True(IsFocusedOnEditor(_state!.DataInterpEditorState));
+        Assert.IsTrue(IsFocusedOnEditor(_state!.DataInterpEditorState));
 
         // Tab → back to hex editor
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1582,7 +1672,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.True(IsFocusedOnEditor(_state!.HexEditorState));
+        Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState));
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1591,10 +1681,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies data interp selection yank copies text and flashes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DataInterp_SelectionYank_CopiesTextAndFlashes()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1624,7 +1715,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1633,10 +1724,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies data interp word selection and yanks.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DataInterp_WordSelectionAndYanks()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1662,7 +1754,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1671,10 +1763,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump insert mode only activates from hex editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_InsertModeOnlyActivatesFromHexEditor()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1697,7 +1790,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => true, TimeSpan.FromSeconds(1))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+        Assert.AreEqual(HexEditMode.Normal, _state!.HexMode);
 
         // Tab back to hex editor, then press 'i' — should enter insert mode.
         // Both steps in one sequence so the binding re-registration from the
@@ -1709,7 +1802,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .WaitUntil(_ => _state!.HexMode == HexEditMode.Insert, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.Equal(HexEditMode.Insert, _state!.HexMode);
+        Assert.AreEqual(HexEditMode.Insert, _state!.HexMode);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -1718,10 +1811,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump search refocuses to hex editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_SearchRefocusesToHexEditor()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1751,7 +1845,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+        Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState),
             "Search confirm should refocus to hex editor");
 
         // Now test Escape dismiss: Tab to data interp, activate search,
@@ -1770,7 +1864,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(IsFocusedOnEditor(_state!.HexEditorState),
+        Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState),
             "Search dismiss should refocus to hex editor");
 
         _cts!.Cancel();
@@ -1780,10 +1874,11 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
     /// <summary>
     /// Verifies hex dump data interp updates on cursor move and endian toggle.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_DataInterpUpdatesOnCursorMoveAndEndianToggle()
     {
-        var (terminal, app, ct) = Launch(samples.RichLibraryDll, TabId.HexDump);
+        var (terminal, app, ct) = Launch(Samples.RichLibraryDll, TabId.HexDump);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1801,7 +1896,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
 
         // Capture current data interp text
         var textBefore = _state!.DataInterpEditorText;
-        Assert.NotNull(textBefore);
+        Assert.IsNotNull(textBefore);
 
         // Move cursor right — values should change
         // Second byte of MZ header is 0x5A ('Z'), Int8 = 90
@@ -1812,7 +1907,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         var textAfterMove = _state!.DataInterpEditorText;
-        Assert.NotEqual(textBefore, textAfterMove);
+        Assert.AreNotEqual(textBefore, textAfterMove);
 
         // Toggle endianness — multi-byte values should change
         var textBeforeEndian = _state!.DataInterpEditorText;
@@ -1823,7 +1918,7 @@ public class StandardModeYankIntegrationTests(SampleAssemblyFixture samples) : I
             .ApplyAsync(terminal, ct);
 
         var textAfterEndian = _state!.DataInterpEditorText;
-        Assert.NotEqual(textBeforeEndian, textAfterEndian);
+        Assert.AreNotEqual(textBeforeEndian, textAfterEndian);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }

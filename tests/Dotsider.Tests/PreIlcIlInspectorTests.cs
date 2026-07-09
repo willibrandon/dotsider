@@ -11,9 +11,11 @@ namespace Dotsider.Tests;
 /// attached: the managed tree replaces the native tree, <c>t</c> toggles between them, and
 /// selecting a correlated method populates the native pair pane.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PreIlcIlInspectorTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string DialogTitle = "Native AOT Sidecars Detected";
 
     private Hex1bAppWorkloadAdapter? _workload;
@@ -24,7 +26,7 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path, int width, int height)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -45,7 +47,7 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
 
     private async Task<Hex1bTerminalAutomator> AttachAndOpenIlAsync(int width = 160, int height = 40)
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!, width, height);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!, width, height);
         _ = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -61,14 +63,15 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>Attached, the IL tree defaults to the managed companion tree and lists its types.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Attached_IlTab_DefaultsToManagedTree()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         await AttachAndOpenIlAsync();
 
-        Assert.False(Views.IlInspectorView.IsNativeTreeMode(_state!));
+        Assert.IsFalse(Views.IlInspectorView.IsNativeTreeMode(_state!));
         // The managed type tree is visible (Program and Greeter are the sample's types).
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("Greeter") || s.ContainsText("Program"), TimeSpan.FromSeconds(10))
@@ -79,30 +82,32 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>The <c>t</c> key toggles the tree between managed and native and back.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Attached_T_TogglesTreeMode()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var auto = await AttachAndOpenIlAsync();
 
-        Assert.False(_state!.IlAotTreeNativeView);
+        Assert.IsFalse(_state!.IlAotTreeNativeView);
         await auto.KeyAsync(Hex1bKey.T, ct: _cts!.Token);
         await auto.WaitUntilAsync(_ => _state!.IlAotTreeNativeView, description: "toggled to native tree");
-        Assert.True(Views.IlInspectorView.IsNativeTreeMode(_state));
+        Assert.IsTrue(Views.IlInspectorView.IsNativeTreeMode(_state));
 
         await auto.KeyAsync(Hex1bKey.T, ct: _cts!.Token);
         await auto.WaitUntilAsync(_ => !_state!.IlAotTreeNativeView, description: "toggled back to managed tree");
-        Assert.False(Views.IlInspectorView.IsNativeTreeMode(_state));
+        Assert.IsFalse(Views.IlInspectorView.IsNativeTreeMode(_state));
 
         _cts!.Cancel();
     }
 
     /// <summary>Selecting a correlated method populates the native pair pane beside the IL.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Attached_SelectCorrelatedMethod_PopulatesPairNative()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         // Wide terminal so the right pane splits (above the narrow-collapse threshold).
         var auto = await AttachAndOpenIlAsync(width: 200, height: 50);
@@ -114,7 +119,7 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
             m.Status == MethodCorrelationStatus.CorrelatedExact
             && m.NativeSymbols.Count > 0
             && m.NativeSymbols[0].FileOffset is not null);
-        Assert.SkipWhen(correlated is null, "no exact correlation with a native symbol on this leg");
+        TestSkip.When(correlated is null, "no exact correlation with a native symbol on this leg");
 
         var owner = _state.Analyzer.PreIlcCompanions!.FindByAssemblyName(correlated!.AssemblyName);
         var ownerArg = owner is not null && !ReferenceEquals(owner, _state.Analyzer.PreIlcCompanions!.Root)
@@ -125,18 +130,19 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(_ => _state!.IlPairNativeEditorState is not null,
             description: "pair native pane populated");
 
-        Assert.NotNull(_state.IlPairNativeEditorState);
+        Assert.IsNotNull(_state.IlPairNativeEditorState);
 
         _cts!.Cancel();
     }
 
     /// <summary>Declined, the IL tree stays the native function tree.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Declined_IlTab_ShowsNativeTree()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!, 160, 40);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!, 160, 40);
         _ = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -148,7 +154,7 @@ public class PreIlcIlInspectorTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(s => s.ContainsText("(functions)") || s.ContainsText("(runtime)"),
             description: "native function tree rendered");
 
-        Assert.True(Views.IlInspectorView.IsNativeTreeMode(_state!));
+        Assert.IsTrue(Views.IlInspectorView.IsNativeTreeMode(_state!));
 
         _cts!.Cancel();
     }

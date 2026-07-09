@@ -12,9 +12,11 @@ namespace Dotsider.Website.Tests;
 /// Uses a real WebSocket pair to exercise the same code path as the browser
 /// (WebSocketPresentationAdapter.ReadInputAsync), not the headless path.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class SearchInputTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private WebSocket? _serverWs;
     private WebSocket? _clientWs;
     private Socket? _serverSocket;
@@ -57,10 +59,11 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
     /// search bar and the subsequent characters reach the TextBox. This requires
     /// DotsiderApp to be reused across renders so _initialFocusRequested isn't reset.
     /// </summary>
-    [Fact(Timeout = 15_000)]
+    [TestMethod]
+    [Timeout(15_000, CooperativeCancellation = true)]
     public async Task SearchInput_ViaWebSocket_CharactersReachSearchBar()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
 
         // 1. Create WebSocket pair
         var (clientWs, _) = await CreateWebSocketPairAsync();
@@ -80,7 +83,7 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll);
+                _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll);
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -126,9 +129,9 @@ public class SearchInputTests(SampleAssemblyFixture samples) : IAsyncDisposable
             TimeSpan.FromSeconds(3), ct);
 
         // 7. Assert — characters should reach the TextBox
-        Assert.NotNull(_state);
-        Assert.True(_state.Search[0].IsActive, "Search should be active after pressing '/'");
-        Assert.Equal("test", _state.Search[0].Query);
+        Assert.IsNotNull(_state);
+        Assert.IsTrue(_state.Search[0].IsActive, "Search should be active after pressing '/'");
+        Assert.AreEqual("test", _state.Search[0].Query);
 
         // Cleanup: cancel app, stop drain, then tear down in DisposeAsync
         _appCts.Cancel();

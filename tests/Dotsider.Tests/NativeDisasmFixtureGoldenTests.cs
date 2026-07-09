@@ -10,6 +10,7 @@ namespace Dotsider.Tests;
 /// These fixtures keep deterministic byte-level decoder coverage in the repository.
 /// Real sample assembly tests cover crossgen2 output where the SDK can produce it locally.
 /// </summary>
+[TestClass]
 public sealed class NativeDisasmFixtureGoldenTests
 {
     /// <summary>
@@ -17,14 +18,14 @@ public sealed class NativeDisasmFixtureGoldenTests
     /// Length sums must match the fixture byte count and valid fixture rows must not fallback.
     /// The fixture metadata records the oracle source used when reviewing the byte sequence.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void FixtureGoldens_DecodeExpectedInstructions()
     {
         string root = FindRepositoryRoot();
         string fixtureRoot = Path.Combine(root, "tests", "Dotsider.Tests", "Fixtures", "Disasm");
         string[] fixtures = Directory.GetFiles(fixtureRoot, "*.json", SearchOption.AllDirectories);
 
-        Assert.NotEmpty(fixtures);
+        Assert.IsNotEmpty(fixtures);
         foreach (string fixture in fixtures)
         {
             using JsonDocument document = JsonDocument.Parse(File.ReadAllText(fixture));
@@ -33,17 +34,17 @@ public sealed class NativeDisasmFixtureGoldenTests
             ulong baseAddress = ParseHexUlong(rootElement.GetProperty("baseAddress").GetString()!);
             byte[] bytes = ParseHexBytes(rootElement.GetProperty("hex").GetString()!);
 
-            Assert.True(rootElement.TryGetProperty("oracle", out JsonElement oracle), fixture);
-            Assert.False(string.IsNullOrWhiteSpace(oracle.GetProperty("kind").GetString()), fixture);
-            Assert.True(rootElement.TryGetProperty("runtimeFiles", out JsonElement runtimeFiles), fixture);
-            Assert.NotEmpty(runtimeFiles.EnumerateArray());
+            Assert.IsTrue(rootElement.TryGetProperty("oracle", out JsonElement oracle), fixture);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(oracle.GetProperty("kind").GetString()), fixture);
+            Assert.IsTrue(rootElement.TryGetProperty("runtimeFiles", out JsonElement runtimeFiles), fixture);
+            Assert.IsNotEmpty(runtimeFiles.EnumerateArray());
 
             IReadOnlyList<NativeInstruction> instructions = NativeDisassembler.Disassemble(bytes, baseAddress, architecture);
             JsonElement.ArrayEnumerator expected = rootElement.GetProperty("expected").EnumerateArray();
             var expectedRows = expected.ToArray();
 
-            Assert.Equal(expectedRows.Length, instructions.Count);
-            Assert.Equal(bytes.Length, instructions.Sum(static instruction => instruction.Length));
+            Assert.HasCount(expectedRows.Length, instructions);
+            Assert.AreEqual(bytes.Length, instructions.Sum(static instruction => instruction.Length));
 
             for (var i = 0; i < expectedRows.Length; i++)
             {
@@ -51,26 +52,26 @@ public sealed class NativeDisasmFixtureGoldenTests
                 NativeInstruction instruction = instructions[i];
                 int offset = expectedRow.GetProperty("offset").GetInt32();
 
-                Assert.Equal(baseAddress + (ulong)offset, instruction.Address);
-                Assert.Equal(expectedRow.GetProperty("mnemonic").GetString(), instruction.Mnemonic);
-                Assert.Equal(expectedRow.GetProperty("length").GetInt32(), instruction.Length);
-                Assert.Equal(
+                Assert.AreEqual(baseAddress + (ulong)offset, instruction.Address);
+                Assert.AreEqual(expectedRow.GetProperty("mnemonic").GetString(), instruction.Mnemonic);
+                Assert.AreEqual(expectedRow.GetProperty("length").GetInt32(), instruction.Length);
+                Assert.AreEqual(
                     Enum.Parse<NativeFlowKind>(expectedRow.GetProperty("flow").GetString()!),
                     instruction.Flow);
 
                 if (expectedRow.TryGetProperty("operandText", out JsonElement operandText))
                 {
-                    Assert.Equal(operandText.GetString(), instruction.OperandText);
+                    Assert.AreEqual(operandText.GetString(), instruction.OperandText);
                 }
 
                 if (expectedRow.TryGetProperty("target", out JsonElement target))
                 {
-                    Assert.Equal(ParseHexUlong(target.GetString()!), instruction.TargetAddress);
+                    Assert.AreEqual(ParseHexUlong(target.GetString()!), instruction.TargetAddress);
                 }
 
                 if (!expectedRow.TryGetProperty("fallback", out JsonElement fallback) || !fallback.GetBoolean())
                 {
-                    Assert.False(instruction.IsFallback, $"{fixture}: {instruction.Address:x} {instruction.Mnemonic} {instruction.OperandText}");
+                    Assert.IsFalse(instruction.IsFallback, $"{fixture}: {instruction.Address:x} {instruction.Mnemonic} {instruction.OperandText}");
                 }
             }
         }
@@ -99,7 +100,7 @@ public sealed class NativeDisasmFixtureGoldenTests
     private static byte[] ParseHexBytes(string value)
     {
         string compact = string.Concat(value.Where(static c => !char.IsWhiteSpace(c)));
-        Assert.True(compact.Length % 2 == 0, value);
+        Assert.AreEqual(0, compact.Length % 2, value);
 
         var bytes = new byte[compact.Length / 2];
         for (var i = 0; i < bytes.Length; i++)

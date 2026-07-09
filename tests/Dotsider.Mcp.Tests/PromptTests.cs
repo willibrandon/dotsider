@@ -3,12 +3,13 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests for the MCP prompts catalog and parameterized prompt retrieval.
 /// </summary>
+[TestClass]
 public class PromptTests : McpServerTestBase
 {
     /// <summary>
     /// ListPrompts returns every prompt the server advertises by canonical name.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task ListPrompts_ReturnsAllRegisteredPrompts()
     {
         await StartServerAsync();
@@ -16,7 +17,7 @@ public class PromptTests : McpServerTestBase
 
         var prompts = await client.ListPromptsAsync(cancellationToken: TestCancellationToken);
 
-        Assert.True(prompts.Count >= 4);
+        Assert.IsGreaterThanOrEqualTo(4, prompts.Count);
         var names = prompts.Select(p => p.Name).ToList();
         Assert.Contains("security_audit", names);
         Assert.Contains("api_review", names);
@@ -27,19 +28,20 @@ public class PromptTests : McpServerTestBase
     /// <summary>
     /// The prompt catalog includes the bundle_analysis prompt registered alongside bundle tools.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListPrompts_IncludesBundleAnalysis()
     {
         await StartServerAsync();
         await using var client = await CreateClientAsync();
         var prompts = await client.ListPromptsAsync(cancellationToken: TestCancellationToken);
-        Assert.Contains(prompts, p => p.Name == "bundle_analysis");
+        Assert.Contains(p => p.Name == "bundle_analysis", prompts);
     }
 
     /// <summary>
     /// security_audit materializes at least one message when given an assembly path.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetPrompt_SecurityAudit_ReturnsPromptContent()
     {
         await StartServerAsync();
@@ -50,14 +52,14 @@ public class PromptTests : McpServerTestBase
             new Dictionary<string, object?> { ["assemblyPath"] = "/test/path.dll" },
             cancellationToken: TestCancellationToken);
 
-        Assert.NotNull(result);
-        Assert.True(result.Messages.Count > 0);
+        Assert.IsNotNull(result);
+        Assert.IsGreaterThan(0, result.Messages.Count);
     }
 
     /// <summary>
     /// breaking_change_detection accepts both old and new assembly paths and produces messages.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetPrompt_BreakingChangeDetection_AcceptsTwoPaths()
     {
         await StartServerAsync();
@@ -72,8 +74,8 @@ public class PromptTests : McpServerTestBase
             },
             cancellationToken: TestCancellationToken);
 
-        Assert.NotNull(result);
-        Assert.True(result.Messages.Count > 0);
+        Assert.IsNotNull(result);
+        Assert.IsGreaterThan(0, result.Messages.Count);
     }
 
     /// <summary>
@@ -83,7 +85,7 @@ public class PromptTests : McpServerTestBase
     /// models don't expect the tool to filter them. Asserting content (not just registration)
     /// catches future prompt/tool contract drift that was the original issue behind #149.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetPrompt_DependencyHealth_ContentMentionsTransitiveClosureAndFrameworkInclusion()
     {
         await StartServerAsync();
@@ -94,7 +96,7 @@ public class PromptTests : McpServerTestBase
             new Dictionary<string, object?> { ["assemblyPath"] = "/test/path.dll" },
             cancellationToken: TestCancellationToken);
 
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         var content = string.Join("\n", result.Messages.Select(m => m.Content.ToString()));
         Assert.Contains("transitive", content, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("diamond", content, StringComparison.OrdinalIgnoreCase);

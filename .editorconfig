@@ -4,6 +4,7 @@ root = true
 dotnet_sort_system_directives_first = false
 
 # XML documentation
+dotnet_diagnostic.CS1574.severity = warning
 dotnet_diagnostic.CS1591.severity = warning
 
 # ASP.NET
@@ -11,13 +12,16 @@ dotnet_diagnostic.ASP0015.severity = warning
 
 # Code Analysis (CA)
 dotnet_diagnostic.CA1050.severity = warning
+dotnet_diagnostic.CA1416.severity = warning
 dotnet_diagnostic.CA1401.severity = warning
 dotnet_diagnostic.CA1806.severity = warning
 dotnet_diagnostic.CA1816.severity = warning
 dotnet_diagnostic.CA1822.severity = warning
 dotnet_diagnostic.CA1826.severity = warning
+dotnet_diagnostic.CA1834.severity = warning
 dotnet_diagnostic.CA1847.severity = warning
 dotnet_diagnostic.CA1859.severity = warning
+dotnet_diagnostic.CA1861.severity = warning
 dotnet_diagnostic.CA1869.severity = warning
 dotnet_diagnostic.CA2016.severity = warning
 
@@ -30,11 +34,14 @@ dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.IDE0060.severity = warning
 dotnet_diagnostic.IDE0074.severity = warning
 dotnet_diagnostic.IDE0180.severity = warning
+dotnet_diagnostic.IDE0230.severity = warning
 dotnet_diagnostic.IDE0270.severity = warning
 dotnet_diagnostic.IDE0290.severity = warning
+dotnet_diagnostic.IDE0300.severity = warning
 dotnet_diagnostic.IDE0301.severity = warning
 dotnet_diagnostic.IDE0305.severity = warning
 dotnet_diagnostic.IDE0330.severity = warning
+dotnet_diagnostic.IDE1006.severity = warning
 
 # System library
 dotnet_diagnostic.SYSLIB1054.severity = warning

@@ -7,6 +7,7 @@ namespace Dotsider.Tests;
 /// <c>.eh_frame</c> blobs covering the pointer-encoding matrix (absolute, PC-relative, fixed,
 /// LEB128, signed), CIE augmentation shapes, and the terminator and damage behaviors.
 /// </summary>
+[TestClass]
 public class EhFrameReaderTests
 {
     private static byte[] Entry(DwarfBlob content) =>
@@ -59,7 +60,8 @@ public class EhFrameReaderTests
     /// <summary>
     /// Verifies absolute 64-bit pointers decode and the boundary maps to its containing section.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_Absptr_DecodesAndMapsSection()
     {
         var cie = Cie(0x00);
@@ -67,20 +69,21 @@ public class EhFrameReaderTests
 
         var boundaries = EhFrameReader.ReadBoundaries(Image(0x500000, cie, fde));
 
-        var b = Assert.Single(boundaries);
-        Assert.Equal("sub_401010", b.Name);
-        Assert.Equal(0x401010UL, b.VirtualAddress);
-        Assert.Equal(0x40, b.Size);
-        Assert.Equal(".text", b.Section);
-        Assert.True(b.IsBoundary);
-        Assert.NotNull(b.FileOffset);
+        var b = Assert.ContainsSingle(boundaries);
+        Assert.AreEqual("sub_401010", b.Name);
+        Assert.AreEqual(0x401010UL, b.VirtualAddress);
+        Assert.AreEqual(0x40, b.Size);
+        Assert.AreEqual(".text", b.Section);
+        Assert.IsTrue(b.IsBoundary);
+        Assert.IsNotNull(b.FileOffset);
     }
 
     /// <summary>
     /// Verifies the common <c>pcrel|sdata4</c> encoding: the location is relative to the
     /// pointer field's own address, and the range is a plain length.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_PcrelSdata4_ResolvesAgainstFieldAddress()
     {
         const ulong ehFrameAddress = 0x500000;
@@ -97,49 +100,52 @@ public class EhFrameReaderTests
 
         var boundaries = EhFrameReader.ReadBoundaries(Image(ehFrameAddress, cie, fde1, fde2));
 
-        Assert.Equal(2, boundaries.Count);
-        Assert.Equal(0x401010UL, boundaries[0].VirtualAddress);
-        Assert.Equal(0x40, boundaries[0].Size);
-        Assert.Equal(0x401080UL, boundaries[1].VirtualAddress);
-        Assert.Equal(0x10, boundaries[1].Size);
+        Assert.HasCount(2, boundaries);
+        Assert.AreEqual(0x401010UL, boundaries[0].VirtualAddress);
+        Assert.AreEqual(0x40, boundaries[0].Size);
+        Assert.AreEqual(0x401080UL, boundaries[1].VirtualAddress);
+        Assert.AreEqual(0x10, boundaries[1].Size);
     }
 
     /// <summary>Verifies the fixed udata4 and variable ULEB128 formats decode absolutely.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_Udata4AndUleb_Decode()
     {
         var cie4 = Cie(0x03); // udata4 absolute
         var fde4 = Fde((uint)(cie4.Length + 4), new DwarfBlob().U32(0x401020).U32(0x20));
-        var one = Assert.Single(EhFrameReader.ReadBoundaries(Image(0x500000, cie4, fde4)));
-        Assert.Equal(0x401020UL, one.VirtualAddress);
-        Assert.Equal(0x20, one.Size);
+        var one = Assert.ContainsSingle(EhFrameReader.ReadBoundaries(Image(0x500000, cie4, fde4)));
+        Assert.AreEqual(0x401020UL, one.VirtualAddress);
+        Assert.AreEqual(0x20, one.Size);
 
         var cieLeb = Cie(0x01); // uleb128 absolute
         var fdeLeb = Fde((uint)(cieLeb.Length + 4), new DwarfBlob().ULeb(0x401030).ULeb(0x30));
-        var leb = Assert.Single(EhFrameReader.ReadBoundaries(Image(0x500000, cieLeb, fdeLeb)));
-        Assert.Equal(0x401030UL, leb.VirtualAddress);
-        Assert.Equal(0x30, leb.Size);
+        var leb = Assert.ContainsSingle(EhFrameReader.ReadBoundaries(Image(0x500000, cieLeb, fdeLeb)));
+        Assert.AreEqual(0x401030UL, leb.VirtualAddress);
+        Assert.AreEqual(0x30, leb.Size);
     }
 
     /// <summary>
     /// Verifies a <c>zPLR</c> augmentation with a personality pointer parses the encoding behind
     /// it, on a version-3 CIE whose return register is a ULEB.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_ZplrVersion3_ReadsEncodingBehindPersonality()
     {
         var cie = Cie(0x03, augmentation: "zPLR", version: 3);
         var fde = Fde((uint)(cie.Length + 4), new DwarfBlob().U32(0x401040).U32(0x18));
 
-        var b = Assert.Single(EhFrameReader.ReadBoundaries(Image(0x500000, cie, fde)));
-        Assert.Equal(0x401040UL, b.VirtualAddress);
-        Assert.Equal(0x18, b.Size);
+        var b = Assert.ContainsSingle(EhFrameReader.ReadBoundaries(Image(0x500000, cie, fde)));
+        Assert.AreEqual(0x401040UL, b.VirtualAddress);
+        Assert.AreEqual(0x18, b.Size);
     }
 
     /// <summary>
     /// Verifies the zero-length terminator stops the walk, and entries after it are ignored.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_Terminator_StopsWalk()
     {
         var cie = Cie(0x00);
@@ -152,21 +158,22 @@ public class EhFrameReaderTests
 
         var image = SyntheticImageBuilders.BuildElf((".eh_frame", 0x500000, section.ToArray()));
 
-        Assert.Single(EhFrameReader.ReadBoundaries(image));
+        Assert.ContainsSingle(EhFrameReader.ReadBoundaries(image));
     }
 
     /// <summary>
     /// Verifies defective entries are skipped, not misread: a zero location, an FDE naming an
     /// unknown CIE, and a truncated tail after a good FDE.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_DefectiveEntries_SkippedOrKeptPartial()
     {
         var cie = Cie(0x00);
         var zeroLocation = Fde((uint)(cie.Length + 4), new DwarfBlob().U64(0).U64(0x40));
         var orphan = Fde(2, new DwarfBlob().U64(0x401050).U64(0x40)); // points into no CIE
-        Assert.Empty(EhFrameReader.ReadBoundaries(Image(0x500000, cie, zeroLocation)));
-        Assert.Empty(EhFrameReader.ReadBoundaries(Image(0x500000, orphan)));
+        Assert.IsEmpty(EhFrameReader.ReadBoundaries(Image(0x500000, cie, zeroLocation)));
+        Assert.IsEmpty(EhFrameReader.ReadBoundaries(Image(0x500000, orphan)));
 
         var good = Fde((uint)(cie.Length + 4), new DwarfBlob().U64(0x401010).U64(0x40));
         var truncated = new DwarfBlob().U32(0xFFF0).U32(0).ToArray(); // claims more than present
@@ -176,9 +183,9 @@ public class EhFrameReaderTests
         section.AddRange(truncated);
         var image = SyntheticImageBuilders.BuildElf((".eh_frame", 0x500000, section.ToArray()));
 
-        Assert.Single(EhFrameReader.ReadBoundaries(image));
+        Assert.ContainsSingle(EhFrameReader.ReadBoundaries(image));
 
-        Assert.Empty(EhFrameReader.ReadBoundaries(
+        Assert.IsEmpty(EhFrameReader.ReadBoundaries(
             SyntheticImageBuilders.BuildElf((".text", 0x401000, new byte[8]))));
     }
 }

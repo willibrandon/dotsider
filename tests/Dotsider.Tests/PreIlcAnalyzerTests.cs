@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// lifecycle, generation-guarded index builds, sidecar path fallbacks, and correlation
 /// against the real fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PreIlcAnalyzerTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private readonly List<string> _tempFiles = [];
 
     private string NewTempDir()
@@ -22,121 +24,129 @@ public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>Verifies the probe is gated on the Native AOT binary kind.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PreIlcSidecars_ManagedAssemblyAndApphost_Null()
     {
-        using var managed = new AssemblyAnalyzer(samples.HelloWorldDll);
-        Assert.Null(managed.PreIlcSidecars);
-        Assert.Null(managed.AttachPreIlcCompanions());
+        using var managed = new AssemblyAnalyzer(Samples.HelloWorldDll);
+        Assert.IsNull(managed.PreIlcSidecars);
+        Assert.IsNull(managed.AttachPreIlcCompanions());
 
-        using var apphost = new AssemblyAnalyzer(samples.HelloWorldExe);
-        Assert.Null(apphost.PreIlcSidecars);
+        using var apphost = new AssemblyAnalyzer(Samples.HelloWorldExe);
+        Assert.IsNull(apphost.PreIlcSidecars);
     }
 
     /// <summary>Verifies the fixture AOT exe probes its full sidecar set.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PreIlcSidecars_FixtureAotExe_Found()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var sidecars = analyzer.PreIlcSidecars;
 
-        Assert.NotNull(sidecars);
-        Assert.True(sidecars!.HasAttachableCompanion);
-        Assert.Equal(PreIlcAssemblyOrigin.IlcResponseFile, sidecars.Origin);
+        Assert.IsNotNull(sidecars);
+        Assert.IsTrue(sidecars!.HasAttachableCompanion);
+        Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, sidecars.Origin);
     }
 
     /// <summary>Verifies attach is idempotent and the set carries readable metadata.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void AttachPreIlcCompanions_Idempotent()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var set = analyzer.AttachPreIlcCompanions();
 
-        Assert.NotNull(set);
-        Assert.Same(set, analyzer.AttachPreIlcCompanions());
-        Assert.Same(set, analyzer.PreIlcCompanions);
-        Assert.True(set!.Root.HasMetadata);
-        Assert.Equal("NativeAotConsole", set.Root.AssemblyName);
-        Assert.Same(set.Root, set.All[0]);
+        Assert.IsNotNull(set);
+        Assert.AreSame(set, analyzer.AttachPreIlcCompanions());
+        Assert.AreSame(set, analyzer.PreIlcCompanions);
+        Assert.IsTrue(set!.Root.HasMetadata);
+        Assert.AreEqual("NativeAotConsole", set.Root.AssemblyName);
+        Assert.AreSame(set.Root, set.All[0]);
     }
 
     /// <summary>Verifies attach returns null when nothing attachable was probed.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void AttachPreIlcCompanions_NoSidecars_Null()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "NativeAotConsole.exe");
-        File.Copy(samples.NativeAotConsoleExe!, exe);
+        File.Copy(Samples.NativeAotConsoleExe!, exe);
 
         using var analyzer = new AssemblyAnalyzer(exe);
-        Assert.Null(analyzer.PreIlcSidecars);
-        Assert.Null(analyzer.AttachPreIlcCompanions());
-        Assert.Null(analyzer.ManagedNativeIndex);
+        Assert.IsNull(analyzer.PreIlcSidecars);
+        Assert.IsNull(analyzer.AttachPreIlcCompanions());
+        Assert.IsNull(analyzer.ManagedNativeIndex);
     }
 
     /// <summary>Verifies detach disposes the companions and drops the index.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DetachPreIlcCompanions_DisposesSetAndDropsIndex()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var set = analyzer.AttachPreIlcCompanions();
-        Assert.NotNull(set);
+        Assert.IsNotNull(set);
 
         analyzer.DetachPreIlcCompanions();
 
-        Assert.Null(analyzer.PreIlcCompanions);
-        Assert.Null(analyzer.ManagedNativeIndex);
-        Assert.Throws<ObjectDisposedException>(() => set!.Root.TypeDefs);
+        Assert.IsNull(analyzer.PreIlcCompanions);
+        Assert.IsNull(analyzer.ManagedNativeIndex);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => set!.Root.TypeDefs);
     }
 
     /// <summary>Verifies disposing the owner disposes the attached companions transitively.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_DisposesAttachedCompanions()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var set = analyzer.AttachPreIlcCompanions();
-        Assert.NotNull(set);
+        Assert.IsNotNull(set);
 
         analyzer.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() => set!.Root.MethodDefs);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => set!.Root.MethodDefs);
     }
 
     /// <summary>Verifies the index is null before attach and builds once after.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ManagedNativeIndex_BuildsAfterAttach()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
-        Assert.Null(analyzer.ManagedNativeIndex);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        Assert.IsNull(analyzer.ManagedNativeIndex);
 
         analyzer.AttachPreIlcCompanions();
         var index = analyzer.ManagedNativeIndex;
 
-        Assert.NotNull(index);
-        Assert.Same(index, analyzer.ManagedNativeIndex);
-        Assert.True(index!.Methods.Count > 0);
+        Assert.IsNotNull(index);
+        Assert.AreSame(index, analyzer.ManagedNativeIndex);
+        Assert.IsGreaterThan(0, index!.Methods.Count);
     }
 
     /// <summary>Verifies a stale build after detach never publishes; the reader never throws while the analyzer lives.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ManagedNativeIndex_RacingDetach_NeverPublishesStale()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
 
         var reader = Task.Run(() =>
         {
@@ -147,41 +157,43 @@ public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
         for (var i = 0; i < 5; i++)
         {
             analyzer.AttachPreIlcCompanions();
-            await Task.Delay(50, TestContext.Current.CancellationToken);
+            await Task.Delay(50, CancellationToken.None);
             analyzer.DetachPreIlcCompanions();
         }
 
         await cts.CancelAsync();
         await reader;
 
-        Assert.Null(analyzer.PreIlcCompanions);
-        Assert.Null(analyzer.ManagedNativeIndex);
+        Assert.IsNull(analyzer.PreIlcCompanions);
+        Assert.IsNull(analyzer.ManagedNativeIndex);
     }
 
     /// <summary>Verifies a build racing the owner's dispose abandons cleanly (returns or ODE only).</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ManagedNativeIndex_RacingDispose_AbandonsCleanly()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         analyzer.AttachPreIlcCompanions();
 
         var build = Task.Run(() =>
         {
             try { _ = analyzer.ManagedNativeIndex; }
             catch (ObjectDisposedException) { /* documented outcome */ }
-        }, TestContext.Current.CancellationToken);
+        }, CancellationToken.None);
 
         analyzer.Dispose();
         await build;
     }
 
     /// <summary>Verifies MstatPath/DgmlPath fall back to the obj tree, sibling wins for mstat, codegen-first for DGML.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void MstatAndDgmlPaths_ObjTreeFallbackAndCodegenPrecedence()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var root = NewTempDir();
         var exeDir = Path.Combine(root, "Proj", "bin", "Release", "net10.0", "win-x64", "publish");
@@ -190,7 +202,7 @@ public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
         Directory.CreateDirectory(nativeDir);
 
         var exe = Path.Combine(exeDir, "NativeAotConsole.exe");
-        File.Copy(samples.NativeAotConsoleExe!, exe);
+        File.Copy(Samples.NativeAotConsoleExe!, exe);
 
         var objMstat = Path.Combine(nativeDir, "NativeAotConsole.mstat");
         File.WriteAllBytes(objMstat, [1]);
@@ -199,82 +211,86 @@ public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
         File.WriteAllBytes(objCodegen, [1]);
 
         using var analyzer = new AssemblyAnalyzer(exe);
-        Assert.Equal(objMstat, analyzer.MstatPath);
-        Assert.Equal(objCodegen, analyzer.DgmlPath); // codegen-first across locations
+        Assert.AreEqual(objMstat, analyzer.MstatPath);
+        Assert.AreEqual(objCodegen, analyzer.DgmlPath); // codegen-first across locations
 
         var siblingMstat = Path.Combine(exeDir, "NativeAotConsole.mstat");
         File.WriteAllBytes(siblingMstat, [1]);
         using var analyzer2 = new AssemblyAnalyzer(exe);
-        Assert.Equal(siblingMstat, analyzer2.MstatPath);
+        Assert.AreEqual(siblingMstat, analyzer2.MstatPath);
     }
 
     /// <summary>Verifies sidecar stems strip library extensions: a Native AOT .dll finds its mstat.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindSidecar_LibraryStem_FindsMstat()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var dir = NewTempDir();
         var lib = Path.Combine(dir, "SomeAotLib.dll");
-        File.Copy(samples.NativeAotConsoleExe!, lib); // AOT by content, library by name
+        File.Copy(Samples.NativeAotConsoleExe!, lib); // AOT by content, library by name
         var mstat = Path.Combine(dir, "SomeAotLib.mstat");
         File.WriteAllBytes(mstat, [1]);
 
         using var analyzer = new AssemblyAnalyzer(lib);
-        Assert.Equal(BinaryKind.NativeAot, analyzer.BinaryKind);
-        Assert.Equal(mstat, analyzer.MstatPath);
+        Assert.AreEqual(BinaryKind.NativeAot, analyzer.BinaryKind);
+        Assert.AreEqual(mstat, analyzer.MstatPath);
     }
 
     /// <summary>Verifies the fixture Greeter correlations end to end, including ctor and accessor.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ManagedNativeIndex_FixtureGreeterCorrelations()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         analyzer.AttachPreIlcCompanions();
         var index = analyzer.ManagedNativeIndex;
-        Assert.NotNull(index);
+        Assert.IsNotNull(index);
 
         var greeter = index!.Methods.Where(m => m.Method.DeclaringType == "Greeter").ToList();
-        Assert.NotEmpty(greeter);
+        Assert.IsNotEmpty(greeter);
 
-        var describe = Assert.Single(greeter, m => m.Method.Name == "Describe");
-        Assert.Equal(MethodCorrelationStatus.CorrelatedExact, describe.Status);
-        Assert.True(describe.NativeSize > 0);
+        var describe = Assert.ContainsSingle(m => m.Method.Name == "Describe", greeter);
+        Assert.AreEqual(MethodCorrelationStatus.CorrelatedExact, describe.Status);
+        Assert.IsGreaterThan(0, describe.NativeSize);
 
         var greets = greeter.Where(m => m.Method.Name == "Greet").ToList();
-        Assert.Equal(2, greets.Count);
-        Assert.All(greets, g => Assert.Equal(MethodCorrelationStatus.CorrelatedAmbiguous, g.Status));
-        Assert.All(greets, g => Assert.Equal(0, g.NativeSize));
-        Assert.True(greets[0].SharedCandidateSize > 0);
+        Assert.HasCount(2, greets);
+        TestAssert.All(greets, g => Assert.AreEqual(MethodCorrelationStatus.CorrelatedAmbiguous, g.Status));
+        TestAssert.All(greets, g => Assert.AreEqual(0, g.NativeSize));
+        Assert.IsGreaterThan(0, greets[0].SharedCandidateSize);
 
-        var ctor = Assert.Single(greeter, m => m.Method.Name == ".ctor");
-        Assert.NotEqual(MethodCorrelationStatus.NotInNativeImage, ctor.Status);
+        var ctor = Assert.ContainsSingle(m => m.Method.Name == ".ctor", greeter);
+        Assert.AreNotEqual(MethodCorrelationStatus.NotInNativeImage, ctor.Status);
 
-        var getName = Assert.Single(greeter, m => m.Method.Name == "get_Name");
-        Assert.NotEqual(MethodCorrelationStatus.NotInNativeImage, getName.Status);
+        var getName = Assert.ContainsSingle(m => m.Method.Name == "get_Name", greeter);
+        Assert.AreNotEqual(MethodCorrelationStatus.NotInNativeImage, getName.Status);
 
-        var never = Assert.Single(greeter, m => m.Method.Name == "NeverCalled");
-        Assert.Equal(MethodCorrelationStatus.NotInNativeImage, never.Status);
+        var never = Assert.ContainsSingle(m => m.Method.Name == "NeverCalled", greeter);
+        Assert.AreEqual(MethodCorrelationStatus.NotInNativeImage, never.Status);
 
         var withSymbol = greeter.First(m => m.NativeSymbols.Count > 0);
         var reverse = index.FindByAddress(withSymbol.NativeSymbols[0].VirtualAddress);
-        Assert.NotNull(reverse);
-        Assert.Equal("Greeter", reverse!.Method.DeclaringType);
+        Assert.IsNotNull(reverse);
+        Assert.AreEqual("Greeter", reverse!.Method.DeclaringType);
     }
 
     /// <summary>Verifies the ownership contract is structural: no public disposal surface at all.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PreIlcCompanionSet_NoPublicDisposal()
     {
-        Assert.False(typeof(IDisposable).IsAssignableFrom(typeof(PreIlcCompanionSet)));
-        Assert.Null(typeof(PreIlcCompanionSet).GetMethod("Dispose"));
+        Assert.IsFalse(typeof(IDisposable).IsAssignableFrom(typeof(PreIlcCompanionSet)));
+        Assert.IsNull(typeof(PreIlcCompanionSet).GetMethod("Dispose"));
     }
 
     /// <summary>Disposes test resources created during the run.</summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         foreach (var path in _tempFiles)
         {
             try
@@ -284,6 +300,5 @@ public class PreIlcAnalyzerTests(SampleAssemblyFixture samples) : IDisposable
             }
             catch { /* best effort */ }
         }
-        GC.SuppressFinalize(this);
     }
 }

@@ -11,13 +11,16 @@ namespace Dotsider.Tests;
 /// real on-disk file the CLR 2.0 fusion would also load. The synthetic temp-GAC tests are
 /// deliberately host-independent: they run on every Windows host even when CLR 2 isn't installed.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
+[TestClass]
+public sealed class NetFxBinderClr2Tests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     // ---- Live-runtime tests (gated on Clr2RuntimePresent) ----
 
     /// <summary>mscorlib resolves from the v2.0.50727 framework runtime directory.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_Mscorlib_FromV2FrameworkRuntimeDirectory_MatchesOracle()
     {
         SkipIfNotWindows();
@@ -25,15 +28,16 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("mscorlib", "2.0.0.0", "neutral", "b77a5c561934e089");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
+        Assert.AreEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
         Assert.Contains("v2.0.50727", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(oracle["mscorlib"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(oracle["mscorlib"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>System.Drawing v2.0.0.0 resolves from %WINDIR%\assembly\GAC_MSIL with the
     /// no-prefix Clr2 token format <c>2.0.0.0__b03f5f7f11d50a3a</c>.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_SystemDrawing_FromClr2Gac_MatchesOracle()
     {
         SkipIfNotWindows();
@@ -41,9 +45,9 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("System.Drawing", "2.0.0.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
-        Assert.Equal(oracle["System.Drawing"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
+        Assert.AreEqual(oracle["System.Drawing"].Location, result.LoadedPath, ignoreCase: true);
         // No v4.0_ prefix on the Clr2 token.
         Assert.DoesNotContain("v4.0_", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("2.0.0.0__", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
@@ -52,7 +56,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     /// <summary>WindowsBase 3.0.0.0 — the v3.0 reference-assemblies allowlist coverage. Without
     /// the v3.0 branch in <c>LoadFrameworkAssemblyNames</c>, this would silently miss the
     /// unification table and resolve incorrectly.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_WindowsBase_v3_0_FromClr2Gac_ProvesV3ReferenceAssembliesAllowlist()
     {
         SkipIfNotWindows();
@@ -60,13 +65,14 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("WindowsBase", "3.0.0.0", "neutral", "31bf3856ad364e35");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.Equal(oracle["WindowsBase"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreEqual(oracle["WindowsBase"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>SharedDep v1.0.0.0 redirects to v2.0.0.0 via the appliesTo="v2.0.50727"
     /// bindingRedirect and resolves from app-local; AppliedPolicy is populated.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_SharedDep_RedirectAppliedAndAppLocal_MatchesOraclePath()
     {
         SkipIfNotWindows();
@@ -75,15 +81,16 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.Clr2.SharedDep", "1.0.0.0", "neutral", "e89d2d22dd26920d");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.AppLocal, result.Provenance);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(new Version(2, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
-        Assert.Equal(oracle["SharedDep_via_UsesV1"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(new Version(2, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
+        Assert.AreEqual(oracle["SharedDep_via_UsesV1"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>Two distinct requested versions of SharedDep collapse to the same loaded
     /// identity, proving the LoadedAssemblyCache interns by bound identity.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_LoadedAssemblyCache_SharedDepV1AndV2_CollapseToOneInternedEntry()
     {
         SkipIfNotWindows();
@@ -94,14 +101,15 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var v2 = new AssemblyRefInfo("NetFxBindingRedirects.Clr2.SharedDep", "2.0.0.0", "neutral", "e89d2d22dd26920d");
         var r1 = NetFxBinder.Bind(v1, ctx);
         var r2 = NetFxBinder.Bind(v2, ctx);
-        Assert.NotNull(r1.Loaded);
-        Assert.NotNull(r2.Loaded);
-        Assert.Equal(r1.Loaded, r2.Loaded);
-        Assert.Equal(r1.LoadedPath, r2.LoadedPath);
+        Assert.IsNotNull(r1.Loaded);
+        Assert.IsNotNull(r2.Loaded);
+        Assert.AreEqual(r1.Loaded, r2.Loaded);
+        Assert.AreEqual(r1.LoadedPath, r2.LoadedPath);
     }
 
     /// <summary>CodeBase href is honored: resolves to <c>external/Clr2.CodeBaseLib.dll</c>.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CodeBaseLib_ViaConfiguredCodeBase_ProvenanceIsCodeBase()
     {
         SkipIfNotWindows();
@@ -110,13 +118,14 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.Clr2.CodeBaseLib", "2.0.0.0", "neutral", "d4a9fecb5ef90905");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBase, result.Provenance);
-        Assert.Equal(oracle["NetFxBindingRedirects.Clr2.CodeBaseLib"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.CodeBase, result.Provenance);
+        Assert.AreEqual(oracle["NetFxBindingRedirects.Clr2.CodeBaseLib"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>Deliberately-broken codeBase fail-fasts as <c>CodeBaseMissing</c> with the
     /// configured href reported on the result, distinct from generic Unresolved.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_MissingCodeBase_FailsFastWithCodeBaseMissingProvenance()
     {
         SkipIfNotWindows();
@@ -125,13 +134,14 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.Clr2.MissingCodeBase", "9.9.9.9", "neutral", "0123456789abcdef");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBaseMissing, result.Provenance);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal("external/Missing.dll", result.AppliedPolicy!.CodeBaseHref);
+        Assert.AreEqual(AssemblyProvenance.CodeBaseMissing, result.Provenance);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual("external/Missing.dll", result.AppliedPolicy!.CodeBaseHref);
     }
 
     /// <summary>PrivatePathLib resolves from the <c>lib/</c> subdir via probing privatePath.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_PrivatePathLib_FromProbingPrivatePath_LandsInLibSubdir()
     {
         SkipIfNotWindows();
@@ -140,8 +150,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.Clr2.PrivatePathLib", "1.0.0.0", "neutral", null);
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.AppLocal, result.Provenance);
-        Assert.Equal(oracle["NetFxBindingRedirects.Clr2.PrivatePathLib"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
+        Assert.AreEqual(oracle["NetFxBindingRedirects.Clr2.PrivatePathLib"].Location, result.LoadedPath, ignoreCase: true);
         Assert.Contains(Path.Combine("lib", "NetFxBindingRedirects.Clr2.PrivatePathLib.dll"),
             result.LoadedPath!, StringComparison.OrdinalIgnoreCase);
     }
@@ -151,7 +161,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     /// <c>fr/NetFxBindingRedirects.Clr2.CulturedLib.resources.dll</c> with the identity the
     /// CLR 2 runtime actually loaded (per oracle).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CulturedLibFrSatellite_FromCultureSubdir_MatchesOracleIdentity()
     {
         SkipIfNotWindows();
@@ -160,9 +171,9 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.Clr2.CulturedLib.resources", "1.0.0.0", "fr", null);
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.AppLocal, result.Provenance);
+        Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
         var oracleEntry = oracle["NetFxBindingRedirects.Clr2.CulturedLib.resources(fr)"];
-        Assert.Equal(oracleEntry.Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(oracleEntry.Location, result.LoadedPath, ignoreCase: true);
     }
 
     // ---- Synthetic temp-tree tests (NOT gated on Clr2RuntimePresent) ----
@@ -174,7 +185,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     /// <c>GacRoots</c>, and asserts <c>NetFxBinder.Bind</c> finds the file via the bare
     /// <c>GAC</c> bucket. Independent of any host-installed file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_TempGac_BareGacBucket_Clr2_FindsFileWithGacProvenance()
     {
         SkipIfNotWindows();
@@ -194,12 +206,13 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(name, asmName.Version!.ToString(), "neutral", pkt);
         var result = NetFxBinder.Bind(requested, ctx);
 
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.Equal(stagedDll, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreEqual(stagedDll, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>Same coverage as bare-GAC, but staged in <c>GAC_MSIL</c>.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_TempGac_GacMsilBucket_Clr2_FindsFile()
     {
         SkipIfNotWindows();
@@ -207,7 +220,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     }
 
     /// <summary>Same coverage as bare-GAC, but staged in <c>GAC_64</c> (architecture slot).</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_TempGac_Gac64Bucket_Clr2_FindsFile()
     {
         SkipIfNotWindows();
@@ -220,7 +234,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     /// unification table. Validated indirectly: a v4.0_-prefixed dir under a Clr2 GAC does not
     /// produce a hit, while the no-prefix dir does.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_TempGac_V4PrefixedToken_NotHonoredInClr2Context()
     {
         SkipIfNotWindows();
@@ -241,27 +256,28 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
 
         // Clr2 binder builds the no-prefix token; the v4-prefixed dir doesn't match. The bind
         // falls through every path and ends Unresolved (no app-local fallback in temp setup).
-        Assert.NotEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreNotEqual(AssemblyProvenance.Gac, result.Provenance);
     }
 
     /// <summary>Optional opportunistic coverage: if the host has <c>stdole 7.0.3300.0</c> at
     /// <c>%WINDIR%\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll</c>, assert the
     /// production GAC bare-<c>GAC</c> bucket is reachable. Skips cleanly otherwise.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_StdOle_FromBareGac_WhenPresent_FindsViaGac()
     {
         SkipIfNotWindows();
         var windir = Environment.GetEnvironmentVariable("WINDIR")!;
         var stdolePath = Path.Combine(windir, "assembly", "GAC", "stdole", "7.0.3300.0__b03f5f7f11d50a3a", "stdole.dll");
         if (!File.Exists(stdolePath))
-            Assert.Skip("stdole not present at the canonical bare-GAC path on this host.");
+            Assert.Inconclusive("stdole not present at the canonical bare-GAC path on this host.");
 
         SkipIfClr2Absent();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("stdole", "7.0.3300.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.Equal(stdolePath, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreEqual(stdolePath, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>
@@ -269,7 +285,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
     /// <c>appliesTo="v2.0.50727"</c> publisher policy fires, while a parallel block scoped
     /// <c>appliesTo="v4.0.30319"</c> is correctly excluded.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PublisherPolicy_TempClr2Gac_AppliesToV2_FiresAndAppliesToV4_DoesNot()
     {
         SkipIfNotWindows();
@@ -306,10 +323,10 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
 
         var ctx = MakeSyntheticClr2Context(gacRoot: gacRoot);
         var v2Redirects = ctx.Policy.PublisherPolicyRedirects;
-        Assert.Contains(v2Redirects, r =>
-            r.Name == "Acme.Synthetic" && r.NewVersion == new Version(3, 0, 0, 0));
-        Assert.DoesNotContain(v2Redirects, r =>
-            r.Name == "Acme.Synthetic" && r.NewVersion == new Version(9, 9, 9, 9));
+        Assert.Contains(r =>
+            r.Name == "Acme.Synthetic" && r.NewVersion == new Version(3, 0, 0, 0), v2Redirects);
+        Assert.DoesNotContain(r =>
+            r.Name == "Acme.Synthetic" && r.NewVersion == new Version(9, 9, 9, 9), v2Redirects);
     }
 
     // ---- Helpers ----
@@ -332,8 +349,8 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(name, asmName.Version!.ToString(), "neutral", pkt);
         var result = NetFxBinder.Bind(requested, ctx);
 
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.Equal(stagedDll, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreEqual(stagedDll, result.LoadedPath, ignoreCase: true);
     }
 
     private static string SignedSampleDll()
@@ -343,7 +360,7 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         var repoRoot = TestHelpers.GetRepoRoot();
         var dll = Path.Combine(repoRoot, "samples", "NetFxBindingRedirects.Clr2.CodeBaseLib",
             "bin", "Debug", "net35", "NetFxBindingRedirects.Clr2.CodeBaseLib.dll");
-        Assert.True(File.Exists(dll), $"Signed sample DLL not built at {dll}");
+        Assert.IsTrue(File.Exists(dll), $"Signed sample DLL not built at {dll}");
         return dll;
     }
 
@@ -373,26 +390,26 @@ public sealed class NetFxBinderClr2Tests(SampleAssemblyFixture samples)
         return Convert.ToHexStringLower(token);
     }
 
-    private (NetFxBindingContext Ctx, IReadOnlyDictionary<string, NetFxOracleEntry> Oracle) LoadFixture()
+    private static (NetFxBindingContext Ctx, IReadOnlyDictionary<string, NetFxOracleEntry> Oracle) LoadFixture()
     {
-        Assert.NotNull(samples.NetFxBindingRedirectsClr2Exe);
-        Assert.NotNull(samples.NetFxBindingRedirectsClr2Oracle);
-        var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsClr2Exe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsClr2Exe);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsClr2Oracle);
+        var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsClr2Exe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        return (ctx!, samples.NetFxBindingRedirectsClr2Oracle!);
+        Assert.IsNotNull(ctx);
+        return (ctx!, Samples.NetFxBindingRedirectsClr2Oracle!);
     }
 
     private static void SkipIfNotWindows()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            Assert.Skip("Test requires Windows (.NET Framework binder).");
+            Assert.Inconclusive("Test requires Windows (.NET Framework binder).");
     }
 
-    private void SkipIfClr2Absent()
+    private static void SkipIfClr2Absent()
     {
-        if (!samples.Clr2RuntimePresent)
-            Assert.Skip("CLR 2 runtime not installed on this host (no v2.0.50727 mscorlib).");
+        if (!Samples.Clr2RuntimePresent)
+            Assert.Inconclusive("CLR 2 runtime not installed on this host (no v2.0.50727 mscorlib).");
     }
 
     private sealed class TempDir : IDisposable

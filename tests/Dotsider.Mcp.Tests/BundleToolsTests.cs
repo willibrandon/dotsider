@@ -5,72 +5,78 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests for single-file bundle MCP tools: get_bundle_info and list_bundle_entries.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class BundleToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class BundleToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// get_bundle_info on a self-contained apphost surfaces bundle flag and file count.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetBundleInfo_ReturnsBundleMetadata()
     {
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync("get_bundle_info",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.SelfContainedConsoleExe },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.SelfContainedConsoleExe },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("isBundle").GetBoolean());
-        Assert.True(json.GetProperty("fileCount").GetInt32() > 0);
+        Assert.IsTrue(json.GetProperty("isBundle").GetBoolean());
+        Assert.IsGreaterThan(0, json.GetProperty("fileCount").GetInt32());
     }
 
     /// <summary>
     /// Non-bundle input returns false without false-positive bundle detection.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetBundleInfo_NonBundle_ReturnsFalse()
     {
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync("get_bundle_info",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.RichLibraryDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.False(json.GetProperty("isBundle").GetBoolean());
+        Assert.IsFalse(json.GetProperty("isBundle").GetBoolean());
     }
 
     /// <summary>
     /// list_bundle_entries enumerates the files packed inside a single-file apphost.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListBundleEntries_ReturnsEntries()
     {
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync("list_bundle_entries",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.SelfContainedConsoleExe },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.SelfContainedConsoleExe },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var entries = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal(JsonValueKind.Array, entries.ValueKind);
-        Assert.True(entries.GetArrayLength() > 0);
+        Assert.AreEqual(JsonValueKind.Array, entries.ValueKind);
+        Assert.IsGreaterThan(0, entries.GetArrayLength());
     }
 
     /// <summary>
     /// Tool registry exposes both bundle tools by their expected identifiers.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListTools_IncludesBundleTools()
     {
         await StartServerAsync();

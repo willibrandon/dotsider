@@ -8,53 +8,57 @@ namespace Dotsider.Tests;
 /// <see cref="AssemblyAnalyzer.NativeSymbols"/> property, against the real NativeAOT fixture on
 /// the Windows leg (where its symbol file is a PDB).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeSymbolReaderPeTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativeSymbolReaderPeTests
 {
-    private bool HasPdb =>
-        samples.NativeAotConsoleSymbols is not null
-        && samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
+    private static bool HasPdb =>
+        Samples.NativeAotConsoleSymbols is not null
+        && Samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Verifies the facade reads the matching PDB as the NativePdb source and demangles the entry
     /// point.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NativeAotExeWithPdb_UsesNativePdbSource()
     {
-        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+        TestSkip.When(!HasPdb, "native PDB not present on this platform");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var info = NativeSymbolReader.Read(
-            samples.NativeAotConsoleExe!, analyzer.RawBytes.ToArray(), analyzer.RecoveredTypes);
+            Samples.NativeAotConsoleExe!, analyzer.RawBytes.ToArray(), analyzer.RecoveredTypes);
 
-        Assert.Equal(NativeSymbolSource.NativePdb, info.Source);
-        Assert.Equal(NativeSymbolStatus.Loaded, info.Status);
-        Assert.NotEmpty(info.Symbols);
-        Assert.Contains(info.Symbols, s => s.ManagedName is not null && s.IsExactMatch);
+        Assert.AreEqual(NativeSymbolSource.NativePdb, info.Source);
+        Assert.AreEqual(NativeSymbolStatus.Loaded, info.Status);
+        Assert.IsNotEmpty(info.Symbols);
+        Assert.Contains(s => s.ManagedName is not null && s.IsExactMatch, info.Symbols);
     }
 
     /// <summary>
     /// Verifies a Native AOT binary copied away from its PDB falls back to real .pdata boundaries.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NativeAotExeWithoutPdb_FallsBackToPdataBoundaries()
     {
-        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+        TestSkip.When(!HasPdb, "native PDB not present on this platform");
 
         var dir = Directory.CreateTempSubdirectory("dotsider-pdata-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
-            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             var bytes = File.ReadAllBytes(exeCopy);
 
             var info = NativeSymbolReader.Read(exeCopy, bytes, []);
 
-            Assert.Equal(NativeSymbolSource.PdataFallback, info.Source);
-            Assert.NotEmpty(info.Symbols);
-            Assert.All(info.Symbols, s => Assert.Equal(NativeSymbolKind.Boundary, s.Kind));
-            Assert.All(info.Symbols, s => Assert.True(s.Size > 0));
+            Assert.AreEqual(NativeSymbolSource.PdataFallback, info.Source);
+            Assert.IsNotEmpty(info.Symbols);
+            TestAssert.All(info.Symbols, s => Assert.AreEqual(NativeSymbolKind.Boundary, s.Kind));
+            TestAssert.All(info.Symbols, s => Assert.IsGreaterThan(0, s.Size));
         }
         finally
         {
@@ -67,31 +71,32 @@ public class NativeSymbolReaderPeTests(SampleAssemblyFixture samples)
     /// <see cref="NativeSymbolStatus.IdMismatch"/> with boundaries, instead of hiding behind
     /// "no matching PDB".
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Read_StalePdbBesideExe_ReportsIdMismatch()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
-        Assert.SkipWhen(bytes.Length < 2 || bytes[0] != (byte)'M' || bytes[1] != (byte)'Z',
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
+        TestSkip.When(bytes.Length < 2 || bytes[0] != (byte)'M' || bytes[1] != (byte)'Z',
             "exe is not a PE on this platform");
         var id = PeCodeView.TryRead(bytes);
-        Assert.SkipWhen(id is null, "exe carries no RSDS record");
+        TestSkip.When(id is null, "exe carries no RSDS record");
 
         var dir = Directory.CreateTempSubdirectory("dotsider-stalepdb-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
-            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             File.WriteAllBytes(
                 Path.Combine(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb"),
                 SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(Guid.NewGuid(), id!.Value.Age)));
 
             var info = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);
 
-            Assert.Equal(NativeSymbolStatus.IdMismatch, info.Status);
-            Assert.Equal(NativeSymbolSource.PdataFallback, info.Source);
-            Assert.NotEmpty(info.Symbols);
-            Assert.Contains(".pdb", info.Diagnostic);
+            Assert.AreEqual(NativeSymbolStatus.IdMismatch, info.Status);
+            Assert.AreEqual(NativeSymbolSource.PdataFallback, info.Source);
+            Assert.IsNotEmpty(info.Symbols);
+            Assert.Contains(".pdb", info.Diagnostic!);
         }
         finally
         {
@@ -106,35 +111,36 @@ public class NativeSymbolReaderPeTests(SampleAssemblyFixture samples)
     /// <see cref="NativeSymbolStatus.CorruptSymbolFile"/>, and a matching PDB with no readable
     /// symbol streams does too — neither masquerades as a missing file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_CorruptOrEmptyPdb_ReportsCorruptSymbolFile()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
-        Assert.SkipWhen(bytes.Length < 2 || bytes[0] != (byte)'M' || bytes[1] != (byte)'Z',
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
+        TestSkip.When(bytes.Length < 2 || bytes[0] != (byte)'M' || bytes[1] != (byte)'Z',
             "exe is not a PE on this platform");
         var id = PeCodeView.TryRead(bytes);
-        Assert.SkipWhen(id is null, "exe carries no RSDS record");
+        TestSkip.When(id is null, "exe carries no RSDS record");
 
         var dir = Directory.CreateTempSubdirectory("dotsider-badpdb-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
-            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             var pdbPath = Path.Combine(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb");
 
             // Not an MSF container at all.
             File.WriteAllBytes(pdbPath, [0xDE, 0xAD, 0xBE, 0xEF]);
             var unreadable = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);
-            Assert.Equal(NativeSymbolStatus.CorruptSymbolFile, unreadable.Status);
-            Assert.NotEmpty(unreadable.Symbols);
+            Assert.AreEqual(NativeSymbolStatus.CorruptSymbolFile, unreadable.Status);
+            Assert.IsNotEmpty(unreadable.Symbols);
 
             // Identity matches, but there is no DBI stream to read symbols from.
             File.WriteAllBytes(pdbPath,
                 SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(id!.Value.Guid, id.Value.Age)));
             var empty = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);
-            Assert.Equal(NativeSymbolStatus.CorruptSymbolFile, empty.Status);
-            Assert.Contains("no readable symbols", empty.Diagnostic);
+            Assert.AreEqual(NativeSymbolStatus.CorruptSymbolFile, empty.Status);
+            Assert.Contains("no readable symbols", empty.Diagnostic!);
         }
         finally
         {
@@ -157,14 +163,15 @@ public class NativeSymbolReaderPeTests(SampleAssemblyFixture samples)
     /// Verifies the analyzer surfaces native symbols for a Native AOT binary and null for a
     /// managed assembly.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NativeSymbols_ManagedIsNull_NativeAotIsPresent()
     {
-        using var managed = new AssemblyAnalyzer(samples.RichLibraryDll);
-        Assert.Null(managed.NativeSymbols);
+        using var managed = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        Assert.IsNull(managed.NativeSymbols);
 
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        using var aot = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
-        Assert.NotNull(aot.NativeSymbols);
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        using var aot = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        Assert.IsNotNull(aot.NativeSymbols);
     }
 }

@@ -12,9 +12,11 @@ namespace Dotsider.Tests;
 /// every recursive call instead of the remaining items' total, leaving a visible gap on
 /// the right side of the Size Map tab.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class SizeMapViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -32,7 +34,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? Samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.SizeMap
                 };
@@ -54,11 +56,12 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// making them detectable by scanning the screen buffer.
     /// See: https://github.com/willibrandon/dotsider/issues/134
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_TreemapFillsEntireArea_NoGapOnRight()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -110,8 +113,8 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // With the bug, roughly 26% of the treemap area (~780 cells) is uncovered.
         // A correctly tiling treemap has zero uncovered cells.
-        Assert.True(totalTreemapCells > 0, "Could not locate treemap area");
-        Assert.Equal(0, uncoveredCells);
+        Assert.IsGreaterThan(0, totalTreemapCells, "Could not locate treemap area");
+        Assert.AreEqual(0, uncoveredCells);
 
         cts.Cancel();
         await runTask;
@@ -125,7 +128,8 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// cell uncovered when the boundary falls on a non-integer.
     /// See: https://github.com/willibrandon/dotsider/issues/134
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SizeMap_CellBounds_TilesFullViewport()
     {
         const int width = 120;
@@ -155,7 +159,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
                     }
                 }
 
-                Assert.True(covered, $"Cell ({x}, {y}) is not covered by any CellBounds rect");
+                Assert.IsTrue(covered, $"Cell ({x}, {y}) is not covered by any CellBounds rect");
             }
         }
     }
@@ -168,7 +172,8 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// boundary resolves to the second (later) rect, not the first.
     /// See: https://github.com/willibrandon/dotsider/issues/134
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SizeMap_CellBounds_OverlappingBoundary_ResolvesToLastRect()
     {
         // Split at 68.7 → rect A covers [0, 69), rect B covers [68, 120).
@@ -184,8 +189,8 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         // Cell (68, 15) is inside both CellBounds
         var (ax1, _, ax2, _) = SizeTreemapView.CellBounds(rects[0]);
         var (bx1, _, bx2, _) = SizeTreemapView.CellBounds(rects[1]);
-        Assert.True(68 >= ax1 && 68 < ax2, "Cell 68 should be inside rect A's bounds");
-        Assert.True(68 >= bx1 && 68 < bx2, "Cell 68 should be inside rect B's bounds");
+        Assert.IsTrue(68 >= ax1 && 68 < ax2, "Cell 68 should be inside rect A's bounds");
+        Assert.IsTrue(68 >= bx1 && 68 < bx2, "Cell 68 should be inside rect B's bounds");
 
         // Simulate the click handler: iterate all, keep last match (same as draw order)
         SizeNode? resolved = null;
@@ -196,7 +201,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
                 resolved = rect.Node;
         }
 
-        Assert.Same(nodeB, resolved);
+        Assert.AreSame(nodeB, resolved);
     }
 
     /// <summary>
@@ -205,11 +210,12 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// must always resolve to a node on hover.
     /// See: https://github.com/willibrandon/dotsider/issues/134
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_RightmostPaintedCell_IsHoverable()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -259,7 +265,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
             return rightmostX >= 0;
         }, description: "rightmost painted cell found");
 
-        Assert.True(rightmostX >= 0, "No painted cells found on middle row");
+        Assert.IsGreaterThanOrEqualTo(0, rightmostX, "No painted cells found on middle row");
 
         // Click the rightmost painted cell — the click handler uses the same
         // CellBounds as drawing, so if the cell is painted it must be clickable.
@@ -270,7 +276,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(_ => _state!.TreemapHoveredItem is not null,
             description: "hovered item resolved for rightmost painted cell");
 
-        Assert.NotNull(_state!.TreemapHoveredItem);
+        Assert.IsNotNull(_state!.TreemapHoveredItem);
 
         cts.Cancel();
         await runTask;
@@ -280,13 +286,14 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Size Map on a Native AOT binary with an mstat sidecar renders the
     /// per-assembly and category breakdown instead of the empty state.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_NativeAot_RendersAssembliesAndBuckets()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -308,14 +315,15 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies w on a node that carries a dependency-graph name opens the why-chain popup,
     /// and Esc dismisses it.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_NativeAot_WhyKeyOpensAndEscClosesChainPopup()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
-        Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -345,7 +353,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.EscapeAsync(ct: cts.Token);
         await auto.WaitUntilAsync(s => !s.ContainsText("Why in binary"),
             description: "why popup to close");
-        Assert.Null(_state.SizeMapWhyContent);
+        Assert.IsNull(_state.SizeMapWhyContent);
 
         cts.Cancel();
         await runTask;
@@ -354,20 +362,21 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies w without a DGML sidecar explains what is missing instead of doing nothing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_NativeAot_WhyKeyWithoutDgml_ExplainsMissingGraph()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
         var dir = Directory.CreateTempSubdirectory("dotsider-whynodgml-");
-        var name = Path.GetFileName(samples.NativeAotConsoleExe!);
+        var name = Path.GetFileName(Samples.NativeAotConsoleExe!);
         var exeCopy = Path.Combine(dir.FullName, name);
-        File.Copy(samples.NativeAotConsoleExe!, exeCopy);
+        File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
         var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
-        File.Copy(samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, stem + ".mstat"));
+        File.Copy(Samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, stem + ".mstat"));
 
         var (terminal, app) = CreateDotsiderApp(exeCopy);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         try
         {
@@ -405,11 +414,12 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies w is inert on a managed assembly's tree, whose nodes carry no dependency
     /// names.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeMap_Managed_WhyKeyIsNoOp()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -422,7 +432,7 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.W, ct: cts.Token);
         await auto.WaitAsync(100, ct: cts.Token);
 
-        Assert.Null(_state!.SizeMapWhyContent);
+        Assert.IsNull(_state!.SizeMapWhyContent);
 
         cts.Cancel();
         await runTask;
@@ -433,10 +443,10 @@ public class SizeMapViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

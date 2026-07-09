@@ -13,9 +13,11 @@ namespace Dotsider.Tests;
 /// Tests for IL editor lifecycle: StatePanelWidget-based editor caching,
 /// tree list per-render sync, and field pane staleness.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class IlEditorLifecycleTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -40,7 +42,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -124,55 +126,59 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies get or create editor key same analyzer and token returns same reference.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetOrCreateEditorKey_SameAnalyzerAndToken_ReturnsSameReference()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var key1 = state.GetOrCreateEditorKey(state.Analyzer, 0x06000001);
         var key2 = state.GetOrCreateEditorKey(state.Analyzer, 0x06000001);
 
-        Assert.Same(key1, key2);
+        Assert.AreSame(key1, key2);
     }
 
     /// <summary>
     /// Verifies get or create editor key different tokens returns different references.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetOrCreateEditorKey_DifferentTokens_ReturnsDifferentReferences()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var key1 = state.GetOrCreateEditorKey(state.Analyzer, 0x06000001);
         var key2 = state.GetOrCreateEditorKey(state.Analyzer, 0x06000002);
 
-        Assert.NotSame(key1, key2);
+        Assert.AreNotSame(key1, key2);
     }
 
     /// <summary>
     /// Verifies set il focused tree key updates focused tree key.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SetIlFocusedTreeKey_UpdatesFocusedTreeKey()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         state.SetIlFocusedTreeKey("method:0x06000001");
 
-        Assert.Equal("method:0x06000001", state.IlFocusedTreeKey);
+        Assert.AreEqual("method:0x06000001", state.IlFocusedTreeKey);
     }
 
     /// <summary>
     /// Verifies restore from il back entry reseeds editor key cache.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RestoreFromIlBackEntry_ReseedsEditorKeyCache()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         var method = state.Analyzer.MethodDefs[0];
         var editorKey = state.GetOrCreateEditorKey(state.Analyzer, method.Token);
@@ -194,17 +200,18 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // GetOrCreateEditorKey must return the reseeded key
         var restoredKey = state.GetOrCreateEditorKey(state.Analyzer, method.Token);
-        Assert.Same(editorKey, restoredKey);
+        Assert.AreSame(editorKey, restoredKey);
     }
 
     /// <summary>
     /// Verifies restore from il back entry saves outgoing editor.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RestoreFromIlBackEntry_SavesOutgoingEditor()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         if (state.Analyzer.MethodDefs.Count < 2) return;
 
         var methodB = state.Analyzer.MethodDefs[1];
@@ -226,18 +233,19 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         state.RestoreFromIlBackEntry(entry);
 
-        Assert.True(state.IlCachedEditors.ContainsKey(keyB));
-        Assert.Same(editorStateB, state.IlCachedEditors[keyB]);
+        Assert.IsTrue(state.IlCachedEditors.ContainsKey(keyB));
+        Assert.AreSame(editorStateB, state.IlCachedEditors[keyB]);
     }
 
     /// <summary>
     /// Verifies back entry preserves editor key.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BackEntry_PreservesEditorKey()
     {
         var app = CreateMinimalApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         if (state.Analyzer.MethodDefs.Count < 2) return;
 
         var methodA = state.Analyzer.MethodDefs[0];
@@ -251,9 +259,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         var methodB = state.Analyzer.MethodDefs[1];
         state.NavigateToIlDefinition(methodB.Token);
 
-        Assert.True(state.IlBackStack.Count > 0);
+        Assert.IsGreaterThan(0, state.IlBackStack.Count);
         var entry = state.IlBackStack.Peek();
-        Assert.Same(keyA, entry.EditorKey);
+        Assert.AreSame(keyA, entry.EditorKey);
     }
 
     // ── Integration tests (real IL Inspector) ─────────────────
@@ -262,10 +270,11 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// After switching methods via the tree and switching back, the EditorNode's scroll
     /// offset should be preserved (node kept alive by StatePanelWidget cache).
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task EditorScroll_PreservedOnTreeRevisit()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -283,10 +292,10 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // Capture the EditorNode's scroll offset after moving down
         var editorNodeA = app.FocusedNode as EditorNode;
-        Assert.NotNull(editorNodeA);
+        Assert.IsNotNull(editorNodeA);
         var scrollAfterMove = editorNodeA!.ScrollOffset;
         // Scroll should have moved from the default (1) after 10 down-arrows
-        Assert.True(scrollAfterMove >= 1, $"Expected scroll > 0, got {scrollAfterMove}");
+        Assert.IsGreaterThanOrEqualTo(1, scrollAfterMove, $"Expected scroll > 0, got {scrollAfterMove}");
 
         // Switch to a different method via tree
         var methodB = _state.Analyzer.MethodDefs.First(m => m.Token != methodA.Token && m.Rva > 0);
@@ -304,9 +313,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // The visible EditorNode should be the same cached node with preserved scroll
         var restoredEditorNode = app.Focusables.OfType<EditorNode>().FirstOrDefault();
-        Assert.NotNull(restoredEditorNode);
-        Assert.Same(editorNodeA, restoredEditorNode);
-        Assert.Equal(scrollAfterMove, restoredEditorNode!.ScrollOffset);
+        Assert.IsNotNull(restoredEditorNode);
+        Assert.AreSame(editorNodeA, restoredEditorNode);
+        Assert.AreEqual(scrollAfterMove, restoredEditorNode!.ScrollOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -316,10 +325,11 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// When search n/N switches to a different method, the editor must show the new
     /// method's IL and focus must be on the visible editor, not on a hidden cached one.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SearchNavigateToMatch_FocusesVisibleEditor()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -344,7 +354,7 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // Focus must be on an EditorNode that's in the focus ring (visible, not hidden)
         var focused = app.FocusedNode;
-        Assert.IsType<EditorNode>(focused);
+        Assert.IsExactInstanceOfType<EditorNode>(focused);
 
         // The focused EditorNode must be in Focusables (not hidden in ResponsiveWidget)
         Assert.Contains(focused, app.Focusables);
@@ -356,10 +366,11 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// The field pane must stabilize after the first render — not recreate EditorState every frame.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FieldPane_StableAcrossFrames()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -377,14 +388,14 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
 
         // Capture the editor key after first render
         var keyAfterFirstRender = _state.IlEditorKey;
-        Assert.NotNull(keyAfterFirstRender);
+        Assert.IsNotNull(keyAfterFirstRender);
 
         // Force another render
         _state.App.Invalidate();
         await auto.WaitAsync(TimeSpan.FromMilliseconds(200), ct: ct);
 
         // Editor key should be the same (staleness guard prevents recreation)
-        Assert.Same(keyAfterFirstRender, _state.IlEditorKey);
+        Assert.AreSame(keyAfterFirstRender, _state.IlEditorKey);
 
         _cts!.Cancel();
         await runTask;
@@ -399,10 +410,11 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// in between, so the render loop cannot tick and re-capture the panel before the
     /// check sees the cleared field.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ResetViewState_ClearsAllLifecycleProperties()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -422,9 +434,9 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
             description: "method B loaded");
 
         // Verify state is populated before reset
-        Assert.NotNull(_state.IlEditorKey);
-        Assert.True(_state.IlEditorKeyCache.Count > 0);
-        Assert.True(_state.IlCachedEditors.Count > 0);
+        Assert.IsNotNull(_state.IlEditorKey);
+        Assert.IsGreaterThan(0, _state.IlEditorKeyCache.Count);
+        Assert.IsGreaterThan(0, _state.IlCachedEditors.Count);
 
         // Stop the render loop before mutating state so no concurrent render can
         // re-populate IlScrollPanelNode (or any other field re-captured per render)
@@ -436,17 +448,17 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
         _state.IlTreeScrollOffset = 7;
 
         // PushAssemblyDirect calls ResetViewState (same path as CommitAnalyzer)
-        using var otherAnalyzer = new AssemblyAnalyzer(samples.HelloWorldDll);
+        using var otherAnalyzer = new AssemblyAnalyzer(Samples.HelloWorldDll);
         _state.PushAssemblyDirect(otherAnalyzer);
 
         // All lifecycle properties must be cleared
-        Assert.Null(_state.IlEditorKey);
-        Assert.Null(_state.IlEditorField);
-        Assert.Null(_state.IlScrollPanelNode);
-        Assert.False(_state.IlScrollSelectionIntoViewPending);
-        Assert.Equal(0, _state.IlTreeScrollOffset);
-        Assert.Empty(_state.IlEditorKeyCache);
-        Assert.Empty(_state.IlCachedEditors);
+        Assert.IsNull(_state.IlEditorKey);
+        Assert.IsNull(_state.IlEditorField);
+        Assert.IsNull(_state.IlScrollPanelNode);
+        Assert.IsFalse(_state.IlScrollSelectionIntoViewPending);
+        Assert.AreEqual(0, _state.IlTreeScrollOffset);
+        Assert.IsEmpty(_state.IlEditorKeyCache);
+        Assert.IsEmpty(_state.IlCachedEditors);
     }
 
     /// <summary>
@@ -454,12 +466,12 @@ public class IlEditorLifecycleTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

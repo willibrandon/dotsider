@@ -8,6 +8,7 @@ namespace Dotsider.Tests;
 /// The checks mirror the repository's Picket-style script policy.
 /// New file-based apps stay documented, buildable, and friendly to editor hovers.
 /// </summary>
+[TestClass]
 public sealed partial class ScriptConventionTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "dotsider-script-tests", Guid.NewGuid().ToString("N"));
@@ -26,7 +27,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// <summary>
     /// Verifies the script README documents the file-based app workflow.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ScriptsReadme_DocumentsFileBasedAppWorkflow()
     {
         string root = FindRepositoryRoot();
@@ -48,7 +50,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// The outer-loop workflow should refresh artifacts without changing normal PR CI cost.
     /// Runtime cross-target entries stay pinned to the same container family as dotnet/runtime.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NativeArchitectureOracleWorkflow_UsesCaptureAppAndRuntimeCrossImages()
     {
         string root = FindRepositoryRoot();
@@ -67,7 +70,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// <summary>
     /// Verifies the disassembly oracle app builds and captures stable fake input.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void CaptureDisasmOracle_BuildsAndCapturesFakeInput()
     {
         string root = FindRepositoryRoot();
@@ -91,12 +94,12 @@ public sealed partial class ScriptConventionTests : IDisposable
             "--",
             "--version");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         string stdoutPath = Path.Combine(outputDirectory, "README.test.oracle.txt");
         string metadataPath = Path.Combine(outputDirectory, "README.test.oracle.json");
-        Assert.True(File.Exists(stdoutPath), stdoutPath);
-        Assert.True(File.Exists(metadataPath), metadataPath);
-        Assert.False(string.IsNullOrWhiteSpace(File.ReadAllText(stdoutPath)));
+        Assert.IsTrue(File.Exists(stdoutPath), stdoutPath);
+        Assert.IsTrue(File.Exists(metadataPath), metadataPath);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(File.ReadAllText(stdoutPath)));
         string metadata = File.ReadAllText(metadataPath);
         Assert.Contains("\"Architecture\": \"test\"", metadata);
         Assert.Contains("\"FixtureSha256\"", metadata);
@@ -108,7 +111,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// Large disassembly tools can produce very large streams in CI.
     /// The capture metadata records truncation instead of growing memory without bound.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void CaptureDisasmOracle_TruncatesLargeOutput()
     {
         string root = FindRepositoryRoot();
@@ -134,7 +137,7 @@ public sealed partial class ScriptConventionTests : IDisposable
             "--",
             "--info");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         string stdout = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.txt"));
         string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
         Assert.Contains("[output truncated after 20 characters]", stdout);
@@ -146,7 +149,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// Outer-loop capture workflows should upload evidence from failed oracle tools.
     /// The script exits successfully only when the caller explicitly allows the oracle failure.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void CaptureDisasmOracle_AllowsOracleFailure()
     {
         string root = FindRepositoryRoot();
@@ -171,7 +174,7 @@ public sealed partial class ScriptConventionTests : IDisposable
             "--",
             "definitely-not-a-dotnet-command");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
         Assert.Contains("\"OracleExitCode\":", metadata);
         Assert.DoesNotContain("\"OracleExitCode\": 0", metadata);
@@ -182,7 +185,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     /// This keeps internal helper types documented enough for editor hovers.
     /// The file list is intentionally scoped to the new file-based app and architecture work.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NewTopLevelTypes_HaveThreeLineSummaries()
     {
         string root = FindRepositoryRoot();
@@ -207,7 +211,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         foreach (string relativePath in relativePaths)
         {
             string text = File.ReadAllText(Path.Combine(root, relativePath));
-            Assert.True(HasThreeLineSummaryBeforeFirstType(text), relativePath);
+            Assert.IsTrue(HasThreeLineSummaryBeforeFirstType(text), relativePath);
         }
     }
 
@@ -256,7 +260,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     private static bool HasThreeLineSummaryBeforeFirstType(string text)
     {
         Match typeMatch = TopLevelTypeRegex().Match(text);
-        Assert.True(typeMatch.Success, "No top-level type declaration found.");
+        Assert.IsTrue(typeMatch.Success, "No top-level type declaration found.");
 
         string beforeType = text[..typeMatch.Index];
         MatchCollection summaries = SummaryRegex().Matches(beforeType);

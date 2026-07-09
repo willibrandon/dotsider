@@ -19,8 +19,8 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 {
     private const int MaxEvents = 10_000;
     private const int MaxOutputLines = 5_000;
-    private const int MaxConnectRetries = 25;        // 25 × 200ms = 5s max wait
-    private const int ConnectRetryDelayMs = 200;
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromMilliseconds(200);
 
     private readonly bool _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
@@ -161,6 +161,11 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             RedirectStandardError = true,
         };
         psi.Environment["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
+        if (!psi.Environment.ContainsKey("ASPNETCORE_URLS")
+            && !psi.Environment.ContainsKey("DOTNET_URLS"))
+        {
+            psi.Environment["ASPNETCORE_URLS"] = "http://127.0.0.1:0";
+        }
         _process = Process.Start(psi);
 
         if (_process is null)
@@ -177,34 +182,20 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
         // Capture stdout/stderr on background threads
         var startTime = _stopwatch;
-        Task.Run(() => ReadOutput(_process.StandardOutput, false, startTime));
-        Task.Run(() => ReadOutput(_process.StandardError, true, startTime));
+        RunOnDedicatedThread(() => ReadOutput(_process.StandardOutput, false, startTime));
+        RunOnDedicatedThread(() => ReadOutput(_process.StandardError, true, startTime));
 
         // Handle process exit
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
-            bool transitioned;
             lock (_stateLock)
             {
-                transitioned = _processState == TraceProcessState.Running;
-                if (transitioned)
-                {
-                    _exitCode = _process.HasExited ? _process.ExitCode : null;
-                    _processState = TraceProcessState.Exited;
-                }
+                _exitCode = _process.HasExited ? _process.ExitCode : null;
             }
-            if (transitioned)
-                invalidate();
 
-            if (transitioned)
-            {
-                _stopwatch?.Stop();
-                // StopProcessing unblocks source.Process() synchronously.
-                // session.Stop() can deadlock on Windows when the pipe is
-                // already broken, so we only use the TraceEventSource path.
-                _eventSource?.StopProcessing();
-            }
+            _stopwatch?.Stop();
+            invalidate();
         };
 
         lock (_stateLock) _processState = TraceProcessState.Starting;
@@ -225,36 +216,12 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
         // so it won't exit while we're connecting.
         var providers = BuildProviders();
         var pid = _process.Id;
-        _processingTask = Task.Run(async () =>
+        _processingTask = Task.Factory.StartNew(async () =>
         {
             try
             {
-                // Retry connecting — the diagnostic IPC endpoint may not be
-                // available immediately after process start
-                DiagnosticsClient? client = null;
-                EventPipeSession? session = null;
-
-                for (var attempt = 0; attempt < MaxConnectRetries; attempt++)
-                {
-                    _cts.Token.ThrowIfCancellationRequested();
-
-                    try
-                    {
-                        client = new DiagnosticsClient(pid);
-                        session = client.StartEventPipeSession(providers, requestRundown: false);
-                        break; // connected
-                    }
-                    catch (ServerNotAvailableException)
-                    {
-                        // Runtime diagnostic pipe not ready yet — wait and retry
-                        await Task.Delay(ConnectRetryDelayMs, _cts.Token);
-                    }
-                    catch (EndOfStreamException)
-                    {
-                        await Task.Delay(ConnectRetryDelayMs, _cts.Token);
-                    }
-                }
-
+                var client = new DiagnosticsClient(pid);
+                var session = await TryStartEventPipeSessionAsync(client, providers);
                 if (session is null)
                 {
                     lock (_stateLock)
@@ -277,19 +244,13 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
                 // Process events — blocks until session ends
                 ProcessEventsLoop(session);
+                MarkExitedIfStarted();
             }
             catch (OperationCanceledException) { /* user cancelled */ }
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
             {
                 // Expected: process exited (pipe broke) or user cancelled
-                lock (_stateLock)
-                {
-                    if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
-                    {
-                        _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
-                        _processState = TraceProcessState.Exited;
-                    }
-                }
+                MarkExitedIfStarted();
             }
             catch (Exception ex)
             {
@@ -304,7 +265,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 _stopwatch?.Stop();
                 invalidate();
             }
-        });
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
     }
 
     /// <summary>Stops the traced process and event collection.</summary>
@@ -352,6 +313,66 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
     // --- Private implementation ---
 
     private void MarkDirty() => Volatile.Write(ref _dirty, 1);
+
+    private void MarkExitedIfStarted()
+    {
+        lock (_stateLock)
+        {
+            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
+            {
+                _exitCode = _process?.HasExited == true ? _process.ExitCode : null;
+                _processState = TraceProcessState.Exited;
+            }
+        }
+    }
+
+    private async Task<EventPipeSession?> TryStartEventPipeSessionAsync(
+        DiagnosticsClient client,
+        IReadOnlyCollection<EventPipeProvider> providers)
+    {
+        var connectTimer = Stopwatch.StartNew();
+
+        while (connectTimer.Elapsed < ConnectTimeout)
+        {
+            _cts!.Token.ThrowIfCancellationRequested();
+
+            try
+            {
+                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                connectCts.CancelAfter(ConnectTimeout - connectTimer.Elapsed);
+                return await client.StartEventPipeSessionAsync(
+                    providers,
+                    requestRundown: false,
+                    circularBufferMB: 256,
+                    token: connectCts.Token);
+            }
+            catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+            {
+                return null;
+            }
+            catch (Exception ex) when (IsTransientDiagnosticsConnectException(ex))
+            {
+                var remaining = ConnectTimeout - connectTimer.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                    return null;
+
+                var delay = remaining < ConnectRetryDelay ? remaining : ConnectRetryDelay;
+                await Task.Delay(delay, _cts.Token);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsTransientDiagnosticsConnectException(Exception ex) =>
+        ex is ServerNotAvailableException or EndOfStreamException;
+
+    private static void RunOnDedicatedThread(Action action) =>
+        Task.Factory.StartNew(
+            action,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
 
     private static List<EventPipeProvider> BuildProviders() =>
     [

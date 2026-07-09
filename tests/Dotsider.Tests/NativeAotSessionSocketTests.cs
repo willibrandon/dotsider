@@ -11,9 +11,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// End-to-end diagnostics-socket tests for Native AOT analysis commands used by MCP session tools.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeAotSessionSocketTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class NativeAotSessionSocketTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -43,10 +45,10 @@ public class NativeAotSessionSocketTests(SampleAssemblyFixture samples) : IAsync
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-            });
+        });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
-        _listener.StartListening();
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _ = _app.RunAsync(_appCts.Token);
@@ -60,54 +62,57 @@ public class NativeAotSessionSocketTests(SampleAssemblyFixture samples) : IAsync
     }
 
     /// <summary>get-native-aot-info returns identity facts from a running Native AOT session.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetNativeAotInfo_ReturnsSummary()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-native-aot-info" }, ct);
 
-        Assert.True(response.Success, response.Error);
+        Assert.IsTrue(response.Success, response.Error);
         var data = (response.Data as JsonElement?)!.Value;
-        Assert.Equal("nativeAot", data.GetProperty("binaryKind").GetString());
-        Assert.True(data.GetProperty("readyToRunSections").GetInt32() > 0);
+        Assert.AreEqual("nativeAot", data.GetProperty("binaryKind").GetString());
+        Assert.IsGreaterThan(0, data.GetProperty("readyToRunSections").GetInt32());
     }
 
     /// <summary>get-current-view reports the native tab 3 label for Native AOT sessions.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetCurrentView_NativeAot_Tab3LabelIsDisassembly()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var navigate = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
-        Assert.True(navigate.Success, navigate.Error);
+        Assert.IsTrue(navigate.Success, navigate.Error);
         await Task.Delay(500, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
-        Assert.True(response.Success, response.Error);
+        Assert.IsTrue(response.Success, response.Error);
         var data = (response.Data as JsonElement?)!.Value;
-        Assert.Equal(3, data.GetProperty("tab").GetInt32());
-        Assert.Equal("Disassembly", data.GetProperty("tabLabel").GetString());
+        Assert.AreEqual(3, data.GetProperty("tab").GetInt32());
+        Assert.AreEqual("Disassembly", data.GetProperty("tabLabel").GetString());
     }
 
     /// <summary>get-native-aot-size-contributors returns mstat contributors from a running session.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetNativeAotSizeContributors_ReturnsRows()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest
@@ -117,28 +122,29 @@ public class NativeAotSessionSocketTests(SampleAssemblyFixture samples) : IAsync
                 TopN = 5
             }, ct);
 
-        Assert.True(response.Success, response.Error);
+        Assert.IsTrue(response.Success, response.Error);
         var data = (response.Data as JsonElement?)!.Value;
-        Assert.True(data.GetProperty("contributors").GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, data.GetProperty("contributors").GetArrayLength());
     }
 
     /// <summary>list-methods uses the recovered Native AOT inventory through the session socket.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListMethods_ReturnsRecoveredNativeAotMethods()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "list-methods", TypeName = "Program" }, ct);
 
-        Assert.True(response.Success, response.Error);
+        Assert.IsTrue(response.Success, response.Error);
         var data = (response.Data as JsonElement?)!.Value;
-        Assert.True(data.GetArrayLength() > 0);
-        Assert.All(data.EnumerateArray(), row =>
-            Assert.Equal("RecoveredNativeAot", row.GetProperty("source").GetString()));
+        Assert.IsGreaterThan(0, data.GetArrayLength());
+        TestAssert.All(data.EnumerateArray(), row =>
+            Assert.AreEqual("RecoveredNativeAot", row.GetProperty("source").GetString()));
     }
 
     /// <summary>Disposes the diagnostics listener, state, and terminal.</summary>

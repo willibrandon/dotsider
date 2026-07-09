@@ -4,6 +4,8 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Diagnostics;
 using System.Collections.Concurrent;
+using System.Net.Sockets;
+using System.Reflection;
 using System.Text.Json;
 
 namespace Dotsider.Tests;
@@ -13,22 +15,25 @@ namespace Dotsider.Tests;
 /// manual terminal setup (McpDiagnosticsPresentationFilter), then exercise the
 /// hex1b diagnostics socket for sessions capture and screen capture workflows.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
+[TestClass]
+public class SessionDiagnosticsSocketTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Starts a headless TUI mirroring the production Program.cs setup:
     /// manual Hex1bTerminal with McpDiagnosticsPresentationFilter.
     /// Returns the diagnostics socket path and a CTS to stop the app.
     /// </summary>
-    private async Task<(Hex1bTerminal terminal, Hex1bApp app, McpDiagnosticsPresentationFilter filter,
+    private static async Task<(Hex1bTerminal terminal, Hex1bApp app, McpDiagnosticsPresentationFilter filter,
         DotsiderDiagnosticsListener listener, DotsiderState state, Task runTask, CancellationTokenSource cts)>
         StartTuiAsync()
     {
         var pendingMutations = new ConcurrentQueue<Action<DotsiderState>>();
 
         var workload = new Hex1bAppWorkloadAdapter();
-        var filter = new McpDiagnosticsPresentationFilter("dotsider-test");
+        var socketId = TestSocketIds.NextPid();
+        var filter = CreateDiagnosticsFilter(socketId);
 
         var terminalOptions = new Hex1bTerminalOptions
         {
@@ -44,7 +49,7 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
         app = new Hex1bApp(
             ctx =>
             {
-                state ??= new DotsiderState(app!, samples.HelloWorldDll, pendingMutations);
+                state ??= new DotsiderState(app!, Samples.HelloWorldDll, pendingMutations);
                 var dotsiderApp = new DotsiderApp(state);
                 return dotsiderApp.Build(ctx);
             },
@@ -56,7 +61,7 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
             });
 
         var listener = new DotsiderDiagnosticsListener(() => state);
-        listener.StartListening();
+        listener.StartListening(overridePid: socketId);
 
         // Start the app and wait for state initialization + first render
         var cts = new CancellationTokenSource();
@@ -77,7 +82,46 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
             TimeSpan.FromSeconds(10),
             interval: TimeSpan.FromMilliseconds(50));
 
+        await TestHelpers.WaitUntilAsync(
+            () => CanConnectToSocket(filter.SocketPath),
+            TimeSpan.FromSeconds(10),
+            interval: TimeSpan.FromMilliseconds(50));
+
         return (terminal, app, filter, listener, state!, runTask, cts);
+    }
+
+    private static McpDiagnosticsPresentationFilter CreateDiagnosticsFilter(int socketId)
+    {
+        var filter = new McpDiagnosticsPresentationFilter($"dotsider-test-{socketId}");
+        var socketDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".hex1b",
+            "sockets");
+        var socketPath = Path.Combine(socketDirectory, $"{socketId}.diagnostics.socket");
+
+        typeof(McpDiagnosticsPresentationFilter)
+            .GetField("_socketPath", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(filter, socketPath);
+
+        return filter;
+    }
+
+    private static bool CanConnectToSocket(string socketPath)
+    {
+        try
+        {
+            using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            socket.Connect(new UnixDomainSocketEndPoint(socketPath));
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -103,13 +147,14 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies diagnostics socket exists after tui start.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiagnosticsSocket_ExistsAfterTuiStart()
     {
         var (terminal, app, filter, listener, state, runTask, cts) = await StartTuiAsync();
         try
         {
-            Assert.True(File.Exists(filter.SocketPath),
+            Assert.IsTrue(File.Exists(filter.SocketPath),
                 $"Hex1b diagnostics socket was not created at {filter.SocketPath}");
         }
         finally
@@ -121,7 +166,8 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies diagnostics socket removed after dispose.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiagnosticsSocket_RemovedAfterDispose()
     {
         var (terminal, app, filter, listener, state, runTask, cts) = await StartTuiAsync();
@@ -129,14 +175,15 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
 
         await StopAndDisposeAsync(terminal, app, filter, listener, state, runTask, cts);
 
-        Assert.False(File.Exists(socketPath),
+        Assert.IsFalse(File.Exists(socketPath),
             $"Hex1b diagnostics socket was not cleaned up at {socketPath}");
     }
 
     /// <summary>
     /// Verifies sessions capture returns screen content via real socket.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SessionsCapture_ReturnsScreenContent_ViaRealSocket()
     {
         var (terminal, app, filter, listener, state, runTask, cts) = await StartTuiAsync();
@@ -146,14 +193,14 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
             var requestJson = JsonSerializer.Serialize(
                 new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
 
-            var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, TestContext.Current.CancellationToken);
+            var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, CancellationToken.None);
             var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
 
-            Assert.True(response.GetProperty("success").GetBoolean(), "Capture request failed");
-            Assert.True(response.TryGetProperty("data", out var data), "Capture response missing data");
+            Assert.IsTrue(response.GetProperty("success").GetBoolean(), "Capture request failed");
+            Assert.IsTrue(response.TryGetProperty("data", out var data), "Capture response missing data");
 
             var content = data.GetString()!;
-            Assert.NotEmpty(content);
+            Assert.IsNotEmpty(content);
             Assert.Contains("dotsider", content, StringComparison.OrdinalIgnoreCase);
         }
         finally
@@ -165,7 +212,8 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies capture screen returns assembly content via real socket.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CaptureScreen_ReturnsAssemblyContent_ViaRealSocket()
     {
         var (terminal, app, filter, listener, state, runTask, cts) = await StartTuiAsync();
@@ -175,10 +223,10 @@ public class SessionDiagnosticsSocketTests(SampleAssemblyFixture samples)
             var requestJson = JsonSerializer.Serialize(
                 new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
 
-            var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, TestContext.Current.CancellationToken);
+            var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, CancellationToken.None);
             var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
 
-            Assert.True(response.GetProperty("success").GetBoolean());
+            Assert.IsTrue(response.GetProperty("success").GetBoolean());
             var content = response.GetProperty("data").GetString()!;
 
             // The General tab shows assembly info — verify real assembly data appears

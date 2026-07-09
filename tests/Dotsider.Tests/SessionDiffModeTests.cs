@@ -12,18 +12,18 @@ namespace Dotsider.Tests;
 /// instances running in diff mode, and that the diagnostics socket
 /// responds correctly to assembly-info, get-current-view, and CLI commands.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetime
+[TestClass]
+public class SessionDiffModeTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = DetectBuildConfig();
 
-    // Use a high PID that won't collide with real processes
-    private const int DiffPid = 888_001;
-
-    private readonly SampleAssemblyFixture _samples = samples;
+    private readonly SampleAssemblyFixture _samples = Samples;
+    private int _diffPid;
 
     // Mutable view state exposed to currentViewProvider
     private int _currentTab;
@@ -49,6 +49,7 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Prepares the fixture state before tests execute.
     /// </summary>
+    [TestInitialize]
     public async ValueTask InitializeAsync()
     {
         _leftAnalyzer = new AssemblyAnalyzer(_samples.RichLibraryDll);
@@ -85,7 +86,8 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
                 Tab = _currentTab + 1,
                 FilterMode = _filterMode,
             });
-        _listener.StartListening(overridePid: DiffPid);
+        _diffPid = TestSocketIds.NextPid();
+        _listener.StartListening(overridePid: _diffPid);
 
         await Task.CompletedTask;
     }
@@ -93,12 +95,13 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Releases fixture state after tests complete.
     /// </summary>
+    [TestCleanup]
     public async ValueTask DisposeAsync()
     {
-        GC.SuppressFinalize(this);
-        await _listener.DisposeAsync();
-        _leftAnalyzer.Dispose();
-        _rightAnalyzer.Dispose();
+        if (_listener is not null)
+            await _listener.DisposeAsync();
+        _leftAnalyzer?.Dispose();
+        _rightAnalyzer?.Dispose();
     }
 
     // --- Session discovery tests ---
@@ -106,31 +109,32 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Verifies sessions list finds diff mode instance.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsList_FindsDiffModeInstance()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync("sessions", "list", "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var sessions = JsonSerializer.Deserialize<JsonElement>(stdout);
-        Assert.Equal(JsonValueKind.Array, sessions.ValueKind);
+        Assert.AreEqual(JsonValueKind.Array, sessions.ValueKind);
 
-        var diffSession = FindSessionByPid(sessions, DiffPid);
-        Assert.NotNull(diffSession);
-        Assert.Equal("diff", diffSession.Value.GetProperty("mode").GetString());
-        Assert.Contains("\u2194", diffSession.Value.GetProperty("fileName").GetString());
+        var diffSession = FindSessionByPid(sessions, _diffPid);
+        Assert.IsNotNull(diffSession);
+        Assert.AreEqual("diff", diffSession.Value.GetProperty("mode").GetString());
+        Assert.Contains("\u2194", diffSession.Value.GetProperty("fileName").GetString()!);
     }
 
     /// <summary>
     /// Verifies sessions list table output shows diff mode.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsList_TableOutput_ShowsDiffMode()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync("sessions", "list");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Mode", stdout);
+        Assert.Contains(_diffPid.ToString(), stdout);
         Assert.Contains("diff", stdout);
     }
 
@@ -139,26 +143,26 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Verifies diff listener responds with real analyzer data.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffListener_RespondsWithRealAnalyzerData()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var response = await DotsiderClient.TryProbeAsync(
-            SessionDiscovery.GetDotsiderSocketPath(DiffPid), ct);
+            SessionDiscovery.GetDotsiderSocketPath(_diffPid), ct);
 
-        Assert.NotNull(response);
-        Assert.True(response.Success);
+        Assert.IsNotNull(response);
+        Assert.IsTrue(response.Success);
 
         var data = response.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("diff", data.Value.GetProperty("mode").GetString());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
 
         // Verify real analyzer data is present
         var left = data.Value.GetProperty("left");
         var right = data.Value.GetProperty("right");
-        Assert.Equal("RichLibrary", left.GetProperty("assemblyName").GetString());
-        Assert.Equal("RichLibrary", right.GetProperty("assemblyName").GetString());
-        Assert.NotEqual(
+        Assert.AreEqual("RichLibrary", left.GetProperty("assemblyName").GetString());
+        Assert.AreEqual("RichLibrary", right.GetProperty("assemblyName").GetString());
+        Assert.AreNotEqual(
             left.GetProperty("assemblyVersion").GetString(),
             right.GetProperty("assemblyVersion").GetString());
     }
@@ -166,11 +170,11 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Verifies diff listener returns current view.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffListener_ReturnsCurrentView()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = SessionDiscovery.GetDotsiderSocketPath(DiffPid);
+        var ct = CancellationToken.None;
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(_diffPid);
 
         // Set a non-default tab before querying
         _currentTab = 2;
@@ -179,27 +183,27 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
         var data = response.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("diff", data.Value.GetProperty("mode").GetString());
-        Assert.Equal(3, data.Value.GetProperty("tab").GetInt32());
-        Assert.Equal("addedOnly", data.Value.GetProperty("filterMode").GetString());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
+        Assert.AreEqual(3, data.Value.GetProperty("tab").GetInt32());
+        Assert.AreEqual("addedOnly", data.Value.GetProperty("filterMode").GetString());
     }
 
     /// <summary>
     /// Verifies diff listener rejects unsupported methods.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffListener_RejectsUnsupportedMethods()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = SessionDiscovery.GetDotsiderSocketPath(DiffPid);
+        var ct = CancellationToken.None;
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(_diffPid);
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "list-types" }, ct);
 
         // Should fail because diff mode has no DotsiderState
-        Assert.False(response.Success);
+        Assert.IsFalse(response.Success);
     }
 
     // --- CLI sessions info/view tests ---
@@ -207,46 +211,46 @@ public class SessionDiffModeTests(SampleAssemblyFixture samples) : IAsyncLifetim
     /// <summary>
     /// Verifies sessions info returns diff mode data.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsInfo_ReturnsDiffModeData()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "info", DiffPid.ToString(), "--json");
+            "sessions", "info", _diffPid.ToString(), "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
 
         // assembly-info portion
         var info = root.GetProperty("assemblyInfo");
-        Assert.Equal("diff", info.GetProperty("mode").GetString());
-        Assert.True(info.TryGetProperty("left", out _));
-        Assert.True(info.TryGetProperty("right", out _));
+        Assert.AreEqual("diff", info.GetProperty("mode").GetString());
+        Assert.IsTrue(info.TryGetProperty("left", out _));
+        Assert.IsTrue(info.TryGetProperty("right", out _));
 
         // get-current-view portion
         var view = root.GetProperty("currentView");
-        Assert.Equal("diff", view.GetProperty("mode").GetString());
-        Assert.True(view.TryGetProperty("tab", out _));
-        Assert.True(view.TryGetProperty("filterMode", out _));
+        Assert.AreEqual("diff", view.GetProperty("mode").GetString());
+        Assert.IsTrue(view.TryGetProperty("tab", out _));
+        Assert.IsTrue(view.TryGetProperty("filterMode", out _));
     }
 
     /// <summary>
     /// Verifies sessions view returns diff mode view state.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsView_ReturnsDiffModeViewState()
     {
         _currentTab = 1;
 
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "view", DiffPid.ToString(), "--json");
+            "sessions", "view", _diffPid.ToString(), "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
 
-        Assert.Equal("diff", root.GetProperty("mode").GetString());
-        Assert.Equal(2, root.GetProperty("tab").GetInt32());
+        Assert.AreEqual("diff", root.GetProperty("mode").GetString());
+        Assert.AreEqual(2, root.GetProperty("tab").GetInt32());
     }
 
     // --- Helpers ---

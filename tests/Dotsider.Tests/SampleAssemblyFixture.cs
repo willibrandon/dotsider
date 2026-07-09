@@ -5,9 +5,9 @@ using System.Text.Json;
 namespace Dotsider.Tests;
 
 /// <summary>
-/// xUnit fixture that builds and exposes paths to all sample assemblies shared across tests.
+/// MSTest fixture that builds and exposes paths to all sample assemblies shared across tests.
 /// </summary>
-public class SampleAssemblyFixture : IAsyncLifetime
+internal class SampleAssemblyFixture
 {
     private string _repoRoot = null!;
 
@@ -529,47 +529,47 @@ public class SampleAssemblyFixture : IAsyncLifetime
         File.WriteAllBytes(NonDotNetBinaryPath, [0xDE, 0xAD, 0xBE, 0xEF]);
 
         // Verify critical paths exist
-        Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
-        Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
-        Assert.True(File.Exists(EmbeddedSourceLibDll),
+        Assert.IsTrue(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
+        Assert.IsTrue(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
+        Assert.IsTrue(File.Exists(EmbeddedSourceLibDll),
             $"EmbeddedSourceLib.dll not found at {EmbeddedSourceLibDll}");
-        Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
-        Assert.True(File.Exists(AppLocalRollForwardDll),
+        Assert.IsTrue(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
+        Assert.IsTrue(File.Exists(AppLocalRollForwardDll),
             $"AppLocalRollForward.dll not found at {AppLocalRollForwardDll}");
         var rollForwardBin = Path.GetDirectoryName(AppLocalRollForwardDll)!;
-        Assert.True(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.NETCore.Client.dll")),
+        Assert.IsTrue(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.NETCore.Client.dll")),
             "AppLocalRollForward must deploy NETCore.Client.dll app-local for the roll-forward probe");
-        Assert.True(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.Tracing.TraceEvent.dll")),
+        Assert.IsTrue(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.Tracing.TraceEvent.dll")),
             "AppLocalRollForward must deploy TraceEvent.dll app-local for its stale AssemblyRef to drive the test");
         if (NetFxConsoleExe is not null)
-            Assert.True(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
+            Assert.IsTrue(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
         if (NetFxBindingRedirectsExe is not null)
         {
-            Assert.True(File.Exists(NetFxBindingRedirectsExe),
+            Assert.IsTrue(File.Exists(NetFxBindingRedirectsExe),
                 $"NetFxBindingRedirects.exe not found at {NetFxBindingRedirectsExe}");
             var binDir = Path.GetDirectoryName(NetFxBindingRedirectsExe)!;
-            Assert.True(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.exe.config")),
+            Assert.IsTrue(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.exe.config")),
                 "NetFxBindingRedirects.exe.config missing — app.config did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "lib")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "lib")),
                 "lib/ subdir missing — privatePath helper did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "external")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "external")),
                 "external/ subdir missing — codeBase helper did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "fr")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "fr")),
                 "fr/ subdir missing — culture satellite did not deploy");
-            Assert.NotNull(NetFxBindingRedirectsOracle);
+            Assert.IsNotNull(NetFxBindingRedirectsOracle);
         }
         if (NetFxBindingRedirectsClr2Exe is not null)
         {
-            Assert.True(File.Exists(NetFxBindingRedirectsClr2Exe),
+            Assert.IsTrue(File.Exists(NetFxBindingRedirectsClr2Exe),
                 $"NetFxBindingRedirects.Clr2.exe not found at {NetFxBindingRedirectsClr2Exe}");
             var binDir = Path.GetDirectoryName(NetFxBindingRedirectsClr2Exe)!;
-            Assert.True(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.Clr2.exe.config")),
+            Assert.IsTrue(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.Clr2.exe.config")),
                 "NetFxBindingRedirects.Clr2.exe.config missing — app.config did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "lib")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "lib")),
                 "lib/ subdir missing — Clr2 privatePath helper did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "external")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "external")),
                 "external/ subdir missing — Clr2 codeBase helper did not deploy");
-            Assert.True(Directory.Exists(Path.Combine(binDir, "fr")),
+            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "fr")),
                 "fr/ subdir missing — Clr2 culture satellite did not deploy");
 
             // Identity-based copy-local guard: V1 and V2 emit the same filename, so a path
@@ -577,20 +577,20 @@ public class SampleAssemblyFixture : IAsyncLifetime
             // assembly's version. The redirect collapses on V2; any other value means the
             // wrong build leaked app-local through the project graph.
             var stagedSharedDep = Path.Combine(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
-            Assert.True(File.Exists(stagedSharedDep),
+            Assert.IsTrue(File.Exists(stagedSharedDep),
                 $"SharedDep V2 was not staged app-local at {stagedSharedDep}");
             var stagedVersion = System.Reflection.AssemblyName.GetAssemblyName(stagedSharedDep).Version?.ToString();
-            Assert.Equal("2.0.0.0", stagedVersion);
+            Assert.AreEqual("2.0.0.0", stagedVersion);
         }
         if (NativeAotConsoleExe is not null)
-            Assert.True(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
+            Assert.IsTrue(File.Exists(NativeAotConsoleExe), $"NativeAotConsole.exe not found at {NativeAotConsoleExe}");
         if (SelfContainedConsoleExe is not null)
-            Assert.True(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
-        Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
-        Assert.True(File.Exists(ComplexAppExe), $"ComplexApp apphost not found at {ComplexAppExe}");
-        Assert.True(File.Exists(MinimalApiExe), $"MinimalApi apphost not found at {MinimalApiExe}");
-        Assert.True(File.Exists(DottedNameAppDll), $"Dotted.Name.App.dll not found at {DottedNameAppDll}");
-        Assert.True(File.Exists(DottedNameAppExe), $"Dotted.Name.App apphost not found at {DottedNameAppExe}");
+            Assert.IsTrue(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
+        Assert.IsTrue(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
+        Assert.IsTrue(File.Exists(ComplexAppExe), $"ComplexApp apphost not found at {ComplexAppExe}");
+        Assert.IsTrue(File.Exists(MinimalApiExe), $"MinimalApi apphost not found at {MinimalApiExe}");
+        Assert.IsTrue(File.Exists(DottedNameAppDll), $"Dotted.Name.App.dll not found at {DottedNameAppDll}");
+        Assert.IsTrue(File.Exists(DottedNameAppExe), $"Dotted.Name.App apphost not found at {DottedNameAppExe}");
     }
 
     /// <summary>
@@ -598,7 +598,6 @@ public class SampleAssemblyFixture : IAsyncLifetime
     /// </summary>
     public ValueTask DisposeAsync()
     {
-        GC.SuppressFinalize(this);
         if (File.Exists(NonDotNetBinaryPath))
         {
             try { File.Delete(NonDotNetBinaryPath); }
@@ -963,4 +962,4 @@ public class SampleAssemblyFixture : IAsyncLifetime
 /// <param name="Location">The bound assembly's <c>Assembly.Location</c>, or empty on failure.</param>
 /// <param name="Loaded">Whether the load succeeded.</param>
 /// <param name="Error">Type-name + message of the load exception, or <see langword="null"/> on success.</param>
-public sealed record NetFxOracleEntry(string FullName, string Location, bool Loaded, string? Error);
+internal sealed record NetFxOracleEntry(string FullName, string Location, bool Loaded, string? Error);

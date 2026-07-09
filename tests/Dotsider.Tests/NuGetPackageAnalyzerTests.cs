@@ -5,106 +5,117 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Nu Get Package Analyzer.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NuGetPackageAnalyzerTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Verifies rich library nupkg has correct package id.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RichLibraryNupkg_HasCorrectPackageId()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.Equal("RichLibrary", pkg.PackageId);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.AreEqual("RichLibrary", pkg.PackageId);
     }
 
     /// <summary>
     /// Verifies rich library nupkg has correct version.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RichLibraryNupkg_HasCorrectVersion()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.Equal("2.5.1", pkg.PackageVersion);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.AreEqual("2.5.1", pkg.PackageVersion);
     }
 
     /// <summary>
     /// Verifies rich library nupkg has files.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RichLibraryNupkg_HasFiles()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.NotEmpty(pkg.Files);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.IsNotEmpty(pkg.Files);
     }
 
     /// <summary>
     /// Verifies rich library nupkg has dll files.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RichLibraryNupkg_HasDllFiles()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.NotEmpty(pkg.DllFiles);
-        Assert.All(pkg.DllFiles, f => Assert.True(f.IsDll));
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.IsNotEmpty(pkg.DllFiles);
+        TestAssert.All(pkg.DllFiles, f => Assert.IsTrue(f.IsDll));
     }
 
     /// <summary>
     /// Verifies rich library nupkg has nuspec file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void RichLibraryNupkg_HasNuspecFile()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.Contains(pkg.Files, f => f.Name.EndsWith(".nuspec"));
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.Contains(f => f.Name.EndsWith(".nuspec"), pkg.Files);
     }
 
     /// <summary>
     /// Verifies open dll returns working analyzer.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenDll_ReturnsWorkingAnalyzer()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
         var dll = pkg.DllFiles[0];
         using var analyzer = pkg.OpenDll(dll);
-        Assert.NotNull(analyzer);
-        Assert.True(analyzer.HasMetadata);
-        Assert.Equal("RichLibrary", analyzer.AssemblyName);
+        Assert.IsNotNull(analyzer);
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.AreEqual("RichLibrary", analyzer.AssemblyName);
     }
 
     /// <summary>
     /// Verifies open dll matches standalone assembly.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void OpenDll_MatchesStandaloneAssembly()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
         var dll = pkg.DllFiles[0];
         using var fromPkg = pkg.OpenDll(dll);
-        using var standalone = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var standalone = new AssemblyAnalyzer(Samples.RichLibraryDll);
         // Both should have the same types
-        Assert.Equal(standalone.TypeDefs.Count, fromPkg.TypeDefs.Count);
+        Assert.HasCount(standalone.TypeDefs.Count, fromPkg.TypeDefs);
     }
 
     /// <summary>
     /// Verifies has authors and description.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void HasAuthorsAndDescription()
     {
-        using var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
-        Assert.NotNull(pkg.Authors);
-        Assert.NotNull(pkg.Description);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        Assert.IsNotNull(pkg.Authors);
+        Assert.IsNotNull(pkg.Description);
     }
 
     /// <summary>
     /// Verifies Dispose can be called multiple times without side effects.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_IsIdempotent()
     {
-        var pkg = new NuGetPackageAnalyzer(samples.RichLibraryNupkg);
+        var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
         pkg.Dispose();
         pkg.Dispose(); // should not throw
     }
@@ -112,9 +123,10 @@ public class NuGetPackageAnalyzerTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies invalid path throws.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void InvalidPath_Throws()
     {
-        Assert.ThrowsAny<Exception>(() => new NuGetPackageAnalyzer("/nonexistent/package.nupkg"));
+        Assert.Throws<Exception>(() => new NuGetPackageAnalyzer("/nonexistent/package.nupkg"));
     }
 }

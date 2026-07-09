@@ -11,14 +11,17 @@ namespace Dotsider.Tests;
 /// Behavior tests for the IL Inspector tree's <see cref="ScrollPanelNode"/>-hosted
 /// scrollbar and non-wrapping selection. Issue #167.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class IlInspectorScrollbarTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     /// <summary>
     /// Creates a dotsider test app with mouse input enabled so wheel/drag/track tests can
@@ -32,7 +35,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateMouseApp(
         string dllPath, bool enableInputCoalescing = false)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -54,6 +57,20 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 EnableMouse = true,
             });
         return (_terminal, _hex1bApp, _cts.Token);
+    }
+
+    private Task RunAppAsync(Hex1bApp app, CancellationToken ct)
+    {
+        _runTask = app.RunAsync(ct);
+        return _runTask;
+    }
+
+    private bool TryWaitForAppExit()
+    {
+        if (_runTask is null) return true;
+        try { return _runTask.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { return true; }
+        catch (OperationCanceledException) { return true; }
     }
 
     /// <summary>
@@ -213,17 +230,23 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             return sp is { ViewportSize: > 0 }
                 && sp.ContentSize == Math.Min(sp.ViewportSize, rows.Count);
         }, description: "panel ContentSize agrees with the visible window");
+
+        app.RequestFocus(node => node is ScrollPanelNode);
+        app.Invalidate();
+        await auto.WaitUntilAsync(_ => SnapshotFocusables(app).FirstOrDefault(n => n.IsFocused) is ScrollPanelNode,
+            description: "ScrollPanelNode focused after direct selection");
     }
 
     /// <summary>
     /// First arrival paints the scrollbar without requiring an extra keystroke.
     /// Pins the bootstrap-invalidate fix.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_TreeScrollbar_RendersOnFirstArrival_WithoutExtraInput()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
         _state!.App.Invalidate();
 
@@ -244,12 +267,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>When the tree exceeds the viewport, the scrollbar paints a thumb cell in the panel's rightmost column.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_TreeScrollbar_RendersAtRightEdge_WhenContentExceedsViewport()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
         _state!.App.Invalidate();
 
@@ -258,7 +283,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.WaitUntilAsync(_ => TreeScrollable(sp), description: "tree becomes scrollable");
 
         var thumbY = await WaitForThumbAsync(auto, terminal, sp);
-        Assert.True(thumbY >= sp.Bounds.Y, "thumb cell rendered inside panel bounds");
+        Assert.IsGreaterThanOrEqualTo(sp.Bounds.Y, thumbY, "thumb cell rendered inside panel bounds");
 
         _cts!.Cancel();
         await runTask;
@@ -266,12 +291,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>When all rows fit the viewport, no thumb cell is painted.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_TreeScrollbar_HiddenWhenContentFits()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.HelloWorldDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -281,7 +308,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         var snapshot = terminal.CreateSnapshot();
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var hasThumb = FirstThumbY(snapshot, sbCol, sp.Bounds.Y, sp.Bounds.Y + sp.Bounds.Height) >= 0;
-        Assert.False(hasThumb, "No thumb expected when content fits");
+        Assert.IsFalse(hasThumb, "No thumb expected when content fits");
 
         _cts!.Cancel();
         await runTask;
@@ -289,12 +316,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>DownArrow at the last row is a no-op (clamp, not wrap).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_DownArrow_AtBottom_DoesNotWrap()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -307,7 +336,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(lastKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(lastKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -315,12 +344,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>UpArrow at the first row is a no-op (clamp, not wrap).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_UpArrow_AtTop_DoesNotWrap()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -333,7 +364,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(Hex1bKey.UpArrow, ct: ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(firstKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(firstKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -341,12 +372,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>DownArrow advances selection past the viewport bottom; the panel offset follows.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_DownArrow_MovesSelection_AndScrollsViewportToFollow()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -370,8 +403,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 description: $"DownArrow #{i + 1} advances from {prev}");
         }
 
-        Assert.True(TreeOffset > 0,
-            $"Offset should advance after walking past viewport. ViewportSize={sp.ViewportSize}, target={target}, Offset={TreeOffset}");
+        Assert.IsGreaterThan(0, TreeOffset, $"Offset should advance after walking past viewport. ViewportSize={sp.ViewportSize}, target={target}, Offset={TreeOffset}");
 
         _cts!.Cancel();
         await runTask;
@@ -379,12 +411,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>PageDown advances selection by Math.Max(1, ViewportSize - 1).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_PageDown_AdvancesByPanelPageSize()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -406,12 +440,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>PageUp retreats selection by Math.Max(1, ViewportSize - 1).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_PageUp_RetreatsByPanelPageSize()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -436,12 +472,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Home jumps selection to row 0 and resets the panel offset to zero.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_Home_JumpsToFirstRow_AndOffsetReturnsToZero()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -462,12 +500,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>End jumps selection to the last row and pushes the panel offset to MaxOffset.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_End_JumpsToLastRow_AndOffsetReachesMax()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -489,11 +529,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// hex1b default) without changing selection. Selection-coupled designs would
     /// fail this — the test pins the ScrollPanel-as-focusable architecture.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_MouseWheelDown_OverTreeBody_AdvancesOffsetBy3_WithoutChangingSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -515,7 +556,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.WaitUntilAsync(_ => TreeOffset == initialOffset + 3,
             description: "Offset advanced by exactly 3");
 
-        Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -523,12 +564,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Wheel-up over the tree at offset zero is a no-op for both offset and selection.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_MouseWheelUp_AtTop_OffsetStaysAtZero()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -546,8 +589,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(0, TreeOffset);
-        Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(0, TreeOffset);
+        Assert.AreEqual(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -555,12 +598,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Wheel-down over the tree at MaxOffset clamps; selection is unchanged.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_MouseWheelDown_AtBottom_ClampsAtMaxOffset()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -580,8 +625,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(TreeMaxOffset(sp), TreeOffset);
-        Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(TreeMaxOffset(sp), TreeOffset);
+        Assert.AreEqual(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -589,12 +634,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Click on the scrollbar track below the thumb pages the viewport by one page; selection is unchanged.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_ScrollbarTrackClick_PagesViewport_WithoutChangingSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -617,7 +664,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.WaitUntilAsync(_ => TreeOffset == Math.Min(TreeMaxOffset(sp), initialOffset + expectedStep),
             description: "track click pages viewport");
 
-        Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -625,12 +672,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Drag on the thumb advances the panel offset; selection is unchanged.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_ScrollbarThumbDrag_UpdatesOffset_WithoutChangingSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -648,7 +697,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await auto.WaitUntilAsync(_ => TreeOffset > 0, description: "drag advanced offset");
 
-        Assert.Equal(initialKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(initialKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -656,12 +705,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>The thumb cell moves further down the gutter when offset moves from 0 to MaxOffset.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_ScrollbarThumbReflectsScrollOffset()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -688,11 +739,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// ScrollPanelNode kept keyboard focus through the drag (no extra FocusWhere needed
     /// because the panel is the only focusable for the tree).
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_AfterScrollbarDrag_DownArrow_AdvancesSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll, enableInputCoalescing: true);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll, enableInputCoalescing: true);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -713,7 +765,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotEqual(beforeKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreNotEqual(beforeKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -723,11 +775,12 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// No-op thumb click followed by DownArrow still advances selection — proves the
     /// panel-as-focusable design has no spare focusable that could absorb the key.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_NoOpScrollbarClick_DownArrow_AdvancesSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -739,8 +792,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var thumbY = await WaitForThumbAsync(auto, terminal, sp);
-        Assert.True(sp.Bounds.X <= sbCol && sbCol < sp.Bounds.X + sp.Bounds.Width,
-            "thumb column must be inside panel bounds");
+        Assert.IsTrue(sp.Bounds.X <= sbCol && sbCol < sp.Bounds.X + sp.Bounds.Width, "thumb column must be inside panel bounds");
 
         var beforeKey = _state!.IlFocusedTreeKey as string;
         await new Hex1bTerminalInputSequenceBuilder()
@@ -757,12 +809,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>The IL Inspector tab exposes exactly one ScrollPanelNode in the focus ring.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_TreeContainsExactlyOneScrollPanelNode()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -778,7 +832,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             count = focusables.OfType<ScrollPanelNode>().Count();
             return true;
         }, description: "focus ring observed without a concurrent rebuild");
-        Assert.Equal(1, count);
+        Assert.AreEqual(1, count);
 
         _cts!.Cancel();
         await runTask;
@@ -790,13 +844,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// that condition. Pure unit assertion — backs up the rendered theory variants
     /// below by pinning the behavior at the helper level.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Tab3_NoMatchSearch_NavigationHelpers_NoOpOnZeroRows()
     {
         IReadOnlyList<IlTreeRow> empty = [];
-        Assert.Equal(-1, IlTreeList.ResolveEffectiveIndex(empty, key: null));
-        Assert.Equal(-1, IlTreeList.ResolveEffectiveIndex(empty, key: "method:0x06000001"));
-        Assert.Equal(-1, IlTreeList.FindRowIndex(empty, "method:0x06000001"));
+        Assert.AreEqual(-1, IlTreeList.ResolveEffectiveIndex(empty, key: null));
+        Assert.AreEqual(-1, IlTreeList.ResolveEffectiveIndex(empty, key: "method:0x06000001"));
+        Assert.AreEqual(-1, IlTreeList.FindRowIndex(empty, "method:0x06000001"));
     }
 
     /// <summary>
@@ -804,14 +859,19 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// a zero-row tree must be a complete no-op — no exception, no key change, no
     /// offset change.
     /// </summary>
-    public static TheoryData<Hex1bKey> NoMatchKeyVariants() =>
-    [
-        Hex1bKey.UpArrow, Hex1bKey.DownArrow,
-        Hex1bKey.Home, Hex1bKey.End,
-        Hex1bKey.PageUp, Hex1bKey.PageDown,
-        Hex1bKey.Enter, Hex1bKey.Spacebar,
-        Hex1bKey.LeftArrow, Hex1bKey.RightArrow,
-    ];
+    public static IEnumerable<object[]> NoMatchKeyVariants()
+    {
+        yield return [Hex1bKey.UpArrow];
+        yield return [Hex1bKey.DownArrow];
+        yield return [Hex1bKey.Home];
+        yield return [Hex1bKey.End];
+        yield return [Hex1bKey.PageUp];
+        yield return [Hex1bKey.PageDown];
+        yield return [Hex1bKey.Enter];
+        yield return [Hex1bKey.Spacebar];
+        yield return [Hex1bKey.LeftArrow];
+        yield return [Hex1bKey.RightArrow];
+    }
 
     /// <summary>
     /// On a no-match search (zero rows), each navigation key is a no-op against the
@@ -819,12 +879,13 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// <see cref="ScrollPanelNode.ContentSize"/> to reach 0 before pressing keys so
     /// the panel's binding closure is guaranteed to hold the empty rows.
     /// </summary>
-    [Theory(Timeout = 60_000)]
-    [MemberData(nameof(NoMatchKeyVariants))]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DynamicData(nameof(NoMatchKeyVariants))]
     public async Task Tab3_NoMatchSearch_NavigationKey_IsNoOp(Hex1bKey key)
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -866,8 +927,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(key, ct: ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
-        Assert.Equal(beforeOffset, TreeOffset);
+        Assert.AreEqual(beforeKey, _state.IlFocusedTreeKey as string);
+        Assert.AreEqual(beforeOffset, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -876,13 +937,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
     /// <summary>
     /// Mouse wheel on a zero-row tree is a no-op for both offset and selection.
     /// </summary>
-    [Theory(Timeout = 60_000)]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(true)]
+    [DataRow(false)]
     public async Task Tab3_NoMatchSearch_MouseWheel_IsNoOp(bool wheelDown)
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -920,8 +982,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await seq.Build().ApplyAsync(terminal, ct);
         await Task.Delay(50, ct);
 
-        Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
-        Assert.Equal(beforeOffset, TreeOffset);
+        Assert.AreEqual(beforeKey, _state.IlFocusedTreeKey as string);
+        Assert.AreEqual(beforeOffset, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -929,12 +991,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>When the row count drops below the previous offset, the panel clamps Offset to MaxOffset.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_RowCountShrinks_ClampsScrollOffset()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -951,7 +1015,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
         await auto.WaitUntilAsync(_ => TreeOffset <= TreeMaxOffset(sp),
             description: "Offset clamped after collapse");
-        Assert.True(TreeOffset <= TreeMaxOffset(sp), $"Offset={TreeOffset} MaxOffset={TreeMaxOffset(sp)}");
+        Assert.IsLessThanOrEqualTo(TreeMaxOffset(sp), TreeOffset, $"Offset={TreeOffset} MaxOffset={TreeMaxOffset(sp)}");
 
         _cts!.Cancel();
         await runTask;
@@ -959,12 +1023,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>A coalesced DownArrow + LeftArrow batch operates on the post-Down selection, not the build-time snapshot.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_DownArrow_LeftArrow_Coalesced_OperatesOnLiveSelection()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll, enableInputCoalescing: true);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll, enableInputCoalescing: true);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         // Expand TWO namespaces so DownArrow walks from one to the next, both initially expanded.
@@ -993,9 +1059,9 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         _state!.App.Invalidate();
         await auto.WaitUntilAsync(_ => _state!.IlFocusedTreeKey as string == firstNs.Key,
             description: "first namespace selected");
-        Assert.True(Views.IlInspectorView.GetExpansionState(_state, firstNs.ExpansionKey, defaultExpanded: true),
+        Assert.IsTrue(Views.IlInspectorView.GetExpansionState(_state, firstNs.ExpansionKey, defaultExpanded: true),
             "first namespace expanded");
-        Assert.True(Views.IlInspectorView.GetExpansionState(_state, secondNs.ExpansionKey, defaultExpanded: true),
+        Assert.IsTrue(Views.IlInspectorView.GetExpansionState(_state, secondNs.ExpansionKey, defaultExpanded: true),
             "second namespace expanded");
 
         // Coalesced DownArrow + LeftArrow: Down moves to next row (first child of firstNs);
@@ -1009,7 +1075,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await Task.Delay(100, ct);
 
         // First namespace must still be expanded (not collapsed by a stale-state Left).
-        Assert.True(Views.IlInspectorView.GetExpansionState(_state, firstNs.ExpansionKey, defaultExpanded: true),
+        Assert.IsTrue(Views.IlInspectorView.GetExpansionState(_state, firstNs.ExpansionKey, defaultExpanded: true),
             "LeftArrow must not collapse the build-time row when selection has moved");
 
         _cts!.Cancel();
@@ -1018,12 +1084,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>A click on a row selects and activates that row.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_Click_OnRow_SelectsAndActivates()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1049,7 +1117,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await auto.WaitUntilAsync(_ => _state!.IlFocusedTreeKey as string == rows[visibleMethod].Key,
             description: "click selected the method row");
-        Assert.Equal(rows[visibleMethod].Method!.Token, _state!.IlSelectedMethod?.Token);
+        Assert.IsNotNull(_state!.IlSelectedMethod);
+        Assert.AreEqual(rows[visibleMethod].Method!.Token, _state.IlSelectedMethod.Token);
 
         _cts!.Cancel();
         await runTask;
@@ -1057,12 +1126,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>A click on the scrollbar gutter when scrollable does not change the row selection.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_Click_OnScrollbarColumn_DoesNotSelectRow()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1085,7 +1156,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             .ApplyAsync(terminal, ct);
         await Task.Delay(80, ct);
 
-        Assert.Equal(beforeKey, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(beforeKey, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -1093,12 +1164,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>ComplexApp.dll renders the scrollbar correctly when content exceeds the viewport.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_ComplexAppDll_ScrollbarRenders()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.ComplexAppDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.ComplexAppDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1120,12 +1193,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>NavigateToIlMethod targeting a deep row scrolls that row into view via the pending-scroll flag.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_NavigateToIlMethod_DeepRow_ScrollsIntoView()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
 
         // Stay on the General tab so the IL view does not render until the jump.
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1143,7 +1218,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         {
             if (rows[i].Kind == IlTreeRowKind.Method) { deepIdx = i; break; }
         }
-        Assert.True(deepIdx > 0, "test fixture must contain a method row");
+        Assert.IsGreaterThan(0, deepIdx, "test fixture must contain a method row");
         var deepMethod = rows[deepIdx].Method!;
 
         _state!.NavigateToIlMethod(deepMethod);
@@ -1167,12 +1242,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Wheel can push the selection offscreen; a subsequent repaint does not snap the viewport back to the selection.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_MouseWheel_ScrollsSelectionOffscreen_RepaintDoesNotSnapBack()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1207,8 +1284,8 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         _state!.App.Invalidate();
         await auto.WaitUntilAsync(_ => true, description: "render frame elapses");
 
-        Assert.Equal(rows[0].Key, _state!.IlFocusedTreeKey as string);
-        Assert.Equal(offsetAfterWheel, TreeOffset);
+        Assert.AreEqual(rows[0].Key, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(offsetAfterWheel, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -1216,12 +1293,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>NavigateBack landing on the IL tab focuses the ScrollPanelNode (via RequestContentFocus).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_NavigateBack_FromHexToIl_FocusesScrollPanelNode()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1245,12 +1324,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>On first arrival with no focused key, row 0 is the effective selection.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_FirstArrival_NoFocusedKey_HighlightsRow0()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1274,12 +1355,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>DownArrow from a null focused key lands on row 1 (effective 0 + 1).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_DownArrow_FromNullKey_LandsOnRow1()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1300,12 +1383,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>A SetIlFocusedTreeKey(null) clears the pending-scroll flag without leaking to subsequent renders.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_PendingFlag_DoesNotLeakAfterSetIlFocusedTreeKeyNull()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1335,11 +1420,11 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
                 .ApplyAsync(terminal, ct);
         }
         var offsetAfterWheel = TreeOffset;
-        Assert.True(offsetAfterWheel > 0, "wheel advanced offset");
+        Assert.IsGreaterThan(0, offsetAfterWheel, "wheel advanced offset");
 
         _state!.App.Invalidate();
         await Task.Delay(80, ct);
-        Assert.Equal(offsetAfterWheel, TreeOffset);
+        Assert.AreEqual(offsetAfterWheel, TreeOffset);
 
         _cts!.Cancel();
         await runTask;
@@ -1347,12 +1432,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>When the panel is not scrollable, a click in the rightmost column selects the row beneath it.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_Click_RightmostColumn_WhenNotScrollable_SelectsRow()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.HelloWorldDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.HelloWorldDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1380,7 +1467,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
             await auto.WaitUntilAsync(_ => sp.ContentSize == Math.Min(sp.ViewportSize, rows.Count),
                 description: "panel ContentSize agrees with expanded rows");
         }
-        Assert.True(methodIdx >= 0);
+        Assert.IsGreaterThanOrEqualTo(0, methodIdx);
 
         var rightCol = sp.Bounds.X + sp.Bounds.Width - 1;
         var clickY = sp.Bounds.Y + (methodIdx - TreeOffset);
@@ -1397,12 +1484,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>An external jump that expands the tree on an already-open IL tab scrolls the deep target into view after the layout grows.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_AlreadyOpen_ExternalJumpExpandsTree_TargetRowScrollsIntoView()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1438,12 +1527,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>Home re-anchors the viewport when row 0 is selected but offscreen (boundary scroll-recovery).</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_Home_WhenSelectedRow0IsOffscreen_ScrollsSelectionIntoView()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1476,12 +1567,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>UpArrow at row 0 re-anchors the viewport when row 0 is offscreen, even though the selection index does not move.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_UpArrow_AtFirstRow_WhenOffscreen_ScrollsSelectionIntoView()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1506,7 +1599,7 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
         await auto.KeyAsync(Hex1bKey.UpArrow, ct: ct);
         await auto.WaitUntilAsync(_ => TreeOffset == 0,
             description: "UpArrow at row 0 re-anchors viewport");
-        Assert.Equal(rows[0].Key, _state!.IlFocusedTreeKey as string);
+        Assert.AreEqual(rows[0].Key, _state!.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -1514,12 +1607,14 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     /// <summary>End re-anchors the viewport when the last row is selected but offscreen.</summary>
 
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+
+    [Timeout(30_000, CooperativeCancellation = true)]
 
     public async Task Tab3_End_WhenLastRowAlreadySelectedButOffscreen_ScrollsSelectionIntoView()
     {
-        var (terminal, app, ct) = CreateMouseApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateMouseApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -1557,12 +1652,18 @@ public class IlInspectorScrollbarTests(SampleAssemblyFixture samples) : IDisposa
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
+        if (!TryWaitForAppExit())
+        {
+            _hex1bApp?.Dispose();
+            _terminal?.Dispose();
+            _ = TryWaitForAppExit();
+        }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

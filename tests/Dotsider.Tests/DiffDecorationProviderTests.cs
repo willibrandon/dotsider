@@ -7,6 +7,7 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Diff Decoration Provider.
 /// </summary>
+[TestClass]
 public class DiffDecorationProviderTests
 {
     // --- DiffSearchDecorationProvider ---
@@ -14,7 +15,7 @@ public class DiffDecorationProviderTests
     /// <summary>
     /// Verifies diff search highlights all matches case insensitive.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_HighlightsAllMatches_CaseInsensitive()
     {
         var provider = new DiffSearchDecorationProvider { Query = "rich" };
@@ -23,15 +24,15 @@ public class DiffDecorationProviderTests
         var spans = provider.GetDecorations(1, 3, doc);
 
         // "Rich" on line 1, "rich" on line 3
-        Assert.Equal(2, spans.Count);
-        Assert.Equal(1, spans[0].Start.Line);
-        Assert.Equal(3, spans[1].Start.Line);
+        Assert.HasCount(2, spans);
+        Assert.AreEqual(1, spans[0].Start.Line);
+        Assert.AreEqual(3, spans[1].Start.Line);
     }
 
     /// <summary>
     /// Verifies diff search matches own foreground and background colors.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_MatchesOwnForegroundAndBackground()
     {
         var provider = new DiffSearchDecorationProvider { Query = "rich" };
@@ -39,9 +40,9 @@ public class DiffDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 1, doc);
 
-        var span = Assert.Single(spans);
-        Assert.NotNull(span.Decoration.Foreground);
-        Assert.NotNull(span.Decoration.Background);
+        var span = Assert.ContainsSingle(spans);
+        Assert.IsNotNull(span.Decoration.Foreground);
+        Assert.IsNotNull(span.Decoration.Background);
         AssertColorEquals(HighlightHelper.MatchFgColor, span.Decoration.Foreground.Value);
         AssertColorEquals(HighlightHelper.MatchBgColor, span.Decoration.Background.Value);
     }
@@ -49,7 +50,7 @@ public class DiffDecorationProviderTests
     /// <summary>
     /// Verifies diff search multiple matches on same line.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_MultipleMatchesOnSameLine()
     {
         var provider = new DiffSearchDecorationProvider { Query = "ab" };
@@ -57,43 +58,43 @@ public class DiffDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 1, doc);
 
-        Assert.Equal(3, spans.Count);
+        Assert.HasCount(3, spans);
     }
 
     /// <summary>
     /// Verifies diff search null query returns empty.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_NullQuery_ReturnsEmpty()
     {
         var provider = new DiffSearchDecorationProvider { Query = null };
         var doc = new Hex1bDocument("some text");
 
-        Assert.Empty(provider.GetDecorations(1, 1, doc));
+        Assert.IsEmpty(provider.GetDecorations(1, 1, doc));
     }
 
     /// <summary>
     /// Verifies diff search empty query returns empty.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_EmptyQuery_ReturnsEmpty()
     {
         var provider = new DiffSearchDecorationProvider { Query = "" };
         var doc = new Hex1bDocument("some text");
 
-        Assert.Empty(provider.GetDecorations(1, 1, doc));
+        Assert.IsEmpty(provider.GetDecorations(1, 1, doc));
     }
 
     /// <summary>
     /// Verifies diff search no match returns empty.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffSearch_NoMatch_ReturnsEmpty()
     {
         var provider = new DiffSearchDecorationProvider { Query = "xyz" };
         var doc = new Hex1bDocument("abc def");
 
-        Assert.Empty(provider.GetDecorations(1, 1, doc));
+        Assert.IsEmpty(provider.GetDecorations(1, 1, doc));
     }
 
     // --- DiffStatsDecorationProvider ---
@@ -101,7 +102,7 @@ public class DiffDecorationProviderTests
     /// <summary>
     /// Verifies diff stats colors stats lines.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffStats_ColorsStatsLines()
     {
         var provider = new DiffStatsDecorationProvider();
@@ -110,13 +111,13 @@ public class DiffDecorationProviderTests
         var spans = provider.GetDecorations(1, 2, doc);
 
         // Each line has 3 colored values (+N, -N, ~N) = 6 total
-        Assert.Equal(6, spans.Count);
+        Assert.HasCount(6, spans);
     }
 
     /// <summary>
     /// Verifies diff stats does not color size delta line.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffStats_DoesNotColorSizeDeltaLine()
     {
         var provider = new DiffStatsDecorationProvider();
@@ -125,13 +126,13 @@ public class DiffDecorationProviderTests
         var spans = provider.GetDecorations(1, 1, doc);
 
         // Line has no ~ so it's skipped entirely
-        Assert.Empty(spans);
+        Assert.IsEmpty(spans);
     }
 
     /// <summary>
     /// Verifies diff stats ignores lines without tilde.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffStats_IgnoresLinesWithoutTilde()
     {
         var provider = new DiffStatsDecorationProvider();
@@ -139,13 +140,13 @@ public class DiffDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 1, doc);
 
-        Assert.Empty(spans);
+        Assert.IsEmpty(spans);
     }
 
     /// <summary>
     /// Verifies diff stats requires digit after prefix.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffStats_RequiresDigitAfterPrefix()
     {
         var provider = new DiffStatsDecorationProvider();
@@ -154,25 +155,25 @@ public class DiffDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 1, doc);
 
-        Assert.Single(spans);
+        Assert.ContainsSingle(spans);
     }
 
     /// <summary>
     /// Verifies diff stats empty lines returns empty.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DiffStats_EmptyLines_ReturnsEmpty()
     {
         var provider = new DiffStatsDecorationProvider();
         var doc = new Hex1bDocument("\n\n");
 
-        Assert.Empty(provider.GetDecorations(1, 3, doc));
+        Assert.IsEmpty(provider.GetDecorations(1, 3, doc));
     }
 
     private static void AssertColorEquals(Hex1bColor expected, Hex1bColor actual)
     {
-        Assert.Equal(expected.R, actual.R);
-        Assert.Equal(expected.G, actual.G);
-        Assert.Equal(expected.B, actual.B);
+        Assert.AreEqual(expected.R, actual.R);
+        Assert.AreEqual(expected.G, actual.G);
+        Assert.AreEqual(expected.B, actual.B);
     }
 }

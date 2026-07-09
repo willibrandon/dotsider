@@ -8,6 +8,7 @@ namespace Dotsider.Tests;
 /// The oracle metadata records the runtime source files and capture utility used for review.
 /// This keeps unsupported public SDK RID packs from becoming untested decoder paths.
 /// </summary>
+[TestClass]
 public sealed class NativeDisasmOracleCoverageTests
 {
     /// <summary>
@@ -15,10 +16,10 @@ public sealed class NativeDisasmOracleCoverageTests
     /// The fixture must point back to the file-based oracle utility and runtime ground-truth files.
     /// This is the explicit fallback when dotnet publish cannot produce the image locally.
     /// </summary>
-    [Theory]
-    [InlineData("riscv64", "runtime-smoke.json", NativeArchitecture.RiscV64)]
-    [InlineData("loongarch64", "runtime-smoke.json", NativeArchitecture.LoongArch64)]
-    [InlineData("wasm32", "runtime-smoke.json", NativeArchitecture.Wasm32)]
+    [TestMethod]
+    [DataRow("riscv64", "runtime-smoke.json", NativeArchitecture.RiscV64)]
+    [DataRow("loongarch64", "runtime-smoke.json", NativeArchitecture.LoongArch64)]
+    [DataRow("wasm32", "runtime-smoke.json", NativeArchitecture.Wasm32)]
     public void RuntimeOracleFixture_RecordsCaptureScriptAndRuntimeSources(
         string directory, string fileName, NativeArchitecture expectedArchitecture)
     {
@@ -26,20 +27,20 @@ public sealed class NativeDisasmOracleCoverageTests
         var fixturePath = Path.Combine(
             root, "tests", "Dotsider.Tests", "Fixtures", "Disasm", directory, fileName);
 
-        Assert.True(File.Exists(fixturePath), fixturePath);
+        Assert.IsTrue(File.Exists(fixturePath), fixturePath);
 
         using var document = JsonDocument.Parse(File.ReadAllText(fixturePath));
         var fixture = document.RootElement;
         var architecture = Enum.Parse<NativeArchitecture>(fixture.GetProperty("architecture").GetString()!);
 
-        Assert.Equal(expectedArchitecture, architecture);
-        Assert.Equal("scripts/Capture-DisasmOracle.cs", fixture.GetProperty("oracle").GetProperty("script").GetString());
-        Assert.True(File.Exists(Path.Combine(root, "scripts", "Capture-DisasmOracle.cs")));
+        Assert.AreEqual(expectedArchitecture, architecture);
+        Assert.AreEqual("scripts/Capture-DisasmOracle.cs", fixture.GetProperty("oracle").GetProperty("script").GetString());
+        Assert.IsTrue(File.Exists(Path.Combine(root, "scripts", "Capture-DisasmOracle.cs")));
 
         var runtimeFiles = fixture.GetProperty("runtimeFiles").EnumerateArray().ToArray();
-        Assert.NotEmpty(runtimeFiles);
-        Assert.All(runtimeFiles, file =>
-            Assert.False(string.IsNullOrWhiteSpace(file.GetString())));
+        Assert.IsNotEmpty(runtimeFiles);
+        TestAssert.All(runtimeFiles, file =>
+            Assert.IsFalse(string.IsNullOrWhiteSpace(file.GetString())));
     }
 
     private static string FindRepositoryRoot()

@@ -5,6 +5,7 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Dotsider Theme.
 /// </summary>
+[TestClass]
 public class DotsiderThemeTests
 {
     /// <summary>
@@ -14,14 +15,14 @@ public class DotsiderThemeTests
     /// (transparent cells inherit; explicit cells don't), causing broken row highlighting
     /// in the live demo's xterm.js terminal.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void Theme_DoesNotSetGlobalBackground()
     {
         var theme = DotsiderTheme.Create();
 
         var bg = theme.GetGlobalBackground();
 
-        Assert.True(bg.IsDefault, "GlobalTheme.BackgroundColor must not be set — " +
+        Assert.IsTrue(bg.IsDefault, "GlobalTheme.BackgroundColor must not be set — " +
             "it breaks table row highlighting in xterm.js by preventing transparent " +
             "background compositing. The terminal background is set by the terminal " +
             "emulator itself (xterm.js theme / native terminal profile).");

@@ -10,57 +10,63 @@ namespace Dotsider.Tests;
 /// binder behavior — every assertion compares dotsider's bind result to a real on-disk
 /// file the actual .NET Framework CLR would also load.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
+[TestClass]
+public sealed class NetFxBinderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>mscorlib resolves from the .NET Framework runtime directory.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_Mscorlib_FromFrameworkRuntimeDirectory_MatchesOracle()
     {
         SkipIfNotWindows();
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("mscorlib", "4.0.0.0", "neutral", "b77a5c561934e089");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
-        Assert.Equal(
+        Assert.AreEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
+        Assert.AreEqual(
             oracle["mscorlib"].Location,
             result.LoadedPath,
             ignoreCase: true);
     }
 
     /// <summary>System.Drawing resolves from the GAC.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_SystemDrawing_ResolvesViaGacOrRuntimeDirectoryPerOracle()
     {
         SkipIfNotWindows();
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("System.Drawing", "4.0.0.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.True(result.Provenance is AssemblyProvenance.Gac or AssemblyProvenance.FrameworkRuntimeDirectory,
+        Assert.IsTrue(result.Provenance is AssemblyProvenance.Gac or AssemblyProvenance.FrameworkRuntimeDirectory,
             $"Expected Gac or FrameworkRuntimeDirectory, got {result.Provenance}");
-        Assert.Equal(oracle["System.Drawing"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(oracle["System.Drawing"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>Newtonsoft.Json 12 redirects to 13 and resolves from app-local with the
     /// AppliedPolicy annotation populated.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_NewtonsoftJson_RedirectAppliedAndAppLocalHit_MatchesOracleVersionAndPath()
     {
         SkipIfNotWindows();
         var (ctx, oracle) = LoadFixture();
         var requested = new AssemblyRefInfo("Newtonsoft.Json", "12.0.0.0", "neutral", "30ad4fe6b2a6aeed");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.AppLocal, result.Provenance);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(new Version(13, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
-        Assert.Equal(oracle["Newtonsoft.Json"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(new Version(13, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
+        Assert.AreEqual(oracle["Newtonsoft.Json"].Location, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>Two distinct requested versions of Newtonsoft.Json collapse to the same
     /// LoadedAssemblyEntry (reference-equal), proving the LoadedAssemblyCache interns by
     /// bound identity.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_LoadedAssemblyCache_TwoDistinctRequestsCollapseToOneInternedLoadedEntry()
     {
         SkipIfNotWindows();
@@ -70,14 +76,15 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var v13 = new AssemblyRefInfo("Newtonsoft.Json", "13.0.0.0", "neutral", "30ad4fe6b2a6aeed");
         var r12 = NetFxBinder.Bind(v12, ctx);
         var r13 = NetFxBinder.Bind(v13, ctx);
-        Assert.NotNull(r12.Loaded);
-        Assert.NotNull(r13.Loaded);
-        Assert.Equal(r12.Loaded, r13.Loaded);
-        Assert.Equal(r12.LoadedPath, r13.LoadedPath);
+        Assert.IsNotNull(r12.Loaded);
+        Assert.IsNotNull(r13.Loaded);
+        Assert.AreEqual(r12.Loaded, r13.Loaded);
+        Assert.AreEqual(r12.LoadedPath, r13.LoadedPath);
     }
 
     /// <summary>Repeated bind requests for the same identity hit the cache; no extra probes.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_RequestedBindCache_RepeatedRequest_NoSecondFilesystemTraversal()
     {
         SkipIfNotWindows();
@@ -87,11 +94,12 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         NetFxBinder.Bind(requested, ctx);
         var probesAfterFirst = NetFxBinder.GetProbeCount(ctx);
         NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(probesAfterFirst, NetFxBinder.GetProbeCount(ctx));
+        Assert.AreEqual(probesAfterFirst, NetFxBinder.GetProbeCount(ctx));
     }
 
     /// <summary>Failures are cached too — known misses don't re-probe.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_RequestedBindCache_FailureCached_DoesNotReprobe()
     {
         SkipIfNotWindows();
@@ -101,11 +109,12 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         NetFxBinder.Bind(nonExistent, ctx);
         var afterFirst = NetFxBinder.GetProbeCount(ctx);
         NetFxBinder.Bind(nonExistent, ctx);
-        Assert.Equal(afterFirst, NetFxBinder.GetProbeCount(ctx));
+        Assert.AreEqual(afterFirst, NetFxBinder.GetProbeCount(ctx));
     }
 
     /// <summary>Configured codeBase href resolves to the file under external/.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CodeBaseLib_ResolvedViaCodeBaseHref()
     {
         SkipIfNotWindows();
@@ -113,9 +122,9 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.CodeBaseLib", "2.0.0.0", "neutral", "e061e779022b0ce6");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBase, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
-        Assert.Equal(
+        Assert.AreEqual(AssemblyProvenance.CodeBase, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
+        Assert.AreEqual(
             oracle["NetFxBindingRedirects.CodeBaseLib"].Location,
             result.LoadedPath,
             ignoreCase: true);
@@ -123,7 +132,8 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
 
     /// <summary>A codeBase whose href doesn't exist fails fast with CodeBaseMissing
     /// rather than falling through to probing.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CodeBaseMissing_FailFast_DoesNotFallBackToProbing()
     {
         SkipIfNotWindows();
@@ -131,13 +141,14 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.MissingCodeBase", "9.9.9.9", "neutral", "0123456789abcdef");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBaseMissing, result.Provenance);
-        Assert.Null(result.LoadedPath);
+        Assert.AreEqual(AssemblyProvenance.CodeBaseMissing, result.Provenance);
+        Assert.IsNull(result.LoadedPath);
         Assert.Contains("Missing.dll", result.FailureReason ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>privatePath probing is rooted at the application base, not the parent DLL.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_PrivatePathLib_ResolvedFromAppBaseLibSubdir()
     {
         SkipIfNotWindows();
@@ -145,9 +156,9 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.PrivatePathLib", "1.0.0.0", "neutral", null);
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.AppLocal, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
-        Assert.Equal(
+        Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
+        Assert.AreEqual(
             oracle["NetFxBindingRedirects.PrivatePathLib"].Location,
             result.LoadedPath,
             ignoreCase: true);
@@ -160,7 +171,8 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// and <see cref="NetFxBindResult.CandidateProbePath"/> so the UI can surface the broken href
     /// without having to dig into the failure reason string.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CodeBaseMissing_PreservesHrefForDiagnostics()
     {
         SkipIfNotWindows();
@@ -168,11 +180,11 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo(
             "NetFxBindingRedirects.MissingCodeBase", "9.9.9.9", "neutral", "0123456789abcdef");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBaseMissing, result.Provenance);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.NotNull(result.AppliedPolicy!.CodeBaseHref);
+        Assert.AreEqual(AssemblyProvenance.CodeBaseMissing, result.Provenance);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.IsNotNull(result.AppliedPolicy!.CodeBaseHref);
         Assert.EndsWith("Missing.dll", result.AppliedPolicy.CodeBaseHref!, StringComparison.OrdinalIgnoreCase);
-        Assert.NotNull(result.CandidateProbePath);
+        Assert.IsNotNull(result.CandidateProbePath);
         Assert.EndsWith("Missing.dll", result.CandidateProbePath!, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -181,17 +193,18 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// framework: only well-known Microsoft framework PKTs qualify under
     /// <c>AssemblyAnalyzer.IsFrameworkAssembly</c>.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsFrameworkAssembly_GacProvenance_OnlyTrueForWellKnownFrameworkPkt()
     {
         // Microsoft framework PKT b77a5c561934e089 → framework.
         var msIdentity = new AssemblyRefInfo("Anything", "1.0.0.0", "neutral", "b77a5c561934e089");
-        Assert.True(AssemblyAnalyzer.IsFrameworkAssembly(
+        Assert.IsTrue(AssemblyAnalyzer.IsFrameworkAssembly(
             AssemblyProvenance.Gac, msIdentity, ".NETFramework,Version=v4.8", null));
 
         // Third-party strong-named lib: random PKT → not framework, even when in the GAC.
         var thirdParty = new AssemblyRefInfo("Vendor.Lib", "1.0.0.0", "neutral", "0123456789abcdef");
-        Assert.False(AssemblyAnalyzer.IsFrameworkAssembly(
+        Assert.IsFalse(AssemblyAnalyzer.IsFrameworkAssembly(
             AssemblyProvenance.Gac, thirdParty, ".NETFramework,Version=v4.8", null));
     }
 
@@ -202,7 +215,8 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// failure reason names the original UNC href, proving the resolver kept the prefix and
     /// hit a real file probe (which then missed) instead of silently misclassifying.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CodeBaseHref_UncFileUri_PreservesUncPrefix()
     {
         SkipIfNotWindows();
@@ -234,10 +248,10 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
 
         var requested = new AssemblyRefInfo("Acme.UncLib", "1.0.0.0", "neutral", "1111111111111111");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.CodeBaseMissing, result.Provenance);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(codeBase.Href, result.AppliedPolicy!.CodeBaseHref);
-        Assert.Equal(codeBase.Href, result.CandidateProbePath);
+        Assert.AreEqual(AssemblyProvenance.CodeBaseMissing, result.Provenance);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(codeBase.Href, result.AppliedPolicy!.CodeBaseHref);
+        Assert.AreEqual(codeBase.Href, result.CandidateProbePath);
     }
 
     /// <summary>
@@ -247,22 +261,23 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// slot <c>v4.0_10.0.0.0__b03f5f7f11d50a3a</c>. Provenance is <see cref="AssemblyProvenance.Gac"/>,
     /// not the framework runtime directory, so the location dotsider reports matches the CLR.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_MicrosoftVisualBasicV8_UnifiesAndLoadsFromGac()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("Microsoft.VisualBasic", "8.0.0.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotNull(result.Loaded);
-        Assert.Equal("10.0.0.0", result.Loaded!.Version);
-        Assert.NotNull(result.LoadedPath);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.IsNotNull(result.Loaded);
+        Assert.AreEqual("10.0.0.0", result.Loaded!.Version);
+        Assert.IsNotNull(result.LoadedPath);
         Assert.Contains("GAC_MSIL", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
-        Assert.Equal(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
-        Assert.Equal(new Version(10, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.AreEqual(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.AreEqual(new Version(10, 0, 0, 0), result.AppliedPolicy.BoundVersion);
     }
 
     /// <summary>
@@ -272,18 +287,19 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// <c>v4.0.0.0</c> file must fail without an explicit binding redirect — same as the real
     /// runtime — rather than silently rolling forward.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_CompatibilityPackPkt_DoesNotUnify()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("System.ValueTuple", "4.1.0.0", "neutral", "cc7b13ffcd2ddd51");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.NotEqual(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        Assert.AreNotEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.AreNotEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
         // The framework unification layer must not have rewritten the version.
         if (result.AppliedPolicy is not null)
-            Assert.NotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
+            Assert.AreNotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
     }
 
     /// <summary>
@@ -293,22 +309,23 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// requested version is higher than the runtime's. The unification table rewrites the
     /// effective identity, then the GAC scan finds the file at its real slot.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_HigherThanFramework_RollsDownToInBoxVersion()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("System.IO.Compression", "4.2.0.0", "neutral", "b77a5c561934e089");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotNull(result.Loaded);
-        Assert.Equal("4.0.0.0", result.Loaded!.Version);
-        Assert.NotNull(result.LoadedPath);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.IsNotNull(result.Loaded);
+        Assert.AreEqual("4.0.0.0", result.Loaded!.Version);
+        Assert.IsNotNull(result.LoadedPath);
         Assert.Contains("GAC_MSIL", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
-        Assert.Equal(new Version(4, 2, 0, 0), result.AppliedPolicy.RequestedVersion);
-        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.AreEqual(new Version(4, 2, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.AreEqual(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
     }
 
     /// <summary>
@@ -317,22 +334,23 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// net48 PowerShell. The mscorlib fast path runs after unification, so the effective
     /// identity already matches the in-box file and the strict identity check passes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_MscorlibV8_LoadsFrameworkV4()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("mscorlib", "8.0.0.0", "neutral", "b77a5c561934e089");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
-        Assert.NotNull(result.Loaded);
-        Assert.Equal("4.0.0.0", result.Loaded!.Version);
-        Assert.NotNull(result.LoadedPath);
+        Assert.AreEqual(AssemblyProvenance.FrameworkRuntimeDirectory, result.Provenance);
+        Assert.IsNotNull(result.Loaded);
+        Assert.AreEqual("4.0.0.0", result.Loaded!.Version);
+        Assert.IsNotNull(result.LoadedPath);
         Assert.Contains("v4.0.30319", result.LoadedPath, StringComparison.OrdinalIgnoreCase);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
-        Assert.Equal(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
-        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.AreEqual(new Version(8, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.AreEqual(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
     }
 
     /// <summary>
@@ -342,21 +360,22 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// <c>C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll</c>. Token
     /// format there has no <c>v4.0_</c> prefix.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_LegacyGac_StdoleResolvesFromWindowsAssemblyGac()
     {
         SkipIfNotWindows();
         // Skip if the test box doesn't have stdole installed in the legacy GAC.
         var stdolePath = @"C:\Windows\assembly\GAC\stdole\7.0.3300.0__b03f5f7f11d50a3a\stdole.dll";
         if (!File.Exists(stdolePath))
-            Assert.Skip("Legacy GAC entry for stdole 7.0.3300.0 is not present on this machine.");
+            Assert.Inconclusive("Legacy GAC entry for stdole 7.0.3300.0 is not present on this machine.");
 
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("stdole", "7.0.3300.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotNull(result.LoadedPath);
-        Assert.Equal(stdolePath, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.IsNotNull(result.LoadedPath);
+        Assert.AreEqual(stdolePath, result.LoadedPath, ignoreCase: true);
     }
 
     /// <summary>
@@ -367,7 +386,8 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// for an assembly name that's known to live in the GAC under a framework PKT but isn't a
     /// framework assembly, and verify the binder doesn't unify it.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_NonFrameworkGacEntries_DoNotUnify()
     {
         SkipIfNotWindows();
@@ -378,7 +398,7 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         var requested = new AssemblyRefInfo("Microsoft.Build.Tasks.Core", "1.0.0.0", "neutral", "b03f5f7f11d50a3a");
         var result = NetFxBinder.Bind(requested, ctx);
         if (result.AppliedPolicy is not null)
-            Assert.NotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
+            Assert.AreNotEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy.Source);
     }
 
     /// <summary>
@@ -390,24 +410,25 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// exercises GAC_64 explicitly. This test simply confirms a GAC_32-only entry isn't
     /// picked up on an Amd64 root.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_RespectsRootArchitecture()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
-        Assert.Equal(NetFxArchitecture.Amd64, ctx.EffectiveArchitecture);
+        Assert.AreEqual(NetFxArchitecture.Amd64, ctx.EffectiveArchitecture);
         // The unification table built for an Amd64 root must not contain entries that exist
         // only in GAC_32. We can't easily synthesize a GAC_32-only entry on this machine, but
         // we can assert the table's entries map to versions reachable from the locate stage —
         // i.e. every (name, pkt) in the table has either a Framework64 file or a GAC_64/MSIL
         // entry at the table's version. Sample-check System.Printing.
-        Assert.NotNull(ctx.Policy.FrameworkUnificationTable);
+        Assert.IsNotNull(ctx.Policy.FrameworkUnificationTable);
         var key = ("System.Printing", "31bf3856ad364e35");
-        Assert.True(
+        Assert.IsTrue(
             ctx.Policy.FrameworkUnificationTable!.ContainsKey(key),
             "System.Printing should be in the unification table for an Amd64 root.");
         var v = ctx.Policy.FrameworkUnificationTable[key];
-        Assert.True(File.Exists(
+        Assert.IsTrue(File.Exists(
             $@"C:\Windows\Microsoft.NET\assembly\GAC_64\System.Printing\v4.0_{v}__31bf3856ad364e35\System.Printing.dll")
             || File.Exists(
             $@"C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Printing\v4.0_{v}__31bf3856ad364e35\System.Printing.dll"),
@@ -421,24 +442,26 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
     /// from <c>GAC_64\System.Printing\v4.0_4.0.0.0__31bf3856ad364e35\</c>. The unification
     /// table picks these up by walking the GAC alongside the framework runtime directory.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_FrameworkUnification_SystemPrintingV3_UnifiesViaGacEntry()
     {
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         var requested = new AssemblyRefInfo("System.Printing", "3.0.0.0", "neutral", "31bf3856ad364e35");
         var result = NetFxBinder.Bind(requested, ctx);
-        Assert.Equal(AssemblyProvenance.Gac, result.Provenance);
-        Assert.NotNull(result.Loaded);
-        Assert.Equal("4.0.0.0", result.Loaded!.Version);
-        Assert.NotNull(result.AppliedPolicy);
-        Assert.Equal(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
-        Assert.Equal(new Version(3, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
-        Assert.Equal(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
+        Assert.AreEqual(AssemblyProvenance.Gac, result.Provenance);
+        Assert.IsNotNull(result.Loaded);
+        Assert.AreEqual("4.0.0.0", result.Loaded!.Version);
+        Assert.IsNotNull(result.AppliedPolicy);
+        Assert.AreEqual(PolicyLayer.FrameworkUnification, result.AppliedPolicy!.Source);
+        Assert.AreEqual(new Version(3, 0, 0, 0), result.AppliedPolicy.RequestedVersion);
+        Assert.AreEqual(new Version(4, 0, 0, 0), result.AppliedPolicy.BoundVersion);
     }
 
     /// <summary>A weak-named assembly skips the GAC scan entirely.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Bind_NotStrongNamed_SkipsGac()
     {
         SkipIfNotWindows();
@@ -449,23 +472,22 @@ public sealed class NetFxBinderTests(SampleAssemblyFixture samples)
         // GAC scan would walk both GAC_MSIL + GAC_<arch>; if it fired we'd see at least 2 probes
         // before the AppLocal fallback. Anything below the AppLocal probe count proves we skipped.
         // (The AppLocal probe walks 4 paths for a neutral-name miss, so total < 6 means no GAC.)
-        Assert.True(NetFxBinder.GetProbeCount(ctx) <= 8,
-            $"Probe count {NetFxBinder.GetProbeCount(ctx)} suggests GAC was scanned for a weak-named assembly");
+        Assert.IsLessThanOrEqualTo(8, NetFxBinder.GetProbeCount(ctx), $"Probe count {NetFxBinder.GetProbeCount(ctx)} suggests GAC was scanned for a weak-named assembly");
     }
 
-    private (NetFxBindingContext Ctx, IReadOnlyDictionary<string, NetFxOracleEntry> Oracle) LoadFixture()
+    private static (NetFxBindingContext Ctx, IReadOnlyDictionary<string, NetFxOracleEntry> Oracle) LoadFixture()
     {
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        Assert.NotNull(samples.NetFxBindingRedirectsOracle);
-        var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsOracle);
+        var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        return (ctx!, samples.NetFxBindingRedirectsOracle!);
+        Assert.IsNotNull(ctx);
+        return (ctx!, Samples.NetFxBindingRedirectsOracle!);
     }
 
     private static void SkipIfNotWindows()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            Assert.Skip("Test requires Windows (.NET Framework binder).");
+            Assert.Inconclusive("Test requires Windows (.NET Framework binder).");
     }
 }

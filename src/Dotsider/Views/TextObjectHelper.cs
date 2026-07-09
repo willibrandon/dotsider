@@ -167,19 +167,33 @@ public static class TextObjectHelper
             invalidate();
         }, "");
 
-        // --- Triple-click override: select line content only (no trailing newline) ---
+        // --- Double/triple-click overrides ---
+        // Hex1b click-count matching allows a double-click binding to match triple-clicks,
+        // so register both handlers here with the line-selection handler first.
+        bindings.Remove(EditorWidget.DoubleClick);
+        bindings.Remove(EditorWidget.TripleClick);
+
+        bindings.Mouse(MouseButton.Left).TripleClick().Action(_ =>
+        {
+            ResetToIdle();
+            SelectLine(thisEditorState);
+            invalidate();
+        }, "Triple-click to select line");
+
+        bindings.Mouse(MouseButton.Left).DoubleClick().Action(_ =>
+        {
+            ResetToIdle();
+            thisEditorState.SelectWordAt(thisEditorState.Cursor.Position);
+            invalidate();
+        }, "Double-click to select word");
+
+        // --- Triple-click behavior: select line content only (no trailing newline) ---
         // The default EditorWidget triple-click uses SelectLineAt which positions the
         // cursor at the start of the NEXT line (exclusive end convention). PerformEditorYank
         // adds +1 to cursor.Position (inclusive/neovim convention for iw/iW). These two
         // conventions clash, causing yank to grab the newline plus the first character of
         // the next line. Fix: replace the default handler with one that positions the
         // cursor on the last visible character of the line (inclusive end).
-        bindings.Remove(EditorWidget.TripleClick);
-        bindings.Mouse(MouseButton.Left).TripleClick().Action(_ =>
-        {
-            SelectLine(thisEditorState);
-            invalidate();
-        }, "Triple-click to select line");
 
         // --- Shift+V: visual line select (vim V) ---
         bindings.Shift().Key(Hex1bKey.V).Action(_ =>
@@ -265,8 +279,6 @@ public static class TextObjectHelper
         // --- Cancellation: mouse bindings ---
         bindings.Mouse(MouseButton.Left).Action(() => ResetToIdle(), "");
         bindings.Mouse(MouseButton.Left).Ctrl().Action(() => ResetToIdle(), "");
-        bindings.Mouse(MouseButton.Left).DoubleClick().Action(() => ResetToIdle(), "");
-        bindings.Mouse(MouseButton.Left).TripleClick().Action(() => ResetToIdle(), "");
         bindings.Drag(MouseButton.Left).Action((_, _) =>
         {
             ResetToIdle();

@@ -10,17 +10,20 @@ namespace Dotsider.Tests;
 /// Smoke test that the native syntax and navigation decoration providers never throw or emit an
 /// out-of-range span over real disassembled functions — the per-frame render path in native mode.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeDecorationSmokeTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativeDecorationSmokeTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>Runs both providers over every managed function's real listing and asserts no throw / in-range spans.</summary>
-    [Fact(Timeout = 120_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Providers_OverRealFunctions_NeverThrowOrExceedLine()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var symbols = analyzer.NativeSymbols!;
         var syntax = new NativeSyntaxDecorationProvider();
         var nav = new NativeNavigationDecorationProvider();
@@ -39,13 +42,12 @@ public class NativeDecorationSmokeTests(SampleAssemblyFixture samples)
             foreach (var span in spans)
             {
                 var lineLen = doc.GetLineText(span.Start.Line).Length;
-                Assert.True(span.End.Column <= lineLen + 1,
-                    $"{s.ManagedName ?? s.Name} line {span.Start.Line}: end col {span.End.Column} > line length {lineLen}");
+                Assert.IsLessThanOrEqualTo(lineLen + 1, span.End.Column, $"{s.ManagedName ?? s.Name} line {span.Start.Line}: end col {span.End.Column} > line length {lineLen}");
             }
 
             checkedFns++;
         }
 
-        Assert.True(checkedFns > 0);
+        Assert.IsGreaterThan(0, checkedFns);
     }
 }

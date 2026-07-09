@@ -7,13 +7,15 @@ namespace Dotsider.Tests;
 /// Tests for <see cref="PdataReader"/>, the PE <c>.pdata</c> function-boundary fallback, using
 /// synthetic PE images so both the x64 and ARM64 layouts are exercised on every platform.
 /// </summary>
+[TestClass]
 public class PdataReaderTests
 {
     /// <summary>
     /// Verifies x64 RUNTIME_FUNCTION entries yield sized boundaries, and a chained fragment is
     /// folded away rather than counted as its own function.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_Amd64_EmitsFunctionsAndFoldsChained()
     {
         var section = new byte[0x200];
@@ -27,16 +29,17 @@ public class PdataReaderTests
 
         var boundaries = PdataReader.ReadBoundaries(pe);
 
-        var only = Assert.Single(boundaries);
-        Assert.Equal("sub_2000", only.Name);
-        Assert.Equal(0x40, only.Size);
-        Assert.Equal(NativeSymbolKind.Boundary, Build(only).Symbols[0].Kind);
+        var only = Assert.ContainsSingle(boundaries);
+        Assert.AreEqual("sub_2000", only.Name);
+        Assert.AreEqual(0x40, only.Size);
+        Assert.AreEqual(NativeSymbolKind.Boundary, Build(only).Symbols[0].Kind);
     }
 
     /// <summary>
     /// Verifies an ARM64 packed unwind entry decodes its function length from the packed word.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_Arm64Packed_DecodesFunctionLength()
     {
         var section = new byte[0x200];
@@ -48,19 +51,20 @@ public class PdataReaderTests
 
         var boundaries = PdataReader.ReadBoundaries(pe);
 
-        var only = Assert.Single(boundaries);
-        Assert.Equal(0x40, only.Size);
+        var only = Assert.ContainsSingle(boundaries);
+        Assert.AreEqual(0x40, only.Size);
     }
 
     /// <summary>
     /// Verifies a PE without an exception directory yields no boundaries.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadBoundaries_NoExceptionDirectory_ReturnsEmpty()
     {
         var pe = SyntheticImageBuilders.BuildPe(0x8664, new byte[0x200], exceptionRva: 0, exceptionSize: 0);
 
-        Assert.Empty(PdataReader.ReadBoundaries(pe));
+        Assert.IsEmpty(PdataReader.ReadBoundaries(pe));
     }
 
     private static NativeSymbolInfo Build(RawNativeSymbol s) =>

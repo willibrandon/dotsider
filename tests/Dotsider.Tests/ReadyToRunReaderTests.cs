@@ -8,52 +8,56 @@ namespace Dotsider.Tests;
 /// <see cref="AssemblyAnalyzer.ReadyToRunSections"/> against the real Native AOT fixture
 /// (PE on Windows, ELF on Linux, Mach-O on macOS — each CI runner builds its own format).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ReadyToRunReaderTests(SampleAssemblyFixture samples)
+[TestClass]
+public class ReadyToRunReaderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Verifies the section table parses and contains the frozen object region and the
     /// embedded metadata blob.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadyToRunSections_NativeAotExe_ContainsKnownSections()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var sections = analyzer.ReadyToRunSections;
 
-        Assert.NotEmpty(sections);
-        Assert.Contains(sections, s => s.SectionId == 206); // FrozenObjectRegion
-        Assert.Contains(sections, s => s.SectionId == 313); // EmbeddedMetadata
-        Assert.Contains(sections, s => s.SectionId == 201); // GCStaticRegion
+        Assert.IsNotEmpty(sections);
+        Assert.Contains(s => s.SectionId == 206, sections); // FrozenObjectRegion
+        Assert.Contains(s => s.SectionId == 313, sections); // EmbeddedMetadata
+        Assert.Contains(s => s.SectionId == 201, sections); // GCStaticRegion
     }
 
     /// <summary>
     /// Verifies section ids are sorted ascending and the embedded metadata section is
     /// file-backed with the NativeFormat signature.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadyToRunSections_NativeAotExe_MetadataSectionIsFileBacked()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var bytes = File.ReadAllBytes(samples.NativeAotConsoleExe!);
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var sections = analyzer.ReadyToRunSections;
 
         var ids = sections.Select(s => s.SectionId).ToList();
-        Assert.Equal(ids.OrderBy(i => i), ids);
+        Assert.AreSequenceEqual([.. ids.OrderBy(i => i)], ids);
 
-        var metadata = Assert.Single(sections, s => s.SectionId == 313);
-        Assert.NotNull(metadata.FileOffset);
-        Assert.True(metadata.Size > 0);
+        var metadata = Assert.ContainsSingle(s => s.SectionId == 313, sections);
+        Assert.IsNotNull(metadata.FileOffset);
+        Assert.IsGreaterThan(0, metadata.Size);
 
         // NativeFormat metadata magic 0xDEADDFFD at the section start.
         var magic = BitConverter.ToUInt32(bytes, metadata.FileOffset!.Value);
-        Assert.Equal(0xDEADDFFDu, magic);
+        Assert.AreEqual(0xDEADDFFDu, magic);
     }
 
     /// <summary>
@@ -61,34 +65,36 @@ public class ReadyToRunReaderTests(SampleAssemblyFixture samples)
     /// platform: file-backed on Windows, a NOBITS region the runtime fills at startup on
     /// Linux (paired with a dehydrated data section that rebuilds it).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadyToRunSections_FrozenRegion_FileBackingMatchesPlatform()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
-        var frozen = Assert.Single(analyzer.ReadyToRunSections, s => s.SectionId == 206);
+        var frozen = Assert.ContainsSingle(s => s.SectionId == 206, analyzer.ReadyToRunSections);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.NotNull(frozen.FileOffset);
+            Assert.IsNotNull(frozen.FileOffset);
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            Assert.Null(frozen.FileOffset);
-            Assert.Contains(analyzer.ReadyToRunSections, s => s.SectionId == 207); // DehydratedData
+            Assert.IsNull(frozen.FileOffset);
+            Assert.Contains(s => s.SectionId == 207, analyzer.ReadyToRunSections); // DehydratedData
         }
     }
 
     /// <summary>
     /// Verifies a managed assembly has no ReadyToRun sections.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadyToRunSections_ManagedDll_Empty()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
 
-        Assert.Empty(analyzer.ReadyToRunSections);
+        Assert.IsEmpty(analyzer.ReadyToRunSections);
     }
 }

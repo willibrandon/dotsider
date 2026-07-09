@@ -6,75 +6,83 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Apphost Detector.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class ApphostDetectorTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private readonly List<string> _tempFiles = [];
     /// <summary>
     /// Verifies find companion dll apphost returns companion dll path.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_Apphost_ReturnsCompanionDllPath()
     {
-        var result = ApphostDetector.FindCompanionDll(samples.HelloWorldExe);
+        var result = ApphostDetector.FindCompanionDll(Samples.HelloWorldExe);
 
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         Assert.EndsWith(".dll", result!, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(result));
+        Assert.IsTrue(File.Exists(result));
     }
 
     /// <summary>
     /// Verifies find companion dll managed dll returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_ManagedDll_ReturnsNull()
     {
-        var result = ApphostDetector.FindCompanionDll(samples.HelloWorldDll);
+        var result = ApphostDetector.FindCompanionDll(Samples.HelloWorldDll);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies find companion dll native aot exe returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_NativeAotExe_ReturnsNull()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var result = ApphostDetector.FindCompanionDll(samples.NativeAotConsoleExe!);
+        var result = ApphostDetector.FindCompanionDll(Samples.NativeAotConsoleExe!);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies find companion dll non exe extension returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_NonExeExtension_ReturnsNull()
     {
-        var result = ApphostDetector.FindCompanionDll(samples.RichLibraryDll);
+        var result = ApphostDetector.FindCompanionDll(Samples.RichLibraryDll);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies find companion dll non existent file returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_NonExistentFile_ReturnsNull()
     {
         var result = ApphostDetector.FindCompanionDll(
             Path.Combine(Path.GetTempPath(), "nonexistent-assembly.exe"));
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies find companion dll native exe with dll name but no hostfxr returns null.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_NativeExeWithDllNameButNoHostfxr_ReturnsNull()
     {
         // Simulate a native launcher that embeds the DLL name for its own reasons
@@ -93,26 +101,27 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
         _tempFiles.Add(fakeExePath);
 
         // Copy a real managed .dll so the companion check would pass
-        File.Copy(samples.HelloWorldDll, fakeDllPath);
+        File.Copy(Samples.HelloWorldDll, fakeDllPath);
         _tempFiles.Add(fakeDllPath);
         _tempFiles.Add(dir);
 
         var result = ApphostDetector.FindCompanionDll(fakeExePath);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>
     /// Verifies find companion dll dotted name apphost returns companion dll path.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FindCompanionDll_DottedNameApphost_ReturnsCompanionDllPath()
     {
-        var result = ApphostDetector.FindCompanionDll(samples.DottedNameAppExe);
+        var result = ApphostDetector.FindCompanionDll(Samples.DottedNameAppExe);
 
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         Assert.EndsWith("Dotted.Name.App.dll", result!, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(result));
+        Assert.IsTrue(File.Exists(result));
     }
 
     /// <summary>
@@ -120,6 +129,7 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         foreach (var path in _tempFiles)
         {
             try
@@ -129,6 +139,5 @@ public class ApphostDetectorTests(SampleAssemblyFixture samples) : IDisposable
             }
             catch { /* best effort */ }
         }
-        GC.SuppressFinalize(this);
     }
 }

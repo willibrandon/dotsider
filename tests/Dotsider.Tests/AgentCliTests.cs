@@ -5,6 +5,7 @@ namespace Dotsider.Tests;
 /// <summary>
 /// CLI integration tests for the agent command.
 /// </summary>
+[TestClass]
 public class AgentCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
@@ -27,13 +28,13 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init stdout writes skill content.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_Stdout_WritesSkillContent()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
             "agent", "init", "--stdout");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("name: dotsider", stdout);
         Assert.Contains("dotsider analyze", stdout);
         Assert.Contains("dotsider sessions", stdout);
@@ -42,7 +43,7 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init with path creates file.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_WithPath_CreatesFile()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -53,8 +54,8 @@ public class AgentCliTests
             var (exitCode, stdout, _) = await RunDotsiderAsync(
                 "agent", "init", "--path", outputPath);
 
-            Assert.Equal(0, exitCode);
-            Assert.True(File.Exists(outputPath));
+            Assert.AreEqual(0, exitCode);
+            Assert.IsTrue(File.Exists(outputPath));
             var content = File.ReadAllText(outputPath);
             Assert.Contains("name: dotsider", content);
         }
@@ -68,7 +69,7 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init no force errors if exists.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_NoForce_ErrorsIfExists()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -82,9 +83,9 @@ public class AgentCliTests
             var (exitCode, _, stderr) = await RunDotsiderAsync(
                 "agent", "init", "--path", outputPath);
 
-            Assert.NotEqual(0, exitCode);
+            Assert.AreNotEqual(0, exitCode);
             Assert.Contains("already exists", stderr);
-            Assert.Equal("existing content", File.ReadAllText(outputPath));
+            Assert.AreEqual("existing content", File.ReadAllText(outputPath));
         }
         finally
         {
@@ -96,7 +97,7 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init force overwrites existing.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_Force_OverwritesExisting()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -110,7 +111,7 @@ public class AgentCliTests
             var (exitCode, stdout, _) = await RunDotsiderAsync(
                 "agent", "init", "--path", outputPath, "--force");
 
-            Assert.Equal(0, exitCode);
+            Assert.AreEqual(0, exitCode);
             var content = File.ReadAllText(outputPath);
             Assert.Contains("name: dotsider", content);
             Assert.DoesNotContain("existing content", content);
@@ -125,7 +126,7 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init with ai creates correct path.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_WithAi_CreatesCorrectPath()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
@@ -138,10 +139,10 @@ public class AgentCliTests
             var (exitCode, stdout, _) = await RunDotsiderInDirAsync(
                 tempDir, "agent", "init", "--ai", "claude");
 
-            Assert.Equal(0, exitCode);
+            Assert.AreEqual(0, exitCode);
 
             var expectedPath = Path.Combine(tempDir, ".claude", "skills", "dotsider", "SKILL.md");
-            Assert.True(File.Exists(expectedPath), $"Expected file at {expectedPath}");
+            Assert.IsTrue(File.Exists(expectedPath), $"Expected file at {expectedPath}");
         }
         finally
         {
@@ -153,13 +154,13 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent init no args shows usage error.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Init_NoArgs_ShowsUsageError()
     {
         var (exitCode, _, stderr) = await RunDotsiderAsync(
             "agent", "init");
 
-        Assert.NotEqual(0, exitCode);
+        Assert.AreNotEqual(0, exitCode);
         Assert.Contains("--ai", stderr);
         Assert.Contains("--path", stderr);
         Assert.Contains("--stdout", stderr);
@@ -168,13 +169,13 @@ public class AgentCliTests
     /// <summary>
     /// Verifies agent help shows subcommands.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Agent_Help_ShowsSubcommands()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
             "agent", "--help");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("mcp", stdout);
         Assert.Contains("init", stdout);
     }

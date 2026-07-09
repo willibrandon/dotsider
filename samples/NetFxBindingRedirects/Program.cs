@@ -132,7 +132,7 @@ namespace NetFxBindingRedirects
                 sb.Append("    \"fullName\": ").Append(JsonString(kv.Value.FullName)).Append(",\n");
                 sb.Append("    \"location\": ").Append(JsonString(kv.Value.Location)).Append(",\n");
                 sb.Append("    \"loaded\": ").Append(kv.Value.Loaded ? "true" : "false").Append(",\n");
-                sb.Append("    \"error\": ").Append(JsonString(kv.Value.Error)).Append("\n");
+                sb.Append("    \"error\": ").Append(JsonString(kv.Value.Error)).Append('\n');
                 sb.Append("  }");
             }
             sb.Append("\n}\n");

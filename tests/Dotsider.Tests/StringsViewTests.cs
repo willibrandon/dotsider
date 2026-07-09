@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Strings View.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class StringsViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -28,7 +30,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? Samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.Strings
                 };
@@ -46,11 +48,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings enter opens detail popup.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_EnterOpensDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -64,7 +67,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.IsNotNull(_state!.StringsDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -73,11 +76,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings escape closes detail popup.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_EscapeClosesDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -94,7 +98,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Null(_state!.StringsDetailContent);
+        Assert.IsNull(_state!.StringsDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -103,11 +107,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings detail popup shows length.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_DetailPopupShowsLength()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -121,7 +126,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.IsNotNull(_state!.StringsDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -130,11 +135,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings arrow and enter work after detail dismissed.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_ArrowAndEnterWorkAfterDetailDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -153,7 +159,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.IsNotNull(_state!.StringsDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -162,11 +168,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings enter works after search dismissed.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_EnterWorksAfterSearchDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -184,7 +191,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.IsNotNull(_state!.StringsDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -193,7 +200,8 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings detail popup shows content.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_DetailPopupShowsContent()
     {
         // Use a larger terminal so the popup has room to render content
@@ -207,7 +215,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.Strings
                 };
@@ -221,7 +229,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             });
         var terminal = _terminal;
         var app = _hex1bApp;
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -238,7 +246,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.StringsDetailContent);
+        Assert.IsNotNull(_state!.StringsDetailContent);
         Assert.Contains("Length:", _state.StringsDetailContent is not null
             ? $"Length: {_state.StringsDetailContent.Length}" : "");
 
@@ -249,11 +257,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings escape during search does not crash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_EscapeDuringSearchDoesNotCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -269,7 +278,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.False(_state!.Search[TabId.Strings].IsActive);
+        Assert.IsFalse(_state!.Search[TabId.Strings].IsActive);
 
         cts.Cancel();
         await runTask;
@@ -278,11 +287,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings detail popup shows string content.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_DetailPopupShowsStringContent()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -297,8 +307,8 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // The detail popup should show both the Length label and the string value
-        Assert.NotNull(_state!.StringsDetailContent);
-        Assert.True(_state.StringsDetailContent.Length > 0);
+        Assert.IsNotNull(_state!.StringsDetailContent);
+        Assert.IsGreaterThan(0, _state.StringsDetailContent.Length);
 
         cts.Cancel();
         await runTask;
@@ -307,11 +317,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the fourth sub-tab (Raw UTF-16) renders and becomes active.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_NavigateToRawUtf16_Renders()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -331,7 +342,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(StringsSubTabId.RawBinaryUtf16, _state!.StringsSourceTab);
+        Assert.AreEqual(StringsSubTabId.RawBinaryUtf16, _state!.StringsSourceTab);
 
         cts.Cancel();
         await runTask;
@@ -341,11 +352,12 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies changing min length on the Raw UTF-16 sub-tab invalidates and
     /// rebuilds its cache with the new minimum.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_MinLengthChange_InvalidatesUtf16Cache()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -370,8 +382,8 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(5, _state!.StringsMinLength);
-        Assert.NotNull(_state.CachedRawUtf16Strings);
+        Assert.AreEqual(5, _state!.StringsMinLength);
+        Assert.IsNotNull(_state.CachedRawUtf16Strings);
 
         cts.Cancel();
         await runTask;
@@ -382,13 +394,14 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// binary. The frozen strings are file-backed on Windows and macOS; on Linux the region
     /// is filled at startup so the sub-tab is present but empty.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_NativeAot_FrozenSubTab_Renders()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -408,7 +421,7 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(StringsSubTabId.FrozenObject, _state!.StringsSourceTab);
+        Assert.AreEqual(StringsSubTabId.FrozenObject, _state!.StringsSourceTab);
 
         cts.Cancel();
         await runTask;
@@ -419,10 +432,10 @@ public class StringsViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

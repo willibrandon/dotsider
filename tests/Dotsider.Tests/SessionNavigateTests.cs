@@ -13,9 +13,11 @@ namespace Dotsider.Tests;
 /// Starts a headless dotsider TUI, sends protocol requests over UDS, and
 /// verifies the TUI state changes.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class SessionNavigateTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -50,10 +52,10 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-            });
+        });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
-        _listener.StartListening();
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         // Start the TUI and wait for first render
         _ = _app.RunAsync(ct);
@@ -69,23 +71,24 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
     /// <summary>
     /// Verifies navigate via socket changes active tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Navigate_ViaSocket_ChangesActiveTab()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
 
-        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(samples.HelloWorldDll, ct);
+        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(Samples.HelloWorldDll, ct);
         // Verify we start on tab 0 (General)
         var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewBefore.Success);
+        Assert.IsTrue(viewBefore.Success);
         var tabBefore = (viewBefore.Data as JsonElement?)?.GetProperty("tab").GetInt32();
-        Assert.Equal(TabId.General + 1, tabBefore);
+        Assert.AreEqual(TabId.General + 1, tabBefore);
 
         // Navigate to Strings tab (user-facing 4) via the socket
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.Strings + 1 }, ct);
-        Assert.True(navResponse.Success);
+        Assert.IsTrue(navResponse.Success);
 
         // Give the TUI time to process the mutation
         await Task.Delay(500, ct);
@@ -93,39 +96,40 @@ public class SessionNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposa
         // Verify the tab actually changed
         var viewAfter = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewAfter.Success);
+        Assert.IsTrue(viewAfter.Success);
         var tabAfter = (viewAfter.Data as JsonElement?)?.GetProperty("tab").GetInt32();
-        Assert.Equal(TabId.Strings + 1, tabAfter);
+        Assert.AreEqual(TabId.Strings + 1, tabAfter);
     }
 
     /// <summary>
     /// Reproduces the off-by-one: the CLI and TUI keyboard both show tabs as 1-8,
     /// so "navigate 1" should land on General (tab index 0), not PE/Metadata.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Navigate_Tab1_LandsOnGeneral_NotPeMetadata()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
 
-        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(samples.HelloWorldDll, ct);
+        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(Samples.HelloWorldDll, ct);
 
         // First move off General so we can verify navigating back
         var navAway = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.IlInspector + 1 }, ct);
-        Assert.True(navAway.Success);
+        Assert.IsTrue(navAway.Success);
         await Task.Delay(500, ct);
 
         // Navigate to tab 1 — the user-facing number for General
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = 1 }, ct);
-        Assert.True(navResponse.Success);
+        Assert.IsTrue(navResponse.Success);
         await Task.Delay(500, ct);
 
         var view = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(view.Success);
+        Assert.IsTrue(view.Success);
         var activeTab = (view.Data as JsonElement?)?.GetProperty("tab").GetInt32();
-        Assert.Equal(TabId.General + 1, activeTab);
+        Assert.AreEqual(TabId.General + 1, activeTab);
     }
 
     /// <summary>

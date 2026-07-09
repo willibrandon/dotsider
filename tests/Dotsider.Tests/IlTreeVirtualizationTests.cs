@@ -16,9 +16,11 @@ namespace Dotsider.Tests;
 /// <see cref="IlTreeList.Build"/> and <see cref="IlInspectorView.SyncTreeScroll"/> (the
 /// real capture/pending logic) over a synthetic 12,000-row tree.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class IlTreeVirtualizationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const int RowCount = 12_000;
 
     private Hex1bApp? _app;
@@ -43,7 +45,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// </summary>
     private (Hex1bTerminalAutomator auto, Task runTask, CancellationToken ct) StartTreeApp()
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -57,7 +59,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
 
         _app = new Hex1bApp(_ =>
         {
-            _state ??= new DotsiderState(_app!, samples.HelloWorldDll) { CurrentTab = TabId.IlInspector };
+            _state ??= new DotsiderState(_app!, Samples.HelloWorldDll) { CurrentTab = TabId.IlInspector };
             // Mirror DotsiderApp.Build: only the root build advances the generation.
             unchecked { _state.BuildGeneration++; }
             _state.ExtraFrameArmed = false;
@@ -94,6 +96,12 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         return sp!;
     }
 
+    private void InvalidateAfterDirectStateMutation()
+    {
+        _state!.App.Invalidate();
+        _state.RequestExtraFrame();
+    }
+
     /// <summary>The gutter column: the panel's rightmost column when the tree overflows.</summary>
     private static int GutterCol(ScrollPanelNode sp) => sp.Bounds.X + sp.Bounds.Width - 1;
 
@@ -113,18 +121,21 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// Past the 10k render-surface clamp, scrolling to the very bottom still paints the
     /// last rows — the full viewport, no blank gap. Pins the issue #188 regression.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_ScrolledToBottom_RendersLastRows_NoGap()
     {
         var (auto, runTask, _) = StartTreeApp();
         var sp = await WaitForPanelAsync(auto);
 
         _state!.IlTreeScrollOffset = int.MaxValue; // clamps to MaxOffset in the next build
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
 
-        await auto.WaitUntilTextAsync("row-11999");
         var expectedTop = RowCount - sp.ViewportSize;
-        Assert.Equal(expectedTop, _state.IlTreeScrollOffset);
+        await auto.WaitUntilAsync(_ => _state!.IlTreeScrollOffset == expectedTop,
+            description: "scroll offset clamps to bottom");
+        await auto.WaitUntilTextAsync("row-11999");
+        Assert.AreEqual(expectedTop, _state.IlTreeScrollOffset);
         // The viewport is full from its first row — a blank gap would drop this label.
         await auto.WaitUntilTextAsync($"row-{expectedTop}");
 
@@ -136,7 +147,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// The gutter thumb sits at the top at offset zero and moves to the gutter's end at
     /// MaxOffset — the scrollbar math spans the full 12,000 rows.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_GutterThumb_TracksOffset_EndToEnd()
     {
         var (auto, runTask, _) = StartTreeApp();
@@ -145,10 +157,10 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         var topThumb = -1;
         await auto.WaitUntilAsync(s => (topThumb = FirstThumbY(s, sp)) >= 0,
             description: "thumb painted at offset 0");
-        Assert.Equal(sp.Bounds.Y, topThumb);
+        Assert.AreEqual(sp.Bounds.Y, topThumb);
 
         _state!.IlTreeScrollOffset = RowCount; // clamps to MaxOffset
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
         await auto.WaitUntilAsync(s =>
         {
             var y = FirstThumbY(s, sp);
@@ -163,14 +175,15 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// Wheel over the tree body advances the offset by 3 without changing the selection,
     /// even when the selected row scrolls offscreen — the #167 decoupling at 12k rows.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_Wheel_MovesViewport_NotSelection()
     {
         var (auto, runTask, ct) = StartTreeApp();
         var sp = await WaitForPanelAsync(auto);
 
         _state!.IlFocusedTreeKey = "row:0";
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
 
         await new Hex1bTerminalInputSequenceBuilder()
             .MouseMoveTo(sp.Bounds.X + 5, sp.Bounds.Y + 5)
@@ -180,7 +193,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => _state.IlTreeScrollOffset == 3,
             description: "wheel advanced offset by exactly 3");
 
-        Assert.Equal("row:0", _state.IlFocusedTreeKey as string);
+        Assert.AreEqual("row:0", _state.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -190,7 +203,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// End selects the last of 12,000 rows, scrolls it into view, and renders it; a
     /// further DownArrow does not wrap.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_End_SelectsLastRow_ScrollsIntoView_NoWrap()
     {
         var (auto, runTask, ct) = StartTreeApp();
@@ -200,11 +214,11 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => _state!.IlFocusedTreeKey as string == "row:11999",
             description: "End selects the last row");
         await auto.WaitUntilTextAsync("row-11999");
-        Assert.Equal(RowCount - sp.ViewportSize, _state!.IlTreeScrollOffset);
+        Assert.AreEqual(RowCount - sp.ViewportSize, _state!.IlTreeScrollOffset);
 
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
         await Task.Delay(50, ct);
-        Assert.Equal("row:11999", _state.IlFocusedTreeKey as string);
+        Assert.AreEqual("row:11999", _state.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -214,14 +228,15 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// A click selects the row's absolute index — viewport row plus the scroll offset —
     /// under a deep offset where windowing bugs would select the wrong row.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_Click_SelectsAbsoluteRow_UnderDeepOffset()
     {
         var (auto, runTask, ct) = StartTreeApp();
         var sp = await WaitForPanelAsync(auto);
 
         _state!.IlTreeScrollOffset = 11_500;
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
         await auto.WaitUntilTextAsync("row-11500");
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -239,7 +254,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// An external jump to a deep key (the pending-scroll path used by cross-view
     /// navigation and search) lands the row inside the rendered viewport.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_PendingScroll_DeepKey_LandsInViewport()
     {
         var (auto, runTask, _) = StartTreeApp();
@@ -249,8 +265,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => !_state.IlScrollSelectionIntoViewPending,
             description: "pending scroll consumed");
         await auto.WaitUntilTextAsync("row-11500");
-        Assert.InRange(11_500,
-            _state.IlTreeScrollOffset, _state.IlTreeScrollOffset + sp.ViewportSize - 1);
+        Assert.IsInRange(_state.IlTreeScrollOffset, _state.IlTreeScrollOffset + sp.ViewportSize - 1, 11_500);
 
         _cts!.Cancel();
         await runTask;
@@ -260,7 +275,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// A track click below the thumb pages the viewport by one page (viewport − 1) and
     /// leaves the selection alone — the hand-rolled gutter matches the old panel gutter.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_GutterTrackClick_PagesViewport_WithoutChangingSelection()
     {
         var (auto, runTask, ct) = StartTreeApp();
@@ -275,7 +291,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => _state.IlTreeScrollOffset == expected,
             description: "track click pages the viewport");
 
-        Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
+        Assert.AreEqual(beforeKey, _state.IlFocusedTreeKey as string);
 
         _cts!.Cancel();
         await runTask;
@@ -285,7 +301,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// Dragging the thumb scrolls proportionally across all 12,000 rows without changing
     /// the selection, and the panel keeps keyboard focus through the drag.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_GutterThumbDrag_UpdatesOffset_KeepsSelectionAndFocus()
     {
         var (auto, runTask, ct) = StartTreeApp();
@@ -303,7 +320,7 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         await auto.WaitUntilAsync(_ => _state.IlTreeScrollOffset > 0,
             description: "thumb drag advanced the offset");
 
-        Assert.Equal(beforeKey, _state.IlFocusedTreeKey as string);
+        Assert.AreEqual(beforeKey, _state.IlFocusedTreeKey as string);
 
         // The panel must still own the keyboard: DownArrow moves the selection.
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
@@ -320,7 +337,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// the viewport verifier must re-clamp the offset and refill the viewport without
     /// any further input.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Rows12k_ViewportGrows_WindowRefills_WithoutInput()
     {
         _headerRows = 1;
@@ -329,13 +347,13 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
         var oldViewport = sp.ViewportSize;
 
         _state!.IlTreeScrollOffset = int.MaxValue; // clamps to MaxOffset for the old height
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
         await auto.WaitUntilTextAsync("row-11999");
-        Assert.Equal(RowCount - oldViewport, _state.IlTreeScrollOffset);
+        Assert.AreEqual(RowCount - oldViewport, _state.IlTreeScrollOffset);
 
         // Grow the pane by removing the header; no input follows.
         _headerRows = 0;
-        _state.App.Invalidate();
+        InvalidateAfterDirectStateMutation();
 
         await auto.WaitUntilAsync(_ =>
             sp.ViewportSize == oldViewport + 1
@@ -355,14 +373,15 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
     /// the tree sync would make a nudger armed concurrently from a socket thread
     /// believe a later build already ran and exit without nudging.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SyncTreeScroll_DoesNotAdvanceBuildGeneration()
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder().WithWorkload(_workload).WithHeadless().WithDimensions(80, 24).Build();
         _app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("t")),
             new Hex1bAppOptions { WorkloadAdapter = _workload });
-        _state = new DotsiderState(_app, samples.HelloWorldDll)
+        _state = new DotsiderState(_app, Samples.HelloWorldDll)
         {
             BuildGeneration = 41,
             ExtraFrameArmed = true
@@ -370,8 +389,8 @@ public sealed class IlTreeVirtualizationTests(SampleAssemblyFixture samples) : I
 
         IlInspectorView.SyncTreeScroll(_state, []);
 
-        Assert.Equal(41, _state.BuildGeneration);
-        Assert.True(_state.ExtraFrameArmed);
+        Assert.AreEqual(41, _state.BuildGeneration);
+        Assert.IsTrue(_state.ExtraFrameArmed);
     }
 
     /// <inheritdoc />

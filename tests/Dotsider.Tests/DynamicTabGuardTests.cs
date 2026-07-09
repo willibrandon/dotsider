@@ -9,9 +9,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Dynamic Tab Guard.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DynamicTabGuardTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -60,10 +62,10 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // --- Unit tests ---
@@ -71,14 +73,15 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies is net framework true for net fx console.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsNetFramework_TrueForNetFxConsole()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net48 sample is Windows-only");
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net48 sample is Windows-only");
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.NetFxConsoleExe!);
-        Assert.True(state.IsNetFramework);
-        Assert.Contains(".NETFramework", state.Analyzer.TargetFramework);
+        using var state = new DotsiderState(app, Samples.NetFxConsoleExe!);
+        Assert.IsTrue(state.IsNetFramework);
+        Assert.Contains(".NETFramework", state.Analyzer.TargetFramework!);
     }
 
     /// <summary>
@@ -88,16 +91,17 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// inferred state — otherwise EventPipe tracing would be wrongly enabled and the General tab
     /// would show "(unknown)".
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsNetFramework_TrueForClr2RootWithoutTfa_AndDisplayShowsInferredLabel()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net35 sample is Windows-only");
-        Assert.NotNull(samples.NetFxBindingRedirectsClr2Exe);
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net35 sample is Windows-only");
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsClr2Exe);
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.NetFxBindingRedirectsClr2Exe!);
+        using var state = new DotsiderState(app, Samples.NetFxBindingRedirectsClr2Exe!);
 
-        Assert.True(state.IsNetFramework);
-        Assert.Null(state.Analyzer.TargetFramework); // no TFA on the assembly
+        Assert.IsTrue(state.IsNetFramework);
+        Assert.IsNull(state.Analyzer.TargetFramework); // no TFA on the assembly
         var display = state.EffectiveTargetFrameworkDisplay;
         Assert.Contains("CLR v2.0", display);
         Assert.Contains("inferred", display, StringComparison.OrdinalIgnoreCase);
@@ -106,27 +110,29 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies is net framework false for core apps.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsNetFramework_FalseForCoreApps()
     {
         var app = CreateApp();
-        string[] paths = [samples.HelloWorldDll, samples.RichLibraryDll, samples.ComplexAppDll];
+        string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll];
         foreach (var path in paths)
         {
             using var state = new DotsiderState(app, path);
-            Assert.False(state.IsNetFramework, $"IsNetFramework should be false for {Path.GetFileName(path)}");
+            Assert.IsFalse(state.IsNetFramework, $"IsNetFramework should be false for {Path.GetFileName(path)}");
         }
     }
 
     /// <summary>
     /// Verifies is native aot true for native aot console.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsNativeAot_TrueForNativeAotConsole()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
-        Assert.True(state.IsNativeAot);
+        using var state = new DotsiderState(app, Samples.NativeAotConsoleExe!);
+        Assert.IsTrue(state.IsNativeAot);
     }
 
     // --- Input sequence tests ---
@@ -134,12 +140,13 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 net framework shows guard message.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_NetFramework_ShowsGuardMessage()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net48 sample is Windows-only");
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.NetFxConsoleExe!);
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "net48 sample is Windows-only");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.NetFxConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -157,7 +164,7 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Verify tracer was NOT created
-        Assert.Null(_state!.Tracer);
+        Assert.IsNull(_state!.Tracer);
 
         cts.Cancel();
         await runTask;
@@ -166,11 +173,12 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 native aot shows idle view not guard.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_NativeAot_ShowsIdleViewNotGuard()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -199,11 +207,12 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies native aot navigate all tabs no crash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeAot_NavigateAllTabs_NoCrash()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -234,7 +243,7 @@ public class DynamicTabGuardTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(TabId.Strings, _state!.CurrentTab);
+        Assert.AreEqual(TabId.Strings, _state!.CurrentTab);
 
         cts.Cancel();
         await runTask;

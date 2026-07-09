@@ -6,9 +6,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Malformed Pe.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class MalformedPeTests(SampleAssemblyFixture samples)
+[TestClass]
+public class MalformedPeTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Generates synthetic malformed PE binaries for fuzzing.
     /// Each entry is (description, bytes) — the description is used in test output.
@@ -253,10 +255,11 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies all malformed binaries throw or construct never crash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void AllMalformedBinaries_ThrowOrConstruct_NeverCrash()
     {
-        var validPe = File.ReadAllBytes(samples.HelloWorldDll);
+        var validPe = File.ReadAllBytes(Samples.HelloWorldDll);
         foreach (var (description, bytes) in GenerateMalformedBinaries(validPe))
         {
             var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
@@ -287,14 +290,15 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies zero byte file throws bad image format.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ZeroByteFile_ThrowsBadImageFormat()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
         try
         {
             File.WriteAllBytes(tempPath, []);
-            Assert.ThrowsAny<Exception>(() =>
+            Assert.Throws<Exception>(() =>
             {
                 using var _ = new AssemblyAnalyzer(tempPath);
             });
@@ -308,19 +312,21 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies four byte junk throws bad image format.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FourByteJunk_ThrowsBadImageFormat()
     {
-        Assert.ThrowsAny<Exception>(() =>
+        Assert.Throws<Exception>(() =>
         {
-            using var _ = new AssemblyAnalyzer(samples.NonDotNetBinaryPath);
+            using var _ = new AssemblyAnalyzer(Samples.NonDotNetBinaryPath);
         });
     }
 
     /// <summary>
     /// Verifies truncated mz header throws bad image format.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void TruncatedMzHeader_ThrowsBadImageFormat()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
@@ -328,7 +334,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         {
             // Just the MZ magic bytes with no PE signature pointer
             File.WriteAllBytes(tempPath, [(byte)'M', (byte)'Z']);
-            Assert.ThrowsAny<Exception>(() =>
+            Assert.Throws<Exception>(() =>
             {
                 using var _ = new AssemblyAnalyzer(tempPath);
             });
@@ -342,10 +348,11 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies valid pe header truncated before metadata throws bad image format.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ValidPeHeader_TruncatedBeforeMetadata_ThrowsBadImageFormat()
     {
-        var validPe = File.ReadAllBytes(samples.HelloWorldDll);
+        var validPe = File.ReadAllBytes(Samples.HelloWorldDll);
         // Keep DOS header + PE signature but truncate before CLR metadata
         var truncated = validPe[..Math.Min(256, validPe.Length)];
 
@@ -353,7 +360,7 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
         try
         {
             File.WriteAllBytes(tempPath, truncated);
-            Assert.ThrowsAny<Exception>(() =>
+            Assert.Throws<Exception>(() =>
             {
                 using var _ = new AssemblyAnalyzer(tempPath);
             });
@@ -367,7 +374,8 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
     /// <summary>
     /// Verifies push assembly malformed file returns false and preserves state.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PushAssembly_MalformedFile_ReturnsFalseAndPreservesState()
     {
         var workload = new Hex1b.Hex1bAppWorkloadAdapter();
@@ -382,19 +390,19 @@ public class MalformedPeTests(SampleAssemblyFixture samples)
 
         try
         {
-            using var state = new DotsiderState(app, samples.HelloWorldDll);
+            using var state = new DotsiderState(app, Samples.HelloWorldDll);
             var originalFile = state.Analyzer.FileName;
 
             // Try to push a truncated PE
             var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
             try
             {
-                var validPe = File.ReadAllBytes(samples.HelloWorldDll);
+                var validPe = File.ReadAllBytes(Samples.HelloWorldDll);
                 File.WriteAllBytes(tempPath, validPe[..128]);
 
-                Assert.False(state.PushAssembly(tempPath));
-                Assert.Equal(originalFile, state.Analyzer.FileName);
-                Assert.NotNull(state.NavigationError);
+                Assert.IsFalse(state.PushAssembly(tempPath));
+                Assert.AreEqual(originalFile, state.Analyzer.FileName);
+                Assert.IsNotNull(state.NavigationError);
             }
             finally
             {

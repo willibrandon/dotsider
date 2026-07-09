@@ -6,9 +6,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Diff State.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DiffStateTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -30,60 +32,65 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies construct both analyzers accessible.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Construct_BothAnalyzersAccessible()
     {
         var app = CreateApp();
-        using var state = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
-        Assert.NotNull(state.Left);
-        Assert.NotNull(state.Right);
-        Assert.Equal("RichLibrary", state.Left.AssemblyName);
-        Assert.Equal("RichLibrary", state.Right.AssemblyName);
+        using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
+        Assert.IsNotNull(state.Left);
+        Assert.IsNotNull(state.Right);
+        Assert.AreEqual("RichLibrary", state.Left.AssemblyName);
+        Assert.AreEqual("RichLibrary", state.Right.AssemblyName);
     }
 
     /// <summary>
     /// Verifies construct diff result populated.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Construct_DiffResultPopulated()
     {
         var app = CreateApp();
-        using var state = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
-        Assert.NotNull(state.DiffResult);
-        Assert.NotEmpty(state.DiffResult.TypeDiffs);
+        using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
+        Assert.IsNotNull(state.DiffResult);
+        Assert.IsNotEmpty(state.DiffResult.TypeDiffs);
     }
 
     /// <summary>
     /// Verifies default filter mode is all.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DefaultFilterMode_IsAll()
     {
         var app = CreateApp();
-        using var state = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
-        Assert.Equal(DiffFilterMode.All, state.FilterMode);
+        using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
+        Assert.AreEqual(DiffFilterMode.All, state.FilterMode);
     }
 
     /// <summary>
     /// Verifies tab switching works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void TabSwitching_Works()
     {
         var app = CreateApp();
-        using var state = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
+        using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
         state.CurrentTab = 2;
-        Assert.Equal(2, state.CurrentTab);
+        Assert.AreEqual(2, state.CurrentTab);
     }
 
     /// <summary>
     /// Verifies dispose cleans up.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_CleansUp()
     {
         var app = CreateApp();
-        var state = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
+        var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
         state.Dispose();
         state.Dispose(); // idempotent — should not throw
     }
@@ -93,9 +100,9 @@ public class DiffStateTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

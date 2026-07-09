@@ -9,83 +9,90 @@ namespace Dotsider.Tests;
 /// all resolve to a per-range report; an overloaded name lists candidates instead of guessing; a
 /// precompiled method's native disassembly names its indirect call targets through the import map.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ReadyToRunCorrelationTests(SampleAssemblyFixture samples)
+[TestClass]
+public class ReadyToRunCorrelationTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string SkipReason = "ReadyToRun crossgen2 publish did not run on this leg.";
 
     /// <summary>A unique method name resolves to a precompiled report with native code and ranges.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ByName_Unique_ResolvesPrecompiled()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleDll!);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
 
         var result = ReadyToRunCorrelationQuery.Resolve(
-            analyzer, "Greeter.get_Name", TestContext.Current.CancellationToken);
+            analyzer, "Greeter.get_Name", CancellationToken.None);
 
-        Assert.Equal(ReadyToRunQueryOutcome.Resolved, result.Outcome);
-        Assert.Equal(ReadyToRunNativeAvailability.Precompiled, result.Report!.Availability);
-        Assert.NotEmpty(result.Report.Ranges);
-        Assert.NotNull(result.Report.NativeText);
-        Assert.NotNull(result.Report.Il);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Resolved, result.Outcome);
+        Assert.AreEqual(ReadyToRunNativeAvailability.Precompiled, result.Report!.Availability);
+        Assert.IsNotEmpty(result.Report.Ranges);
+        Assert.IsNotNull(result.Report.NativeText);
+        Assert.IsNotNull(result.Report.Il);
     }
 
     /// <summary>An overloaded name is reported ambiguous with candidates, never first-match.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ByName_Overloaded_IsAmbiguous()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleDll!);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
 
         // Greeter.Greet has two overloads in the precompiled map.
         var result = ReadyToRunCorrelationQuery.Resolve(
-            analyzer, "Greet", TestContext.Current.CancellationToken);
+            analyzer, "Greet", CancellationToken.None);
 
-        Assert.Equal(ReadyToRunQueryOutcome.Ambiguous, result.Outcome);
-        Assert.True(result.Candidates.Count >= 2);
-        Assert.Null(result.Report);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Ambiguous, result.Outcome);
+        Assert.IsGreaterThanOrEqualTo(2, result.Candidates.Count);
+        Assert.IsNull(result.Report);
     }
 
     /// <summary>A native address resolves through its containing method's ranges.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ByAddress_ResolvesContainingMethod()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleDll!);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
 
         var method = analyzer.ReadyToRunMethods.First(m => m.CodeRanges.Count > 0);
         var address = method.CodeRanges[0].VirtualAddress;
 
         var result = ReadyToRunCorrelationQuery.Resolve(
-            analyzer, $"0x{address:x}", TestContext.Current.CancellationToken);
+            analyzer, $"0x{address:x}", CancellationToken.None);
 
-        Assert.Equal(ReadyToRunQueryOutcome.Resolved, result.Outcome);
-        Assert.Equal(method.Token, result.Report!.Token);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Resolved, result.Outcome);
+        Assert.AreEqual(method.Token, result.Report!.Token);
     }
 
     /// <summary>A precompiled method's native disassembly names its indirect call targets via imports.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PrecompiledNative_NamesIndirectCallTargets()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleDll!);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
 
         // MoveNext calls Console.WriteLine through an import slot; the resolver names it.
         var result = ReadyToRunCorrelationQuery.Resolve(
-            analyzer, "MoveNext", TestContext.Current.CancellationToken);
+            analyzer, "MoveNext", CancellationToken.None);
 
-        Assert.Equal(ReadyToRunQueryOutcome.Resolved, result.Outcome);
-        Assert.NotNull(result.Report!.NativeText);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Resolved, result.Outcome);
+        Assert.IsNotNull(result.Report!.NativeText);
         Assert.Contains("Console.WriteLine", result.Report.NativeText);
     }
 
     /// <summary>A method present in metadata but absent from the precompiled map resolves as IL-only.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ByName_NotPrecompiled_ResolvesAsIlOnly()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        using var analyzer = new AssemblyAnalyzer(samples.ReadyToRunConsoleDll!);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
         var index = analyzer.ReadyToRunIndex!;
 
         // Find a metadata method whose name is unique and not in the precompiled map.
@@ -96,13 +103,13 @@ public class ReadyToRunCorrelationTests(SampleAssemblyFixture samples)
             .Where(g => g.Count() == 1)
             .Select(g => g.Single())
             .FirstOrDefault();
-        Assert.SkipWhen(byName is null, "every metadata method in this image is precompiled.");
+        TestSkip.When(byName is null, "every metadata method in this image is precompiled.");
 
         var result = ReadyToRunCorrelationQuery.Resolve(
-            analyzer, byName!.Name, TestContext.Current.CancellationToken);
+            analyzer, byName!.Name, CancellationToken.None);
 
-        Assert.Equal(ReadyToRunQueryOutcome.Resolved, result.Outcome);
-        Assert.Equal(ReadyToRunNativeAvailability.NotPrecompiled, result.Report!.Availability);
-        Assert.Null(result.Report.NativeText);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Resolved, result.Outcome);
+        Assert.AreEqual(ReadyToRunNativeAvailability.NotPrecompiled, result.Report!.Availability);
+        Assert.IsNull(result.Report.NativeText);
     }
 }

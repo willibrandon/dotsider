@@ -9,28 +9,31 @@ namespace Dotsider.Tests;
 /// sample on Windows. These run on the Windows CI leg, where the symbol file is a <c>.pdb</c>;
 /// the block-math and container tests in <see cref="MsfFileTests"/> cover the other platforms.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativePdbReaderTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativePdbReaderTests
 {
-    private bool HasPdb =>
-        samples.NativeAotConsoleSymbols is not null
-        && samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
+    private static bool HasPdb =>
+        Samples.NativeAotConsoleSymbols is not null
+        && Samples.NativeAotConsoleSymbols.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Verifies the PDB's GUID reads through the cheap probe and matches the GUID embedded in the
     /// executable's RSDS debug directory (the bytes appear verbatim in the image).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void TryReadPdbId_MatchesExeRsdsGuid()
     {
-        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+        TestSkip.When(!HasPdb, "native PDB not present on this platform");
 
-        Assert.True(NativePdbReader.TryReadPdbId(samples.NativeAotConsoleSymbols!, out var guid, out var age));
-        Assert.NotEqual(Guid.Empty, guid);
-        Assert.True(age > 0);
+        Assert.IsTrue(NativePdbReader.TryReadPdbId(Samples.NativeAotConsoleSymbols!, out var guid, out var age));
+        Assert.AreNotEqual(Guid.Empty, guid);
+        Assert.IsGreaterThan(0, age);
 
-        var exe = File.ReadAllBytes(samples.NativeAotConsoleExe!);
-        Assert.True(IndexOf(exe, guid.ToByteArray()) >= 0, "PDB GUID not found in the exe RSDS entry");
+        var exe = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
+        Assert.IsGreaterThanOrEqualTo(0, IndexOf(exe, guid.ToByteArray()), "PDB GUID not found in the exe RSDS entry");
     }
 
     /// <summary>
@@ -38,36 +41,38 @@ public class NativePdbReaderTests(SampleAssemblyFixture samples)
     /// the app's entry point, and that C13 line data attributes at least one function to a source
     /// file and line.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_FixturePdb_RecoversFunctionsWithLineData()
     {
-        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+        TestSkip.When(!HasPdb, "native PDB not present on this platform");
 
-        var pdb = File.ReadAllBytes(samples.NativeAotConsoleSymbols!);
-        var exe = File.ReadAllBytes(samples.NativeAotConsoleExe!);
+        var pdb = File.ReadAllBytes(Samples.NativeAotConsoleSymbols!);
+        var exe = File.ReadAllBytes(Samples.NativeAotConsoleExe!);
 
         var symbols = NativePdbReader.Read(pdb, exe);
 
-        Assert.NotEmpty(symbols);
+        Assert.IsNotEmpty(symbols);
         // Addresses resolved: every symbol has a non-zero VA and an RVA.
-        Assert.All(symbols, s =>
+        TestAssert.All(symbols, s =>
         {
-            Assert.True(s.VirtualAddress > 0);
-            Assert.NotNull(s.Rva);
+            Assert.IsGreaterThan(0UL, s.VirtualAddress);
+            Assert.IsNotNull(s.Rva);
         });
         // The entry point is present in mangled form.
-        Assert.Contains(symbols, s => s.Name.Contains("Program___Main__", StringComparison.Ordinal));
+        Assert.Contains(s => s.Name.Contains("Program___Main__", StringComparison.Ordinal), symbols);
         // C13 line data attributed at least one function to a source location.
-        Assert.Contains(symbols, s => s.SourceFile is not null && s.Line is > 0);
+        Assert.Contains(s => s.SourceFile is not null && s.Line is > 0, symbols);
     }
 
     /// <summary>
     /// Verifies a non-PDB file returns no symbols rather than throwing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_NotAPdb_ReturnsEmpty()
     {
-        Assert.Empty(NativePdbReader.Read([0xDE, 0xAD, 0xBE, 0xEF], new byte[64]));
+        Assert.IsEmpty(NativePdbReader.Read([0xDE, 0xAD, 0xBE, 0xEF], new byte[64]));
     }
 
     /// <summary>
@@ -75,30 +80,31 @@ public class NativePdbReaderTests(SampleAssemblyFixture samples)
     /// demangled: addresses are unique (no double count), managed names join, and the compiler's
     /// data symbols (MethodTables) surface as their own kind.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Build_FixturePdb_MergesDemanglesAndClassifies()
     {
-        Assert.SkipWhen(!HasPdb, "native PDB not present on this platform");
+        TestSkip.When(!HasPdb, "native PDB not present on this platform");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var raw = NativePdbReader.Read(
-            File.ReadAllBytes(samples.NativeAotConsoleSymbols!), analyzer.RawBytes.ToArray());
+            File.ReadAllBytes(Samples.NativeAotConsoleSymbols!), analyzer.RawBytes.ToArray());
         var demangler = new IlcNameDemangler(analyzer.RecoveredTypes);
 
         var info = NativeSymbolReader.Build(
             raw, demangler,
             NativeSymbolSource.NativePdb,
             NativeSymbolStatus.Loaded,
-            samples.NativeAotConsoleSymbols, null,
+            Samples.NativeAotConsoleSymbols, null,
             NativeArchitecture.X64);
 
-        Assert.NotEmpty(info.Symbols);
+        Assert.IsNotEmpty(info.Symbols);
         // No two symbols share an address after the merge.
-        Assert.Equal(info.Symbols.Count, info.Symbols.Select(s => s.VirtualAddress).Distinct().Count());
+        Assert.HasCount(info.Symbols.Count, info.Symbols.Select(s => s.VirtualAddress).Distinct());
         // Managed names joined for some functions.
-        Assert.Contains(info.Symbols, s => s.IsExactMatch && s.ManagedName is not null);
+        Assert.Contains(s => s.IsExactMatch && s.ManagedName is not null, info.Symbols);
         // The compiler's MethodTable data symbols are recovered and classified.
-        Assert.Contains(info.Symbols, s => s.Kind == NativeSymbolKind.MethodTable);
+        Assert.Contains(s => s.Kind == NativeSymbolKind.MethodTable, info.Symbols);
     }
 
 

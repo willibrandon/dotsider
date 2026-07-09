@@ -5,13 +5,16 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests for runtime discovery and assembly resolution MCP tools.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class RuntimeToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// find_framework_assembly resolves System.Runtime to a path inside the shared framework pack.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FindFrameworkAssembly_SystemRuntime_ReturnsPathAndPack()
     {
         await StartServerAsync();
@@ -22,16 +25,17 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.NotEmpty(json.GetProperty("path").GetString()!);
-        Assert.Equal("Microsoft.NETCore.App", json.GetProperty("runtimePack").GetString());
+        Assert.IsNotEmpty(json.GetProperty("path").GetString()!);
+        Assert.AreEqual("Microsoft.NETCore.App", json.GetProperty("runtimePack").GetString());
     }
 
     /// <summary>
     /// Unknown framework assembly names yield a serialized null rather than an error.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FindFrameworkAssembly_Nonexistent_ReturnsNull()
     {
         await StartServerAsync();
@@ -42,14 +46,15 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
-        Assert.Equal("null", text);
+        Assert.IsNotNull(text);
+        Assert.AreEqual("null", text);
     }
 
     /// <summary>
     /// resolve_assembly routes a shared framework dependency to a file-kind resolution.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ResolveAssembly_Direct_SharedFramework()
     {
         await StartServerAsync();
@@ -59,20 +64,21 @@ public class RuntimeToolsTests(SampleAssemblyFixture samples) : McpServerTestBas
             new Dictionary<string, object?>
             {
                 ["assemblyName"] = "System.Runtime",
-                ["assemblyPath"] = samples.RichLibraryDll
+                ["assemblyPath"] = Samples.RichLibraryDll
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal("file", json.GetProperty("kind").GetString());
+        Assert.AreEqual("file", json.GetProperty("kind").GetString());
     }
 
     /// <summary>
     /// Tool registry advertises the two runtime discovery tools by canonical name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListTools_IncludesRuntimeTools()
     {
         await StartServerAsync();

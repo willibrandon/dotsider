@@ -3,13 +3,15 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Regression tests for release workflow behavior that is easy to break in YAML.
 /// </summary>
+[TestClass]
 public class ReleaseWorkflowTests
 {
     /// <summary>
     /// Verifies generated winget branch commits suppress fork-side push workflows without
     /// leaking the marker into user-facing winget pull request titles.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void WingetSubmissionCommits_SkipForkPushWorkflowsOnly()
     {
         var releaseWorkflow = File.ReadAllText(Path.Combine(
@@ -20,7 +22,7 @@ public class ReleaseWorkflowTests
 
         Assert.Contains("message=\"Update willibrandon.dotsider to $version [skip actions]\"", releaseWorkflow);
         Assert.Contains("message=\"Update willibrandon.dotsider-mcp to $version [skip actions]\"", releaseWorkflow);
-        Assert.Equal(2, CountOccurrences(releaseWorkflow, "[skip actions]"));
+        Assert.AreEqual(2, CountOccurrences(releaseWorkflow, "[skip actions]"));
         Assert.DoesNotContain("[skip ci]", releaseWorkflow);
 
         Assert.Contains("$prTitle = \"Update willibrandon.dotsider to $version\"", releaseWorkflow);

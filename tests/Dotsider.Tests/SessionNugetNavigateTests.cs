@@ -13,9 +13,11 @@ namespace Dotsider.Tests;
 /// exactly like Program.RunTui NuGet mode. Verifies navigation, mutation
 /// draining, get-current-view, search, and start-trace via the diagnostics socket.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class SessionNugetNavigateTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -83,7 +85,7 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
                     SelectedDll = s.SelectedDllEntry?.Name,
                 };
             });
-        _listener.StartListening();
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _ = _app.RunAsync(ct);
         await Task.Delay(100, ct);
@@ -112,46 +114,48 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
     /// <summary>
     /// Verifies navigate via socket changes dll tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Navigate_ViaSocket_ChangesDllTab()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         // Open a DLL so SelectedDllState is available
         OpenFirstDll();
 
         // Verify initial tab is 0 (General)
-        Assert.Equal(TabId.General, _nugetState!.SelectedDllState!.CurrentTab);
+        Assert.AreEqual(TabId.General, _nugetState!.SelectedDllState!.CurrentTab);
 
         // Navigate to Strings tab via the socket (1-based: Strings = 4)
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.Strings + 1 }, ct);
-        Assert.True(navResponse.Success);
+        Assert.IsTrue(navResponse.Success);
 
         // Wait for the render loop to drain the mutation queue
         await TestHelpers.WaitUntilAsync(
             () => _nugetState.SelectedDllState!.CurrentTab == TabId.Strings,
             TimeSpan.FromSeconds(10));
 
-        Assert.Equal(TabId.Strings, _nugetState.SelectedDllState.CurrentTab);
+        Assert.AreEqual(TabId.Strings, _nugetState.SelectedDllState.CurrentTab);
     }
 
     /// <summary>
     /// Verifies get current view reflects navigated tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetCurrentView_ReflectsNavigatedTab()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         OpenFirstDll();
 
         // Navigate to PE/Metadata tab (1-based: PE/Metadata = 2)
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.PeMetadata + 1 }, ct);
-        Assert.True(navResponse.Success);
+        Assert.IsTrue(navResponse.Success);
 
         await TestHelpers.WaitUntilAsync(
             () => _nugetState!.SelectedDllState!.CurrentTab == TabId.PeMetadata,
@@ -160,14 +164,14 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
         // get-current-view should report the navigated tab
         var viewResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewResponse.Success);
+        Assert.IsTrue(viewResponse.Success);
 
         var data = viewResponse.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.False(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.PeMetadata + 1, data.Value.GetProperty("tab").GetInt32());
-        Assert.Equal(
+        Assert.IsNotNull(data);
+        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(TabId.PeMetadata + 1, data.Value.GetProperty("tab").GetInt32());
+        Assert.AreEqual(
             _nugetState!.SelectedDllEntry!.Name,
             data.Value.GetProperty("selectedDll").GetString());
     }
@@ -175,73 +179,77 @@ public class SessionNugetNavigateTests(SampleAssemblyFixture samples) : IAsyncDi
     /// <summary>
     /// Verifies get current view before dll opened shows browsing package.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetCurrentView_BeforeDllOpened_ShowsBrowsingPackage()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         // Don't open a DLL — should still be browsing the package
         var viewResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
-        Assert.True(viewResponse.Success);
+        Assert.IsTrue(viewResponse.Success);
 
         var data = viewResponse.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.True(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
         // Tab is null when browsing package — omitted from JSON (WhenWritingNull)
-        Assert.False(data.Value.TryGetProperty("tab", out _));
+        Assert.IsFalse(data.Value.TryGetProperty("tab", out _));
     }
 
     /// <summary>
     /// Verifies search via socket succeeds.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Search_ViaSocket_Succeeds()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         OpenFirstDll();
 
         // Search should succeed through the NuGet listener's getState → SelectedDllState pipeline
         var searchResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "search", Query = "test" }, ct);
-        Assert.True(searchResponse.Success);
+        Assert.IsTrue(searchResponse.Success);
     }
 
     /// <summary>
     /// Verifies start trace fails for library dll.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StartTrace_FailsForLibraryDll()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         OpenFirstDll();
 
         // Library DLLs have no entry point — start-trace should fail
         var traceResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "start-trace" }, ct);
-        Assert.False(traceResponse.Success);
-        Assert.Contains("entry point", traceResponse.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.IsFalse(traceResponse.Success);
+        Assert.Contains("entry point", traceResponse.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Verifies navigate before dll opened fails.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Navigate_BeforeDllOpened_Fails()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(samples.RichLibraryNupkg, ct);
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartNugetTuiWithDiagnosticsAsync(Samples.RichLibraryNupkg, ct);
 
         // Don't open a DLL — navigate should fail because getState returns null
         var navResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "navigate", TabId = TabId.Strings + 1 }, ct);
-        Assert.False(navResponse.Success);
+        Assert.IsFalse(navResponse.Success);
     }
 
     /// <summary>

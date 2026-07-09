@@ -12,27 +12,30 @@ namespace Dotsider.Tests;
 /// indirect call or PLT/stub jump resolves to the import and composes into
 /// <see cref="NativeDisassembler.DisassembleSymbol(AssemblyAnalyzer, NativeSymbol)"/>.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeImportResolverTests(SampleAssemblyFixture samples)
+[TestClass]
+public class NativeImportResolverTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>Verifies the resolver reads the AOT binary's imports and names an IAT slot.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Build_NativeAot_MapsImportSlots()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var resolver = NativeImportResolver.Build(analyzer.RawBytes);
 
-        Assert.NotNull(resolver); // a NativeAOT exe imports a handful of OS APIs
-        Assert.NotEmpty(resolver.Slots);
+        Assert.IsNotNull(resolver); // a NativeAOT exe imports a handful of OS APIs
+        Assert.IsNotEmpty(resolver.Slots);
 
         // Each mapped slot round-trips through TryResolve to its imported name.
         var (slotVa, name) = resolver.Slots.First();
-        Assert.True(resolver.TryResolve(slotVa, out var import));
-        Assert.Equal(name, import.Name);
-        Assert.False(string.IsNullOrEmpty(import.Name));
+        Assert.IsTrue(resolver.TryResolve(slotVa, out var import));
+        Assert.AreEqual(name, import.Name);
+        Assert.IsFalse(string.IsNullOrEmpty(import.Name));
 
         // The MODULE!Function form is a PE Import Address Table convention; ELF PLT/GOT and Mach-O
         // stub imports are bare (or leading-underscored) symbol names with no module qualifier.
@@ -41,15 +44,16 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>Verifies the import resolver composes into DisassembleSymbol's target naming.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DisassembleSymbol_ComposesImportResolver()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var resolver = NativeImportResolver.Build(analyzer.RawBytes);
-        Assert.NotNull(resolver);
+        Assert.IsNotNull(resolver);
 
         // A synthetic call [rip+0] whose slot is the first IAT entry names the import.
         var (slotVa, expected) = resolver.Slots.First();
@@ -58,21 +62,23 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
         bool Compose(ulong va, out NativeSymbolRef sym) => resolver.TryResolve(va, out sym);
 
         var insn = NativeDisassembler.Disassemble(code, callAddress, NativeArchitecture.X64, Compose)[0];
-        Assert.Equal(expected, insn.TargetName);
+        Assert.AreEqual(expected, insn.TargetName);
     }
 
     /// <summary>Verifies a binary with no import table yields no resolver.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Build_NoImports_ReturnsNull()
     {
-        Assert.Null(NativeImportResolver.Build(new byte[] { 0x00, 0x01, 0x02, 0x03 }));
+        Assert.IsNull(NativeImportResolver.Build(new byte[] { 0x00, 0x01, 0x02, 0x03 }));
     }
 
     /// <summary>
     /// A synthetic ELF with a <c>.rela.plt</c> JUMP_SLOT relocation binds its GOT slot to a
     /// <c>.dynsym</c> symbol, so the resolver names the slot the PLT stub jumps through.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Build_Elf_MapsPltGotSlotToDynamicSymbol()
     {
         const ulong gotSlotVa = 0x2018;
@@ -80,19 +86,20 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
 
         var resolver = NativeImportResolver.Build(image);
 
-        Assert.NotNull(resolver);
-        Assert.True(resolver.TryResolve(gotSlotVa, out var import));
-        Assert.Equal("malloc", import.Name);
+        Assert.IsNotNull(resolver);
+        Assert.IsTrue(resolver.TryResolve(gotSlotVa, out var import));
+        Assert.AreEqual("malloc", import.Name);
     }
 
     /// <summary>Verifies the ELF resolver composes into DisassembleSymbol: a PLT stub's inner jmp through the GOT slot names the import.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DisassembleSymbol_ComposesElfImportResolver()
     {
         const ulong stubVa = 0x1020;
         const ulong gotSlotVa = 0x2018;
         var resolver = NativeImportResolver.Build(BuildSyntheticElf(gotSlotVa, "malloc"));
-        Assert.NotNull(resolver);
+        Assert.IsNotNull(resolver);
 
         // jmp [rip+disp]; next-IP (stub + 6) + disp == the GOT slot.
         var disp = (uint)(gotSlotVa - (stubVa + 6));
@@ -100,7 +107,7 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
         bool Compose(ulong va, out NativeSymbolRef sym) => resolver.TryResolve(va, out sym);
 
         var insn = NativeDisassembler.Disassemble(stub, stubVa, NativeArchitecture.X64, Compose)[0];
-        Assert.Equal("malloc", insn.TargetName);
+        Assert.AreEqual("malloc", insn.TargetName);
     }
 
     /// <summary>
@@ -134,25 +141,27 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
     /// A synthetic Mach-O <c>__stubs</c> section resolves each stub through the indirect symbol table
     /// to its imported symbol, so the stub's virtual address names the import.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Build_MachO_MapsStubToImportedSymbol()
     {
         const ulong stubVa = 0x1000;
         var resolver = NativeImportResolver.Build(BuildSyntheticMachO(stubVa, "_malloc"));
 
-        Assert.NotNull(resolver);
-        Assert.True(resolver.TryResolve(stubVa, out var import));
-        Assert.Equal("_malloc", import.Name);
+        Assert.IsNotNull(resolver);
+        Assert.IsTrue(resolver.TryResolve(stubVa, out var import));
+        Assert.AreEqual("_malloc", import.Name);
     }
 
     /// <summary>Verifies the Mach-O resolver composes into DisassembleSymbol: a direct call to the stub names the import.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DisassembleSymbol_ComposesMachOImportResolver()
     {
         const ulong stubVa = 0x1000;
         const ulong callVa = 0x800;
         var resolver = NativeImportResolver.Build(BuildSyntheticMachO(stubVa, "_malloc"));
-        Assert.NotNull(resolver);
+        Assert.IsNotNull(resolver);
 
         // call rel32; next-IP (call + 5) + rel == the stub.
         var rel = (uint)(stubVa - (callVa + 5));
@@ -160,7 +169,7 @@ public class NativeImportResolverTests(SampleAssemblyFixture samples)
         bool Compose(ulong va, out NativeSymbolRef sym) => resolver.TryResolve(va, out sym);
 
         var insn = NativeDisassembler.Disassemble(call, callVa, NativeArchitecture.X64, Compose)[0];
-        Assert.Equal("_malloc", insn.TargetName);
+        Assert.AreEqual("_malloc", insn.TargetName);
     }
 
     /// <summary>

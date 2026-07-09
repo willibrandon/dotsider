@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Integration tests for the IL Inspector view (Tab 3).
 /// </summary>
-[Collection("SampleAssemblies")]
-public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class IlInspectorViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -19,7 +21,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -46,10 +48,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     /// After clicking in the IL editor and switching tabs, returning to IL
     /// must focus the tree table so arrow keys navigate methods, not the editor cursor.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_TreeFocusedOnReturn_AfterEditorHadFocus()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         // Navigate to IL Inspector tab
@@ -109,8 +112,8 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // Selected method must be preserved after tab round-trip
         var selectedBefore = _state!.IlSelectedMethod;
-        Assert.NotNull(selectedBefore);
-        Assert.Equal("ToTitleCase", selectedBefore!.Name);
+        Assert.IsNotNull(selectedBefore);
+        Assert.AreEqual("ToTitleCase", selectedBefore!.Name);
 
         // Capture editor cursor before DownArrow
         var cursorBefore = _state.IlEditorState?.Cursor.Position;
@@ -120,7 +123,8 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key, not editor)
-        Assert.Equal(cursorBefore, _state.IlEditorState?.Cursor.Position);
+        Assert.IsNotNull(_state.IlEditorState);
+        Assert.AreEqual(cursorBefore, _state.IlEditorState.Cursor.Position);
 
         _cts!.Cancel();
         await runTask;
@@ -130,10 +134,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Cross-view NavigateToIlMethod must set the tree table's focused row key
     /// to the jumped-to method, and the method must be selected.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_CrossViewJump_FocusesTree()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         // Go to IL tab, select a method programmatically, click in editor
@@ -184,15 +189,15 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             description: "focus to return to tree");
 
         // The jumped-to method must be selected in state
-        Assert.Equal(method, _state.IlSelectedMethod);
+        Assert.AreEqual(method, _state.IlSelectedMethod);
         // The focused tree key must point to the jumped-to method row
-        Assert.Equal($"method:{method.Token}", _state.IlFocusedTreeKey);
+        Assert.AreEqual($"method:{method.Token}", _state.IlFocusedTreeKey);
         // The method's namespace and type must be expanded
         var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == method.DeclaringType);
         var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
-        Assert.True(_state.IlTreeExpansionState[$"ns:{ns}"],
+        Assert.IsTrue(_state.IlTreeExpansionState[$"ns:{ns}"],
             "Jumped-to method's namespace must be expanded");
-        Assert.True(_state.IlTreeExpansionState[$"type:{method.DeclaringType}"],
+        Assert.IsTrue(_state.IlTreeExpansionState[$"type:{method.DeclaringType}"],
             "Jumped-to method's type must be expanded");
 
         // Verify focus landed on the tree (not the editor) after the jump.
@@ -200,7 +205,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         // The Tab3_TreeFocusedOnReturn_AfterEditorHadFocus test covers the
         // DownArrow-consumed-by-tree behavior separately; here we just verify
         // the jump set up the correct tree state and focus target.
-        Assert.True(_state.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode,
+        Assert.IsTrue(_state.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode,
             "Focus must be on the tree after cross-view jump");
 
         _cts!.Cancel();
@@ -211,10 +216,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Cross-view jump must sync the inner ListNode.SelectedIndex to the jumped-to method row.
     /// This catches the stale-selection bug where the list stays on row 0 after a jump.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_CrossViewJump_SyncsListNodeSelectedIndex()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         // Start on IL tab — list selection defaults to row 0
@@ -248,11 +254,10 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
         var rows = Views.IlInspectorView.BuildTreeRows(_state);
         var expectedKey = $"method:{targetMethod.Token}";
         var expectedIndex = rows.FindIndex(r => r.Key == expectedKey);
-        Assert.True(expectedIndex >= 0,
-            $"Method {targetMethod.Name} must appear in the flattened tree rows");
+        Assert.IsGreaterThanOrEqualTo(0, expectedIndex, $"Method {targetMethod.Name} must appear in the flattened tree rows");
 
         // The actual ListNode.SelectedIndex must match
-        Assert.Equal(expectedKey, _state.IlFocusedTreeKey);
+        Assert.AreEqual(expectedKey, _state.IlFocusedTreeKey);
 
         _cts!.Cancel();
         await runTask;
@@ -261,10 +266,11 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// RightArrow expands a collapsed namespace/type row and LeftArrow collapses it.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_LeftRightArrow_ExpandCollapseTreeRows()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(ct);
 
         // Go to IL tab
@@ -291,7 +297,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, ct);
 
         // Type should start collapsed (default)
-        Assert.False(Views.IlInspectorView.GetExpansionState(_state, typeKey, defaultExpanded: false),
+        Assert.IsFalse(Views.IlInspectorView.GetExpansionState(_state, typeKey, defaultExpanded: false),
             "Type should start collapsed");
 
         // Find the first method under this type so we can use its name as a screen-based
@@ -306,7 +312,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state.IlTreeExpansionState.TryGetValue(typeKey, out var expanded) && expanded,
+        Assert.IsTrue(_state.IlTreeExpansionState.TryGetValue(typeKey, out var expanded) && expanded,
             "RightArrow must expand the focused type row");
 
         // LeftArrow collapses — child method rows disappear
@@ -316,7 +322,7 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state.IlTreeExpansionState.TryGetValue(typeKey, out var collapsed) && !collapsed,
+        Assert.IsTrue(_state.IlTreeExpansionState.TryGetValue(typeKey, out var collapsed) && !collapsed,
             "LeftArrow must collapse the focused type row");
 
         _cts!.Cancel();
@@ -328,12 +334,12 @@ public class IlInspectorViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

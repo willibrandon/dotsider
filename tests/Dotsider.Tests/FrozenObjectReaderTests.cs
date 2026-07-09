@@ -7,20 +7,23 @@ namespace Dotsider.Tests;
 /// Tests for frozen string recovery from the Native AOT frozen object region, exercised
 /// through <see cref="AssemblyAnalyzer.FrozenStrings"/>.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
+[TestClass]
+public class FrozenObjectReaderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Verifies frozen strings are recovered from the sample and include the literal it
     /// prints. On Windows and macOS the region is file-backed; on Linux it is rebuilt from
     /// the dehydrated data — either way the literals are recovered.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FrozenStrings_NativeAotExe_RecoversLiterals()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var frozen = analyzer.FrozenStrings;
 
@@ -31,34 +34,36 @@ public class FrozenObjectReaderTests(SampleAssemblyFixture samples)
             Assert.Fail($"frozen={frozen.Count}; sections=[{sections}]");
         }
 
-        Assert.All(frozen, s => Assert.Equal(StringSource.FrozenObject, s.Source));
+        TestAssert.All(frozen, s => Assert.AreEqual(StringSource.FrozenObject, s.Source));
     }
 
     /// <summary>
     /// Verifies recovered frozen strings carry offsets inside the file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FrozenStrings_NativeAotExe_HaveValidOffsets()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var size = new FileInfo(samples.NativeAotConsoleExe!).Length;
-        using var analyzer = new AssemblyAnalyzer(samples.NativeAotConsoleExe!);
+        var size = new FileInfo(Samples.NativeAotConsoleExe!).Length;
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
 
         var frozen = analyzer.FrozenStrings;
 
-        Assert.NotEmpty(frozen);
-        Assert.All(frozen, s => Assert.InRange(s.Offset, 0, (int)size - 1));
+        Assert.IsNotEmpty(frozen);
+        TestAssert.All(frozen, s => Assert.IsInRange(0, (int)size - 1, s.Offset));
     }
 
     /// <summary>
     /// Verifies a managed assembly has no frozen strings.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FrozenStrings_ManagedDll_Empty()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
 
-        Assert.Empty(analyzer.FrozenStrings);
+        Assert.IsEmpty(analyzer.FrozenStrings);
     }
 }

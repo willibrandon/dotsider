@@ -6,9 +6,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for search filtering logic across different data types.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class SearchFilterTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -30,25 +32,27 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings empty query returns all.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Strings_EmptyQuery_ReturnsAll()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.StringsSourceTab = 1; // Metadata strings
         state.Search[TabId.Strings].Reset(); // No query
         var all = state.GetActiveStrings();
-        Assert.NotEmpty(all);
+        Assert.IsNotEmpty(all);
     }
 
     /// <summary>
     /// Verifies strings with query filters results.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Strings_WithQuery_FiltersResults()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.StringsSourceTab = 1;
         var all = state.GetActiveStrings();
 
@@ -59,8 +63,8 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
             state.Search[TabId.Strings].ActivateOrCycle();
             state.Search[TabId.Strings].UpdateQuery(target);
             var filtered = state.GetActiveStrings();
-            Assert.True(filtered.Count <= all.Count);
-            Assert.All(filtered, e =>
+            Assert.IsLessThanOrEqualTo(all.Count, filtered.Count);
+            TestAssert.All(filtered, e =>
                 Assert.Contains(target, e.Value, StringComparison.OrdinalIgnoreCase));
         }
     }
@@ -68,26 +72,28 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings no match returns empty.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Strings_NoMatch_ReturnsEmpty()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.StringsSourceTab = 1;
         state.Search[TabId.Strings].ActivateOrCycle();
         state.Search[TabId.Strings].UpdateQuery("zzzNoMatchEver12345zzz");
         var filtered = state.GetActiveStrings();
-        Assert.Empty(filtered);
+        Assert.IsEmpty(filtered);
     }
 
     /// <summary>
     /// Verifies strings case insensitive.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Strings_CaseInsensitive()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.StringsSourceTab = 1;
         var all = state.GetActiveStrings();
         if (all.Count > 0)
@@ -96,18 +102,19 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
             state.Search[TabId.Strings].ActivateOrCycle();
             state.Search[TabId.Strings].UpdateQuery(target);
             var filtered = state.GetActiveStrings();
-            Assert.NotEmpty(filtered);
+            Assert.IsNotEmpty(filtered);
         }
     }
 
     /// <summary>
     /// Verifies assembly refs filter by name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void AssemblyRefs_FilterByName()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         var refs = state.Analyzer.AssemblyRefs;
         if (refs.Count > 0)
         {
@@ -116,35 +123,37 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
                 .Where(r => $"{r.Name} {r.Version} {r.Culture} {r.PublicKeyToken}"
                     .Contains(query, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            Assert.NotEmpty(filtered);
-            Assert.True(filtered.Count <= refs.Count);
+            Assert.IsNotEmpty(filtered);
+            Assert.IsLessThanOrEqualTo(refs.Count, filtered.Count);
         }
     }
 
     /// <summary>
     /// Verifies special characters no regex error.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SpecialCharacters_NoRegexError()
     {
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
         state.StringsSourceTab = 1;
         state.Search[TabId.Strings].ActivateOrCycle();
         state.Search[TabId.Strings].UpdateQuery("test.*(+?)");
         // Should not throw — uses string.Contains, not regex
         var filtered = state.GetActiveStrings();
-        Assert.NotNull(filtered);
+        Assert.IsNotNull(filtered);
     }
 
     /// <summary>
     /// Verifies diff entries filter by type name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DiffEntries_FilterByTypeName()
     {
         var app = CreateApp();
-        using var diffState = new DiffState(app, samples.RichLibraryDll, samples.RichLibraryV2Dll);
+        using var diffState = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
         var entries = diffState.DiffResult.TypeDiffs;
         if (entries.Count > 0)
         {
@@ -155,7 +164,7 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
                 var t = e.Right ?? e.Left!;
                 return t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase);
             }).ToList();
-            Assert.NotEmpty(filtered);
+            Assert.IsNotEmpty(filtered);
         }
     }
 
@@ -164,9 +173,9 @@ public class SearchFilterTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

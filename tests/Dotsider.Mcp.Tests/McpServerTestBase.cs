@@ -120,6 +120,7 @@ public abstract class McpServerTestBase : IAsyncDisposable
     /// </summary>
     public virtual async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         await _cts.CancelAsync();
 
         _clientToServerPipe.Writer.Complete();
@@ -143,6 +144,5 @@ public abstract class McpServerTestBase : IAsyncDisposable
 
         _cts.Dispose();
 
-        GC.SuppressFinalize(this);
     }
 }
