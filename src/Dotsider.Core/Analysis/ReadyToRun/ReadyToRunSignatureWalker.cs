@@ -21,6 +21,8 @@ internal static class ReadyToRunSignatureWalker
     private const uint SigConstrained = 0x20;
     private const uint SigOwnerType = 0x40;
     private const uint SigUpdateContext = 0x80;
+    private const uint MaxSignatureItemCount = 1024;
+    private const uint MaxArrayRank = 256;
 
     /// <summary>The result of walking one method signature.</summary>
     /// <param name="Offset">The file offset immediately after the signature (where the runtime-function index begins).</param>
@@ -127,6 +129,7 @@ internal static class ReadyToRunSignatureWalker
             if ((flags & SigMethodInstantiation) != 0)
             {
                 var argCount = ReadUInt();
+                EnsureBounded(argCount, MaxSignatureItemCount, "method generic argument count");
                 for (var i = 0; i < argCount; i++)
                     _instantiation.Add(SkipType());
                 flags &= ~SigMethodInstantiation;
@@ -192,10 +195,13 @@ internal static class ReadyToRunSignatureWalker
                 {
                     var element = SkipType();
                     var rank = ReadUInt();
+                    EnsureBounded(rank, MaxArrayRank, "array rank");
                     if (rank == 0) return element + "[]";
                     var sizes = ReadUInt();
+                    EnsureBounded(sizes, MaxArrayRank, "array size count");
                     for (var i = 0; i < sizes; i++) ReadUInt();
                     var lowerBounds = ReadUInt();
+                    EnsureBounded(lowerBounds, MaxArrayRank, "array lower-bound count");
                     for (var i = 0; i < lowerBounds; i++) ReadInt();
                     return $"{element}[{new string(',', (int)rank - 1)}]";
                 }
@@ -203,6 +209,7 @@ internal static class ReadyToRunSignatureWalker
                 {
                     var generic = SkipType();
                     var argCount = ReadUInt();
+                    EnsureBounded(argCount, MaxSignatureItemCount, "type generic argument count");
                     ReadyToRunDiagnostics.Write(
                         $"type-genericinst start=0x{_startOffset:X} args={argCount} next=0x{_offset:X}");
                     var args = new string[argCount];
@@ -217,6 +224,7 @@ internal static class ReadyToRunSignatureWalker
                     var header = reader.ReadByte(ref _offset);
                     if ((header & 0x10) != 0) ReadUInt(); // generic param count
                     var paramCount = ReadUInt();
+                    EnsureBounded(paramCount, MaxSignatureItemCount, "function pointer parameter count");
                     SkipType(); // return
                     for (var i = 0; i < paramCount; i++)
                     {
@@ -237,22 +245,32 @@ internal static class ReadyToRunSignatureWalker
             try
             {
                 var handle = MetadataTokens.EntityHandle(token);
+                var row = MetadataTokens.GetRowNumber(handle);
                 ReadyToRunDiagnostics.Write(
-                    $"type-token offset=0x{_offset:X} token=0x{token:X8} kind={handle.Kind} row={MetadataTokens.GetRowNumber(handle)}");
+                    $"type-token offset=0x{_offset:X} token=0x{token:X8} kind={handle.Kind} row={row}");
                 return handle.Kind switch
                 {
-                    HandleKind.TypeDefinition => _metadata.GetString(
+                    HandleKind.TypeDefinition when IsValidRow(row, _metadata.TypeDefinitions.Count) => _metadata.GetString(
                         _metadata.GetTypeDefinition((TypeDefinitionHandle)handle).Name),
-                    HandleKind.TypeReference => _metadata.GetString(
+                    HandleKind.TypeReference when IsValidRow(row, _metadata.TypeReferences.Count) => _metadata.GetString(
                         _metadata.GetTypeReference((TypeReferenceHandle)handle).Name),
                     _ => "Type",
                 };
             }
-            catch (Exception ex) when (ex is BadImageFormatException or ArgumentException)
+            catch (Exception ex) when (ex is BadImageFormatException or ArgumentException or InvalidOperationException)
             {
                 return "Type";
             }
         }
+
+        private static void EnsureBounded(uint value, uint max, string name)
+        {
+            if (value > max)
+                throw new BadImageFormatException($"ReadyToRun signature {name} {value} exceeds supported maximum {max}.");
+        }
+
+        private static bool IsValidRow(int row, int count) =>
+            row > 0 && row <= count;
 
         // Reads a signature token: an ECMA compressed value whose low 2 bits pick the table.
         private int ReadToken()

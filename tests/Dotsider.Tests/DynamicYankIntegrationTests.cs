@@ -2,7 +2,6 @@ using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
-using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -87,22 +86,22 @@ public class DynamicYankIntegrationTests : IDisposable
             .Key(Hex1bKey.RightArrow)
             .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
             .WaitUntil(_ => _state!.DynamicCpuEditorState is not null, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5));
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicCpuEditorState), TimeSpan.FromSeconds(5));
     }
 
     /// <summary>Moves focus out of the Counters editors to the subtab strip.</summary>
     private async Task TabOutOfCountersEditorsAsync(Hex1bTerminal terminal, CancellationToken ct)
     {
-        // During a live trace, render cycles can be slow because each frame
-        // processes EventPipe events. Instead of tabbing through editors one
-        // at a time (which requires one render cycle per Tab), directly request
-        // focus on the subtab strip and wait for it.
-        _state!.App.RequestFocus(node =>
-            node is TabPanelNode { MetricName: "dynamic-subtabs" });
-        _state.App.Invalidate();
-
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicCpuEditorState), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicMemoryEditorState), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicGcEditorState), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicThreadingEditorState), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Tab)
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
     }

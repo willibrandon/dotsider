@@ -43,9 +43,28 @@ jobs:
             tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj
           do
             project_name="$(basename "$(dirname "$project")")"
+            result_dir="TestResults/${{ matrix.os }}/${project_name}"
+            mkdir -p "$result_dir"
             export DOTSIDER_R2R_DIAGNOSTICS=1
-            export DOTSIDER_R2R_DIAGNOSTICS_PATH="TestResults/${{ matrix.os }}/${project_name}/r2r-diagnostics.log"
-            dotnet test "$project" --no-build --report-trx --results-directory "TestResults/${{ matrix.os }}/${project_name}" --coverage --coverage-output-format cobertura
+            export DOTSIDER_R2R_DIAGNOSTICS_PATH="$result_dir/r2r-diagnostics.log"
+            : > "$DOTSIDER_R2R_DIAGNOSTICS_PATH"
+            set +e
+            dotnet test "$project" \
+              --no-build \
+              --report-trx \
+              --results-directory "$result_dir" \
+              --coverage \
+              --coverage-output-format cobertura \
+              --diagnostic \
+              --diagnostic-verbosity Trace \
+              --diagnostic-output-directory "$result_dir" \
+              --diagnostic-file-prefix "$project_name" \
+              2>&1 | tee "$result_dir/dotnet-test.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            if [ "$status" -ne 0 ]; then
+              exit "$status"
+            fi
           done
 
       - name: Upload test artifacts
@@ -56,6 +75,7 @@ jobs:
           path: |
             TestResults/**/*.trx
             TestResults/**/*.cobertura.xml
+            TestResults/**/*.diag
             TestResults/**/*.log
 
   deploy-tests:
