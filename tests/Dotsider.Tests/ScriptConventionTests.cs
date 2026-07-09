@@ -42,7 +42,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Run-Tests.cs", readme);
         Assert.Contains("FullyQualifiedName~", runTestsScript);
-        Assert.Contains("dotnet-suggest", runTestsScript);
+        Assert.DoesNotContain("dotnet-suggest", runTestsScript);
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
         Assert.Contains("Current utilities", readme);
         Assert.Contains("scripts/*.cs text eol=lf", attributes);

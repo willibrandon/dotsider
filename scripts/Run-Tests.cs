@@ -5,9 +5,6 @@
 #:include ScriptSupport.cs
 
 using System.CommandLine;
-using System.CommandLine.Completions;
-using System.CommandLine.Help;
-using System.CommandLine.Invocation;
 using System.Diagnostics;
 
 try
@@ -24,7 +21,7 @@ catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException
 /// Runs the repository test suite through <c>dotnet test</c>.
 /// The app can repeat the same command to expose parallelization flakes.
 /// Extra arguments are forwarded unchanged after the script argument separator.
-/// System.CommandLine provides option parsing, help, and shell completion metadata.
+/// System.CommandLine provides option parsing and help output.
 /// Child <c>dotnet test</c> processes disable MSBuild node reuse so repeat runs
 /// do not leave idle build worker processes behind on developer machines.
 /// </summary>
@@ -33,9 +30,7 @@ catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException
 /// <c>dotnet test</c> once for the full solution. Use <c>-Count</c> to repeat
 /// the same command, <c>-Target</c> to select a project or solution, and
 /// <c>--</c> to forward native <c>dotnet test</c> arguments such as
-/// <c>--filter "FullyQualifiedName~SomeTest"</c>. Shell completions are exposed
-/// through System.CommandLine; publish the script and register the apphost with
-/// <c>dotnet-suggest</c> as described by <c>-Help</c>.
+/// <c>--filter "FullyQualifiedName~SomeTest"</c>.
 /// </remarks>
 internal static class TestRunApp
 {
@@ -96,10 +91,6 @@ internal static class TestRunApp
             Description = "Arguments forwarded to dotnet test after --.",
             Arity = ArgumentArity.ZeroOrMore,
         };
-        targetOption.CompletionSources.Add(context => CompleteTargets(context, workingDirectoryOption));
-        workingDirectoryOption.CompletionSources.Add(context => CompleteDirectories(context, workingDirectoryOption));
-        logDirectoryOption.CompletionSources.Add(context => CompleteDirectories(context, workingDirectoryOption));
-
         RootCommand rootCommand = new("Runs dotnet test once or repeatedly.")
         {
             countOption,
@@ -112,7 +103,6 @@ internal static class TestRunApp
             stopOnFailureOption,
             dotnetTestArgument,
         };
-        ConfigureHelp(rootCommand);
         rootCommand.SetAction(parseResult =>
         {
             string repositoryRoot = ScriptSupport.FindRepositoryRoot();
@@ -137,18 +127,6 @@ internal static class TestRunApp
         });
 
         return rootCommand.Parse(NormalizeLegacyHelpAliases(args)).Invoke();
-    }
-
-    private static void ConfigureHelp(RootCommand rootCommand)
-    {
-        foreach (Option option in rootCommand.Options)
-        {
-            if (option is HelpOption { Action: HelpAction helpAction } helpOption)
-            {
-                helpOption.Action = new RunTestsHelpAction(helpAction);
-                return;
-            }
-        }
     }
 
     private static int RunAttempts(
@@ -416,154 +394,4 @@ internal static class TestRunApp
     }
 
     private readonly record struct TestAttemptResult(int ExitCode, TimeSpan Elapsed, bool TimedOut, string LogPath);
-
-    private sealed class RunTestsHelpAction(HelpAction defaultHelp) : SynchronousCommandLineAction
-    {
-        public override bool ClearsParseErrors => true;
-
-        public override int Invoke(ParseResult parseResult)
-        {
-            int exitCode = defaultHelp.Invoke(parseResult);
-            TextWriter output = parseResult.InvocationConfiguration.Output;
-            output.WriteLine();
-            output.WriteLine("Completions:");
-            output.WriteLine("  System.CommandLine exposes completion metadata for this app.");
-            output.WriteLine("  Publish a stable apphost, then register that executable with dotnet-suggest:");
-            output.WriteLine("    dotnet publish ./scripts/Run-Tests.cs -o ./artifacts/scripts/Run-Tests");
-            output.WriteLine("    dotnet tool install -g dotnet-suggest");
-            output.WriteLine("    dotnet-suggest register --command-path ./artifacts/scripts/Run-Tests/Run-Tests");
-            output.WriteLine("  On Windows, register ./artifacts/scripts/Run-Tests/Run-Tests.exe.");
-            output.WriteLine("  Add the dotnet-suggest shim to your shell profile once; PowerShell, bash, and zsh are supported.");
-            return exitCode;
-        }
-    }
-
-    private static IEnumerable<string> CompleteTargets(
-        CompletionContext context,
-        Option<string?> workingDirectoryOption) =>
-        CompleteFileSystemEntries(
-            context,
-            ResolveCompletionWorkingDirectory(context, workingDirectoryOption),
-            includeDirectories: true,
-            includeFiles: true,
-            filePredicate: IsDotnetTestTargetFile);
-
-    private static IEnumerable<string> CompleteDirectories(
-        CompletionContext context,
-        Option<string?> workingDirectoryOption) =>
-        CompleteFileSystemEntries(
-            context,
-            ResolveCompletionWorkingDirectory(context, workingDirectoryOption),
-            includeDirectories: true,
-            includeFiles: false,
-            filePredicate: static _ => false);
-
-    private static string ResolveCompletionWorkingDirectory(
-        CompletionContext context,
-        Option<string?> workingDirectoryOption)
-    {
-        string repositoryRoot;
-        try
-        {
-            repositoryRoot = ScriptSupport.FindRepositoryRoot();
-        }
-        catch (DirectoryNotFoundException)
-        {
-            repositoryRoot = Directory.GetCurrentDirectory();
-        }
-
-        string? value = context.ParseResult.GetValue(workingDirectoryOption);
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return repositoryRoot;
-        }
-
-        string resolved = Path.IsPathFullyQualified(value)
-            ? value
-            : Path.Combine(repositoryRoot, value);
-        return Directory.Exists(resolved) ? Path.GetFullPath(resolved) : repositoryRoot;
-    }
-
-    private static IEnumerable<string> CompleteFileSystemEntries(
-        CompletionContext context,
-        string baseDirectory,
-        bool includeDirectories,
-        bool includeFiles,
-        Func<string, bool> filePredicate)
-    {
-        if (context is not TextCompletionContext)
-        {
-            return [];
-        }
-
-        string wordToComplete = context.WordToComplete;
-        (string directoryPart, string entryPrefix) = SplitCompletionPath(wordToComplete);
-        string searchDirectory = ResolveCompletionDirectory(baseDirectory, directoryPart);
-        if (!Directory.Exists(searchDirectory))
-        {
-            return [];
-        }
-
-        return EnumerateCompletionEntries(
-            searchDirectory,
-            directoryPart,
-            entryPrefix,
-            includeDirectories,
-            includeFiles,
-            filePredicate);
-    }
-
-    private static IEnumerable<string> EnumerateCompletionEntries(
-        string searchDirectory,
-        string directoryPart,
-        string entryPrefix,
-        bool includeDirectories,
-        bool includeFiles,
-        Func<string, bool> filePredicate)
-    {
-        IEnumerable<string> directories = includeDirectories
-            ? Directory.EnumerateDirectories(searchDirectory)
-                .Where(path => Path.GetFileName(path).StartsWith(entryPrefix, StringComparison.OrdinalIgnoreCase))
-                .Select(path => directoryPart + Path.GetFileName(path) + Path.DirectorySeparatorChar)
-            : [];
-
-        IEnumerable<string> files = includeFiles
-            ? Directory.EnumerateFiles(searchDirectory)
-                .Where(filePredicate)
-                .Where(path => Path.GetFileName(path).StartsWith(entryPrefix, StringComparison.OrdinalIgnoreCase))
-                .Select(path => directoryPart + Path.GetFileName(path))
-            : [];
-
-        return directories.Concat(files).Order(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static (string DirectoryPart, string EntryPrefix) SplitCompletionPath(string path)
-    {
-        int separator = path.LastIndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-        return separator < 0
-            ? ("", path)
-            : (path[..(separator + 1)], path[(separator + 1)..]);
-    }
-
-    private static string ResolveCompletionDirectory(string baseDirectory, string directoryPart)
-    {
-        if (string.IsNullOrWhiteSpace(directoryPart))
-        {
-            return baseDirectory;
-        }
-
-        return Path.IsPathFullyQualified(directoryPart)
-            ? directoryPart
-            : Path.Combine(baseDirectory, directoryPart);
-    }
-
-    private static bool IsDotnetTestTargetFile(string path)
-    {
-        string extension = Path.GetExtension(path);
-        return extension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".fsproj", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".vbproj", StringComparison.OrdinalIgnoreCase);
-    }
 }
