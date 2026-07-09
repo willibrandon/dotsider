@@ -7,16 +7,15 @@ namespace Dotsider.Tests;
 /// <summary>
 /// CLI integration tests for session commands using real Unix domain sockets.
 /// </summary>
-public class SessionCliTests : IAsyncLifetime
+[TestClass]
+public class SessionCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = DetectBuildConfig();
 
-    // Use a high PID that won't collide with real processes
-    private const int TestPid = 999_777;
-
+    private int _testPid;
     private TestDotsiderSocket _dotsiderSocket = null!;
     private TestRawJsonSocket _hex1bSocket = null!;
 
@@ -35,9 +34,12 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Prepares the fixture state before tests execute.
     /// </summary>
+    [TestInitialize]
     public async ValueTask InitializeAsync()
     {
-        var dotsiderPath = SessionDiscovery.GetDotsiderSocketPath(TestPid);
+        _testPid = TestSocketIds.NextPid();
+
+        var dotsiderPath = SessionDiscovery.GetDotsiderSocketPath(_testPid);
         _dotsiderSocket = new TestDotsiderSocket(dotsiderPath);
 
         // Register handlers for all protocol methods
@@ -96,7 +98,7 @@ public class SessionCliTests : IAsyncLifetime
         _dotsiderSocket.Start();
 
         // Set up hex1b socket for capture tests
-        var hex1bPath = SessionDiscovery.GetHex1bSocketPath(TestPid);
+        var hex1bPath = SessionDiscovery.GetHex1bSocketPath(_testPid);
         _hex1bSocket = new TestRawJsonSocket(hex1bPath);
         _hex1bSocket.OnRequest(request =>
         {
@@ -122,23 +124,25 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Releases fixture state after tests complete.
     /// </summary>
+    [TestCleanup]
     public async ValueTask DisposeAsync()
     {
-        GC.SuppressFinalize(this);
-        await _dotsiderSocket.DisposeAsync();
-        await _hex1bSocket.DisposeAsync();
+        if (_dotsiderSocket is not null)
+            await _dotsiderSocket.DisposeAsync();
+        if (_hex1bSocket is not null)
+            await _hex1bSocket.DisposeAsync();
     }
 
     /// <summary>
     /// Verifies sessions info returns assembly and view data.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Info_ReturnsAssemblyAndViewData()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "info", TestPid.ToString());
+            "sessions", "info", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("MyApp.dll", stdout);
         Assert.Contains("MyApp", stdout);
         Assert.Contains("1.0.0.0", stdout);
@@ -148,30 +152,30 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Verifies sessions info json mode returns json.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Info_JsonMode_ReturnsJson()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "info", TestPid.ToString(), "--json");
+            "sessions", "info", _testPid.ToString(), "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var doc = JsonDocument.Parse(stdout);
-        Assert.True(doc.RootElement.TryGetProperty("assemblyInfo", out var info));
-        Assert.Equal("MyApp.dll", info.GetProperty("fileName").GetString());
-        Assert.True(doc.RootElement.TryGetProperty("currentView", out var view));
-        Assert.Equal(2, view.GetProperty("tab").GetInt32());
+        Assert.IsTrue(doc.RootElement.TryGetProperty("assemblyInfo", out var info));
+        Assert.AreEqual("MyApp.dll", info.GetProperty("fileName").GetString());
+        Assert.IsTrue(doc.RootElement.TryGetProperty("currentView", out var view));
+        Assert.AreEqual(2, view.GetProperty("tab").GetInt32());
     }
 
     /// <summary>
     /// Verifies sessions view returns current view.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_View_ReturnsCurrentView()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "view", TestPid.ToString());
+            "sessions", "view", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("PE/Metadata", stdout);
         Assert.Contains("idle", stdout);
     }
@@ -179,52 +183,52 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Verifies sessions navigate sends tab change.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Navigate_SendsTabChange()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "navigate", TestPid.ToString(), "3");
+            "sessions", "navigate", _testPid.ToString(), "3");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("tab 3", stdout);
     }
 
     /// <summary>
     /// Verifies sessions capture returns screen content.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Capture_ReturnsScreenContent()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "capture", TestPid.ToString());
+            "sessions", "capture", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("[captured-text]", stdout);
     }
 
     /// <summary>
     /// Verifies sessions capture format option removed.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Capture_FormatOptionRemoved()
     {
         var (exitCode, _, stderr) = await RunDotsiderAsync(
-            "sessions", "capture", TestPid.ToString(), "--format", "svg");
+            "sessions", "capture", _testPid.ToString(), "--format", "svg");
 
-        Assert.NotEqual(0, exitCode);
+        Assert.AreNotEqual(0, exitCode);
         Assert.Contains("--format", stderr);
     }
 
     /// <summary>
     /// Verifies sessions trace events returns events.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_TraceEvents_ReturnsEvents()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "events", TestPid.ToString());
+            "sessions", "trace", "events", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("[jit]", stdout);
         Assert.Contains("MethodLoad", stdout);
         Assert.Contains("[gc]", stdout);
@@ -233,26 +237,26 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Verifies sessions trace counters returns counters.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_TraceCounters_ReturnsCounters()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "counters", TestPid.ToString());
+            "sessions", "trace", "counters", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("cpuUsage", stdout);
     }
 
     /// <summary>
     /// Verifies sessions trace output returns output.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_TraceOutput_ReturnsOutput()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "output", TestPid.ToString());
+            "sessions", "trace", "output", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Hello, World!", stdout);
         Assert.Contains("[err]", stdout);
     }
@@ -260,43 +264,43 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Verifies sessions trace start queues trace.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_TraceStart_QueuesTrace()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "start", TestPid.ToString());
+            "sessions", "trace", "start", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Trace start queued", stdout);
     }
 
     /// <summary>
     /// Verifies sessions trace stop stops trace.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_TraceStop_StopsTrace()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "stop", TestPid.ToString());
+            "sessions", "trace", "stop", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Trace stopped", stdout);
     }
 
     /// <summary>
     /// Verifies sessions navigate out of range tab returns error.
     /// </summary>
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(0)]
-    [InlineData(9)]
-    [InlineData(99)]
+    [TestMethod]
+    [DataRow(-1)]
+    [DataRow(0)]
+    [DataRow(9)]
+    [DataRow(99)]
     public async Task Sessions_Navigate_OutOfRangeTab_ReturnsError(int tabId)
     {
         var (exitCode, _, stderr) = await RunDotsiderAsync(
-            "sessions", "navigate", TestPid.ToString(), tabId.ToString());
+            "sessions", "navigate", _testPid.ToString(), tabId.ToString());
 
-        Assert.NotEqual(0, exitCode);
+        Assert.AreNotEqual(0, exitCode);
         Assert.Contains("Tab must be 1-8", stderr);
     }
 
@@ -304,7 +308,7 @@ public class SessionCliTests : IAsyncLifetime
     /// Verifies that sessions info shows Traceable: yes for NativeAOT assemblies
     /// even when HasEntryPoint is false, since NativeAOT binaries can be traced directly.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Info_NativeAot_ShowsTraceableYes()
     {
         // Override get-current-view to report NativeAOT without entry point
@@ -323,9 +327,9 @@ public class SessionCliTests : IAsyncLifetime
         });
 
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "info", TestPid.ToString());
+            "sessions", "info", _testPid.ToString());
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Traceable:  yes", stdout);
 
         // Restore original handler for other tests
@@ -343,13 +347,13 @@ public class SessionCliTests : IAsyncLifetime
     /// <summary>
     /// Verifies sessions info invalid pid returns error.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Sessions_Info_InvalidPid_ReturnsError()
     {
         var (exitCode, _, stderr) = await RunDotsiderAsync(
             "sessions", "info", "999111");
 
-        Assert.NotEqual(0, exitCode);
+        Assert.AreNotEqual(0, exitCode);
         Assert.Contains("Error:", stderr);
     }
 
@@ -366,6 +370,7 @@ public class SessionCliTests : IAsyncLifetime
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();

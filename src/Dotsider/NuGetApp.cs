@@ -286,7 +286,7 @@ public sealed class NuGetApp(NuGetState state)
 
             if (!_state.IsBrowsingPackage && _state.SelectedDllState is not null)
             {
-                if (!isSearchEditing)
+                if (!isSearchEditing && !IsDetailPopupOpen(_state.SelectedDllState))
                 {
                     for (var i = 0; i < 5; i++)
                     {
@@ -525,10 +525,19 @@ public sealed class NuGetApp(NuGetState state)
         ])
         .OnSelectionChanged(e =>
         {
+            if (IsDetailPopupOpen(dllState))
+            {
+                _state.App.Invalidate();
+                return;
+            }
+
             dllState.CurrentTab = e.SelectedIndex;
             _state.App.Invalidate();
         })
         .Full()
         .Fill();
     }
+
+    private static bool IsDetailPopupOpen(DotsiderState state) =>
+        state.PeDetailContent is not null || state.StringsDetailContent is not null;
 }

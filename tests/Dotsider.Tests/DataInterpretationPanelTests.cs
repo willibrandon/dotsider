@@ -7,9 +7,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Data Interpretation Panel.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DataInterpretationPanelTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -45,11 +47,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab shows interpretation labels.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_ShowsInterpretationLabels()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -69,11 +72,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab shows endian label.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_ShowsEndianLabel()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -91,11 +95,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab shows length matching file size.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_ShowsLengthMatchingFileSize()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -107,8 +112,8 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
 
         // Verify the length in the panel matches the actual file size
-        Assert.NotNull(_state);
-        Assert.Equal(_state.Analyzer.RawBytes.Length, _state.HexEditorState.Document.ByteCount);
+        Assert.IsNotNull(_state);
+        Assert.AreEqual(_state.Analyzer.RawBytes.Length, _state.HexEditorState.Document.ByteCount);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -116,11 +121,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab shows hex addresses.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_ShowsHexAddresses()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -138,11 +144,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab endian toggle updates values.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_EndianToggleUpdatesValues()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -161,7 +168,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(HexEndianness.Big, _state!.HexEndianness);
+        Assert.AreEqual(HexEndianness.Big, _state!.HexEndianness);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -169,11 +176,12 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// <summary>
     /// Verifies hex dump tab cursor move updates interpretation.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDumpTab_CursorMoveUpdatesInterpretation()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        var ct = TestContext.Current.CancellationToken;
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -184,7 +192,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
 
         var textBefore = _state!.DataInterpEditorText;
-        Assert.NotNull(textBefore);
+        Assert.IsNotNull(textBefore);
 
         // Move cursor right — byte value changes
         await new Hex1bTerminalInputSequenceBuilder()
@@ -194,7 +202,7 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
             .ApplyAsync(terminal, ct);
 
         var textAfter = _state!.DataInterpEditorText;
-        Assert.NotEqual(textBefore, textAfter);
+        Assert.AreNotEqual(textBefore, textAfter);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Ctrl().Key(Hex1bKey.C)
@@ -209,10 +217,10 @@ public class DataInterpretationPanelTests(SampleAssemblyFixture samples) : IDisp
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

@@ -11,18 +11,21 @@ namespace Dotsider.Tests;
 /// in the IL Inspector, exercising the full mouse → EditorNode → one-shot
 /// cursor adjustment → yank pipeline.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class IlEditorDoubleClickIntegrationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -48,6 +51,20 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         return (_terminal, _hex1bApp, _cts.Token);
     }
 
+    private Task RunAppAsync(Hex1bApp app, CancellationToken ct)
+    {
+        _runTask = app.RunAsync(ct);
+        return _runTask;
+    }
+
+    private bool TryWaitForAppExit()
+    {
+        if (_runTask is null) return true;
+        try { return _runTask.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { return true; }
+        catch (OperationCanceledException) { return true; }
+    }
+
     /// <summary>
     /// Expands the tree path for a method and selects it in the IL Inspector.
     /// </summary>
@@ -61,6 +78,7 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         _state.IlSelectedMethod = method;
         _state.IlFocusedTreeKey = $"method:{method.Token}";
         _state.App.Invalidate();
+        _state.RequestExtraFrame();
     }
 
     /// <summary>
@@ -68,11 +86,12 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
     /// through the full render pipeline. Verifies the one-shot cursor adjustment fires
     /// correctly and that yank produces the right text and cursor position.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SelectWordAt_ThroughRenderPipeline_AdjustsCursorAndYankWorks()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await Task.Delay(50, ct);
 
         // Navigate to IL Inspector tab
@@ -92,22 +111,22 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.IlEditorMethod?.Token == method.Token
+                && _state.IlEditorState?.Document.GetText().Contains("System.", StringComparison.Ordinal) == true,
+                TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Find first "System." in the disassembly
-        var disassembly = _state.IlDisassembler!.FormatDisassembly(method);
-        var systemIdx = disassembly.IndexOf("System.", StringComparison.Ordinal);
-        Assert.True(systemIdx >= 0, "Expected 'System.' in disassembly");
-
-        var doc = _state.IlEditorState!.Document;
-
-        // Let a render cycle seed the one-shot tracking state
-        await Task.Delay(50, ct);
+        var editorState = _state.IlEditorState!;
+        var doc = editorState.Document;
+        var fullText = doc.GetText();
+        var systemIdx = fullText.IndexOf("System.", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, systemIdx, "Expected 'System.' in rendered IL editor document");
 
         // Simulate double-click: SelectWordAt is what EditorNode.cs:281 calls
-        _state.IlEditorState!.SelectWordAt(new DocumentOffset(systemIdx));
+        editorState.SelectWordAt(new DocumentOffset(systemIdx));
         _state.App.Invalidate();
+        _state.RequestExtraFrame();
 
         // Wait for the render cycle to process AdjustWordSelectionCursorOneShot —
         // the one-shot pulls the cursor from the trailing '.' back onto the last
@@ -115,7 +134,8 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
         await TestHelpers.WaitUntilAsync(
             () =>
             {
-                var es = _state.IlEditorState!;
+                if (!ReferenceEquals(_state.IlEditorState, editorState)) return false;
+                var es = editorState;
                 if (!es.Cursor.HasSelection) return false;
                 var pos = es.Cursor.Position.Value;
                 var text = es.Document.GetText();
@@ -123,26 +143,25 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
             },
             TimeSpan.FromSeconds(5));
 
-        var fullText = doc.GetText();
-        var cursorOffset = _state.IlEditorState!.Cursor.Position.Value;
+        fullText = doc.GetText();
+        var cursorOffset = editorState.Cursor.Position.Value;
 
         // Cursor must be on last word char ('m' of "System"), not on '.'
-        Assert.True(cursorOffset < fullText.Length,
-            "Cursor should be within document bounds");
-        Assert.Equal('m', fullText[cursorOffset]);
+        Assert.IsLessThan(fullText.Length, cursorOffset, "Cursor should be within document bounds");
+        Assert.AreEqual('m', fullText[cursorOffset]);
 
         // Yank must copy the full word "System"
-        var range = _state.IlEditorState!.Cursor.SelectionRange;
+        var range = editorState.Cursor.SelectionRange;
         var yankEnd = new DocumentOffset(Math.Min(
-            Math.Max(range.End.Value, _state.IlEditorState!.Cursor.Position.Value + 1),
+            Math.Max(range.End.Value, editorState.Cursor.Position.Value + 1),
             doc.Length));
         var yankRange = new DocumentRange(range.Start, yankEnd);
         var yankText = doc.GetText(yankRange);
-        Assert.Equal("System", yankText);
+        Assert.AreEqual("System", yankText);
 
         // Post-yank cursor must land on 'm'
         var postYankCursor = new DocumentOffset(Math.Max(0, yankEnd.Value - 1));
-        Assert.Equal('m', fullText[postYankCursor.Value]);
+        Assert.AreEqual('m', fullText[postYankCursor.Value]);
 
         _cts!.Cancel();
         await runTask;
@@ -153,11 +172,12 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
     /// SGR mouse events through the terminal. Verifies EditorNode processes the
     /// double-click, calls SelectWordAt, and the one-shot cursor adjustment fires.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DoubleClickAt_SgrMouse_SelectsWordAndAdjustsCursor()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.RichLibraryDll);
-        var runTask = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.RichLibraryDll);
+        var runTask = RunAppAsync(app, ct);
         await Task.Delay(50, ct);
 
         // Navigate to IL Inspector tab
@@ -193,25 +213,29 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
             }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, ct);
-        Assert.True(allMatches.Count > 0, "Expected 'System.' visible on screen");
+        Assert.IsGreaterThan(0, allMatches.Count, "Expected 'System.' visible on screen");
 
         // Use the first match — coordinates are 0-based
         var (targetRow, targetCol) = allMatches[0];
 
-        // Single click first to give the editor focus (tree panel has focus by default).
-        // Wait for the click to be processed — the editor cursor position changes
-        // when the editor receives focus and handles the mouse event.
+        // Focus the editor without consuming a mouse click, then queue two real
+        // clicks so Hex1bApp's click-count state machine observes a double-click.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        await auto.ClickAtAsync(targetCol, targetRow, ct: ct);
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.IlEditorState?.Cursor.Position.Value > 0, TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        _state!.App.RequestFocus(node =>
+            node is EditorNode { State: var es } && es == _state.IlEditorState);
+        _state.App.Invalidate();
+        await auto.WaitUntilAsync(_ =>
+            _state.App.FocusedNode is EditorNode { State: var es } && es == _state.IlEditorState,
+            description: "IL editor focused");
 
         // Double-click to select the word. Wait for HasSelection AND for the
         // AdjustWordSelectionCursorOneShot to fire (runs on the next Build after
         // selection, pulling the cursor back from punctuation to a word character).
-        await auto.DoubleClickAtAsync(targetCol, targetRow, ct: ct);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(targetCol, targetRow)
+            .ClickAt(targetCol, targetRow)
+            .Build()
+            .ApplyAsync(terminal, ct);
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ =>
             {
@@ -225,24 +249,23 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
             .ApplyAsync(terminal, ct);
 
         // Verify selection happened
-        Assert.True(_state.IlEditorState!.Cursor.HasSelection,
+        Assert.IsTrue(_state.IlEditorState!.Cursor.HasSelection,
             "Double-click should create a selection");
 
         // Cursor must be on a word character, not punctuation
         var doc = _state.IlEditorState!.Document;
         var fullText = doc.GetText();
         var cursorVal = _state.IlEditorState!.Cursor.Position.Value;
-        Assert.True(cursorVal < fullText.Length,
-            "Cursor should be within document bounds");
-        Assert.True(char.IsLetterOrDigit(fullText[cursorVal]),
+        Assert.IsLessThan(fullText.Length, cursorVal, "Cursor should be within document bounds");
+        Assert.IsTrue(char.IsLetterOrDigit(fullText[cursorVal]),
             $"Cursor should be on a word character after double-click, not '{fullText[cursorVal]}' at offset {cursorVal}");
 
         // The selected text (via SelectionRange) should be pure word chars.
         // After one-shot adjustment, SelectionRange is one char short (cursor on last char),
         // which is correct — the yank logic adds +1 to compensate.
         var selected = doc.GetText(_state.IlEditorState!.Cursor.SelectionRange);
-        Assert.True(selected.Length > 0, "Selection must not be empty");
-        Assert.True(selected.All(char.IsLetterOrDigit),
+        Assert.IsGreaterThan(0, selected.Length, "Selection must not be empty");
+        Assert.IsTrue(selected.All(char.IsLetterOrDigit),
             $"Selected text should be a pure word, got '{selected}'");
 
         // Verify the yank range (cursor.Position + 1) recovers the full word
@@ -263,12 +286,18 @@ public class IlEditorDoubleClickIntegrationTests(SampleAssemblyFixture samples) 
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
+        if (!TryWaitForAppExit())
+        {
+            _hex1bApp?.Dispose();
+            _terminal?.Dispose();
+            _ = TryWaitForAppExit();
+        }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

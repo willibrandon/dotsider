@@ -10,27 +10,28 @@ namespace Dotsider.Tests;
 /// every scope, framework, or viewport change, prunes islands created by mid-chain filtering,
 /// and resolves a single hover winner across overlapping or adjacent boxes.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture samples)
+[TestClass]
+public sealed class DependencyGraphRenderLayoutTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Toggling scope from <c>All</c> to <c>DirectOnly</c> rebalances the rendered layout —
     /// depth-1 nodes move (and deep-band nodes disappear) because the layout is computed
     /// from the visible subgraph, not from stale full-graph coordinates.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void FilterChange_RebalancesVisibleGraph()
     {
-        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var graph = DependencyGraphBuilder.Build(a);
         var disambig = EmptyDisambig();
 
         var all = LayoutFor(graph, DependencyGraphScope.All, hideFramework: false, w: 200, h: 80);
         var direct = LayoutFor(graph, DependencyGraphScope.DirectOnly, hideFramework: false, w: 200, h: 80);
 
-        Assert.True(direct.Nodes.Count < all.Nodes.Count,
-            "DirectOnly should drop transitive nodes");
-        Assert.All(direct.Nodes, rn => Assert.True(rn.VisibleDepth <= 1));
+        Assert.IsLessThan(all.Nodes.Count, direct.Nodes.Count, "DirectOnly should drop transitive nodes");
+        TestAssert.All(direct.Nodes, rn => Assert.IsLessThanOrEqualTo(1, rn.VisibleDepth));
 
         // Rebalance: the direct layout is vertically shorter because it loses the deeper
         // bands entirely. If the view reused full-graph geometry, the direct layout's max Y
@@ -38,23 +39,22 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         // layout was recomputed from the visible subgraph, not sliced from stale positions.
         var allMaxY = all.Nodes.Max(rn => rn.Y);
         var directMaxY = direct.Nodes.Max(rn => rn.Y);
-        Assert.True(directMaxY < allMaxY,
-            $"DirectOnly should be shorter; got direct max Y = {directMaxY} vs all = {allMaxY}");
+        Assert.IsLessThan(allMaxY, directMaxY, $"DirectOnly should be shorter; got direct max Y = {directMaxY} vs all = {allMaxY}");
     }
 
     /// <summary>
     /// Under <c>DirectOnly</c> there are at most two visible-depth bands: root (depth 0) and
     /// the direct refs (depth 1). No node lives deeper.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DirectOnly_UsesOnlyVisibleDepthBands()
     {
-        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var graph = DependencyGraphBuilder.Build(a);
         var direct = LayoutFor(graph, DependencyGraphScope.DirectOnly, hideFramework: false, w: 180, h: 60);
 
-        Assert.All(direct.Nodes, rn => Assert.InRange(rn.VisibleDepth, 0, 1));
-        Assert.Single(direct.Nodes, rn => rn.VisibleDepth == 0);
+        TestAssert.All(direct.Nodes, rn => Assert.IsInRange(0, 1, rn.VisibleDepth));
+        Assert.ContainsSingle(rn => rn.VisibleDepth == 0, direct.Nodes);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// no further refs exercises the pruning path; with <c>hideFramework</c> on, the leaf
     /// vanishes and nothing else remains at depth &gt; 0.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void FrameworkFilter_PrunesDisconnectedVisibleIslands()
     {
         using var scope = SyntheticAssemblyScope.Create();
@@ -80,16 +80,16 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
             graph.Nodes, graph.Edges, graph.NavigationById,
             DependencyGraphScope.All, hideFramework: true);
 
-        Assert.Single(visible.Nodes, n => n.IsRoot);
-        Assert.DoesNotContain(visible.Nodes, n => !n.IsRoot);
-        Assert.Empty(visible.Edges);
+        Assert.ContainsSingle(n => n.IsRoot, visible.Nodes);
+        Assert.DoesNotContain(n => !n.IsRoot, visible.Nodes);
+        Assert.IsEmpty(visible.Edges);
     }
 
     /// <summary>
     /// Doubling the viewport width reflows the layout and produces a valid, non-overlapping
     /// arrangement. No two rendered boxes share any character cell in the larger layout.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void ViewportResize_ReflowsWithoutBoxOverlap()
     {
         using var scope = SyntheticAssemblyScope.Create();
@@ -110,7 +110,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
 
         AssertNoOverlap(wide);
         AssertNoOverlap(narrow);
-        Assert.NotEqual<IEnumerable<(int, int)>>(
+        Assert.AreNotSequenceEqual(
             [.. narrow.Nodes.Select(rn => (rn.X, rn.Y))],
             [.. wide.Nodes.Select(rn => (rn.X, rn.Y))]);
     }
@@ -120,7 +120,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// returns exactly one winner — the closest box center to the mouse, with ties broken by
     /// later draw order.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void Hover_OverlappingBoxes_SelectsSingleWinner()
     {
         // first box: X=10..30, center 20.  second box: X=15..35, center 25.
@@ -131,15 +131,15 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         // Column 24 is inside both boxes. Distance to first center (20) = 4; to second
         // center (25) = 1. Second wins on closer-to-center.
         var winner = DependencyGraphView.ResolveHoverWinner(nodes, mouseX: 24, mouseY: 6);
-        Assert.Equal(1, winner);
+        Assert.AreEqual(1, winner);
 
         // Column 12 is inside only the first box.
         winner = DependencyGraphView.ResolveHoverWinner(nodes, mouseX: 12, mouseY: 6);
-        Assert.Equal(0, winner);
+        Assert.AreEqual(0, winner);
 
         // Outside both.
         winner = DependencyGraphView.ResolveHoverWinner(nodes, mouseX: 0, mouseY: 0);
-        Assert.Equal(-1, winner);
+        Assert.AreEqual(-1, winner);
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// view writes to <c>GraphSelectedNode</c>. Validates the single-source-of-truth contract
     /// for hover.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void Hover_WinnerMatchesStatusBarAndHighlight()
     {
         // left box: X=0..12,  center 6.   right box: X=6..18, center 12.
@@ -160,15 +160,15 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         // Right wins on closer-to-center — and that is also what the status bar will show.
         var winner = DependencyGraphView.ResolveHoverWinner(nodes, mouseX: 11, mouseY: 1);
 
-        Assert.Equal(1, winner);
-        Assert.Equal("overlap-right", nodes[winner].Node.Name);
+        Assert.AreEqual(1, winner);
+        Assert.AreEqual("overlap-right", nodes[winner].Node.Name);
     }
 
     /// <summary>
     /// Non-winning overlapping boxes do not end up treated as hovered. The winner is unique,
     /// and any other boxes that also contained the mouse point are left at their base colors.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void Hover_NonWinningOverlapsStayUnhighlighted()
     {
         var nodes = MakeRenderNodes(
@@ -179,12 +179,12 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         // is at column 10. Closer to winning => winning wins, losing stays in neither
         // hovered nor selected sets.
         var winner = DependencyGraphView.ResolveHoverWinner(nodes, mouseX: 14, mouseY: 1);
-        Assert.Equal(1, winner);
+        Assert.AreEqual(1, winner);
 
         // Sanity: the losing box still contains the mouse point, but is not the winner.
         var losing = nodes[0];
-        Assert.True(14 >= losing.X && 14 < losing.X + losing.Width);
-        Assert.NotEqual(0, winner);
+        Assert.IsTrue(14 >= losing.X && 14 < losing.X + losing.Width);
+        Assert.AreNotEqual(0, winner);
     }
 
     /// <summary>
@@ -193,13 +193,13 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// the viewport height would be stranded off-screen; with scroll, the view slides until
     /// any node's box lies entirely inside the viewport band.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void ContentExceedingViewport_RemainsReachableViaScroll()
     {
         var graph = BuildManyDirectRefsGraph(count: 80);
         var layout = LayoutFor(graph, DependencyGraphScope.All, hideFramework: false, w: 80, h: 20);
 
-        Assert.True(layout.ContentHeight > 20, "expected content to exceed viewport");
+        Assert.IsGreaterThan(20, layout.ContentHeight, "expected content to exceed viewport");
 
         // For every node, there exists a scroll offset in [0, contentHeight - viewport] that
         // lands the node's full box inside the viewport.
@@ -209,8 +209,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
             needed = Math.Min(needed, layout.ContentHeight - 20);
             var visibleTop = rn.Y - needed;
             var visibleBottom = visibleTop + rn.Height;
-            Assert.True(visibleTop >= 0 && visibleBottom <= 20,
-                $"{rn.Node.Name}: no scroll offset reveals the full box");
+            Assert.IsTrue(visibleTop >= 0 && visibleBottom <= 20, $"{rn.Node.Name}: no scroll offset reveals the full box");
         }
     }
 
@@ -220,10 +219,10 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// which looks broken. Two adjacent bands should stay within a handful of rows of each
     /// other regardless of viewport height.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void AdjacentDepthBands_SeparatedByFixedAestheticGap()
     {
-        using var a = new AssemblyAnalyzer(samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var graph = DependencyGraphBuilder.Build(a);
 
         var narrow = LayoutFor(graph, DependencyGraphScope.DirectOnly, hideFramework: true, w: 200, h: 20);
@@ -233,8 +232,8 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
         var tallGap = GapBetweenRootAndFirstDirect(tall);
 
         // Gap is small and does not scale with viewport height.
-        Assert.InRange(tallGap, 1, 8);
-        Assert.Equal(narrowGap, tallGap);
+        Assert.IsInRange(1, 8, tallGap);
+        Assert.AreEqual(narrowGap, tallGap);
     }
 
     private static int GapBetweenRootAndFirstDirect(GraphRenderLayout layout)
@@ -249,14 +248,14 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
     /// plus the distributed inter-band padding — it reflects the actual layout footprint
     /// so scroll-range and fits-vs-scrolls decisions can be made from one authoritative value.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void ContentHeight_MatchesRenderedExtent()
     {
         var graph = BuildManyDirectRefsGraph(count: 80);
         var layout = LayoutFor(graph, DependencyGraphScope.All, hideFramework: false, w: 80, h: 20);
 
         var bottom = layout.Nodes.Max(rn => rn.Y + rn.Height);
-        Assert.Equal(bottom, layout.ContentHeight);
+        Assert.AreEqual(bottom, layout.ContentHeight);
     }
 
     private static DependencyGraphResult BuildManyDirectRefsGraph(int count)
@@ -297,7 +296,7 @@ public sealed class DependencyGraphRenderLayoutTests(SampleAssemblyFixture sampl
                 var b = layout.Nodes[j];
                 var horizOverlap = a.X < b.X + b.Width && b.X < a.X + a.Width;
                 var vertOverlap = a.Y < b.Y + b.Height && b.Y < a.Y + a.Height;
-                Assert.False(horizOverlap && vertOverlap,
+                Assert.IsFalse(horizOverlap && vertOverlap,
                     $"boxes overlap: {a.Node.Name} at ({a.X},{a.Y},{a.Width},{a.Height}) " +
                     $"and {b.Node.Name} at ({b.X},{b.Y},{b.Width},{b.Height})");
             }

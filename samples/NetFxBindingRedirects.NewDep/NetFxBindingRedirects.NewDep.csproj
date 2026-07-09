@@ -12,7 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-    <!-- Compiled against Newtonsoft.Json 13.0.3 — NewDep's metadata records this version. -->
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- Keep NewDep on a Newtonsoft.Json 13.x package; its assembly reference records 13.0.0.0. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 </Project>

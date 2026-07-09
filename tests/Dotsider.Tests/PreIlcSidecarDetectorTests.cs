@@ -7,9 +7,11 @@ namespace Dotsider.Tests;
 /// Tests for the pre-ILC sidecar detector: origin precedence, tree recognition,
 /// response-file parsing, reference categorization, and PDB status.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PreIlcSidecarDetectorTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private readonly List<string> _tempFiles = [];
 
     private string NewTempDir()
@@ -46,61 +48,65 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
     }
 
     /// <summary>Verifies the classic publish tree yields the intermediate managed input.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ClassicPublishTree_FindsBuildTreeLayoutDll()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
-        Assert.Equal(PreIlcAssemblyOrigin.BuildTreeLayout, result.Origin);
-        Assert.Equal(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
+        Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result.Origin);
+        Assert.AreEqual(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
     }
 
     /// <summary>Verifies the classic non-publish bin directory is recognized too.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ClassicBinTree_FindsBuildTreeLayoutDll()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir, publish: false);
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
     }
 
     /// <summary>Verifies the artifacts layout maps publish\proj\pivot to obj\proj\pivot by segment substitution.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ArtifactsLayout_FindsBuildTreeLayoutDll()
     {
         var root = NewTempDir();
         var exe = Path.Combine(root, "artifacts", "publish", "HelloWorld", "release_win-x64", "HelloWorld.exe");
         WriteDummyBinary(exe);
         var objDir = Path.Combine(root, "artifacts", "obj", "HelloWorld", "release_win-x64");
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
-        Assert.Equal(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
+        Assert.AreEqual(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
     }
 
     /// <summary>Verifies the response file outranks the conventional obj location.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_RspAndObjBothPresent_RspWins()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
         var altDir = Path.Combine(objDir, "alt");
-        CopyInto(samples.HelloWorldDll, Path.Combine(altDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(altDir, "HelloWorld.dll"));
         var nativeDir = Path.Combine(objDir, "native");
         Directory.CreateDirectory(nativeDir);
         File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"),
@@ -111,59 +117,62 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
-        Assert.Equal(Path.Combine(altDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
-        Assert.Equal(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), result.IlcResponseFilePath);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
+        Assert.AreEqual(Path.Combine(altDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), result.IlcResponseFilePath);
     }
 
     /// <summary>Verifies quoted and absolute root-input tokens both resolve.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_RspRootQuotedAndAbsolute_Resolves()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
         var dllPath = Path.Combine(objDir, "HelloWorld.dll");
-        CopyInto(samples.HelloWorldDll, dllPath);
+        CopyInto(Samples.HelloWorldDll, dllPath);
         var nativeDir = Path.Combine(objDir, "native");
         Directory.CreateDirectory(nativeDir);
         File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), [$"\"{dllPath}\""]);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
-        Assert.Equal(dllPath, result.ManagedAssemblyPath);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
+        Assert.AreEqual(dllPath, result.ManagedAssemblyPath);
     }
 
     /// <summary>Verifies the separated -r value form and inline forms are all collected.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_RspSeparatedReferenceForm_CollectsReference()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
         var dllPath = Path.Combine(objDir, "HelloWorld.dll");
-        CopyInto(samples.HelloWorldDll, dllPath);
+        CopyInto(Samples.HelloWorldDll, dllPath);
         var libPath = Path.Combine(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
-        CopyInto(samples.RichLibraryDll, libPath);
+        CopyInto(Samples.RichLibraryDll, libPath);
         var nativeDir = Path.Combine(objDir, "native");
         Directory.CreateDirectory(nativeDir);
         File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), [dllPath, "-r", libPath]);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
+        Assert.IsNotNull(result);
         Assert.Contains(libPath, result!.LocalReferencePaths);
     }
 
     /// <summary>Verifies @-inclusion expands nested response files and a cycle is survived with a note.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_RspIncludesAndCycle_ExpandsAndSurvives()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
         var dllPath = Path.Combine(objDir, "HelloWorld.dll");
-        CopyInto(samples.HelloWorldDll, dllPath);
+        CopyInto(Samples.HelloWorldDll, dllPath);
         var nativeDir = Path.Combine(objDir, "native");
         Directory.CreateDirectory(nativeDir);
         var rsp = Path.Combine(nativeDir, "HelloWorld.ilc.rsp");
@@ -173,23 +182,24 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
-        Assert.Equal(dllPath, result.ManagedAssemblyPath);
-        Assert.Contains("cycle", result.Details, StringComparison.OrdinalIgnoreCase);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
+        Assert.AreEqual(dllPath, result.ManagedAssemblyPath);
+        Assert.Contains("cycle", result.Details!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Verifies references are categorized: package store summarized, local evidence listed,
     /// unclassifiable counted, missing recorded as unresolved.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ReferenceCategorization_SeparatesPackageLocalOtherUnresolved()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
         var dllPath = Path.Combine(objDir, "HelloWorld.dll");
-        CopyInto(samples.HelloWorldDll, dllPath);
+        CopyInto(Samples.HelloWorldDll, dllPath);
 
         var packageRef = Path.Combine(root, "custom-cache",
             "microsoft.netcore.app.runtime.nativeaot.win-x64", "10.0.9", "lib", "System.Runtime.dll");
@@ -198,10 +208,10 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
         WriteDummyBinary(otherPackageRef);
 
         var localRef = Path.Combine(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
-        CopyInto(samples.RichLibraryDll, localRef);
+        CopyInto(Samples.RichLibraryDll, localRef);
 
         var unclassifiable = Path.Combine(root, "misc", "Elsewhere.dll");
-        CopyInto(samples.RichLibraryDll, unclassifiable);
+        CopyInto(Samples.RichLibraryDll, unclassifiable);
 
         var missing = Path.Combine(root, "gone", "Missing.dll");
 
@@ -219,21 +229,22 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(2, result!.PackageReferenceCount);
-        Assert.Equal([localRef], result.LocalReferencePaths);
-        Assert.Equal(1, result.OtherReferenceCount);
-        Assert.Contains("Elsewhere.dll", result.Details, StringComparison.Ordinal);
-        Assert.Equal([missing], result.UnresolvedReferencePaths);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(2, result!.PackageReferenceCount);
+        Assert.AreSequenceEqual([localRef], result.LocalReferencePaths);
+        Assert.AreEqual(1, result.OtherReferenceCount);
+        Assert.Contains("Elsewhere.dll", result.Details!, StringComparison.Ordinal);
+        Assert.AreSequenceEqual([missing], result.UnresolvedReferencePaths);
     }
 
     /// <summary>Verifies a missing response-file root falls through to the obj layout with a note.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_RspRootMissing_FallsBackToObjLayout()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
         var nativeDir = Path.Combine(objDir, "native");
         Directory.CreateDirectory(nativeDir);
         File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"),
@@ -241,43 +252,46 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
-        Assert.Contains("fell back", result.Details, StringComparison.Ordinal);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
+        Assert.Contains("fell back", result.Details!, StringComparison.Ordinal);
     }
 
     /// <summary>Verifies a lone sibling dll is offered with sibling provenance.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_SiblingOnly_FindsSiblingAssembly()
     {
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.SiblingAssembly, result!.Origin);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.SiblingAssembly, result!.Origin);
     }
 
     /// <summary>Verifies extensionless (Linux) binaries keep their full name as the stem.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ExtensionlessBinary_UsesFullNameStem()
     {
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld");
         WriteDummyBinary(exe);
-        CopyInto(samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
     }
 
     /// <summary>Verifies native AOT library extensions (.so, .dylib) are stripped for the stem.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_LibraryExtensions_StripForStem()
     {
         foreach (var ext in new[] { ".so", ".dylib" })
@@ -285,17 +299,18 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
             var dir = NewTempDir();
             var binary = Path.Combine(dir, "RichLibrary" + ext);
             WriteDummyBinary(binary);
-            CopyInto(samples.RichLibraryDll, Path.Combine(dir, "RichLibrary.dll"));
+            CopyInto(Samples.RichLibraryDll, Path.Combine(dir, "RichLibrary.dll"));
 
             var result = PreIlcSidecarDetector.Find(binary);
 
-            Assert.NotNull(result);
-            Assert.Equal(PreIlcAssemblyOrigin.SiblingAssembly, result!.Origin);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(PreIlcAssemblyOrigin.SiblingAssembly, result!.Origin);
         }
     }
 
     /// <summary>Verifies a Windows native AOT library never offers itself (sibling == binary path).</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_NativeLibrarySelfCollision_ReturnsNull()
     {
         var dir = NewTempDir();
@@ -304,42 +319,45 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(binary);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>Verifies uppercase segments and forward slashes are recognized.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_UppercaseSegmentsAndForwardSlashes_Recognized()
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
 
         var mangled = exe.Replace('\\', '/')
             .Replace("/bin/", "/BIN/", StringComparison.Ordinal)
             .Replace("/publish/", "/PUBLISH/", StringComparison.Ordinal);
         var result = PreIlcSidecarDetector.Find(mangled);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
     }
 
     /// <summary>Verifies a sibling whose assembly name does not match the stem is rejected.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_SiblingNameMismatch_ReturnsNull()
     {
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.RichLibraryDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.RichLibraryDll, Path.Combine(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>Verifies a metadata-less sibling file is rejected.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_SiblingWithoutMetadata_ReturnsNull()
     {
         var dir = NewTempDir();
@@ -349,81 +367,86 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>Verifies a matching sidecar PDB reports Matched.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_MatchingPdb_ReportsMatched()
     {
-        var sourcePdb = Path.ChangeExtension(samples.HelloWorldDll, ".pdb");
-        Assert.SkipWhen(!File.Exists(sourcePdb), "HelloWorld.pdb was not produced");
+        var sourcePdb = Path.ChangeExtension(Samples.HelloWorldDll, ".pdb");
+        TestSkip.When(!File.Exists(sourcePdb), "HelloWorld.pdb was not produced");
 
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
         CopyInto(sourcePdb, Path.Combine(dir, "HelloWorld.pdb"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcPdbStatus.Matched, result!.PdbStatus);
-        Assert.Equal(Path.Combine(dir, "HelloWorld.pdb"), result.ManagedPdbPath);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcPdbStatus.Matched, result!.PdbStatus);
+        Assert.AreEqual(Path.Combine(dir, "HelloWorld.pdb"), result.ManagedPdbPath);
     }
 
     /// <summary>Verifies a foreign PDB reports Mismatched but the dll is still offered.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_MismatchedPdb_OffersDllWithoutPdb()
     {
-        var foreignPdb = Path.ChangeExtension(samples.RichLibraryDll, ".pdb");
-        Assert.SkipWhen(!File.Exists(foreignPdb), "RichLibrary.pdb was not produced");
+        var foreignPdb = Path.ChangeExtension(Samples.RichLibraryDll, ".pdb");
+        TestSkip.When(!File.Exists(foreignPdb), "RichLibrary.pdb was not produced");
 
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
         CopyInto(foreignPdb, Path.Combine(dir, "HelloWorld.pdb"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
-        Assert.Equal(PreIlcPdbStatus.Mismatched, result.PdbStatus);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
+        Assert.AreEqual(PreIlcPdbStatus.Mismatched, result.PdbStatus);
     }
 
     /// <summary>Verifies an assembly with an embedded portable PDB reports Embedded, not Missing.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_EmbeddedPdb_ReportsEmbedded()
     {
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "EmbeddedSourceLib.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.EmbeddedSourceLibDll, Path.Combine(dir, "EmbeddedSourceLib.dll"));
+        CopyInto(Samples.EmbeddedSourceLibDll, Path.Combine(dir, "EmbeddedSourceLib.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcPdbStatus.Embedded, result!.PdbStatus);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcPdbStatus.Embedded, result!.PdbStatus);
     }
 
     /// <summary>Verifies an absent PDB reports Missing.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_AbsentPdb_ReportsMissing()
     {
         var dir = NewTempDir();
         var exe = Path.Combine(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.Equal(PreIlcPdbStatus.Missing, result!.PdbStatus);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(PreIlcPdbStatus.Missing, result!.PdbStatus);
     }
 
     /// <summary>Verifies a binary outside any recognizable tree with no siblings yields null.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_OutsideAnyTree_ReturnsNull()
     {
         var dir = NewTempDir();
@@ -432,11 +455,12 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
     /// <summary>Verifies mstat/DGML-only discoveries produce a result that is not attachable.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_MstatOnlyInObjNative_NotAttachable()
     {
         var root = NewTempDir();
@@ -448,16 +472,17 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.False(result!.HasAttachableCompanion);
-        Assert.Equal(PreIlcAssemblyOrigin.None, result.Origin);
-        Assert.Equal(Path.Combine(nativeDir, "HelloWorld.mstat"), result.MstatPath);
-        Assert.Equal(Path.Combine(nativeDir, "HelloWorld.codegen.dgml.xml"), result.CodegenDgmlPath);
-        Assert.Null(result.ScanDgmlPath);
+        Assert.IsNotNull(result);
+        Assert.IsFalse(result!.HasAttachableCompanion);
+        Assert.AreEqual(PreIlcAssemblyOrigin.None, result.Origin);
+        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.mstat"), result.MstatPath);
+        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.codegen.dgml.xml"), result.CodegenDgmlPath);
+        Assert.IsNull(result.ScanDgmlPath);
     }
 
     /// <summary>Verifies a managed input newer than the binary is noted but never blocking.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_StaleManagedInput_NotesStaleness()
     {
         var dir = NewTempDir();
@@ -465,75 +490,79 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
         WriteDummyBinary(exe);
         File.SetLastWriteTimeUtc(exe, DateTime.UtcNow.AddHours(-2));
         var dll = Path.Combine(dir, "HelloWorld.dll");
-        CopyInto(samples.HelloWorldDll, dll);
+        CopyInto(Samples.HelloWorldDll, dll);
         File.SetLastWriteTimeUtc(dll, DateTime.UtcNow);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
-        Assert.Contains("newer", result.Details, StringComparison.Ordinal);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
+        Assert.Contains("newer", result.Details!, StringComparison.Ordinal);
     }
 
     /// <summary>Verifies the real fixture publish tree: rsp origin, matched PDB, and obj mstat/DGML.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_FixturePublishTree_FindsRspOriginWithMatchedPdb()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var result = PreIlcSidecarDetector.Find(samples.NativeAotConsoleExe!);
+        var result = PreIlcSidecarDetector.Find(Samples.NativeAotConsoleExe!);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
-        Assert.Equal(PreIlcAssemblyOrigin.IlcResponseFile, result.Origin);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
+        Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, result.Origin);
         Assert.EndsWith("NativeAotConsole.dll", result.ManagedAssemblyPath!, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(result.ManagedAssemblyPath));
-        Assert.Equal(PreIlcPdbStatus.Matched, result.PdbStatus);
-        Assert.NotNull(result.MstatPath);
-        Assert.NotNull(result.CodegenDgmlPath);
-        Assert.NotNull(result.IlcResponseFilePath);
-        Assert.True(result.PackageReferenceCount > 0);
-        Assert.Empty(result.LocalReferencePaths);
-        Assert.Empty(result.UnresolvedReferencePaths);
+        Assert.IsTrue(File.Exists(result.ManagedAssemblyPath));
+        Assert.AreEqual(PreIlcPdbStatus.Matched, result.PdbStatus);
+        Assert.IsNotNull(result.MstatPath);
+        Assert.IsNotNull(result.CodegenDgmlPath);
+        Assert.IsNotNull(result.IlcResponseFilePath);
+        Assert.IsGreaterThan(0, result.PackageReferenceCount);
+        Assert.IsEmpty(result.LocalReferencePaths);
+        Assert.IsEmpty(result.UnresolvedReferencePaths);
     }
 
     /// <summary>Verifies the real artifacts-layout publish maps publish→obj with obj-only sidecars.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ArtifactsFixture_FindsObjSidecarsWithNoSiblings()
     {
-        Assert.SkipWhen(samples.NativeAotArtifactsExe is null, "artifacts NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotArtifactsExe is null, "artifacts NativeAOT sample was not built");
 
-        var result = PreIlcSidecarDetector.Find(samples.NativeAotArtifactsExe!);
+        var result = PreIlcSidecarDetector.Find(Samples.NativeAotArtifactsExe!);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
         Assert.Contains(Path.Combine("artifacts", "obj"), result.ManagedAssemblyPath!, StringComparison.OrdinalIgnoreCase);
-        Assert.NotNull(result.MstatPath);
-        Assert.NotNull(result.CodegenDgmlPath);
+        Assert.IsNotNull(result.MstatPath);
+        Assert.IsNotNull(result.CodegenDgmlPath);
 
-        var exeDir = Path.GetDirectoryName(samples.NativeAotArtifactsExe!)!;
-        Assert.False(File.Exists(Path.Combine(exeDir, "NativeAotArtifactsConsole.mstat")));
+        var exeDir = Path.GetDirectoryName(Samples.NativeAotArtifactsExe!)!;
+        Assert.IsFalse(File.Exists(Path.Combine(exeDir, "NativeAotArtifactsConsole.mstat")));
     }
 
     /// <summary>Verifies the real Native AOT library publish finds its companion via tree, not sibling.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_LibraryFixture_FindsCompanionViaTreeNotSibling()
     {
-        Assert.SkipWhen(samples.NativeAotLibraryBinary is null, "NativeAOT library sample was not built");
+        TestSkip.When(Samples.NativeAotLibraryBinary is null, "NativeAOT library sample was not built");
 
-        var result = PreIlcSidecarDetector.Find(samples.NativeAotLibraryBinary!);
+        var result = PreIlcSidecarDetector.Find(Samples.NativeAotLibraryBinary!);
 
-        Assert.NotNull(result);
-        Assert.True(result!.HasAttachableCompanion);
-        Assert.NotEqual(PreIlcAssemblyOrigin.SiblingAssembly, result.Origin);
-        Assert.NotEqual(
-            Path.GetFullPath(samples.NativeAotLibraryBinary!),
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result!.HasAttachableCompanion);
+        Assert.AreNotEqual(PreIlcAssemblyOrigin.SiblingAssembly, result.Origin);
+        Assert.AreNotEqual(
+            Path.GetFullPath(Samples.NativeAotLibraryBinary!),
             Path.GetFullPath(result.ManagedAssemblyPath!));
     }
 
     /// <summary>Disposes test resources created during the run.</summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         foreach (var path in _tempFiles)
         {
             try
@@ -543,6 +572,5 @@ public class PreIlcSidecarDetectorTests(SampleAssemblyFixture samples) : IDispos
             }
             catch { /* best effort */ }
         }
-        GC.SuppressFinalize(this);
     }
 }

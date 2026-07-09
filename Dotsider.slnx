@@ -1,4 +1,15 @@
 <Solution>
+<Folder Name="/Solution Items/">
+  <File Path=".editorconfig" />
+  <File Path=".gitattributes" />
+  <File Path=".gitignore" />
+  <File Path="CONTRIBUTING.md" />
+  <File Path="Directory.Build.props" />
+  <File Path="global.json" />
+  <File Path="LICENSE" />
+  <File Path="README.md" />
+</Folder>
+
 <Folder Name="/src/">
   <Project Path="src/Dotsider.Core/Dotsider.Core.csproj" />
   <Project Path="src/Dotsider/Dotsider.csproj" />
@@ -40,12 +51,26 @@
     <Project Path="samples/NetFxBindingRedirects.Clr2.PrivatePathLib/NetFxBindingRedirects.Clr2.PrivatePathLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.Clr2.CodeBaseLib/NetFxBindingRedirects.Clr2.CodeBaseLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.Clr2.CulturedLib/NetFxBindingRedirects.Clr2.CulturedLib.csproj" />
+    <File Path="samples/NativeAotArtifactsConsole/Directory.Build.props" />
   </Folder>
 
   <Folder Name="/tests/">
     <Project Path="tests/Dotsider.Tests/Dotsider.Tests.csproj" />
+    <File Path="tests/Shared/MSTestSettings.cs" />
+    <File Path="tests/Shared/TestAssert.cs" />
+    <File Path="tests/Shared/TestSkip.cs" />
+    <File Path="tests/Shared/TestSocketIds.cs" />
     <Project Path="tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj" />
     <Project Path="tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj" />
+    <File Path="tests/Directory.Build.props" />
+  </Folder>
+
+  <Folder Name="/scripts/">
+    <File Path="scripts/Capture-DisasmOracle.cs" />
+    <File Path="scripts/Directory.Build.props" />
+    <File Path="scripts/README.md" />
+    <File Path="scripts/Run-Tests.cs" />
+    <File Path="scripts/ScriptSupport.cs" />
   </Folder>
 
   <Folder Name="/benchmarks/">

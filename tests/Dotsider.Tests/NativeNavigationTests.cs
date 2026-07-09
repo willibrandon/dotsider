@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// Tests for native IL-inspector navigation: go-to-definition selects the target symbol and pushes
 /// the previous view onto the native back stack, and Esc restores it.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NativeNavigationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class NativeNavigationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bApp? _app;
     private Hex1bTerminal? _terminal;
     private Hex1bAppWorkloadAdapter? _workload;
@@ -25,19 +27,20 @@ public sealed class NativeNavigationTests(SampleAssemblyFixture samples) : IDisp
     }
 
     /// <summary>Verifies go-to-symbol pushes the back stack and Esc-restore returns to the origin.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void NavigateToNativeSymbol_PushesBackStack_AndRestores()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
         var app = CreateApp();
-        using var state = new DotsiderState(app, samples.NativeAotConsoleExe!);
+        using var state = new DotsiderState(app, Samples.NativeAotConsoleExe!);
 
         var functions = state.Analyzer.NativeSymbols!.Symbols
             .Where(s => s.Kind == Core.Analysis.Models.NativeSymbolKind.Function && s.Size > 0)
             .Take(2).ToList();
-        Assert.Equal(2, functions.Count);
+        Assert.HasCount(2, functions);
 
         // Establish the real precondition a UI navigation has: an editor loaded for the current
         // symbol with the cursor somewhere in its listing. NavigateToNativeSymbol captures that
@@ -50,14 +53,14 @@ public sealed class NativeNavigationTests(SampleAssemblyFixture samples) : IDisp
 
         state.NavigateToNativeSymbol(functions[1]);
 
-        Assert.Equal(functions[1].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
-        Assert.Single(state.IlNativeBackStack);
+        Assert.AreEqual(functions[1].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
+        Assert.ContainsSingle(state.IlNativeBackStack);
 
         // Move the cursor away, then restore: the offset must snap back to where the jump departed.
         state.IlEditorState.SetCursorPosition(new DocumentOffset(0));
         state.RestoreFromNativeBackEntry(state.IlNativeBackStack.Pop());
-        Assert.Equal(functions[0].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
-        Assert.Equal(recordedOffset, state.IlEditorState.Cursor.Position.Value);
+        Assert.AreEqual(functions[0].VirtualAddress, state.IlSelectedNativeSymbol!.VirtualAddress);
+        Assert.AreEqual(recordedOffset, state.IlEditorState.Cursor.Position.Value);
     }
 
     /// <inheritdoc />

@@ -13,15 +13,18 @@ namespace Dotsider.Tests;
 /// TUI and diagnostics socket: a unique method resolved by name, the ambiguous-name error, and the
 /// managed-assembly rejection.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcSessionSocketTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class PreIlcSessionSocketTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
     private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     private async Task<string> StartTuiWithDiagnosticsAsync(string dllPath, CancellationToken ct)
     {
@@ -46,13 +49,13 @@ public class PreIlcSessionSocketTests(SampleAssemblyFixture samples) : IAsyncDis
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-            });
+        });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
-        _listener.StartListening();
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = _app.RunAsync(_appCts.Token);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -65,56 +68,59 @@ public class PreIlcSessionSocketTests(SampleAssemblyFixture samples) : IAsyncDis
     /// <summary>
     /// Verifies <c>correlate-method</c> resolves a unique method by name and returns its report.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CorrelateMethod_ByName_ReturnsReport()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "correlate-method", MethodOrAddress = "Greeter.Describe" }, ct);
 
-        Assert.True(response.Success, response.Error);
+        Assert.IsTrue(response.Success, response.Error);
         var data = (response.Data as JsonElement?)!.Value;
-        Assert.Contains("Greeter::Describe", data.GetProperty("method").GetString());
-        Assert.False(string.IsNullOrEmpty(data.GetProperty("il").GetString()));
+        Assert.Contains("Greeter::Describe", data.GetProperty("method").GetString()!);
+        Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("il").GetString()));
     }
 
     /// <summary>
     /// Verifies an ambiguous name fails cleanly, listing the candidates in the error.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CorrelateMethod_AmbiguousName_FailsWithCandidates()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.NativeAotConsoleExe!, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.NativeAotConsoleExe!, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "correlate-method", MethodOrAddress = "Greeter.Greet" }, ct);
 
-        Assert.False(response.Success);
-        Assert.Contains("ambiguous", response.Error);
-        Assert.Contains("Greeter::Greet", response.Error);
+        Assert.IsFalse(response.Success);
+        Assert.Contains("ambiguous", response.Error!);
+        Assert.Contains("Greeter::Greet", response.Error!);
     }
 
     /// <summary>
     /// Verifies <c>correlate-method</c> rejects a managed assembly with the Native AOT requirement.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CorrelateMethod_Managed_Fails()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = await StartTuiWithDiagnosticsAsync(samples.RichLibraryDll, ct);
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(Samples.RichLibraryDll, ct);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "correlate-method", MethodOrAddress = "Foo" }, ct);
 
-        Assert.False(response.Success);
-        Assert.Contains("Native AOT", response.Error);
+        Assert.IsFalse(response.Success);
+        Assert.Contains("Native AOT", response.Error!);
     }
 
     /// <summary>
@@ -126,7 +132,13 @@ public class PreIlcSessionSocketTests(SampleAssemblyFixture samples) : IAsyncDis
         _appCts?.Cancel();
         if (_listener is not null)
             await _listener.DisposeAsync();
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _state?.Dispose();
+        _app?.Dispose();
         if (_terminal is not null)
             await _terminal.DisposeAsync();
         _appCts?.Dispose();

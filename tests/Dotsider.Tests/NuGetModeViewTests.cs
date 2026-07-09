@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Nu Get Mode View.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class NuGetModeViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -28,7 +30,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new NuGetState(_hex1bApp!, samples.RichLibraryNupkg);
+                _state ??= new NuGetState(_hex1bApp!, Samples.RichLibraryNupkg);
                 nugetApp ??= new NuGetApp(_state);
                 return Task.FromResult<Hex1bWidget>(nugetApp.Build(ctx));
             },
@@ -43,11 +45,12 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies nu get app launches shows package info.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NuGetApp_Launches_ShowsPackageInfo()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -64,11 +67,12 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies nu get app shows file list.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NuGetApp_ShowsFileList()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -87,11 +91,12 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies quit key exits nu get app.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task QuitKey_ExitsNuGetApp()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -103,17 +108,18 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, ct);
 
         var completed = await Task.WhenAny(runTask, Task.Delay(5000, ct));
-        Assert.Equal(runTask, completed);
+        Assert.AreEqual(runTask, completed);
     }
 
     /// <summary>
     /// Verifies enter on dll row opens dll inspector.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Enter_OnDllRow_OpensDllInspector()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -128,9 +134,9 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state!.IsBrowsingPackage);
-        Assert.NotNull(_state.SelectedDllState);
-        Assert.NotNull(_state.SelectedDllEntry);
+        Assert.IsFalse(_state!.IsBrowsingPackage);
+        Assert.IsNotNull(_state.SelectedDllState);
+        Assert.IsNotNull(_state.SelectedDllEntry);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -138,11 +144,12 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies search activates and dismisses.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Search_ActivatesAndDismisses()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -159,7 +166,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state!.BrowserSearch.IsActive);
+        Assert.IsFalse(_state!.BrowserSearch.IsActive);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -167,11 +174,12 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies dll inspector depth limit shows error in hints bar.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DllInspector_DepthLimit_ShowsErrorInHintsBar()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
         var depthLimitHit = false;
@@ -191,11 +199,11 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
                     var dllState = _state!.SelectedDllState!;
                     for (var i = 0; i < DotsiderState.MaxNavigationDepth; i++)
                     {
-                        var path = i % 2 == 0 ? samples.RichLibraryDll : samples.EmptyLibDll;
+                        var path = i % 2 == 0 ? Samples.RichLibraryDll : Samples.EmptyLibDll;
                         dllState.PushAssembly(path);
                     }
                     // This push should fail with depth limit
-                    dllState.PushAssembly(samples.ComplexAppDll);
+                    dllState.PushAssembly(Samples.ComplexAppDll);
                     _state.App.Invalidate();
                     depthLimitHit = true;
                 }
@@ -206,7 +214,7 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Contains("depth limit", _state!.SelectedDllState!.NavigationError);
+        Assert.Contains("depth limit", _state!.SelectedDllState!.NavigationError!);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -217,13 +225,15 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// the behavior already covered for standalone dotsider in
     /// <see cref="DotsiderStateTests.NavigateToIlMethod_ThenHex_ThenBack_RestoresIl"/>.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NuGet_EscBack_FromPeIlHexChain_TwoEscsReturnToPe()
     {
         var (terminal, app) = CreateNuGetApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
+        var chainPrepared = false;
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -236,14 +246,19 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 // Set up a PE → IL → Hex chain on the inner DLL state, then drive
                 // real Esc keys through the NuGet Escape handler.
                 var dllState = _state!.SelectedDllState!;
-                dllState.CurrentTab = TabId.PeMetadata;
-                dllState.PeSubTab = PeSubTabId.MethodDef;
-                var method = dllState.Analyzer.MethodDefs.First(m => m.Rva > 0);
-                dllState.NavigateToIlMethod(method);
-                dllState.NavigateToHexOffset(method.Rva);
-                _state.App.Invalidate();
-                return dllState.CurrentTab == TabId.HexDump;
+                if (!chainPrepared)
+                {
+                    dllState.CurrentTab = TabId.PeMetadata;
+                    dllState.PeSubTab = PeSubTabId.MethodDef;
+                    var method = dllState.Analyzer.MethodDefs.First(m => m.Rva > 0);
+                    dllState.NavigateToIlMethod(method);
+                    dllState.NavigateToHexOffset(method.Rva);
+                    chainPrepared = true;
+                }
+
+                return dllState.CurrentTab == TabId.HexDump && dllState.CrossViewBackTarget is not null;
             }, TimeSpan.FromSeconds(10))
+            .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.SelectedDllState!.CurrentTab == TabId.IlInspector,
                 TimeSpan.FromSeconds(10))
@@ -257,11 +272,11 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Two Escs landed back on PE Metadata with the original sub-tab — and
         // the user is still inside the DLL inspector (not ejected to the package
         // browser, which is the pre-fix fall-through branch in NuGet's Esc handler).
-        Assert.NotNull(_state!.SelectedDllState);
-        Assert.False(_state.IsBrowsingPackage);
-        Assert.Equal(TabId.PeMetadata, _state.SelectedDllState.CurrentTab);
-        Assert.Equal(PeSubTabId.MethodDef, _state.SelectedDllState.PeSubTab);
-        Assert.Null(_state.SelectedDllState.CrossViewBackTarget);
+        Assert.IsNotNull(_state!.SelectedDllState);
+        Assert.IsFalse(_state.IsBrowsingPackage);
+        Assert.AreEqual(TabId.PeMetadata, _state.SelectedDllState.CurrentTab);
+        Assert.AreEqual(PeSubTabId.MethodDef, _state.SelectedDllState.PeSubTab);
+        Assert.IsNull(_state.SelectedDllState.CrossViewBackTarget);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -271,10 +286,10 @@ public class NuGetModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

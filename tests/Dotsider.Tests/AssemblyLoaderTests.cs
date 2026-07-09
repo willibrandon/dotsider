@@ -7,88 +7,96 @@ namespace Dotsider.Tests;
 /// Tests for <see cref="AssemblyLoader.Open"/> covering managed DLLs, apphosts,
 /// single-file bundles, and NativeAOT executables.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class AssemblyLoaderTests(SampleAssemblyFixture samples)
+[TestClass]
+public sealed class AssemblyLoaderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>Verifies that a managed DLL returns a Direct result with metadata.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_ManagedDll_ReturnsDirect()
     {
-        var result = AssemblyLoader.Open(samples.RichLibraryDll);
-        Assert.IsType<AssemblyOpenResult.Direct>(result);
+        var result = AssemblyLoader.Open(Samples.RichLibraryDll);
+        Assert.IsExactInstanceOfType<AssemblyOpenResult.Direct>(result);
         var direct = (AssemblyOpenResult.Direct)result;
-        Assert.True(direct.Analyzer.HasMetadata);
+        Assert.IsTrue(direct.Analyzer.HasMetadata);
         direct.Analyzer.Dispose();
     }
 
     /// <summary>Verifies that an apphost exe returns ApphostWithCompanion with a valid companion path.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_ApphostExe_ReturnsApphostWithCompanion()
     {
-        var result = AssemblyLoader.Open(samples.HelloWorldExe);
-        Assert.IsType<AssemblyOpenResult.ApphostWithCompanion>(result);
+        var result = AssemblyLoader.Open(Samples.HelloWorldExe);
+        Assert.IsExactInstanceOfType<AssemblyOpenResult.ApphostWithCompanion>(result);
         var apphost = (AssemblyOpenResult.ApphostWithCompanion)result;
-        Assert.False(apphost.HostAnalyzer.HasMetadata);
+        Assert.IsFalse(apphost.HostAnalyzer.HasMetadata);
         Assert.EndsWith(".dll", apphost.CompanionDllPath, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(apphost.CompanionDllPath));
+        Assert.IsTrue(File.Exists(apphost.CompanionDllPath));
         apphost.HostAnalyzer.Dispose();
     }
 
     /// <summary>Verifies that a single-file bundle returns a BundleEntry with valid metadata.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_SingleFileBundle_ReturnsBundleEntry()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
-        Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
+        Assert.IsExactInstanceOfType<AssemblyOpenResult.BundleEntry>(result);
         var bundle = (AssemblyOpenResult.BundleEntry)result;
-        Assert.True(bundle.EntryAnalyzer.HasMetadata);
-        Assert.Equal("SelfContainedConsole", bundle.EntryAnalyzer.AssemblyName);
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.BundlePath);
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.SourceBundlePath);
+        Assert.IsTrue(bundle.EntryAnalyzer.HasMetadata);
+        Assert.AreEqual("SelfContainedConsole", bundle.EntryAnalyzer.AssemblyName);
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.BundlePath);
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.SourceBundlePath);
         // FilePath is the on-disk bundle path; DisplayName is the entry assembly name
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.FilePath);
-        Assert.Equal("SelfContainedConsole.dll", bundle.EntryAnalyzer.DisplayName);
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.FilePath);
+        Assert.AreEqual("SelfContainedConsole.dll", bundle.EntryAnalyzer.DisplayName);
         bundle.EntryAnalyzer.Dispose();
     }
 
     /// <summary>Verifies that bundle-backed analyzers expose correct capabilities.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_SingleFileBundle_HasCorrectCapabilities()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
         var bundle = (AssemblyOpenResult.BundleEntry)result;
-        Assert.True(bundle.EntryAnalyzer.IsBundleBacked);
-        Assert.False(bundle.EntryAnalyzer.CanSaveInPlace);
-        Assert.Equal(samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.LaunchPath);
+        Assert.IsTrue(bundle.EntryAnalyzer.IsBundleBacked);
+        Assert.IsFalse(bundle.EntryAnalyzer.CanSaveInPlace);
+        Assert.AreEqual(Samples.SelfContainedConsoleExe, bundle.EntryAnalyzer.LaunchPath);
         bundle.EntryAnalyzer.Dispose();
     }
 
     /// <summary>Verifies that file-backed analyzers expose correct capabilities.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_ManagedDll_HasCorrectCapabilities()
     {
-        var result = AssemblyLoader.Open(samples.RichLibraryDll);
+        var result = AssemblyLoader.Open(Samples.RichLibraryDll);
         var direct = (AssemblyOpenResult.Direct)result;
-        Assert.False(direct.Analyzer.IsBundleBacked);
-        Assert.True(direct.Analyzer.CanSaveInPlace);
-        Assert.Equal(samples.RichLibraryDll, direct.Analyzer.LaunchPath);
-        Assert.Equal(direct.Analyzer.FileName, direct.Analyzer.DisplayName);
+        Assert.IsFalse(direct.Analyzer.IsBundleBacked);
+        Assert.IsTrue(direct.Analyzer.CanSaveInPlace);
+        Assert.AreEqual(Samples.RichLibraryDll, direct.Analyzer.LaunchPath);
+        Assert.AreEqual(direct.Analyzer.FileName, direct.Analyzer.DisplayName);
         direct.Analyzer.Dispose();
     }
 
     /// <summary>Verifies that a NativeAOT exe returns a NativeAot result without metadata.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_NativeAotExe_ReturnsNativeAot()
     {
-        Assert.NotNull(samples.NativeAotConsoleExe);
-        var result = AssemblyLoader.Open(samples.NativeAotConsoleExe!);
-        Assert.IsType<AssemblyOpenResult.NativeAot>(result);
+        Assert.IsNotNull(Samples.NativeAotConsoleExe);
+        var result = AssemblyLoader.Open(Samples.NativeAotConsoleExe!);
+        Assert.IsExactInstanceOfType<AssemblyOpenResult.NativeAot>(result);
         var aot = (AssemblyOpenResult.NativeAot)result;
-        Assert.False(aot.Analyzer.HasMetadata);
-        Assert.NotNull(aot.Analyzer.NativeAotInfo);
-        Assert.Equal(BinaryKind.NativeAot, aot.Analyzer.BinaryKind);
+        Assert.IsFalse(aot.Analyzer.HasMetadata);
+        Assert.IsNotNull(aot.Analyzer.NativeAotInfo);
+        Assert.AreEqual(BinaryKind.NativeAot, aot.Analyzer.BinaryKind);
         aot.Analyzer.Dispose();
     }
 
@@ -97,23 +105,25 @@ public sealed class AssemblyLoaderTests(SampleAssemblyFixture samples)
     /// the ReadyToRun assemblies inside it contain RTR signatures — the bundle check
     /// runs before the Native AOT probe.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_SingleFileBundle_NotClassifiedAsNativeAot()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
-        var result = AssemblyLoader.Open(samples.SelfContainedConsoleExe!);
-        Assert.IsType<AssemblyOpenResult.BundleEntry>(result);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
+        var result = AssemblyLoader.Open(Samples.SelfContainedConsoleExe!);
+        Assert.IsExactInstanceOfType<AssemblyOpenResult.BundleEntry>(result);
         ((AssemblyOpenResult.BundleEntry)result).EntryAnalyzer.Dispose();
     }
 
     /// <summary>Verifies that a managed DLL is classified as Managed.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Open_ManagedDll_HasManagedBinaryKind()
     {
-        var result = AssemblyLoader.Open(samples.RichLibraryDll);
+        var result = AssemblyLoader.Open(Samples.RichLibraryDll);
         var direct = (AssemblyOpenResult.Direct)result;
-        Assert.Equal(BinaryKind.Managed, direct.Analyzer.BinaryKind);
-        Assert.Null(direct.Analyzer.NativeAotInfo);
+        Assert.AreEqual(BinaryKind.Managed, direct.Analyzer.BinaryKind);
+        Assert.IsNull(direct.Analyzer.NativeAotInfo);
         direct.Analyzer.Dispose();
     }
 }

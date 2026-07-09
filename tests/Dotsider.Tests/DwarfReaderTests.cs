@@ -7,6 +7,7 @@ namespace Dotsider.Tests;
 /// hand-built <c>.debug_info</c>/<c>.debug_abbrev</c> blobs so every form the decoder claims
 /// (string indirection, indexed addresses, DWARF64, references, skips) is pinned byte-for-byte.
 /// </summary>
+[TestClass]
 public class DwarfReaderTests
 {
     /// <summary>Writes one abbreviation declaration (code, tag, children, attribute/form pairs).</summary>
@@ -68,7 +69,8 @@ public class DwarfReaderTests
     /// <c>high_pc</c>, and decl file/line, and that the unit context captures the CU's base
     /// address and line-program offset.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_V4_ReadsNameAddressSizeAndDeclInfo()
     {
         var abbrev = new DwarfBlob();
@@ -87,16 +89,16 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray()));
 
-        var (function, unit) = Assert.Single(result);
-        Assert.Equal("main", function.Name);
-        Assert.Equal(0x401000UL, function.LowPc);
-        Assert.Equal(0x40UL, function.Size);
-        Assert.Equal(3, function.DeclFile);
-        Assert.Equal(42, function.DeclLine);
-        Assert.Equal(0x77, function.StmtListOffset);
-        Assert.Equal(4, unit.Version);
-        Assert.Equal(0x400000UL, unit.BaseAddress);
-        Assert.Equal(0x77, unit.StmtListOffset);
+        var (function, unit) = Assert.ContainsSingle(result);
+        Assert.AreEqual("main", function.Name);
+        Assert.AreEqual(0x401000UL, function.LowPc);
+        Assert.AreEqual(0x40UL, function.Size);
+        Assert.AreEqual(3, function.DeclFile);
+        Assert.AreEqual(42, function.DeclLine);
+        Assert.AreEqual(0x77, function.StmtListOffset);
+        Assert.AreEqual(4, unit.Version);
+        Assert.AreEqual(0x400000UL, unit.BaseAddress);
+        Assert.AreEqual(0x77, unit.StmtListOffset);
     }
 
     /// <summary>
@@ -104,7 +106,8 @@ public class DwarfReaderTests
     /// when resolving <c>strx1</c>/<c>addrx1</c>, and takes offset-class <c>high_pc</c> as the
     /// size directly.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_V5_ExplicitBasesAndOffsetHighPc()
     {
         var abbrev = new DwarfBlob();
@@ -126,25 +129,26 @@ public class DwarfReaderTests
             strOffsets: StrOffsetsTable(999, 1),
             addr: AddrTable(0xDEAD, 0x2000));
 
-        var (function, unit) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.Equal("EntryPoint", function.Name);
-        Assert.Equal(0x2000UL, function.LowPc);
-        Assert.Equal(0x30UL, function.Size);
-        Assert.Equal(5, unit.Version);
+        var (function, unit) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.AreEqual("EntryPoint", function.Name);
+        Assert.AreEqual(0x2000UL, function.LowPc);
+        Assert.AreEqual(0x30UL, function.Size);
+        Assert.AreEqual(5, unit.Version);
     }
 
     /// <summary>
     /// Verifies every string form resolves the name: <c>strp</c>, <c>line_strp</c>, and the five
     /// <c>strx</c> encodings through the default v5 <c>.debug_str_offsets</c> base.
     /// </summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData(DwarfForm.Strp)]
-    [InlineData(DwarfForm.LineStrp)]
-    [InlineData(DwarfForm.Strx)]
-    [InlineData(DwarfForm.Strx1)]
-    [InlineData(DwarfForm.Strx2)]
-    [InlineData(DwarfForm.Strx3)]
-    [InlineData(DwarfForm.Strx4)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(DwarfForm.Strp)]
+    [DataRow(DwarfForm.LineStrp)]
+    [DataRow(DwarfForm.Strx)]
+    [DataRow(DwarfForm.Strx1)]
+    [DataRow(DwarfForm.Strx2)]
+    [DataRow(DwarfForm.Strx3)]
+    [DataRow(DwarfForm.Strx4)]
     public void ReadFunctions_StringForms_ResolveName(ulong form)
     {
         var abbrev = new DwarfBlob();
@@ -170,21 +174,22 @@ public class DwarfReaderTests
         var sections = Sections(Cu(5, dies.ToArray()), abbrev.ToArray(),
             str: strings, lineStr: strings, strOffsets: StrOffsetsTable(0, 1));
 
-        var (function, _) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.Equal("fn", function.Name);
-        Assert.Equal(0x1000UL, function.LowPc);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.AreEqual("fn", function.Name);
+        Assert.AreEqual(0x1000UL, function.LowPc);
     }
 
     /// <summary>
     /// Verifies every indexed address form resolves <c>low_pc</c> through the default v5
     /// <c>.debug_addr</c> base.
     /// </summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData(DwarfForm.Addrx)]
-    [InlineData(DwarfForm.Addrx1)]
-    [InlineData(DwarfForm.Addrx2)]
-    [InlineData(DwarfForm.Addrx3)]
-    [InlineData(DwarfForm.Addrx4)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(DwarfForm.Addrx)]
+    [DataRow(DwarfForm.Addrx1)]
+    [DataRow(DwarfForm.Addrx2)]
+    [DataRow(DwarfForm.Addrx3)]
+    [DataRow(DwarfForm.Addrx4)]
     public void ReadFunctions_AddressIndexForms_ResolveLowPc(ulong form)
     {
         var abbrev = new DwarfBlob();
@@ -207,15 +212,16 @@ public class DwarfReaderTests
 
         var sections = Sections(Cu(5, dies.ToArray()), abbrev.ToArray(), addr: AddrTable(0, 0x4000));
 
-        var (function, _) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.Equal(0x4000UL, function.LowPc);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.AreEqual(0x4000UL, function.LowPc);
     }
 
     /// <summary>
     /// Verifies a DWARF64 unit parses: 0xFFFFFFFF-escaped length, 8-byte abbrev offset, and
     /// 8-byte <c>strp</c> section offsets.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_Dwarf64_ParsesUnitAndWideOffsets()
     {
         var abbrev = new DwarfBlob();
@@ -233,10 +239,10 @@ public class DwarfReaderTests
         var sections = Sections(Cu(4, dies.ToArray(), is64: true), abbrev.ToArray(),
             str: new DwarfBlob().U8(0).CStr("fn").ToArray());
 
-        var (function, unit) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.True(unit.Is64);
-        Assert.Equal("fn", function.Name);
-        Assert.Equal(0x20UL, function.Size);
+        var (function, unit) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.IsTrue(unit.Is64);
+        Assert.AreEqual("fn", function.Name);
+        Assert.AreEqual(0x20UL, function.Size);
     }
 
     /// <summary>
@@ -271,35 +277,38 @@ public class DwarfReaderTests
     /// Verifies a nameless definition resolves its name through a unit-relative
     /// <c>specification</c> reference, preferring the declaration's linkage name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_SpecificationRef4_ResolvesUnitRelativeName()
     {
         var sections = SpecificationPair(DwarfForm.AtSpecification, DwarfForm.Ref4, refValue: 12);
 
-        var (function, _) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.Equal("_ZN6Widget3RunEv", function.Name);
-        Assert.Equal(0x5000UL, function.LowPc);
-        Assert.Equal(0x10UL, function.Size);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.AreEqual("_ZN6Widget3RunEv", function.Name);
+        Assert.AreEqual(0x5000UL, function.LowPc);
+        Assert.AreEqual(0x10UL, function.Size);
     }
 
     /// <summary>
     /// Verifies <c>abstract_origin</c> in the <c>ref_addr</c> form resolves as a
     /// section-absolute offset, not unit-relative.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_AbstractOriginRefAddr_ResolvesSectionAbsoluteName()
     {
         var sections = SpecificationPair(DwarfForm.AtAbstractOrigin, DwarfForm.RefAddr, refValue: 24);
 
-        var (function, _) = Assert.Single(DwarfReader.ReadFunctions(sections));
-        Assert.Equal("_ZN6Widget3RunEv", function.Name);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(sections));
+        Assert.AreEqual("_ZN6Widget3RunEv", function.Name);
     }
 
     /// <summary>
     /// Verifies a v4 range-based subprogram (no <c>low_pc</c>) is kept with its
     /// <c>.debug_ranges</c> offset recorded as a section offset.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_V4Ranges_RecordsSectionOffset()
     {
         var abbrev = new DwarfBlob();
@@ -315,18 +324,19 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray()));
 
-        var (function, unit) = Assert.Single(result);
-        Assert.Equal("ranged", function.Name);
-        Assert.Equal(0x40, function.RangesOffset);
-        Assert.False(function.RangesIsRnglistx);
-        Assert.Equal(0x400000UL, unit.BaseAddress);
+        var (function, unit) = Assert.ContainsSingle(result);
+        Assert.AreEqual("ranged", function.Name);
+        Assert.AreEqual(0x40, function.RangesOffset);
+        Assert.IsFalse(function.RangesIsRnglistx);
+        Assert.AreEqual(0x400000UL, unit.BaseAddress);
     }
 
     /// <summary>
     /// Verifies a v5 <c>rnglistx</c> range reference is recorded as an index and the CU's
     /// explicit <c>rnglists_base</c> is captured.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_V5Rnglistx_RecordsIndexAndBase()
     {
         var abbrev = new DwarfBlob();
@@ -342,10 +352,10 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections(Cu(5, dies.ToArray()), abbrev.ToArray()));
 
-        var (function, unit) = Assert.Single(result);
-        Assert.Equal(2, function.RangesOffset);
-        Assert.True(function.RangesIsRnglistx);
-        Assert.Equal(0x20, unit.RnglistsBase);
+        var (function, unit) = Assert.ContainsSingle(result);
+        Assert.AreEqual(2, function.RangesOffset);
+        Assert.IsTrue(function.RangesIsRnglistx);
+        Assert.AreEqual(0x20, unit.RnglistsBase);
     }
 
     /// <summary>
@@ -353,7 +363,8 @@ public class DwarfReaderTests
     /// <c>data16</c>, <c>implicit_const</c>, <c>indirect</c>, and an unresolvable <c>strx2</c> —
     /// advances the cursor exactly, so the subprogram after it still parses.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_SkipsEveryFormOnUnrelatedDie()
     {
         var abbrev = new DwarfBlob();
@@ -421,17 +432,18 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections(Cu(5, dies.ToArray()), abbrev.ToArray()));
 
-        var (function, _) = Assert.Single(result);
-        Assert.Equal("after", function.Name);
-        Assert.Equal(0x9000UL, function.LowPc);
+        var (function, _) = Assert.ContainsSingle(result);
+        Assert.AreEqual("after", function.Name);
+        Assert.AreEqual(0x9000UL, function.LowPc);
     }
 
     /// <summary>
     /// Verifies the linkage name (plain or MIPS-vendor) is preferred over the source name.
     /// </summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData(DwarfForm.AtLinkageName)]
-    [InlineData(DwarfForm.AtMipsLinkageName)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(DwarfForm.AtLinkageName)]
+    [DataRow(DwarfForm.AtMipsLinkageName)]
     public void ReadFunctions_LinkageName_PreferredOverSourceName(ulong linkageAttribute)
     {
         var abbrev = new DwarfBlob();
@@ -446,16 +458,16 @@ public class DwarfReaderTests
             .ULeb(2).CStr("plain").CStr("_Zmangled").U64(0x1000)
             .ULeb(0);
 
-        var (function, _) = Assert.Single(
-            DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray())));
-        Assert.Equal("_Zmangled", function.Name);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray())));
+        Assert.AreEqual("_Zmangled", function.Name);
     }
 
     /// <summary>
     /// Verifies an address-class <c>high_pc</c> below <c>low_pc</c> yields size 0 rather than
     /// wrapping negative.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_HighPcBelowLowPc_SizeZero()
     {
         var abbrev = new DwarfBlob();
@@ -470,16 +482,16 @@ public class DwarfReaderTests
             .ULeb(2).CStr("f").U64(0x2000).U64(0x1000)
             .ULeb(0);
 
-        var (function, _) = Assert.Single(
-            DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray())));
-        Assert.Equal(0UL, function.Size);
+        var (function, _) = Assert.ContainsSingle(DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray())));
+        Assert.AreEqual(0UL, function.Size);
     }
 
     /// <summary>
     /// Verifies a second unit whose declared length overruns the section ends the walk, keeping
     /// the first unit's functions.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_TruncatedSecondUnit_KeepsFirstFunction()
     {
         var abbrev = new DwarfBlob();
@@ -496,15 +508,16 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections([.. info], abbrev.ToArray()));
 
-        var (function, _) = Assert.Single(result);
-        Assert.Equal("ok", function.Name);
+        var (function, _) = Assert.ContainsSingle(result);
+        Assert.AreEqual("ok", function.Name);
     }
 
     /// <summary>
     /// Verifies an unsupported-version unit is skipped by its declared length and the walk
     /// continues into the next unit.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_UnsupportedVersionUnit_SkipsToNextUnit()
     {
         var abbrev = new DwarfBlob();
@@ -520,15 +533,16 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections([.. info], abbrev.ToArray()));
 
-        var (function, _) = Assert.Single(result);
-        Assert.Equal("ok", function.Name);
+        var (function, _) = Assert.ContainsSingle(result);
+        Assert.AreEqual("ok", function.Name);
     }
 
     /// <summary>
     /// Verifies a v5 skeleton unit (unit type 4) contributes no functions even though it holds a
     /// well-formed subprogram.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_SkeletonUnit_Skipped()
     {
         var abbrev = new DwarfBlob();
@@ -542,14 +556,15 @@ public class DwarfReaderTests
         var result = DwarfReader.ReadFunctions(
             Sections(Cu(5, dies.ToArray(), unitType: 4), abbrev.ToArray()));
 
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 
     /// <summary>
     /// Verifies an abbreviation code missing from the table ends that unit's walk, keeping the
     /// functions parsed before it.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_UnknownAbbrevCode_KeepsEarlierFunctions()
     {
         var abbrev = new DwarfBlob();
@@ -562,31 +577,33 @@ public class DwarfReaderTests
 
         var result = DwarfReader.ReadFunctions(Sections(Cu(4, dies.ToArray()), abbrev.ToArray()));
 
-        var (function, _) = Assert.Single(result);
-        Assert.Equal("first", function.Name);
+        var (function, _) = Assert.ContainsSingle(result);
+        Assert.AreEqual("first", function.Name);
     }
 
     /// <summary>Verifies empty or absent sections yield no functions.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReadFunctions_EmptyOrZeroLengthInfo_ReturnsEmpty()
     {
-        Assert.Empty(DwarfReader.ReadFunctions(Sections([], [])));
+        Assert.IsEmpty(DwarfReader.ReadFunctions(Sections([], [])));
 
         var zeroLength = new DwarfBlob().U32(0).Bytes(new byte[16]).ToArray();
-        Assert.Empty(DwarfReader.ReadFunctions(Sections(zeroLength, [1])));
+        Assert.IsEmpty(DwarfReader.ReadFunctions(Sections(zeroLength, [1])));
     }
 
     /// <summary>
     /// Verifies <see cref="DwarfSections.Collect"/> maps base names through the lookup and
     /// tolerates absent sections as empty bytes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Collect_MapsBaseNamesAndToleratesAbsent()
     {
         var sections = DwarfSections.Collect(name => name == "info" ? [0xAB] : null);
 
-        Assert.Equal([0xAB], sections.Info);
-        Assert.Empty(sections.Abbrev);
-        Assert.False(sections.HasInfo); // DIEs without abbreviations are unreadable
+        Assert.AreSequenceEqual(new byte[] { 0xAB }, sections.Info);
+        Assert.IsEmpty(sections.Abbrev);
+        Assert.IsFalse(sections.HasInfo); // DIEs without abbreviations are unreadable
     }
 }

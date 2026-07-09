@@ -8,12 +8,14 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Source Link marker decorations in the IL editor.
 /// </summary>
+[TestClass]
 public sealed class IlSourceLinkDecorationProviderTests
 {
     /// <summary>
     /// Verifies Source Link markers are underlined when the instruction has a resolved URL.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetDecorations_SourceLinkMarker_ReturnsUnderlineSpan()
     {
         var line = "// UserService.cs(1,1)-(1,2) [source link]";
@@ -34,20 +36,21 @@ public sealed class IlSourceLinkDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 2, document);
 
-        var span = Assert.Single(spans);
+        var span = Assert.ContainsSingle(spans);
         var markerStart = line.IndexOf(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal);
-        Assert.Equal(new DocumentPosition(1, markerStart + 1), span.Start);
-        Assert.Equal(new DocumentPosition(
+        Assert.AreEqual(new DocumentPosition(1, markerStart + 1), span.Start);
+        Assert.AreEqual(new DocumentPosition(
             1,
             markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1), span.End);
-        Assert.Equal(UnderlineStyle.Single, span.Decoration.UnderlineStyle);
-        Assert.Equal(12, span.Priority);
+        Assert.AreEqual(UnderlineStyle.Single, span.Decoration.UnderlineStyle);
+        Assert.AreEqual(12, span.Priority);
     }
 
     /// <summary>
     /// Verifies markers without resolved Source Link URLs are not decorated.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetDecorations_NoSourceLinkUrl_ReturnsEmpty()
     {
         var document = new Hex1bDocument("// UserService.cs(1,1)-(1,2) [source link]\nIL_0000: nop");
@@ -66,6 +69,6 @@ public sealed class IlSourceLinkDecorationProviderTests
 
         var spans = provider.GetDecorations(1, 2, document);
 
-        Assert.Empty(spans);
+        Assert.IsEmpty(spans);
     }
 }

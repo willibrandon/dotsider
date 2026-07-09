@@ -11,9 +11,11 @@ namespace Dotsider.Mcp.Tests;
 /// wired to real analyzers. These exercise the actual currentViewProvider and
 /// getState paths that regressed in diff/nuget modes.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class NavigationToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private readonly List<IAsyncDisposable> _disposables = [];
 
     // --- Diff mode: real listener with real AssemblyAnalyzers ---
@@ -21,14 +23,14 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
     /// <summary>
     /// Diff-mode sessions expose both the active tab and the diff filter mode via get_current_view.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCurrentView_DiffMode_ReturnsTabAndFilterMode()
     {
         var currentTab = 2;
         var filterMode = DiffFilterMode.AddedOnly;
 
         await using var listener = CreateDiffListener(
-            samples.RichLibraryDll, samples.RichLibraryV2Dll,
+            Samples.RichLibraryDll, Samples.RichLibraryV2Dll,
             () => currentTab, () => filterMode);
 
         await StartServerAsync();
@@ -40,21 +42,21 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
-        Assert.Equal("diff", doc.RootElement.GetProperty("mode").GetString());
-        Assert.Equal(3, doc.RootElement.GetProperty("tab").GetInt32());
-        Assert.Equal("addedOnly", doc.RootElement.GetProperty("filterMode").GetString());
+        Assert.AreEqual("diff", doc.RootElement.GetProperty("mode").GetString());
+        Assert.AreEqual(3, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.AreEqual("addedOnly", doc.RootElement.GetProperty("filterMode").GetString());
     }
 
     /// <summary>
     /// When browsing a nupkg without a selected DLL, isBrowsingPackage is reported as true.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCurrentView_NugetMode_BrowsingPackage()
     {
-        await using var listener = CreateNugetListener(samples.RichLibraryNupkg);
+        await using var listener = CreateNugetListener(Samples.RichLibraryNupkg);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -65,21 +67,21 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
-        Assert.Equal("nuget", doc.RootElement.GetProperty("mode").GetString());
-        Assert.True(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual("nuget", doc.RootElement.GetProperty("mode").GetString());
+        Assert.IsTrue(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
     }
 
     /// <summary>
     /// Once a DLL is selected inside a nupkg, isBrowsingPackage flips false and the tab is reported.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCurrentView_NugetMode_DllSelected()
     {
         await using var listener = CreateNugetListener(
-            samples.RichLibraryNupkg,
+            Samples.RichLibraryNupkg,
             selectDll: true, selectedDllTab: 3);
 
         await StartServerAsync();
@@ -91,22 +93,22 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
 
         var doc = JsonDocument.Parse(text!);
-        Assert.Equal("nuget", doc.RootElement.GetProperty("mode").GetString());
-        Assert.False(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(4, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.AreEqual("nuget", doc.RootElement.GetProperty("mode").GetString());
+        Assert.IsFalse(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(4, doc.RootElement.GetProperty("tab").GetInt32());
     }
 
     /// <summary>
     /// Diff mode has no single DotsiderState, so navigate_to fails with a clear message.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NavigateTo_DiffMode_FailsBecauseNoState()
     {
         await using var listener = CreateDiffListener(
-            samples.RichLibraryDll, samples.RichLibraryV2Dll,
+            Samples.RichLibraryDll, Samples.RichLibraryV2Dll,
             () => 0, () => DiffFilterMode.All);
 
         await StartServerAsync();
@@ -119,17 +121,17 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("No assembly is loaded", text);
     }
 
     /// <summary>
     /// Without a selected DLL, NuGet mode cannot satisfy navigate_to and returns an error.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NavigateTo_NugetMode_NoDllSelected_Fails()
     {
-        await using var listener = CreateNugetListener(samples.RichLibraryNupkg);
+        await using var listener = CreateNugetListener(Samples.RichLibraryNupkg);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -140,7 +142,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("No assembly is loaded", text);
     }
 
@@ -149,14 +151,14 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
     /// <summary>
     /// Against a live headless NuGet TUI, navigate_to updates the current tab and get_current_view reflects it.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NavigateTo_LiveNuget_OpenedDll_ChangesTabAndVerifiesView()
     {
         var ct = TestCancellationToken;
 
         // Start a headless NuGet TUI with a real listener, exactly like Program.RunTui
         var (app, nugetState, listener) = await StartLiveNugetTuiAsync(
-            samples.RichLibraryNupkg, ct);
+            Samples.RichLibraryNupkg, ct);
         _disposables.Add(listener);
 
         // Open the first DLL in the package
@@ -167,7 +169,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
         nugetState.IsBrowsingPackage = false;
         app.Invalidate();
 
-        Assert.Equal(TabId.General, nugetState.SelectedDllState.CurrentTab);
+        Assert.AreEqual(TabId.General, nugetState.SelectedDllState.CurrentTab);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -182,7 +184,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             },
             cancellationToken: ct);
         var navText = GetTextContent(navResult);
-        Assert.NotNull(navText);
+        Assert.IsNotNull(navText);
         Assert.DoesNotContain("Error", navText);
 
         // Wait for the render loop to drain the mutation queue
@@ -190,7 +192,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             () => nugetState.SelectedDllState!.CurrentTab == TabId.Strings,
             TimeSpan.FromSeconds(5));
 
-        Assert.Equal(TabId.Strings, nugetState.SelectedDllState.CurrentTab);
+        Assert.AreEqual(TabId.Strings, nugetState.SelectedDllState.CurrentTab);
 
         // Verify get_current_view reflects the navigated tab
         var viewResult = await client.CallToolAsync(
@@ -198,12 +200,12 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
             new Dictionary<string, object?> { ["sessionId"] = listener.Pid },
             cancellationToken: ct);
         var viewText = GetTextContent(viewResult);
-        Assert.NotNull(viewText);
+        Assert.IsNotNull(viewText);
 
         var doc = JsonDocument.Parse(viewText!);
-        Assert.Equal("nuget", doc.RootElement.GetProperty("mode").GetString());
-        Assert.False(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.Strings + 1, doc.RootElement.GetProperty("tab").GetInt32());
+        Assert.AreEqual("nuget", doc.RootElement.GetProperty("mode").GetString());
+        Assert.IsFalse(doc.RootElement.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(TabId.Strings + 1, doc.RootElement.GetProperty("tab").GetInt32());
     }
 
     // --- Disposal ---
@@ -214,7 +216,6 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
     public override async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
-
         foreach (var d in _disposables)
             await d.DisposeAsync();
         _disposables.Clear();
@@ -409,6 +410,7 @@ public class NavigationToolsTests(SampleAssemblyFixture samples) : McpServerTest
 
         public async ValueTask DisposeAsync()
         {
+        GC.SuppressFinalize(this);
             await listener.DisposeAsync();
             foreach (var d in owned)
                 d.Dispose();

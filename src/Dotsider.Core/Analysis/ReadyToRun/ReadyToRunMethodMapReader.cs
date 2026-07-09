@@ -50,7 +50,8 @@ internal static class ReadyToRunMethodMapReader
         NativeAddressSpace addressSpace,
         IReadOnlyList<MethodMapSource> sources,
         GlobalInstanceSource? globalInstance,
-        ReadyToRunModuleContext? moduleContext = null)
+        ReadyToRunModuleContext? moduleContext = null,
+        Guid? targetMvid = null)
     {
         var isEntryPoint = new bool[runtimeFunctions.Count];
         var pending = new List<PendingEntry>();
@@ -59,9 +60,9 @@ internal static class ReadyToRunMethodMapReader
         // methods and the image's instantiated generics — before counting, so funclet grouping
         // never runs past the map.
         foreach (var source in sources)
-            MarkMethodDefEntryPoints(reader, source, isEntryPoint, pending);
+            MarkMethodDefEntryPoints(reader, source, isEntryPoint, pending, targetMvid);
         if (globalInstance is { } instance)
-            MarkInstanceMethodEntryPoints(reader, instance, moduleContext, isEntryPoint, pending);
+            MarkInstanceMethodEntryPoints(reader, instance, moduleContext, isEntryPoint, pending, targetMvid);
 
         // Pass 2/3: count each method's runtime functions, then materialize its code ranges.
         var methodsByToken = new Dictionary<(string, int), MethodDefInfo>();
@@ -85,7 +86,8 @@ internal static class ReadyToRunMethodMapReader
     }
 
     private static void MarkMethodDefEntryPoints(
-        R2RNativeReader reader, MethodMapSource source, bool[] isEntryPoint, List<PendingEntry> pending)
+        R2RNativeReader reader, MethodMapSource source, bool[] isEntryPoint,
+        List<PendingEntry> pending, Guid? targetMvid)
     {
         var array = new R2RNativeArray(reader, source.EntryPointsFileOffset);
         for (uint rid = 1; rid <= array.Count; rid++)
@@ -98,6 +100,9 @@ internal static class ReadyToRunMethodMapReader
                 continue;
 
             isEntryPoint[entryId] = true;
+            if (!ShouldMaterialize(targetMvid, source.Mvid))
+                continue;
+
             pending.Add(new PendingEntry(
                 source.AssemblyName, source.Mvid, source, (int)(0x0600_0000 | rid),
                 entryId, IsGeneric: false, Instantiation: null));
@@ -106,16 +111,22 @@ internal static class ReadyToRunMethodMapReader
 
     private static void MarkInstanceMethodEntryPoints(
         R2RNativeReader reader, GlobalInstanceSource instance, ReadyToRunModuleContext? moduleContext,
-        bool[] isEntryPoint, List<PendingEntry> pending)
+        bool[] isEntryPoint, List<PendingEntry> pending, Guid? targetMvid)
     {
         if (instance.Size <= 0)
             return;
 
         var table = new R2RNativeHashtable(reader, instance.Offset, instance.Offset + instance.Size);
+        Func<int, MetadataReader?>? resolveMetadata =
+            moduleContext is null ? null : moduleContext.ResolveMetadata;
         foreach (var entryOffset in table.AllEntryOffsets())
         {
             // The payload is a method signature followed by the runtime-function index.
-            var sig = ReadyToRunSignatureWalker.ParseMethod(reader, entryOffset, instance.Metadata);
+            var metadata = targetMvid is null ? instance.Metadata : null;
+            Func<int, MetadataReader?>? metadataResolver =
+                targetMvid is null ? resolveMetadata : null;
+            var sig = ReadyToRunSignatureWalker.ParseMethod(
+                reader, entryOffset, metadata, metadataResolver);
             var entryId = DecodeRuntimeFunctionIndex(reader, sig.Offset);
             if (entryId < 0 || entryId >= isEntryPoint.Length)
                 continue;
@@ -124,20 +135,36 @@ internal static class ReadyToRunMethodMapReader
 
             // A module override attributes the instantiation to a component (composite); resolve it
             // there so its token, name, and owner identity are recovered rather than left unnamed.
-            if (sig.ModuleIndex >= 0 && moduleContext?.Resolve(sig.ModuleIndex) is { } module)
+            if (sig.ModuleIndex >= 0)
             {
-                var reparsed = module.Provider is { } p
-                    ? ReadyToRunSignatureWalker.ParseMethod(reader, entryOffset, p.GetMetadataReader())
-                    : sig;
-                var crossToken = (reparsed.MethodToken & 0xFF00_0000) == 0x0600_0000 ? reparsed.MethodToken : 0;
-                var source = module.Provider is { } provider
-                    ? new MethodMapSource(module.AssemblyName, module.Mvid, 0, provider.MethodDefs, provider.GetMetadataReader())
-                    : (MethodMapSource?)null;
-                pending.Add(new PendingEntry(
-                    module.AssemblyName, module.Mvid, source, crossToken,
-                    entryId, IsGeneric: true, reparsed.InstantiationDisplay));
-                continue;
+                if (moduleContext?.Resolve(sig.ModuleIndex) is not { } module)
+                {
+                    if (targetMvid is not null)
+                        continue;
+                }
+                else
+                {
+                    if (!ShouldMaterialize(targetMvid, module.Mvid))
+                        continue;
+
+                    var resolvedMetadata = module.Provider?.GetMetadataReader();
+                    var reparsed = resolvedMetadata is not null
+                        ? ReadyToRunSignatureWalker.ParseMethod(
+                            reader, entryOffset, resolvedMetadata, resolveMetadata)
+                        : sig;
+                    var crossToken = (reparsed.MethodToken & 0xFF00_0000) == 0x0600_0000 ? reparsed.MethodToken : 0;
+                    var source = module.Provider is { } provider
+                        ? new MethodMapSource(module.AssemblyName, module.Mvid, 0, provider.MethodDefs, resolvedMetadata)
+                        : (MethodMapSource?)null;
+                    pending.Add(new PendingEntry(
+                        module.AssemblyName, module.Mvid, source, crossToken,
+                        entryId, IsGeneric: true, reparsed.InstantiationDisplay));
+                    continue;
+                }
             }
+
+            if (!ShouldMaterialize(targetMvid, instance.Mvid))
+                continue;
 
             // Same-module instantiation — its token is a MethodDef in the instance table's own module;
             // give it that module's source so its declaring type and name resolve (a cross-module token
@@ -153,6 +180,9 @@ internal static class ReadyToRunMethodMapReader
                 entryId, IsGeneric: true, sig.InstantiationDisplay));
         }
     }
+
+    private static bool ShouldMaterialize(Guid? targetMvid, Guid entryMvid) =>
+        targetMvid is null || targetMvid.Value == entryMvid;
 
     private static int DecodeRuntimeFunctionIndex(R2RNativeReader reader, int elementOffset)
     {

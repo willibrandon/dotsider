@@ -95,6 +95,12 @@ public static class StringsView
                 )
                 .OnSelectionChanged(e =>
                 {
+                    if (state.StringsDetailContent is not null)
+                    {
+                        state.App.Invalidate();
+                        return;
+                    }
+
                     state.StringsSourceTab = e.SelectedIndex;
                     search.Reset();
                     state.StringsFocusedKey = null;
@@ -144,8 +150,9 @@ public static class StringsView
             {
                 var isSearchEditing = search.IsActive && !search.IsConfirmed;
 
-                // Left/Right arrows to switch sub-tabs (suppressed during search editing)
-                if (!isSearchEditing)
+                // Left/Right arrows to switch sub-tabs. Detail popups behave modally,
+                // so their editor/click-away surface owns navigation while open.
+                if (!isSearchEditing && state.StringsDetailContent is null)
                 {
                     if (state.App.FocusedNode is not EditorNode)
                     {

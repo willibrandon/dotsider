@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Diff Mode View.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DiffModeViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -28,7 +30,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DiffState(_hex1bApp!, samples.RichLibraryDll, samples.RichLibraryV2Dll);
+                _state ??= new DiffState(_hex1bApp!, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
                 diffApp ??= new DiffApp(_state);
                 return Task.FromResult<Hex1bWidget>(diffApp.Build(ctx));
             },
@@ -43,11 +45,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies diff app launches shows both assemblies.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffApp_Launches_ShowsBothAssemblies()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -67,11 +70,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies diff app shows diff entries.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffApp_ShowsDiffEntries()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -91,11 +95,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies quit key exits diff app.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task QuitKey_ExitsDiffApp()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -107,17 +112,18 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, ct);
 
         var completed = await Task.WhenAny(runTask, Task.Delay(5000, ct));
-        Assert.Equal(runTask, completed);
+        Assert.AreEqual(runTask, completed);
     }
 
     /// <summary>
     /// Verifies arrow keys cycle tabs.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ArrowKeys_CycleTabs()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -137,7 +143,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(1, _state!.CurrentTab);
+        Assert.AreEqual(1, _state!.CurrentTab);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -145,11 +151,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies search activates and filters.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Search_ActivatesAndFilters()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -165,7 +172,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state!.Search[1].IsActive);
+        Assert.IsTrue(_state!.Search[1].IsActive);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -173,11 +180,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies diff app shows references tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffApp_ShowsReferencesTab()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -194,7 +202,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(3, _state!.CurrentTab);
+        Assert.AreEqual(3, _state!.CurrentTab);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -202,11 +210,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies diff app shows methods tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffApp_ShowsMethodsTab()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -223,7 +232,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(2, _state!.CurrentTab);
+        Assert.AreEqual(2, _state!.CurrentTab);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -231,11 +240,12 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies left arrow does not go below zero.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task LeftArrow_DoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDiffApp();
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var runTask = app.RunAsync(ct);
         await Task.Delay(100, ct);
 
@@ -249,7 +259,7 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(0, _state!.CurrentTab);
+        Assert.AreEqual(0, _state!.CurrentTab);
 
         await runTask.ContinueWith(_ => { }, ct);
     }
@@ -259,10 +269,10 @@ public class DiffModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

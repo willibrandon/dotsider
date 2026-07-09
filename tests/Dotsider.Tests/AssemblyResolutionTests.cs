@@ -11,9 +11,11 @@ namespace Dotsider.Tests;
 /// Tests for assembly resolution logic including app-local, shared framework,
 /// bundle-backed, and type-forwarder resolution paths.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class AssemblyResolutionTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>Clears resolution caches after each test.</summary>
     public void Dispose()
     {
@@ -22,28 +24,30 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
     }
 
     /// <summary>Verifies that an app-local assembly resolves as FromFile before other probes.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResolveAssembly_AppLocal_StillPreferred()
     {
         // HelloWorld.dll sits next to HelloWorld.exe — resolving "HelloWorld" from
         // the exe's directory should find the .dll app-locally
         var resolved = AssemblyAnalyzer.ResolveAssembly(
-            samples.HelloWorldExe, "HelloWorld");
-        Assert.NotNull(resolved);
-        var fromFile = Assert.IsType<ResolvedAssembly.FromFile>(resolved);
+            Samples.HelloWorldExe, "HelloWorld");
+        Assert.IsNotNull(resolved);
+        var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
         Assert.EndsWith("HelloWorld.dll", fromFile.Path, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Verifies that System.Runtime resolves from the shared framework.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResolveAssembly_FromSharedFramework_ReturnsFromFile()
     {
         // System.Runtime should be found in the shared framework
         var resolved = AssemblyAnalyzer.ResolveAssembly(
-            samples.RichLibraryDll, "System.Runtime",
+            Samples.RichLibraryDll, "System.Runtime",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App");
-        Assert.NotNull(resolved);
-        Assert.IsType<ResolvedAssembly.FromFile>(resolved);
+        Assert.IsNotNull(resolved);
+        Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
     }
 
     /// <summary>
@@ -52,38 +56,41 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
     /// succeed first; in a real single-file host the bundle probe (step 3) would win.
     /// Either path is correct — the key invariant is that resolution succeeds.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResolveAssembly_WithBundleContext_FindsSystemRuntime()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
         var resolved = AssemblyAnalyzer.ResolveAssembly(
             "SelfContainedConsole.dll", "System.Runtime",
-            sourceBundlePath: samples.SelfContainedConsoleExe);
-        Assert.NotNull(resolved);
+            sourceBundlePath: Samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(resolved);
     }
 
     /// <summary>Verifies that mscorlib type forwarders resolve correctly through a bundle.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_WithBundle_ResolvesTypeForwarders()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
         // mscorlib type forwarders should work through bundle-backed resolution
         var resolved = ImplementationAssemblyResolver.Resolve(
             "SelfContainedConsole.dll", "mscorlib", "System.Console",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App",
-            samples.SelfContainedConsoleExe);
-        Assert.NotNull(resolved);
+            Samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(resolved);
     }
 
     /// <summary>Verifies that target framework and preferred pack are threaded through resolution.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResolveAssembly_PreferredRuntimePack_ThreadedThrough()
     {
         // Verify that target framework and preferred pack reach the locator
         var resolved = AssemblyAnalyzer.ResolveAssembly(
-            samples.RichLibraryDll, "System.Runtime",
+            Samples.RichLibraryDll, "System.Runtime",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App");
-        Assert.NotNull(resolved);
+        Assert.IsNotNull(resolved);
     }
 
     /// <summary>
@@ -92,30 +99,32 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
     /// Resolving a forwarded type must follow the ExportedType to the implementation,
     /// not stop at the facade just because it happens to carry usable metadata.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_PartialFacade_ForwardedType_LandsInImplementationAssembly()
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
-            samples.HelloWorldDll, "System.Collections",
+            Samples.HelloWorldDll, "System.Collections",
             "System.Collections.Generic.List`1",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App");
-        var fromFile = Assert.IsType<ResolvedAssembly.FromFile>(resolved);
-        Assert.Equal("System.Private.CoreLib.dll", Path.GetFileName(fromFile.Path));
+        var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
+        Assert.AreEqual("System.Private.CoreLib.dll", Path.GetFileName(fromFile.Path));
     }
 
     /// <summary>
     /// Guardrail for the same partial facade: a type the facade actually owns as a
     /// TypeDef must stay in the facade, not be over-chased into CoreLib.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_PartialFacade_LocallyOwnedType_StaysInFacade()
     {
         var resolved = ImplementationAssemblyResolver.Resolve(
-            samples.HelloWorldDll, "System.Collections",
+            Samples.HelloWorldDll, "System.Collections",
             "System.Collections.Generic.LinkedList`1",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App");
-        var fromFile = Assert.IsType<ResolvedAssembly.FromFile>(resolved);
-        Assert.Equal("System.Collections.dll", Path.GetFileName(fromFile.Path));
+        var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
+        Assert.AreEqual("System.Collections.dll", Path.GetFileName(fromFile.Path));
     }
 
     /// <summary>
@@ -125,7 +134,8 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
     /// Handing a callers a non-owning assembly recreates the "method not found"
     /// failure downstream — the whole point of the type-aware probe is to avoid it.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_ForwarderChaseBroken_ReturnsNullNotFacade()
     {
         // Build a synthetic facade that forwards "Sample.Forwarded" to an assembly
@@ -149,7 +159,7 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
             var result = ImplementationAssemblyResolver.Resolve(
                 referencingPath, "SyntheticFacade", "Sample.Forwarded");
 
-            Assert.Null(result);
+            Assert.IsNull(result);
         }
         finally
         {
@@ -212,23 +222,24 @@ public sealed class AssemblyResolutionTests(SampleAssemblyFixture samples) : IDi
     /// Partial-facade forwarder resolution must also work through the bundle context
     /// path. Drives TryResolveFromBundle explicitly by passing sourceBundlePath.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_PartialFacade_Bundle_ForwardedType_LandsInImplementationAssembly()
     {
-        Assert.NotNull(samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
         var resolved = ImplementationAssemblyResolver.Resolve(
             "SelfContainedConsole.dll",
             "System.Collections",
             "System.Collections.Generic.List`1",
             ".NETCoreApp,Version=v10.0", "Microsoft.NETCore.App",
-            samples.SelfContainedConsoleExe);
-        Assert.NotNull(resolved);
+            Samples.SelfContainedConsoleExe);
+        Assert.IsNotNull(resolved);
         var name = resolved switch
         {
             ResolvedAssembly.FromFile f => Path.GetFileName(f.Path),
             ResolvedAssembly.FromBundle b => b.Name,
             _ => null
         };
-        Assert.Equal("System.Private.CoreLib.dll", name);
+        Assert.AreEqual("System.Private.CoreLib.dll", name);
     }
 }

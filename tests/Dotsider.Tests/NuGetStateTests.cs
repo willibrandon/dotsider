@@ -6,9 +6,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Nu Get State.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class NuGetStateTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
@@ -30,63 +32,68 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies construct package metadata populated.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Construct_PackageMetadataPopulated()
     {
         var app = CreateApp();
-        using var state = new NuGetState(app, samples.RichLibraryNupkg);
-        Assert.Equal("RichLibrary", state.Package.PackageId);
-        Assert.Equal("2.5.1", state.Package.PackageVersion);
+        using var state = new NuGetState(app, Samples.RichLibraryNupkg);
+        Assert.AreEqual("RichLibrary", state.Package.PackageId);
+        Assert.AreEqual("2.5.1", state.Package.PackageVersion);
     }
 
     /// <summary>
     /// Verifies construct file list populated.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Construct_FileListPopulated()
     {
         var app = CreateApp();
-        using var state = new NuGetState(app, samples.RichLibraryNupkg);
-        Assert.NotEmpty(state.Package.Files);
-        Assert.NotEmpty(state.Package.DllFiles);
+        using var state = new NuGetState(app, Samples.RichLibraryNupkg);
+        Assert.IsNotEmpty(state.Package.Files);
+        Assert.IsNotEmpty(state.Package.DllFiles);
     }
 
     /// <summary>
     /// Verifies is browsing package default true.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void IsBrowsingPackage_DefaultTrue()
     {
         var app = CreateApp();
-        using var state = new NuGetState(app, samples.RichLibraryNupkg);
-        Assert.True(state.IsBrowsingPackage);
+        using var state = new NuGetState(app, Samples.RichLibraryNupkg);
+        Assert.IsTrue(state.IsBrowsingPackage);
     }
 
     /// <summary>
     /// Verifies drill into dll creates inspector state.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DrillInto_DllCreatesInspectorState()
     {
         var app = CreateApp();
-        using var state = new NuGetState(app, samples.RichLibraryNupkg);
+        using var state = new NuGetState(app, Samples.RichLibraryNupkg);
         var dll = state.Package.DllFiles[0];
         var analyzer = state.Package.OpenDll(dll);
         state.SelectedDllState = new DotsiderState(app, analyzer);
         state.SelectedDllEntry = dll;
         state.IsBrowsingPackage = false;
-        Assert.False(state.IsBrowsingPackage);
-        Assert.NotNull(state.SelectedDllState);
+        Assert.IsFalse(state.IsBrowsingPackage);
+        Assert.IsNotNull(state.SelectedDllState);
     }
 
     /// <summary>
     /// Verifies dispose cleans up.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_CleansUp()
     {
         var app = CreateApp();
-        var state = new NuGetState(app, samples.RichLibraryNupkg);
+        var state = new NuGetState(app, Samples.RichLibraryNupkg);
         state.Dispose();
         state.Dispose(); // idempotent
     }
@@ -96,9 +103,9 @@ public class NuGetStateTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

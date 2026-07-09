@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Nu Get Mode Yank Integration.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class NuGetModeYankIntegrationTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private ClipboardCapturingWorkloadAdapter? _clipboardAdapter;
     private Hex1bTerminal? _terminal;
@@ -20,7 +22,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch()
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _clipboardAdapter = new ClipboardCapturingWorkloadAdapter(_workload);
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -33,7 +35,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new NuGetState(_hex1bApp!, samples.RichLibraryNupkg);
+                _state ??= new NuGetState(_hex1bApp!, Samples.RichLibraryNupkg);
                 nugetApp ??= new NuGetApp(_state);
                 return Task.FromResult<Hex1bWidget>(nugetApp.Build(ctx));
             },
@@ -51,7 +53,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies browser initial focus on first dll row.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Browser_InitialFocusOnFirstDllRow()
     {
         var (terminal, app, ct) = Launch();
@@ -63,8 +66,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.FileTreeFocusedKey);
-        Assert.False(_state.App.FocusedNode is EditorNode,
+        Assert.IsNotNull(_state!.FileTreeFocusedKey);
+        Assert.IsFalse(_state.App.FocusedNode is EditorNode,
             "Initial focus should be on table, not editor");
 
         _cts!.Cancel();
@@ -74,7 +77,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies browser tab toggles focus.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Browser_TabTogglesFocus()
     {
         var (terminal, app, ct) = Launch();
@@ -115,7 +119,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies browser yank on dll row shows notification and flash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Browser_YankOnDllRow_ShowsNotificationAndFlash()
     {
         var (terminal, app, ct) = Launch();
@@ -128,9 +133,9 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .ApplyAsync(terminal, ct);
 
         // Yank the focused DLL row — payload should be the file path
-        Assert.NotNull(_state!.FileTreeFocusedKey);
+        Assert.IsNotNull(_state!.FileTreeFocusedKey);
         var expectedPath = _state.FileTreeFocusedKey as string;
-        Assert.NotNull(expectedPath);
+        Assert.IsNotNull(expectedPath);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
@@ -138,13 +143,13 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state.YankNotification);
+        Assert.IsNotNull(_state.YankNotification);
         Assert.Contains("lib/", _state.YankNotification); // DLL path contains lib/ directory
 
         // Verify the actual OSC 52 clipboard payload emitted by ctx.CopyToClipboard
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
             "CopyToClipboard should have emitted an OSC 52 sequence");
-        Assert.Equal(expectedPath, actualClipboard);
+        Assert.AreEqual(expectedPath, actualClipboard);
 
         // Flash should have fired and cleared
         await new Hex1bTerminalInputSequenceBuilder()
@@ -167,7 +172,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies drill into saves focused key esc restores.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DrillInto_SavesFocusedKey_EscRestores()
     {
         var (terminal, app, ct) = Launch();
@@ -180,7 +186,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .ApplyAsync(terminal, ct);
 
         var savedKey = _state!.FileTreeFocusedKey;
-        Assert.NotNull(savedKey);
+        Assert.IsNotNull(savedKey);
 
         // Enter → drill into DLL
         await new Hex1bTerminalInputSequenceBuilder()
@@ -190,7 +196,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(savedKey, _state.SavedFileTreeFocusedKey);
+        Assert.AreEqual(savedKey, _state.SavedFileTreeFocusedKey);
 
         // Esc → back to package
         await new Hex1bTerminalInputSequenceBuilder()
@@ -199,7 +205,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Equal(savedKey, _state.FileTreeFocusedKey);
+        Assert.AreEqual(savedKey, _state.FileTreeFocusedKey);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -210,7 +216,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies child search digits do not switch tabs.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ChildSearch_DigitsDoNotSwitchTabs()
     {
         var (terminal, app, ct) = Launch();
@@ -243,7 +250,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .ApplyAsync(terminal, ct);
 
         await Task.Delay(100, ct);
-        Assert.Equal(tabBefore, dllState.CurrentTab);
+        Assert.AreEqual(tabBefore, dllState.CurrentTab);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -254,7 +261,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies hex dump esc from normal mode returns to package.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexDump_EscFromNormalMode_ReturnsToPackage()
     {
         var (terminal, app, ct) = Launch();
@@ -289,7 +297,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(dllState.HexEditorState.IsReadOnly);
+        Assert.IsFalse(dllState.HexEditorState.IsReadOnly);
 
         // Esc 1: exit insert mode (NOT back to package)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -298,8 +306,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(dllState.HexEditorState.IsReadOnly);
-        Assert.False(_state.IsBrowsingPackage, "Should still be in DLL inspector");
+        Assert.IsTrue(dllState.HexEditorState.IsReadOnly);
+        Assert.IsFalse(_state.IsBrowsingPackage, "Should still be in DLL inspector");
 
         // Esc 2: back to package
         await new Hex1bTerminalInputSequenceBuilder()
@@ -317,7 +325,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies yank timer race leave dll before flash clears no exception.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task YankTimerRace_LeaveDllBeforeFlashClears_NoException()
     {
         var (terminal, app, ct) = Launch();
@@ -349,7 +358,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
         await Task.Delay(300, ct);
 
         // App should still be running fine
-        Assert.True(_state!.IsBrowsingPackage);
+        Assert.IsTrue(_state!.IsBrowsingPackage);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -360,7 +369,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies package info selection yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PackageInfo_SelectionYank_Works()
     {
         var (terminal, app, ct) = Launch();
@@ -394,7 +404,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -405,7 +415,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies package info double click word selection yank works.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PackageInfo_DoubleClickWordSelectionYank_Works()
     {
         var (terminal, app, ct) = Launch();
@@ -430,14 +441,23 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(matches.Count > 0);
+        Assert.IsGreaterThan(0, matches.Count);
         var (row, col) = matches[0];
 
-        // Click to focus editor, then double-click to select word.
-        // Each Automator step completes through the input pipeline before the next.
+        // Focus the editor without consuming a mouse click, then queue two real
+        // clicks so Hex1bApp's click-count state machine observes a double-click.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        await auto.ClickAtAsync(col, row, ct: ct);
-        await auto.DoubleClickAtAsync(col, row, ct: ct);
+        _state!.App.RequestFocus(node =>
+            node is EditorNode { State: var es } && es == _state.PackageInfoEditorState);
+        _state.App.Invalidate();
+        await auto.WaitUntilAsync(_ =>
+            _state.App.FocusedNode is EditorNode { State: var es } && es == _state.PackageInfoEditorState,
+            description: "package info editor focused");
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(col, row)
+            .ClickAt(col, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
 
         // Wait for selection via screen state (not internal state polling)
         await auto.WaitUntilAsync(
@@ -451,7 +471,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.NotNull(_state!.YankNotification);
+        Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -462,7 +482,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies dll inspector editor yank works.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DllInspector_EditorYank_Works()
     {
         var (terminal, app, ct) = Launch();
@@ -503,7 +524,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies hex jump dialog digits go into input esc closes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexJumpDialog_DigitsGoIntoInput_EscCloses()
     {
         var (terminal, app, ct) = Launch();
@@ -536,8 +558,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(dllState.HexJumpDialogOpen);
-        Assert.False(_state.IsBrowsingPackage, "Should still be in DLL inspector");
+        Assert.IsTrue(dllState.HexJumpDialogOpen);
+        Assert.IsFalse(_state.IsBrowsingPackage, "Should still be in DLL inspector");
 
         // Esc closes dialog
         await new Hex1bTerminalInputSequenceBuilder()
@@ -546,7 +568,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state.IsBrowsingPackage, "Should still be in DLL inspector after closing dialog");
+        Assert.IsFalse(_state.IsBrowsingPackage, "Should still be in DLL inspector after closing dialog");
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -557,7 +579,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies child search q does not quit.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ChildSearch_QDoesNotQuit()
     {
         var (terminal, app, ct) = Launch();
@@ -601,7 +624,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies hex esc chain insert then search then back.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task HexEscChain_InsertThenSearchThenBack()
     {
         var (terminal, app, ct) = Launch();
@@ -634,7 +658,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(dllState.HexEditorState.IsReadOnly);
+        Assert.IsFalse(dllState.HexEditorState.IsReadOnly);
 
         // Esc 1: exit insert mode
         await new Hex1bTerminalInputSequenceBuilder()
@@ -643,8 +667,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(dllState.HexEditorState.IsReadOnly);
-        Assert.False(_state.IsBrowsingPackage);
+        Assert.IsTrue(dllState.HexEditorState.IsReadOnly);
+        Assert.IsFalse(_state.IsBrowsingPackage);
 
         // Start a search
         await new Hex1bTerminalInputSequenceBuilder()
@@ -663,8 +687,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.Empty(dllState.HexMatchOffsets);
-        Assert.False(_state.IsBrowsingPackage);
+        Assert.IsEmpty(dllState.HexMatchOffsets);
+        Assert.IsFalse(_state.IsBrowsingPackage);
 
         // Esc 3: back to package
         await new Hex1bTerminalInputSequenceBuilder()
@@ -682,7 +706,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies child search y does not yank.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ChildSearch_YDoesNotYank()
     {
         var (terminal, app, ct) = Launch();
@@ -717,7 +742,7 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .ApplyAsync(terminal, ct);
 
         Assert.Contains("y", dllState.Search[dllState.CurrentTab].Query ?? "");
-        Assert.Null(_state.YankNotification);
+        Assert.IsNull(_state.YankNotification);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -728,7 +753,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies dll inspector row yank flash sets and clears.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DllInspector_RowYank_FlashSetsAndClears()
     {
         var (terminal, app, ct) = Launch();
@@ -764,7 +790,8 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// <summary>
     /// Verifies package info yy yanks current line.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PackageInfo_YY_YanksCurrentLine()
     {
         var (terminal, app, ct) = Launch();
@@ -791,10 +818,10 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var yankedText),
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
-        Assert.True(yankedText.Length > 0);
+        Assert.IsGreaterThan(0, yankedText.Length);
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
@@ -806,12 +833,12 @@ public class NuGetModeYankIntegrationTests(SampleAssemblyFixture samples) : IDis
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _cts?.Cancel();
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
         _cts?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

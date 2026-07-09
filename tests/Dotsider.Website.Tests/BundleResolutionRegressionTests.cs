@@ -10,9 +10,11 @@ namespace Dotsider.Website.Tests;
 /// Reproduces the deployed scenario where RuntimeEnvironment.GetRuntimeDirectory()
 /// returns the app directory with no loose BCL files.
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public sealed class BundleResolutionRegressionTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Process? _serverProcess;
     private ClientWebSocket? _ws;
 
@@ -30,8 +32,8 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = samples.WebsitePublishedExe,
-                WorkingDirectory = samples.WebsitePublishedDir,
+                FileName = Samples.WebsitePublishedExe,
+                WorkingDirectory = Samples.WebsitePublishedDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -41,13 +43,14 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
                     ["DOTNET_ENVIRONMENT"] = "Production",
                     // Point at the published sample payload (RichLibrary.dll sits alongside
                     // its .deps.json and Newtonsoft.Json.dll), exactly as systemd does in prod.
-                    ["Demo__SampleAssembly"] = samples.RichLibraryDll,
+                    ["Demo__SampleAssembly"] = Samples.RichLibraryDll,
                     ["Demo__MaxSessions"] = "5",
                     ["Demo__SessionTimeoutMinutes"] = "1",
                     ["Demo__AllowedOrigins__0"] = "*"
                 }
             }
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(_serverProcess.StartInfo);
 
         _serverProcess.Start();
 
@@ -73,10 +76,11 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
     /// Launches the published single-file Website, connects via WebSocket,
     /// and drills down into a System assembly reference.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DrillDown_Succeeds_InSingleFileHost()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var port = await StartWebsiteAsync(ct);
 
         _ws = new ClientWebSocket();
@@ -103,10 +107,11 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
     /// <see cref="Dotsider.Core.Analysis.ImplementationAssemblyResolver"/> works
     /// inside the single-file host.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GoToDef_CallExternal_NavigatesToSystemConsole_InSingleFileHost()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var port = await StartWebsiteAsync(ct);
 
         _ws = new ClientWebSocket();
@@ -167,10 +172,11 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
     /// full published payload (<c>RichLibrary.dll</c> + <c>RichLibrary.deps.json</c>
     /// + <c>Newtonsoft.Json.dll</c>, etc.) alongside the website.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DepGraph_NewtonsoftResolvesFromPublishedSample()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var port = await StartWebsiteAsync(ct);
 
         _ws = new ClientWebSocket();
@@ -248,7 +254,6 @@ public sealed class BundleResolutionRegressionTests(SampleAssemblyFixture sample
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        GC.SuppressFinalize(this);
 
         if (_serverProcess is not null)
         {

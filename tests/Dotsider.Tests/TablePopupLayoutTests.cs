@@ -9,9 +9,11 @@ namespace Dotsider.Tests;
 /// Reproduces #88: opening a detail popup in the Strings or PE/Metadata tab causes
 /// the underlying table to shrink its bottom border to just below the last data row.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class TablePopupLayoutTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -29,7 +31,7 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll)
                 {
                     CurrentTab = startTab
                 };
@@ -47,11 +49,12 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies strings table bottom border does not move when popup opens.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Strings_TableBottomBorderDoesNotMoveWhenPopupOpens()
     {
         var (terminal, app) = CreateDotsiderApp(TabId.Strings);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
 
         int bottomBorderRowBefore = -1;
@@ -90,8 +93,8 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(bottomBorderRowBefore > 0, "Could not find table bottom border before popup");
-        Assert.Equal(bottomBorderRowBefore, bottomBorderRowDuring);
+        Assert.IsGreaterThan(0, bottomBorderRowBefore, "Could not find table bottom border before popup");
+        Assert.AreEqual(bottomBorderRowBefore, bottomBorderRowDuring);
 
         cts.Cancel();
         await runTask;
@@ -100,11 +103,12 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata table bottom border does not move when popup opens.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_TableBottomBorderDoesNotMoveWhenPopupOpens()
     {
         var (terminal, app) = CreateDotsiderApp(TabId.PeMetadata);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
 
         int bottomBorderRowBefore = -1;
@@ -142,8 +146,8 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(bottomBorderRowBefore > 0, "Could not find table bottom border before popup");
-        Assert.Equal(bottomBorderRowBefore, bottomBorderRowDuring);
+        Assert.IsGreaterThan(0, bottomBorderRowBefore, "Could not find table bottom border before popup");
+        Assert.AreEqual(bottomBorderRowBefore, bottomBorderRowDuring);
 
         cts.Cancel();
         await runTask;
@@ -154,10 +158,10 @@ public class TablePopupLayoutTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

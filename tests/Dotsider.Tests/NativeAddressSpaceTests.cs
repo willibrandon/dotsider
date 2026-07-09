@@ -9,6 +9,7 @@ namespace Dotsider.Tests;
 /// on the macOS CI runner). Covers the two rebase pointer formats .NET AOT emits:
 /// image-base-relative offsets (arm64) and absolute targets (x64).
 /// </summary>
+[TestClass]
 public class NativeAddressSpaceTests
 {
     private const ulong ImageBase = 0x1_0000_0000;
@@ -18,50 +19,53 @@ public class NativeAddressSpaceTests
     /// to the image base plus the target, ignoring the packed next/bind bits, and that the
     /// decoded address maps to its file offset.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DecodeChainedRebase_OffsetForm_ResolvesToImageBasePlusTarget()
     {
         var space = NativeAddressSpace.Create(BuildMachO());
-        Assert.NotNull(space);
-        Assert.Equal(8, space.PointerSize);
-        Assert.True(space.MachOChained);
-        Assert.Equal(ImageBase, space.MachOImageBase);
+        Assert.IsNotNull(space);
+        Assert.AreEqual(8, space.PointerSize);
+        Assert.IsTrue(space.MachOChained);
+        Assert.AreEqual(ImageBase, space.MachOImageBase);
 
         var raw = (0x123UL << 51) | 0x40; // next bits set; low 36 hold the offset
         var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm: true, space.MachOImageBase);
-        Assert.Equal(ImageBase + 0x40, va);
+        Assert.AreEqual(ImageBase + 0x40, va);
 
-        Assert.True(space.TryGetFileOffset(va, out var fileOffset, out _));
-        Assert.Equal(0x40, fileOffset);
+        Assert.IsTrue(space.TryGetFileOffset(va, out var fileOffset, out _));
+        Assert.AreEqual(0x40, fileOffset);
     }
 
     /// <summary>
     /// Verifies the absolute rebase form (DYLD_CHAINED_PTR_64, x64) decodes a pointer to the
     /// absolute address in its low bits and that the decoded address maps to its file offset.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DecodeChainedRebase_AbsoluteForm_ResolvesToTarget()
     {
         var space = NativeAddressSpace.Create(BuildMachO());
-        Assert.NotNull(space);
+        Assert.IsNotNull(space);
 
         var raw = (0x123UL << 51) | (ImageBase + 0x80); // next bits set; low 36 hold the address
         var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm: false, space.MachOImageBase);
-        Assert.Equal(ImageBase + 0x80, va);
+        Assert.AreEqual(ImageBase + 0x80, va);
 
-        Assert.True(space.TryGetFileOffset(va, out var fileOffset, out _));
-        Assert.Equal(0x80, fileOffset);
+        Assert.IsTrue(space.TryGetFileOffset(va, out var fileOffset, out _));
+        Assert.AreEqual(0x80, fileOffset);
     }
 
     /// <summary>
     /// Verifies an import bind pointer (high bit set) is left unchanged rather than decoded
     /// as a local target.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DecodeChainedRebase_BindPointer_IsNotDecoded()
     {
         var bind = 0x8000_0000_0000_0000UL | 0x40;
-        Assert.Equal(bind, NativeAddressSpace.DecodeChainedRebase(bind, offsetForm: true, ImageBase));
+        Assert.AreEqual(bind, NativeAddressSpace.DecodeChainedRebase(bind, offsetForm: true, ImageBase));
     }
 
     /// <summary>

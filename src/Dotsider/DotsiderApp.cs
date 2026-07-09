@@ -103,6 +103,12 @@ public sealed class DotsiderApp(DotsiderState state)
             ])
             .OnSelectionChanged(e =>
             {
+                if (IsDetailPopupOpen())
+                {
+                    _state.App.Invalidate();
+                    return;
+                }
+
                 SelectTab(e.SelectedIndex);
                 SeedFocusedRowIfNeeded();
                 RequestContentFocus();
@@ -137,38 +143,42 @@ public sealed class DotsiderApp(DotsiderState state)
             // Number keys 1-8, s, q suppressed during search editing, jump dialog,
             // or hex insert mode to let EditorNode/TextBox receive character input
             var hexInsertMode = _state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert;
+            var detailPopupOpen = IsDetailPopupOpen();
             if (!isSearchEditing && !_state.HexJumpDialogOpen && !hexInsertMode
                 && !_state.ModalDialogOpen)
             {
-                for (var i = 0; i < 8; i++)
+                if (!detailPopupOpen)
                 {
-                    var tabIndex = i;
-                    var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
-                    bindings.Key(key).Global().Action(VimReset(_ =>
+                    for (var i = 0; i < 8; i++)
                     {
-                        SelectTab(tabIndex);
-                        SeedFocusedRowIfNeeded();
-                        RequestContentFocus();
-                        _state.App.Invalidate();
-                    }), $"Tab {tabIndex + 1}");
-                }
+                        var tabIndex = i;
+                        var key = (Hex1bKey)((int)Hex1bKey.D1 + i);
+                        bindings.Key(key).Global().Action(VimReset(_ =>
+                        {
+                            SelectTab(tabIndex);
+                            SeedFocusedRowIfNeeded();
+                            RequestContentFocus();
+                            _state.App.Invalidate();
+                        }), $"Tab {tabIndex + 1}");
+                    }
 
-                // Suppress size toggle on Dynamic Events sub-tab (S = Socket filter)
-                // and hex tab in insert mode (S = byte input)
-                var suppressSizeToggle = (_state.CurrentTab == TabId.Dynamic && _state.DynamicSubTab == DynamicSubTabId.Events)
-                    || (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert);
-                if (!suppressSizeToggle)
-                {
-                    bindings.Key(Hex1bKey.S).Global().Action(VimReset(_ =>
+                    // Suppress size toggle on Dynamic Events sub-tab (S = Socket filter)
+                    // and hex tab in insert mode (S = byte input)
+                    var suppressSizeToggle = (_state.CurrentTab == TabId.Dynamic && _state.DynamicSubTab == DynamicSubTabId.Events)
+                        || (_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert);
+                    if (!suppressSizeToggle)
                     {
-                        _state.HumanReadableSizes = !_state.HumanReadableSizes;
-                        _state.App.Invalidate();
-                    }), "Toggle size format");
-                }
+                        bindings.Key(Hex1bKey.S).Global().Action(VimReset(_ =>
+                        {
+                            _state.HumanReadableSizes = !_state.HumanReadableSizes;
+                            _state.App.Invalidate();
+                        }), "Toggle size format");
+                    }
 
-                // Suppress Q quit in hex insert mode — let editor receive it as byte input
-                if (!(_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert))
-                    bindings.Key(Hex1bKey.Q).Global().Action(VimReset(ctx => ctx.RequestStop()), "Quit");
+                    // Suppress Q quit in hex insert mode — let editor receive it as byte input
+                    if (!(_state.CurrentTab == TabId.HexDump && _state.HexMode == HexEditMode.Insert))
+                        bindings.Key(Hex1bKey.Q).Global().Action(VimReset(ctx => ctx.RequestStop()), "Quit");
+                }
 
                 // Universal yank — works on all tabs with neovim-style behavior
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
@@ -250,7 +260,6 @@ public sealed class DotsiderApp(DotsiderState state)
                     _state.App.RequestFocus(node => node is TextBoxNode);
                 _state.App.Invalidate();
             }
-            var detailPopupOpen = _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
             if (!_state.HexJumpDialogOpen && !detailPopupOpen && !_state.ModalDialogOpen)
             {
                 bindings.Key(Hex1bKey.OemQuestion).Global().OverridesCapture().Action(VimReset(_ => SearchToggle()), "Search");
@@ -304,6 +313,19 @@ public sealed class DotsiderApp(DotsiderState state)
                     RequestContentFocus();
                     _state.App.Invalidate();
                 }), "Attach pre-ILC sidecars");
+            }
+
+            if (_state.CurrentTab == TabId.General
+                && !isSearchEditing
+                && !_state.ApphostDialogOpen
+                && !_state.PreIlcDialogOpen
+                && !_state.ModalDialogOpen)
+            {
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(VimReset(_ =>
+                {
+                    if (_state.App.FocusedNode is EditorNode) return;
+                    TryDrillFocusedGeneralReference();
+                }), "Drill into reference");
             }
 
             // Hex + IL Inspector keybindings (shared with NuGetApp).
@@ -546,11 +568,43 @@ public sealed class DotsiderApp(DotsiderState state)
         _state.NavigateToTab(tabIndex);
     }
 
+    private bool IsDetailPopupOpen() =>
+        _state.PeDetailContent is not null || _state.StringsDetailContent is not null;
+
     /// <summary>
     /// Requests focus on the appropriate content node for the current tab.
     /// IL tab targets the ListNode tree; all other tabs target any content node including TableNode.
     /// </summary>
     private void RequestContentFocus() => _state.RequestContentFocus();
+
+    private bool TryDrillFocusedGeneralReference()
+    {
+        var refs = _state.MetadataAnalyzer.AssemblyRefs;
+        var focusedName = _state.GeneralFocusedDep as string
+            ?? (refs.Count > 0 ? refs[0].Name : null);
+        if (focusedName is null) return false;
+
+        var asmRef = refs.FirstOrDefault(
+            r => string.Equals(r.Name, focusedName, StringComparison.OrdinalIgnoreCase));
+        if (asmRef is null) return false;
+
+        var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
+            _state.MetadataAnalyzer.FilePath,
+            asmRef,
+            _state.MetadataAnalyzer.TargetFramework,
+            _state.MetadataAnalyzer.PreferredRuntimePack,
+            _state.MetadataAnalyzer.SourceBundlePath,
+            _state.RootNetFxBindingContext);
+        if (resolution.Resolved is null) return false;
+
+        if (!_state.PushAssembly(resolution.Resolved)) return false;
+
+        SeedFocusedRowIfNeeded();
+        RequestContentFocus();
+        _state.App.Invalidate();
+        _state.RequestExtraFrame();
+        return true;
+    }
 
     /// <summary>
     /// Seeds the focused row key for table-backed tabs so Enter works immediately

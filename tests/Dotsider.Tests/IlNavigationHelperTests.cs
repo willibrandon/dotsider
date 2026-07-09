@@ -8,12 +8,14 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests cursor mapping helpers for the IL editor.
 /// </summary>
+[TestClass]
 public sealed class IlNavigationHelperTests
 {
     /// <summary>
     /// Verifies a source comment line resolves to the following instruction's Source Link URL.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetSourceLinkUrlAtCursor_SourceCommentLine_ReturnsUrl()
     {
         const string url = "https://raw.githubusercontent.com/willibrandon/dotsider/abc/UserService.cs";
@@ -31,13 +33,14 @@ public sealed class IlNavigationHelperTests
 
         var actual = IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions);
 
-        Assert.Equal(url, actual);
+        Assert.AreEqual(url, actual);
     }
 
     /// <summary>
     /// Verifies a source comment line without a marker still resolves to the following instruction's Source Link URL.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetSourceLinkUrlAtCursor_SourceCommentLineWithoutMarker_ReturnsUrl()
     {
         const string url = "https://raw.githubusercontent.com/willibrandon/dotsider/abc/UserService.cs";
@@ -55,13 +58,14 @@ public sealed class IlNavigationHelperTests
 
         var actual = IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions);
 
-        Assert.Equal(url, actual);
+        Assert.AreEqual(url, actual);
     }
 
     /// <summary>
     /// Verifies a hidden source marker line does not resolve as a Source Link target.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetSourceLinkUrlAtCursor_HiddenLine_ReturnsNull()
     {
         var editorState = CreateEditorState("// (hidden)\nIL_0000: nop");
@@ -79,13 +83,14 @@ public sealed class IlNavigationHelperTests
 
         var actual = IlNavigationHelper.GetSourceLinkUrlAtCursor(editorState, instructions);
 
-        Assert.Null(actual);
+        Assert.IsNull(actual);
     }
 
     /// <summary>
     /// Verifies a source comment line resolves the rendered Source Link marker range when the marker is present.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetSourceLinkYankRangeAtCursor_SourceCommentLineWithMarker_ReturnsMarkerRange()
     {
         const string line = "// UserService.cs(1,1)-(1,2) [source link]";
@@ -104,9 +109,9 @@ public sealed class IlNavigationHelperTests
         var actual = IlNavigationHelper.GetSourceLinkYankRangeAtCursor(editorState, instructions);
 
         var markerStart = line.IndexOf(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal);
-        Assert.NotNull(actual);
-        Assert.Equal(new DocumentPosition(1, markerStart + 1), actual.Value.Start);
-        Assert.Equal(
+        Assert.IsNotNull(actual);
+        Assert.AreEqual(new DocumentPosition(1, markerStart + 1), actual.Value.Start);
+        Assert.AreEqual(
             new DocumentPosition(
                 1,
                 markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1),
@@ -116,7 +121,8 @@ public sealed class IlNavigationHelperTests
     /// <summary>
     /// Verifies a source comment line without a marker resolves the source range text for yank flash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetSourceLinkYankRangeAtCursor_SourceCommentLineWithoutMarker_ReturnsSourceRange()
     {
         const string sourceRange = "UserService.cs(2,1)-(2,2)";
@@ -134,15 +140,16 @@ public sealed class IlNavigationHelperTests
 
         var actual = IlNavigationHelper.GetSourceLinkYankRangeAtCursor(editorState, instructions);
 
-        Assert.NotNull(actual);
-        Assert.Equal(new DocumentPosition(1, 4), actual.Value.Start);
-        Assert.Equal(new DocumentPosition(1, sourceRange.Length + 4), actual.Value.End);
+        Assert.IsNotNull(actual);
+        Assert.AreEqual(new DocumentPosition(1, 4), actual.Value.Start);
+        Assert.AreEqual(new DocumentPosition(1, sourceRange.Length + 4), actual.Value.End);
     }
 
     /// <summary>
     /// Verifies source comment lines do not resolve as instruction lines for go-to-definition.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GetInstructionAtCursor_SourceCommentLine_ReturnsNull()
     {
         var editorState = CreateEditorState("// UserService.cs(1,1)-(1,2) [source link]\nIL_0000: call Foo::Bar");
@@ -160,7 +167,7 @@ public sealed class IlNavigationHelperTests
 
         var actual = IlNavigationHelper.GetInstructionAtCursor(editorState, instructions, headerLineCount: 0);
 
-        Assert.Null(actual);
+        Assert.IsNull(actual);
     }
 
     private static EditorState CreateEditorState(string text)

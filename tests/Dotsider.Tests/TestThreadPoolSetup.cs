@@ -11,9 +11,16 @@ namespace Dotsider.Tests;
 /// </summary>
 internal static class TestThreadPoolSetup
 {
+    private const int MinimumThreads = 128;
+    private const int ThreadsPerProcessor = 16;
+
     [ModuleInitializer]
     internal static void Initialize()
     {
-        ThreadPool.SetMinThreads(32, 32);
+        var requiredThreads = Math.Max(MinimumThreads, Environment.ProcessorCount * ThreadsPerProcessor);
+        ThreadPool.GetMinThreads(out var workerThreads, out var completionPortThreads);
+        ThreadPool.SetMinThreads(
+            Math.Max(workerThreads, requiredThreads),
+            Math.Max(completionPortThreads, requiredThreads));
     }
 }

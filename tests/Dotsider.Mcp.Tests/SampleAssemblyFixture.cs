@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 namespace Dotsider.Mcp.Tests;
 
 /// <summary>
-/// Shared xUnit fixture that builds and exposes sample assemblies used across MCP tool tests.
+/// Shared MSTest fixture that builds and exposes sample assemblies used across MCP tool tests.
 /// </summary>
-public class SampleAssemblyFixture : IAsyncLifetime
+internal class SampleAssemblyFixture : IAsyncDisposable
 {
     private string _repoRoot = null!;
 
@@ -177,12 +177,12 @@ public class SampleAssemblyFixture : IAsyncLifetime
             "bin", "Release", tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm");
         WasmConsoleWebcilWasm = File.Exists(wasmConsoleWebcil) ? wasmConsoleWebcil : null;
 
-        Assert.True(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
-        Assert.True(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
-        Assert.True(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
-        Assert.True(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
-        Assert.True(File.Exists(MinimalApiDll), $"MinimalApi.dll not found at {MinimalApiDll}");
-        Assert.True(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
+        Assert.IsTrue(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
+        Assert.IsTrue(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
+        Assert.IsTrue(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
+        Assert.IsTrue(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
+        Assert.IsTrue(File.Exists(MinimalApiDll), $"MinimalApi.dll not found at {MinimalApiDll}");
+        Assert.IsTrue(File.Exists(SelfContainedConsoleExe), $"SelfContainedConsole not found at {SelfContainedConsoleExe}");
 
         if (!File.Exists(NativeAotConsoleExe))
             NativeAotConsoleExe = null;
@@ -276,6 +276,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -338,6 +339,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();
@@ -390,6 +392,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -445,6 +448,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -513,6 +517,7 @@ public class SampleAssemblyFixture : IAsyncLifetime
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();

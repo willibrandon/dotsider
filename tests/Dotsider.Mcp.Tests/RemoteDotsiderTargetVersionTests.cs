@@ -6,12 +6,14 @@ namespace Dotsider.Mcp.Tests;
 /// Tests that <see cref="RemoteDotsiderTarget"/> correctly rejects old or
 /// mismatched server responses.
 /// </summary>
+[TestClass]
 public class RemoteDotsiderTargetVersionTests
 {
     /// <summary>
     /// A pre-versioned server response is rejected because the protocol contract requires a 'v' field.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
     public async Task RejectsOldServerResponse()
     {
         var socketPath = GetUniqueSocketPath();
@@ -22,16 +24,17 @@ public class RemoteDotsiderTargetVersionTests
         var target = new RemoteDotsiderTarget(socketPath);
         var response = await target.SendAsync(
             new DotsiderRequest { Method = "assembly-info" },
-            TestContext.Current.CancellationToken);
+            CancellationToken.None);
 
-        Assert.False(response.Success);
+        Assert.IsFalse(response.Success);
         Assert.Contains("server response", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Rejects a remote server whose advertised version differs from the client target.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
     public async Task RejectsWrongServerVersion()
     {
         var socketPath = GetUniqueSocketPath();
@@ -42,9 +45,9 @@ public class RemoteDotsiderTargetVersionTests
         var target = new RemoteDotsiderTarget(socketPath);
         var response = await target.SendAsync(
             new DotsiderRequest { Method = "assembly-info" },
-            TestContext.Current.CancellationToken);
+            CancellationToken.None);
 
-        Assert.False(response.Success);
+        Assert.IsFalse(response.Success);
         Assert.Contains("version mismatch", response.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -54,6 +57,6 @@ public class RemoteDotsiderTargetVersionTests
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".dotsider", "sockets");
         Directory.CreateDirectory(dir);
-        return Path.Combine(dir, $"test-{Random.Shared.Next(100_000, 999_999)}.dotsider.socket");
+        return Path.Combine(dir, $"test-{TestSocketIds.NextPid()}.dotsider.socket");
     }
 }

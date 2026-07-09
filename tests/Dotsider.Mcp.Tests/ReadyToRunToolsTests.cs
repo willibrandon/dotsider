@@ -6,16 +6,19 @@ namespace Dotsider.Mcp.Tests;
 /// ambiguous-name error path) and <c>get_native_disassembly</c> made R2R-method-aware — a multi-range
 /// method resolves to the method and renders all its ranges rather than a false per-range ambiguity.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class ReadyToRunToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string SkipReason = "ReadyToRun crossgen2 publish did not run on this leg.";
 
     /// <summary>correlate_r2r_method resolves a unique method to its report with IL and native code.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CorrelateR2rMethod_ByName_ReturnsReport()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -25,13 +28,13 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
             new Dictionary<string, object?>
             {
                 ["methodOrAddress"] = "Greeter.get_Name",
-                ["assemblyPath"] = samples.ReadyToRunConsoleDll,
+                ["assemblyPath"] = Samples.ReadyToRunConsoleDll,
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
-        Assert.False(text!.StartsWith("Error", StringComparison.Ordinal), "the tool reported an error");
+        Assert.IsNotNull(text);
+        Assert.IsFalse(text!.StartsWith("Error", StringComparison.Ordinal), "the tool reported an error");
         Assert.Contains("get_Name", text);
         // The JSON report carries the honest native-availability state (camelCase enum) and the IL.
         Assert.Contains("precompiled", text, StringComparison.OrdinalIgnoreCase);
@@ -39,10 +42,11 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
     }
 
     /// <summary>correlate_r2r_method reports an overloaded name as an ambiguity, never first-match.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CorrelateR2rMethod_Overloaded_ReturnsAmbiguity()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -52,20 +56,21 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
             new Dictionary<string, object?>
             {
                 ["methodOrAddress"] = "Greet",
-                ["assemblyPath"] = samples.ReadyToRunConsoleDll,
+                ["assemblyPath"] = Samples.ReadyToRunConsoleDll,
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("ambiguous", text!.ToLowerInvariant());
     }
 
     /// <summary>get_native_disassembly renders every range of a multi-range R2R method (no false ambiguity).</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetNativeDisassembly_ReadyToRun_MultiRange_RendersAllRanges()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -75,12 +80,12 @@ public class ReadyToRunToolsTests(SampleAssemblyFixture samples) : McpServerTest
             new Dictionary<string, object?>
             {
                 ["symbolName"] = "MoveNext",
-                ["assemblyPath"] = samples.ReadyToRunConsoleDll,
+                ["assemblyPath"] = Samples.ReadyToRunConsoleDll,
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         // Not an ambiguity error, and the import resolver named a cross-call target in the body.
         Assert.DoesNotContain("ambiguous", text!.ToLowerInvariant());
         Assert.Contains("WriteLine", text);

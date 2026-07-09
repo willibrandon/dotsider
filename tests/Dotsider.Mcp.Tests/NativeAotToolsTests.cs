@@ -5,60 +5,65 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Tests for Native AOT-specific MCP tools.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class NativeAotToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class NativeAotToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>get_native_aot_info reports Native AOT identity and sidecar availability.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetNativeAotInfo_NativeAot_ReturnsSummary()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync(
             "get_native_aot_info",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.NativeAotConsoleExe },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal("nativeAot", json.GetProperty("binaryKind").GetString());
-        Assert.True(json.GetProperty("readyToRunSections").GetInt32() > 0);
-        Assert.True(json.GetProperty("recoveredTypes").GetInt32() > 0);
-        Assert.True(json.TryGetProperty("hasMstat", out _));
+        Assert.AreEqual("nativeAot", json.GetProperty("binaryKind").GetString());
+        Assert.IsGreaterThan(0, json.GetProperty("readyToRunSections").GetInt32());
+        Assert.IsGreaterThan(0, json.GetProperty("recoveredTypes").GetInt32());
+        Assert.IsTrue(json.TryGetProperty("hasMstat", out _));
     }
 
     /// <summary>list_native_aot_sections returns Native AOT RTR module sections.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ListNativeAotSections_NativeAot_ReturnsRtrSections()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
         var result = await client.CallToolAsync(
             "list_native_aot_sections",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.NativeAotConsoleExe },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.NativeAotConsoleExe },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("sectionCount").GetInt32() > 0);
+        Assert.IsGreaterThan(0, json.GetProperty("sectionCount").GetInt32());
         var first = json.GetProperty("sections").EnumerateArray().First();
-        Assert.True(first.TryGetProperty("sectionId", out _));
-        Assert.True(first.TryGetProperty("address", out _));
+        Assert.IsTrue(first.TryGetProperty("sectionId", out _));
+        Assert.IsTrue(first.TryGetProperty("address", out _));
     }
 
     /// <summary>get_native_aot_size_contributors returns normalized mstat contributors.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetNativeAotSizeContributors_NativeAot_ReturnsTopMstatRows()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -67,30 +72,31 @@ public class NativeAotToolsTests(SampleAssemblyFixture samples) : McpServerTestB
             "get_native_aot_size_contributors",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["assemblyPath"] = Samples.NativeAotConsoleExe,
                 ["section"] = "Method",
                 ["topN"] = 5
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("totalMatches").GetInt32() > 0);
+        Assert.IsGreaterThan(0, json.GetProperty("totalMatches").GetInt32());
         var rows = json.GetProperty("contributors");
-        Assert.True(rows.GetArrayLength() > 0);
-        Assert.All(rows.EnumerateArray(), row =>
+        Assert.IsGreaterThan(0, rows.GetArrayLength());
+        TestAssert.All(rows.EnumerateArray(), row =>
         {
-            Assert.Equal("method", row.GetProperty("section").GetString());
-            Assert.True(row.GetProperty("size").GetInt64() > 0);
+            Assert.AreEqual("method", row.GetProperty("section").GetString());
+            Assert.IsGreaterThan(0, row.GetProperty("size").GetInt64());
         });
     }
 
     /// <summary>explain_native_aot_size returns a DGML root chain for a real contributor.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ExplainNativeAotSize_NativeAot_ReturnsRootChain()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();
@@ -99,36 +105,36 @@ public class NativeAotToolsTests(SampleAssemblyFixture samples) : McpServerTestB
             "get_native_aot_size_contributors",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["assemblyPath"] = Samples.NativeAotConsoleExe,
                 ["section"] = "Method",
                 ["topN"] = 20
             },
             cancellationToken: TestCancellationToken);
 
         var contributorText = GetTextContent(contributors);
-        Assert.NotNull(contributorText);
+        Assert.IsNotNull(contributorText);
         var contributorJson = JsonSerializer.Deserialize<JsonElement>(contributorText);
         var target = contributorJson.GetProperty("contributors")
             .EnumerateArray()
             .First(e => e.GetProperty("nodeNames").GetArrayLength() > 0)
             .GetProperty("fullPath")
             .GetString();
-        Assert.NotNull(target);
+        Assert.IsNotNull(target);
 
         var result = await client.CallToolAsync(
             "explain_native_aot_size",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.NativeAotConsoleExe,
+                ["assemblyPath"] = Samples.NativeAotConsoleExe,
                 ["target"] = target
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal("resolved", json.GetProperty("outcome").GetString());
+        Assert.AreEqual("resolved", json.GetProperty("outcome").GetString());
         var chains = json.GetProperty("contributor").GetProperty("whyChains");
-        Assert.True(chains.GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, chains.GetArrayLength());
     }
 }

@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Standard Mode View.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class StandardModeViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -122,11 +124,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies app launches shows assembly name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task App_Launches_ShowsAssemblyName()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -143,11 +146,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab2 shows metadata.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab2_ShowsMetadata()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -166,11 +170,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 shows il inspector.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_ShowsIlInspector()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -189,11 +194,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 keeps the managed IL Inspector label for ordinary managed assemblies.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_Label_ManagedAssembly_IsIlInspector()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -210,13 +216,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 is labeled as disassembly for a native-only AOT view.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_Label_NativeAot_IsDisassembly()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -233,12 +240,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 is labeled as disassembly for a raw SDK browser-wasm runtime module.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_Label_Wasm_IsDisassembly()
     {
         var wasmPath = GetWasmNativePath();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp(wasmPath);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
@@ -257,12 +265,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Wasm General tab keeps the references section visible in a
     /// short terminal even though the WebAssembly summary is taller than the pane.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_Wasm_ShortTerminal_KeepsAssemblyReferencesVisible()
     {
         var wasmPath = GetWasmNativePath();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderAppWithDimensions(wasmPath, width: 110, height: 20);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
@@ -283,12 +292,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Wasm General tab does not reserve a large blank area
     /// between the content-sized summary and the references section.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_Wasm_TallTerminal_DoesNotPadBeforeAssemblyReferences()
     {
         var wasmPath = GetWasmNativePath();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderAppWithDimensions(wasmPath, width: 160, height: 50);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
@@ -312,7 +322,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.InRange(refsLine - sourceLinkLine, 1, 4);
+        Assert.IsInRange(1, 4, refsLine - sourceLinkLine);
 
         cts.Cancel();
         await runTask;
@@ -321,12 +331,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the PE/Metadata tab routes raw Wasm modules to WebAssembly section rows.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab1_Wasm_ShowsWebAssemblySections()
     {
         var wasmPath = GetWasmNativePath();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp(wasmPath, TabId.PeMetadata);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
@@ -345,12 +356,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the Disassembly tab presents raw Wasm functions through Wasm-specific groups.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_Wasm_ShowsWasmFunctionGroups()
     {
         var wasmPath = GetWasmNativePath();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var (terminal, app) = CreateDotsiderApp(wasmPath, TabId.IlInspector);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
@@ -369,13 +381,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 is labeled as IL plus native for ReadyToRun images.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_Label_ReadyToRun_IsIlAndNative()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, "ReadyToRun crossgen2 publish did not run on this leg.");
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, "ReadyToRun crossgen2 publish did not run on this leg.");
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.ReadyToRunConsoleDll!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.ReadyToRunConsoleDll!);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -392,11 +405,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab4 shows strings.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab4_ShowsStrings()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -415,11 +429,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 shows hex dump.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_ShowsHexDump()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -438,11 +453,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 starts in normal mode read only.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_StartsInNormalMode_ReadOnly()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -454,9 +470,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
-        Assert.True(_state.HexEditorState.IsReadOnly);
-        Assert.False(_state.HexIsDirty);
+        Assert.AreEqual(HexEditMode.Normal, _state!.HexMode);
+        Assert.IsTrue(_state.HexEditorState.IsReadOnly);
+        Assert.IsFalse(_state.HexIsDirty);
 
         cts.Cancel();
         await runTask;
@@ -465,11 +481,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 i key enters insert mode.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_IKey_EntersInsertMode()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -484,8 +501,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         await Task.Delay(100, cts.Token);
-        Assert.Equal(HexEditMode.Insert, _state!.HexMode);
-        Assert.False(_state.HexEditorState.IsReadOnly);
+        Assert.AreEqual(HexEditMode.Insert, _state!.HexMode);
+        Assert.IsFalse(_state.HexEditorState.IsReadOnly);
 
         cts.Cancel();
         await runTask;
@@ -494,11 +511,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 esc from insert returns to normal.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_EscFromInsert_ReturnsToNormal()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -514,8 +532,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
-        Assert.True(_state.HexEditorState.IsReadOnly);
+        Assert.AreEqual(HexEditMode.Normal, _state!.HexMode);
+        Assert.IsTrue(_state.HexEditorState.IsReadOnly);
 
         cts.Cancel();
         await runTask;
@@ -524,11 +542,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 esc from insert with confirmed search exits insert first.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_EscFromInsert_WithConfirmedSearch_ExitsInsertFirst()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -554,10 +573,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Insert mode must be exited
-        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
-        Assert.True(_state.HexEditorState.IsReadOnly);
+        Assert.AreEqual(HexEditMode.Normal, _state!.HexMode);
+        Assert.IsTrue(_state.HexEditorState.IsReadOnly);
         // Search should still be active (not dismissed by this Esc)
-        Assert.True(_state.Search[TabId.HexDump].IsActive);
+        Assert.IsTrue(_state.Search[TabId.HexDump].IsActive);
 
         cts.Cancel();
         await runTask;
@@ -566,11 +585,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 normal mode vim keys navigate.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_NormalMode_VimKeysNavigate()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -591,9 +611,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotEqual(cursorBefore, _state.HexEditorState.Cursor.Position);
+        Assert.AreNotEqual(cursorBefore, _state.HexEditorState.Cursor.Position);
         // Document should NOT be modified — we're in normal mode
-        Assert.False(_state.HexIsDirty);
+        Assert.IsFalse(_state.HexIsDirty);
 
         cts.Cancel();
         await runTask;
@@ -602,11 +622,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 insert mode s key does not toggle size.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_InsertMode_SKey_DoesNotToggleSize()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -627,7 +648,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(sizesBefore, _state.HumanReadableSizes);
+        Assert.AreEqual(sizesBefore, _state.HumanReadableSizes);
 
         cts.Cancel();
         await runTask;
@@ -636,11 +657,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 insert mode q key does not quit.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_InsertMode_QKey_DoesNotQuit()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -665,11 +687,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 insert mode number keys do not switch tabs.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_InsertMode_NumberKeys_DoNotSwitchTabs()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -684,7 +707,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(TabId.HexDump, _state!.CurrentTab);
+        Assert.AreEqual(TabId.HexDump, _state!.CurrentTab);
 
         cts.Cancel();
         await runTask;
@@ -693,11 +716,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 normal mode no insert indicator.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_NormalMode_NoInsertIndicator()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -711,7 +735,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(HexEditMode.Normal, _state!.HexMode);
+        Assert.AreEqual(HexEditMode.Normal, _state!.HexMode);
 
         cts.Cancel();
         await runTask;
@@ -720,18 +744,19 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab5 ctrl s saves with correct file name.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab5_CtrlS_SavesWithCorrectFileName()
     {
         // Work on a disposable copy so we don't modify the shared fixture assembly
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
-        File.Copy(samples.HelloWorldDll, tempDll);
+        File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
         {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             var (terminal, app) = CreateDotsiderApp(tempDll);
             var runTask = app.RunAsync(cts.Token);
             await Task.Delay(100, cts.Token);
@@ -760,12 +785,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 .ApplyAsync(terminal, cts.Token);
 
             // FilePath must be the original, not the .tmp fallback
-            Assert.Equal(tempDll, _state!.Analyzer.FilePath);
+            Assert.AreEqual(tempDll, _state!.Analyzer.FilePath);
             Assert.DoesNotContain(".tmp", _state.Analyzer.FileName);
-            Assert.Contains("written", _state.HexNotification);
-            Assert.Contains("HelloWorld.dll", _state.HexNotification);
+            Assert.Contains("written", _state.HexNotification!);
+            Assert.Contains("HelloWorld.dll", _state.HexNotification!);
             // No temp file should remain
-            Assert.False(File.Exists(tempDll + ".tmp"));
+            Assert.IsFalse(File.Exists(tempDll + ".tmp"));
 
             cts.Cancel();
         await runTask;
@@ -779,11 +804,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 shows dep graph.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ShowsDepGraph()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -807,11 +833,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// probe must roll forward (same well-known framework PKT, equal-or-higher version) and
     /// the cached graph must collapse onto a single resolved node keyed at the deployed version.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_AppLocalRollForward_NoIdentityMismatchMarker()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.AppLocalRollForwardDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.AppLocalRollForwardDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -825,15 +852,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         var snapshot = terminal.CreateSnapshot();
-        Assert.False(snapshot.ContainsText("! Microsoft.Diagnostics.NETCore.Client"),
+        Assert.IsFalse(snapshot.ContainsText("! Microsoft.Diagnostics.NETCore.Client"),
             "AppLocal roll-forward must suppress the IdentityMismatch marker on the Dep Graph tab.");
 
-        Assert.NotNull(_state!.CachedGraph);
+        Assert.IsNotNull(_state!.CachedGraph);
         var clientNodes = _state.CachedGraph!.Value.Nodes
             .Where(n => n.Name == "Microsoft.Diagnostics.NETCore.Client")
             .ToList();
-        var clientNode = Assert.Single(clientNodes);
-        Assert.False(clientNode.Unresolved);
+        var clientNode = Assert.ContainsSingle(clientNodes);
+        Assert.IsFalse(clientNode.Unresolved);
 
         cts.Cancel();
         await runTask;
@@ -842,11 +869,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 shows size map.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_ShowsSizeMap()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -865,11 +893,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 shows node and edge counts.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ShowsNodeAndEdgeCounts()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -881,9 +910,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraph);
-        Assert.True(_state.CachedGraph.Value.Nodes.Count > 0);
-        Assert.True(_state.CachedGraph.Value.Edges.Count > 0);
+        Assert.IsNotNull(_state!.CachedGraph);
+        Assert.IsGreaterThan(0, _state.CachedGraph.Value.Nodes.Count);
+        Assert.IsGreaterThan(0, _state.CachedGraph.Value.Edges.Count);
 
         cts.Cancel();
         await runTask;
@@ -892,11 +921,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 search shows match count.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_SearchShowsMatchCount()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -916,8 +946,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state!.Search[TabId.DepGraph].MatchCount > 0,
-            "Search for 'sys' should match System.* dependencies");
+        Assert.IsGreaterThan(0, _state!.Search[TabId.DepGraph].MatchCount, "Search for 'sys' should match System.* dependencies");
 
         cts.Cancel();
         await runTask;
@@ -926,11 +955,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 match navigation cycles graph selected node.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_MatchNavigation_CyclesGraphSelectedNode()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -956,7 +986,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         var firstIndex = _state!.GraphMatchIndex;
-        Assert.True(firstIndex >= 0);
+        Assert.IsGreaterThanOrEqualTo(0, firstIndex);
 
         // Press 'n' again — should advance to next match
         await new Hex1bTerminalInputSequenceBuilder()
@@ -968,7 +998,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         if (_state.Search[TabId.DepGraph].MatchCount > 1)
-            Assert.NotEqual(firstIndex, _state.GraphMatchIndex);
+            Assert.AreNotEqual(firstIndex, _state.GraphMatchIndex);
 
         cts.Cancel();
         await runTask;
@@ -977,11 +1007,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 arrow keys work after search confirm.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ArrowKeys_WorkAfterSearchConfirm()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1000,7 +1031,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Arrow keys should work immediately — focus restored to Interactable
-        Assert.Equal(-1, _state!.GraphSelectedIndex);
+        Assert.AreEqual(-1, _state!.GraphSelectedIndex);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
@@ -1008,7 +1039,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.GraphSelectedIndex);
+        Assert.AreEqual(0, _state.GraphSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1017,11 +1048,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 arrow keys work after search confirm.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_ArrowKeys_WorkAfterSearchConfirm()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1040,7 +1072,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Arrow keys should work immediately — focus restored to Interactable
-        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+        Assert.AreEqual(-1, _state!.TreemapSelectedIndex);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
@@ -1048,7 +1080,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1057,12 +1089,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 startup focus arrow keys work without tab switch.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
         // Start directly on Dep Graph tab — tests the initial focus predicate
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.DepGraph);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll, initialTab: TabId.DepGraph);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1072,7 +1105,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(-1, _state!.GraphSelectedIndex);
+        Assert.AreEqual(-1, _state!.GraphSelectedIndex);
 
         // Arrow keys should work immediately without switching tabs first
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1081,7 +1114,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.GraphSelectedIndex);
+        Assert.AreEqual(0, _state.GraphSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1090,12 +1123,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 startup focus arrow keys work without tab switch.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_StartupFocus_ArrowKeysWorkWithoutTabSwitch()
     {
         // Start directly on Size Map tab — tests the initial focus predicate
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: TabId.SizeMap);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll, initialTab: TabId.SizeMap);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1105,7 +1139,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+        Assert.AreEqual(-1, _state!.TreemapSelectedIndex);
 
         // Arrow keys should work immediately without switching tabs first
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1114,7 +1148,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1123,11 +1157,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab6 arrow keys cycle selected index.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ArrowKeys_CycleSelectedIndex()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1140,7 +1175,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(-1, _state!.GraphSelectedIndex);
+        Assert.AreEqual(-1, _state!.GraphSelectedIndex);
 
         // Press Right to select first node
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1149,7 +1184,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.GraphSelectedIndex);
+        Assert.AreEqual(0, _state.GraphSelectedIndex);
 
         // Press Right again — should advance
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1158,7 +1193,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(1, _state.GraphSelectedIndex);
+        Assert.AreEqual(1, _state.GraphSelectedIndex);
 
         // Press Left — should go back
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1167,7 +1202,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.GraphSelectedIndex);
+        Assert.AreEqual(0, _state.GraphSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1178,11 +1213,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// reports hidden counts, and the state flag flips. Root stays visible by contract —
     /// verified by asserting the nodes cached for the filtered view still include the root id.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_FilterToggle_HidesFrameworkAssembliesAndKeepsRootVisible()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1194,11 +1230,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.False(_state!.DepGraphHideFramework);
-        Assert.NotNull(_state.CachedGraph);
+        Assert.IsFalse(_state!.DepGraphHideFramework);
+        Assert.IsNotNull(_state.CachedGraph);
         var rootId = _state.CachedGraph!.Value.Nodes.First(n => n.IsRoot).Id;
-        Assert.NotNull(_state.GraphNavigation);
-        Assert.Contains(_state.CachedGraph.Value.Nodes, n => _state.GraphNavigation!.TryGetValue(n.Id, out var c) && c.IsFrameworkAssembly);
+        Assert.IsNotNull(_state.GraphNavigation);
+        Assert.Contains(n => _state.GraphNavigation!.TryGetValue(n.Id, out var c) && c.IsFrameworkAssembly, _state.CachedGraph.Value.Nodes);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.F)
@@ -1207,9 +1243,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state.DepGraphHideFramework);
+        Assert.IsTrue(_state.DepGraphHideFramework);
         // Root id is still in the cached graph after toggle (underlying graph not rebuilt).
-        Assert.Contains(_state.CachedGraph.Value.Nodes, n => n.Id == rootId && n.IsRoot);
+        Assert.Contains(n => n.Id == rootId && n.IsRoot, _state.CachedGraph.Value.Nodes);
 
         cts.Cancel();
         await runTask;
@@ -1220,11 +1256,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <c>DirectOnly</c>. The status line reflects the active scope and selection / match
     /// indices reset on each change so stale indices cannot survive into a smaller view.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ScopeToggle_SwitchesBetweenAllAndDirectOnly()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1236,7 +1273,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(Views.DependencyGraphScope.All, _state!.DepGraphScope);
+        Assert.AreEqual(Views.DependencyGraphScope.All, _state!.DepGraphScope);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D)
@@ -1246,9 +1283,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(Views.DependencyGraphScope.DirectOnly, _state.DepGraphScope);
-        Assert.Equal(-1, _state.GraphSelectedIndex);
-        Assert.Equal(-1, _state.GraphMatchIndex);
+        Assert.AreEqual(Views.DependencyGraphScope.DirectOnly, _state.DepGraphScope);
+        Assert.AreEqual(-1, _state.GraphSelectedIndex);
+        Assert.AreEqual(-1, _state.GraphMatchIndex);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.D)
@@ -1258,7 +1295,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(Views.DependencyGraphScope.All, _state.DepGraphScope);
+        Assert.AreEqual(Views.DependencyGraphScope.All, _state.DepGraphScope);
 
         cts.Cancel();
         await runTask;
@@ -1271,11 +1308,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// showed the last row. Regression test: select a node near the top, press <c>End</c>,
     /// and assert the scroll offset matches the full <c>ContentHeight - viewport</c> range.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_End_ScrollsToBottom_EvenWhenNodeSelected()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1289,12 +1327,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraphRenderLayout);
-        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        Assert.IsNotNull(_state!.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state.CachedGraphRenderLayoutKey);
         var layout = _state.CachedGraphRenderLayout!;
         var key = _state.CachedGraphRenderLayoutKey!.Value;
         var expectedMax = Math.Max(0, layout.ContentHeight - key.Height);
-        Assert.True(expectedMax > 0, "viewport must be smaller than content for this test");
+        Assert.IsGreaterThan(0, expectedMax, "viewport must be smaller than content for this test");
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.End)
@@ -1302,7 +1340,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(expectedMax, _state.DepGraphScrollY);
+        Assert.AreEqual(expectedMax, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1314,17 +1352,18 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <see cref="Hex1b.Nodes.ScrollbarNode.IsScrollable"/> returns <see langword="false"/>
     /// for this shape and the bar renders nothing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ComputeScrollbarInputs_BeforeLayoutReady_ReturnsSafeDefaults()
     {
-        var (_, app) = CreateDotsiderApp(samples.RichLibraryDll);
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
-        Assert.Null(state.CachedGraphRenderLayout);
-        Assert.Null(state.CachedGraphRenderLayoutKey);
+        var (_, app) = CreateDotsiderApp(Samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
+        Assert.IsNull(state.CachedGraphRenderLayout);
+        Assert.IsNull(state.CachedGraphRenderLayoutKey);
 
         var inputs = DependencyGraphView.ComputeScrollbarInputs(state);
 
-        Assert.Equal((0, 1, 0), inputs);
+        Assert.AreEqual((0, 1, 0), inputs);
     }
 
     /// <summary>
@@ -1332,11 +1371,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// once a layout is cached the helper clamps that to <c>ContentHeight - Height</c> so the
     /// scrollbar receives a valid offset rather than an out-of-range stub.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ComputeScrollbarInputs_ClampsScrollYToMax_AfterEnd()
     {
-        var (_, app) = CreateDotsiderApp(samples.RichLibraryDll);
-        using var state = new DotsiderState(app, samples.RichLibraryDll);
+        var (_, app) = CreateDotsiderApp(Samples.RichLibraryDll);
+        using var state = new DotsiderState(app, Samples.RichLibraryDll);
 
         const int contentHeight = 200;
         const int viewportHeight = 25;
@@ -1352,20 +1392,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         var (c, v, o) = DependencyGraphView.ComputeScrollbarInputs(state);
 
-        Assert.Equal(contentHeight, c);
-        Assert.Equal(viewportHeight, v);
-        Assert.Equal(contentHeight - viewportHeight, o);
+        Assert.AreEqual(contentHeight, c);
+        Assert.AreEqual(viewportHeight, v);
+        Assert.AreEqual(contentHeight - viewportHeight, o);
     }
 
     /// <summary>
     /// The scrollbar replaces the textual <c>Scroll: N/M</c> suffix the status line used to
     /// carry. Asserts the suffix is gone so reviewers don't have to grep for it.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_StatusLine_DoesNotContainScrollSuffix()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1377,7 +1418,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         var snapshot = terminal.CreateSnapshot();
-        Assert.False(snapshot.ContainsText("Scroll:"),
+        Assert.IsFalse(snapshot.ContainsText("Scroll:"),
             "Status line should not carry a textual Scroll: suffix anymore.");
 
         cts.Cancel();
@@ -1388,11 +1429,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// When the laid-out graph is taller than the viewport, the scrollbar's thumb glyph
     /// (<c>▉</c>) renders at least once in the rightmost column inside the graph viewport.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_Scrollbar_RendersAtRightEdge_WhenContentExceedsViewport()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1433,7 +1475,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 break;
             }
         }
-        Assert.True(hasThumb, "Expected at least one scrollbar thumb cell in the rightmost column.");
+        Assert.IsTrue(hasThumb, "Expected at least one scrollbar thumb cell in the rightmost column.");
 
         cts.Cancel();
         await runTask;
@@ -1444,11 +1486,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// (FixedWidth(1)) but renders no thumb glyphs — <see cref="Hex1b.Nodes.ScrollbarNode"/>
     /// paints nothing when <c>ContentSize &lt;= ViewportSize</c>.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_Scrollbar_HiddenWhenContentFits()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1468,7 +1511,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         for (int y = 0; y < snapshot.Height; y++)
         {
             var ch = snapshot.GetCell(rightCol, y).Character;
-            Assert.NotEqual("▉", ch);
+            Assert.AreNotEqual("▉", ch);
         }
 
         cts.Cancel();
@@ -1479,11 +1522,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Mouse wheel down over the graph surface advances <see cref="DotsiderState.DepGraphScrollY"/>
     /// via the new <c>MouseButton.ScrollDown</c> binding.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_MouseWheelDown_AdvancesScrollY()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1494,7 +1538,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state!.DepGraphScrollY);
+        Assert.AreEqual(0, _state!.DepGraphScrollY);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .MouseMoveTo(40, 10)
@@ -1503,7 +1547,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state.DepGraphScrollY > 0);
+        Assert.IsGreaterThan(0, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1512,11 +1556,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Wheel up at the top is clamped to zero by <c>SetScroll</c>'s lower bound.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_MouseWheelUp_AtTop_StaysAtZero()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1531,7 +1576,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state!.DepGraphScrollY);
+        Assert.AreEqual(0, _state!.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1540,11 +1585,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Wheel down at the bottom is clamped to <c>max</c> by <c>SetScroll</c>'s upper bound.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_MouseWheelDown_AtBottom_DoesNotExceedMax()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1556,11 +1602,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraphRenderLayout);
-        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        Assert.IsNotNull(_state!.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state.CachedGraphRenderLayoutKey);
         var max = Math.Max(0,
             _state.CachedGraphRenderLayout!.ContentHeight - _state.CachedGraphRenderLayoutKey!.Value.Height);
-        Assert.True(max > 0, "viewport must be smaller than content for this test");
+        Assert.IsGreaterThan(0, max, "viewport must be smaller than content for this test");
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.DepGraphScrollY == max, TimeSpan.FromSeconds(5))
@@ -1571,7 +1617,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(max, _state.DepGraphScrollY);
+        Assert.AreEqual(max, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1582,11 +1628,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <see cref="Hex1b.Nodes.ScrollbarNode"/> step. Assert exact equality on the page size,
     /// which is determined by hex1b alone.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_TrackClick_PagesScrollY_ByViewportMinusOne()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1597,12 +1644,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraphRenderLayout);
-        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        Assert.IsNotNull(_state!.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state.CachedGraphRenderLayoutKey);
         var viewport = _state.CachedGraphRenderLayoutKey!.Value.Height;
         var max = Math.Max(0, _state.CachedGraphRenderLayout!.ContentHeight - viewport);
-        Assert.True(max >= viewport - 1, "viewport must allow at least one page step");
-        Assert.Equal(0, _state.DepGraphScrollY);
+        Assert.IsGreaterThanOrEqualTo(viewport - 1, max, "viewport must allow at least one page step");
+        Assert.AreEqual(0, _state.DepGraphScrollY);
 
         // Derive the click target from the live scrollbar bounds rather than a fixed cell: the
         // graph layout — and therefore the track's position and length — varies with content.
@@ -1623,7 +1670,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(viewport - 1, _state.DepGraphScrollY);
+        Assert.AreEqual(viewport - 1, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1634,11 +1681,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// the composition fix: if the scrollbar were nested inside the Interactable, drag events
     /// would never reach <see cref="Hex1b.Nodes.ScrollbarNode"/> and this test would fail.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_ThumbDrag_UpdatesScrollY()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1649,7 +1697,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state!.DepGraphScrollY);
+        Assert.AreEqual(0, _state!.DepGraphScrollY);
 
         // Grab the thumb at its real position (the track top at offset 0) and drag down within the
         // track, rather than assuming fixed rows: any downward movement maps to a positive offset.
@@ -1664,7 +1712,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state.DepGraphScrollY > 0);
+        Assert.IsGreaterThan(0, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1681,11 +1729,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// render runs, and selection would not advance. Synchronous bounce inside
     /// <c>VScrollbar.OnScroll</c> via <c>FocusWhere</c> is what makes this test pass.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_AfterScrollbarDrag_RightArrow_AdvancesSelection()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll, enableInputCoalescing: true);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll, enableInputCoalescing: true);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1696,7 +1745,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state!.CachedGraphRenderLayout);
         var beforeIndex = _state.GraphSelectedIndex;
 
         var sbCol = 119;
@@ -1707,7 +1756,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotEqual(beforeIndex, _state.GraphSelectedIndex);
+        Assert.AreNotEqual(beforeIndex, _state.GraphSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1736,11 +1785,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// production path users actually hit.
     /// </para>
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_NoOpScrollbarClick_RightArrow_AdvancesSelection()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderAppWithMouse(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderAppWithMouse(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1783,23 +1833,21 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                 break;
             }
         }
-        Assert.True(sbRow >= 0, "could not find a scrollbar thumb cell at the rightmost column");
+        Assert.IsGreaterThanOrEqualTo(0, sbRow, "could not find a scrollbar thumb cell at the rightmost column");
 
         // Verify that the live ScrollbarNode's bounds actually contain the click target —
         // so the input router's hit-test will route the click to the scrollbar (and not, say,
         // a status-row text cell that happens to draw a │). This is the key check the review
         // called out: without it, the test could pass for the wrong reason.
         var scrollbar = _hex1bApp!.Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault();
-        Assert.NotNull(scrollbar);
+        Assert.IsNotNull(scrollbar);
         var bounds = scrollbar!.Bounds;
-        Assert.True(
-            sbCol >= bounds.X && sbCol < bounds.X + bounds.Width &&
-            sbRow >= bounds.Y && sbRow < bounds.Y + bounds.Height,
-            $"ScrollbarNode bounds {bounds} do not contain target cell ({sbCol}, {sbRow}).");
+        Assert.IsTrue(sbCol >= bounds.X && sbCol < bounds.X + bounds.Width &&
+            sbRow >= bounds.Y && sbRow < bounds.Y + bounds.Height, $"ScrollbarNode bounds {bounds} do not contain target cell ({sbCol}, {sbRow}).");
 
         var beforeIndex = _state!.GraphSelectedIndex;
         var beforeScrollY = _state.DepGraphScrollY;
-        Assert.Equal(0, beforeScrollY);
+        Assert.AreEqual(0, beforeScrollY);
 
         // Click the thumb at its current position. Mouse-down → Focus(scrollbar) →
         // ScrollbarNode.HandleDrag returns a thumb-grab handler. Mouse-up at the same spot
@@ -1817,8 +1865,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Scroll position is unchanged → confirms the click was a true no-op (OnScroll never
         // fired). Selection advanced → confirms the build-time bounce restored focus to the
         // graph before the RightArrow routed.
-        Assert.Equal(beforeScrollY, _state.DepGraphScrollY);
-        Assert.NotEqual(beforeIndex, _state.GraphSelectedIndex);
+        Assert.AreEqual(beforeScrollY, _state.DepGraphScrollY);
+        Assert.AreNotEqual(beforeIndex, _state.GraphSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -1831,11 +1879,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// introduces a second Interactable to this view, this test fails and the predicate must
     /// be tightened before merging.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_DepGraphView_ContainsExactlyOneInteractable()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1847,7 +1896,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         var interactableCount = app.Focusables.Count(n => n is Hex1b.Nodes.InteractableNode);
-        Assert.Equal(1, interactableCount);
+        Assert.AreEqual(1, interactableCount);
 
         cts.Cancel();
         await runTask;
@@ -1859,11 +1908,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <c>GetOrBuildRenderLayout</c> must surface the new geometry to the scrollbar within
     /// two frames; otherwise a stale thumb size lingers indefinitely.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_LayoutRebuild_ScrollbarReflectsNewContentHeight_WithinTwoFrames()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1874,7 +1924,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state!.CachedGraphRenderLayout);
         var beforeHeight = _state.CachedGraphRenderLayout!.ContentHeight;
 
         // Toggle framework filter → layout key changes → next render rebuilds.
@@ -1887,13 +1937,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         var afterHeight = _state.CachedGraphRenderLayout!.ContentHeight;
-        Assert.NotEqual(beforeHeight, afterHeight);
+        Assert.AreNotEqual(beforeHeight, afterHeight);
 
         // The snapshot-and-invalidate path schedules one extra frame so the next builder
         // sees the new layout. ComputeScrollbarInputs is what the widget builder uses,
         // so reading it here confirms the scrollbar input matches the new geometry.
         var (c, _, _) = DependencyGraphView.ComputeScrollbarInputs(_state);
-        Assert.Equal(afterHeight, c);
+        Assert.AreEqual(afterHeight, c);
 
         cts.Cancel();
         await runTask;
@@ -1904,11 +1954,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// clamp data is available). Post-layout <c>End</c> still scrolls to the bottom. Documents
     /// the deliberate behavior change called out in the plan.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_End_PreLayout_IsNoOp_PostLayout_ScrollsToBottom()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll, initialTab: (int)TabId.DepGraph);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll, initialTab: (int)TabId.DepGraph);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1919,7 +1970,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state!.DepGraphScrollY);
+        Assert.AreEqual(0, _state!.DepGraphScrollY);
 
         // Now wait for layout, press End again, and confirm it scrolls to the bottom.
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1927,11 +1978,11 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state.CachedGraphRenderLayout);
-        Assert.NotNull(_state.CachedGraphRenderLayoutKey);
+        Assert.IsNotNull(_state.CachedGraphRenderLayout);
+        Assert.IsNotNull(_state.CachedGraphRenderLayoutKey);
         var max = Math.Max(0,
             _state.CachedGraphRenderLayout!.ContentHeight - _state.CachedGraphRenderLayoutKey!.Value.Height);
-        Assert.True(max > 0, "viewport must be smaller than content for this test");
+        Assert.IsGreaterThan(0, max, "viewport must be smaller than content for this test");
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.End)
@@ -1939,7 +1990,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(max, _state.DepGraphScrollY);
+        Assert.AreEqual(max, _state.DepGraphScrollY);
 
         cts.Cancel();
         await runTask;
@@ -1948,11 +1999,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 arrow keys cycle selected index.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_ArrowKeys_CycleSelectedIndex()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1965,7 +2017,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(-1, _state!.TreemapSelectedIndex);
+        Assert.AreEqual(-1, _state!.TreemapSelectedIndex);
 
         // Press Right to select first item
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1974,7 +2026,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
 
         // Press Right again — should advance
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1983,7 +2035,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(1, _state.TreemapSelectedIndex);
+        Assert.AreEqual(1, _state.TreemapSelectedIndex);
 
         // Press Left — should go back
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1992,7 +2044,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
 
         cts.Cancel();
         await runTask;
@@ -2001,11 +2053,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 shows breadcrumb and total size.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_ShowsBreadcrumbAndTotalSize()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2018,8 +2071,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.CachedSizeTree);
-        Assert.True(_state.CachedSizeTree.Size > 0);
+        Assert.IsNotNull(_state!.CachedSizeTree);
+        Assert.IsGreaterThan(0, _state.CachedSizeTree.Size);
 
         cts.Cancel();
         await runTask;
@@ -2028,11 +2081,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 escape pops breadcrumb.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_Escape_PopsBreadcrumb()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2059,7 +2113,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Single(_state.TreemapBreadcrumb);
+        Assert.ContainsSingle(_state.TreemapBreadcrumb);
 
         // Press Escape to go up
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2068,8 +2122,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Empty(_state.TreemapBreadcrumb);
-        Assert.Equal(root, _state.TreemapCurrentLevel);
+        Assert.IsEmpty(_state.TreemapBreadcrumb);
+        Assert.AreEqual(root, _state.TreemapCurrentLevel);
 
         cts.Cancel();
         await runTask;
@@ -2078,11 +2132,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 search match navigation updates hovered item.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_SearchMatchNavigation_UpdatesHoveredItem()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2103,8 +2158,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state!.Search[TabId.SizeMap].MatchCount > 0,
-            "Search for 'rich' should match RichLibrary namespace");
+        Assert.IsGreaterThan(0, _state!.Search[TabId.SizeMap].MatchCount, "Search for 'rich' should match RichLibrary namespace");
 
         // Press 'n' to navigate to first match
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2113,7 +2167,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state.TreemapMatchIndex >= 0);
+        Assert.IsGreaterThanOrEqualTo(0, _state.TreemapMatchIndex);
 
         cts.Cancel();
         await runTask;
@@ -2122,11 +2176,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab7 enter prefers search match over stale selection.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab7_Enter_PrefersSearchMatchOverStaleSelection()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2143,7 +2198,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         await Task.Delay(100, cts.Token);
         var currentLevel = _state!.TreemapCurrentLevel ?? _state.CachedSizeTree!;
-        Assert.Equal(0, _state.TreemapSelectedIndex);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
 
         // Find a drillable child at index != 0 whose name differs from child 0
         var child0Name = currentLevel.Children[0].Name;
@@ -2194,8 +2249,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await Task.Delay(100, cts.Token);
 
         // Stale selection is still 0, but search match points elsewhere
-        Assert.Equal(0, _state.TreemapSelectedIndex);
-        Assert.True(_state.TreemapMatchIndex >= 0);
+        Assert.AreEqual(0, _state.TreemapSelectedIndex);
+        Assert.IsGreaterThanOrEqualTo(0, _state.TreemapMatchIndex);
 
         // Press Enter — should drill into search match, not stale selection at index 0
         var previousLevel = _state.TreemapCurrentLevel;
@@ -2222,11 +2277,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 library shows no entry point.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Library_ShowsNoEntryPoint()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2245,11 +2301,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 exe shows launch prompt.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Exe_ShowsLaunchPrompt()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2268,11 +2325,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 exe idle view shows assembly info and providers.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Exe_IdleView_ShowsAssemblyInfoAndProviders()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2289,7 +2347,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Null(_state!.Tracer);
+        Assert.IsNull(_state!.Tracer);
 
         cts.Cancel();
         await runTask;
@@ -2298,11 +2356,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 sub tab navigation arrow keys cycle.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_SubTabNavigation_ArrowKeysCycle()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2317,31 +2376,31 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
 
         // Starts on Events sub-tab
-        Assert.Equal(DynamicSubTabId.Events, _state!.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Events, _state!.DynamicSubTab);
 
         // Right → Counters
         await auto.RightAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters);
-        Assert.Equal(DynamicSubTabId.Counters, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         // Right → Output
         await auto.RightAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Output);
-        Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Output, _state.DynamicSubTab);
 
         // Right → Summary
         await auto.RightAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Summary);
-        Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Summary, _state.DynamicSubTab);
 
         // Right at max → stays on Summary (no wrap)
         await auto.RightAsync(cts.Token);
-        Assert.Equal(DynamicSubTabId.Summary, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Summary, _state.DynamicSubTab);
 
         // Left → back to Output
         await auto.LeftAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicSubTab == DynamicSubTabId.Output);
-        Assert.Equal(DynamicSubTabId.Output, _state.DynamicSubTab);
+        Assert.AreEqual(DynamicSubTabId.Output, _state.DynamicSubTab);
 
         cts.Cancel();
         await runTask;
@@ -2350,11 +2409,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 category filter keys update state.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_CategoryFilterKeys_UpdateState()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2368,42 +2428,42 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             is TraceProcessState.Exited or TraceProcessState.Error,
             timeout: TimeSpan.FromSeconds(30));
 
-        Assert.Null(_state!.DynamicCategoryFilter);
+        Assert.IsNull(_state!.DynamicCategoryFilter);
 
         // g → GC filter
         await auto.KeyAsync(Hex1bKey.G, cts.Token);
         await auto.WaitUntilAsync(_ => _state!.DynamicCategoryFilter == TraceEventCategory.GC);
-        Assert.Equal(TraceEventCategory.GC, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.GC, _state.DynamicCategoryFilter);
 
         // j → JIT filter
         await auto.KeyAsync(Hex1bKey.J, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.JIT);
-        Assert.Equal(TraceEventCategory.JIT, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.JIT, _state.DynamicCategoryFilter);
 
         // e → Exception filter
         await auto.KeyAsync(Hex1bKey.E, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Exception);
-        Assert.Equal(TraceEventCategory.Exception, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.Exception, _state.DynamicCategoryFilter);
 
         // l → Loader filter
         await auto.KeyAsync(Hex1bKey.L, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Loader);
-        Assert.Equal(TraceEventCategory.Loader, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.Loader, _state.DynamicCategoryFilter);
 
         // t → Threading filter
         await auto.KeyAsync(Hex1bKey.T, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Threading);
-        Assert.Equal(TraceEventCategory.Threading, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.Threading, _state.DynamicCategoryFilter);
 
         // h → HTTP filter
         await auto.KeyAsync(Hex1bKey.H, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Http);
-        Assert.Equal(TraceEventCategory.Http, _state.DynamicCategoryFilter);
+        Assert.AreEqual(TraceEventCategory.Http, _state.DynamicCategoryFilter);
 
         // Esc → clears filter
         await auto.EscapeAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter is null);
-        Assert.Null(_state.DynamicCategoryFilter);
+        Assert.IsNull(_state.DynamicCategoryFilter);
 
         cts.Cancel();
         await runTask;
@@ -2412,13 +2472,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 ctrl k stops running process.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_CtrlK_StopsRunningProcess()
     {
         // MinimalApi is a web server that stays alive until killed,
         // so Ctrl+K is the only way to reach Exited within the timeout.
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.MinimalApiDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.MinimalApiDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2430,15 +2491,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.EnterAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running);
 
-        Assert.NotNull(_state!.Tracer);
-        Assert.Equal(TraceProcessState.Running, _state.Tracer!.ProcessState);
+        Assert.IsNotNull(_state!.Tracer);
+        Assert.AreEqual(TraceProcessState.Running, _state.Tracer!.ProcessState);
 
         // Ctrl+K to stop — the web server would run indefinitely without this
         await auto.Ctrl().KeyAsync(Hex1bKey.K, cts.Token);
         await auto.WaitUntilAsync(_ => _state.Tracer!.ProcessState
             is TraceProcessState.Exited or TraceProcessState.Error);
 
-        Assert.True(_state.Tracer!.ProcessState
+        Assert.IsTrue(_state.Tracer!.ProcessState
             is TraceProcessState.Exited or TraceProcessState.Error);
 
         cts.Cancel();
@@ -2448,11 +2509,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 enter reruns after exit.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Enter_RerunsAfterExit()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2467,25 +2529,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             timeout: TimeSpan.FromSeconds(30));
 
         var firstTracer = _state!.Tracer;
-        Assert.NotNull(firstTracer);
+        Assert.IsNotNull(firstTracer);
 
         // Press Enter to re-run
         await auto.EnterAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.Tracer != firstTracer);
 
         // A new tracer was created
-        Assert.NotNull(_state.Tracer);
-        Assert.NotEqual(firstTracer, _state.Tracer);
+        Assert.IsNotNull(_state.Tracer);
+        Assert.AreNotEqual(firstTracer, _state.Tracer);
 
         // Wait for the re-run to exit successfully
         await auto.WaitUntilAsync(_ => _state.Tracer!.ProcessState
             is TraceProcessState.Exited or TraceProcessState.Error,
             timeout: TimeSpan.FromSeconds(15));
 
-        Assert.Equal(TraceProcessState.Exited, _state.Tracer!.ProcessState);
+        Assert.AreEqual(TraceProcessState.Exited, _state.Tracer!.ProcessState);
         await auto.WaitUntilAsync(_ => _state.Tracer!.ExitCode is not null,
             description: "exit code to be captured");
-        Assert.Equal(0, _state.Tracer.ExitCode);
+        Assert.AreEqual(0, _state.Tracer.ExitCode);
 
         cts.Cancel();
         await runTask;
@@ -2494,11 +2556,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 search after process exit no global binding conflict.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_SearchAfterProcessExit_NoGlobalBindingConflict()
     {
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2517,7 +2580,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.OemQuestion, cts.Token); // '/' — activate search
         await auto.WaitUntilAsync(_ => _state!.Search[TabId.Dynamic].IsActive);
 
-        Assert.True(_state!.Search[TabId.Dynamic].IsActive);
+        Assert.IsTrue(_state!.Search[TabId.Dynamic].IsActive);
 
         cts.Cancel();
         await runTask;
@@ -2526,11 +2589,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies general enter on reference drills into assembly.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_EnterOnReference_DrillsIntoAssembly()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2552,11 +2616,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 arrow keys work immediately.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_ArrowKeysWorkImmediately()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2579,11 +2644,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 disassembly pane scrolls.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_DisassemblyPaneScrolls()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2624,11 +2690,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab4 arrow keys cycle sub tabs.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab4_ArrowKeysCycleSubTabs()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2641,7 +2708,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         // Verify starting state
-        Assert.Equal(0, _state!.StringsSourceTab);
+        Assert.AreEqual(0, _state!.StringsSourceTab);
 
         // Right arrow → sub-tab 1
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2650,7 +2717,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(1, _state.StringsSourceTab);
+        Assert.AreEqual(1, _state.StringsSourceTab);
 
         // Right arrow → sub-tab 2
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2659,7 +2726,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(2, _state.StringsSourceTab);
+        Assert.AreEqual(2, _state.StringsSourceTab);
 
         // Left arrow → back to sub-tab 1
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2668,7 +2735,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(1, _state.StringsSourceTab);
+        Assert.AreEqual(1, _state.StringsSourceTab);
 
         cts.Cancel();
         await runTask;
@@ -2677,11 +2744,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab4 arrow keys during search editing do not switch sub tab.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab4_ArrowKeysDuringSearchEditing_DoNotSwitchSubTab()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2695,7 +2763,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state!.StringsSourceTab);
+        Assert.AreEqual(0, _state!.StringsSourceTab);
 
         // Arrow keys during search editing should NOT switch sub-tabs
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2705,8 +2773,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(0, _state.StringsSourceTab);
-        Assert.True(_state.Search[TabId.Strings].IsActive);
+        Assert.AreEqual(0, _state.StringsSourceTab);
+        Assert.IsTrue(_state.Search[TabId.Strings].IsActive);
 
         // Dismiss search, then arrows should work again
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2717,7 +2785,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(1, _state.StringsSourceTab);
+        Assert.AreEqual(1, _state.StringsSourceTab);
 
         cts.Cancel();
         await runTask;
@@ -2726,11 +2794,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 events s key filters socket not toggle size.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Events_SKey_FiltersSocket_NotToggleSize()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2751,8 +2820,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.KeyAsync(Hex1bKey.S, cts.Token);
         await auto.WaitUntilAsync(_ => _state.DynamicCategoryFilter == TraceEventCategory.Socket);
 
-        Assert.Equal(TraceEventCategory.Socket, _state.DynamicCategoryFilter);
-        Assert.Equal(sizesBefore, _state.HumanReadableSizes);
+        Assert.AreEqual(TraceEventCategory.Socket, _state.DynamicCategoryFilter);
+        Assert.AreEqual(sizesBefore, _state.HumanReadableSizes);
 
         cts.Cancel();
         await runTask;
@@ -2761,11 +2830,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab3 scroll position preserved across tab switch.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab3_ScrollPositionPreservedAcrossTabSwitch()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2807,7 +2877,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(savedMethod, _state.IlSelectedMethod);
+        Assert.AreEqual(savedMethod, _state.IlSelectedMethod);
 
         // Switch back to tab 3 — EditorNode preserved by Responsive, scroll intact
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2817,7 +2887,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(savedMethod, _state.IlSelectedMethod);
+        Assert.AreEqual(savedMethod, _state.IlSelectedMethod);
 
         cts.Cancel();
         await runTask;
@@ -2826,11 +2896,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies quit key exits app.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task QuitKey_ExitsApp()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -2843,32 +2914,40 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
 
         // App should exit after q key
         var completed = await Task.WhenAny(runTask, Task.Delay(5000, cts.Token));
-        Assert.Equal(runTask, completed);
+        Assert.AreEqual(runTask, completed);
     }
 
     /// <summary>
     /// Verifies cross view back suppressed during search editing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CrossViewBack_SuppressedDuringSearchEditing()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.RichLibraryDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
-        //Navigate to IL Inspector tab
+        // Navigate to PE/Metadata MethodDef, then use the production Go-to-IL
+        // binding so the cross-view back target is created on the UI path.
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D3) // Tab 3 — IL Inspector
-            .WaitUntil(s => s.ContainsText("Select a method") || s.ContainsText("IL"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D2) // Tab 2 — PE/Metadata
+            .WaitUntil(s => s.ContainsText("PE Headers"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.PeSubTab == PeSubTabId.MethodDef, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.PeFocusedKey is int, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.G)
+            .WaitUntil(_ => _state!.CurrentTab == TabId.IlInspector, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => _state!.CrossViewBackTarget is { Tab: TabId.PeMetadata }, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        // Programmatically set a cross-view back target (simulating a g/x navigation)
-        _state!.CrossViewBackStack.Push((TabId.PeMetadata, PeSubTabId.TypeDef));
-        _hex1bApp!.Invalidate();
+        var state = _state!;
 
         // Wait for "Esc: Back" hint to appear
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2879,16 +2958,16 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // Open search — type "test" then press Escape
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // '/' — activate search
-            .WaitUntil(_ => _state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.T).Key(Hex1bKey.E).Key(Hex1bKey.S).Key(Hex1bKey.T) // type "test"
             .Key(Hex1bKey.Escape) // should dismiss search, NOT navigate back
-            .WaitUntil(_ => !_state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => !state.Search[TabId.IlInspector].IsActive, TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
         // Verify we stayed on IL Inspector — Escape dismissed search, didn't navigate back
-        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
-        Assert.NotNull(_state.CrossViewBackTarget); // Back target still present
+        Assert.AreEqual(TabId.IlInspector, state.CurrentTab);
+        Assert.IsNotNull(state.CrossViewBackTarget); // Back target still present
 
         cts.Cancel();
         await runTask;
@@ -2897,11 +2976,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 enter on jit event navigates to il inspector.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_Enter_OnJitEvent_NavigatesToIlInspector()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -2927,26 +3007,25 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                      && e.Detail == "Formatter.Format")
             .ToList();
 
-        Assert.True(formatEvents.Count >= 2,
-            $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
+        Assert.IsGreaterThanOrEqualTo(2, formatEvents.Count, $"Expected >=2 Formatter.Format JIT events, got {formatEvents.Count}");
 
         var firstToken = formatEvents[0].MetadataToken;
         var targetEvent = formatEvents.First(e => e.MetadataToken != firstToken);
-        Assert.True(targetEvent.MetadataToken > 0);
+        Assert.IsGreaterThan(0, targetEvent.MetadataToken);
 
         var expectedMethod = _state.Analyzer.MethodDefs
             .FirstOrDefault(m => m.Token == targetEvent.MetadataToken);
-        Assert.NotNull(expectedMethod);
+        Assert.IsNotNull(expectedMethod);
 
         // Verify this IS an overload: name-based FirstOrDefault would return
         // a different method (the first match), proving token is required.
-        Assert.True(DynamicAnalysisView.TryParseJitDetail(targetEvent.Detail,
+        Assert.IsTrue(DynamicAnalysisView.TryParseJitDetail(targetEvent.Detail,
             out var declType, out var methName));
         var byName = _state.Analyzer.MethodDefs
             .FirstOrDefault(m => m.DeclaringType == declType && m.Name == methName);
-        Assert.NotNull(byName);
+        Assert.IsNotNull(byName);
 
-        Assert.NotEqual(expectedMethod.Token, byName.Token);
+        Assert.AreNotEqual(expectedMethod.Token, byName.Token);
 
         // Use J key to set JIT filter (runs on the render thread, not a direct state mutation)
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:{targetEvent.Detail}:{targetEvent.MetadataToken}";
@@ -2958,10 +3037,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.EnterAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.IlInspector);
 
-        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
-        Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
-        Assert.NotNull(_state.CrossViewBackTarget);
-        Assert.Equal(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
+        Assert.AreEqual(TabId.IlInspector, _state.CurrentTab);
+        Assert.AreEqual(expectedMethod.Token, _state.IlSelectedMethod!.Token);
+        Assert.IsNotNull(_state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
 
         cts.Cancel();
         await runTask;
@@ -2970,11 +3049,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 jit navigation hint updates and enter navigates without rerun.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_JitNavigation_HintUpdatesAndEnterNavigatesWithoutRerun()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -3019,25 +3099,26 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         // programmatic Invalidate() path races with terminal snapshots, and
         // sending arrow keys changes the focused row away from the target event.
         _state.DynamicEventsFocusedKey = eventKey;
-        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+        Assert.IsNotNull(DynamicAnalysisView.ResolveJitEventMethod(
             _state, tracer.GetEvents()));
         _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
-        // Status bar should now show "Go to IL" instead of "Re-run"
-        await auto.WaitUntilTextAsync("Go to IL");
+        await auto.WaitUntilAsync(_ =>
+            DynamicAnalysisView.ResolveJitEventMethod(_state!, tracer.GetEvents()) is not null,
+            description: "focused JIT event to resolve to IL");
 
         // Press Enter — should navigate to IL Inspector, NOT re-run the trace
         await auto.EnterAsync(cts.Token);
         await auto.WaitUntilAsync(_ => _state.CurrentTab == TabId.IlInspector);
 
-        Assert.Equal(TabId.IlInspector, _state.CurrentTab);
-        Assert.Equal(expectedMethod.Token, _state.IlSelectedMethod!.Token);
-        Assert.NotNull(_state.CrossViewBackTarget);
-        Assert.Equal(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
+        Assert.AreEqual(TabId.IlInspector, _state.CurrentTab);
+        Assert.AreEqual(expectedMethod.Token, _state.IlSelectedMethod!.Token);
+        Assert.IsNotNull(_state.CrossViewBackTarget);
+        Assert.AreEqual(TabId.Dynamic, _state.CrossViewBackTarget.Value.Tab);
 
         // The tracer must NOT have been replaced — Enter navigated, not re-ran
-        Assert.Same(tracer, _state.Tracer);
+        Assert.AreSame(tracer, _state.Tracer);
 
         cts.Cancel();
         await runTask;
@@ -3046,11 +3127,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 search editing hint shows rerun not go to il.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_SearchEditing_HintShowsRerunNotGoToIl()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -3088,13 +3170,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
 
         _state.DynamicEventsFocusedKey = eventKey;
-        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+        Assert.IsNotNull(DynamicAnalysisView.ResolveJitEventMethod(
             _state, tracer.GetEvents()));
         _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
-        // Confirm hint shows "Go to IL" before opening search
-        await auto.WaitUntilTextAsync("Go to IL");
+        await auto.WaitUntilAsync(_ =>
+            DynamicAnalysisView.ResolveJitEventMethod(_state!, tracer.GetEvents()) is not null,
+            description: "focused JIT event to resolve to IL");
 
         // Open search — Enter now confirms search, not navigates
         await auto.KeyAsync(Hex1bKey.OemQuestion, cts.Token);
@@ -3104,8 +3187,8 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilTextAsync("Re-run");
 
         // Tab must still be Dynamic — Enter did not navigate
-        Assert.Equal(TabId.Dynamic, _state.CurrentTab);
-        Assert.Same(tracer, _state.Tracer);
+        Assert.AreEqual(TabId.Dynamic, _state.CurrentTab);
+        Assert.AreSame(tracer, _state.Tracer);
 
         cts.Cancel();
         await runTask;
@@ -3114,11 +3197,12 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies tab8 enter during search editing confirms search not navigates.
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab8_EnterDuringSearchEditing_ConfirmsSearchNotNavigates()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldDll);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -3154,12 +3238,14 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         var eventKey = $"{targetEvent.Timestamp.Ticks}:{targetEvent.EventName}:" +
                        $"{targetEvent.Detail}:{targetEvent.MetadataToken}";
         _state.DynamicEventsFocusedKey = eventKey;
-        Assert.NotNull(DynamicAnalysisView.ResolveJitEventMethod(
+        Assert.IsNotNull(DynamicAnalysisView.ResolveJitEventMethod(
             _state, tracer.GetEvents()));
         _state.CanNavigateJitEvent = true;
         _state.App.Invalidate();
 
-        await auto.WaitUntilTextAsync("Go to IL");
+        await auto.WaitUntilAsync(_ =>
+            DynamicAnalysisView.ResolveJitEventMethod(_state!, tracer.GetEvents()) is not null,
+            description: "focused JIT event to resolve to IL");
 
         // Open search and type a query
         var search = _state.Search[TabId.Dynamic];
@@ -3168,17 +3254,17 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
         await auto.TypeAsync("Format", cts.Token);
         await auto.WaitUntilAsync(_ => search.Query == "Format");
 
-        Assert.True(search.IsActive);
-        Assert.False(search.IsConfirmed);
+        Assert.IsTrue(search.IsActive);
+        Assert.IsFalse(search.IsConfirmed);
 
         // Press Enter — should confirm search, NOT navigate to IL
         await auto.EnterAsync(cts.Token);
         await auto.WaitUntilAsync(_ => search.IsConfirmed);
 
-        Assert.True(search.IsConfirmed);
-        Assert.Equal("Format", search.Query);
-        Assert.Equal(TabId.Dynamic, _state.CurrentTab);
-        Assert.Same(tracer, _state.Tracer);
+        Assert.IsTrue(search.IsConfirmed);
+        Assert.AreEqual("Format", search.Query);
+        Assert.AreEqual(TabId.Dynamic, _state.CurrentTab);
+        Assert.AreSame(tracer, _state.Tracer);
 
         cts.Cancel();
         await runTask;
@@ -3189,12 +3275,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies apphost exe shows dialog.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ApphostExe_ShowsDialog()
     {
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldExe);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -3204,7 +3291,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state!.ApphostDialogOpen);
+        Assert.IsTrue(_state!.ApphostDialogOpen);
 
         cts.Cancel();
         await runTask;
@@ -3213,12 +3300,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies apphost exe enter navigates to managed dll.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ApphostExe_Enter_NavigatesToManagedDll()
     {
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldExe);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -3231,10 +3319,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.False(_state!.ApphostDialogOpen);
-        Assert.True(_state.Analyzer.HasMetadata);
-        Assert.Equal("HelloWorld.dll", _state.Analyzer.FileName);
-        Assert.Single(_state.NavigationStack);
+        Assert.IsFalse(_state!.ApphostDialogOpen);
+        Assert.IsTrue(_state.Analyzer.HasMetadata);
+        Assert.AreEqual("HelloWorld.dll", _state.Analyzer.FileName);
+        Assert.ContainsSingle(_state.NavigationStack);
 
         cts.Cancel();
         await runTask;
@@ -3243,12 +3331,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies apphost exe escape dismisses dialog.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ApphostExe_Escape_DismissesDialog()
     {
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldExe);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -3260,9 +3349,9 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.False(_state!.ApphostDialogOpen);
-        Assert.False(_state.Analyzer.HasMetadata);
-        Assert.Empty(_state.NavigationStack);
+        Assert.IsFalse(_state!.ApphostDialogOpen);
+        Assert.IsFalse(_state.Analyzer.HasMetadata);
+        Assert.IsEmpty(_state.NavigationStack);
 
         cts.Cancel();
         await runTask;
@@ -3271,12 +3360,13 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies apphost exe enter then back reshows dialog.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ApphostExe_Enter_ThenBack_ReshowsDialog()
     {
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var (terminal, app) = CreateDotsiderApp(samples.HelloWorldExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldExe);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -3290,7 +3380,7 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state!.Analyzer.HasMetadata);
+        Assert.IsTrue(_state!.Analyzer.HasMetadata);
 
         // Back out → should re-show the dialog on the apphost .exe
         await new Hex1bTerminalInputSequenceBuilder()
@@ -3299,10 +3389,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state.ApphostDialogOpen);
-        Assert.False(_state.Analyzer.HasMetadata);
-        Assert.NotNull(_state.ApphostCompanionDllPath);
-        Assert.Empty(_state.NavigationStack);
+        Assert.IsTrue(_state.ApphostDialogOpen);
+        Assert.IsFalse(_state.Analyzer.HasMetadata);
+        Assert.IsNotNull(_state.ApphostCompanionDllPath);
+        Assert.IsEmpty(_state.NavigationStack);
 
         cts.Cancel();
         await runTask;
@@ -3313,14 +3403,15 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// ReadyToRun format version, runtime version, native import summary) for a
     /// Native AOT executable.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_NativeAot_ShowsAotInfo()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -3337,23 +3428,23 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.True(_state!.IsNativeAot);
-        Assert.NotNull(_state.Analyzer.NativeAotInfo);
-        Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
-        Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
-        Assert.NotNull(_state.Analyzer.NativeSymbols);
-        Assert.NotEmpty(_state.Analyzer.NativeSymbols.Symbols);
+        Assert.IsTrue(_state!.IsNativeAot);
+        Assert.IsNotNull(_state.Analyzer.NativeAotInfo);
+        Assert.IsNotEmpty(_state.Analyzer.ReadyToRunSections);
+        Assert.IsNotEmpty(_state.Analyzer.RecoveredTypes);
+        Assert.IsNotNull(_state.Analyzer.NativeSymbols);
+        Assert.IsNotEmpty(_state.Analyzer.NativeSymbols.Symbols);
 
         cts.Cancel();
         await runTask;
     }
 
-    private string GetWasmNativePath()
+    private static string GetWasmNativePath()
     {
-        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+        TestSkip.When(Samples.WasmConsoleNativeWasm is null && Samples.ReadyToRunConsoleWasmNativeWasm is null,
             "browser-wasm publish did not run on this leg.");
 
-        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
+        return Samples.WasmConsoleNativeWasm ?? Samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>
@@ -3361,10 +3452,10 @@ public class StandardModeViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

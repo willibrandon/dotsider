@@ -12,9 +12,11 @@ namespace Dotsider.Tests;
 /// IL Inspector, and selecting a function must render its disassembly without an unhandled
 /// exception (which would crash the app and leave the terminal in a bad state).
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public sealed class NativeIlInspectorRenderTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bApp? _hex1bApp;
     private Hex1bTerminal? _terminal;
     private Hex1bAppWorkloadAdapter? _workload;
@@ -22,20 +24,21 @@ public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) 
     private CancellationTokenSource? _cts;
 
     /// <summary>Opens a Native AOT binary, enters the IL Inspector, selects a function, and asserts it renders without faulting.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeAot_SelectFunction_RendersDisassembly()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder().WithWorkload(_workload).WithHeadless().WithDimensions(120, 30).Build();
         DotsiderApp? app = null;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.NativeAotConsoleExe!);
+                _state ??= new DotsiderState(_hex1bApp!, Samples.NativeAotConsoleExe!);
                 app ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(app.Build(ctx));
             },
@@ -64,24 +67,25 @@ public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) 
             .Build()
             .ApplyAsync(_terminal, _cts.Token);
 
-        Assert.False(runTask.IsFaulted, runTask.Exception?.ToString());
+        Assert.IsFalse(runTask.IsFaulted, runTask.Exception?.ToString());
     }
 
     /// <summary>With a native function selected, the hints bar must offer go-to-definition and the native focus/hex hints — the same affordances managed mode shows, gated on the native symbol.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeAot_SelectFunction_ShowsGoToDefHint()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder().WithWorkload(_workload).WithHeadless().WithDimensions(160, 30).Build();
         DotsiderApp? app = null;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.NativeAotConsoleExe!);
+                _state ??= new DotsiderState(_hex1bApp!, Samples.NativeAotConsoleExe!);
                 app ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(app.Build(ctx));
             },
@@ -109,24 +113,25 @@ public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) 
             .Build()
             .ApplyAsync(_terminal, _cts.Token);
 
-        Assert.False(runTask.IsFaulted, runTask.Exception?.ToString());
+        Assert.IsFalse(runTask.IsFaulted, runTask.Exception?.ToString());
     }
 
     /// <summary>Navigating to another symbol and pressing Esc must restore the originating symbol AND its exact cursor offset — the same cursor/scroll preservation managed mode gives via <c>IlBackEntry</c>.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeAot_GoToDefThenBack_RestoresCursor()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null || !File.Exists(samples.NativeAotConsoleExe),
+        TestSkip.When(Samples.NativeAotConsoleExe is null || !File.Exists(Samples.NativeAotConsoleExe),
             "NativeAOT publish did not run on this leg.");
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder().WithWorkload(_workload).WithHeadless().WithDimensions(160, 40).Build();
         DotsiderApp? app = null;
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.NativeAotConsoleExe!);
+                _state ??= new DotsiderState(_hex1bApp!, Samples.NativeAotConsoleExe!);
                 app ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(app.Build(ctx));
             },
@@ -167,7 +172,7 @@ public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) 
             .WaitUntil(s => s.ContainsText($"0x{target.VirtualAddress:x}:"), TimeSpan.FromSeconds(10))
             .Build()
             .ApplyAsync(_terminal, _cts.Token);
-        Assert.Single(_state.IlNativeBackStack);
+        Assert.ContainsSingle(_state.IlNativeBackStack);
 
         _state.RestoreFromNativeBackEntry(_state.IlNativeBackStack.Pop());
         await new Hex1bTerminalInputSequenceBuilder()
@@ -175,9 +180,9 @@ public sealed class NativeIlInspectorRenderTests(SampleAssemblyFixture samples) 
             .Build()
             .ApplyAsync(_terminal, _cts.Token);
 
-        Assert.False(runTask.IsFaulted, runTask.Exception?.ToString());
-        Assert.Equal(origin.VirtualAddress, _state.IlSelectedNativeSymbol!.VirtualAddress);
-        Assert.Equal(recordedOffset, _state.IlEditorState.Cursor.Position.Value);
+        Assert.IsFalse(runTask.IsFaulted, runTask.Exception?.ToString());
+        Assert.AreEqual(origin.VirtualAddress, _state.IlSelectedNativeSymbol!.VirtualAddress);
+        Assert.AreEqual(recordedOffset, _state.IlEditorState.Cursor.Position.Value);
     }
 
     /// <inheritdoc />

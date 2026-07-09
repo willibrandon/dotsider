@@ -8,13 +8,15 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Creates the tests using the shared sample assembly fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class MetadataToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// get_pe_headers returns parsed PE header info without errors for a valid assembly.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetPeHeaders_ValidAssembly_ReturnsHeaders()
     {
         await StartServerAsync();
@@ -22,18 +24,18 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_pe_headers",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.HelloWorldDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.HelloWorldDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("Error", text);
     }
 
     /// <summary>
     /// get_clr_header returns CLR directory info without errors for a managed assembly.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetClrHeader_ValidAssembly_ReturnsClrInfo()
     {
         await StartServerAsync();
@@ -41,18 +43,18 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_clr_header",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.HelloWorldDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.HelloWorldDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("Error", text);
     }
 
     /// <summary>
     /// get_sections enumerates the PE section table as a non-empty JSON array.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSections_ValidAssembly_ReturnsSections()
     {
         await StartServerAsync();
@@ -60,19 +62,19 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_sections",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.RichLibraryDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var sections = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(sections.GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, sections.GetArrayLength());
     }
 
     /// <summary>
     /// get_custom_attributes returns at least one attribute for a real library.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCustomAttributes_ValidAssembly_ReturnsAttributes()
     {
         await StartServerAsync();
@@ -80,19 +82,19 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_custom_attributes",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.RichLibraryDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var attrs = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(attrs.GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, attrs.GetArrayLength());
     }
 
     /// <summary>
     /// By default, compiler-generated attributes like Nullable/CompilerGenerated are filtered out.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCustomAttributes_DefaultFiltering_ExcludesCompilerGenerated()
     {
         await StartServerAsync();
@@ -100,11 +102,11 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_custom_attributes",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.RichLibraryDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.RichLibraryDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("CompilerGeneratedAttribute", text);
         Assert.DoesNotContain("NullableContextAttribute", text);
         Assert.DoesNotContain("NullableAttribute", text);
@@ -114,7 +116,7 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     /// <summary>
     /// Opting in via includeCompilerGenerated re-exposes the noisy compiler attributes.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCustomAttributes_IncludeCompilerGenerated_ReturnsAll()
     {
         await StartServerAsync();
@@ -124,13 +126,13 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
             "get_custom_attributes",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["includeCompilerGenerated"] = true
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         // With includeCompilerGenerated=true, these should be present
         Assert.Contains("CompilerGeneratedAttribute", text);
     }
@@ -138,7 +140,7 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     /// <summary>
     /// The advertised tool schema surfaces the includeCompilerGenerated parameter to clients.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetCustomAttributes_ToolSchema_IncludesFilterParameter()
     {
         await StartServerAsync();
@@ -153,7 +155,7 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
     /// <summary>
     /// get_resources always returns a JSON array, even for assemblies with no embedded resources.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetResources_ValidAssembly_ReturnsResourceList()
     {
         await StartServerAsync();
@@ -161,19 +163,19 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
 
         var result = await client.CallToolAsync(
             "get_resources",
-            new Dictionary<string, object?> { ["assemblyPath"] = samples.HelloWorldDll },
+            new Dictionary<string, object?> { ["assemblyPath"] = Samples.HelloWorldDll },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
-        Assert.Equal(JsonValueKind.Array,
+        Assert.IsNotNull(text);
+        Assert.AreEqual(JsonValueKind.Array,
             JsonSerializer.Deserialize<JsonElement>(text).ValueKind);
     }
 
     /// <summary>
     /// resolve_token turns a raw metadata token into a human-readable member name.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task ResolveToken_ValidToken_ReturnsResolvedName()
     {
         await StartServerAsync();
@@ -184,15 +186,15 @@ public class MetadataToolsTests(SampleAssemblyFixture samples) : McpServerTestBa
             "resolve_token",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.HelloWorldDll,
+                ["assemblyPath"] = Samples.HelloWorldDll,
                 ["token"] = 0x02000002
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.TryGetProperty("resolved", out var resolved));
-        Assert.False(string.IsNullOrEmpty(resolved.GetString()));
+        Assert.IsTrue(json.TryGetProperty("resolved", out var resolved));
+        Assert.IsFalse(string.IsNullOrEmpty(resolved.GetString()));
     }
 }

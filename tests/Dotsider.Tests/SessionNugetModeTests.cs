@@ -12,18 +12,18 @@ namespace Dotsider.Tests;
 /// instances running in nuget mode, and that the diagnostics socket
 /// responds correctly to assembly-info, get-current-view, and CLI commands.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifetime
+[TestClass]
+public class SessionNugetModeTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = DetectBuildConfig();
 
-    // Use a high PID that won't collide with real processes
-    private const int NugetPid = 888_002;
-
-    private readonly SampleAssemblyFixture _samples = samples;
+    private readonly SampleAssemblyFixture _samples = Samples;
+    private int _nugetPid;
 
     // Mutable view state exposed to currentViewProvider
     private bool _isBrowsingPackage = true;
@@ -50,6 +50,7 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
     /// <summary>
     /// Prepares the fixture state before tests execute.
     /// </summary>
+    [TestInitialize]
     public async ValueTask InitializeAsync()
     {
         _packageAnalyzer = new NuGetPackageAnalyzer(_samples.RichLibraryNupkg);
@@ -75,7 +76,8 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
                 Tab = _selectedDllTab is { } t ? t + 1 : (int?)null,
                 SelectedDll = _selectedDllName,
             });
-        _listener.StartListening(overridePid: NugetPid);
+        _nugetPid = TestSocketIds.NextPid();
+        _listener.StartListening(overridePid: _nugetPid);
 
         await Task.CompletedTask;
     }
@@ -83,11 +85,12 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
     /// <summary>
     /// Releases fixture state after tests complete.
     /// </summary>
+    [TestCleanup]
     public async ValueTask DisposeAsync()
     {
-        GC.SuppressFinalize(this);
-        await _listener.DisposeAsync();
-        _packageAnalyzer.Dispose();
+        if (_listener is not null)
+            await _listener.DisposeAsync();
+        _packageAnalyzer?.Dispose();
     }
 
     // --- Session discovery tests ---
@@ -95,31 +98,32 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
     /// <summary>
     /// Verifies sessions list finds nuget mode instance.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsList_FindsNugetModeInstance()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync("sessions", "list", "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var sessions = JsonSerializer.Deserialize<JsonElement>(stdout);
-        Assert.Equal(JsonValueKind.Array, sessions.ValueKind);
+        Assert.AreEqual(JsonValueKind.Array, sessions.ValueKind);
 
-        var nugetSession = FindSessionByPid(sessions, NugetPid);
-        Assert.NotNull(nugetSession);
-        Assert.Equal("nuget", nugetSession.Value.GetProperty("mode").GetString());
-        Assert.Contains(".nupkg", nugetSession.Value.GetProperty("fileName").GetString());
+        var nugetSession = FindSessionByPid(sessions, _nugetPid);
+        Assert.IsNotNull(nugetSession);
+        Assert.AreEqual("nuget", nugetSession.Value.GetProperty("mode").GetString());
+        Assert.Contains(".nupkg", nugetSession.Value.GetProperty("fileName").GetString()!);
     }
 
     /// <summary>
     /// Verifies sessions list table output shows nuget mode.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsList_TableOutput_ShowsNugetMode()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync("sessions", "list");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("Mode", stdout);
+        Assert.Contains(_nugetPid.ToString(), stdout);
         Assert.Contains("nuget", stdout);
     }
 
@@ -128,55 +132,55 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
     /// <summary>
     /// Verifies nuget listener responds with real package data.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NugetListener_RespondsWithRealPackageData()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var response = await DotsiderClient.TryProbeAsync(
-            SessionDiscovery.GetDotsiderSocketPath(NugetPid), ct);
+            SessionDiscovery.GetDotsiderSocketPath(_nugetPid), ct);
 
-        Assert.NotNull(response);
-        Assert.True(response.Success);
+        Assert.IsNotNull(response);
+        Assert.IsTrue(response.Success);
 
         var data = response.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
 
         // Verify real package data is present
-        Assert.Equal("RichLibrary", data.Value.GetProperty("packageId").GetString());
-        Assert.Equal("2.5.1", data.Value.GetProperty("packageVersion").GetString());
-        Assert.True(data.Value.GetProperty("dllCount").GetInt32() > 0);
+        Assert.AreEqual("RichLibrary", data.Value.GetProperty("packageId").GetString());
+        Assert.AreEqual("2.5.1", data.Value.GetProperty("packageVersion").GetString());
+        Assert.IsGreaterThan(0, data.Value.GetProperty("dllCount").GetInt32());
     }
 
     /// <summary>
     /// Verifies nuget listener returns current view browsing package.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NugetListener_ReturnsCurrentView_BrowsingPackage()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = SessionDiscovery.GetDotsiderSocketPath(NugetPid);
+        var ct = CancellationToken.None;
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(_nugetPid);
 
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
         var data = response.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.True(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
         // Tab is null when browsing package — omitted from JSON (WhenWritingNull)
-        Assert.False(data.Value.TryGetProperty("tab", out _));
+        Assert.IsFalse(data.Value.TryGetProperty("tab", out _));
     }
 
     /// <summary>
     /// Verifies nuget listener returns current view dll selected.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NugetListener_ReturnsCurrentView_DllSelected()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = SessionDiscovery.GetDotsiderSocketPath(NugetPid);
+        var ct = CancellationToken.None;
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(_nugetPid);
 
         // Simulate DLL selection
         _isBrowsingPackage = false;
@@ -186,28 +190,28 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
         var data = response.Data as JsonElement?;
-        Assert.NotNull(data);
-        Assert.Equal("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.False(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.Equal(TabId.Strings + 1, data.Value.GetProperty("tab").GetInt32());
-        Assert.Equal("RichLibrary.dll", data.Value.GetProperty("selectedDll").GetString());
+        Assert.IsNotNull(data);
+        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(TabId.Strings + 1, data.Value.GetProperty("tab").GetInt32());
+        Assert.AreEqual("RichLibrary.dll", data.Value.GetProperty("selectedDll").GetString());
     }
 
     /// <summary>
     /// Verifies nuget listener rejects unsupported methods.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NugetListener_RejectsUnsupportedMethods()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var socketPath = SessionDiscovery.GetDotsiderSocketPath(NugetPid);
+        var ct = CancellationToken.None;
+        var socketPath = SessionDiscovery.GetDotsiderSocketPath(_nugetPid);
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "list-types" }, ct);
 
         // Should fail because nuget mode has no DotsiderState
-        Assert.False(response.Success);
+        Assert.IsFalse(response.Success);
     }
 
     // --- CLI sessions info/view tests ---
@@ -215,43 +219,43 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
     /// <summary>
     /// Verifies sessions info returns nuget mode data.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsInfo_ReturnsNugetModeData()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "info", NugetPid.ToString(), "--json");
+            "sessions", "info", _nugetPid.ToString(), "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
 
         // assembly-info portion
         var info = root.GetProperty("assemblyInfo");
-        Assert.Equal("nuget", info.GetProperty("mode").GetString());
-        Assert.Equal("RichLibrary", info.GetProperty("packageId").GetString());
-        Assert.True(info.GetProperty("dllCount").GetInt32() > 0);
+        Assert.AreEqual("nuget", info.GetProperty("mode").GetString());
+        Assert.AreEqual("RichLibrary", info.GetProperty("packageId").GetString());
+        Assert.IsGreaterThan(0, info.GetProperty("dllCount").GetInt32());
 
         // get-current-view portion
         var view = root.GetProperty("currentView");
-        Assert.Equal("nuget", view.GetProperty("mode").GetString());
-        Assert.True(view.TryGetProperty("isBrowsingPackage", out _));
+        Assert.AreEqual("nuget", view.GetProperty("mode").GetString());
+        Assert.IsTrue(view.TryGetProperty("isBrowsingPackage", out _));
     }
 
     /// <summary>
     /// Verifies sessions view returns nuget mode view state.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SessionsView_ReturnsNugetModeViewState()
     {
         var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "view", NugetPid.ToString(), "--json");
+            "sessions", "view", _nugetPid.ToString(), "--json");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
 
-        Assert.Equal("nuget", root.GetProperty("mode").GetString());
-        Assert.True(root.TryGetProperty("isBrowsingPackage", out _));
+        Assert.AreEqual("nuget", root.GetProperty("mode").GetString());
+        Assert.IsTrue(root.TryGetProperty("isBrowsingPackage", out _));
     }
 
     // --- Helpers ---
@@ -278,6 +282,7 @@ public class SessionNugetModeTests(SampleAssemblyFixture samples) : IAsyncLifeti
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();

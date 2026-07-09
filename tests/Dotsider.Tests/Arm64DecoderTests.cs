@@ -9,6 +9,7 @@ namespace Dotsider.Tests;
 /// (mov/cmp/cmn/tst/neg/mul/lsl/ubfx/cset) — cross-checked against Capstone. Every A64 instruction
 /// is four bytes, so the fixed length is asserted throughout.
 /// </summary>
+[TestClass]
 public class Arm64DecoderTests
 {
     private static NativeInstruction One(uint word)
@@ -24,81 +25,86 @@ public class Arm64DecoderTests
     }
 
     /// <summary>Decodes representative A64 base instructions to their mnemonics and operands.</summary>
-    [Theory(Timeout = 30_000)]
-    [InlineData("ret", "", 0xD65F03C0u)]
-    [InlineData("nop", "", 0xD503201Fu)]
-    [InlineData("add", "x0, x1, x2", 0x8B020020u)]
-    [InlineData("add", "x0, x1, #0x4", 0x91001020u)]
-    [InlineData("mov", "x0, #0x1", 0xD2800020u)]
-    [InlineData("mov", "x0, x1", 0xAA0103E0u)]
-    [InlineData("cmp", "x0, #0x0", 0xF100001Fu)]
-    [InlineData("cmp", "x0, x1", 0xEB01001Fu)]
-    [InlineData("mul", "x0, x1, x2", 0x9B027C20u)]
-    [InlineData("lsl", "x0, x1, #0x4", 0xD37CEC20u)]
-    [InlineData("ubfx", "w0, w1, #0x1c, #0x1", 0x531C7020u)]
-    [InlineData("udiv", "w0, w1, w2", 0x1AC20820u)]
-    [InlineData("csel", "x0, x1, x2, eq", 0x9A820020u)]
-    [InlineData("cset", "w0, eq", 0x1A9F17E0u)]
-    [InlineData("tst", "x0, x1", 0xEA01001Fu)]
-    [InlineData("neg", "x0, x1", 0xCB0103E0u)]
-    [InlineData("and", "x0, x1, #0xff", 0x92401C20u)]
-    [InlineData("udf", "#0x0", 0x00000000u)]
-    [InlineData("udf", "#0x1", 0x00000001u)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow("ret", "", 0xD65F03C0u)]
+    [DataRow("nop", "", 0xD503201Fu)]
+    [DataRow("add", "x0, x1, x2", 0x8B020020u)]
+    [DataRow("add", "x0, x1, #0x4", 0x91001020u)]
+    [DataRow("mov", "x0, #0x1", 0xD2800020u)]
+    [DataRow("mov", "x0, x1", 0xAA0103E0u)]
+    [DataRow("cmp", "x0, #0x0", 0xF100001Fu)]
+    [DataRow("cmp", "x0, x1", 0xEB01001Fu)]
+    [DataRow("mul", "x0, x1, x2", 0x9B027C20u)]
+    [DataRow("lsl", "x0, x1, #0x4", 0xD37CEC20u)]
+    [DataRow("ubfx", "w0, w1, #0x1c, #0x1", 0x531C7020u)]
+    [DataRow("udiv", "w0, w1, w2", 0x1AC20820u)]
+    [DataRow("csel", "x0, x1, x2, eq", 0x9A820020u)]
+    [DataRow("cset", "w0, eq", 0x1A9F17E0u)]
+    [DataRow("tst", "x0, x1", 0xEA01001Fu)]
+    [DataRow("neg", "x0, x1", 0xCB0103E0u)]
+    [DataRow("and", "x0, x1, #0xff", 0x92401C20u)]
+    [DataRow("udf", "#0x0", 0x00000000u)]
+    [DataRow("udf", "#0x1", 0x00000001u)]
     public void Decode_Base_MnemonicAndOperands(string mnemonic, string operands, uint word)
     {
         var insn = One(word);
-        Assert.False(insn.IsFallback);
-        Assert.Equal(mnemonic, insn.Mnemonic);
-        Assert.Equal(operands, insn.OperandText);
-        Assert.Equal(4, insn.Length);
+        Assert.IsFalse(insn.IsFallback);
+        Assert.AreEqual(mnemonic, insn.Mnemonic);
+        Assert.AreEqual(operands, insn.OperandText);
+        Assert.AreEqual(4, insn.Length);
     }
 
     /// <summary>Verifies direct branches compute the absolute target and the flow kind.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Decode_Branches_ResolveTargetAndFlow()
     {
         var bl = One(0x94000010u);      // bl +0x40
-        Assert.Equal(0x1040UL, bl.TargetAddress);
-        Assert.Equal(NativeFlowKind.Call, bl.Flow);
+        Assert.AreEqual(0x1040UL, bl.TargetAddress);
+        Assert.AreEqual(NativeFlowKind.Call, bl.Flow);
 
         var beq = One(0x54000040u);     // b.eq +8
-        Assert.Equal("b.eq", beq.Mnemonic);
-        Assert.Equal(0x1008UL, beq.TargetAddress);
-        Assert.Equal(NativeFlowKind.ConditionalBranch, beq.Flow);
+        Assert.AreEqual("b.eq", beq.Mnemonic);
+        Assert.AreEqual(0x1008UL, beq.TargetAddress);
+        Assert.AreEqual(NativeFlowKind.ConditionalBranch, beq.Flow);
 
         var cbz = One(0xB4000040u);     // cbz x0, +8
-        Assert.Equal(NativeFlowKind.ConditionalBranch, cbz.Flow);
+        Assert.AreEqual(NativeFlowKind.ConditionalBranch, cbz.Flow);
 
         var ret = One(0xD65F03C0u);
-        Assert.Equal(NativeFlowKind.Return, ret.Flow);
+        Assert.AreEqual(NativeFlowKind.Return, ret.Flow);
     }
 
     /// <summary>Verifies adrp computes the page-aligned target off the aligned instruction address.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Decode_Adrp_ComputesPageTarget()
     {
         var insn = One(0x90000000u); // adrp x0, page(0)
-        Assert.Equal("adrp", insn.Mnemonic);
-        Assert.Equal(0x1000UL, insn.TargetAddress);
+        Assert.AreEqual("adrp", insn.Mnemonic);
+        Assert.AreEqual(0x1000UL, insn.TargetAddress);
     }
 
     /// <summary>Verifies ADR/ADRP concatenate immhi:immlo in architectural order.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Decode_AdrAndAdrp_UsesImmhiImmloOrder()
     {
         var adr = One(0x10000440u); // adr x0, +0x88
-        Assert.Equal("adr", adr.Mnemonic);
-        Assert.Equal(0x1088UL, adr.TargetAddress);
+        Assert.AreEqual("adr", adr.Mnemonic);
+        Assert.AreEqual(0x1088UL, adr.TargetAddress);
 
         // Real osx-arm64 R2R import-slot pattern: llvm-objdump decodes this as
         // "adrp x11, 0x180032000" at 0x180010e28.
         var adrp = OneAt(0xD000010Bu, 0x180010E28UL);
-        Assert.Equal("adrp", adrp.Mnemonic);
-        Assert.Equal(0x180032000UL, adrp.TargetAddress);
+        Assert.AreEqual("adrp", adrp.Mnemonic);
+        Assert.AreEqual(0x180032000UL, adrp.TargetAddress);
     }
 
     /// <summary>Verifies an arm64 import-slot call sequence is named structurally.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Decode_Arm64ImportSlotCall_ResolvesTargetName()
     {
         byte[] code =
@@ -125,20 +131,21 @@ public class Arm64DecoderTests
             code, 0x180010E28UL, NativeArchitecture.Arm64, Resolve);
 
         var branch = instructions[^1];
-        Assert.Equal("blr", branch.Mnemonic);
-        Assert.Equal(NativeTargetKind.Import, branch.TargetKind);
-        Assert.Equal("Console.WriteLine", branch.TargetName);
+        Assert.AreEqual("blr", branch.Mnemonic);
+        Assert.AreEqual(NativeTargetKind.Import, branch.TargetKind);
+        Assert.AreEqual("Console.WriteLine", branch.TargetName);
     }
 
     /// <summary>Verifies an unallocated word decodes as a 4-byte .word that never desyncs.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Decode_Unallocated_EmitsWord()
     {
         // bits[28:25] = 0b0001 is an unallocated top-level class (no decode group), so it desyncs
         // into a .word. 0x00000000 is deliberately NOT used here — it is udf #0, a defined encoding.
         var insn = One(0x02000000u);
-        Assert.True(insn.IsFallback);
-        Assert.Equal(".word", insn.Mnemonic);
-        Assert.Equal(4, insn.Length);
+        Assert.IsTrue(insn.IsFallback);
+        Assert.AreEqual(".word", insn.Mnemonic);
+        Assert.AreEqual(4, insn.Length);
     }
 }

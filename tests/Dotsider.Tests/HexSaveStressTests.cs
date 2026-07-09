@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Hex Save Stress.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class HexSaveStressTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -61,19 +63,20 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies locked file falls back to tmp path.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task LockedFile_FallsBackToTmpPath()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
-        File.Copy(samples.HelloWorldDll, tempDll);
+        File.Copy(Samples.HelloWorldDll, tempDll);
         FileStream? fileLock = null;
 
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            var ct = TestContext.Current.CancellationToken;
+            var ct = CancellationToken.None;
             var runTask = app.RunAsync(ct);
             await Task.Delay(100, ct);
 
@@ -110,9 +113,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .Build()
                 .ApplyAsync(terminal, ct);
 
-            Assert.Contains("could not overwrite original", _state!.HexNotification);
-            Assert.True(File.Exists(tempDll + ".tmp"), ".tmp file should remain after fallback");
-            Assert.False(_state.HexIsDirty);
+            Assert.Contains("could not overwrite original", _state!.HexNotification!);
+            Assert.IsTrue(File.Exists(tempDll + ".tmp"), ".tmp file should remain after fallback");
+            Assert.IsFalse(_state.HexIsDirty);
 
             await runTask.ContinueWith(_ => { }, ct);
         }
@@ -135,18 +138,19 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies invalid edit rejects corrupted pe.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task InvalidEdit_RejectsCorruptedPe()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
-        File.Copy(samples.HelloWorldDll, tempDll);
+        File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             var runTask = app.RunAsync(cts.Token);
             await Task.Delay(100, cts.Token);
 
@@ -169,11 +173,11 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .ApplyAsync(terminal, cts.Token);
 
             await Task.Delay(100, cts.Token);
-            Assert.Contains("invalid image", _state!.HexNotification);
-            Assert.False(File.Exists(tempDll + ".tmp"), ".tmp should be cleaned up after validation failure");
-            Assert.True(_state.HexIsDirty, "Document should still be dirty after failed save");
+            Assert.Contains("invalid image", _state!.HexNotification!);
+            Assert.IsFalse(File.Exists(tempDll + ".tmp"), ".tmp should be cleaned up after validation failure");
+            Assert.IsTrue(_state.HexIsDirty, "Document should still be dirty after failed save");
             // Analyzer should still be functional (never disposed during Phase 1 failure)
-            Assert.Equal(tempDll, _state.Analyzer.FilePath);
+            Assert.AreEqual(tempDll, _state.Analyzer.FilePath);
 
             cts.Cancel();
             await runTask;
@@ -187,18 +191,19 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies double save no dirty state after first.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DoubleSave_NoDirtyStateAfterFirst()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
-        File.Copy(samples.HelloWorldDll, tempDll);
+        File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempDll);
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             var runTask = app.RunAsync(cts.Token);
             await Task.Delay(100, cts.Token);
 
@@ -213,9 +218,9 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .ApplyAsync(terminal, cts.Token);
 
             await Task.Delay(100, cts.Token);
-            Assert.False(_state!.HexIsDirty, "Should not be dirty after save");
-            Assert.Equal(HexEditMode.Normal, _state.HexMode);
-            Assert.Contains("written", _state.HexNotification);
+            Assert.IsFalse(_state!.HexIsDirty, "Should not be dirty after save");
+            Assert.AreEqual(HexEditMode.Normal, _state.HexMode);
+            Assert.Contains("written", _state.HexNotification!);
 
             // Send another Ctrl+S — the binding guard (HexIsDirty) prevents it.
             // Use E (toggle endianness) as a sentinel: if the app processes E,
@@ -231,8 +236,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .ApplyAsync(terminal, cts.Token);
 
             await Task.Delay(100, cts.Token);
-            Assert.Null(_state.HexNotification);
-            Assert.False(File.Exists(tempDll + ".tmp"), "No .tmp should be created on non-dirty save");
+            Assert.IsNull(_state.HexNotification);
+            Assert.IsFalse(File.Exists(tempDll + ".tmp"), "No .tmp should be created on non-dirty save");
 
             cts.Cancel();
             await runTask;
@@ -246,7 +251,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies native binary hex save succeeds.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeBinary_HexSave_Succeeds()
     {
         // Copy ONLY the apphost (no companion DLL) so there's no apphost
@@ -254,12 +260,12 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempFile = Path.Combine(tempDir, "HelloWorld");
-        File.Copy(samples.HelloWorldExe, tempFile);
+        File.Copy(Samples.HelloWorldExe, tempFile);
 
         try
         {
             var (terminal, app) = CreateDotsiderApp(tempFile);
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             var runTask = app.RunAsync(cts.Token);
             await Task.Delay(100, cts.Token);
 
@@ -281,8 +287,8 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
                 .Build()
                 .ApplyAsync(terminal, cts.Token);
 
-            Assert.Contains("written", _state!.HexNotification);
-            Assert.False(_state.HexIsDirty);
+            Assert.Contains("written", _state!.HexNotification!);
+            Assert.IsFalse(_state.HexIsDirty);
 
             cts.Cancel();
             await runTask;
@@ -296,57 +302,58 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies in memory analyzer functions without disk.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void InMemoryAnalyzer_FunctionsWithoutDisk()
     {
         // Unit test for the in-memory fallback path that SaveHexChanges uses
         // when all disk candidates are exhausted
-        var originalBytes = File.ReadAllBytes(samples.HelloWorldDll);
+        var originalBytes = File.ReadAllBytes(Samples.HelloWorldDll);
         var fakePath = "/nonexistent/path/HelloWorld.dll";
 
         using var analyzer = new AssemblyAnalyzer(originalBytes, fakePath);
 
-        Assert.Equal(fakePath, analyzer.FilePath);
-        Assert.Equal("HelloWorld.dll", analyzer.FileName);
-        Assert.Equal(originalBytes.Length, analyzer.FileSize);
-        Assert.True(analyzer.HasMetadata);
-        Assert.NotNull(analyzer.AssemblyName);
-        Assert.True(analyzer.RawBytes.Length > 0);
+        Assert.AreEqual(fakePath, analyzer.FilePath);
+        Assert.AreEqual("HelloWorld.dll", analyzer.FileName);
+        Assert.AreEqual(originalBytes.Length, analyzer.FileSize);
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.IsNotNull(analyzer.AssemblyName);
+        Assert.IsGreaterThan(0, analyzer.RawBytes.Length);
     }
 
     /// <summary>
     /// Verifies in memory analyzer native binary save recovery path.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void InMemoryAnalyzer_NativeBinary_SaveRecoveryPath()
     {
         // Simulates the byte-array fallback in SaveHexChanges: after a hex
         // edit on a native binary (apphost/NativeAOT), all disk candidates
         // are exhausted and the analyzer is reconstructed from memory.
-        var originalBytes = File.ReadAllBytes(samples.HelloWorldExe);
+        var originalBytes = File.ReadAllBytes(Samples.HelloWorldExe);
 
         // Simulate a hex edit: modify a byte in the native binary
         var editedBytes = originalBytes.ToArray();
         editedBytes[4] = 0xFF;
 
-        using var analyzer = new AssemblyAnalyzer(editedBytes, samples.HelloWorldExe);
+        using var analyzer = new AssemblyAnalyzer(editedBytes, Samples.HelloWorldExe);
 
-        Assert.Equal(samples.HelloWorldExe, analyzer.FilePath);
-        Assert.Equal(editedBytes.Length, analyzer.FileSize);
-        Assert.False(analyzer.HasMetadata);
-        Assert.False(analyzer.RawBytes.IsEmpty);
-        Assert.Equal(0xFF, analyzer.RawBytes.Span[4]);
+        Assert.AreEqual(Samples.HelloWorldExe, analyzer.FilePath);
+        Assert.AreEqual(editedBytes.Length, analyzer.FileSize);
+        Assert.IsFalse(analyzer.HasMetadata);
+        Assert.IsFalse(analyzer.RawBytes.IsEmpty);
+        Assert.AreEqual(0xFF, analyzer.RawBytes.Span[4]);
     }
 
     /// <summary>
     /// Verifies reopen or fallback all candidates fail returns in memory analyzer.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ReopenOrFallback_AllCandidatesFail_ReturnsInMemoryAnalyzer()
     {
         // Exercises the candidate loop + byte-array fallback with all
         // non-existent paths so the in-memory branch triggers.
-        var originalBytes = File.ReadAllBytes(samples.HelloWorldExe);
+        var originalBytes = File.ReadAllBytes(Samples.HelloWorldExe);
         var editedBytes = originalBytes.ToArray();
         editedBytes[4] = 0xFF;
 
@@ -358,22 +365,23 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         ];
 
         var (analyzer, resolvedPath) = DotsiderApp.ReopenOrFallback(
-            bogusPath, editedBytes, samples.HelloWorldExe);
+            bogusPath, editedBytes, Samples.HelloWorldExe);
 
         using (analyzer)
         {
-            Assert.Null(resolvedPath);
-            Assert.Equal(samples.HelloWorldExe, analyzer.FilePath);
-            Assert.False(analyzer.HasMetadata);
-            Assert.Equal(editedBytes.Length, analyzer.FileSize);
-            Assert.Equal(0xFF, analyzer.RawBytes.Span[4]);
+            Assert.IsNull(resolvedPath);
+            Assert.AreEqual(Samples.HelloWorldExe, analyzer.FilePath);
+            Assert.IsFalse(analyzer.HasMetadata);
+            Assert.AreEqual(editedBytes.Length, analyzer.FileSize);
+            Assert.AreEqual(0xFF, analyzer.RawBytes.Span[4]);
         }
     }
 
     /// <summary>
     /// Verifies save hex changes native binary memory fallback sets notification.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void SaveHexChanges_NativeBinary_MemoryFallbackSetsNotification()
     {
         // Drives SaveHexChanges through the resolvedPath == null branch by
@@ -382,7 +390,7 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var tempFile = Path.Combine(tempDir, "HelloWorld");
-        File.Copy(samples.HelloWorldExe, tempFile);
+        File.Copy(Samples.HelloWorldExe, tempFile);
 
         try
         {
@@ -402,16 +410,16 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
             _state.HexEditorState.Document.ApplyBytes(
                 new ByteReplaceOperation(4, 1, [0xFF]));
             _state.HexEditorState.IsReadOnly = true;
-            Assert.True(_state.HexIsDirty);
+            Assert.IsTrue(_state.HexIsDirty);
 
             // Inject a reopener that simulates all disk candidates failing
             DotsiderApp.SaveHexChanges(_state,
                 reopener: (_, bytes, path) => (new AssemblyAnalyzer(bytes, path), null));
 
-            Assert.Equal("Saved (working from memory — file may be locked)", _state.HexNotification);
-            Assert.False(_state.HexIsDirty);
-            Assert.False(_state.Analyzer.HasMetadata);
-            Assert.Equal(0xFF, _state.Analyzer.RawBytes.Span[4]);
+            Assert.AreEqual("Saved (working from memory — file may be locked)", _state.HexNotification);
+            Assert.IsFalse(_state.HexIsDirty);
+            Assert.IsFalse(_state.Analyzer.HasMetadata);
+            Assert.AreEqual(0xFF, _state.Analyzer.RawBytes.Span[4]);
         }
         finally
         {
@@ -424,10 +432,10 @@ public class HexSaveStressTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

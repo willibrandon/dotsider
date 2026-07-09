@@ -14,31 +14,33 @@ namespace Dotsider.Tests;
 /// on a headless 120×30 terminal over the real V1/V2 mstat pair, plus direct tests of the
 /// filter, weight, why-chain, and symbol-resolution logic against the same real data.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class SizeDiffViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private SizeDiffState? _state;
 
-    private (MstatSource V1, MstatSource V2) ResolvePair(bool binaries = false)
+    private static (MstatSource V1, MstatSource V2) ResolvePair(bool binaries = false)
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "V1 mstat sidecar was not produced");
-        Assert.SkipWhen(samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "V1 mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
 
-        var leftPath = binaries ? samples.NativeAotConsoleExe : samples.NativeAotConsoleMstat;
-        var rightPath = binaries ? samples.NativeAotConsoleV2Exe : samples.NativeAotConsoleV2Mstat;
+        var leftPath = binaries ? Samples.NativeAotConsoleExe : Samples.NativeAotConsoleMstat;
+        var rightPath = binaries ? Samples.NativeAotConsoleV2Exe : Samples.NativeAotConsoleV2Mstat;
         if (binaries)
         {
-            Assert.SkipWhen(leftPath is null, "V1 AOT binary was not produced");
-            Assert.SkipWhen(rightPath is null, "V2 AOT binary was not produced");
+            TestSkip.When(leftPath is null, "V1 AOT binary was not produced");
+            TestSkip.When(rightPath is null, "V2 AOT binary was not produced");
         }
 
         var left = MstatLocator.Resolve(leftPath!);
         var right = MstatLocator.Resolve(rightPath!);
-        Assert.NotNull(left);
-        Assert.NotNull(right);
+        Assert.IsNotNull(left);
+        Assert.IsNotNull(right);
         return (left, right);
     }
 
@@ -71,12 +73,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Map tabs — never the managed diff's empty Types/Methods/References tables — with the
     /// treemap tab active and the signed total delta in the title bar.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffApp_MstatPair_ShowsSizeTabsOnly()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -102,12 +105,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the delta treemap tiles its full area with no uncovered cells — the same
     /// coverage guarantee the single-build Size Map holds (#134), under the |Δ| weighting.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffTreemap_FillsAreaNoGaps()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -150,8 +154,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
             return true;
         }, description: "delta treemap rendered with measurable bounds");
 
-        Assert.True(totalTreemapCells > 0, "Could not locate treemap area");
-        Assert.Equal(0, uncoveredCells);
+        Assert.IsGreaterThan(0, totalTreemapCells, "Could not locate treemap area");
+        Assert.AreEqual(0, uncoveredCells);
 
         cts.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -161,12 +165,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies drill-down and breadcrumb restore: Enter on a selected subtree descends (the
     /// breadcrumb gains a level), Esc pops back to the root level.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffTreemap_DrillEnter_EscRestoresLevel()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -195,12 +200,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies f cycles all five direction filters and the drill state resets with each
     /// switch — the filtered tree is a different tree.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffTreemap_FilterKeyCyclesFiveModes()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -220,12 +226,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the w binding opens the why popup for the targeted node.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffTreemap_WhyKey_OpensPopup()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -244,11 +251,11 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
             popupSnapshot = s;
             return true;
         }, description: "why popup rendered");
-        Assert.NotNull(_state!.WhyContent);
+        Assert.IsNotNull(_state!.WhyContent);
         AssertPopupSurfaceReadable(popupSnapshot!, "Why in binary", "[right/current:");
         var selectedBeforeDismiss = _state.TreemapSelectedIndex;
         var visibleCount = (_state.TreemapCurrentLevel ?? _state.FilteredRoot)!.Children.Count;
-        Assert.True(visibleCount > 1, "The fixture must expose more than one treemap item.");
+        Assert.IsGreaterThan(1, visibleCount, "The fixture must expose more than one treemap item.");
         var expectedSelection = (selectedBeforeDismiss + 1) % visibleCount;
 
         await auto.KeyAsync(Hex1bKey.Escape, ct: cts.Token);
@@ -268,12 +275,13 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the d binding opens the disassembly popup, and that a bare-mstat pair states
     /// honestly that there is no binary to disassemble.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SizeDiffTreemap_DisasmKey_BareMstatPair_ExplainsNoBinary()
     {
         var (v1, v2) = ResolvePair();
         var (terminal, app) = CreateSizeDiffApp(v1, v2);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -304,7 +312,7 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
 
     // --- Direct logic tests (no terminal) over the same real diff ---
 
-    private MstatDiffResult DiffV1V2()
+    private static MstatDiffResult DiffV1V2()
     {
         var (v1, v2) = ResolvePair();
         return MstatDiffer.Compare(v1.Data, v2.Data);
@@ -315,7 +323,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// accessor and drops the added namespace; Added does the reverse; interior sums are
     /// recomputed from the surviving children.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ApplyFilter_DirectionsPartitionEntries()
     {
         var diff = DiffV1V2();
@@ -329,10 +338,10 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         {
             if (node.Children.Count == 0) return;
 
-            Assert.Equal(
+            Assert.AreSequenceEqual(
                 node.Children.SelectMany(c => c.LeftNodeNames).Distinct(StringComparer.Ordinal),
                 node.LeftNodeNames);
-            Assert.Equal(
+            Assert.AreSequenceEqual(
                 node.Children.SelectMany(c => c.RightNodeNames).Distinct(StringComparer.Ordinal),
                 node.RightNodeNames);
             foreach (var child in node.Children)
@@ -348,27 +357,27 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         AssertRecomputedNodeNames(diff.Root);
 
         var removed = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Removed);
-        Assert.True(ContainsLeaf(removed, n => n.FullPath == GetNamePath));
-        Assert.False(ContainsLeaf(removed, n => n.FullPath.Contains("Telemetry")));
-        Assert.All(removed.Children, AssertRecomputedSums);
-        Assert.All(removed.Children, n => AssertAllDirections(n, DiffKind.Removed));
+        Assert.IsTrue(ContainsLeaf(removed, n => n.FullPath == GetNamePath));
+        Assert.IsFalse(ContainsLeaf(removed, n => n.FullPath.Contains("Telemetry")));
+        TestAssert.All(removed.Children, AssertRecomputedSums);
+        TestAssert.All(removed.Children, n => AssertAllDirections(n, DiffKind.Removed));
         AssertRecomputedNodeNames(removed);
 
         var added = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Added);
-        Assert.False(ContainsLeaf(added, n => n.FullPath == GetNamePath));
-        Assert.True(ContainsLeaf(added, n => n.FullPath.Contains("Telemetry")));
-        Assert.All(added.Children, n => AssertAllDirections(n, DiffKind.Added));
+        Assert.IsFalse(ContainsLeaf(added, n => n.FullPath == GetNamePath));
+        Assert.IsTrue(ContainsLeaf(added, n => n.FullPath.Contains("Telemetry")));
+        TestAssert.All(added.Children, n => AssertAllDirections(n, DiffKind.Added));
         AssertRecomputedNodeNames(added);
 
         var grown = SizeDiffTreemapView.ApplyFilter(diff.Root, SizeDiffFilterMode.Grown);
-        Assert.True(ContainsLeaf(grown, n => n.FullPath == GreetStringPath));
-        Assert.False(ContainsLeaf(grown, n => n.FullPath == GetNamePath));
+        Assert.IsTrue(ContainsLeaf(grown, n => n.FullPath == GreetStringPath));
+        Assert.IsFalse(ContainsLeaf(grown, n => n.FullPath == GetNamePath));
         AssertRecomputedNodeNames(grown);
 
         static void AssertRecomputedSums(SizeDiffNode node)
         {
             if (node.Children.Count == 0) return;
-            Assert.Equal(node.Children.Sum(c => c.Delta), node.Delta);
+            Assert.AreEqual(node.Children.Sum(c => c.Delta), node.Delta);
             foreach (var child in node.Children)
                 AssertRecomputedSums(child);
         }
@@ -378,7 +387,7 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         // to be grown/shrunk when everything visible beneath it is added or removed.
         static void AssertAllDirections(SizeDiffNode node, DiffKind expected)
         {
-            Assert.Equal(expected, node.Diff);
+            Assert.AreEqual(expected, node.Diff);
             foreach (var child in node.Children)
                 AssertAllDirections(child, expected);
         }
@@ -389,7 +398,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// build's body first, then the baseline's — while one-sided entries offer only their
     /// own side.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void DisasmCandidates_ChangedEntry_CoversBothSides()
     {
         var diff = DiffV1V2();
@@ -406,17 +416,17 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         }
 
         var grown = FindLeaf(diff.Root, "NativeAotConsole/Greeter::Greet(string)");
-        Assert.NotNull(grown);
+        Assert.IsNotNull(grown);
         var grownCandidates = SizeDiffTreemapView.DisasmCandidates(grown);
-        Assert.Contains(grownCandidates, c => !c.UseLeft);
-        Assert.Contains(grownCandidates, c => c.UseLeft);
-        Assert.False(grownCandidates[0].UseLeft); // new build first
+        Assert.Contains(c => !c.UseLeft, grownCandidates);
+        Assert.Contains(c => c.UseLeft, grownCandidates);
+        Assert.IsFalse(grownCandidates[0].UseLeft); // new build first
 
         var removed = FindLeaf(diff.Root, "NativeAotConsole/Greeter::get_Name()");
-        Assert.NotNull(removed);
+        Assert.IsNotNull(removed);
         var removedCandidates = SizeDiffTreemapView.DisasmCandidates(removed);
-        Assert.NotEmpty(removedCandidates);
-        Assert.All(removedCandidates, c => Assert.True(c.UseLeft));
+        Assert.IsNotEmpty(removedCandidates);
+        TestAssert.All(removedCandidates, c => Assert.IsTrue(c.UseLeft));
     }
 
     /// <summary>
@@ -424,7 +434,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// children cancel still weighs their churn — mass never disappears because it netted to
     /// zero.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Weight_InteriorChurn_NeverCancels()
     {
         var diff = DiffV1V2();
@@ -434,12 +445,12 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
             var weight = SizeDiffTreemapView.Weight(node);
             if (node.Children.Count == 0)
             {
-                Assert.Equal(Math.Abs(node.Delta), weight);
+                Assert.AreEqual(Math.Abs(node.Delta), weight);
             }
             else
             {
-                Assert.Equal(node.Children.Sum(SizeDiffTreemapView.Weight), weight);
-                Assert.True(weight >= Math.Abs(node.Delta));
+                Assert.AreEqual(node.Children.Sum(SizeDiffTreemapView.Weight), weight);
+                Assert.IsGreaterThanOrEqualTo(Math.Abs(node.Delta), weight);
                 foreach (var child in node.Children)
                     AssertWeights(child);
             }
@@ -452,7 +463,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the treemap label palette clears WCAG AA: for each direction background, the
     /// chosen black-or-white foreground contrasts at 4.5:1 or better.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void LabelForeground_PaletteClearsWcagAa()
     {
         var backgrounds = new[]
@@ -467,9 +479,7 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         foreach (var background in backgrounds)
         {
             var foreground = SizeDiffTreemapView.LabelForeground(background);
-            Assert.True(
-                ContrastRatio(foreground, background) >= 4.5,
-                $"contrast below 4.5:1 on rgb({background.R},{background.G},{background.B})");
+            Assert.IsGreaterThanOrEqualTo(4.5, ContrastRatio(foreground, background), $"contrast below 4.5:1 on rgb({background.R},{background.G},{background.B})");
         }
 
         static double ContrastRatio(Hex1bColor a, Hex1bColor b)
@@ -495,18 +505,19 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the popup palette clears WCAG AA on its owned dark surface.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PopupPalette_ClearsWcagAa()
     {
-        Assert.True(ContrastRatio(
+        Assert.IsGreaterThanOrEqualTo(4.5, ContrastRatio(
             SizeDiffTreemapView.PopupForeground,
-            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
-        Assert.True(ContrastRatio(
+            SizeDiffTreemapView.PopupPanelBackground));
+        Assert.IsGreaterThanOrEqualTo(4.5, ContrastRatio(
             SizeDiffTreemapView.PopupLabelForeground,
-            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
-        Assert.True(ContrastRatio(
+            SizeDiffTreemapView.PopupPanelBackground));
+        Assert.IsGreaterThanOrEqualTo(4.5, ContrastRatio(
             SizeDiffTreemapView.PopupBorderColor,
-            SizeDiffTreemapView.PopupPanelBackground) >= 4.5);
+            SizeDiffTreemapView.PopupPanelBackground));
     }
 
     /// <summary>
@@ -514,16 +525,17 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// to chains in the V2 graph, and the removed accessor's node names resolve in the V1
     /// graph — each side answers only for its own build.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void WhyChains_ResolvePerSide()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleDgml is null, "V1 DGML sidecar was not produced");
-        Assert.SkipWhen(samples.NativeAotConsoleV2Dgml is null, "V2 DGML sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleDgml is null, "V1 DGML sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleV2Dgml is null, "V2 DGML sidecar was not produced");
         var diff = DiffV1V2();
-        var leftDgml = DgmlReader.Read(samples.NativeAotConsoleDgml!);
-        var rightDgml = DgmlReader.Read(samples.NativeAotConsoleV2Dgml!);
-        Assert.NotNull(leftDgml);
-        Assert.NotNull(rightDgml);
+        var leftDgml = DgmlReader.Read(Samples.NativeAotConsoleDgml!);
+        var rightDgml = DgmlReader.Read(Samples.NativeAotConsoleV2Dgml!);
+        Assert.IsNotNull(leftDgml);
+        Assert.IsNotNull(rightDgml);
 
         var added = diff.Contributors.First(c =>
             c.Diff == DiffKind.Added && c.Namespace == "NativeAotConsole.Telemetry"
@@ -533,8 +545,8 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
 
         var removed = diff.Contributors.First(c =>
             c.Name == "get_Name()" && c.AssemblyName == "NativeAotConsole");
-        Assert.NotEmpty(removed.LeftNodeNames);
-        Assert.Empty(removed.RightNodeNames);
+        Assert.IsNotEmpty(removed.LeftNodeNames);
+        Assert.IsEmpty(removed.RightNodeNames);
         var removedChain = WhyChainFormatter.FormatWhyChains(leftDgml, removed.FullPath, removed.LeftNodeNames);
         Assert.Contains("Kept by", removedChain);
     }
@@ -543,13 +555,14 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies an aggregate treemap tile can explain its growth directly by rolling up the
     /// child dependency-graph node names, so users do not need to drill to a leaf first.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void WhyChains_AggregateNodeRollsUpDescendantNames()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleV2Dgml is null, "V2 DGML sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleV2Dgml is null, "V2 DGML sidecar was not produced");
         var diff = DiffV1V2();
-        var rightDgml = DgmlReader.Read(samples.NativeAotConsoleV2Dgml!);
-        Assert.NotNull(rightDgml);
+        var rightDgml = DgmlReader.Read(Samples.NativeAotConsoleV2Dgml!);
+        Assert.IsNotNull(rightDgml);
 
         static SizeDiffNode? FindNode(SizeDiffNode node, string fullPath)
         {
@@ -563,9 +576,9 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         }
 
         var aggregate = FindNode(diff.Root, "System.Private.TypeLoader/Internal.Runtime.TypeLoader");
-        Assert.NotNull(aggregate);
-        Assert.NotEmpty(aggregate.RightNodeNames);
-        Assert.True(aggregate.Children.Count > 0);
+        Assert.IsNotNull(aggregate);
+        Assert.IsNotEmpty(aggregate.RightNodeNames);
+        Assert.IsGreaterThan(0, aggregate.Children.Count);
 
         var chain = WhyChainFormatter.FormatWhyChains(
             rightDgml, aggregate.FullPath, aggregate.RightNodeNames);
@@ -579,14 +592,15 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// overloads for free: the grown Greet(string) and the untouched Greet(int) carry
     /// different node names, each resolving to its own native symbol in the V2 binary.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void ResolveSymbol_OverloadsResolveToDistinctSymbols()
     {
         var (_, v2Source) = ResolvePair(binaries: true);
-        Assert.SkipWhen(v2Source.BinaryPath is null, "V2 AOT binary was not produced");
+        TestSkip.When(v2Source.BinaryPath is null, "V2 AOT binary was not produced");
 
         using var analyzer = new AssemblyAnalyzer(v2Source.BinaryPath!);
-        Assert.SkipWhen(
+        TestSkip.When(
             analyzer.NativeSymbols is not { Symbols.Count: > 0 },
             "native symbols were not produced for the V2 binary");
 
@@ -597,16 +611,16 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         var greetInt = index.Entries.Single(e =>
             e.Section == MstatSectionKind.Method && e.AssemblyName == "NativeAotConsole"
             && e.LeafName == "Greet(int)");
-        Assert.NotEmpty(greetString.NodeNames);
-        Assert.NotEmpty(greetInt.NodeNames);
-        Assert.NotEqual(greetString.NodeNames[0], greetInt.NodeNames[0]);
+        Assert.IsNotEmpty(greetString.NodeNames);
+        Assert.IsNotEmpty(greetInt.NodeNames);
+        Assert.AreNotEqual(greetString.NodeNames[0], greetInt.NodeNames[0]);
 
         var stringSymbol = SizeDiffTreemapView.ResolveSymbol(analyzer, greetString.NodeNames[0]);
         var intSymbol = SizeDiffTreemapView.ResolveSymbol(analyzer, greetInt.NodeNames[0]);
-        Assert.SkipWhen(
+        TestSkip.When(
             stringSymbol is null || intSymbol is null,
             "mstat node names not present in the symbol table on this toolchain");
-        Assert.NotEqual(stringSymbol!.VirtualAddress, intSymbol!.VirtualAddress);
+        Assert.AreNotEqual(stringSymbol!.VirtualAddress, intSymbol!.VirtualAddress);
         Assert.EndsWith(greetString.NodeNames[0], stringSymbol.Name);
     }
 
@@ -624,7 +638,7 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
         string? contentNeedle = null)
     {
         var titleY = FindLine(snapshot, title);
-        Assert.True(titleY >= 0, $"Could not locate popup title '{title}'.");
+        Assert.IsGreaterThanOrEqualTo(0, titleY, $"Could not locate popup title '{title}'.");
 
         var panelCells = 0;
         var sampleY = Math.Min(snapshot.Height - 1, titleY + 1);
@@ -637,28 +651,28 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
             }
         }
 
-        Assert.True(panelCells >= 90, $"Popup row only had {panelCells} cells with the panel background.");
+        Assert.IsGreaterThanOrEqualTo(90, panelCells, $"Popup row only had {panelCells} cells with the panel background.");
 
         int contentX;
         int contentY;
         if (contentNeedle is not null)
         {
             contentY = FindLine(snapshot, contentNeedle);
-            Assert.True(contentY >= 0, $"Could not locate popup content '{contentNeedle}'.");
+            Assert.IsGreaterThanOrEqualTo(0, contentY, $"Could not locate popup content '{contentNeedle}'.");
             contentX = snapshot.GetLine(contentY).IndexOf(contentNeedle, StringComparison.Ordinal);
-            Assert.True(contentX >= 0);
+            Assert.IsGreaterThanOrEqualTo(0, contentX);
         }
         else
         {
             (contentX, contentY) = FindPopupTextCell(snapshot, titleY);
-            Assert.True(contentX >= 0 && contentY >= 0, "Could not locate popup text.");
+            Assert.IsTrue(contentX >= 0 && contentY >= 0, "Could not locate popup text.");
         }
 
         var cell = snapshot.GetCell(contentX, contentY);
-        Assert.NotNull(cell.Foreground);
-        Assert.NotNull(cell.Background);
+        Assert.IsNotNull(cell.Foreground);
+        Assert.IsNotNull(cell.Background);
         AssertColorEquals(SizeDiffTreemapView.PopupPanelBackground, cell.Background.Value);
-        Assert.True(ContrastRatio(cell.Foreground.Value, cell.Background.Value) >= 4.5);
+        Assert.IsGreaterThanOrEqualTo(4.5, ContrastRatio(cell.Foreground.Value, cell.Background.Value));
     }
 
     private static int FindLine(Hex1b.Automation.Hex1bTerminalSnapshot snapshot, string text)
@@ -705,9 +719,9 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
 
     private static void AssertColorEquals(Hex1bColor expected, Hex1bColor actual)
     {
-        Assert.Equal(expected.R, actual.R);
-        Assert.Equal(expected.G, actual.G);
-        Assert.Equal(expected.B, actual.B);
+        Assert.AreEqual(expected.R, actual.R);
+        Assert.AreEqual(expected.G, actual.G);
+        Assert.AreEqual(expected.B, actual.B);
     }
 
     private static double ContrastRatio(Hex1bColor a, Hex1bColor b)
@@ -734,10 +748,10 @@ public class SizeDiffViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

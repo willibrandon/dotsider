@@ -306,13 +306,15 @@ internal static class ScriptSupport
     /// <param name="workingDirectory">The process working directory.</param>
     /// <param name="maxOutputCharacters">The maximum characters to retain per stream.</param>
     /// <param name="timeout">The optional process timeout.</param>
+    /// <param name="environment">Optional environment variable overrides for the process.</param>
     /// <returns>The exit code, stdout, stderr, truncation state, and timeout state.</returns>
     internal static (int ExitCode, string Stdout, string Stderr, bool StdoutTruncated, bool StderrTruncated, bool TimedOut) RunProcess(
         string filePath,
         IEnumerable<string> arguments,
         string workingDirectory,
         int maxOutputCharacters = int.MaxValue,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        IReadOnlyDictionary<string, string?>? environment = null)
     {
         var startInfo = new ProcessStartInfo(filePath)
         {
@@ -325,6 +327,20 @@ internal static class ScriptSupport
         foreach (string argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        if (environment is not null)
+        {
+            foreach ((string key, string? value) in environment)
+            {
+                if (value is null)
+                {
+                    startInfo.Environment.Remove(key);
+                    continue;
+                }
+
+                startInfo.Environment[key] = value;
+            }
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Failed to start '{filePath}'.");

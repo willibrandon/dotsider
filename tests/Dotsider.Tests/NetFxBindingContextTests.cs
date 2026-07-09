@@ -11,94 +11,102 @@ namespace Dotsider.Tests;
 /// error split, framework unification), and helpers (<see cref="NetFxBindingContext.GacScanList"/>,
 /// <see cref="NetFxBindingContext.FrameworkRuntimeDirectory"/>).
 /// </summary>
-[Collection("SampleAssemblies")]
-public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
+[TestClass]
+public sealed class NetFxBindingContextTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>The fixture-built sample exposes a populated context with all fields.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void TryBuild_NetFxRoot_PopulatesAllFields()
     {
         SkipIfNotWindows();
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        Assert.Equal(samples.NetFxBindingRedirectsExe, ctx!.EntryAssemblyPath);
-        Assert.Equal(Path.GetDirectoryName(samples.NetFxBindingRedirectsExe), ctx.AppBaseDirectory);
-        Assert.NotNull(ctx.ConfigPath);
+        Assert.IsNotNull(ctx);
+        Assert.AreEqual(Samples.NetFxBindingRedirectsExe, ctx!.EntryAssemblyPath);
+        Assert.AreEqual(Path.GetDirectoryName(Samples.NetFxBindingRedirectsExe), ctx.AppBaseDirectory);
+        Assert.IsNotNull(ctx.ConfigPath);
         Assert.StartsWith(".NETFramework,Version=v4", ctx.TargetFramework, StringComparison.OrdinalIgnoreCase);
-        Assert.NotEmpty(ctx.Policy.AppConfigRedirects);
-        Assert.Contains(ctx.PrivatePaths, p => p == "lib");
+        Assert.IsNotEmpty(ctx.Policy.AppConfigRedirects);
+        Assert.Contains(p => p == "lib", ctx.PrivatePaths);
     }
 
     /// <summary>A non-net48 root produces no binding context.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void TryBuild_NetCoreRoot_ReturnsNull()
     {
-        using var analyzer = new AssemblyAnalyzer(samples.HelloWorldDll);
-        Assert.Null(NetFxBindingContext.TryBuild(analyzer));
+        using var analyzer = new AssemblyAnalyzer(Samples.HelloWorldDll);
+        Assert.IsNull(NetFxBindingContext.TryBuild(analyzer));
     }
 
     /// <summary>The sample EXE is AnyCPU IL-only — on a 64-bit host it should bind as Amd64.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void EffectiveArchitecture_AnyCpuIlOnly_OnX64Host_IsAmd64()
     {
         SkipIfNotWindows();
         if (!Environment.Is64BitOperatingSystem) return;
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        Assert.Equal(NetFxArchitecture.Amd64, ctx!.EffectiveArchitecture);
+        Assert.IsNotNull(ctx);
+        Assert.AreEqual(NetFxArchitecture.Amd64, ctx!.EffectiveArchitecture);
     }
 
     /// <summary>GAC scan list for an Amd64 root is GAC_MSIL then GAC_64.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void GacScanList_Amd64Root_IsMsilThen64()
     {
         SkipIfNotWindows();
         if (!Environment.Is64BitOperatingSystem) return;
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
+        Assert.IsNotNull(ctx);
         var list = ctx!.GacScanList();
-        Assert.NotEmpty(list);
+        Assert.IsNotEmpty(list);
         Assert.EndsWith("GAC_MSIL", list[0], StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith("GAC_64", list[1], StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Framework runtime directory for an Amd64 root resolves to Framework64\v4.0.30319.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void FrameworkRuntimeDir_Amd64Root_IsFramework64()
     {
         SkipIfNotWindows();
         if (!Environment.Is64BitOperatingSystem) return;
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
+        Assert.IsNotNull(ctx);
         var dir = ctx!.FrameworkRuntimeDirectory();
-        Assert.NotNull(dir);
+        Assert.IsNotNull(dir);
         Assert.Contains("Framework64", dir, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith("v4.0.30319", dir, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The sample's app config carries the expected Newtonsoft.Json redirect.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_ParsesAllRedirects()
     {
         SkipIfNotWindows();
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        Assert.Contains(ctx!.Policy.AppConfigRedirects,
-            r => r.Name == "Newtonsoft.Json" && r.NewVersion == new Version(13, 0, 0, 0));
+        Assert.IsNotNull(ctx);
+        Assert.Contains(r => r.Name == "Newtonsoft.Json" && r.NewVersion == new Version(13, 0, 0, 0), ctx!.Policy.AppConfigRedirects);
     }
 
     /// <summary>An assemblyBinding with appliesTo="v2.0" is filtered out for net48 roots.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_HonorsAppliesToFilter()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-applies-to-" + Guid.NewGuid().ToString("N"));
@@ -121,13 +129,14 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
                 </configuration>
                 """);
             var redirects = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig).Redirects;
-            Assert.Empty(redirects);
+            Assert.IsEmpty(redirects);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>Malformed XML at the document level yields an empty policy (does not throw).</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_MalformedXml_ReturnsEmptyPolicy()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-malformed-" + Guid.NewGuid().ToString("N"));
@@ -137,16 +146,17 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
             var configPath = Path.Combine(dir, "fake.exe.config");
             File.WriteAllText(configPath, "<configuration><runtime><not-closed");
             var parsed = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig);
-            Assert.Empty(parsed.Redirects);
-            Assert.Empty(parsed.CodeBases);
-            Assert.Empty(parsed.Disabled);
-            Assert.Empty(parsed.PrivatePaths);
+            Assert.IsEmpty(parsed.Redirects);
+            Assert.IsEmpty(parsed.CodeBases);
+            Assert.IsEmpty(parsed.Disabled);
+            Assert.IsEmpty(parsed.PrivatePaths);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>An invalid bindingRedirect entry is dropped but sibling entries still apply.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_InvalidSectionDroppedButRestApplied()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-invalid-section-" + Guid.NewGuid().ToString("N"));
@@ -173,8 +183,8 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
                 </configuration>
                 """);
             var redirects = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig).Redirects;
-            Assert.Single(redirects);
-            Assert.Equal("Good", redirects[0].Name);
+            Assert.ContainsSingle(redirects);
+            Assert.AreEqual("Good", redirects[0].Name);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -183,7 +193,8 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
     /// First matching <c>&lt;dependentAssembly&gt;</c> in document order wins per CLR rules
     /// when two assemblyBinding blocks redirect the same identity to different versions.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_DocumentOrderAcrossMultipleAssemblyBindingBlocks_FirstMatchWins()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-doc-order-" + Guid.NewGuid().ToString("N"));
@@ -221,13 +232,14 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
                 PublisherPolicyDisabledFor: []);
             var requested = new AssemblyRefInfo("Same", "0.5.0.0", "neutral", "0000000000000001");
             var (effective, _) = policy.Apply(requested, NetFxArchitecture.Amd64);
-            Assert.Equal("1.0.0.0", effective.Version);
+            Assert.AreEqual("1.0.0.0", effective.Version);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>processorArchitecture filter excludes non-matching entries.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_ProcessorArchitectureFilter_ExcludesNonMatchingEntries()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-arch-" + Guid.NewGuid().ToString("N"));
@@ -254,37 +266,39 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
                 redirects, [], [], [], [], []);
             var requested = new AssemblyRefInfo("X86Only", "0.5.0.0", "neutral", "0000000000000001");
             var (eAmd64, appliedAmd64) = policy.Apply(requested, NetFxArchitecture.Amd64);
-            Assert.Null(appliedAmd64);
-            Assert.Equal(requested.Version, eAmd64.Version);
+            Assert.IsNull(appliedAmd64);
+            Assert.AreEqual(requested.Version, eAmd64.Version);
             var (eX86, appliedX86) = policy.Apply(requested, NetFxArchitecture.X86);
-            Assert.NotNull(appliedX86);
-            Assert.Equal("1.0.0.0", eX86.Version);
+            Assert.IsNotNull(appliedX86);
+            Assert.AreEqual("1.0.0.0", eX86.Version);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>Framework unification covers the well-known framework PKTs even with no app config.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_FrameworkUnification_CoversWellKnownFrameworkPkts()
     {
         SkipIfNotWindows();
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
+        Assert.IsNotNull(ctx);
         // mscorlib carries PKT b77a5c561934e089 — request 2.0.0.0 should unify to 4.0.0.0.
         var requested = new AssemblyRefInfo("mscorlib", "2.0.0.0", "neutral", "b77a5c561934e089");
         var (effective, applied) = ctx!.Policy.Apply(requested, NetFxArchitecture.Amd64);
-        Assert.NotNull(applied);
-        Assert.Equal("4.0.0.0", effective.Version);
-        Assert.Equal(PolicyLayer.FrameworkUnification, applied!.Source);
+        Assert.IsNotNull(applied);
+        Assert.AreEqual("4.0.0.0", effective.Version);
+        Assert.AreEqual(PolicyLayer.FrameworkUnification, applied!.Source);
     }
 
     /// <summary>
     /// privatePath segments declared inside an &lt;assemblyBinding appliesTo="v2.0…"&gt; block
     /// must not bleed into a net4 root's probe list.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PrivatePaths_HonorAppliesToFilter_DropNonV4Blocks()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-privatepath-applies-to-" + Guid.NewGuid().ToString("N"));
@@ -314,22 +328,24 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
     }
 
     /// <summary>Privatepath entries are read from app.config.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void PrivatePaths_ParsedAndRootedAtAppBase()
     {
         SkipIfNotWindows();
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        Assert.Contains(ctx!.PrivatePaths, p => p == "lib");
+        Assert.IsNotNull(ctx);
+        Assert.Contains(p => p == "lib", ctx!.PrivatePaths);
     }
 
     /// <summary>
     /// Layered policy chains: app config rewrites 1.0 → 2.0, machine.config covers 2.0 → 3.0.
     /// The binder must apply both, ending at 3.0.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_ChainsLayersSequentially_AppThenMachineCoversIntermediate()
     {
         var app = new BindingRedirect(
@@ -350,18 +366,19 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
 
         var requested = new AssemblyRefInfo("Chain", "1.0.0.0", "neutral", "0000000000000001");
         var (effective, applied) = policy.Apply(requested, NetFxArchitecture.Amd64);
-        Assert.Equal("3.0.0.0", effective.Version);
-        Assert.NotNull(applied);
-        Assert.Equal(PolicyLayer.MachineConfig, applied!.Source);
-        Assert.Equal(new Version(1, 0, 0, 0), applied.RequestedVersion);
-        Assert.Equal(new Version(3, 0, 0, 0), applied.BoundVersion);
+        Assert.AreEqual("3.0.0.0", effective.Version);
+        Assert.IsNotNull(applied);
+        Assert.AreEqual(PolicyLayer.MachineConfig, applied!.Source);
+        Assert.AreEqual(new Version(1, 0, 0, 0), applied.RequestedVersion);
+        Assert.AreEqual(new Version(3, 0, 0, 0), applied.BoundVersion);
     }
 
     /// <summary>
     /// Runtime-scoped &lt;publisherPolicy apply="no"/&gt; suppresses publisher policy for every
     /// bind in the AppDomain — including identities that have no &lt;dependentAssembly&gt;.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_RuntimeScopedPublisherPolicyApplyNo_SuppressesGloballyForAllIdentities()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-runtime-disable-" + Guid.NewGuid().ToString("N"));
@@ -385,7 +402,7 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
                 </configuration>
                 """);
             var parsed = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig);
-            Assert.True(parsed.PublisherPolicyDisabledGlobally);
+            Assert.IsTrue(parsed.PublisherPolicyDisabledGlobally);
 
             var pub = new BindingRedirect(
                 PolicyLayer.PublisherPolicy,
@@ -402,33 +419,32 @@ public sealed class NetFxBindingContextTests(SampleAssemblyFixture samples)
 
             var requested = new AssemblyRefInfo("Untouched", "1.0.0.0", "neutral", "0000000000000077");
             var (effective, applied) = policy.Apply(requested, NetFxArchitecture.Amd64);
-            Assert.Equal(requested.Version, effective.Version);
-            Assert.Null(applied);
+            Assert.AreEqual(requested.Version, effective.Version);
+            Assert.IsNull(applied);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>CodeBase entries are read from app.config.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void CodeBases_ParsedFromConfig()
     {
         SkipIfNotWindows();
-        Assert.NotNull(samples.NetFxBindingRedirectsExe);
-        using var analyzer = new AssemblyAnalyzer(samples.NetFxBindingRedirectsExe!);
+        Assert.IsNotNull(Samples.NetFxBindingRedirectsExe);
+        using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
-        Assert.NotNull(ctx);
-        Assert.Contains(ctx!.Policy.CodeBases,
-            c => c.Name == "NetFxBindingRedirects.CodeBaseLib"
+        Assert.IsNotNull(ctx);
+        Assert.Contains(c => c.Name == "NetFxBindingRedirects.CodeBaseLib"
               && c.Version == new Version(2, 0, 0, 0)
-              && c.Href.EndsWith("NetFxBindingRedirects.CodeBaseLib.dll", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(ctx.Policy.CodeBases,
-            c => c.Name == "NetFxBindingRedirects.MissingCodeBase"
-              && c.Href.EndsWith("Missing.dll", StringComparison.OrdinalIgnoreCase));
+              && c.Href.EndsWith("NetFxBindingRedirects.CodeBaseLib.dll", StringComparison.OrdinalIgnoreCase), ctx!.Policy.CodeBases);
+        Assert.Contains(c => c.Name == "NetFxBindingRedirects.MissingCodeBase"
+              && c.Href.EndsWith("Missing.dll", StringComparison.OrdinalIgnoreCase), ctx.Policy.CodeBases);
     }
 
     private static void SkipIfNotWindows()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            Assert.Skip("Test requires Windows (.NET Framework binder).");
+            Assert.Inconclusive("Test requires Windows (.NET Framework binder).");
     }
 }

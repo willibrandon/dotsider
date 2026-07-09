@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Pe Metadata View.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PeMetadataViewTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -30,7 +32,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? samples.RichLibraryDll)
+                _state ??= new DotsiderState(_hex1bApp!, assemblyPath ?? Samples.RichLibraryDll)
                 {
                     CurrentTab = TabId.PeMetadata
                 };
@@ -48,11 +50,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata shows pe headers.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ShowsPeHeaders()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -70,11 +73,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata shows sections table.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ShowsSectionsTable()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -86,7 +90,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Sections, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.Sections, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -95,11 +99,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to type def.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToTypeDef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -113,7 +118,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.TypeDef, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.TypeDef, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -122,11 +127,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to method def.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToMethodDef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -142,7 +148,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.MethodDef, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.MethodDef, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -151,11 +157,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to type ref.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToTypeRef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -174,7 +181,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.TypeRef, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.TypeRef, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -183,11 +190,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to member ref.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToMemberRef()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -208,7 +216,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.MemberRef, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.MemberRef, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -217,11 +225,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to attributes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToAttributes()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -244,7 +253,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Attributes, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.Attributes, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -253,11 +262,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to resources.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToResources()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -282,7 +292,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Resources, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.Resources, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -291,11 +301,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata navigate to debug directory.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NavigateToDebugDirectory()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
@@ -321,8 +332,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             _ => _state!.PeDetailContent?.Contains("Debug Directory", StringComparison.Ordinal) == true,
             description: "Debug Directory detail opens");
 
-        Assert.Equal(PeSubTabId.DebugDirectory, _state!.PeSubTab);
-        Assert.Contains("Payload:", _state.PeDetailContent);
+        Assert.AreEqual(PeSubTabId.DebugDirectory, _state!.PeSubTab);
+        Assert.Contains("Payload:", _state.PeDetailContent!);
 
         cts.Cancel();
         await runTask;
@@ -331,11 +342,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata shows clr header fields.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ShowsClrHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -354,11 +366,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata shows pe header fields.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ShowsPeHeaderFields()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -377,11 +390,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata enter opens detail popup.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_EnterOpensDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -396,7 +410,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.PeDetailContent);
+        Assert.IsNotNull(_state!.PeDetailContent);
         Assert.Contains("Section:", _state.PeDetailContent);
 
         cts.Cancel();
@@ -406,11 +420,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata escape closes detail popup.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_EscapeClosesDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -428,7 +443,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Null(_state!.PeDetailContent);
+        Assert.IsNull(_state!.PeDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -437,11 +452,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata type def detail popup.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_TypeDefDetailPopup()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -462,7 +478,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Null(_state!.PeDetailContent);
+        Assert.IsNull(_state!.PeDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -471,11 +487,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata escape during search does not crash.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_EscapeDuringSearchDoesNotCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -491,7 +508,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.False(_state!.Search[TabId.PeMetadata].IsActive);
+        Assert.IsFalse(_state!.Search[TabId.PeMetadata].IsActive);
 
         cts.Cancel();
         await runTask;
@@ -500,11 +517,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata arrow and enter work after detail dismissed.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ArrowAndEnterWorkAfterDetailDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -524,7 +542,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.PeDetailContent);
+        Assert.IsNotNull(_state!.PeDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -533,11 +551,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata enter works after search dismissed.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_EnterWorksAfterSearchDismissed()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -556,7 +575,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.PeDetailContent);
+        Assert.IsNotNull(_state!.PeDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -565,11 +584,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata enter works after search with results.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_EnterWorksAfterSearchWithResults()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -591,7 +611,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.NotNull(_state!.PeDetailContent);
+        Assert.IsNotNull(_state!.PeDetailContent);
 
         cts.Cancel();
         await runTask;
@@ -600,11 +620,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata left arrow does not go below zero.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_LeftArrowDoesNotGoBelowZero()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -617,7 +638,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Sections, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.Sections, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -626,11 +647,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata section detail popup shows colored labels and hex values.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_SectionDetailPopup_ShowsColoredLabelsAndHexValues()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -657,11 +679,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata type def detail popup shows token and attributes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_TypeDefDetailPopup_ShowsTokenAndAttributes()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -688,11 +711,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies pe metadata method def detail popup shows signature and rva.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_MethodDefDetailPopup_ShowsSignatureAndRva()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -730,14 +754,15 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// executable — PE imports on Windows, ELF needed libraries on Linux, Mach-O
     /// dylibs on macOS.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_ImportsTab_ShowsModules()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -760,10 +785,10 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Imports, _state!.PeSubTab);
-        Assert.NotEmpty(_state.Analyzer.Imports);
-        Assert.Contains(_state.Analyzer.Imports, m =>
-            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual(PeSubTabId.Imports, _state!.PeSubTab);
+        Assert.IsNotEmpty(_state.Analyzer.Imports);
+        Assert.Contains(m =>
+            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase), _state.Analyzer.Imports);
 
         cts.Cancel();
         await runTask;
@@ -779,14 +804,15 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the Imports detail popup opens on Enter for a Native AOT executable.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_ImportsDetailPopup_OpensOnEnter()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -820,16 +846,17 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies the Load Config sub-tab shows parsed fields for a Native AOT executable.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_LoadConfigTab_ShowsFields()
     {
-        Assert.SkipUnless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+        TestSkip.Unless(RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
             "the load configuration directory is a PE-only structure");
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -849,8 +876,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.LoadConfig, _state!.PeSubTab);
-        Assert.NotNull(_state.Analyzer.LoadConfig);
+        Assert.AreEqual(PeSubTabId.LoadConfig, _state!.PeSubTab);
+        Assert.IsNotNull(_state.Analyzer.LoadConfig);
 
         cts.Cancel();
         await runTask;
@@ -860,11 +887,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies a managed DLL can navigate through the Imports, Exports, and Load
     /// Config sub-tabs without crashing even when they are empty.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_ManagedDll_NewSubTabs_NoCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -884,7 +912,7 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.LoadConfig, _state!.PeSubTab);
+        Assert.AreEqual(PeSubTabId.LoadConfig, _state!.PeSubTab);
 
         cts.Cancel();
         await runTask;
@@ -894,13 +922,14 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the R2R Sections sub-tab shows the ReadyToRun section table for a Native
     /// AOT binary on every platform.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_RtrSectionsTab_ShowsSections()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -920,8 +949,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.RtrSections, _state!.PeSubTab);
-        Assert.NotEmpty(_state.Analyzer.ReadyToRunSections);
+        Assert.AreEqual(PeSubTabId.RtrSections, _state!.PeSubTab);
+        Assert.IsNotEmpty(_state.Analyzer.ReadyToRunSections);
 
         cts.Cancel();
         await runTask;
@@ -931,13 +960,14 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the AOT Types sub-tab shows recovered types, and the detail popup lists a
     /// type's methods.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_AotTypesTab_ShowsTypesAndMethods()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -961,8 +991,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.AotTypes, _state!.PeSubTab);
-        Assert.NotEmpty(_state.Analyzer.RecoveredTypes);
+        Assert.AreEqual(PeSubTabId.AotTypes, _state!.PeSubTab);
+        Assert.IsNotEmpty(_state.Analyzer.RecoveredTypes);
         Assert.Contains("Methods", _state.PeDetailContent!);
 
         cts.Cancel();
@@ -973,14 +1003,15 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Symbols sub-tab lists the Native AOT binary's symbols with the address
     /// column rendered.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_SymbolsTab_ShowsSymbols()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1000,9 +1031,9 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
-        Assert.NotNull(_state.Analyzer.NativeSymbols);
-        Assert.NotEmpty(_state.Analyzer.NativeSymbols!.Symbols);
+        Assert.AreEqual(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.IsNotNull(_state.Analyzer.NativeSymbols);
+        Assert.IsNotEmpty(_state.Analyzer.NativeSymbols!.Symbols);
 
         cts.Cancel();
         await runTask;
@@ -1012,14 +1043,15 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Symbols detail popup opens on Enter, carrying the mangled name and the
     /// symbol source line.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_NativeAot_SymbolsDetailPopup_OpensOnEnter()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null,
+        TestSkip.When(Samples.NativeAotConsoleExe is null,
             "NativeAOT sample was not built");
 
-        var (terminal, app) = CreateDotsiderApp(samples.NativeAotConsoleExe);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.NativeAotConsoleExe);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1054,11 +1086,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// Verifies the Symbols sub-tab renders empty for a managed assembly instead of crashing —
     /// managed binaries have no native symbols.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_Managed_SymbolsTab_EmptyNoCrash()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1078,8 +1111,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
-        Assert.Null(_state.Analyzer.NativeSymbols);
+        Assert.AreEqual(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.IsNull(_state.Analyzer.NativeSymbols);
 
         cts.Cancel();
         await runTask;
@@ -1088,13 +1121,14 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies raw WebAssembly modules reuse the metadata sub-tabs with Wasm-specific tables.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task PeMetadata_Wasm_SubTabsRenderWasmTables()
     {
         var wasmPath = GetWasmNativePath();
 
         var (terminal, app) = CreateDotsiderApp(wasmPath);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 
@@ -1122,8 +1156,8 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.Equal(PeSubTabId.Symbols, _state!.PeSubTab);
-        Assert.Equal(BinaryKind.Wasm, _state.Analyzer.BinaryKind);
+        Assert.AreEqual(PeSubTabId.Symbols, _state!.PeSubTab);
+        Assert.AreEqual(BinaryKind.Wasm, _state.Analyzer.BinaryKind);
 
         cts.Cancel();
         await runTask;
@@ -1137,12 +1171,12 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
             .WaitUntil(s => s.ContainsText(label), TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText(tableText), TimeSpan.FromSeconds(10));
 
-    private string GetWasmNativePath()
+    private static string GetWasmNativePath()
     {
-        Assert.SkipWhen(samples.WasmConsoleNativeWasm is null && samples.ReadyToRunConsoleWasmNativeWasm is null,
+        TestSkip.When(Samples.WasmConsoleNativeWasm is null && Samples.ReadyToRunConsoleWasmNativeWasm is null,
             "browser-wasm sample publish did not produce dotnet.native.wasm on this leg.");
 
-        return samples.WasmConsoleNativeWasm ?? samples.ReadyToRunConsoleWasmNativeWasm!;
+        return Samples.WasmConsoleNativeWasm ?? Samples.ReadyToRunConsoleWasmNativeWasm!;
     }
 
     /// <summary>
@@ -1150,10 +1184,10 @@ public class PeMetadataViewTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

@@ -193,7 +193,7 @@ internal static class ReadyToRunImageReader
                 ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
                     io, instance.Size, manifestReader, owner.AssemblyName ?? "", Guid.Empty, [])
                 : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
-            allMethods = SafeBuild(tables, sources, global, moduleContext);
+            allMethods = SafeBuild(tables, sources, global, moduleContext, mvid);
         }
         finally
         {
@@ -247,13 +247,14 @@ internal static class ReadyToRunImageReader
         Tables tables,
         IReadOnlyList<ReadyToRunMethodMapReader.MethodMapSource> sources,
         ReadyToRunMethodMapReader.GlobalInstanceSource? global,
-        ReadyToRunModuleContext? moduleContext = null)
+        ReadyToRunModuleContext? moduleContext = null,
+        Guid? targetMvid = null)
     {
         try
         {
             return [.. ReadyToRunMethodMapReader.Build(
                 tables.Reader, tables.RuntimeFunctions, tables.HotColdMap,
-                tables.ImageBase, tables.AddressSpace, sources, global, moduleContext)];
+                tables.ImageBase, tables.AddressSpace, sources, global, moduleContext, targetMvid)];
         }
         catch (Exception ex) when (ex is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
         {

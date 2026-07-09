@@ -1,7 +1,7 @@
 <!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
 <!--
   Root EXE for the NetFxBinder test suite. Targets net48 and exercises every code path:
-    - app-local NuGet binding redirect (Newtonsoft.Json 12 → 13)
+    - app-local NuGet binding redirect (Newtonsoft.Json assembly identity 12.0.0.0 -> 13.0.0.0)
     - GAC-only references (System.Drawing, System.Windows.Forms)
     - <probing privatePath="lib"/> (PrivatePathLib copied to lib/)
     - <codeBase href="external/CodeBaseLib.dll"/> (CodeBaseLib copied to external/)
@@ -30,7 +30,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- Keep the root EXE on a Newtonsoft.Json 13.x package so the redirected target is app-local. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
@@ -44,27 +45,17 @@
   </ItemGroup>
 
   <Target Name="CopyPrivatePathAndCodeBaseLibs" AfterTargets="Build">
-    <MSBuild Projects="..\NetFxBindingRedirects.PrivatePathLib\NetFxBindingRedirects.PrivatePathLib.csproj"
-             Targets="Build"
-             Properties="Configuration=$(Configuration)" />
-    <MSBuild Projects="..\NetFxBindingRedirects.CodeBaseLib\NetFxBindingRedirects.CodeBaseLib.csproj"
-             Targets="Build"
-             Properties="Configuration=$(Configuration)" />
-    <MSBuild Projects="..\NetFxBindingRedirects.CulturedLib\NetFxBindingRedirects.CulturedLib.csproj"
-             Targets="Build"
-             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.PrivatePathLib\NetFxBindingRedirects.PrivatePathLib.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.CodeBaseLib\NetFxBindingRedirects.CodeBaseLib.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\NetFxBindingRedirects.CulturedLib\NetFxBindingRedirects.CulturedLib.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
 
     <MakeDir Directories="$(OutDir)lib" />
     <MakeDir Directories="$(OutDir)external" />
     <MakeDir Directories="$(OutDir)fr" />
 
-    <Copy SourceFiles="..\NetFxBindingRedirects.PrivatePathLib\bin\$(Configuration)\net48\NetFxBindingRedirects.PrivatePathLib.dll"
-          DestinationFolder="$(OutDir)lib" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CodeBaseLib\bin\$(Configuration)\net48\NetFxBindingRedirects.CodeBaseLib.dll"
-          DestinationFolder="$(OutDir)external" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\CulturedLib.dll"
-          DestinationFolder="$(OutDir)" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\fr\CulturedLib.resources.dll"
-          DestinationFolder="$(OutDir)fr" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.PrivatePathLib\bin\$(Configuration)\net48\NetFxBindingRedirects.PrivatePathLib.dll" DestinationFolder="$(OutDir)lib" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CodeBaseLib\bin\$(Configuration)\net48\NetFxBindingRedirects.CodeBaseLib.dll" DestinationFolder="$(OutDir)external" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\CulturedLib.dll" DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\fr\CulturedLib.resources.dll" DestinationFolder="$(OutDir)fr" />
   </Target>
 </Project>

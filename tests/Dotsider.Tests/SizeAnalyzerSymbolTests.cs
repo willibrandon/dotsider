@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// its precedence behind the mstat report — with synthetic merged symbols on every platform and
 /// the real NativeAOT fixture where its symbol file exists.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
+[TestClass]
+public class SizeAnalyzerSymbolTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private static NativeSymbol Symbol(
         string name, ulong va, long size, NativeSymbolKind kind,
         string? managedName = null, bool exact = false) =>
@@ -27,7 +29,8 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
     /// <see cref="SizeNodeKind.Function"/> leaves, including a dotted method name
     /// (<c>.ctor</c>) split at the recovered type boundary.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildFromSymbols_JoinedFunctions_GroupByAssemblyNamespaceType()
     {
         var recovered = new RecoveredType[]
@@ -41,31 +44,32 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
             Symbol("OtherAsm_Ns_Outer_Inner__Run", 0x1050, 0x20, NativeSymbolKind.Function, "Ns.Outer+Inner.Run", exact: true)));
 
         var assembly = Find(tree, "TestAsm");
-        Assert.NotNull(assembly);
-        Assert.Equal(SizeNodeKind.Assembly, assembly.Kind);
-        Assert.Equal(0x50, assembly.Size);
+        Assert.IsNotNull(assembly);
+        Assert.AreEqual(SizeNodeKind.Assembly, assembly.Kind);
+        Assert.AreEqual(0x50, assembly.Size);
 
-        var ns = Assert.Single(assembly.Children);
-        Assert.Equal("System", ns.Name);
-        Assert.Equal(SizeNodeKind.Namespace, ns.Kind);
+        var ns = Assert.ContainsSingle(assembly.Children);
+        Assert.AreEqual("System", ns.Name);
+        Assert.AreEqual(SizeNodeKind.Namespace, ns.Kind);
 
-        var type = Assert.Single(ns.Children);
-        Assert.Equal("Foo", type.Name);
-        Assert.Equal(SizeNodeKind.Type, type.Kind);
-        Assert.Equal(2, type.Children.Count);
-        Assert.All(type.Children, m => Assert.Equal(SizeNodeKind.Function, m.Kind));
-        Assert.Contains(type.Children, m => m.Name == ".ctor" && m.Size == 0x10);
+        var type = Assert.ContainsSingle(ns.Children);
+        Assert.AreEqual("Foo", type.Name);
+        Assert.AreEqual(SizeNodeKind.Type, type.Kind);
+        Assert.HasCount(2, type.Children);
+        TestAssert.All(type.Children, m => Assert.AreEqual(SizeNodeKind.Function, m.Kind));
+        Assert.Contains(m => m.Name == ".ctor" && m.Size == 0x10, type.Children);
 
         var nested = Find(tree, "Outer+Inner");
-        Assert.NotNull(nested);
-        Assert.Equal("Ns", Find(tree, "OtherAsm")!.Children.Single().Name);
+        Assert.IsNotNull(nested);
+        Assert.AreEqual("Ns", Find(tree, "OtherAsm")!.Children.Single().Name);
     }
 
     /// <summary>
     /// Verifies the categories: unjoined names in Runtime, boundaries in Unattributed, and each
     /// data kind under its own category with the matching node kind.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildFromSymbols_Categories_CarryEachKind()
     {
         var tree = SizeAnalyzer.BuildFromSymbols("app", [], Info(
@@ -81,10 +85,10 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
         void AssertCategory(string name, long size, SizeNodeKind childKind)
         {
             var category = Find(tree, name);
-            Assert.NotNull(category);
-            Assert.Equal(SizeNodeKind.Category, category.Kind);
-            Assert.Equal(size, category.Size);
-            Assert.All(category.Children, c => Assert.Equal(childKind, c.Kind));
+            Assert.IsNotNull(category);
+            Assert.AreEqual(SizeNodeKind.Category, category.Kind);
+            Assert.AreEqual(size, category.Size);
+            TestAssert.All(category.Children, c => Assert.AreEqual(childKind, c.Kind));
         }
 
         AssertCategory("Runtime", 0x30, SizeNodeKind.Function);
@@ -96,14 +100,15 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
         AssertCategory("Statics", 0x38, SizeNodeKind.Blob);
         AssertCategory("Data", 0x48, SizeNodeKind.Blob);
 
-        Assert.Equal("Widget (MethodTable)", Find(tree, "MethodTables")!.Children.Single().Name);
+        Assert.AreEqual("Widget (MethodTable)", Find(tree, "MethodTables")!.Children.Single().Name);
     }
 
     /// <summary>
     /// Verifies no byte is counted twice: the root sums every sized merged symbol exactly once,
     /// and zero-size symbols contribute nothing.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildFromSymbols_RootSumsEachSymbolOnce()
     {
         var recovered = new RecoveredType[] { new("System.Foo", ["Bar"], "TestAsm") };
@@ -117,8 +122,8 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
 
         var tree = SizeAnalyzer.BuildFromSymbols("app", recovered, Info(symbols));
 
-        Assert.Equal(0x90, tree.Size);
-        Assert.Equal(tree.Size, tree.Children.Sum(c => c.Size));
+        Assert.AreEqual(0x90, tree.Size);
+        Assert.AreEqual(tree.Size, tree.Children.Sum(c => c.Size));
     }
 
     /// <summary>
@@ -126,36 +131,37 @@ public class SizeAnalyzerSymbolTests(SampleAssemblyFixture samples)
     /// (Function leaves, no IL <see cref="SizeNodeKind.Method"/> nodes), and with the mstat
     /// present it keeps precedence (Method leaves appear).
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public void BuildSizeTree_MstatPrecedence_SymbolsCarryTheTreeWithoutIt()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat not present");
-        Assert.SkipWhen(samples.NativeAotConsoleSymbols is null, "native symbols not present");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat not present");
+        TestSkip.When(Samples.NativeAotConsoleSymbols is null, "native symbols not present");
 
         // mstat beside the exe: the report wins.
-        using (var withMstat = new AssemblyAnalyzer(samples.NativeAotConsoleExe!))
+        using (var withMstat = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!))
         {
             var tree = SizeAnalyzer.BuildSizeTree(withMstat);
-            Assert.Contains(Flatten(tree), n => n.Kind == SizeNodeKind.Method);
+            Assert.Contains(n => n.Kind == SizeNodeKind.Method, Flatten(tree));
         }
 
         // Exe and symbols copied away from the mstat: symbols carry the tree.
         var dir = Directory.CreateTempSubdirectory("dotsider-sizesym-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(samples.NativeAotConsoleExe!));
-            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
-            CopySymbolsBeside(samples.NativeAotConsoleExe!, samples.NativeAotConsoleSymbols!, dir.FullName);
+            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
+            CopySymbolsBeside(Samples.NativeAotConsoleExe!, Samples.NativeAotConsoleSymbols!, dir.FullName);
 
             using var analyzer = new AssemblyAnalyzer(exeCopy);
-            Assert.Null(analyzer.Mstat);
+            Assert.IsNull(analyzer.Mstat);
             var tree = SizeAnalyzer.BuildSizeTree(analyzer);
 
             var nodes = Flatten(tree).ToList();
-            Assert.Contains(nodes, n => n.Kind == SizeNodeKind.Function);
-            Assert.DoesNotContain(nodes, n => n.Kind == SizeNodeKind.Method);
-            Assert.True(tree.Size > 0);
+            Assert.Contains(n => n.Kind == SizeNodeKind.Function, nodes);
+            Assert.DoesNotContain(n => n.Kind == SizeNodeKind.Method, nodes);
+            Assert.IsGreaterThan(0, tree.Size);
         }
         finally
         {

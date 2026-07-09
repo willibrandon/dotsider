@@ -8,13 +8,15 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Creates the tests using the shared sample assembly fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class IlToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// disassemble_method returns an instruction list for an existing method body.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DisassembleMethod_ValidMethod_ReturnsIlInstructions()
     {
         await StartServerAsync();
@@ -24,23 +26,23 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "disassemble_method",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["typeName"] = "UserService",
                 ["methodName"] = "Add"
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.TryGetProperty("instructions", out var instructions));
-        Assert.True(instructions.GetArrayLength() > 0);
+        Assert.IsTrue(json.TryGetProperty("instructions", out var instructions));
+        Assert.IsGreaterThan(0, instructions.GetArrayLength());
     }
 
     /// <summary>
     /// disassemble_method can include portable PDB debug information when requested.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DisassembleMethod_WithDebugInfo_ReturnsPortablePdbData()
     {
         await StartServerAsync();
@@ -50,7 +52,7 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "disassemble_method",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["typeName"] = "UserService",
                 ["methodName"] = "Add",
                 ["includeDebugInfo"] = true
@@ -58,21 +60,20 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
 
-        Assert.Equal("sidecar", json.GetProperty("pdb").GetProperty("kind").GetString());
-        Assert.True(json.GetProperty("sourceLink").GetProperty("isPresent").GetBoolean());
-        Assert.True(json.GetProperty("debugInfo").GetProperty("sequencePoints").GetArrayLength() > 0);
-        Assert.Contains(json.GetProperty("instructions").EnumerateArray(),
-            instruction => instruction.TryGetProperty("localName", out var localName)
-                && localName.GetString() == "id");
+        Assert.AreEqual("sidecar", json.GetProperty("pdb").GetProperty("kind").GetString());
+        Assert.IsTrue(json.GetProperty("sourceLink").GetProperty("isPresent").GetBoolean());
+        Assert.IsGreaterThan(0, json.GetProperty("debugInfo").GetProperty("sequencePoints").GetArrayLength());
+        Assert.Contains(instruction => instruction.TryGetProperty("localName", out var localName)
+                && localName.GetString() == "id", json.GetProperty("instructions").EnumerateArray());
     }
 
     /// <summary>
     /// get_method_debug_info returns sequence points and local names for a method.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetMethodDebugInfo_ReturnsSequencePointsAndLocals()
     {
         await StartServerAsync();
@@ -82,28 +83,26 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "get_method_debug_info",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["typeName"] = "UserService",
                 ["methodName"] = "Add"
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
 
-        Assert.Equal("sidecar", json.GetProperty("pdb").GetProperty("kind").GetString());
-        Assert.Contains(json.GetProperty("sequencePoints").EnumerateArray(),
-            point => point.GetProperty("document").GetString()?.EndsWith("UserService.cs",
-                StringComparison.OrdinalIgnoreCase) == true);
-        Assert.Contains(json.GetProperty("locals").EnumerateArray(),
-            local => local.GetProperty("name").GetString() == "id");
+        Assert.AreEqual("sidecar", json.GetProperty("pdb").GetProperty("kind").GetString());
+        Assert.Contains(point => point.GetProperty("document").GetString()?.EndsWith("UserService.cs",
+                StringComparison.OrdinalIgnoreCase) == true, json.GetProperty("sequencePoints").EnumerateArray());
+        Assert.Contains(local => local.GetProperty("name").GetString() == "id", json.GetProperty("locals").EnumerateArray());
     }
 
     /// <summary>
     /// get_source_link returns decoded Source Link mappings.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task GetSourceLink_ReturnsMappings()
     {
         await StartServerAsync();
@@ -113,24 +112,23 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "get_source_link",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll
+                ["assemblyPath"] = Samples.RichLibraryDll
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
 
-        Assert.True(json.GetProperty("isPresent").GetBoolean());
-        Assert.Contains(json.GetProperty("mappings").EnumerateArray(),
-            mapping => mapping.GetProperty("urlTemplate").GetString()?.Contains("raw.githubusercontent.com",
-                StringComparison.OrdinalIgnoreCase) == true);
+        Assert.IsTrue(json.GetProperty("isPresent").GetBoolean());
+        Assert.Contains(mapping => mapping.GetProperty("urlTemplate").GetString()?.Contains("raw.githubusercontent.com",
+                StringComparison.OrdinalIgnoreCase) == true, json.GetProperty("mappings").EnumerateArray());
     }
 
     /// <summary>
     /// Requesting IL for a method that does not exist yields a descriptive error.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DisassembleMethod_NonExistentMethod_ReturnsError()
     {
         await StartServerAsync();
@@ -140,21 +138,21 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "disassemble_method",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.HelloWorldDll,
+                ["assemblyPath"] = Samples.HelloWorldDll,
                 ["typeName"] = "Program",
                 ["methodName"] = "NonExistentMethod"
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("Error", text);
     }
 
     /// <summary>
     /// search_il_opcodes locates call-family instructions across the assembly's bodies.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SearchIlOpcodes_CallInstruction_FindsMatches()
     {
         await StartServerAsync();
@@ -164,22 +162,22 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "search_il_opcodes",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.RichLibraryDll,
+                ["assemblyPath"] = Samples.RichLibraryDll,
                 ["query"] = "call",
                 ["maxResults"] = 5
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var results = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(results.GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, results.GetArrayLength());
     }
 
     /// <summary>
     /// search_il_opcodes surfaces newobj sites for identifying object allocations.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task SearchIlOpcodes_NewobjInstruction_FindsObjectCreation()
     {
         await StartServerAsync();
@@ -189,15 +187,15 @@ public class IlToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "search_il_opcodes",
             new Dictionary<string, object?>
             {
-                ["assemblyPath"] = samples.ComplexAppDll,
+                ["assemblyPath"] = Samples.ComplexAppDll,
                 ["query"] = "newobj",
                 ["maxResults"] = 10
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var results = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal(JsonValueKind.Array, results.ValueKind);
+        Assert.AreEqual(JsonValueKind.Array, results.ValueKind);
     }
 }

@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// the companion root, its managed types become visible, the correlation index builds, and detach
 /// restores native routing.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PreIlcRoutingTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string DialogTitle = "Native AOT Sidecars Detected";
 
     private Hex1bAppWorkloadAdapter? _workload;
@@ -20,10 +22,11 @@ public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
+    private Task? _runTask;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -44,8 +47,8 @@ public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
 
     private async Task<Hex1bTerminalAutomator> AttachAsync()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
-        _ = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -57,13 +60,14 @@ public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>Before attaching, the metadata analyzer is the native analyzer itself.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Detached_MetadataAnalyzer_IsNativeAnalyzer()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
-        _ = app.RunAsync(ct);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
+        _runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         await auto.WaitUntilAlternateScreenAsync();
@@ -71,59 +75,62 @@ public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
         await auto.EscapeAsync(ct);
         await auto.WaitUntilAsync(s => !s.ContainsText(DialogTitle), description: "offer declined");
 
-        Assert.Same(_state!.Analyzer, _state.MetadataAnalyzer);
+        Assert.AreSame(_state!.Analyzer, _state.MetadataAnalyzer);
 
         _cts!.Cancel();
     }
 
     /// <summary>Attaching routes metadata to the managed companion, exposing its managed types.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Attached_MetadataAnalyzer_IsCompanionRootWithManagedTypes()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         await AttachAsync();
 
-        Assert.NotSame(_state!.Analyzer, _state.MetadataAnalyzer);
-        Assert.True(_state.MetadataAnalyzer.HasMetadata);
-        Assert.Equal("NativeAotConsole", _state.MetadataAnalyzer.AssemblyName);
-        Assert.Contains(_state.MetadataAnalyzer.TypeDefs, t => t.Name == "Greeter");
+        Assert.AreNotSame(_state!.Analyzer, _state.MetadataAnalyzer);
+        Assert.IsTrue(_state.MetadataAnalyzer.HasMetadata);
+        Assert.AreEqual("NativeAotConsole", _state.MetadataAnalyzer.AssemblyName);
+        Assert.Contains(t => t.Name == "Greeter", _state.MetadataAnalyzer.TypeDefs);
         // The binary stays native.
-        Assert.True(_state.IsNativeAot);
+        Assert.IsTrue(_state.IsNativeAot);
 
         _cts!.Cancel();
     }
 
     /// <summary>The correlation index builds over the companion set after attach.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Attached_CorrelationIndex_Builds()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var auto = await AttachAsync();
         _state!.EnsureManagedNativeIndexAsync();
         await auto.WaitUntilAsync(_ => _state!.PreIlcIndex is not null,
             description: "correlation index built");
 
-        Assert.NotNull(_state.PreIlcIndex);
-        Assert.True(_state.PreIlcIndex!.Methods.Count > 0);
+        Assert.IsNotNull(_state.PreIlcIndex);
+        Assert.IsGreaterThan(0, _state.PreIlcIndex!.Methods.Count);
 
         _cts!.Cancel();
     }
 
     /// <summary>Detaching restores native metadata routing and clears the index.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Detach_RestoresNativeRouting()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var auto = await AttachAsync();
         _state!.DetachPreIlc();
         await auto.WaitUntilAsync(_ => _state!.Analyzer.PreIlcCompanions is null,
             description: "companions detached");
 
-        Assert.Same(_state.Analyzer, _state.MetadataAnalyzer);
-        Assert.Null(_state.PreIlcIndex);
+        Assert.AreSame(_state.Analyzer, _state.MetadataAnalyzer);
+        Assert.IsNull(_state.PreIlcIndex);
 
         _cts!.Cancel();
     }
@@ -133,6 +140,9 @@ public class PreIlcRoutingTests(SampleAssemblyFixture samples) : IDisposable
     {
         GC.SuppressFinalize(this);
         _cts?.Cancel();
+        try { _runTask?.Wait(TimeSpan.FromSeconds(5)); }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { }
+        catch (OperationCanceledException) { }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();

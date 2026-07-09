@@ -970,7 +970,7 @@ public sealed class DotsiderState : IDisposable
         if (capturedAnalyzer.PreIlcCompanions is null) return;
 
         PreIlcIndexBuildInProgress = true;
-        _ = Task.Run(() =>
+        _ = QueueDedicatedBackgroundWork(() =>
         {
             try
             {
@@ -993,6 +993,7 @@ public sealed class DotsiderState : IDisposable
             {
                 PreIlcIndexBuildInProgress = false;
                 App.Invalidate();
+                RequestExtraFrame();
             }
         });
     }
@@ -1216,8 +1217,10 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.IlInspector);
         var ilSearch = Search[TabId.IlInspector];
         ilSearch.Reset();
+        IlFocusedPane = IlPane.Tree;
         App.RequestFocus(node => node is ScrollPanelNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>
@@ -1245,6 +1248,7 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.HexDump);
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>Navigates to the Hex Dump tab, jumping directly to a file offset (native mode).</summary>
@@ -1268,6 +1272,7 @@ public sealed class DotsiderState : IDisposable
         NavigateToTab(TabId.HexDump);
         App.RequestFocus(node => node is EditorNode);
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>
@@ -1943,6 +1948,7 @@ public sealed class DotsiderState : IDisposable
         // single source of truth — IL → ScrollPanelNode, Hex → EditorNode, etc.
         RequestContentFocus();
         App.Invalidate();
+        RequestExtraFrame();
     }
 
     /// <summary>
@@ -2322,7 +2328,7 @@ public sealed class DotsiderState : IDisposable
         GraphBuildInProgress = true;
         var capturedAnalyzer = Analyzer;
 
-        _ = Task.Run(() =>
+        _ = QueueDedicatedBackgroundWork(() =>
         {
             try
             {
@@ -2338,7 +2344,15 @@ public sealed class DotsiderState : IDisposable
             {
                 GraphBuildInProgress = false;
                 App.Invalidate();
+                RequestExtraFrame();
             }
         });
     }
+
+    private static Task QueueDedicatedBackgroundWork(Action work) =>
+        Task.Factory.StartNew(
+            work,
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
 }

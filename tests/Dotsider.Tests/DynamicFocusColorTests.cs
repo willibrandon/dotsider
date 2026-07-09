@@ -12,9 +12,11 @@ namespace Dotsider.Tests;
 /// Reproduces #92: the focused row on the Dynamic tab's Events table shows
 /// category-colored text (yellow, green, etc.) instead of black on teal.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class DynamicFocusColorTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -32,7 +34,7 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         _hex1bApp = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_hex1bApp!, samples.HelloWorldDll);
+                _state ??= new DotsiderState(_hex1bApp!, Samples.HelloWorldDll);
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -47,11 +49,12 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
     /// <summary>
     /// Verifies events focused row category cell uses black foreground.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Events_FocusedRow_CategoryCellUsesBlackForeground()
     {
         var (terminal, app) = CreateDotsiderApp();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         var runTask = app.RunAsync(cts.Token);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -105,7 +108,7 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         }, description: "teal focus background to appear");
 
         var focusedKey = _state!.DynamicEventsFocusedKey;
-        Assert.NotNull(focusedKey);
+        Assert.IsNotNull(focusedKey);
 
         // The focused row's category cell must NOT have any of the known category
         // colors. When focused, it should be black (0,0,0) or null (theme default).
@@ -116,14 +119,13 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
         if (categoryFg is not null)
         {
             var fg = categoryFg.Value;
-            Assert.False(knownCategoryColors.Contains((fg.R, fg.G, fg.B)),
+            Assert.DoesNotContain((fg.R, fg.G, fg.B), knownCategoryColors,
                 $"Focused row category cell still has category color ({fg.R},{fg.G},{fg.B}) — should be black on focus");
 
             // WCAG 2.1 AA requires >= 4.5:1 contrast ratio for normal text.
             // Verify the foreground color against the teal focus background.
             var ratio = ContrastRatio(fg.R, fg.G, fg.B, teal.R, teal.G, teal.B);
-            Assert.True(ratio >= 4.5,
-                $"Focused category cell fails WCAG AA: contrast ratio {ratio:F2}:1 " +
+            Assert.IsGreaterThanOrEqualTo(4.5, ratio, $"Focused category cell fails WCAG AA: contrast ratio {ratio:F2}:1 " +
                 $"(fg={fg.R},{fg.G},{fg.B} bg={teal.R},{teal.G},{teal.B}), minimum is 4.5:1");
         }
 
@@ -159,10 +161,10 @@ public class DynamicFocusColorTests(SampleAssemblyFixture samples) : IDisposable
     /// </summary>
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

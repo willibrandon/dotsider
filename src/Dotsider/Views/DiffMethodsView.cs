@@ -45,23 +45,8 @@ public static class DiffMethodsView
         // Set up match navigation — cycle through filtered rows
         if (filtered.Count > 0 && !string.IsNullOrEmpty(query))
         {
-            var keys = filtered.Select(e =>
-            {
-                var m = e.Right ?? e.Left!;
-                return e.Kind.ToString() + ":" + m.DeclaringType + "::" + m.Name + m.Signature;
-            }).ToList();
-            state.NavigateNextMatch = () =>
-            {
-                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
-                idx = (idx + 1) % keys.Count;
-                state.DiffFocusedKey = keys[idx];
-            };
-            state.NavigatePrevMatch = () =>
-            {
-                var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
-                idx = idx <= 0 ? keys.Count - 1 : idx - 1;
-                state.DiffFocusedKey = keys[idx];
-            };
+            state.NavigateNextMatch = () => NavigateMatch(state, forward: true);
+            state.NavigatePrevMatch = () => NavigateMatch(state, forward: false);
         }
         else
         {
@@ -78,8 +63,7 @@ public static class DiffMethodsView
 
             // Table
             widgets.Add(outer.Table(filtered)
-                .RowKey(r => r.Kind.ToString() + ":" + (r.Left?.DeclaringType ?? r.Right?.DeclaringType ?? "") + "::" +
-                             (r.Left?.Name ?? r.Right?.Name ?? "") + (r.Left?.Signature ?? r.Right?.Signature ?? ""))
+                .RowKey(KeyFor)
                 .Header(h =>
                 [
                     h.Cell("").Width(SizeHint.Fixed(3)),
@@ -143,6 +127,42 @@ public static class DiffMethodsView
             DiffFilterMode.ChangedOnly => [.. entries.Where(e => e.Kind != DiffKind.Unchanged)],
             _ => entries
         };
+
+    private static List<string> GetMatchingKeys(DiffState state)
+    {
+        var search = state.Search[2];
+        var query = search.Query;
+        if (string.IsNullOrEmpty(query)) return [];
+
+        return [.. FilterEntries(state.DiffResult.MethodDiffs, state.FilterMode)
+            .Where(e =>
+            {
+                var method = e.Right ?? e.Left!;
+                return method.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                       method.Signature.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                       method.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(KeyFor)];
+    }
+
+    private static void NavigateMatch(DiffState state, bool forward)
+    {
+        var keys = GetMatchingKeys(state);
+        if (keys.Count == 0) return;
+
+        var idx = keys.IndexOf(state.DiffFocusedKey as string ?? "");
+        idx = forward
+            ? (idx + 1) % keys.Count
+            : idx <= 0 ? keys.Count - 1 : idx - 1;
+        state.DiffFocusedKey = keys[idx];
+    }
+
+    private static string KeyFor(DiffEntry<MethodDefInfo> entry) =>
+        entry.Kind + ":"
+        + (entry.Left?.DeclaringType ?? entry.Right?.DeclaringType ?? "")
+        + "::"
+        + (entry.Left?.Name ?? entry.Right?.Name ?? "")
+        + (entry.Left?.Signature ?? entry.Right?.Signature ?? "");
 
     private static (string Prefix, Hex1bColor Color) GetDiffStyle(DiffKind kind) => kind switch
     {

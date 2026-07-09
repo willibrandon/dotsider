@@ -10,9 +10,11 @@ namespace Dotsider.Tests;
 /// Native AOT binary, <c>Enter</c> attaches alongside (never replaces), <c>Esc</c> keeps native
 /// only, and the General tab's <c>a</c>/<c>d</c> keys re-offer and detach.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
+[TestClass]
+public class PreIlcOfferTests : IDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string DialogTitle = "Native AOT Sidecars Detected";
 
     private Hex1bAppWorkloadAdapter? _workload;
@@ -23,7 +25,7 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(_workload)
@@ -43,12 +45,13 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
     }
 
     /// <summary>The offer dialog appears (and only it, never the apphost dialog) for an attachable Native AOT binary.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task NativeAot_Attachable_ShowsOfferDialog()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -57,18 +60,19 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state!.PreIlcDialogOpen);
-        Assert.False(_state.ApphostDialogOpen, "the AOT and apphost offers are mutually exclusive");
-        Assert.Null(_state.Analyzer.PreIlcCompanions);
+        Assert.IsTrue(_state!.PreIlcDialogOpen);
+        Assert.IsFalse(_state.ApphostDialogOpen, "the AOT and apphost offers are mutually exclusive");
+        Assert.IsNull(_state.Analyzer.PreIlcCompanions);
 
         _cts!.Cancel();
     }
 
     /// <summary>An apphost exe opens the apphost dialog, never the pre-ILC sidecar dialog.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Apphost_ShowsApphostDialog_NotPreIlcDialog()
     {
-        var (terminal, app, ct) = CreateDotsiderApp(samples.HelloWorldExe);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.HelloWorldExe);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -77,19 +81,20 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.True(_state!.ApphostDialogOpen);
-        Assert.False(_state.PreIlcDialogOpen);
+        Assert.IsTrue(_state!.ApphostDialogOpen);
+        Assert.IsFalse(_state.PreIlcDialogOpen);
 
         _cts!.Cancel();
     }
 
     /// <summary>Enter attaches the companion set alongside the native analyzer, never replacing it.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Offer_Enter_AttachesAlongside()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -100,21 +105,22 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state!.PreIlcDialogOpen);
-        Assert.NotNull(_state.Analyzer.PreIlcCompanions);
-        Assert.True(_state.IsNativeAot, "attaching must not replace the native analyzer");
-        Assert.Empty(_state.NavigationStack);
+        Assert.IsFalse(_state!.PreIlcDialogOpen);
+        Assert.IsNotNull(_state.Analyzer.PreIlcCompanions);
+        Assert.IsTrue(_state.IsNativeAot, "attaching must not replace the native analyzer");
+        Assert.IsEmpty(_state.NavigationStack);
 
         _cts!.Cancel();
     }
 
     /// <summary>Escape declines the offer, keeping the binary native-only.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Offer_Escape_KeepsNativeOnly()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -125,20 +131,21 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.False(_state!.PreIlcDialogOpen);
-        Assert.Null(_state.Analyzer.PreIlcCompanions);
-        Assert.True(_state.IsNativeAot);
+        Assert.IsFalse(_state!.PreIlcDialogOpen);
+        Assert.IsNull(_state.Analyzer.PreIlcCompanions);
+        Assert.IsTrue(_state.IsNativeAot);
 
         _cts!.Cancel();
     }
 
     /// <summary>After declining, the General tab's <c>a</c> re-opens the offer and <c>d</c> detaches.</summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task General_A_ReoffersAnd_D_Detaches()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
+        TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
-        var (terminal, app, ct) = CreateDotsiderApp(samples.NativeAotConsoleExe!);
+        var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
         var runTask = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
@@ -163,7 +170,7 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
         await auto.WaitUntilAsync(_ => _state!.Analyzer.PreIlcCompanions is null,
             description: "companions detached");
 
-        Assert.Null(_state!.Analyzer.PreIlcCompanions);
+        Assert.IsNull(_state!.Analyzer.PreIlcCompanions);
 
         _cts!.Cancel();
     }
@@ -172,11 +179,12 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
     /// An mstat-only discovery — a recognized build tree whose obj holds the mstat but no managed
     /// assembly — is found by the probe yet never opens the dialog (nothing attachable).
     /// </summary>
-    [Fact(Timeout = 60_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task MstatOnly_NoAttachableCompanion_NoDialog()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
         // Build a classic publish tree with the mstat in obj\...\native but NO managed dll —
         // the probe recognizes the tree and finds mstat-only, so HasAttachableCompanion is false.
@@ -189,9 +197,9 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
         Directory.CreateDirectory(objNativeDir);
         try
         {
-            var exeCopy = Path.Combine(publishDir, Path.GetFileName(samples.NativeAotConsoleExe!));
-            File.Copy(samples.NativeAotConsoleExe!, exeCopy);
-            File.Copy(samples.NativeAotConsoleMstat!, Path.Combine(objNativeDir, "NativeAotConsole.mstat"));
+            var exeCopy = Path.Combine(publishDir, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
+            File.Copy(Samples.NativeAotConsoleMstat!, Path.Combine(objNativeDir, "NativeAotConsole.mstat"));
 
             var (terminal, app, ct) = CreateDotsiderApp(exeCopy);
             var runTask = app.RunAsync(ct);
@@ -202,9 +210,9 @@ public class PreIlcOfferTests(SampleAssemblyFixture samples) : IDisposable
                 .Build()
                 .ApplyAsync(terminal, ct);
 
-            Assert.False(_state!.PreIlcDialogOpen);
-            Assert.False(_state.Analyzer.PreIlcSidecars?.HasAttachableCompanion ?? false);
-            Assert.NotNull(_state.Analyzer.PreIlcSidecars?.MstatPath);
+            Assert.IsFalse(_state!.PreIlcDialogOpen);
+            Assert.IsFalse(_state.Analyzer.PreIlcSidecars?.HasAttachableCompanion ?? false);
+            Assert.IsNotNull(_state.Analyzer.PreIlcSidecars?.MstatPath);
 
             _cts!.Cancel();
         }

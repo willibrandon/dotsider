@@ -1,0 +1,11 @@
+<Project>
+	<Import Project="..\Directory.Build.props" />
+
+	<PropertyGroup>
+		<MSTestAnalysisMode>All</MSTestAnalysisMode>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="$(MSBuildThisFileDirectory)Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+	</ItemGroup>
+</Project>

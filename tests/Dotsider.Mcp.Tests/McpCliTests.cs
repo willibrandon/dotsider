@@ -9,6 +9,7 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Process-level tests for the dotsider-mcp CLI entry point.
 /// </summary>
+[TestClass]
 public partial class McpCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
@@ -19,12 +20,12 @@ public partial class McpCliTests
     /// <summary>
     /// --help prints usage text identifying the binary and exits with success.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Help_ShowsUsageAndReturnsZero()
     {
         var (exitCode, stdout, _) = await RunMcpAsync("--help");
 
-        Assert.Equal(0, exitCode);
+        Assert.AreEqual(0, exitCode);
         Assert.Contains("dotsider-mcp", stdout);
         Assert.Contains("MCP", stdout);
     }
@@ -32,19 +33,19 @@ public partial class McpCliTests
     /// <summary>
     /// --version emits a non-empty version string and a zero exit code.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task Version_ReturnsZero()
     {
         var (exitCode, stdout, _) = await RunMcpAsync("--version");
 
-        Assert.Equal(0, exitCode);
-        Assert.False(string.IsNullOrWhiteSpace(stdout));
+        Assert.AreEqual(0, exitCode);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(stdout));
     }
 
     /// <summary>
     /// Launched with no arguments, the CLI boots the MCP server and completes the client handshake.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task NoArgs_StartsServerAndCompletesHandshake()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -53,20 +54,21 @@ public partial class McpCliTests
         // which has project resolution overhead that can exceed the timeout.
         var dllPath = Path.Combine(
             FindRepoRoot(), "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0", "dotsider-mcp.dll");
-        Assert.True(File.Exists(dllPath), $"dotsider-mcp.dll not found: {dllPath}");
+        Assert.IsTrue(File.Exists(dllPath), $"dotsider-mcp.dll not found: {dllPath}");
 
         await using var client = await McpClient.CreateAsync(
             new StdioClientTransport(new StdioClientTransportOptions
             {
                 Command = "dotnet",
                 Arguments = [dllPath],
+                EnvironmentVariables = TestProcessEnvironment.WithoutCodeCoverage(),
             }),
             cancellationToken: cts.Token);
 
         // If we get here, the MCP handshake completed successfully.
         // Verify the server reports its tools.
         var tools = await client.ListToolsAsync(cancellationToken: cts.Token);
-        Assert.NotEmpty(tools);
+        Assert.IsNotEmpty(tools);
     }
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunMcpAsync(
@@ -80,6 +82,7 @@ public partial class McpCliTests
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -96,35 +99,32 @@ public partial class McpCliTests
     /// the orphaned process's read() on the terminal returns EIO → IOException.
     /// Regression test for https://github.com/willibrandon/dotsider/issues/108.
     /// </summary>
-    [Fact]
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     public async Task CtrlC_InTerminal_ShutsDownWithoutTransportException()
     {
-        if (OperatingSystem.IsWindows())
-            return; // Windows console handles Ctrl+C cleanly; this is a macOS/Linux issue
-
         var repoRoot = FindRepoRoot();
         var dotsiderExe = Path.Combine(
             repoRoot, "src", "Dotsider", "bin", s_buildConfig, "net10.0", "dotsider");
         var mcpDir = Path.Combine(
             repoRoot, "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0");
 
-        Assert.True(File.Exists(dotsiderExe), $"dotsider not found: {dotsiderExe}");
-        Assert.True(File.Exists(Path.Combine(mcpDir, "dotsider-mcp")),
+        Assert.IsTrue(File.Exists(dotsiderExe), $"dotsider not found: {dotsiderExe}");
+        Assert.IsTrue(File.Exists(Path.Combine(mcpDir, "dotsider-mcp")),
             $"dotsider-mcp not found in: {mcpDir}");
 
         // Start an interactive shell in the PTY (bash becomes session leader).
         // This mirrors the real user experience: shell → dotsider → dotsider-mcp.
-        var env = new Dictionary<string, string>
-        {
-            ["PATH"] = $"{mcpDir}:{Environment.GetEnvironmentVariable("PATH")}"
-        };
+        var env = TestProcessEnvironment.WithoutCodeCoverageStringValues();
+        env["PATH"] = $"{mcpDir}:{Environment.GetEnvironmentVariable("PATH")}";
 
         await using var pty = new Hex1bTerminalChildProcess(
             "/bin/bash", ["--norc", "--noprofile"],
             environment: env,
+            inheritEnvironment: false,
             initialWidth: 160, initialHeight: 24);
 
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         await pty.StartAsync(ct);
 
         var output = new StringBuilder();

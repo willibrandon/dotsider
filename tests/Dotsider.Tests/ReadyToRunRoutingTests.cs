@@ -8,9 +8,11 @@ namespace Dotsider.Tests;
 /// An overloaded name lists candidates and exits non-zero rather than guessing; disassembling a
 /// multi-range method renders every block (its import-named call targets appear), not just the hot one.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ReadyToRunRoutingTests(SampleAssemblyFixture samples)
+[TestClass]
+public class ReadyToRunRoutingTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private const string SkipReason = "ReadyToRun crossgen2 publish did not run on this leg.";
 
     private static readonly string s_projectPath = Path.Combine(
@@ -19,61 +21,66 @@ public class ReadyToRunRoutingTests(SampleAssemblyFixture samples)
     private static readonly string s_buildConfig = DetectBuildConfig();
 
     /// <summary>Bare <c>--r2r-correlate</c> prints the ReadyToRun stats over the image.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task R2rCorrelate_Bare_PrintsStats()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        var (exit, stdout, _) = await RunDotsiderAsync("analyze", samples.ReadyToRunConsoleDll!, "--r2r-correlate");
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        var (exit, stdout, _) = await RunDotsiderAsync("analyze", Samples.ReadyToRunConsoleDll!, "--r2r-correlate");
 
-        Assert.Equal(0, exit);
+        Assert.AreEqual(0, exit);
         Assert.Contains("ReadyToRun", stdout);
         Assert.Contains("Precompiled", stdout);
     }
 
     /// <summary>A unique method resolves through the CLI to its native and IL.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task R2rCorrelate_UniqueName_ResolvesMethod()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var (exit, stdout, _) = await RunDotsiderAsync(
-            "analyze", samples.ReadyToRunConsoleDll!, "--r2r-correlate", "Greeter.get_Name");
+            "analyze", Samples.ReadyToRunConsoleDll!, "--r2r-correlate", "Greeter.get_Name");
 
-        Assert.Equal(0, exit);
+        Assert.AreEqual(0, exit);
         Assert.Contains("get_Name", stdout);
     }
 
     /// <summary>An overloaded name lists candidates and exits non-zero rather than picking first.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task R2rCorrelate_Overloaded_ListsCandidatesAndFails()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var (exit, stdout, stderr) = await RunDotsiderAsync(
-            "analyze", samples.ReadyToRunConsoleDll!, "--r2r-correlate", "Greet");
+            "analyze", Samples.ReadyToRunConsoleDll!, "--r2r-correlate", "Greet");
 
-        Assert.NotEqual(0, exit);
+        Assert.AreNotEqual(0, exit);
         Assert.Contains("ambiguous", (stdout + stderr).ToLowerInvariant());
     }
 
     /// <summary>The symbol table lists the ReadyToRun-derived symbols.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Symbols_ListsReadyToRunSymbols()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
-        var (exit, stdout, _) = await RunDotsiderAsync("analyze", samples.ReadyToRunConsoleDll!, "--symbols");
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        var (exit, stdout, _) = await RunDotsiderAsync("analyze", Samples.ReadyToRunConsoleDll!, "--symbols");
 
-        Assert.Equal(0, exit);
+        Assert.AreEqual(0, exit);
         Assert.Contains("Greeter", stdout);
     }
 
     /// <summary>Disassembling a multi-range method renders all blocks with import-named call targets.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Disasm_MultiRangeMethod_RendersAllBlocks()
     {
-        Assert.SkipWhen(samples.ReadyToRunConsoleDll is null, SkipReason);
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var (exit, stdout, _) = await RunDotsiderAsync(
-            "analyze", samples.ReadyToRunConsoleDll!, "--disasm", "MoveNext");
+            "analyze", Samples.ReadyToRunConsoleDll!, "--disasm", "MoveNext");
 
-        Assert.Equal(0, exit);
+        Assert.AreEqual(0, exit);
         // The import resolver names the indirect call; the multi-range body shows a funclet/cold block.
         Assert.Contains("Console.WriteLine", stdout);
     }
@@ -99,11 +106,12 @@ public class ReadyToRunRoutingTests(SampleAssemblyFixture samples)
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
-        var stdout = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-        var stderr = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        var stdout = await process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+        var stderr = await process.StandardError.ReadToEndAsync(CancellationToken.None);
+        await process.WaitForExitAsync(CancellationToken.None);
         return (process.ExitCode, stdout, stderr);
     }
 

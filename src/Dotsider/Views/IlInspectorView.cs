@@ -199,57 +199,46 @@ public static class IlInspectorView
                     IlTreeList.Build(
                         treeRows,
                         formattedRows,
+                        getRows: () => IsNativeTreeMode(state) ? BuildNativeTreeRows(state) : BuildTreeRows(state),
                         state,
-                        selectionChanged: index =>
+                        selectionChanged: row =>
                         {
-                            if (index >= 0 && index < treeRows.Count)
+                            // Direct assignment on keyboard/click moves does NOT arm
+                            // IlScrollSelectionIntoViewPending. The keyboard handler
+                            // calls EnsureSelectionVisible inline, so the pending
+                            // path is reserved for external setters.
+                            state.IlFocusedTreeKey = row.Key;
+                            if (row is { Kind: IlTreeRowKind.Method, Method: not null })
                             {
-                                var row = treeRows[index];
-                                // Direct assignment on keyboard/click moves — does NOT arm
-                                // IlScrollSelectionIntoViewPending. The keyboard handler
-                                // calls EnsureSelectionVisible inline, so the pending
-                                // path is reserved for external setters.
-                                state.IlFocusedTreeKey = row.Key;
-                                if (row is { Kind: IlTreeRowKind.Method, Method: not null })
-                                {
-                                    state.IlSelectedMethod = row.Method;
-                                    state.IlSelectedMethodOwner = row.Owner;
-                                }
-                                else if (row is { Kind: IlTreeRowKind.Method, Symbol: not null })
-                                {
-                                    state.IlSelectedNativeSymbol = row.Symbol;
-                                }
+                                state.IlSelectedMethod = row.Method;
+                                state.IlSelectedMethodOwner = row.Owner;
                             }
+                            else if (row is { Kind: IlTreeRowKind.Method, Symbol: not null })
+                            {
+                                state.IlSelectedNativeSymbol = row.Symbol;
+                            }
+
                             state.App.Invalidate();
                         },
-                        itemActivated: index =>
+                        itemActivated: row =>
                         {
-                            if (index >= 0 && index < treeRows.Count)
-                                ActivateTreeRow(treeRows[index], state);
+                            ActivateTreeRow(row, state);
                             state.App.Invalidate();
                         },
-                        expandRow: index =>
+                        expandRow: row =>
                         {
-                            if (index >= 0 && index < treeRows.Count)
+                            if (row is { CanExpand: true, IsExpanded: false })
                             {
-                                var row = treeRows[index];
-                                if (row is { CanExpand: true, IsExpanded: false })
-                                {
-                                    state.IlTreeExpansionState[row.ExpansionKey] = true;
-                                    state.App.Invalidate();
-                                }
+                                state.IlTreeExpansionState[row.ExpansionKey] = true;
+                                state.App.Invalidate();
                             }
                         },
-                        collapseRow: index =>
+                        collapseRow: row =>
                         {
-                            if (index >= 0 && index < treeRows.Count)
+                            if (row is { CanExpand: true, IsExpanded: true })
                             {
-                                var row = treeRows[index];
-                                if (row is { CanExpand: true, IsExpanded: true })
-                                {
-                                    state.IlTreeExpansionState[row.ExpansionKey] = false;
-                                    state.App.Invalidate();
-                                }
+                                state.IlTreeExpansionState[row.ExpansionKey] = false;
+                                state.App.Invalidate();
                             }
                         })
                 ],

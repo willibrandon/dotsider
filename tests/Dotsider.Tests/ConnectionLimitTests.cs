@@ -12,14 +12,18 @@ namespace Dotsider.Tests;
 /// Tests that the connection limit (4 concurrent) works correctly.
 /// Uses the full headless TUI stack with real assemblies.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposable
+[TestClass]
+public class ConnectionLimitTests : IAsyncDisposable
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _app;
     private DotsiderState? _state;
     private DotsiderDiagnosticsListener? _listener;
+    private CancellationTokenSource? _appCts;
+    private Task? _appTask;
 
     private async Task<string> StartTuiWithDiagnosticsAsync(CancellationToken ct)
     {
@@ -35,7 +39,7 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         _app = new Hex1bApp(
             ctx =>
             {
-                _state ??= new DotsiderState(_app!, samples.HelloWorldDll, pendingMutations);
+                _state ??= new DotsiderState(_app!, Samples.HelloWorldDll, pendingMutations);
                 var dotsiderApp = new DotsiderApp(_state);
                 return Task.FromResult<Hex1b.Widgets.Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -43,12 +47,13 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-            });
+        });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
-        _listener.StartListening(overridePid: Random.Shared.Next(100_000, 999_999));
+        _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
-        _ = _app.RunAsync(ct);
+        _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _appTask = _app.RunAsync(_appCts.Token);
         await Task.Delay(100, ct);
 
         await TestHelpers.WaitUntilAsync(
@@ -64,24 +69,32 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        _appCts?.Cancel();
         if (_listener is not null)
         {
             _listener.TestDelayHook = null;
             await _listener.DisposeAsync();
         }
 
+        if (_appTask is not null)
+        {
+            try { await _appTask; }
+            catch (OperationCanceledException) { }
+        }
         _state?.Dispose();
         _app?.Dispose();
         if (_terminal is not null) await _terminal.DisposeAsync();
+        _appCts?.Dispose();
     }
 
     /// <summary>
     /// Verifies four connections all succeed.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FourConnections_AllSucceed()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Fire 4 concurrent requests — all should succeed
@@ -91,16 +104,17 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
             .ToList();
 
         var responses = await Task.WhenAll(tasks);
-        Assert.All(responses, r => Assert.True(r.Success));
+        TestAssert.All(responses, r => Assert.IsTrue(r.Success));
     }
 
     /// <summary>
     /// Verifies fifth connection is rejected.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task FifthConnection_IsRejected()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Use the test delay hook to hold 4 slots open
@@ -128,7 +142,7 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
 
-        Assert.False(response.Success);
+        Assert.IsFalse(response.Success);
         Assert.Contains("too many", response.Error!, StringComparison.OrdinalIgnoreCase);
 
         // Release the held connections
@@ -143,10 +157,11 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
     /// <summary>
     /// Verifies slot freed allows new connection.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task SlotFreed_AllowsNewConnection()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Hold 4 slots with a controllable hook
@@ -186,16 +201,17 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
     }
 
     /// <summary>
     /// Verifies stalled client times out.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task StalledClient_TimesOut()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Connect but never send a newline — the read timeout (5s) should free the slot
@@ -209,16 +225,17 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
         var response = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
 
-        Assert.True(response.Success);
+        Assert.IsTrue(response.Success);
     }
 
     /// <summary>
     /// Verifies shutdown with active connections completes.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task ShutdownWithActiveConnections_Completes()
     {
-        var ct = TestContext.Current.CancellationToken;
+        var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         // Hold a connection slot open
@@ -242,7 +259,7 @@ public class ConnectionLimitTests(SampleAssemblyFixture samples) : IAsyncDisposa
 
         var disposeTask = _listener.DisposeAsync().AsTask();
         var completed = await Task.WhenAny(disposeTask, Task.Delay(10_000, ct));
-        Assert.Same(disposeTask, completed);
+        Assert.AreSame(disposeTask, completed);
 
         // Prevent double-dispose in DisposeAsync
         _listener = null;

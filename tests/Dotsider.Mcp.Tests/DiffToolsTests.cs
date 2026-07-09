@@ -8,13 +8,15 @@ namespace Dotsider.Mcp.Tests;
 /// <summary>
 /// Creates the tests using the shared sample assembly fixture.
 /// </summary>
-[Collection("SampleAssemblies")]
-public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
+[TestClass]
+public class DiffToolsTests : McpServerTestBase
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Comparing v1 to v2 of the same library produces a non-error diff payload.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffAssemblies_V1VsV2_ReturnsDifferences()
     {
         await StartServerAsync();
@@ -24,20 +26,20 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "diff_assemblies",
             new Dictionary<string, object?>
             {
-                ["leftPath"] = samples.RichLibraryDll,
-                ["rightPath"] = samples.RichLibraryV2Dll
+                ["leftPath"] = Samples.RichLibraryDll,
+                ["rightPath"] = Samples.RichLibraryV2Dll
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("Error", text);
     }
 
     /// <summary>
     /// Diffing an assembly against itself produces an empty, error-free diff.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffAssemblies_SameAssembly_ReturnsNoDifferences()
     {
         await StartServerAsync();
@@ -47,20 +49,20 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "diff_assemblies",
             new Dictionary<string, object?>
             {
-                ["leftPath"] = samples.HelloWorldDll,
-                ["rightPath"] = samples.HelloWorldDll
+                ["leftPath"] = Samples.HelloWorldDll,
+                ["rightPath"] = Samples.HelloWorldDll
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.DoesNotContain("Error", text);
     }
 
     /// <summary>
     /// maxTypeDiffs caps the typeDiffs array while metadataSummary retains full counts.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffAssemblies_MaxTypeDiffs_LimitsTypeOutput()
     {
         await StartServerAsync();
@@ -70,30 +72,30 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "diff_assemblies",
             new Dictionary<string, object?>
             {
-                ["leftPath"] = samples.RichLibraryDll,
-                ["rightPath"] = samples.RichLibraryV2Dll,
+                ["leftPath"] = Samples.RichLibraryDll,
+                ["rightPath"] = Samples.RichLibraryV2Dll,
                 ["maxTypeDiffs"] = 2
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         var typeDiffs = json.GetProperty("typeDiffs");
-        Assert.True(typeDiffs.GetArrayLength() <= 2);
+        Assert.IsLessThanOrEqualTo(2, typeDiffs.GetArrayLength());
 
         // Summary should still reflect full counts
         var summary = json.GetProperty("metadataSummary");
         var totalTypes = summary.GetProperty("typesAdded").GetInt32()
             + summary.GetProperty("typesRemoved").GetInt32()
             + summary.GetProperty("typesChanged").GetInt32();
-        Assert.True(totalTypes > 2, "Summary should reflect all diffs, not the limited output");
+        Assert.IsGreaterThan(2, totalTypes, "Summary should reflect all diffs, not the limited output");
     }
 
     /// <summary>
     /// maxMethodDiffs caps the methodDiffs array without altering the aggregate summary.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffAssemblies_MaxMethodDiffs_LimitsMethodOutput()
     {
         await StartServerAsync();
@@ -103,30 +105,30 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "diff_assemblies",
             new Dictionary<string, object?>
             {
-                ["leftPath"] = samples.RichLibraryDll,
-                ["rightPath"] = samples.RichLibraryV2Dll,
+                ["leftPath"] = Samples.RichLibraryDll,
+                ["rightPath"] = Samples.RichLibraryV2Dll,
                 ["maxMethodDiffs"] = 5
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         var methodDiffs = json.GetProperty("methodDiffs");
-        Assert.True(methodDiffs.GetArrayLength() <= 5);
+        Assert.IsLessThanOrEqualTo(5, methodDiffs.GetArrayLength());
 
         // Summary should still reflect full counts
         var summary = json.GetProperty("metadataSummary");
         var totalMethods = summary.GetProperty("methodsAdded").GetInt32()
             + summary.GetProperty("methodsRemoved").GetInt32()
             + summary.GetProperty("methodsChanged").GetInt32();
-        Assert.True(totalMethods > 5, "Summary should reflect all diffs, not the limited output");
+        Assert.IsGreaterThan(5, totalMethods, "Summary should reflect all diffs, not the limited output");
     }
 
     /// <summary>
     /// Type and method limits compose independently on the same diff invocation.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public async Task DiffAssemblies_BothLimits_LimitsBothOutputs()
     {
         await StartServerAsync();
@@ -136,18 +138,18 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             "diff_assemblies",
             new Dictionary<string, object?>
             {
-                ["leftPath"] = samples.RichLibraryDll,
-                ["rightPath"] = samples.RichLibraryV2Dll,
+                ["leftPath"] = Samples.RichLibraryDll,
+                ["rightPath"] = Samples.RichLibraryV2Dll,
                 ["maxTypeDiffs"] = 3,
                 ["maxMethodDiffs"] = 10
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("typeDiffs").GetArrayLength() <= 3);
-        Assert.True(json.GetProperty("methodDiffs").GetArrayLength() <= 10);
+        Assert.IsLessThanOrEqualTo(3, json.GetProperty("typeDiffs").GetArrayLength());
+        Assert.IsLessThanOrEqualTo(10, json.GetProperty("methodDiffs").GetArrayLength());
     }
 
     // --- diff_size ---
@@ -156,18 +158,19 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
     private static readonly string[] s_generousGrowthBudget = ["total:growth=1000%"];
     private static readonly string[] s_bareGrowthBudget = ["growth=1%"];
 
-    private (string V1, string V2) RequireMstats()
+    private static (string V1, string V2) RequireMstats()
     {
-        Assert.SkipWhen(samples.NativeAotConsoleMstat is null, "V1 mstat sidecar was not produced");
-        Assert.SkipWhen(samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
-        return (samples.NativeAotConsoleMstat!, samples.NativeAotConsoleV2Mstat!);
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "V1 mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
+        return (Samples.NativeAotConsoleMstat!, Samples.NativeAotConsoleV2Mstat!);
     }
 
     /// <summary>
     /// diff_size over the real V1/V2 mstat pair returns the summary, aggregates, and top
     /// contributors — and no tree unless asked.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffSize_V1V2Mstats_ReturnsSummaryAndContributors()
     {
         var (v1, v2) = RequireMstats();
@@ -185,17 +188,18 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.NotEqual(0, json.GetProperty("summary").GetProperty("delta").GetInt64());
-        Assert.True(json.GetProperty("assemblyDeltas").GetArrayLength() > 0);
-        Assert.True(json.GetProperty("namespaceDeltas").GetArrayLength() > 0);
-        Assert.True(json.GetProperty("contributors").GetArrayLength() <= 5);
-        Assert.False(json.TryGetProperty("root", out var root) && root.ValueKind != JsonValueKind.Null);
+        Assert.AreNotEqual(0, json.GetProperty("summary").GetProperty("delta").GetInt64());
+        Assert.IsGreaterThan(0, json.GetProperty("assemblyDeltas").GetArrayLength());
+        Assert.IsGreaterThan(0, json.GetProperty("namespaceDeltas").GetArrayLength());
+        Assert.IsLessThanOrEqualTo(5, json.GetProperty("contributors").GetArrayLength());
+        Assert.IsFalse(json.TryGetProperty("root", out var root) && root.ValueKind != JsonValueKind.Null);
     }
 
     /// <summary>diff_size of a report against itself returns a zero delta and no contributors.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffSize_SelfDiff_ZeroDelta()
     {
         var (v1, _) = RequireMstats();
@@ -212,17 +216,18 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.Equal(0, json.GetProperty("summary").GetProperty("delta").GetInt64());
-        Assert.Equal(0, json.GetProperty("contributors").GetArrayLength());
+        Assert.AreEqual(0, json.GetProperty("summary").GetProperty("delta").GetInt64());
+        Assert.AreEqual(0, json.GetProperty("contributors").GetArrayLength());
     }
 
     /// <summary>
     /// includeTree with a tight node cap emits a pruned tree and says so through the
     /// truncation metadata — deterministic, never a silent sample.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffSize_IncludeTreeWithCap_SetsTruncationMetadata()
     {
         var (v1, v2) = RequireMstats();
@@ -241,16 +246,17 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.NotEqual(JsonValueKind.Null, json.GetProperty("root").ValueKind);
-        Assert.True(json.GetProperty("treeTruncated").GetBoolean());
-        Assert.True(json.GetProperty("treeTotalNodes").GetInt32() > 10);
-        Assert.True(json.GetProperty("treeIncludedNodes").GetInt32() <= 10);
+        Assert.AreNotEqual(JsonValueKind.Null, json.GetProperty("root").ValueKind);
+        Assert.IsTrue(json.GetProperty("treeTruncated").GetBoolean());
+        Assert.IsGreaterThan(10, json.GetProperty("treeTotalNodes").GetInt32());
+        Assert.IsLessThanOrEqualTo(10, json.GetProperty("treeIncludedNodes").GetInt32());
     }
 
     /// <summary>diff_size rejects an input that is not mstat-backed with a message naming the fix.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DiffSize_NonMstatInput_ReturnsError()
     {
         var (v1, _) = RequireMstats();
@@ -262,12 +268,12 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             new Dictionary<string, object?>
             {
                 ["leftPath"] = v1,
-                ["rightPath"] = samples.RichLibraryDll
+                ["rightPath"] = Samples.RichLibraryDll
             },
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("not mstat-backed", text);
     }
 
@@ -277,7 +283,8 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
     /// A zero-growth budget on the namespace added in V2 breaches, and the report carries the
     /// violation and its scoped contributors.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_Breach_ReportsFailed()
     {
         var (v1, v2) = RequireMstats();
@@ -295,16 +302,17 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.False(json.GetProperty("passed").GetBoolean());
+        Assert.IsFalse(json.GetProperty("passed").GetBoolean());
         var evaluation = json.GetProperty("evaluations")[0];
-        Assert.True(evaluation.GetProperty("violations").GetArrayLength() > 0);
-        Assert.True(evaluation.GetProperty("topContributors").GetArrayLength() > 0);
+        Assert.IsGreaterThan(0, evaluation.GetProperty("violations").GetArrayLength());
+        Assert.IsGreaterThan(0, evaluation.GetProperty("topContributors").GetArrayLength());
     }
 
     /// <summary>A generous budget passes.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_Pass_ReportsPassed()
     {
         var (v1, v2) = RequireMstats();
@@ -322,16 +330,17 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("passed").GetBoolean());
+        Assert.IsTrue(json.GetProperty("passed").GetBoolean());
     }
 
     /// <summary>
     /// budgetsJson carries the object form — named budgets with warning severity — at full
     /// parity with the CLI's budget file.
     /// </summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_BudgetsJson_ObjectFormHonored()
     {
         var (v1, v2) = RequireMstats();
@@ -357,19 +366,20 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
-        Assert.True(json.GetProperty("passed").GetBoolean(), "warning severity must not fail the check");
-        Assert.True(json.GetProperty("hasWarnings").GetBoolean());
+        Assert.IsTrue(json.GetProperty("passed").GetBoolean(), "warning severity must not fail the check");
+        Assert.IsTrue(json.GetProperty("hasWarnings").GetBoolean());
         var evaluation = json.GetProperty("evaluations")[0];
-        Assert.False(evaluation.GetProperty("passed").GetBoolean());
-        Assert.Equal("telemetry-watch",
+        Assert.IsFalse(evaluation.GetProperty("passed").GetBoolean());
+        Assert.AreEqual("telemetry-watch",
             evaluation.GetProperty("budget").GetProperty("name").GetString());
-        Assert.True(evaluation.GetProperty("topContributors").GetArrayLength() <= 3);
+        Assert.IsLessThanOrEqualTo(3, evaluation.GetProperty("topContributors").GetArrayLength());
     }
 
     /// <summary>budgetFilePath loads the same document schema from disk.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_BudgetFilePath_Honored()
     {
         var (v1, v2) = RequireMstats();
@@ -392,9 +402,9 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
                 cancellationToken: TestCancellationToken);
 
             var text = GetTextContent(result);
-            Assert.NotNull(text);
+            Assert.IsNotNull(text);
             var json = JsonSerializer.Deserialize<JsonElement>(text);
-            Assert.True(json.GetProperty("passed").GetBoolean());
+            Assert.IsTrue(json.GetProperty("passed").GetBoolean());
         }
         finally
         {
@@ -403,7 +413,8 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
     }
 
     /// <summary>Every budget source absent is an error, not an empty pass.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_NoBudgetSource_ReturnsError()
     {
         var (v1, v2) = RequireMstats();
@@ -420,12 +431,13 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("budget source is required", text);
     }
 
     /// <summary>A growth budget without a baseline is an error naming the missing parameter.</summary>
-    [Fact(Timeout = 30_000)]
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task CheckSizeBudgets_GrowthWithoutBaseline_ReturnsError()
     {
         var (_, v2) = RequireMstats();
@@ -442,7 +454,7 @@ public class DiffToolsTests(SampleAssemblyFixture samples) : McpServerTestBase
             cancellationToken: TestCancellationToken);
 
         var text = GetTextContent(result);
-        Assert.NotNull(text);
+        Assert.IsNotNull(text);
         Assert.Contains("baselinePath", text);
     }
 }
