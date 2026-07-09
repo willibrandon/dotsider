@@ -50,6 +50,7 @@ public sealed class BundleResolutionRegressionTests : IAsyncDisposable
                 }
             }
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(_serverProcess.StartInfo);
 
         _serverProcess.Start();
 

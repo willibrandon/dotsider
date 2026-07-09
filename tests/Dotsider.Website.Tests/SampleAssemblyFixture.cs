@@ -87,6 +87,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 WorkingDirectory = _repoRoot,
                 UseShellExecute = false,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();
@@ -143,6 +144,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();

@@ -667,6 +667,7 @@ internal class SampleAssemblyFixture
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -722,6 +723,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
@@ -786,6 +788,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
@@ -837,6 +840,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -887,6 +891,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -925,6 +930,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardError = true,
                 WorkingDirectory = Path.GetDirectoryName(exePath)!,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
             var stderr = await process.StandardError.ReadToEndAsync();

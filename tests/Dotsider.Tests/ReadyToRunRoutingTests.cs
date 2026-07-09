@@ -106,6 +106,7 @@ public class ReadyToRunRoutingTests
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync(CancellationToken.None);

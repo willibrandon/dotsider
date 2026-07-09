@@ -257,6 +257,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         {
             startInfo.ArgumentList.Add(argument);
         }
+        TestProcessEnvironment.RemoveCodeCoverageVariables(startInfo);
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
         string stdout = process.StandardOutput.ReadToEnd();

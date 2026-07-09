@@ -61,6 +61,7 @@ public partial class McpCliTests
             {
                 Command = "dotnet",
                 Arguments = [dllPath],
+                EnvironmentVariables = TestProcessEnvironment.WithoutCodeCoverage(),
             }),
             cancellationToken: cts.Token);
 
@@ -81,6 +82,7 @@ public partial class McpCliTests
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
         var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -113,14 +115,13 @@ public partial class McpCliTests
 
         // Start an interactive shell in the PTY (bash becomes session leader).
         // This mirrors the real user experience: shell → dotsider → dotsider-mcp.
-        var env = new Dictionary<string, string>
-        {
-            ["PATH"] = $"{mcpDir}:{Environment.GetEnvironmentVariable("PATH")}"
-        };
+        var env = TestProcessEnvironment.WithoutCodeCoverageStringValues();
+        env["PATH"] = $"{mcpDir}:{Environment.GetEnvironmentVariable("PATH")}";
 
         await using var pty = new Hex1bTerminalChildProcess(
             "/bin/bash", ["--norc", "--noprofile"],
             environment: env,
+            inheritEnvironment: false,
             initialWidth: 160, initialHeight: 24);
 
         var ct = CancellationToken.None;

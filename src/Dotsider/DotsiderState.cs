@@ -970,7 +970,7 @@ public sealed class DotsiderState : IDisposable
         if (capturedAnalyzer.PreIlcCompanions is null) return;
 
         PreIlcIndexBuildInProgress = true;
-        _ = Task.Run(() =>
+        _ = QueueDedicatedBackgroundWork(() =>
         {
             try
             {
@@ -993,6 +993,7 @@ public sealed class DotsiderState : IDisposable
             {
                 PreIlcIndexBuildInProgress = false;
                 App.Invalidate();
+                RequestExtraFrame();
             }
         });
     }
@@ -2327,7 +2328,7 @@ public sealed class DotsiderState : IDisposable
         GraphBuildInProgress = true;
         var capturedAnalyzer = Analyzer;
 
-        _ = Task.Run(() =>
+        _ = QueueDedicatedBackgroundWork(() =>
         {
             try
             {
@@ -2343,7 +2344,15 @@ public sealed class DotsiderState : IDisposable
             {
                 GraphBuildInProgress = false;
                 App.Invalidate();
+                RequestExtraFrame();
             }
         });
     }
+
+    private static Task QueueDedicatedBackgroundWork(Action work) =>
+        Task.Factory.StartNew(
+            work,
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
 }

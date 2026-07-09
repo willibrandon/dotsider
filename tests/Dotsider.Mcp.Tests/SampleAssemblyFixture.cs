@@ -276,6 +276,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -338,6 +339,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();
@@ -390,6 +392,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -445,6 +448,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -513,6 +517,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
+            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();

@@ -54,6 +54,35 @@ public class DiffModeYankIntegrationTests : IDisposable
         return _runTask;
     }
 
+    private async Task<string> WaitForStableYankPayloadAsync(CancellationToken ct)
+    {
+        string? last = null;
+        var stablePolls = 0;
+        var timeoutAt = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (DateTime.UtcNow < timeoutAt)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var current = _state is null ? null : YankHelper.GetYankText(_state);
+            if (current is not null && current == last)
+            {
+                stablePolls++;
+                if (stablePolls >= 2)
+                    return current;
+            }
+            else
+            {
+                last = current;
+                stablePolls = current is null ? 0 : 1;
+            }
+
+            await Task.Delay(50, ct);
+        }
+
+        Assert.Fail("Timed out waiting for diff yank payload to settle.");
+        throw new InvalidOperationException("Unreachable.");
+    }
+
     private bool TryWaitForAppExit()
     {
         if (_runTask is null) return true;
@@ -177,8 +206,6 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        await Task.Delay(200, ct);
-
         // If DiffFocusedKey is still null, try j to navigate in table
         if (_state!.DiffFocusedKey is null)
         {
@@ -191,9 +218,8 @@ public class DiffModeYankIntegrationTests : IDisposable
 
         Assert.IsNotNull(_state.DiffFocusedKey);
 
-        // Compute expected payload before yank
-        var expectedPayload = YankHelper.GetYankText(_state);
-        Assert.IsNotNull(expectedPayload);
+        // Compute expected payload after the table's focus callback has settled.
+        var expectedPayload = await WaitForStableYankPayloadAsync(ct);
         Assert.Contains("\t", expectedPayload); // Tab-separated
 
         // Yank
