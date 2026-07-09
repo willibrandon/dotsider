@@ -4,3 +4,4 @@
 *.bats  text eol=lf
 *.bash  text eol=lf
 scripts/*.cs text eol=lf
+scripts/**/*.cs text eol=lf

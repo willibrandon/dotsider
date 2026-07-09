@@ -13,6 +13,44 @@ Run a utility with:
 dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
 ```
 
+Test-oriented utilities live under `scripts/test/`. They stay in the same
+isolated file-based app tree as the other repository utilities, rather than
+under `tests/`, so they do not inherit MSTest-specific build props.
+
+Run the full test suite once with default `dotnet test` arguments:
+
+```powershell
+dotnet run --file ./scripts/test/Run-Tests.cs
+```
+
+Pass normal `dotnet test` arguments after the separator:
+
+```powershell
+dotnet run --file ./scripts/test/Run-Tests.cs -- -- --no-restore
+```
+
+Repeat the default `dotnet test` command to look for MethodLevel
+parallelization flakes:
+
+```powershell
+dotnet run --file ./scripts/test/Run-Tests.cs -- -Count 25
+```
+
+Repeat with forwarded `dotnet test` arguments:
+
+```powershell
+dotnet run --file ./scripts/test/Run-Tests.cs -- -Count 25 -- --no-restore
+```
+
+Forward any normal `dotnet test` argument after the separator:
+
+```powershell
+dotnet run --file ./scripts/test/Run-Tests.cs -- -Target tests/Dotsider.Tests/Dotsider.Tests.csproj -Count 10 -- --no-restore --filter FullyQualifiedName~RuntimeTracerTests
+```
+
+Use `-LogDirectory artifacts/test-runs` to retain one combined stdout/stderr log
+per attempt, and `-StopOnFailure` when the first failing run is enough evidence.
+
 Large disassembly tools can emit very large streams. Use
 `-MaxOutputCharacters` to cap retained stdout/stderr while still draining the
 process to completion, `-TimeoutSeconds` to kill long-running oracle tools, and
@@ -120,6 +158,7 @@ Current utilities:
 | App | Purpose |
 | --- | --- |
 | `Capture-DisasmOracle.cs` | Capture external native-disassembly oracle output and metadata. |
+| `test/Run-Tests.cs` | Run `dotnet test` once or repeatedly with forwarded test arguments. |
 
 Oracle captures stay under ignored `artifacts/` paths until they have been
 reviewed and normalized into committed test fixtures.
