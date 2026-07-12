@@ -944,7 +944,7 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleStartTrace(DotsiderRequest request)
     {
         var state = RequireState();
-        
+
         if (state.IsNetFramework)
             return DotsiderResponse.Fail("Assembly targets .NET Framework; EventPipe requires .NET Core 3.0+");
 
@@ -1145,6 +1145,7 @@ internal sealed class DotsiderDiagnosticsListener(
         {
             ResolvedAssembly.FromFile(var path) => new ResolvedAssemblyInfo("file", path, null, null),
             ResolvedAssembly.FromBundle(_, var name, var bundle) => new ResolvedAssemblyInfo("bundle", null, name, bundle),
+            ResolvedModule module => new ResolvedAssemblyInfo("module", module.Path, null, null),
             _ => null
         };
         return DotsiderResponse.Ok(info);
@@ -1267,6 +1268,9 @@ internal sealed class DotsiderDiagnosticsListener(
 
     // --- Lifecycle ---
 
+    /// <summary>
+    /// Stops the diagnostics listener and releases its managed resources asynchronously.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         await _cts.CancelAsync();

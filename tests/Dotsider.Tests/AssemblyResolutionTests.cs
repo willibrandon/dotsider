@@ -112,6 +112,24 @@ public sealed class AssemblyResolutionTests : IDisposable
     }
 
     /// <summary>
+    /// Verifies the runtime's nested ExportedType chain is followed to its implementation assembly.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ImplementationAssemblyResolver_RuntimeNestedForwarder_LandsInImplementationAssembly()
+    {
+        var resolved = ImplementationAssemblyResolver.Resolve(
+            Samples.HelloWorldDll,
+            "mscorlib",
+            "System.Collections.Generic.List`1/Enumerator",
+            ".NETCoreApp,Version=v10.0",
+            "Microsoft.NETCore.App");
+
+        var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
+        Assert.AreEqual("System.Private.CoreLib.dll", Path.GetFileName(fromFile.Path));
+    }
+
+    /// <summary>
     /// Guardrail for the same partial facade: a type the facade actually owns as a
     /// TypeDef must stay in the facade, not be over-chased into CoreLib.
     /// </summary>
@@ -168,12 +186,63 @@ public sealed class AssemblyResolutionTests : IDisposable
     }
 
     /// <summary>
+    /// Verifies an AssemblyRef terminal without IsTypeForwarder cannot be treated as a forwarder,
+    /// even when the referenced assembly exists and owns the requested type.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ImplementationAssemblyResolver_AssemblyReferenceWithoutForwarderFlag_HardMisses()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "dotsider-invalid-forwarder-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var facadeName = "InvalidForwarder" + suffix;
+            var targetName = "InvalidForwarderTarget" + suffix;
+            var facadePath = Path.Combine(directory, facadeName + ".dll");
+            File.WriteAllBytes(
+                facadePath,
+                BuildSyntheticFacade(
+                    facadeName,
+                    "Synthetic.Target",
+                    targetName,
+                    TypeAttributes.Public));
+            File.WriteAllBytes(
+                Path.Combine(directory, targetName + ".dll"),
+                MetadataNestingConsumerMetadata.BuildTargetAssembly(targetName));
+
+            var result = ImplementationAssemblyResolver.Resolve(
+                facadePath,
+                facadeName,
+                declaringType: "Synthetic.Target");
+
+            Assert.IsNull(result);
+        }
+        finally
+        {
+            ImplementationAssemblyResolver.ClearCache();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Emits a minimal PE with exactly one ExportedType forwarder pointing at the
     /// named target assembly. Used by the chase-broken regression to construct a
     /// forwarder whose target cannot be resolved.
     /// </summary>
+    /// <param name="moduleName">The facade assembly and module name.</param>
+    /// <param name="forwarderTypeFullName">The exported type's full name.</param>
+    /// <param name="targetAssemblyName">The AssemblyRef target name.</param>
+    /// <param name="attributes">The ExportedType attributes.</param>
+    /// <returns>The serialized managed PE image.</returns>
     private static byte[] BuildSyntheticFacade(
-        string moduleName, string forwarderTypeFullName, string targetAssemblyName)
+        string moduleName,
+        string forwarderTypeFullName,
+        string targetAssemblyName,
+        TypeAttributes attributes = TypeAttributes.Public | (TypeAttributes)0x0020_0000)
     {
         var metadata = new MetadataBuilder();
         metadata.AddAssembly(
@@ -203,7 +272,7 @@ public sealed class AssemblyResolutionTests : IDisposable
         var name = dot >= 0 ? forwarderTypeFullName[(dot + 1)..] : forwarderTypeFullName;
 
         metadata.AddExportedType(
-            TypeAttributes.Public | (TypeAttributes)0x00200000, // IsForwarder
+            attributes,
             metadata.GetOrAddString(ns),
             metadata.GetOrAddString(name),
             implementation: asmRef,

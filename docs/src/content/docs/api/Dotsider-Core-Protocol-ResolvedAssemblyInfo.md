@@ -1,6 +1,6 @@
 ---
 title: "ResolvedAssemblyInfo"
-description: "Serialization-safe representation of an assembly resolution result. Used in protocol and MCP responses where ResolvedAssembly cannot be serialized directly (FromBundle contains raw bytes)."
+description: "Serialization-safe representation of an assembly resolution result. Used in protocol and MCP responses where ResolvedAssembly cannot be serialized directly because bundle and module results contain raw bytes."
 slug: api/dotsider.core.protocol.resolvedassemblyinfo
 sidebar:
   order: 4
@@ -12,7 +12,7 @@ sidebar:
 
 Serialization-safe representation of an assembly resolution result.
 Used in protocol and MCP responses where [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
-cannot be serialized directly (FromBundle contains raw bytes).
+cannot be serialized directly because bundle and module results contain raw bytes.
 
 ```csharp
 public sealed record ResolvedAssemblyInfo : IEquatable<ResolvedAssemblyInfo>
@@ -32,12 +32,12 @@ public sealed record ResolvedAssemblyInfo : IEquatable<ResolvedAssemblyInfo>
 
 Serialization-safe representation of an assembly resolution result.
 Used in protocol and MCP responses where [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
-cannot be serialized directly (FromBundle contains raw bytes).
+cannot be serialized directly because bundle and module results contain raw bytes.
 
 **Parameters:**
 
-- `Kind` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Resolution kind: "file" or "bundle".
-- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Full file path for file-backed results, or null for bundle-backed.
+- `Kind` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Resolution kind: "file", "bundle", or "module".
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Full file path for file- and module-backed results, or null for bundle-backed.
 - `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Entry name for bundle-backed results (e.g. "System.Runtime.dll"), or null.
 - `BundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Path to the containing bundle for bundle-backed results, or null.
 
@@ -59,7 +59,7 @@ public string? BundlePath { get; init; }
 
 ### Kind
 
-Resolution kind: "file" or "bundle".
+Resolution kind: "file", "bundle", or "module".
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -79,7 +79,7 @@ public string? Name { get; init; }
 
 ### Path
 
-Full file path for file-backed results, or null for bundle-backed.
+Full file path for file- and module-backed results, or null for bundle-backed.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 

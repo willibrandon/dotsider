@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Analysis.Signatures;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 
@@ -7,6 +8,7 @@ namespace Dotsider.Core.Analysis;
 /// <summary>
 /// Decodes IL (Intermediate Language) method bodies into human-readable instruction sequences.
 /// </summary>
+/// <param name="analyzer">Provides the assembly metadata and method bodies to disassemble.</param>
 public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 {
     private readonly MetadataReader _reader = analyzer.GetMetadataReader()
@@ -209,12 +211,13 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 
         try
         {
-            var signature = _reader.GetStandaloneSignature(localSignature);
-            return [.. signature.DecodeLocalSignature(
-                new AssemblyAnalyzer.SignatureTypeProvider(),
+            return [.. SafeSignatureDecoder.DecodeLocalSignature(
+                _reader,
+                localSignature,
+                new AssemblySignatureTypeProvider(),
                 genericContext: default)];
         }
-        catch
+        catch (BadImageFormatException)
         {
             return [];
         }
@@ -360,27 +363,6 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         var v = BitConverter.ToDouble(il, offset);
         offset += 8;
         return v;
-    }
-
-    internal enum OperandKind
-    {
-        None,
-        ShortBranchTarget,
-        BranchTarget,
-        ShortInlineI,
-        InlineI,
-        InlineI8,
-        ShortInlineR,
-        InlineR,
-        ShortInlineVar,
-        InlineVar,
-        InlineString,
-        InlineMethod,
-        InlineField,
-        InlineType,
-        InlineTok,
-        InlineSig,
-        InlineSwitch
     }
 
     internal static OperandKind GetOperandType(ILOpCode opCode) => opCode switch

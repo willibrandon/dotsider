@@ -1,6 +1,6 @@
 ---
 title: "ResolvedAssembly"
-description: "The result of resolving an assembly reference — either a file on disk or bytes from a bundle."
+description: "The result of resolving an assembly reference to an assembly file, a bundle entry, or an authenticated sibling module."
 slug: api/dotsider.core.analysis.models.resolvedassembly
 sidebar:
   order: 2
@@ -10,7 +10,8 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-The result of resolving an assembly reference — either a file on disk or bytes from a bundle.
+The result of resolving an assembly reference to an assembly file, a bundle entry, or an
+authenticated sibling module.
 
 ```csharp
 public abstract record ResolvedAssembly : IEquatable<ResolvedAssembly>

@@ -1,7 +1,9 @@
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Automation;
 using Hex1b.Input;
+using Hex1b.Nodes;
 using Hex1b.Widgets;
 
 namespace Dotsider.Tests;
@@ -54,33 +56,26 @@ public class DiffModeYankIntegrationTests : IDisposable
         return _runTask;
     }
 
-    private async Task<string> WaitForStableYankPayloadAsync(CancellationToken ct)
+    private async Task<string> FocusFirstDiffRowAsync<T>(
+        Hex1bTerminal terminal,
+        IReadOnlyList<DiffEntry<T>> entries,
+        Func<DiffEntry<T>, string> keySelector,
+        CancellationToken ct)
     {
-        string? last = null;
-        var stablePolls = 0;
-        var timeoutAt = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-        while (DateTime.UtcNow < timeoutAt)
-        {
-            ct.ThrowIfCancellationRequested();
+        Assert.IsNotEmpty(entries);
+        var expectedKey = keySelector(entries[0]);
 
-            var current = _state is null ? null : YankHelper.GetYankText(_state);
-            if (current is not null && current == last)
-            {
-                stablePolls++;
-                if (stablePolls >= 2)
-                    return current;
-            }
-            else
-            {
-                last = current;
-                stablePolls = current is null ? 0 : 1;
-            }
+        await new Hex1bTerminalInputSequenceBuilder()
+            .Key(Hex1bKey.Home)
+            .WaitUntil(
+                _ => Equals(_state!.DiffFocusedKey, expectedKey)
+                    && _state.App.FocusedNode is TableNode<DiffEntry<T>> table
+                    && Equals(table.FocusedKey, expectedKey),
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
 
-            await Task.Delay(50, ct);
-        }
-
-        Assert.Fail("Timed out waiting for diff yank payload to settle.");
-        throw new InvalidOperationException("Unreachable.");
+        return expectedKey;
     }
 
     private bool TryWaitForAppExit()
@@ -114,8 +109,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es }
-                    && es == _state.LeftInfoEditorState; }
+                try
+                {
+                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.LeftInfoEditorState;
+                }
                 catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -126,8 +124,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es }
-                    && es == _state.RightInfoEditorState; }
+                try
+                {
+                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.RightInfoEditorState;
+                }
                 catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -138,8 +139,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es }
-                    && es == _state.ChangeStatsEditorState; }
+                try
+                {
+                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.ChangeStatsEditorState;
+                }
                 catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -165,20 +169,28 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab) // Focus left info editor
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
+                try
+                {
+                    return _state!.App.FocusedNode is EditorNode { State: var editorState }
+                        && ReferenceEquals(editorState, _state.LeftInfoEditorState);
+                }
                 catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         var tabBefore = _state!.CurrentTab;
+        var editor = _state.LeftInfoEditorState!;
+        var cursorBefore = editor.Cursor.Position.Value;
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.RightArrow)
+            .WaitUntil(
+                _ => editor.Cursor.Position.Value != cursorBefore,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        await Task.Delay(100, ct);
         Assert.AreEqual(tabBefore, _state.CurrentTab);
 
         _cts!.Cancel();
@@ -202,41 +214,38 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Type("2") // Types tab
             .WaitUntil(s => s.ContainsText("Type") && s.ContainsText("Base Type"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow) // Seed focus on first row
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // If DiffFocusedKey is still null, try j to navigate in table
-        if (_state!.DiffFocusedKey is null)
-        {
-            await new Hex1bTerminalInputSequenceBuilder()
-                .Key(Hex1bKey.DownArrow)
-                .Build()
-                .ApplyAsync(terminal, ct);
-            await Task.Delay(200, ct);
-        }
-
-        Assert.IsNotNull(_state.DiffFocusedKey);
-
-        // Compute expected payload after the table's focus callback has settled.
-        var expectedPayload = await WaitForStableYankPayloadAsync(ct);
+        var state = _state!;
+        var expectedKey = await FocusFirstDiffRowAsync(
+            terminal,
+            state.DiffResult.TypeDiffs,
+            GetTypeDiffKey,
+            ct);
+        var expectedPayload = YankHelper.GetYankText(state);
+        Assert.IsNotNull(expectedPayload);
         Assert.Contains("\t", expectedPayload); // Tab-separated
 
         // Yank
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(
+                _snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _)
+                    && state.YankNotification is not null,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         // Verify the actual OSC 52 clipboard payload emitted by ctx.CopyToClipboard
         Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
             "CopyToClipboard should have emitted an OSC 52 sequence");
+        Assert.AreEqual(expectedKey, state.DiffFocusedKey);
         Assert.AreEqual(expectedPayload, actualClipboard);
 
         // Notification auto-clears
         await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => _state.YankNotification is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => state.YankNotification is null, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -262,13 +271,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Seed focus — navigate down to get a focused row
-        await new Hex1bTerminalInputSequenceBuilder()
-            .Key(Hex1bKey.DownArrow)
-            .Key(Hex1bKey.DownArrow)
-            .Build()
-            .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+        _ = await FocusFirstDiffRowAsync(
+            terminal,
+            _state!.DiffResult.TypeDiffs,
+            GetTypeDiffKey,
+            ct);
 
         // Search for something that should match multiple types
         await new Hex1bTerminalInputSequenceBuilder()
@@ -364,8 +371,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es }
-                    && es == _state.LeftInfoEditorState; }
+                try
+                {
+                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                    && es == _state.LeftInfoEditorState;
+                }
                 catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -499,16 +509,31 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Methods tab
             .WaitUntil(s => s.ContainsText("Method") && s.ContainsText("Declaring Type"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow) // Seed focus
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+
+        var state = _state!;
+        var expectedKey = await FocusFirstDiffRowAsync(
+            terminal,
+            state.DiffResult.MethodDiffs,
+            GetMethodDiffKey,
+            ct);
+        var expectedPayload = YankHelper.GetYankText(state);
+        Assert.IsNotNull(expectedPayload);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(
+                _snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _)
+                    && state.YankNotification is not null,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+        Assert.AreEqual(expectedKey, state.DiffFocusedKey);
+        Assert.AreEqual(expectedPayload, actualClipboard);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -531,16 +556,31 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Refs tab
             .WaitUntil(s => s.ContainsText("Assembly") && s.ContainsText("Left Version"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+
+        var state = _state!;
+        var expectedKey = await FocusFirstDiffRowAsync(
+            terminal,
+            state.DiffResult.AssemblyRefDiffs,
+            GetAssemblyRefDiffKey,
+            ct);
+        var expectedPayload = YankHelper.GetYankText(state);
+        Assert.IsNotNull(expectedPayload);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(
+                _snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _)
+                    && state.YankNotification is not null,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var actualClipboard),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+        Assert.AreEqual(expectedKey, state.DiffFocusedKey);
+        Assert.AreEqual(expectedPayload, actualClipboard);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
@@ -563,10 +603,14 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D3) // Methods tab
             .WaitUntil(s => s.ContainsText("Method"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+
+        _ = await FocusFirstDiffRowAsync(
+            terminal,
+            _state!.DiffResult.MethodDiffs,
+            GetMethodDiffKey,
+            ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
@@ -622,10 +666,14 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D4) // Refs tab
             .WaitUntil(s => s.ContainsText("Assembly"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+
+        _ = await FocusFirstDiffRowAsync(
+            terminal,
+            _state!.DiffResult.AssemblyRefDiffs,
+            GetAssemblyRefDiffKey,
+            ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
@@ -681,10 +729,14 @@ public class DiffModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("RichLibrary"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D2) // Types tab
             .WaitUntil(s => s.ContainsText("Type"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.DownArrow)
             .Build()
             .ApplyAsync(terminal, ct);
-        await Task.Delay(200, ct);
+
+        _ = await FocusFirstDiffRowAsync(
+            terminal,
+            _state!.DiffResult.TypeDiffs,
+            GetTypeDiffKey,
+            ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
@@ -744,6 +796,19 @@ public class DiffModeYankIntegrationTests : IDisposable
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }
     }
+
+    private static string GetAssemblyRefDiffKey(DiffEntry<AssemblyRefInfo> entry) =>
+        entry.Kind + ":" + (entry.Left?.Name ?? entry.Right?.Name ?? "");
+
+    private static string GetMethodDiffKey(DiffEntry<MethodDefInfo> entry) =>
+        entry.Kind + ":"
+        + (entry.Left?.DeclaringType ?? entry.Right?.DeclaringType ?? "")
+        + "::"
+        + (entry.Left?.Name ?? entry.Right?.Name ?? "")
+        + (entry.Left?.Signature ?? entry.Right?.Signature ?? "");
+
+    private static string GetTypeDiffKey(DiffEntry<TypeDefInfo> entry) =>
+        entry.Kind + ":" + (entry.Left?.FullName ?? entry.Right?.FullName ?? "");
 
     /// <summary>
     /// Disposes test resources created during the run.

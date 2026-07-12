@@ -444,22 +444,35 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsGreaterThan(0, matches.Count);
         var (row, col) = matches[0];
 
-        // Focus the editor without consuming a mouse click, then queue two real
-        // clicks so Hex1bApp's click-count state machine observes a double-click.
+        // Focus through the real package-browser binding. It executes on Hex1b's input
+        // loop, so the pending focus request is consumed by the mandatory next render.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        _state!.App.RequestFocus(node =>
-            node is EditorNode { State: var es } && es == _state.PackageInfoEditorState);
-        _state.App.Invalidate();
+        var state = _state!;
+        await auto.KeyAsync(Hex1bKey.Tab, ct);
         await auto.WaitUntilAsync(_ =>
-            _state.App.FocusedNode is EditorNode { State: var es } && es == _state.PackageInfoEditorState,
+            state.App.FocusedNode is EditorNode { State: var es }
+                && ReferenceEquals(es, state.PackageInfoEditorState),
             description: "package info editor focused");
+
+        var editorState = state.PackageInfoEditorState!;
+        var expectedOffset = editorState.Document.GetText().IndexOf("Dotsider", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, expectedOffset);
+
+        Hex1bMouseCompatibility.BeginClickSequence(app);
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(col, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await auto.WaitUntilAsync(_ => editorState.Cursor.Position.Value == expectedOffset,
+            description: "first click landed on the displayed Dotsider word");
+
+        Hex1bMouseCompatibility.ContinueClickSequence(app);
+        await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(col, row)
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Wait for selection via screen state (not internal state polling)
+        // Wait until the editor reports the word selection produced by the second click.
         await auto.WaitUntilAsync(
             _ => _state!.PackageInfoEditorState?.Cursor.HasSelection == true,
             description: "editor word selection after double-click");

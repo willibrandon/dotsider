@@ -17,12 +17,14 @@ internal static class ReadyToRunMethodMapReader
     /// <param name="AssemblyName">The assembly's simple name.</param>
     /// <param name="Mvid">The assembly's module version id.</param>
     /// <param name="EntryPointsFileOffset">The file offset of the assembly's <c>MethodDefEntryPoints</c> section.</param>
+    /// <param name="EntryPointsSize">The exact byte size of the assembly's <c>MethodDefEntryPoints</c> section.</param>
     /// <param name="MethodDefs">The assembly's method definitions, for names and signatures.</param>
     /// <param name="Metadata">The assembly's metadata reader, for resolving instantiation type names.</param>
     internal readonly record struct MethodMapSource(
         string AssemblyName,
         Guid Mvid,
         int EntryPointsFileOffset,
+        int EntryPointsSize,
         IReadOnlyList<MethodDefInfo> MethodDefs,
         MetadataReader? Metadata);
 
@@ -89,20 +91,41 @@ internal static class ReadyToRunMethodMapReader
         R2RNativeReader reader, MethodMapSource source, bool[] isEntryPoint,
         List<PendingEntry> pending, Guid? targetMvid)
     {
-        var array = new R2RNativeArray(reader, source.EntryPointsFileOffset);
-        for (uint rid = 1; rid <= array.Count; rid++)
+        var sectionEnd = GetSectionEnd(source.EntryPointsFileOffset, source.EntryPointsSize);
+        var sectionReader = reader.Slice(source.EntryPointsFileOffset, source.EntryPointsSize);
+        var array = new R2RNativeArray(sectionReader, source.EntryPointsFileOffset, sectionEnd);
+        var methodDefinitionCount = source.Metadata?.MethodDefinitions.Count;
+        if (methodDefinitionCount is null && source.MethodDefs.Count > 0)
         {
-            if (!array.TryGetAt(rid - 1, out var elementOffset))
-                continue;
+            methodDefinitionCount = source.MethodDefs.Count;
+        }
 
-            var entryId = DecodeRuntimeFunctionIndex(reader, elementOffset);
-            if (entryId < 0 || entryId >= isEntryPoint.Length)
+        if (methodDefinitionCount is { } rowCount && array.Count > (uint)rowCount)
+        {
+            throw new BadImageFormatException(
+                "ReadyToRun MethodDefEntryPoints count exceeds the module's MethodDef table.");
+        }
+
+        for (uint index = 0; index < array.Count; index++)
+        {
+            if (!array.TryGetAt(index, out var elementOffset))
+            {
                 continue;
+            }
+
+            var entryId = DecodeRuntimeFunctionIndex(sectionReader, elementOffset);
+            if (entryId < 0 || entryId >= isEntryPoint.Length)
+            {
+                continue;
+            }
 
             isEntryPoint[entryId] = true;
             if (!ShouldMaterialize(targetMvid, source.Mvid))
+            {
                 continue;
+            }
 
+            var rid = index + 1;
             pending.Add(new PendingEntry(
                 source.AssemblyName, source.Mvid, source, (int)(0x0600_0000 | rid),
                 entryId, IsGeneric: false, Instantiation: null));
@@ -114,9 +137,13 @@ internal static class ReadyToRunMethodMapReader
         bool[] isEntryPoint, List<PendingEntry> pending, Guid? targetMvid)
     {
         if (instance.Size <= 0)
+        {
             return;
+        }
 
-        var table = new R2RNativeHashtable(reader, instance.Offset, instance.Offset + instance.Size);
+        var sectionEnd = GetSectionEnd(instance.Offset, instance.Size);
+        var sectionReader = reader.Slice(instance.Offset, instance.Size);
+        var table = new R2RNativeHashtable(sectionReader, instance.Offset, sectionEnd);
         Func<int, MetadataReader?>? resolveMetadata =
             moduleContext is null ? null : moduleContext.ResolveMetadata;
         foreach (var entryOffset in table.AllEntryOffsets())
@@ -125,11 +152,16 @@ internal static class ReadyToRunMethodMapReader
             var metadata = targetMvid is null ? instance.Metadata : null;
             Func<int, MetadataReader?>? metadataResolver =
                 targetMvid is null ? resolveMetadata : null;
+            var systemMetadata = targetMvid is null
+                ? moduleContext?.ResolveSystemMetadata()
+                : null;
             var sig = ReadyToRunSignatureWalker.ParseMethod(
-                reader, entryOffset, metadata, metadataResolver);
-            var entryId = DecodeRuntimeFunctionIndex(reader, sig.Offset);
+                sectionReader, entryOffset, metadata, metadataResolver, systemMetadata);
+            var entryId = DecodeRuntimeFunctionIndex(sectionReader, sig.Offset);
             if (entryId < 0 || entryId >= isEntryPoint.Length)
+            {
                 continue;
+            }
 
             isEntryPoint[entryId] = true;
 
@@ -140,21 +172,25 @@ internal static class ReadyToRunMethodMapReader
                 if (moduleContext?.Resolve(sig.ModuleIndex) is not { } module)
                 {
                     if (targetMvid is not null)
+                    {
                         continue;
+                    }
                 }
                 else
                 {
                     if (!ShouldMaterialize(targetMvid, module.Mvid))
+                    {
                         continue;
+                    }
 
                     var resolvedMetadata = module.Provider?.GetMetadataReader();
                     var reparsed = resolvedMetadata is not null
                         ? ReadyToRunSignatureWalker.ParseMethod(
-                            reader, entryOffset, resolvedMetadata, resolveMetadata)
+                            sectionReader, entryOffset, resolvedMetadata, resolveMetadata, systemMetadata)
                         : sig;
                     var crossToken = (reparsed.MethodToken & 0xFF00_0000) == 0x0600_0000 ? reparsed.MethodToken : 0;
                     var source = module.Provider is { } provider
-                        ? new MethodMapSource(module.AssemblyName, module.Mvid, 0, provider.MethodDefs, resolvedMetadata)
+                        ? new MethodMapSource(module.AssemblyName, module.Mvid, 0, 0, provider.MethodDefs, resolvedMetadata)
                         : (MethodMapSource?)null;
                     pending.Add(new PendingEntry(
                         module.AssemblyName, module.Mvid, source, crossToken,
@@ -164,7 +200,9 @@ internal static class ReadyToRunMethodMapReader
             }
 
             if (!ShouldMaterialize(targetMvid, instance.Mvid))
+            {
                 continue;
+            }
 
             // Same-module instantiation — its token is a MethodDef in the instance table's own module;
             // give it that module's source so its declaring type and name resolve (a cross-module token
@@ -173,7 +211,7 @@ internal static class ReadyToRunMethodMapReader
                 ? sig.MethodToken
                 : 0;
             var sameModuleSource = token != 0 && instance.MethodDefs.Count > 0
-                ? new MethodMapSource(instance.AssemblyName, instance.Mvid, 0, instance.MethodDefs, instance.Metadata)
+                ? new MethodMapSource(instance.AssemblyName, instance.Mvid, 0, 0, instance.MethodDefs, instance.Metadata)
                 : (MethodMapSource?)null;
             pending.Add(new PendingEntry(
                 instance.AssemblyName, instance.Mvid, sameModuleSource, token,
@@ -183,6 +221,17 @@ internal static class ReadyToRunMethodMapReader
 
     private static bool ShouldMaterialize(Guid? targetMvid, Guid entryMvid) =>
         targetMvid is null || targetMvid.Value == entryMvid;
+
+    private static int GetSectionEnd(int offset, int size)
+    {
+        var endOffset = (long)offset + size;
+        if (offset < 0 || size < 0 || endOffset > int.MaxValue)
+        {
+            throw new BadImageFormatException("ReadyToRun section has an invalid file range.");
+        }
+
+        return (int)endOffset;
+    }
 
     private static int DecodeRuntimeFunctionIndex(R2RNativeReader reader, int elementOffset)
     {

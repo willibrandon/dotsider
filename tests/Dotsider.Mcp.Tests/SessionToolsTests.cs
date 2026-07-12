@@ -26,6 +26,7 @@ public class SessionToolsTests : McpServerTestBase
     public async Task DiscoverDotsiderSessions_FindsRunningInstance()
     {
         await using var socket = new TestDotsiderSocket(999_999, "/tmp/test/HelloWorld.dll");
+        socket.Start();
         await StartServerAsync();
         await using var client = await CreateClientAsync();
 
@@ -61,6 +62,7 @@ public class SessionToolsTests : McpServerTestBase
             Tab = 0,
             AssemblyPath = "/tmp/test/HelloWorld.dll"
         }));
+        socket.Start();
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();

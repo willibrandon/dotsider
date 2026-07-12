@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -8,11 +9,14 @@ namespace Dotsider.Mcp.Tests;
 /// </summary>
 internal sealed class TestRawJsonSocket : IAsyncDisposable
 {
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Lock _lifetimeGate = new();
     private readonly Socket _listener;
     private readonly string _socketPath;
-    private readonly CancellationTokenSource _cts = new();
-    private Func<JsonElement, string>? _handler;
     private Task? _acceptTask;
+    private Task? _disposeTask;
+    private Func<JsonElement, string>? _handler;
+    private int _shutdownStarted;
 
     /// <summary>Gets the Unix domain socket path this server is listening on.</summary>
     public string SocketPath => _socketPath;
@@ -27,7 +31,9 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
         var dir = Path.GetDirectoryName(socketPath)!;
         Directory.CreateDirectory(dir);
         if (File.Exists(socketPath))
+        {
             File.Delete(socketPath);
+        }
 
         _listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         _listener.Bind(new UnixDomainSocketEndPoint(socketPath));
@@ -39,7 +45,17 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
     /// </summary>
     public void OnRequest(Func<JsonElement, string> handler)
     {
-        _handler = handler;
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_shutdownStarted != 0, this);
+
+            if (_acceptTask is not null)
+            {
+                throw new InvalidOperationException("The handler must be registered before the socket server starts.");
+            }
+
+            _handler = handler;
+        }
     }
 
     /// <summary>
@@ -47,23 +63,31 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
     /// </summary>
     public void Start()
     {
-        _acceptTask = AcceptLoop(_cts.Token);
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_shutdownStarted != 0, this);
+
+            if (_acceptTask is not null)
+            {
+                throw new InvalidOperationException("The socket server has already started.");
+            }
+
+            _acceptTask = AcceptLoop(_cts.Token);
+        }
     }
 
-    private async Task AcceptLoop(CancellationToken ct)
+    private async Task AcceptLoop(CancellationToken cancellationToken)
     {
-        while (!ct.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
             Socket client;
+            ExceptionDispatchInfo? handlerFailure = null;
+            var stopAfterConnection = false;
             try
             {
-                client = await _listener.AcceptAsync(ct);
+                client = await _listener.AcceptAsync(cancellationToken);
             }
-            catch (Exception) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (SocketException)
+            catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
             {
                 break;
             }
@@ -74,23 +98,45 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
                 using var reader = new StreamReader(stream, leaveOpen: true);
                 await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
 
-                var line = await reader.ReadLineAsync(ct);
+                var line = await reader.ReadLineAsync(cancellationToken);
                 if (string.IsNullOrEmpty(line))
+                {
                     continue;
+                }
 
                 var request = JsonSerializer.Deserialize<JsonElement>(line);
-                var response = _handler?.Invoke(request)
-                    ?? JsonSerializer.Serialize(new { success = false, error = "No handler" });
+                string response;
+                if (_handler is { } handler)
+                {
+                    try
+                    {
+                        response = handler(request);
+                    }
+                    catch (Exception ex)
+                    {
+                        handlerFailure = ExceptionDispatchInfo.Capture(ex);
+                        response = string.Empty;
+                    }
+                }
+                else
+                {
+                    response = JsonSerializer.Serialize(new { success = false, error = "No handler" });
+                }
 
-                await writer.WriteLineAsync(response.AsMemory(), ct);
+                if (handlerFailure is null)
+                {
+                    await writer.WriteLineAsync(response.AsMemory(), cancellationToken);
+                }
             }
-            catch (Exception) when (ct.IsCancellationRequested)
+            catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
+            {
+                stopAfterConnection = true;
+            }
+
+            handlerFailure?.Throw();
+            if (stopAfterConnection)
             {
                 break;
-            }
-            catch
-            {
-                // Swallow errors in test server
             }
         }
     }
@@ -98,18 +144,56 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await _cts.CancelAsync();
-        _listener.Dispose();
-
-        if (_acceptTask is not null)
+        Task disposeTask;
+        lock (_lifetimeGate)
         {
-            try { await _acceptTask; }
-            catch (OperationCanceledException) { }
+            if (_disposeTask is null)
+            {
+                Volatile.Write(ref _shutdownStarted, 1);
+                _disposeTask = DisposeCoreAsync();
+            }
+
+            disposeTask = _disposeTask;
         }
 
-        _cts.Dispose();
+        await disposeTask;
+    }
 
-        if (File.Exists(_socketPath))
-            File.Delete(_socketPath);
+    private async Task DisposeCoreAsync()
+    {
+        _cts.Cancel();
+        _listener.Dispose();
+
+        try
+        {
+            if (_acceptTask is not null)
+            {
+                await _acceptTask;
+            }
+        }
+        finally
+        {
+            _cts.Dispose();
+
+            if (File.Exists(_socketPath))
+            {
+                File.Delete(_socketPath);
+            }
+        }
+    }
+
+    private bool IsExpectedShutdownException(Exception exception, CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref _shutdownStarted) == 0 || !cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        return exception switch
+        {
+            OperationCanceledException canceled => canceled.CancellationToken == cancellationToken,
+            IOException or ObjectDisposedException or SocketException => true,
+            _ => false,
+        };
     }
 }

@@ -9,12 +9,43 @@ namespace Dotsider.Core.Analysis.ReadyToRun;
 /// structure at its section's file offset keeps every internal offset correct. Reads past the end
 /// throw <see cref="BadImageFormatException"/>, which callers translate into a diagnostic status.
 /// </summary>
-internal sealed class R2RNativeReader(ReadOnlyMemory<byte> image)
+internal sealed class R2RNativeReader
 {
-    private readonly ReadOnlyMemory<byte> _image = image;
+    private readonly int _endOffset;
+    private readonly ReadOnlyMemory<byte> _image;
+    private readonly int _startOffset;
+
+    /// <summary>Creates a reader over the complete <paramref name="image"/>.</summary>
+    public R2RNativeReader(ReadOnlyMemory<byte> image)
+        : this(image, 0, image.Length)
+    {
+    }
+
+    private R2RNativeReader(ReadOnlyMemory<byte> image, int startOffset, int endOffset)
+    {
+        _endOffset = endOffset;
+        _image = image;
+        _startOffset = startOffset;
+    }
 
     /// <summary>The total length of the backing image.</summary>
     public int Length => _image.Length;
+
+    /// <summary>
+    /// Creates a reader whose absolute offsets are restricted to the requested subrange of this
+    /// reader. The returned reader continues to use image-relative offsets.
+    /// </summary>
+    /// <param name="offset">The first readable absolute image offset.</param>
+    /// <param name="length">The number of readable bytes.</param>
+    public R2RNativeReader Slice(int offset, int length)
+    {
+        if (length < 0 || offset < _startOffset || offset > _endOffset - length)
+        {
+            throw new BadImageFormatException("ReadyToRun data range lies outside its containing section.");
+        }
+
+        return new R2RNativeReader(_image, offset, offset + length);
+    }
 
     /// <summary>Reads a byte at <paramref name="offset"/> and advances it by one.</summary>
     public byte ReadByte(ref int offset)
@@ -200,7 +231,9 @@ internal sealed class R2RNativeReader(ReadOnlyMemory<byte> image)
 
     private void Require(int offset, int count)
     {
-        if (offset < 0 || offset + count > _image.Length)
-            throw new BadImageFormatException("ReadyToRun read past the end of the image.");
+        if (count < 0 || offset < _startOffset || offset > _endOffset - count)
+        {
+            throw new BadImageFormatException("ReadyToRun read outside its containing data range.");
+        }
     }
 }

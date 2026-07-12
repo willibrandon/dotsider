@@ -1,7 +1,8 @@
 namespace Dotsider.Core.Analysis.Models;
 
 /// <summary>
-/// The result of resolving an assembly reference — either a file on disk or bytes from a bundle.
+/// The result of resolving an assembly reference to an assembly file, a bundle entry, or an
+/// authenticated sibling module.
 /// </summary>
 public abstract record ResolvedAssembly
 {

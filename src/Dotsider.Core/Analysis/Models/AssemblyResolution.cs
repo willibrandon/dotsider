@@ -2,13 +2,14 @@ namespace Dotsider.Core.Analysis.Models;
 
 /// <summary>
 /// Outcome of an identity-based assembly resolution. Carries everything the dependency-graph
-/// builder and UI need: the resolved file/bundle (or <see langword="null"/> on failure), the
+/// builder and UI need: the resolved assembly or module (or <see langword="null"/> on failure), the
 /// provenance classifying how the file was located, the candidate path of an identity-mismatched
 /// simple-name hit, and — for .NET Framework binds — the policy-layer attribution and the
 /// effective bound identity.
 /// </summary>
 /// <param name="Resolved">
-/// The file or bundle the binder picked, or <see langword="null"/> when the bind failed
+/// The assembly file, bundle entry, or authenticated sibling module the resolver selected, or
+/// <see langword="null"/> when the bind failed
 /// (Unresolved, IdentityMismatch, CodeBaseMissing).
 /// </param>
 /// <param name="Provenance">Classification of how the node was located.</param>

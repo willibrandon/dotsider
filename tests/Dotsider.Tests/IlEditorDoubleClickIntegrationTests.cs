@@ -168,8 +168,8 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
     }
 
     /// <summary>
-    /// Full mouse double-click via the automation API's DoubleClickAt, sending real
-    /// SGR mouse events through the terminal. Verifies EditorNode processes the
+    /// Full mouse double-click via two real SGR click sequences through the terminal.
+    /// Verifies EditorNode processes the
     /// double-click, calls SelectWordAt, and the one-shot cursor adjustment fires.
     /// </summary>
     [TestMethod]
@@ -218,21 +218,36 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
         // Use the first match — coordinates are 0-based
         var (targetRow, targetCol) = allMatches[0];
 
-        // Focus the editor without consuming a mouse click, then queue two real
-        // clicks so Hex1bApp's click-count state machine observes a double-click.
+        // Focus through the real application binding before queueing the clicks.
+        // Calling RequestFocus directly from the test thread races the render loop's
+        // one-shot pending-focus slot and can lose the request under parallel load.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        _state!.App.RequestFocus(node =>
-            node is EditorNode { State: var es } && es == _state.IlEditorState);
-        _state.App.Invalidate();
+        await auto.KeyAsync(Hex1bKey.L, ct);
         await auto.WaitUntilAsync(_ =>
-            _state.App.FocusedNode is EditorNode { State: var es } && es == _state.IlEditorState,
+            _state!.App.FocusedNode is EditorNode { State: var es }
+                && ReferenceEquals(es, _state.IlEditorState),
             description: "IL editor focused");
 
-        // Double-click to select the word. Wait for HasSelection AND for the
-        // AdjustWordSelectionCursorOneShot to fire (runs on the next Build after
-        // selection, pulling the cursor back from punctuation to a word character).
+        var editorState = _state.IlEditorState!;
+        var expectedOffset = editorState.Document.GetText().IndexOf("System.", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, expectedOffset);
+
+        // Send the first click through the real mouse pipeline and prove that it lands
+        // on the exact on-screen word before arming the deterministic continuation.
+        Hex1bMouseCompatibility.BeginClickSequence(app);
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(targetCol, targetRow)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await auto.WaitUntilAsync(_ =>
+            ReferenceEquals(_state.IlEditorState, editorState)
+                && editorState.Cursor.Position.Value == expectedOffset,
+            description: "first click landed on the displayed System word");
+
+        // The installed Hex1b version recomputes click count from wall-clock time.
+        // Force only its continuation clock, then send the second real click.
+        Hex1bMouseCompatibility.ContinueClickSequence(app);
+        await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(targetCol, targetRow)
             .Build()
             .ApplyAsync(terminal, ct);

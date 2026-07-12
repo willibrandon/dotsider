@@ -460,6 +460,13 @@ public static class DependencyGraphBuilder
                 ResolvedAssembly.FromFile f => new AssemblyAnalyzer(f.Path),
                 ResolvedAssembly.FromBundle b => new AssemblyAnalyzer(
                     b.Bytes, filePath: b.Name, sourceBundlePath: b.BundlePath, displayName: b.Name),
+                ResolvedModule module => new AssemblyAnalyzer(
+                    [.. module.Bytes],
+                    filePath: module.Path,
+                    sourceBundlePath: null,
+                    displayName: Path.GetFileName(module.Path),
+                    targetFrameworkOverride: module.TargetFramework,
+                    preferredRuntimePackOverride: module.PreferredRuntimePack),
                 _ => throw new InvalidOperationException("Unknown ResolvedAssembly variant."),
             };
             queue.Enqueue((childAnalyzer, childId, OwnsDispose: true));

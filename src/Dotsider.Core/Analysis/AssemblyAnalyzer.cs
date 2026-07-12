@@ -1,5 +1,5 @@
 using Dotsider.Core.Analysis.Models;
-using System.Collections.Immutable;
+using Dotsider.Core.Analysis.Signatures;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
@@ -148,6 +148,33 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// </param>
     public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath = null,
         string? displayName = null)
+        : this(
+            bytes,
+            filePath,
+            sourceBundlePath,
+            displayName,
+            targetFrameworkOverride: null,
+            preferredRuntimePackOverride: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an analyzer from raw module bytes with resolution context inherited from its
+    /// manifest assembly.
+    /// </summary>
+    /// <param name="bytes">The raw module bytes.</param>
+    /// <param name="filePath">The authenticated sibling-module path.</param>
+    /// <param name="sourceBundlePath">The source bundle path, or <see langword="null"/>.</param>
+    /// <param name="displayName">The logical name of the analyzed module.</param>
+    /// <param name="targetFrameworkOverride">The manifest's target-framework context.</param>
+    /// <param name="preferredRuntimePackOverride">The manifest's preferred runtime pack.</param>
+    public AssemblyAnalyzer(
+        byte[] bytes,
+        string filePath,
+        string? sourceBundlePath,
+        string? displayName,
+        string? targetFrameworkOverride,
+        string? preferredRuntimePackOverride)
     {
         FilePath = filePath;
         FileName = Path.GetFileName(filePath);
@@ -173,6 +200,8 @@ public sealed class AssemblyAnalyzer : IDisposable
                 _metadataReader = _peReader.GetMetadataReader();
                 ReadAssemblyIdentity();
                 ReadTargetFramework();
+                TargetFramework ??= targetFrameworkOverride;
+                _preferredRuntimePack = preferredRuntimePackOverride;
             }
 
             ReadPeHeaders();
@@ -370,8 +399,11 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>Coarse classification of the analyzed binary.</summary>
     public BinaryKind BinaryKind =>
-        ReadyToRunInfo is { Status: ReadyToRunStatus.Valid
-            or ReadyToRunStatus.Corrupt or ReadyToRunStatus.UnsupportedVersion } ? BinaryKind.ReadyToRun
+        ReadyToRunInfo is
+        {
+            Status: ReadyToRunStatus.Valid
+            or ReadyToRunStatus.Corrupt or ReadyToRunStatus.UnsupportedVersion
+        } ? BinaryKind.ReadyToRun
         : HasMetadata ? BinaryKind.Managed
         : NativeAotInfo is not null ? BinaryKind.NativeAot
         : WasmModuleInfo is not null ? BinaryKind.Wasm
@@ -1156,7 +1188,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         var md = _metadataReader!.GetMethodDefinition(handle);
         var typeName = GetTypeDefName(md.GetDeclaringType());
         var name = _metadataReader.GetString(md.Name);
-        var sig = DecodeMethodSignature(md);
+        var sig = DecodeMethodSignature(handle);
         return $"{typeName}::{name} {sig}";
     }
 
@@ -1174,11 +1206,12 @@ public sealed class AssemblyAnalyzer : IDisposable
 
         try
         {
-            var sig = mr.DecodeMethodSignature(new SignatureTypeProvider(), genericContext: default);
+            var sig = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
+                _metadataReader, handle, new AssemblySignatureTypeProvider(), genericContext: default);
             var paramTypes = string.Join(", ", sig.ParameterTypes);
             return $"{parent}::{name} {sig.ReturnType}({paramTypes})";
         }
-        catch
+        catch (BadImageFormatException)
         {
             // Field reference — no method signature to decode
             return $"{parent}::{name}";
@@ -1191,10 +1224,11 @@ public sealed class AssemblyAnalyzer : IDisposable
         var baseMethod = ResolveTokenForComparison(MetadataTokens.GetToken(ms.Method));
         try
         {
-            var typeArgs = ms.DecodeSignature(new SignatureTypeProvider(), genericContext: default);
+            var typeArgs = SafeSignatureDecoder.DecodeMethodSpecificationSignature(
+                _metadataReader, handle, new AssemblySignatureTypeProvider(), genericContext: default);
             return $"{baseMethod}<{string.Join(", ", typeArgs)}>";
         }
-        catch
+        catch (BadImageFormatException)
         {
             return baseMethod;
         }
@@ -1202,22 +1236,23 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string ResolveStandaloneSigForComparison(StandaloneSignatureHandle handle)
     {
-        var sig = _metadataReader!.GetStandaloneSignature(handle);
         try
         {
-            var methodSig = sig.DecodeMethodSignature(new SignatureTypeProvider(), genericContext: default);
+            var methodSig = SafeSignatureDecoder.DecodeStandaloneMethodSignature(
+                _metadataReader!, handle, new AssemblySignatureTypeProvider(), genericContext: default);
             var paramTypes = string.Join(", ", methodSig.ParameterTypes);
             var conv = FormatCallingConvention(methodSig.Header);
             return $"method({conv}) {methodSig.ReturnType}({paramTypes})";
         }
-        catch
+        catch (BadImageFormatException)
         {
             try
             {
-                var localTypes = sig.DecodeLocalSignature(new SignatureTypeProvider(), genericContext: default);
+                var localTypes = SafeSignatureDecoder.DecodeLocalSignature(
+                    _metadataReader!, handle, new AssemblySignatureTypeProvider(), genericContext: default);
                 return $"locals({string.Join(", ", localTypes)})";
             }
-            catch
+            catch (BadImageFormatException)
             {
                 return $"StandaloneSig(0x{MetadataTokens.GetToken(handle):X8})";
             }
@@ -1426,7 +1461,10 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private void ReadTargetFramework()
     {
-        if (_metadataReader is null) return;
+        if (_metadataReader is null || !_metadataReader.IsAssembly)
+        {
+            return;
+        }
 
         foreach (var attrHandle in _metadataReader.GetAssemblyDefinition().GetCustomAttributes())
         {
@@ -1995,31 +2033,62 @@ public sealed class AssemblyAnalyzer : IDisposable
         var result = new List<TypeDefInfo>();
         foreach (var handle in _metadataReader.TypeDefinitions)
         {
-            var td = _metadataReader.GetTypeDefinition(handle);
-            var ns = _metadataReader.GetString(td.Namespace);
-            var name = _metadataReader.GetString(td.Name);
-            var fullName = GetTypeDefName(handle);
+            var chain = MetadataNestingWalker.DeclaringTypeChain(_metadataReader, handle);
+            if (chain.FirstName.Length == 0)
+            {
+                var fallback = MetadataNestingWalker.FormatToken(handle);
+                result.Add(new TypeDefInfo(
+                    MetadataTokens.GetToken(handle), string.Empty, fallback, fallback,
+                    default, null, 0, 0));
+                continue;
+            }
+
+            EntityHandle baseTypeHandle;
+            TypeAttributes attributes;
+            int methodCount;
+            int fieldCount;
+            try
+            {
+                var td = _metadataReader.GetTypeDefinition(handle);
+                baseTypeHandle = td.BaseType;
+                attributes = td.Attributes;
+                methodCount = td.GetMethods().Count;
+                fieldCount = td.GetFields().Count;
+            }
+            catch (BadImageFormatException)
+            {
+                var fallback = MetadataNestingWalker.FormatToken(handle);
+                result.Add(new TypeDefInfo(
+                    MetadataTokens.GetToken(handle), string.Empty, fallback, fallback,
+                    default, null, 0, 0));
+                continue;
+            }
+
+            var fullName = MetadataNestingWalker.TryFormatTypeDefinitionName(
+                chain, out var formattedName)
+                ? formattedName
+                : MetadataNestingWalker.FormatToken(handle);
 
             string? baseType = null;
-            if (!td.BaseType.IsNil)
+            if (!baseTypeHandle.IsNil)
             {
-                baseType = td.BaseType.Kind switch
+                baseType = baseTypeHandle.Kind switch
                 {
-                    HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)td.BaseType),
-                    HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)td.BaseType),
-                    _ => $"0x{MetadataTokens.GetToken(td.BaseType):X8}"
+                    HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)baseTypeHandle),
+                    HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)baseTypeHandle),
+                    _ => $"0x{MetadataTokens.GetToken(baseTypeHandle):X8}"
                 };
             }
 
             result.Add(new TypeDefInfo(
                 Token: MetadataTokens.GetToken(handle),
-                Namespace: ns,
-                Name: name,
+                Namespace: chain.FirstNamespace,
+                Name: chain.FirstName,
                 FullName: fullName,
-                Attributes: td.Attributes,
+                Attributes: attributes,
                 BaseType: baseType,
-                MethodCount: td.GetMethods().Count,
-                FieldCount: td.GetFields().Count));
+                MethodCount: methodCount,
+                FieldCount: fieldCount));
         }
         return result;
     }
@@ -2037,7 +2106,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             var declaringType = md.GetDeclaringType();
             var typeName = GetTypeDefName(declaringType);
 
-            var signature = DecodeMethodSignature(md);
+            var signature = DecodeMethodSignature(handle);
 
             result.Add(new MethodDefInfo(
                 Token: MetadataTokens.GetToken(handle),
@@ -2085,49 +2154,110 @@ public sealed class AssemblyAnalyzer : IDisposable
         var result = new List<TypeRefInfo>();
         foreach (var handle in _metadataReader.TypeReferences)
         {
-            var tr = _metadataReader.GetTypeReference(handle);
-            var ns = _metadataReader.GetString(tr.Namespace);
-            var name = _metadataReader.GetString(tr.Name);
-            var fullName = GetTypeRefName(handle);
-
-            var scope = tr.ResolutionScope.Kind switch
+            var chain = MetadataNestingWalker.ResolutionScopeChain(_metadataReader, handle);
+            if (chain.FirstName.Length == 0)
             {
-                HandleKind.AssemblyReference => _metadataReader.GetString(
-                    _metadataReader.GetAssemblyReference((AssemblyReferenceHandle)tr.ResolutionScope).Name),
-                HandleKind.TypeReference => GetTypeRefName((TypeReferenceHandle)tr.ResolutionScope),
-                _ => tr.ResolutionScope.Kind.ToString()
-            };
+                var fallback = MetadataNestingWalker.FormatToken(handle);
+                result.Add(new TypeRefInfo(
+                    MetadataTokens.GetToken(handle), string.Empty, fallback, fallback,
+                    nameof(ChainTermination.InvalidMetadata), string.Empty));
+                continue;
+            }
 
-            var scopeId = ResolveScopeAssemblyIdentityId(tr.ResolutionScope);
+            TypeReference tr;
+            try
+            {
+                tr = _metadataReader.GetTypeReference(handle);
+            }
+            catch (BadImageFormatException)
+            {
+                var fallback = MetadataNestingWalker.FormatToken(handle);
+                result.Add(new TypeRefInfo(
+                    MetadataTokens.GetToken(handle), string.Empty, fallback, fallback,
+                    nameof(ChainTermination.InvalidMetadata), string.Empty));
+                continue;
+            }
+
+            var fullName = MetadataNestingWalker.TryFormatTypeReferenceName(
+                chain, out var formattedName, out _)
+                ? formattedName
+                : MetadataNestingWalker.FormatToken(handle);
+
+            string scope;
+            try
+            {
+                scope = tr.ResolutionScope.Kind switch
+                {
+                    HandleKind.AssemblyReference => _metadataReader.GetString(
+                        _metadataReader.GetAssemblyReference((AssemblyReferenceHandle)tr.ResolutionScope).Name),
+                    HandleKind.TypeReference => MetadataNestingWalker.TryFormatTypeReferenceParentName(
+                        chain, out var parentName)
+                        ? parentName
+                        : MetadataNestingWalker.FormatToken(tr.ResolutionScope),
+                    _ => tr.ResolutionScope.Kind.ToString()
+                };
+            }
+            catch (BadImageFormatException)
+            {
+                scope = MetadataNestingWalker.FormatToken(tr.ResolutionScope);
+            }
+
+            var scopeId = chain.IsComplete
+                ? ResolveScopeAssemblyIdentityId(chain.Terminal)
+                : string.Empty;
 
             result.Add(new TypeRefInfo(
-                MetadataTokens.GetToken(handle), ns, name, fullName, scope, scopeId));
+                MetadataTokens.GetToken(handle), chain.FirstNamespace, chain.FirstName,
+                fullName, scope, scopeId));
         }
 
         return result;
     }
 
-    private string ResolveScopeAssemblyIdentityId(EntityHandle scopeHandle)
+    private string ResolveScopeAssemblyIdentityId(EntityHandle terminal)
     {
         if (_metadataReader is null) return string.Empty;
 
-        var current = scopeHandle;
-        while (current.Kind == HandleKind.TypeReference)
+        if (terminal.Kind != HandleKind.AssemblyReference)
         {
-            var parent = _metadataReader.GetTypeReference((TypeReferenceHandle)current);
-            current = parent.ResolutionScope;
+            return string.Empty;
         }
 
-        if (current.Kind != HandleKind.AssemblyReference)
+        var assemblyReferenceHandle = (AssemblyReferenceHandle)terminal;
+        var row = MetadataTokens.GetRowNumber(assemblyReferenceHandle);
+        if (row <= 0 || row > _metadataReader.AssemblyReferences.Count)
+        {
             return string.Empty;
+        }
 
-        var ar = _metadataReader.GetAssemblyReference((AssemblyReferenceHandle)current);
-        var refName = _metadataReader.GetString(ar.Name);
-        var refVersion = ar.Version.ToString();
-        var refCulture = _metadataReader.GetString(ar.Culture);
+        string refName;
+        string refVersion;
+        string refCulture;
+        BlobHandle publicKeyOrToken;
+        try
+        {
+            var ar = _metadataReader.GetAssemblyReference(assemblyReferenceHandle);
+            refName = _metadataReader.GetString(ar.Name);
+            refVersion = ar.Version.ToString();
+            refCulture = _metadataReader.GetString(ar.Culture);
+            publicKeyOrToken = ar.PublicKeyOrToken;
+        }
+        catch (BadImageFormatException)
+        {
+            return string.Empty;
+        }
 
         string? refPkt = null;
-        var pktBytes = _metadataReader.GetBlobBytes(ar.PublicKeyOrToken);
+        byte[] pktBytes;
+        try
+        {
+            pktBytes = _metadataReader.GetBlobBytes(publicKeyOrToken);
+        }
+        catch (BadImageFormatException)
+        {
+            return string.Empty;
+        }
+
         if (pktBytes.Length > 0)
         {
             refPkt = Convert.ToHexStringLower(pktBytes);
@@ -2140,7 +2270,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         if (_metadataReader is null) return [];
 
-        var sigProvider = new SignatureTypeProvider();
+        var sigProvider = new AssemblySignatureTypeProvider();
         var result = new List<MemberRefInfo>();
         foreach (var handle in _metadataReader.MemberReferences)
         {
@@ -2162,15 +2292,20 @@ public sealed class AssemblyAnalyzer : IDisposable
                 if (header.Kind == SignatureKind.Field)
                 {
                     kind = MemberRefKind.Field;
-                    signature = mr.DecodeFieldSignature(sigProvider, genericContext: default);
+                    signature = SafeSignatureDecoder.DecodeMemberReferenceFieldSignature(
+                        _metadataReader, handle, sigProvider, genericContext: default);
                 }
                 else
                 {
-                    var sig = mr.DecodeMethodSignature(sigProvider, genericContext: default);
+                    var sig = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
+                        _metadataReader, handle, sigProvider, genericContext: default);
                     signature = $"{sig.ReturnType}({string.Join(", ", sig.ParameterTypes)})";
                 }
             }
-            catch { /* exotic signatures */ }
+            catch (BadImageFormatException)
+            {
+                // Malformed signatures retain their stable member identity without a type display.
+            }
 
             result.Add(new MemberRefInfo(
                 MetadataTokens.GetToken(handle), declaringType, name, signature, kind));
@@ -2183,7 +2318,7 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         if (_metadataReader is null) return [];
 
-        var sigProvider = new SignatureTypeProvider();
+        var sigProvider = new AssemblySignatureTypeProvider();
         var result = new List<FieldDefInfo>();
         foreach (var handle in _metadataReader.TypeDefinitions)
         {
@@ -2194,8 +2329,15 @@ public sealed class AssemblyAnalyzer : IDisposable
                 var fd = _metadataReader.GetFieldDefinition(fieldHandle);
                 var name = _metadataReader.GetString(fd.Name);
                 var fieldSig = "";
-                try { fieldSig = fd.DecodeSignature(sigProvider, genericContext: default); }
-                catch { /* signature decoding can fail */ }
+                try
+                {
+                    fieldSig = SafeSignatureDecoder.DecodeFieldSignature(
+                        _metadataReader, fieldHandle, sigProvider, genericContext: default);
+                }
+                catch (BadImageFormatException)
+                {
+                    // Malformed signatures retain their stable field identity without a type display.
+                }
                 result.Add(new FieldDefInfo(
                     MetadataTokens.GetToken(fieldHandle), typeName, name, fd.Attributes, fieldSig));
             }
@@ -2274,24 +2416,29 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string GetTypeDefName(TypeDefinitionHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
-        var td = _metadataReader.GetTypeDefinition(handle);
-        var name = _metadataReader.GetString(td.Name);
-        if (td.IsNested)
-            return $"{GetTypeDefName(td.GetDeclaringType())}/{name}";
-        var ns = _metadataReader.GetString(td.Namespace);
-        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+        if (_metadataReader is null)
+        {
+            return MetadataNestingWalker.FormatToken(handle);
+        }
+
+        var chain = MetadataNestingWalker.DeclaringTypeChain(_metadataReader, handle);
+        return MetadataNestingWalker.TryFormatTypeDefinitionName(chain, out var fullName)
+            ? fullName
+            : MetadataNestingWalker.FormatToken(handle);
     }
 
     private string GetTypeRefName(TypeReferenceHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
-        var tr = _metadataReader.GetTypeReference(handle);
-        var name = _metadataReader.GetString(tr.Name);
-        if (tr.ResolutionScope.Kind == HandleKind.TypeReference)
-            return $"{GetTypeRefName((TypeReferenceHandle)tr.ResolutionScope)}/{name}";
-        var ns = _metadataReader.GetString(tr.Namespace);
-        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+        if (_metadataReader is null)
+        {
+            return MetadataNestingWalker.FormatToken(handle);
+        }
+
+        var chain = MetadataNestingWalker.ResolutionScopeChain(_metadataReader, handle);
+        return MetadataNestingWalker.TryFormatTypeReferenceName(
+            chain, out var fullName, out _)
+            ? fullName
+            : MetadataNestingWalker.FormatToken(handle);
     }
 
     private string GetMethodDefName(MethodDefinitionHandle handle)
@@ -2308,10 +2455,13 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null) return "TypeSpec";
         try
         {
-            var ts = _metadataReader.GetTypeSpecification(handle);
-            return ts.DecodeSignature(new SignatureTypeProvider(), genericContext: default);
+            return SafeSignatureDecoder.DecodeType(
+                _metadataReader, handle, new AssemblySignatureTypeProvider(), genericContext: default);
         }
-        catch { return "TypeSpec"; }
+        catch (BadImageFormatException)
+        {
+            return "TypeSpec";
+        }
     }
 
     private string GetMemberRefName(MemberReferenceHandle handle)
@@ -2345,15 +2495,16 @@ public sealed class AssemblyAnalyzer : IDisposable
         return s.Length > 50 ? $"\"{s[..50]}...\"" : $"\"{s}\"";
     }
 
-    private static string DecodeMethodSignature(MethodDefinition md)
+    private string DecodeMethodSignature(MethodDefinitionHandle handle)
     {
         try
         {
-            var sig = md.DecodeSignature(new SignatureTypeProvider(), genericContext: default);
+            var sig = SafeSignatureDecoder.DecodeMethodSignature(
+                _metadataReader!, handle, new AssemblySignatureTypeProvider(), genericContext: default);
             var paramTypes = string.Join(", ", sig.ParameterTypes);
             return $"{sig.ReturnType}({paramTypes})";
         }
-        catch
+        catch (BadImageFormatException)
         {
             return "(?)";
         }
@@ -2411,124 +2562,6 @@ public sealed class AssemblyAnalyzer : IDisposable
             HandleKind.ModuleDefinition => $"[module]",
             _ => $"{handle.Kind}(0x{MetadataTokens.GetToken(handle):X8})"
         };
-    }
-
-    /// <summary>
-    /// A minimal signature type provider that converts types to display strings.
-    /// </summary>
-    internal sealed class SignatureTypeProvider : ISignatureTypeProvider<string, object?>
-    {
-        /// <inheritdoc/>
-        public string GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
-        {
-            PrimitiveTypeCode.Void => "void",
-            PrimitiveTypeCode.Boolean => "bool",
-            PrimitiveTypeCode.Char => "char",
-            PrimitiveTypeCode.SByte => "sbyte",
-            PrimitiveTypeCode.Byte => "byte",
-            PrimitiveTypeCode.Int16 => "short",
-            PrimitiveTypeCode.UInt16 => "ushort",
-            PrimitiveTypeCode.Int32 => "int",
-            PrimitiveTypeCode.UInt32 => "uint",
-            PrimitiveTypeCode.Int64 => "long",
-            PrimitiveTypeCode.UInt64 => "ulong",
-            PrimitiveTypeCode.Single => "float",
-            PrimitiveTypeCode.Double => "double",
-            PrimitiveTypeCode.String => "string",
-            PrimitiveTypeCode.Object => "object",
-            PrimitiveTypeCode.IntPtr => "nint",
-            PrimitiveTypeCode.UIntPtr => "nuint",
-            PrimitiveTypeCode.TypedReference => "TypedReference",
-            _ => typeCode.ToString()
-        };
-
-        /// <inheritdoc/>
-        public string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
-        {
-            var td = reader.GetTypeDefinition(handle);
-            var name = reader.GetString(td.Name);
-            if (td.IsNested)
-                return $"{GetTypeFromDefinition(reader, td.GetDeclaringType(), 0)}/{name}";
-            var ns = reader.GetString(td.Namespace);
-            return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
-        }
-
-        /// <inheritdoc/>
-        public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
-        {
-            var tr = reader.GetTypeReference(handle);
-            var name = reader.GetString(tr.Name);
-            if (tr.ResolutionScope.Kind == HandleKind.TypeReference)
-                return $"{GetTypeFromReference(reader, (TypeReferenceHandle)tr.ResolutionScope, 0)}/{name}";
-            var ns = reader.GetString(tr.Namespace);
-            return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
-        }
-
-        /// <inheritdoc/>
-        public string GetSZArrayType(string elementType) =>
-            $"{elementType}[]";
-
-        /// <inheritdoc/>
-        public string GetArrayType(string elementType, ArrayShape shape) =>
-            $"{elementType}[{new string(',', shape.Rank - 1)}]";
-
-        /// <inheritdoc/>
-        public string GetByReferenceType(string elementType) =>
-            $"ref {elementType}";
-
-        /// <inheritdoc/>
-        public string GetPointerType(string elementType) =>
-            $"{elementType}*";
-
-        /// <inheritdoc/>
-        public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) =>
-            $"{genericType}<{string.Join(", ", typeArguments)}>";
-
-        /// <inheritdoc/>
-        public string GetGenericMethodParameter(object? genericContext, int index) =>
-            $"!!{index}";
-
-        /// <inheritdoc/>
-        public string GetGenericTypeParameter(object? genericContext, int index) =>
-            $"!{index}";
-
-        /// <inheritdoc/>
-        public string GetPinnedType(string elementType) =>
-            $"pinned {elementType}";
-
-        /// <inheritdoc/>
-        public string GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
-        {
-            try
-            {
-                return reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
-            }
-            catch
-            {
-                return "TypeSpec";
-            }
-        }
-
-        /// <inheritdoc/>
-        public string GetFunctionPointerType(MethodSignature<string> signature)
-        {
-            var conv = signature.Header.CallingConvention switch
-            {
-                SignatureCallingConvention.Default => "managed",
-                SignatureCallingConvention.CDecl => "unmanaged[Cdecl]",
-                SignatureCallingConvention.StdCall => "unmanaged[Stdcall]",
-                SignatureCallingConvention.ThisCall => "unmanaged[Thiscall]",
-                SignatureCallingConvention.FastCall => "unmanaged[Fastcall]",
-                SignatureCallingConvention.Unmanaged => "unmanaged",
-                _ => "managed"
-            };
-            var paramTypes = string.Join(", ", signature.ParameterTypes);
-            return $"delegate* {conv} {signature.ReturnType}({paramTypes})";
-        }
-
-        /// <inheritdoc/>
-        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) =>
-            isRequired ? $"modreq({modifier}) {unmodifiedType}" : $"modopt({modifier}) {unmodifiedType}";
     }
 
     /// <summary>

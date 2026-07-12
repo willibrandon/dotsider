@@ -1,4 +1,9 @@
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
+using System.IO.Compression;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Tests;
 
@@ -97,6 +102,66 @@ public class NuGetPackageAnalyzerTests
     }
 
     /// <summary>
+    /// Verifies a package containing an actual runtime facade preserves every metadata model and
+    /// resolves one of the facade's real type forwarders to the same implementation assembly.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void OpenDll_RealForwarderFacade_MatchesStandaloneAssembly()
+    {
+        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var facadePath = Path.Combine(runtimeDirectory, "System.Collections.dll");
+        Assert.IsTrue(File.Exists(facadePath), $"Runtime facade not found: {facadePath}");
+        AssertRealForwarder(facadePath, "System.Collections.Generic", "List`1");
+
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "dotsider-forwarder-package-" + Guid.NewGuid().ToString("N"));
+        var packagePath = Path.Combine(directory, "RuntimeFacade.1.0.0.nupkg");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            CreateRuntimeFacadePackage(packagePath, facadePath);
+            using var package = new NuGetPackageAnalyzer(packagePath);
+            var entry = Assert.ContainsSingle(package.DllFiles);
+            using var packaged = package.OpenDll(entry);
+            using var standalone = new AssemblyAnalyzer(facadePath);
+
+            Assert.AreEqual("RuntimeFacade", package.PackageId);
+            Assert.AreSequenceEqual(standalone.TypeDefs, packaged.TypeDefs);
+            Assert.AreSequenceEqual(standalone.TypeRefs, packaged.TypeRefs);
+            Assert.AreSequenceEqual(standalone.MethodDefs, packaged.MethodDefs);
+            Assert.AreSequenceEqual(standalone.FieldDefs, packaged.FieldDefs);
+            Assert.AreSequenceEqual(standalone.MemberRefs, packaged.MemberRefs);
+
+            var standaloneHome = ImplementationAssemblyResolver.Resolve(
+                facadePath,
+                "System.Collections",
+                "System.Collections.Generic.List`1",
+                standalone.TargetFramework,
+                standalone.PreferredRuntimePack);
+            var packagedHome = ImplementationAssemblyResolver.Resolve(
+                packaged.FilePath,
+                "System.Collections",
+                "System.Collections.Generic.List`1",
+                packaged.TargetFramework,
+                packaged.PreferredRuntimePack);
+            var standaloneFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(standaloneHome);
+            var packagedFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(packagedHome);
+            Assert.AreEqual(
+                Path.GetFileName(standaloneFile.Path),
+                Path.GetFileName(packagedFile.Path),
+                StringComparer.OrdinalIgnoreCase);
+            Assert.AreEqual("System.Private.CoreLib.dll", Path.GetFileName(packagedFile.Path));
+        }
+        finally
+        {
+            ImplementationAssemblyResolver.ClearCache();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Verifies has authors and description.
     /// </summary>
     [TestMethod]
@@ -128,5 +193,40 @@ public class NuGetPackageAnalyzerTests
     public void InvalidPath_Throws()
     {
         Assert.Throws<Exception>(() => new NuGetPackageAnalyzer("/nonexistent/package.nupkg"));
+    }
+
+    private static void AssertRealForwarder(string assemblyPath, string namespaceName, string typeName)
+    {
+        const TypeAttributes Forwarder = (TypeAttributes)0x0020_0000;
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var reader = peReader.GetMetadataReader();
+        Assert.Contains(
+            handle =>
+            {
+                var exportedType = reader.GetExportedType(handle);
+                return (exportedType.Attributes & Forwarder) != 0 &&
+                    reader.GetString(exportedType.Namespace) == namespaceName &&
+                    reader.GetString(exportedType.Name) == typeName;
+            },
+            reader.ExportedTypes);
+    }
+
+    private static void CreateRuntimeFacadePackage(string packagePath, string facadePath)
+    {
+        using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
+        var manifest = archive.CreateEntry("RuntimeFacade.nuspec");
+        using (var writer = new StreamWriter(manifest.Open()))
+        {
+            writer.Write(
+                "<package><metadata><id>RuntimeFacade</id><version>1.0.0</version>" +
+                "<authors>Dotsider.Tests</authors><description>Runtime facade regression</description>" +
+                "</metadata></package>");
+        }
+
+        var facade = archive.CreateEntry("lib/net10.0/System.Collections.dll");
+        using var source = File.OpenRead(facadePath);
+        using var destination = facade.Open();
+        source.CopyTo(destination);
     }
 }

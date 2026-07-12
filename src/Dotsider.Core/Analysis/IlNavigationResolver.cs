@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Analysis.Signatures;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 
@@ -77,10 +78,17 @@ public static class IlNavigationResolver
         MethodDefInfo? contextMethod)
     {
         MemberReference mr;
-        try { mr = reader.GetMemberReference(handle); }
-        catch { return new IlNavigationTarget.Unresolved(token, "Cannot read MemberRef"); }
+        string name;
+        try
+        {
+            mr = reader.GetMemberReference(handle);
+            name = reader.GetString(mr.Name);
+        }
+        catch (BadImageFormatException)
+        {
+            return new IlNavigationTarget.Unresolved(token, "Cannot read MemberRef");
+        }
 
-        var name = reader.GetString(mr.Name);
         MemberRefKind kind;
         string signature;
         try
@@ -90,17 +98,28 @@ public static class IlNavigationResolver
             if (header.Kind == SignatureKind.Field)
             {
                 kind = MemberRefKind.Field;
+                _ = SafeSignatureDecoder.DecodeMemberReferenceFieldSignature(
+                    reader,
+                    handle,
+                    new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                    genericContext: default);
                 signature = "";
             }
             else
             {
                 kind = MemberRefKind.Method;
-                var sigProvider = new AssemblyAnalyzer.SignatureTypeProvider();
-                var sig = mr.DecodeMethodSignature(sigProvider, genericContext: default);
+                var sig = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
+                    reader,
+                    handle,
+                    new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                    genericContext: default);
                 signature = $"{sig.ReturnType}({string.Join(", ", sig.ParameterTypes)})";
             }
         }
-        catch { kind = MemberRefKind.Method; signature = ""; }
+        catch (BadImageFormatException)
+        {
+            return new IlNavigationTarget.Unresolved(token, "MemberRef has a malformed signature");
+        }
 
         return mr.Parent.Kind switch
         {
@@ -170,7 +189,20 @@ public static class IlNavigationResolver
         // parameter but does not encode its generic owner. Route through the
         // enclosing method's context before trying to match TypeDefs/TypeRefs,
         // since the decoded string ("!N"/"!!N") will not match anything.
-        var genericParam = TryReadGenericParameter(reader, handle);
+        string decoded;
+        (GenericParamKind Kind, int Index)? genericParam;
+        try
+        {
+            decoded = SafeSignatureDecoder.DecodeType(
+                reader, handle, new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                genericContext: default);
+            genericParam = TryReadGenericParameter(reader, handle);
+        }
+        catch (BadImageFormatException)
+        {
+            return new IlNavigationTarget.Unresolved(token, "TypeSpec has a malformed signature");
+        }
+
         if (genericParam is { } gp)
         {
             return ResolveGenericParameter(analyzer, gp.Kind, gp.Index, token, contextMethod);
@@ -178,13 +210,6 @@ public static class IlNavigationResolver
 
         // Decode the TypeSpec to a string, then find the underlying open generic type
         // by matching the name prefix (before the generic arguments) against TypeDefs/TypeRefs.
-        string decoded;
-        try
-        {
-            var ts = reader.GetTypeSpecification(handle);
-            decoded = ts.DecodeSignature(new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
-        }
-        catch { decoded = analyzer.ResolveToken(token); }
         var openName = StripGenericArgs(decoded);
 
         // Check local TypeDefs first
@@ -216,14 +241,14 @@ public static class IlNavigationResolver
         AssemblyAnalyzer analyzer, GenericParamKind kind, int index, int token,
         MethodDefInfo? contextMethod)
     {
-        var label = kind == GenericParamKind.TypeParam ? $"!{index}" : $"!!{index}";
+        var label = kind == GenericParamKind.TypeParameter ? $"!{index}" : $"!!{index}";
         if (contextMethod is null)
         {
             return new IlNavigationTarget.Unsupported(token,
                 $"Generic parameter {label} requires method context for navigation");
         }
 
-        if (kind == GenericParamKind.MethodParam)
+        if (kind == GenericParamKind.MethodParameter)
         {
             // A method-level generic parameter's only definition site is the method
             // signature the user is already reading. Routing to LocalMethod(self)
@@ -245,41 +270,37 @@ public static class IlNavigationResolver
             $"Generic parameter {label} declaring type not found: {declaringTypeName}");
     }
 
-    private enum GenericParamKind { TypeParam, MethodParam }
-
     /// <summary>
-    /// Attempts to identify a TypeSpec whose signature is just a generic parameter
-    /// reference (<c>ELEMENT_TYPE_VAR</c> or <c>ELEMENT_TYPE_MVAR</c>), skipping any
-    /// leading CustomMod prefixes. Returns null for any other signature shape.
+    /// Attempts to identify a validated TypeSpec whose root is a generic type or method parameter,
+    /// skipping any leading custom modifiers.
     /// </summary>
     private static (GenericParamKind Kind, int Index)? TryReadGenericParameter(
-        MetadataReader reader, TypeSpecificationHandle handle)
+        MetadataReader reader,
+        TypeSpecificationHandle handle)
     {
-        try
+        var specification = reader.GetTypeSpecification(handle);
+        var blob = reader.GetBlobReader(specification.Signature);
+        SignatureTypeCode code;
+        do
         {
-            var ts = reader.GetTypeSpecification(handle);
-            var blob = reader.GetBlobReader(ts.Signature);
-            SignatureTypeCode code;
-            while (true)
+            code = blob.ReadSignatureTypeCode();
+            if (code is SignatureTypeCode.OptionalModifier or SignatureTypeCode.RequiredModifier)
             {
-                if (blob.RemainingBytes <= 0) return null;
-                code = blob.ReadSignatureTypeCode();
-                if (code != SignatureTypeCode.OptionalModifier
-                    && code != SignatureTypeCode.RequiredModifier)
-                    break;
-                // Skip the coded TypeDefOrRefOrSpec index that follows a CMOD.
-                blob.ReadTypeHandle();
+                _ = blob.ReadTypeHandle();
             }
-            return code switch
-            {
-                SignatureTypeCode.GenericTypeParameter =>
-                    (GenericParamKind.TypeParam, blob.ReadCompressedInteger()),
-                SignatureTypeCode.GenericMethodParameter =>
-                    (GenericParamKind.MethodParam, blob.ReadCompressedInteger()),
-                _ => null,
-            };
         }
-        catch { return null; }
+        while (code is SignatureTypeCode.OptionalModifier or SignatureTypeCode.RequiredModifier);
+
+        var result = code switch
+        {
+            SignatureTypeCode.GenericTypeParameter =>
+                (GenericParamKind.TypeParameter, blob.ReadCompressedInteger()),
+            SignatureTypeCode.GenericMethodParameter =>
+                (GenericParamKind.MethodParameter, blob.ReadCompressedInteger()),
+            _ => ((GenericParamKind Kind, int Index)?)null,
+        };
+
+        return result is not null && blob.RemainingBytes == 0 ? result : null;
     }
 
     private static IlNavigationTarget ResolveMemberRefWithTypeSpecParent(
@@ -290,9 +311,22 @@ public static class IlNavigationResolver
         // MemberRef parent is a TypeSpec naming a generic parameter on its own —
         // route through the context's declaring type so we don't try to match "!N"
         // against TypeDefs/TypeRefs below.
-        var genericParam = TryReadGenericParameter(reader, typeSpecHandle);
+        string decoded;
+        (GenericParamKind Kind, int Index)? genericParam;
+        try
+        {
+            decoded = SafeSignatureDecoder.DecodeType(
+                reader, typeSpecHandle, new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                genericContext: default);
+            genericParam = TryReadGenericParameter(reader, typeSpecHandle);
+        }
+        catch (BadImageFormatException)
+        {
+            return new IlNavigationTarget.Unresolved(token, "TypeSpec parent has a malformed signature");
+        }
+
         if (genericParam is { } gp && contextMethod is not null
-            && gp.Kind == GenericParamKind.TypeParam)
+            && gp.Kind == GenericParamKind.TypeParameter)
         {
             var declType = analyzer.TypeDefs.FirstOrDefault(
                 t => t.FullName == contextMethod.DeclaringType);
@@ -303,15 +337,6 @@ public static class IlNavigationResolver
                 return ResolveMemberRefLocalParent(analyzer, localHandle, name, signature, kind, token);
             }
         }
-        // Decode the TypeSpec to find the underlying type name, then resolve the member.
-        string decoded;
-        try
-        {
-            var ts = reader.GetTypeSpecification(typeSpecHandle);
-            decoded = ts.DecodeSignature(new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
-        }
-        catch { decoded = ""; }
-
         var openName = StripGenericArgs(decoded);
 
         // Check local TypeDefs
@@ -332,22 +357,6 @@ public static class IlNavigationResolver
             var refHandle = MetadataTokens.TypeReferenceHandle(
                 MetadataTokens.GetRowNumber(MetadataTokens.EntityHandle(typeRef.Token)));
             return ResolveMemberRefExternalParent(reader, refHandle, name, signature, kind);
-        }
-
-        // Fallback: name-only search
-        if (kind == MemberRefKind.Field)
-        {
-            var field = analyzer.FieldDefs.FirstOrDefault(f => f.Name == name);
-            if (field is not null)
-            {
-                var dt = analyzer.TypeDefs.FirstOrDefault(t => t.FullName == field.DeclaringType);
-                if (dt is not null) return new IlNavigationTarget.LocalField(field, dt);
-            }
-        }
-        else
-        {
-            var method = analyzer.MethodDefs.FirstOrDefault(m => m.Name == name);
-            if (method is not null) return new IlNavigationTarget.LocalMethod(method);
         }
 
         return new IlNavigationTarget.Unsupported(token, $"Cannot resolve {openName}::{name}");
@@ -388,6 +397,11 @@ public static class IlNavigationResolver
         try
         {
             var ms = reader.GetMethodSpecification(handle);
+            _ = SafeSignatureDecoder.DecodeMethodSpecificationSignature(
+                reader,
+                handle,
+                new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                genericContext: default);
             methodToken = MetadataTokens.GetToken(ms.Method);
         }
         catch (Exception ex) when (ex is BadImageFormatException or InvalidOperationException or ArgumentException)
@@ -400,35 +414,29 @@ public static class IlNavigationResolver
 
     private static string GetAssemblyNameFromTypeRef(MetadataReader reader, TypeReferenceHandle handle)
     {
+        var chain = MetadataNestingWalker.ResolutionScopeChain(reader, handle);
+        if (!chain.IsComplete || chain.Terminal.Kind != HandleKind.AssemblyReference)
+        {
+            return "Unknown";
+        }
+
+        var assemblyReferenceHandle = (AssemblyReferenceHandle)chain.Terminal;
         try
         {
-            var tr = reader.GetTypeReference(handle);
-            return tr.ResolutionScope.Kind switch
-            {
-                HandleKind.AssemblyReference => reader.GetString(
-                    reader.GetAssemblyReference((AssemblyReferenceHandle)tr.ResolutionScope).Name),
-                HandleKind.TypeReference => GetAssemblyNameFromTypeRef(
-                    reader, (TypeReferenceHandle)tr.ResolutionScope),
-                _ => "Unknown"
-            };
+            return reader.GetString(reader.GetAssemblyReference(assemblyReferenceHandle).Name);
         }
-        catch { return "Unknown"; }
+        catch (BadImageFormatException)
+        {
+            return "Unknown";
+        }
     }
 
     private static string GetFullTypeRefName(MetadataReader reader, TypeReferenceHandle handle)
     {
-        try
-        {
-            var tr = reader.GetTypeReference(handle);
-            var name = reader.GetString(tr.Name);
-            if (tr.ResolutionScope.Kind == HandleKind.TypeReference)
-            {
-                var outer = GetFullTypeRefName(reader, (TypeReferenceHandle)tr.ResolutionScope);
-                return $"{outer}/{name}";
-            }
-            var ns = reader.GetString(tr.Namespace);
-            return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
-        }
-        catch { return "?"; }
+        var chain = MetadataNestingWalker.ResolutionScopeChain(reader, handle);
+        return MetadataNestingWalker.TryFormatTypeReferenceName(
+            chain, out var fullName, out _)
+            ? fullName
+            : "Unknown";
     }
 }

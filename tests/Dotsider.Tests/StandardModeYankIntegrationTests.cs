@@ -646,16 +646,29 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsNotEmpty(editorMatches);
         var (row, col) = editorMatches[0];
 
-        // Focus the editor without consuming a mouse click, then queue two real
-        // clicks so Hex1bApp's click-count state machine observes a double-click.
+        // Focus through the real General-view binding. It executes on Hex1b's input
+        // loop, so the pending focus request is consumed by the mandatory next render.
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
-        _state!.App.RequestFocus(node =>
-            node is EditorNode { State: var es } && es == _state.GeneralInfoEditorState);
-        _state.App.Invalidate();
-        await auto.WaitUntilAsync(_ => IsFocusedOnEditor(_state.GeneralInfoEditorState),
+        var state = _state!;
+        await auto.KeyAsync(Hex1bKey.Tab, ct);
+        await auto.WaitUntilAsync(_ => IsFocusedOnEditor(state.GeneralInfoEditorState),
             description: "general info editor focused");
+
+        var editorState = state.GeneralInfoEditorState!;
+        var wordOffset = editorState.Document.GetText().IndexOf("Version", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, wordOffset);
+        var expectedOffset = wordOffset + 2;
+
+        Hex1bMouseCompatibility.BeginClickSequence(app);
         await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(col + 2, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await auto.WaitUntilAsync(_ => editorState.Cursor.Position.Value == expectedOffset,
+            description: "first click landed on the displayed Version word");
+
+        Hex1bMouseCompatibility.ContinueClickSequence(app);
+        await new Hex1bTerminalInputSequenceBuilder()
             .ClickAt(col + 2, row)
             .Build()
             .ApplyAsync(terminal, ct);
@@ -1406,15 +1419,48 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Triple-click to select the line: three rapid clicks at the same position
-        // so Hex1bApp's click-count state machine observes the full sequence.
+        var editorState = _state.IlEditorState!;
+        var lineOffset = editorState.Document.GetText().IndexOf("IL_0000:", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, lineOffset);
+        var expectedOffset = lineOffset + 3;
+
+        // Drive all three real mouse clicks, with an observable semantic barrier after
+        // each one. The compatibility clock removes the framework's wall-clock race.
+        Hex1bMouseCompatibility.BeginClickSequence(app);
         await new Hex1bTerminalInputSequenceBuilder()
-            .ClickAt(col + 2, row)
-            .ClickAt(col + 2, row)
-            .ClickAt(col + 2, row)
+            .ClickAt(col + 3, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await TestHelpers.WaitUntilAsync(
+            () => editorState.Cursor.Position.Value == expectedOffset,
+            TimeSpan.FromSeconds(5));
+
+        Hex1bMouseCompatibility.ContinueClickSequence(app);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(col + 3, row)
+            .Build()
+            .ApplyAsync(terminal, ct);
+        await TestHelpers.WaitUntilAsync(
+            () =>
+            {
+                if (!editorState.Cursor.HasSelection)
+                    return false;
+
+                var range = editorState.Cursor.SelectionRange;
+                var effectiveEnd = new DocumentOffset(Math.Max(
+                    range.End.Value,
+                    editorState.Cursor.Position.Value + 1));
+                return range.Start.Value == expectedOffset
+                    && editorState.Document.GetText(new DocumentRange(range.Start, effectiveEnd)) == "0000";
+            },
+            TimeSpan.FromSeconds(5));
+
+        Hex1bMouseCompatibility.ContinueClickSequence(app);
+        await new Hex1bTerminalInputSequenceBuilder()
+            .ClickAt(col + 3, row)
             .WaitUntil(_ =>
             {
-                var es = _state!.IlEditorState;
+                var es = _state.IlEditorState;
                 if (es?.Cursor.HasSelection != true)
                     return false;
 

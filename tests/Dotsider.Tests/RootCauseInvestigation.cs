@@ -54,13 +54,13 @@ public class IlWalkRegressionTests
                 var kind = IlDisassembler.GetOperandType(op);
 
                 bool isTokenOp = kind is
-                    IlDisassembler.OperandKind.InlineMethod or
-                    IlDisassembler.OperandKind.InlineField or
-                    IlDisassembler.OperandKind.InlineType or
-                    IlDisassembler.OperandKind.InlineTok or
-                    IlDisassembler.OperandKind.InlineSig;
+                    OperandKind.InlineMethod or
+                    OperandKind.InlineField or
+                    OperandKind.InlineType or
+                    OperandKind.InlineTok or
+                    OperandKind.InlineSig;
 
-                if (kind == IlDisassembler.OperandKind.InlineSwitch)
+                if (kind == OperandKind.InlineSwitch)
                 {
                     if (offset + 4 > il.Length) break;
                     var count = BitConverter.ToInt32(il, offset);
@@ -127,17 +127,17 @@ public class IlWalkRegressionTests
                 {
                     int size = kind switch
                     {
-                        IlDisassembler.OperandKind.None => 0,
-                        IlDisassembler.OperandKind.ShortBranchTarget or
-                        IlDisassembler.OperandKind.ShortInlineI or
-                        IlDisassembler.OperandKind.ShortInlineVar => 1,
-                        IlDisassembler.OperandKind.InlineVar => 2,
-                        IlDisassembler.OperandKind.BranchTarget or
-                        IlDisassembler.OperandKind.InlineI or
-                        IlDisassembler.OperandKind.ShortInlineR or
-                        IlDisassembler.OperandKind.InlineString => 4,
-                        IlDisassembler.OperandKind.InlineI8 or
-                        IlDisassembler.OperandKind.InlineR => 8,
+                        OperandKind.None => 0,
+                        OperandKind.ShortBranchTarget or
+                        OperandKind.ShortInlineI or
+                        OperandKind.ShortInlineVar => 1,
+                        OperandKind.InlineVar => 2,
+                        OperandKind.BranchTarget or
+                        OperandKind.InlineI or
+                        OperandKind.ShortInlineR or
+                        OperandKind.InlineString => 4,
+                        OperandKind.InlineI8 or
+                        OperandKind.InlineR => 8,
                         _ => 0
                     };
                     offset += size;
@@ -158,7 +158,7 @@ public class IlWalkRegressionTests
     public void GetOperandType_Ldelema_ReturnsInlineType()
     {
         Assert.AreEqual(
-            IlDisassembler.OperandKind.InlineType,
+            OperandKind.InlineType,
             IlDisassembler.GetOperandType(ILOpCode.Ldelema));
     }
 

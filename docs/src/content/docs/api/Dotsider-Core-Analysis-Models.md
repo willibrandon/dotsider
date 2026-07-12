@@ -88,7 +88,7 @@ public sealed record AssemblyRefInfo : IEquatable<AssemblyRefInfo>
 ### [AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/)
 
 Outcome of an identity-based assembly resolution. Carries everything the dependency-graph
-builder and UI need: the resolved file/bundle (or null on failure), the
+builder and UI need: the resolved assembly or module (or null on failure), the
 provenance classifying how the file was located, the candidate path of an identity-mismatched
 simple-name hit, and — for .NET Framework binds — the policy-layer attribution and the
 effective bound identity.
@@ -869,7 +869,8 @@ public sealed record RecoveredType : IEquatable<RecoveredType>
 
 ### [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
-The result of resolving an assembly reference — either a file on disk or bytes from a bundle.
+The result of resolving an assembly reference to an assembly file, a bundle entry, or an
+authenticated sibling module.
 
 ```csharp
 public abstract record ResolvedAssembly : IEquatable<ResolvedAssembly>
@@ -889,6 +890,15 @@ The assembly was found as a file on disk.
 
 ```csharp
 public sealed record ResolvedAssembly.FromFile : ResolvedAssembly, IEquatable<ResolvedAssembly>, IEquatable<ResolvedAssembly.FromFile>
+```
+
+### [ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/)
+
+Represents a metadata-bearing sibling module whose bytes were read and authenticated while
+resolving the manifest assembly's File table entry.
+
+```csharp
+public sealed record ResolvedModule : ResolvedAssembly, IEquatable<ResolvedAssembly>, IEquatable<ResolvedModule>
 ```
 
 ### [ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/)

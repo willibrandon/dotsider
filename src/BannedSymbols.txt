@@ -1,0 +1,15 @@
+# Attacker-controlled metadata signatures must be structurally bounded before SRM decodes them.
+M:System.Reflection.Metadata.MethodDefinition.DecodeSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.FieldDefinition.DecodeSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.PropertyDefinition.DecodeSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.MethodSpecification.DecodeSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.TypeSpecification.DecodeSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.StandaloneSignature.DecodeMethodSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.StandaloneSignature.DecodeLocalSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.MemberReference.DecodeMethodSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.MemberReference.DecodeFieldSignature``2(System.Reflection.Metadata.ISignatureTypeProvider{``0,``1},``1); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.Ecma335.SignatureDecoder`2.DecodeFieldSignature(System.Reflection.Metadata.BlobReader@); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.Ecma335.SignatureDecoder`2.DecodeLocalSignature(System.Reflection.Metadata.BlobReader@); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.Ecma335.SignatureDecoder`2.DecodeMethodSignature(System.Reflection.Metadata.BlobReader@); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.Ecma335.SignatureDecoder`2.DecodeMethodSpecificationSignature(System.Reflection.Metadata.BlobReader@); Use SafeSignatureDecoder.
+M:System.Reflection.Metadata.Ecma335.SignatureDecoder`2.DecodeType(System.Reflection.Metadata.BlobReader@,System.Boolean); Use SafeSignatureDecoder.

@@ -1,6 +1,4 @@
 using Dotsider.Core.Analysis.Models;
-using System.Reflection.Metadata;
-using System.Runtime.InteropServices;
 
 namespace Dotsider.Core.Analysis.ReadyToRun;
 
@@ -33,14 +31,15 @@ internal static class ReadyToRunImageReader
     {
         var self = Empty(analyzer);
         if (!TryOpenTables(analyzer, info, out var tables)
-            || Section(info, ReadyToRunSectionType.MethodDefEntryPoints) is not { FileOffset: { } entryOffset })
+            || Section(info, ReadyToRunSectionType.MethodDefEntryPoints)
+                is not { FileOffset: { } entryOffset, Size: > 0 } entryPoints)
         {
             return self;
         }
 
         var mvid = ReadMvid(analyzer);
         var source = new ReadyToRunMethodMapReader.MethodMapSource(
-            analyzer.AssemblyName ?? "", mvid, entryOffset,
+            analyzer.AssemblyName ?? "", mvid, entryOffset, entryPoints.Size,
             analyzer.MethodDefs, analyzer.GetMetadataReader());
 
         var instance = Section(info, ReadyToRunSectionType.InstanceMethodEntryPoints);
@@ -92,6 +91,7 @@ internal static class ReadyToRunImageReader
             var name = component.Name ?? resolved?.AssemblyName ?? component.Mvid.ToString();
             sources.Add(new ReadyToRunMethodMapReader.MethodMapSource(
                 name, component.Mvid, component.MethodDefEntryPointsFileOffset,
+                component.MethodDefEntryPointsSize,
                 resolved?.MethodDefs ?? [], resolved?.GetMetadataReader()));
             listing.Add(new ReadyToRunComponent(
                 name, component.Mvid, 0, component.CoreHeaderRva,
@@ -103,22 +103,14 @@ internal static class ReadyToRunImageReader
         var moduleContext = ReadyToRunModuleContext.Create(
             info, listing, mvid => providers.GetValueOrDefault(mvid));
         var instance = Section(info, ReadyToRunSectionType.InstanceMethodEntryPoints);
-        var manifest = Section(info, ReadyToRunSectionType.ManifestMetadata);
-        MetadataReaderProvider? manifestProvider = null;
-        List<ReadyToRunMethodEntry> methods;
-        try
-        {
-            var manifestReader = OpenManifest(raw, manifest, out manifestProvider);
-            var global = instance is { FileOffset: { } io }
-                ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
-                    io, instance.Size, manifestReader, analyzer.AssemblyName ?? "", Guid.Empty, [])
-                : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
-            methods = SafeBuild(tables, sources, global, moduleContext);
-        }
-        finally
-        {
-            manifestProvider?.Dispose();
-        }
+        // The composite manifest contains assembly-reference routing metadata, not a MethodDef or
+        // MemberRef token scope. Runtime starts global signatures without a current metadata reader;
+        // MODULE_ZAPSIG and the primitive-owner system-module fallback select the real scope.
+        var global = instance is { FileOffset: { } io }
+            ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
+                io, instance.Size, null, analyzer.AssemblyName ?? "", Guid.Empty, [])
+            : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
+        var methods = SafeBuild(tables, sources, global, moduleContext);
 
         var diagnostic = unresolved > 0
             ? $"{unresolved} of {components.Count} component assemblies could not be resolved beside "
@@ -173,6 +165,7 @@ internal static class ReadyToRunImageReader
             var name = component.Name ?? (isThisComponent ? analyzer.AssemblyName : null) ?? component.Mvid.ToString();
             sources.Add(new ReadyToRunMethodMapReader.MethodMapSource(
                 name, component.Mvid, component.MethodDefEntryPointsFileOffset,
+                component.MethodDefEntryPointsSize,
                 isThisComponent ? analyzer.MethodDefs : [],
                 isThisComponent ? analyzer.GetMetadataReader() : null));
             listing.Add(new ReadyToRunComponent(
@@ -183,22 +176,11 @@ internal static class ReadyToRunImageReader
         var moduleContext = ReadyToRunModuleContext.Create(
             ownerInfo, listing, id => id == mvid ? analyzer : null);
         var instance = Section(ownerInfo, ReadyToRunSectionType.InstanceMethodEntryPoints);
-        var manifest = Section(ownerInfo, ReadyToRunSectionType.ManifestMetadata);
-        MetadataReaderProvider? manifestProvider = null;
-        List<ReadyToRunMethodEntry> allMethods;
-        try
-        {
-            var manifestReader = OpenManifest(ownerRaw, manifest, out manifestProvider);
-            var global = instance is { FileOffset: { } io }
-                ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
-                    io, instance.Size, manifestReader, owner.AssemblyName ?? "", Guid.Empty, [])
-                : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
-            allMethods = SafeBuild(tables, sources, global, moduleContext, mvid);
-        }
-        finally
-        {
-            manifestProvider?.Dispose();
-        }
+        var global = instance is { FileOffset: { } io }
+            ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
+                io, instance.Size, null, owner.AssemblyName ?? "", Guid.Empty, [])
+            : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
+        var allMethods = SafeBuild(tables, sources, global, moduleContext, mvid);
 
         var methods = allMethods
             .Where(m => m.Mvid == mvid || string.Equals(m.AssemblyName, analyzer.AssemblyName, StringComparison.Ordinal))
@@ -259,26 +241,6 @@ internal static class ReadyToRunImageReader
         catch (Exception ex) when (ex is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
         {
             return [];
-        }
-    }
-
-    private static MetadataReader? OpenManifest(
-        ReadOnlyMemory<byte> raw, ReadyToRunSectionEntry? manifest, out MetadataReaderProvider? provider)
-    {
-        provider = null;
-        if (manifest is not { FileOffset: { } offset, Size: > 0 } || offset + manifest.Size > raw.Length)
-            return null;
-        try
-        {
-            var image = ImmutableCollectionsMarshal.AsImmutableArray(raw.Slice(offset, manifest.Size).ToArray());
-            provider = MetadataReaderProvider.FromMetadataImage(image);
-            return provider.GetMetadataReader();
-        }
-        catch (Exception ex) when (ex is BadImageFormatException or ArgumentException)
-        {
-            provider?.Dispose();
-            provider = null;
-            return null;
         }
     }
 

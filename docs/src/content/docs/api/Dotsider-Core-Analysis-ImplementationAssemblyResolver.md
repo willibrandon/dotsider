@@ -25,8 +25,8 @@ public static class ImplementationAssemblyResolver
 
 ### Resolve(string, string, string?, string?, string?, string?, NetFxBindingContext?, AssemblyAnalyzer?)
 
-Resolves an assembly name to a path or bundle entry, falling back to the
-implementation assembly if the reference assembly has no IL.
+Resolves an assembly name to an assembly file, bundle entry, or authenticated sibling
+module, falling back to the implementation assembly if the reference assembly has no IL.
 
 **Parameters:**
 
@@ -47,7 +47,7 @@ identity (version + culture + PKT) for the binder.
 
 **Returns:** [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
-The resolved assembly, or null if not found.
+The resolved assembly or module, or null if not found.
 
 ```csharp
 public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null, NetFxBindingContext? netFxBindingContext = null, AssemblyAnalyzer? referencingAnalyzer = null)

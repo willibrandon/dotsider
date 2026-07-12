@@ -523,6 +523,22 @@ public class AssemblyAnalyzerTests
     }
 
     /// <summary>
+    /// Verifies the original four-parameter byte-array constructor remains binary compatible.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ByteArrayConstructor_PreservesLegacyMetadataSignature()
+    {
+        var constructor = typeof(AssemblyAnalyzer).GetConstructor(
+            [typeof(byte[]), typeof(string), typeof(string), typeof(string)]);
+
+        Assert.IsNotNull(constructor);
+        var parameters = constructor.GetParameters();
+        Assert.IsTrue(parameters[2].IsOptional);
+        Assert.IsTrue(parameters[3].IsOptional);
+    }
+
+    /// <summary>
     /// Verifies native apphost byte array constructor tolerates non pe binary.
     /// </summary>
     [TestMethod]

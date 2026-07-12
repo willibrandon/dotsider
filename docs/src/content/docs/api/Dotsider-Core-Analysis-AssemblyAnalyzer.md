@@ -28,6 +28,24 @@ public sealed class AssemblyAnalyzer : IDisposable
 
 ## Constructors
 
+### AssemblyAnalyzer(byte[], string, string?, string?, string?, string?)
+
+Creates an analyzer from raw module bytes with resolution context inherited from its
+manifest assembly.
+
+**Parameters:**
+
+- `bytes` ([Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])): The raw module bytes.
+- `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The authenticated sibling-module path.
+- `sourceBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The source bundle path, or null.
+- `displayName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The logical name of the analyzed module.
+- `targetFrameworkOverride` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The manifest's target-framework context.
+- `preferredRuntimePackOverride` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The manifest's preferred runtime pack.
+
+```csharp
+public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath, string? displayName, string? targetFrameworkOverride, string? preferredRuntimePackOverride)
+```
+
 ### AssemblyAnalyzer(byte[], string, string?, string?)
 
 Creates an analyzer from raw bytes in memory. Used for bundle-extracted
