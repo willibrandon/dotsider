@@ -28,7 +28,7 @@ Decodes IL (Intermediate Language) method bodies into human-readable instruction
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): Provides the assembly metadata and method bodies to disassemble.
 
 ```csharp
 public IlDisassembler(AssemblyAnalyzer analyzer)

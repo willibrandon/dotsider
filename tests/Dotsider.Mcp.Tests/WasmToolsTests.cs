@@ -75,6 +75,7 @@ public sealed class WasmToolsTests : McpServerTestBase
             FunctionCount = 1,
             Functions = new[] { new { Index = 0, Name = "func_0" } }
         }));
+        socket.Start();
 
         await StartServerAsync();
         await using var client = await CreateClientAsync();

@@ -15,5 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Dotsider/Dotsider.csproj" />
     <ProjectReference Include="../../src/Dotsider.Core/Dotsider.Core.csproj" />
+    <ProjectReference Include="../../samples/MultiModuleManifest/MultiModuleManifest.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

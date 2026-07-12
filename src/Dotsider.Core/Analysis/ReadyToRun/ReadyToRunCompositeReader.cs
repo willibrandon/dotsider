@@ -19,8 +19,13 @@ internal static class ReadyToRunCompositeReader
     /// <param name="Name">The component's manifest name (best-effort display / resolution hint).</param>
     /// <param name="CoreHeaderRva">The RVA of the component's per-assembly ReadyToRun core header.</param>
     /// <param name="MethodDefEntryPointsFileOffset">The file offset of the component's <c>MethodDefEntryPoints</c> section.</param>
+    /// <param name="MethodDefEntryPointsSize">The exact byte size of the component's <c>MethodDefEntryPoints</c> section.</param>
     internal readonly record struct Component(
-        Guid Mvid, string? Name, int CoreHeaderRva, int MethodDefEntryPointsFileOffset);
+        Guid Mvid,
+        string? Name,
+        int CoreHeaderRva,
+        int MethodDefEntryPointsFileOffset,
+        int MethodDefEntryPointsSize);
 
     private const int ComponentAssemblyRecordSize = 16;
     private const int GuidSize = 16;
@@ -31,8 +36,12 @@ internal static class ReadyToRunCompositeReader
     {
         var result = new List<Component>();
         var components = Section(info, ReadyToRunSectionType.ComponentAssemblies);
-        if (components is not { FileOffset: { } componentsOffset } || components.Size < ComponentAssemblyRecordSize)
+        if (components is not { FileOffset: { } componentsOffset }
+            || components.Size < ComponentAssemblyRecordSize
+            || !IsContained(componentsOffset, components.Size, raw.Length))
+        {
             return result;
+        }
 
         var names = ReadManifestNames(raw, Section(info, ReadyToRunSectionType.ManifestMetadata));
         var mvids = Section(info, ReadyToRunSectionType.ManifestAssemblyMvids);
@@ -43,15 +52,21 @@ internal static class ReadyToRunCompositeReader
         {
             // Record: CorHeader {RVA, Size}, ReadyToRunCoreHeader {RVA, Size}.
             var row = componentsOffset + i * ComponentAssemblyRecordSize;
-            if (row + ComponentAssemblyRecordSize > span.Length) break;
             var assemblyHeaderRva = BinaryPrimitives.ReadInt32LittleEndian(span[(row + 8)..]);
             if (!addressSpace.TryGetFileOffset(imageBase + (uint)assemblyHeaderRva, out var headerOffset, out _))
+            {
                 continue;
+            }
 
             var core = ClassicReadyToRunHeaderReader.ReadCoreHeader(span, headerOffset, imageBase, addressSpace);
-            if (core is not { } c) continue;
+            if (core is not { } c)
+            {
+                continue;
+            }
+
             if (ClassicReadyToRunHeaderReader.Section(c.Sections, ReadyToRunSectionType.MethodDefEntryPoints)
-                is not { FileOffset: { } mdeOffset })
+                    is not { FileOffset: { } mdeOffset, Size: > 0 } methodDefEntryPoints
+                || !IsContained(mdeOffset, methodDefEntryPoints.Size, raw.Length))
             {
                 continue;
             }
@@ -60,7 +75,8 @@ internal static class ReadyToRunCompositeReader
                 ReadMvid(span, mvids, i),
                 i < names.Count ? names[i] : null,
                 assemblyHeaderRva,
-                mdeOffset));
+                mdeOffset,
+                methodDefEntryPoints.Size));
         }
 
         return result;
@@ -68,17 +84,25 @@ internal static class ReadyToRunCompositeReader
 
     private static Guid ReadMvid(ReadOnlySpan<byte> raw, ReadyToRunSectionEntry? mvids, int index)
     {
-        if (mvids is not { FileOffset: { } offset })
+        if (mvids is not { FileOffset: { } offset, Size: >= GuidSize }
+            || !IsContained(offset, mvids.Size, raw.Length)
+            || index < 0)
+        {
             return Guid.Empty;
-        var at = offset + GuidSize * index;
-        return at + GuidSize <= raw.Length ? new Guid(raw.Slice(at, GuidSize)) : Guid.Empty;
+        }
+
+        var at = (long)offset + GuidSize * index;
+        var sectionEnd = (long)offset + mvids.Size;
+        return at + GuidSize <= sectionEnd
+            ? new Guid(raw.Slice((int)at, GuidSize))
+            : Guid.Empty;
     }
 
     private static List<string> ReadManifestNames(ReadOnlyMemory<byte> raw, ReadyToRunSectionEntry? manifest)
     {
         var names = new List<string>();
-        if (manifest is not { FileOffset: { } offset } || manifest.Size <= 0
-            || offset + manifest.Size > raw.Length)
+        if (manifest is not { FileOffset: { } offset, Size: > 0 }
+            || !IsContained(offset, manifest.Size, raw.Length))
         {
             return names;
         }
@@ -108,4 +132,7 @@ internal static class ReadyToRunCompositeReader
                 return s;
         return null;
     }
+
+    private static bool IsContained(int offset, int size, int length) =>
+        size >= 0 && offset >= 0 && offset <= length - size;
 }

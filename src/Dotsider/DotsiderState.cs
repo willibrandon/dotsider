@@ -172,9 +172,9 @@ public sealed class DotsiderState : IDisposable
     /// <summary>
     /// Expansion state map for IL Inspector tree nodes (keyed by stable namespace/type keys).
     /// </summary>
-    #pragma warning disable IDE0028
+#pragma warning disable IDE0028
     public Dictionary<string, bool> IlTreeExpansionState { get; } = new(StringComparer.Ordinal);
-    #pragma warning restore IDE0028
+#pragma warning restore IDE0028
 
     /// <summary>The editor state for the IL disassembly pane, or null if no method is selected.</summary>
     public EditorState? IlEditorState { get; set; }
@@ -1755,6 +1755,13 @@ public sealed class DotsiderState : IDisposable
             {
                 ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
                 ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                ResolvedModule module => new AssemblyAnalyzer(
+                    [.. module.Bytes],
+                    module.Path,
+                    sourceBundlePath: null,
+                    displayName: Path.GetFileName(module.Path),
+                    targetFrameworkOverride: module.TargetFramework,
+                    preferredRuntimePackOverride: module.PreferredRuntimePack),
                 _ => throw new InvalidOperationException()
             };
         }
@@ -1818,6 +1825,13 @@ public sealed class DotsiderState : IDisposable
             {
                 ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
                 ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                ResolvedModule module => new AssemblyAnalyzer(
+                    [.. module.Bytes],
+                    module.Path,
+                    sourceBundlePath: null,
+                    displayName: Path.GetFileName(module.Path),
+                    targetFrameworkOverride: module.TargetFramework,
+                    preferredRuntimePackOverride: module.PreferredRuntimePack),
                 _ => throw new InvalidOperationException()
             };
         }
@@ -1865,6 +1879,13 @@ public sealed class DotsiderState : IDisposable
             {
                 ResolvedAssembly.FromFile(var p) => new AssemblyAnalyzer(p),
                 ResolvedAssembly.FromBundle(var b, var n, var bp) => new AssemblyAnalyzer(b, n, sourceBundlePath: bp),
+                ResolvedModule module => new AssemblyAnalyzer(
+                    [.. module.Bytes],
+                    module.Path,
+                    sourceBundlePath: null,
+                    displayName: Path.GetFileName(module.Path),
+                    targetFrameworkOverride: module.TargetFramework,
+                    preferredRuntimePackOverride: module.PreferredRuntimePack),
                 _ => throw new InvalidOperationException()
             };
         }
@@ -1899,7 +1920,7 @@ public sealed class DotsiderState : IDisposable
             probe.Dispose();
             return false;
         }
-        
+
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
         IlSelectedField = fieldTarget;
@@ -1982,7 +2003,7 @@ public sealed class DotsiderState : IDisposable
             if (rva >= section.VirtualAddress && rva < section.VirtualAddress + section.VirtualSize)
                 return rva - section.VirtualAddress + section.RawDataOffset;
         }
-        
+
         return -1;
     }
 
@@ -2029,10 +2050,10 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
-    /// Pushes a resolved assembly (file or bundle-backed) onto the navigation stack.
+    /// Pushes a resolved assembly or authenticated sibling module onto the navigation stack.
     /// </summary>
-    /// <param name="resolved">The resolved assembly to push.</param>
-    /// <returns>True if the assembly was pushed successfully; false on error or depth limit.</returns>
+    /// <param name="resolved">The resolved assembly or module to push.</param>
+    /// <returns>True if the target was pushed successfully; false on error or depth limit.</returns>
     public bool PushAssembly(ResolvedAssembly resolved)
     {
         if (NavigationStack.Count >= MaxNavigationDepth)
@@ -2049,6 +2070,13 @@ public sealed class DotsiderState : IDisposable
                 ResolvedAssembly.FromFile(var path) => new AssemblyAnalyzer(path),
                 ResolvedAssembly.FromBundle(var bytes, var name, var bundle) =>
                     new AssemblyAnalyzer(bytes, name, sourceBundlePath: bundle),
+                ResolvedModule module => new AssemblyAnalyzer(
+                    [.. module.Bytes],
+                    module.Path,
+                    sourceBundlePath: null,
+                    displayName: Path.GetFileName(module.Path),
+                    targetFrameworkOverride: module.TargetFramework,
+                    preferredRuntimePackOverride: module.PreferredRuntimePack),
                 _ => throw new ArgumentException("Unknown resolution type")
             };
         }

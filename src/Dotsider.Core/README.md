@@ -30,7 +30,7 @@ Core library for .NET assembly analysis. Provides analyzers, models, and the dia
 | `DotNetRuntimeLocator` | Discovers system .NET installations and resolves shared framework assembly paths |
 | `AssemblyLoader` | Opens assemblies, apphosts, single-file bundles, Native AOT binaries, Webcil assemblies, and raw WebAssembly modules with the right analyzer path for each |
 | `ApphostDetector` | Detects .NET apphost executables, locates companion managed assemblies, and identifies single-file bundles |
-| `ImplementationAssemblyResolver` | Maps reference assemblies to their implementations via known mappings, type forwarders, bundles, and shared framework probing |
+| `ImplementationAssemblyResolver` | Maps reference assemblies to their implementations via known mappings, type forwarders, authenticated sibling modules, bundles, and shared framework probing |
 | `NetFxBinder` | CLR-accurate .NET Framework binder. Walks the real fusion order — framework unification + machine.config + publisher policy + app config, then GAC + framework runtime directory + `<codeBase>` + app base + `<probing privatePath>` — so the dep graph reflects what the actual CLR loads. Switches probe locations and GAC token format on `NetFxRuntimeVersion`: CLR 4 (`%WINDIR%\Microsoft.NET\assembly`, `v4.0_…` tokens, `v4.0.30319` runtime) and CLR 2 (`%WINDIR%\assembly`, no-prefix tokens, `v2.0.50727` runtime) |
 | `AssemblyIdentityFormat` | Formats an assembly's full identity into a stable opaque key (`Name|Version|Culture|PublicKeyToken`) used as a graph node identifier and a `TypeRefInfo` resolution-scope grouping key |
 
@@ -62,7 +62,7 @@ All models live in `Analysis/Models/` and are plain records or enums suitable fo
 
 **Bundles:** `BundleManifest`, `BundleEntry`, `BundleFileType`
 
-**Resolution discriminated unions:** `ResolvedAssembly` (`FromFile`, `FromBundle`), `AssemblyOpenResult` (`Direct`, `ApphostWithCompanion`, `BundleEntry`), `AssemblyResolution` (carries the resolved file/bundle plus provenance, applied policy, and bound identity), `AssemblyProvenance`
+**Resolution discriminated unions:** `ResolvedAssembly` (`FromFile`, `FromBundle`, `ResolvedModule`), `AssemblyOpenResult` (`Direct`, `ApphostWithCompanion`, `BundleEntry`), `AssemblyResolution` (carries the resolved assembly or module plus provenance, applied policy, and bound identity), `AssemblyProvenance`
 
 **NuGet:** `NuGetFileEntry`
 
@@ -78,7 +78,7 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `DotsiderRequest` | JSON request with `Method`, plus optional parameters (`AssemblyPath`, `TypeName`, `TabId`, etc.) |
 | `DotsiderResponse` | JSON response with `Success`, optional `Error`, and `Data` payload |
 | `DotsiderJsonOptions` | Shared serialization settings (camelCase, ignore nulls, case-insensitive reads) |
-| `ResolvedAssemblyInfo` | Serialization-safe DTO for an assembly resolution result (file path, bundle entry name, bundle path) |
+| `ResolvedAssemblyInfo` | Serialization-safe DTO for an assembly or module resolution result (kind, file or module path, bundle entry name, and bundle path) |
 | `FrameworkAssemblyInfo` | Result of resolving an assembly from a system shared framework — full path plus the runtime pack that provided it |
 
 ### Protocol Methods

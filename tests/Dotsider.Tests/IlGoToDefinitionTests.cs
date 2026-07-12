@@ -37,9 +37,9 @@ public sealed class IlGoToDefinitionTests : IDisposable
             ctx =>
             {
                 _state ??= new DotsiderState(_hex1bApp!, Samples.RichLibraryDll)
-                    {
-                        CurrentTab = TabId.IlInspector
-                    };
+                {
+                    CurrentTab = TabId.IlInspector
+                };
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -508,7 +508,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -550,7 +551,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -591,7 +593,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -641,7 +644,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -691,7 +695,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -742,7 +747,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -919,7 +925,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(dis.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -986,7 +993,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
@@ -1028,7 +1036,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
@@ -1074,7 +1083,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
         var callInst = dis.Value.Instructions.First(i =>
@@ -1377,7 +1387,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(dis.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1467,7 +1478,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1550,7 +1562,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1591,7 +1604,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1667,7 +1681,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1784,7 +1799,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(moveNext);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = moveNext;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1829,7 +1845,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1899,6 +1916,45 @@ public sealed class IlGoToDefinitionTests : IDisposable
     }
 
     /// <summary>
+    /// Custom modifiers do not hide a TypeSpec VAR/MVAR root from generic-parameter navigation.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Resolve_CustomModifiedGenericParameterTypeSpecs_PreserveNavigationSemantics()
+    {
+        using var analyzer = new AssemblyAnalyzer(
+            SyntheticMetadataBuilder.BuildCustomModifiedGenericParameterNavigationAssembly(),
+            "GenericParameterNavigation.dll");
+        var contextMethod = Assert.ContainsSingle(analyzer.MethodDefs);
+        var reader = analyzer.GetMetadataReader()!;
+
+        var typeParameter = IlNavigationResolver.Resolve(
+            analyzer,
+            MetadataTokens.GetToken(MetadataTokens.TypeSpecificationHandle(1)),
+            contextMethod);
+        var localType = Assert.IsExactInstanceOfType<IlNavigationTarget.LocalType>(typeParameter);
+        Assert.AreEqual("Synthetic.GenericOwner`1", localType.Type.FullName);
+
+        var methodParameter = IlNavigationResolver.Resolve(
+            analyzer,
+            MetadataTokens.GetToken(MetadataTokens.TypeSpecificationHandle(2)),
+            contextMethod);
+        var unsupported = Assert.IsExactInstanceOfType<IlNavigationTarget.Unsupported>(methodParameter);
+        Assert.Contains("!!0", unsupported.Reason);
+
+        var memberReference = Assert.ContainsSingle(
+            reader.MemberReferences.Where(handle =>
+                reader.GetMemberReference(handle).Parent ==
+                    MetadataTokens.TypeSpecificationHandle(1)));
+        var memberTarget = IlNavigationResolver.Resolve(
+            analyzer,
+            MetadataTokens.GetToken(memberReference),
+            contextMethod);
+        var localMethod = Assert.IsExactInstanceOfType<IlNavigationTarget.LocalMethod>(memberTarget);
+        Assert.AreEqual(contextMethod.Token, localMethod.Method.Token);
+    }
+
+    /// <summary>
     /// End-to-end: pressing go-to-definition on initobj !!0 inside the method
     /// raises a transient notice and does not change the selected method. The
     /// UI gets a clear "there's nothing to navigate to" signal instead of a
@@ -1920,7 +1976,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
@@ -1979,7 +2036,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text)) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+        { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 

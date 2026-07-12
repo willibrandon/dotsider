@@ -46,7 +46,7 @@ public class ProtocolVersionTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -223,10 +223,6 @@ public class ProtocolVersionTests : IAsyncDisposable
 
     private static string GetUniqueSocketPath()
     {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".dotsider", "sockets");
-        Directory.CreateDirectory(dir);
-        return Path.Combine(dir, $"test-{TestSocketIds.NextPid()}.dotsider.socket");
+        return Path.Combine(Path.GetTempPath(), $"dp-{Guid.NewGuid():N}");
     }
 }

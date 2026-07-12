@@ -100,6 +100,15 @@ internal sealed class ReadyToRunImportMap
         if (section is not { FileOffset: { } sectionOffset, Size: > 0 } sec)
             return null;
 
+        var rawLength = analyzer.RawBytes.Length;
+        if (sectionOffset < 0 ||
+            sectionOffset > rawLength - ImportSectionRecordSize ||
+            sec.Size > rawLength - sectionOffset ||
+            sec.Size % ImportSectionRecordSize != 0)
+        {
+            return null;
+        }
+
         var addressSpace = NativeAddressSpace.Create(analyzer.RawBytes.Span);
         if (addressSpace is null) return null;
         var imageBase = analyzer.PeHeaders?.ImageBase ?? 0;
@@ -122,12 +131,19 @@ internal sealed class ReadyToRunImportMap
             var end = sectionOffset + sec.Size;
             for (var record = sectionOffset; record + ImportSectionRecordSize <= end; record += ImportSectionRecordSize)
             {
-                ReadRecord(reader, record, imageBase, addressSpace, pointerSize, metadata, methodDefs, moduleContext, map);
+                try
+                {
+                    ReadRecord(
+                        reader, record, imageBase, addressSpace, pointerSize,
+                        metadata, methodDefs, moduleContext, map);
+                }
+                catch (Exception exception) when (IsMalformedImportException(exception))
+                {
+                    ReadyToRunDiagnostics.Write(
+                        $"import-record-rejected record=0x{record:X} "
+                        + $"exception={exception.GetType().Name} message={exception.Message}");
+                }
             }
-        }
-        catch (Exception ex) when (ex is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
-        {
-            // Keep whatever slots resolved before the malformed row.
         }
         finally
         {
@@ -157,10 +173,19 @@ internal sealed class ReadyToRunImportMap
         Guid mvid,
         ref Dictionary<Guid, AssemblyAnalyzer>? transientProviders)
     {
-        if (providerFor?.Invoke(mvid) is { } existing)
-            return existing;
         if (transientProviders is not null && transientProviders.TryGetValue(mvid, out var cached))
+        {
             return cached;
+        }
+
+        // ReadyToRunMetadataProviderFor deliberately falls back to its owning analyzer when an MVID
+        // is absent. That is useful to callers displaying incomplete models, but it is not a valid
+        // token scope for a module override. Accept a supplied provider only when its module identity
+        // actually matches; otherwise resolve the requested component beside the composite image.
+        if (providerFor?.Invoke(mvid) is { } existing && HasModuleVersionId(existing, mvid))
+        {
+            return existing;
+        }
 
         ReadyToRunComponent? component = null;
         foreach (var candidate in components)
@@ -183,6 +208,19 @@ internal sealed class ReadyToRunImportMap
         return opened;
     }
 
+    private static bool HasModuleVersionId(AssemblyAnalyzer analyzer, Guid expected)
+    {
+        try
+        {
+            var reader = analyzer.GetMetadataReader();
+            return reader is not null && reader.GetGuid(reader.GetModuleDefinition().Mvid) == expected;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
     private static void ReadRecord(
         R2RNativeReader reader, int record, ulong imageBase, NativeAddressSpace addressSpace,
         int pointerSize, MetadataReader? metadata, IReadOnlyList<MethodDefInfo> methodDefs,
@@ -194,27 +232,99 @@ internal sealed class ReadyToRunImportMap
         offset += 2 + 1; // flags (u16) + type (u8)
         int entrySize = reader.ReadByte(ref offset);
         var signaturesRva = reader.ReadInt32(ref offset);
-        if (entrySize == 0) entrySize = pointerSize;
-        if (entrySize <= 0 || slotsSize <= 0 || signaturesRva == 0) return;
-        if (!addressSpace.TryGetFileOffset(imageBase + (uint)signaturesRva, out var signaturesOffset, out _))
-            return;
+        if (entrySize == 0)
+        {
+            entrySize = pointerSize;
+        }
 
-        var count = slotsSize / entrySize;
+        if (entrySize <= 0 || slotsSize <= 0 || slotsRva == 0 || signaturesRva == 0)
+        {
+            return;
+        }
+
+        if (!addressSpace.TryGetFileOffset(
+                imageBase + (uint)slotsRva,
+                out _,
+                out var slotBytesAvailable) ||
+            !addressSpace.TryGetFileOffset(
+                imageBase + (uint)signaturesRva,
+                out var signaturesOffset,
+                out var signatureBytesAvailable) ||
+            !TryGetSlotCount(
+                slotsSize,
+                entrySize,
+                slotBytesAvailable,
+                signatureBytesAvailable,
+                out var count))
+        {
+            throw new BadImageFormatException(
+                $"ReadyToRun import record at 0x{record:X} has inconsistent slot extents.");
+        }
+
         for (var i = 0; i < count; i++)
         {
-            var sigArrayEntry = signaturesOffset + i * 4;
-            var sigRva = reader.ReadUInt32(ref sigArrayEntry);
-            if (sigRva == 0
-                || !addressSpace.TryGetFileOffset(imageBase + sigRva, out var sigOffset, out _))
+            try
             {
-                continue;
-            }
+                var sigArrayEntry = signaturesOffset + i * 4;
+                var sigRva = reader.ReadUInt32(ref sigArrayEntry);
+                if (sigRva == 0
+                    || !addressSpace.TryGetFileOffset(imageBase + sigRva, out var sigOffset, out _))
+                {
+                    continue;
+                }
 
-            var name = DecodeFixup(reader, sigOffset, metadata, methodDefs, moduleContext);
-            if (name is not null)
-                map[imageBase + (uint)(slotsRva + entrySize * i)] = name;
+                var name = DecodeFixup(reader, sigOffset, metadata, methodDefs, moduleContext);
+                if (name is not null)
+                {
+                    map[imageBase + (uint)slotsRva + (uint)(entrySize * i)] = name;
+                }
+            }
+            catch (Exception exception) when (IsMalformedImportException(exception))
+            {
+                ReadyToRunDiagnostics.Write(
+                    $"import-slot-rejected record=0x{record:X} slot={i} "
+                    + $"exception={exception.GetType().Name} message={exception.Message}");
+            }
         }
     }
+
+    /// <summary>
+    /// Validates the extents that govern an import record's slot and signature-table iteration.
+    /// </summary>
+    /// <param name="slotsSize">The byte size of the import-cell region.</param>
+    /// <param name="entrySize">The size of one import cell.</param>
+    /// <param name="slotBytesAvailable">Mapped bytes available from the first import cell.</param>
+    /// <param name="signatureBytesAvailable">Mapped bytes available from the signature RVA table.</param>
+    /// <param name="count">Receives the validated number of entries.</param>
+    /// <returns><see langword="true"/> when all entries are fully backed by the image.</returns>
+    internal static bool TryGetSlotCount(
+        int slotsSize,
+        int entrySize,
+        int slotBytesAvailable,
+        int signatureBytesAvailable,
+        out int count)
+    {
+        count = 0;
+        if (slotsSize <= 0 ||
+            entrySize <= 0 ||
+            slotBytesAvailable < slotsSize ||
+            slotsSize % entrySize != 0)
+        {
+            return false;
+        }
+
+        count = slotsSize / entrySize;
+        if (signatureBytesAvailable < 0 || count > signatureBytesAvailable / sizeof(uint))
+        {
+            count = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsMalformedImportException(Exception exception) =>
+        exception is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException;
 
     private static string? DecodeFixup(
         R2RNativeReader reader, int offset, MetadataReader? metadata, IReadOnlyList<MethodDefInfo> methodDefs,
@@ -246,25 +356,35 @@ internal sealed class ReadyToRunImportMap
         switch (fixup)
         {
             case FixupMethodEntry or FixupMethodHandle or FixupVirtualEntry:
-            {
-                var sig = ReadyToRunSignatureWalker.ParseMethod(
-                    reader, offset, metadata, resolveMetadata);
-                return DecorateMethod(sig, metadata, methodDefs, modulePrefix);
-            }
+                {
+                    var sig = ReadyToRunSignatureWalker.ParseMethod(
+                        reader, offset, metadata, resolveMetadata, moduleContext?.ResolveSystemMetadata());
+                    return DecorateMethod(sig, metadata, methodDefs, modulePrefix);
+                }
 
             case FixupMethodEntryDefToken or FixupVirtualEntryDefToken:
-                return NameForToken(0x0600_0000 | (int)reader.ReadCompressedUInt(ref offset), metadata, methodDefs, modulePrefix);
+                return NameForToken(
+                    ReadyToRunMethodToken.Create(
+                        reader.ReadCompressedUInt(ref offset), HandleKind.MethodDefinition, metadata),
+                    metadata,
+                    methodDefs,
+                    modulePrefix);
 
             case FixupMethodEntryRefToken or FixupVirtualEntryRefToken:
-                return NameForToken(0x0A00_0000 | (int)reader.ReadCompressedUInt(ref offset), metadata, methodDefs, modulePrefix);
+                return NameForToken(
+                    ReadyToRunMethodToken.Create(
+                        reader.ReadCompressedUInt(ref offset), HandleKind.MemberReference, metadata),
+                    metadata,
+                    methodDefs,
+                    modulePrefix);
 
             case FixupPInvokeTarget or FixupIndirectPInvokeTarget:
-            {
-                var sig = ReadyToRunSignatureWalker.ParseMethod(
-                    reader, offset, metadata, resolveMetadata);
-                var name = DecorateMethod(sig, metadata, methodDefs, modulePrefix);
-                return name is null ? null : $"{name} (pinvoke)";
-            }
+                {
+                    var sig = ReadyToRunSignatureWalker.ParseMethod(
+                        reader, offset, metadata, resolveMetadata, moduleContext?.ResolveSystemMetadata());
+                    var name = DecorateMethod(sig, metadata, methodDefs, modulePrefix);
+                    return name is null ? null : $"{name} (pinvoke)";
+                }
 
             case FixupHelper:
                 return HelperName(reader.ReadCompressedUInt(ref offset));
@@ -281,7 +401,7 @@ internal sealed class ReadyToRunImportMap
     }
 
     private static string? DecorateMethod(
-        ReadyToRunSignatureWalker.MethodSignature sig, MetadataReader? metadata,
+        ReadyToRunMethodSignature sig, MetadataReader? metadata,
         IReadOnlyList<MethodDefInfo> methodDefs, string? modulePrefix)
     {
         var name = NameForToken(sig.MethodToken, metadata, methodDefs, modulePrefix);

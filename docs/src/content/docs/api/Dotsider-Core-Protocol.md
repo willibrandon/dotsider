@@ -63,7 +63,7 @@ public static class NativeAotPayloadBuilder
 
 Serialization-safe representation of an assembly resolution result.
 Used in protocol and MCP responses where [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
-cannot be serialized directly (FromBundle contains raw bytes).
+cannot be serialized directly because bundle and module results contain raw bytes.
 
 ```csharp
 public sealed record ResolvedAssemblyInfo : IEquatable<ResolvedAssemblyInfo>

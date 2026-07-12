@@ -1,4 +1,7 @@
 using Dotsider.Core.Analysis;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Tests;
 
@@ -315,5 +318,160 @@ public class MstatReaderTests
         // Never throws; either rejected outright or parsed to some prefix.
         if (data is not null)
             Assert.IsLessThanOrEqualTo(intact.Methods.Count, data.Methods.Count);
+    }
+
+    /// <summary>
+    /// Verifies one malformed MemberRef signature degrades only its method to name-only while
+    /// every row and stable non-signature identity from the real mstat report survives.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Read_OneMalformedMemberReferenceSignature_FailsClosedLocally()
+    {
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+
+        var intact = MstatReader.Read(Samples.NativeAotConsoleMstat!);
+        Assert.IsNotNull(intact);
+        var bytes = File.ReadAllBytes(Samples.NativeAotConsoleMstat!);
+        using (var stream = new MemoryStream(bytes, writable: false))
+        using (var peReader = new PEReader(stream))
+        {
+            var reader = peReader.GetMetadataReader();
+            var effectiveMemberReferences = ReadEffectiveMethodMemberReferences(peReader, reader);
+            Assert.HasCount(intact.Methods.Count, effectiveMemberReferences);
+            MemberReferenceHandle target = default;
+            for (var i = 0; i < effectiveMemberReferences.Count; i++)
+            {
+                var candidate = effectiveMemberReferences[i];
+                if (candidate.IsNil || intact.Methods[i].Signature.Length == 0)
+                {
+                    continue;
+                }
+                var candidateBlob = reader.GetMemberReference(candidate).Signature;
+                if (effectiveMemberReferences.Count(handle =>
+                    !handle.IsNil && reader.GetMemberReference(handle).Signature == candidateBlob) == 1)
+                {
+                    target = candidate;
+                    break;
+                }
+            }
+
+            Assert.IsFalse(target.IsNil, "The real mstat fixture must expose a uniquely named method signature.");
+            var blob = reader.GetMemberReference(target).Signature;
+            var signatureOffset = GetBlobDataFileOffset(bytes, peReader.PEHeaders.MetadataStartOffset, blob);
+            bytes[signatureOffset] = (byte)SignatureKind.Property;
+        }
+
+        using var patchedStream = new MemoryStream(bytes, writable: false);
+        var patched = MstatReader.Read(patchedStream);
+        Assert.IsNotNull(patched);
+        Assert.HasCount(intact.Methods.Count, patched.Methods);
+
+        var changedSignatures = 0;
+        for (var i = 0; i < intact.Methods.Count; i++)
+        {
+            var before = intact.Methods[i];
+            var after = patched.Methods[i];
+            Assert.AreEqual(before.Name, after.Name);
+            Assert.AreEqual(before.DeclaringType, after.DeclaringType);
+            Assert.AreEqual(before.Namespace, after.Namespace);
+            Assert.AreEqual(before.AssemblyName, after.AssemblyName);
+            Assert.AreEqual(before.Size, after.Size);
+            Assert.AreEqual(before.GcInfoSize, after.GcInfoSize);
+            Assert.AreEqual(before.EhInfoSize, after.EhInfoSize);
+            Assert.AreEqual(before.NodeName, after.NodeName);
+            if (before.Signature != after.Signature)
+            {
+                changedSignatures++;
+                Assert.IsNotEmpty(before.Signature);
+                Assert.AreEqual(string.Empty, after.Signature);
+            }
+        }
+
+        Assert.AreEqual(1, changedSignatures);
+    }
+
+    private static List<MemberReferenceHandle> ReadEffectiveMethodMemberReferences(
+        PEReader peReader,
+        MetadataReader reader)
+    {
+        byte[]? methodsIl = null;
+        var module = reader.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
+        foreach (var handle in module.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (reader.GetString(method.Name) == "Methods")
+            {
+                methodsIl = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+                break;
+            }
+        }
+
+        Assert.IsNotNull(methodsIl);
+        var result = new List<MemberReferenceHandle>();
+        var cursor = new IlCursor(methodsIl);
+        while (cursor.TryReadToken(out var token) &&
+            cursor.TryReadInt(out _) &&
+            cursor.TryReadInt(out _) &&
+            cursor.TryReadInt(out _) &&
+            cursor.TryReadInt(out _))
+        {
+            var handle = MetadataTokens.EntityHandle(token);
+            if (handle.Kind == HandleKind.MemberReference)
+            {
+                result.Add((MemberReferenceHandle)handle);
+            }
+            else if (handle.Kind == HandleKind.MethodSpecification)
+            {
+                var method = reader.GetMethodSpecification((MethodSpecificationHandle)handle).Method;
+                result.Add(method.Kind == HandleKind.MemberReference
+                    ? (MemberReferenceHandle)method
+                    : default);
+            }
+            else
+            {
+                result.Add(default);
+            }
+        }
+
+        return result;
+    }
+
+    private static int GetBlobDataFileOffset(
+        byte[] image,
+        int metadataStart,
+        BlobHandle handle)
+    {
+        var position = metadataStart + 12;
+        var versionLength = BitConverter.ToInt32(image, position);
+        position += 4 + ((versionLength + 3) & ~3);
+        position += 2;
+        var streamCount = BitConverter.ToUInt16(image, position);
+        position += 2;
+
+        var blobStreamOffset = -1;
+        for (var i = 0; i < streamCount; i++)
+        {
+            var streamOffset = BitConverter.ToInt32(image, position);
+            position += 8;
+            var nameStart = position;
+            while (image[position] != 0)
+            {
+                position++;
+            }
+            var name = System.Text.Encoding.ASCII.GetString(image, nameStart, position - nameStart);
+            position = (position + 4) & ~3;
+            if (name == "#Blob")
+            {
+                blobStreamOffset = streamOffset;
+            }
+        }
+
+        Assert.IsGreaterThanOrEqualTo(0, blobStreamOffset);
+        var entryOffset = metadataStart + blobStreamOffset + MetadataTokens.GetHeapOffset(handle);
+        var prefixLength = (image[entryOffset] & 0x80) == 0
+            ? 1
+            : (image[entryOffset] & 0xC0) == 0x80 ? 2 : 4;
+        return entryOffset + prefixLength;
     }
 }

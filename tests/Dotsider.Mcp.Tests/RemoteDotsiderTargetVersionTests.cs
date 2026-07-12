@@ -53,10 +53,6 @@ public class RemoteDotsiderTargetVersionTests
 
     private static string GetUniqueSocketPath()
     {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".dotsider", "sockets");
-        Directory.CreateDirectory(dir);
-        return Path.Combine(dir, $"test-{TestSocketIds.NextPid()}.dotsider.socket");
+        return Path.Combine(Path.GetTempPath(), $"mp-{Guid.NewGuid():N}");
     }
 }

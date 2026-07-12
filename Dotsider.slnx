@@ -51,6 +51,8 @@
     <Project Path="samples/NetFxBindingRedirects.Clr2.PrivatePathLib/NetFxBindingRedirects.Clr2.PrivatePathLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.Clr2.CodeBaseLib/NetFxBindingRedirects.Clr2.CodeBaseLib.csproj" />
     <Project Path="samples/NetFxBindingRedirects.Clr2.CulturedLib/NetFxBindingRedirects.Clr2.CulturedLib.csproj" />
+    <Project Path="samples/MultiModulePart/MultiModulePart.csproj" />
+    <Project Path="samples/MultiModuleManifest/MultiModuleManifest.csproj" />
     <File Path="samples/NativeAotArtifactsConsole/Directory.Build.props" />
   </Folder>
 

@@ -99,8 +99,11 @@ public class ReadyToRunCompositeTests
         Assert.AreEqual(ReadyToRunQueryOutcome.Resolved, result.Outcome);
         Assert.AreEqual(ReadyToRunNativeAvailability.Precompiled, result.Report!.Availability);
         Assert.IsNotNull(result.Report.NativeText);
-        // The disassembly names a call target rather than only raw hex addresses.
-        Assert.Contains("WriteLine", result.Report.NativeText);
+        // Both framework and application-component targets are resolved through their exact module
+        // identities rather than the component analyzer's unrelated metadata fallback.
+        Assert.Contains("Console.WriteLine", result.Report.NativeText);
+        Assert.Contains("Calculator.Add", result.Report.NativeText);
+        Assert.Contains("Calculator.Multiply", result.Report.NativeText);
     }
 
     /// <summary>A component DLL routes its native code image to the owner composite (a different file).</summary>

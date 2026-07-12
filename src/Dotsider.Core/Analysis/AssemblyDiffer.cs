@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Core.Analysis.Signatures;
 using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
@@ -253,35 +254,57 @@ public static class AssemblyDiffer
         MetadataReader? rightReader, MethodBodyBlock rightBody)
     {
         if (leftBody.LocalSignature.IsNil && rightBody.LocalSignature.IsNil)
+        {
             return false;
+        }
         if (leftBody.LocalSignature.IsNil != rightBody.LocalSignature.IsNil)
+        {
             return true;
+        }
 
         if (leftReader is null || rightReader is null)
-            return false;
+        {
+            return true;
+        }
 
         ImmutableArray<string> leftLocals, rightLocals;
         try
         {
-            var leftSig = leftReader.GetStandaloneSignature(leftBody.LocalSignature);
-            leftLocals = leftSig.DecodeLocalSignature(
-                new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
+            leftLocals = SafeSignatureDecoder.DecodeLocalSignature(
+                leftReader,
+                leftBody.LocalSignature,
+                new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                genericContext: default);
         }
-        catch { return false; }
+        catch (BadImageFormatException)
+        {
+            return true;
+        }
 
         try
         {
-            var rightSig = rightReader.GetStandaloneSignature(rightBody.LocalSignature);
-            rightLocals = rightSig.DecodeLocalSignature(
-                new AssemblyAnalyzer.SignatureTypeProvider(), genericContext: default);
+            rightLocals = SafeSignatureDecoder.DecodeLocalSignature(
+                rightReader,
+                rightBody.LocalSignature,
+                new AssemblySignatureTypeProvider(failOnInvalidMetadata: true),
+                genericContext: default);
         }
-        catch { return false; }
-
-        if (leftLocals.Length != rightLocals.Length) return true;
-
-        for (int i = 0; i < leftLocals.Length; i++)
+        catch (BadImageFormatException)
         {
-            if (leftLocals[i] != rightLocals[i]) return true;
+            return true;
+        }
+
+        if (leftLocals.Length != rightLocals.Length)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < leftLocals.Length; i++)
+        {
+            if (leftLocals[i] != rightLocals[i])
+            {
+                return true;
+            }
         }
 
         return false;
@@ -325,18 +348,18 @@ public static class AssemblyDiffer
             var operandKind = IlDisassembler.GetOperandType(leftOp);
             switch (operandKind)
             {
-                case IlDisassembler.OperandKind.None:
+                case OperandKind.None:
                     break;
 
-                case IlDisassembler.OperandKind.ShortBranchTarget:
-                case IlDisassembler.OperandKind.ShortInlineI:
-                case IlDisassembler.OperandKind.ShortInlineVar:
+                case OperandKind.ShortBranchTarget:
+                case OperandKind.ShortInlineI:
+                case OperandKind.ShortInlineVar:
                     if (leftIl[leftOffset] != rightIl[rightOffset]) return true;
                     leftOffset++;
                     rightOffset++;
                     break;
 
-                case IlDisassembler.OperandKind.InlineVar:
+                case OperandKind.InlineVar:
                     if (leftIl[leftOffset] != rightIl[rightOffset]
                         || leftIl[leftOffset + 1] != rightIl[rightOffset + 1])
                         return true;
@@ -344,81 +367,81 @@ public static class AssemblyDiffer
                     rightOffset += 2;
                     break;
 
-                case IlDisassembler.OperandKind.BranchTarget:
-                case IlDisassembler.OperandKind.InlineI:
-                case IlDisassembler.OperandKind.ShortInlineR:
+                case OperandKind.BranchTarget:
+                case OperandKind.InlineI:
+                case OperandKind.ShortInlineR:
                     if (!leftIl.AsSpan(leftOffset, 4).SequenceEqual(rightIl.AsSpan(rightOffset, 4)))
                         return true;
                     leftOffset += 4;
                     rightOffset += 4;
                     break;
 
-                case IlDisassembler.OperandKind.InlineI8:
-                case IlDisassembler.OperandKind.InlineR:
+                case OperandKind.InlineI8:
+                case OperandKind.InlineR:
                     if (!leftIl.AsSpan(leftOffset, 8).SequenceEqual(rightIl.AsSpan(rightOffset, 8)))
                         return true;
                     leftOffset += 8;
                     rightOffset += 8;
                     break;
 
-                case IlDisassembler.OperandKind.InlineMethod:
-                case IlDisassembler.OperandKind.InlineField:
-                case IlDisassembler.OperandKind.InlineType:
-                case IlDisassembler.OperandKind.InlineTok:
-                {
-                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
-                    var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
-                    var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
-                    if (leftResolved != rightResolved) return true;
-                    break;
-                }
-
-                case IlDisassembler.OperandKind.InlineString:
-                {
-                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
-                    var leftReader = leftAnalyzer.GetMetadataReader();
-                    var rightReader = rightAnalyzer.GetMetadataReader();
-                    if (leftReader is null || rightReader is null) return leftToken != rightToken;
-                    try
+                case OperandKind.InlineMethod:
+                case OperandKind.InlineField:
+                case OperandKind.InlineType:
+                case OperandKind.InlineTok:
                     {
-                        var leftStr = leftReader.GetUserString(
-                            MetadataTokens.UserStringHandle(leftToken & 0x00FFFFFF));
-                        var rightStr = rightReader.GetUserString(
-                            MetadataTokens.UserStringHandle(rightToken & 0x00FFFFFF));
-                        if (leftStr != rightStr) return true;
+                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
+                        var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
+                        if (leftResolved != rightResolved) return true;
+                        break;
                     }
-                    catch
+
+                case OperandKind.InlineString:
                     {
-                        if (leftToken != rightToken) return true;
+                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftReader = leftAnalyzer.GetMetadataReader();
+                        var rightReader = rightAnalyzer.GetMetadataReader();
+                        if (leftReader is null || rightReader is null) return leftToken != rightToken;
+                        try
+                        {
+                            var leftStr = leftReader.GetUserString(
+                                MetadataTokens.UserStringHandle(leftToken & 0x00FFFFFF));
+                            var rightStr = rightReader.GetUserString(
+                                MetadataTokens.UserStringHandle(rightToken & 0x00FFFFFF));
+                            if (leftStr != rightStr) return true;
+                        }
+                        catch
+                        {
+                            if (leftToken != rightToken) return true;
+                        }
+                        break;
                     }
-                    break;
-                }
 
-                case IlDisassembler.OperandKind.InlineSig:
-                {
-                    var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                    var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
-                    var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
-                    var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
-                    if (leftResolved != rightResolved) return true;
-                    break;
-                }
+                case OperandKind.InlineSig:
+                    {
+                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
+                        var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
+                        if (leftResolved != rightResolved) return true;
+                        break;
+                    }
 
-                case IlDisassembler.OperandKind.InlineSwitch:
-                {
-                    var leftCount = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                    var rightCount = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
-                    if (leftCount != rightCount) return true;
-                    var targetBytes = leftCount * 4;
-                    if (!leftIl.AsSpan(leftOffset, targetBytes)
-                        .SequenceEqual(rightIl.AsSpan(rightOffset, targetBytes)))
-                        return true;
-                    leftOffset += targetBytes;
-                    rightOffset += targetBytes;
-                    break;
-                }
+                case OperandKind.InlineSwitch:
+                    {
+                        var leftCount = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
+                        var rightCount = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        if (leftCount != rightCount) return true;
+                        var targetBytes = leftCount * 4;
+                        if (!leftIl.AsSpan(leftOffset, targetBytes)
+                            .SequenceEqual(rightIl.AsSpan(rightOffset, targetBytes)))
+                            return true;
+                        leftOffset += targetBytes;
+                        rightOffset += targetBytes;
+                        break;
+                    }
 
                 default:
                     break;

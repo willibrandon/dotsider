@@ -22,6 +22,9 @@ internal sealed class ReadyToRunModuleContext
     private readonly IReadOnlyList<ReadyToRunComponent> _components;
     private readonly Func<Guid, AssemblyAnalyzer?> _providerFor;
     private readonly int _offset;
+    private readonly Guid? _systemModuleMvid;
+    private MetadataReader? _systemMetadata;
+    private bool _systemMetadataProbed;
 
     private ReadyToRunModuleContext(
         IReadOnlyList<ReadyToRunComponent> components, Func<Guid, AssemblyAnalyzer?> providerFor, int offset)
@@ -29,6 +32,17 @@ internal sealed class ReadyToRunModuleContext
         _components = components;
         _providerFor = providerFor;
         _offset = offset;
+        foreach (var component in components)
+        {
+            if (string.Equals(
+                    component.AssemblyName,
+                    "System.Private.CoreLib",
+                    StringComparison.Ordinal))
+            {
+                _systemModuleMvid = component.Mvid;
+                break;
+            }
+        }
     }
 
     /// <summary>Builds a context from a composite's components and version, or null when not composite.</summary>
@@ -61,6 +75,23 @@ internal sealed class ReadyToRunModuleContext
     /// <summary>Resolves an override index directly to component metadata, or null when unavailable.</summary>
     public MetadataReader? ResolveMetadata(int moduleIndex) =>
         Resolve(moduleIndex)?.Provider?.GetMetadataReader();
+
+    /// <summary>
+    /// Resolves the system module used by composite owner-type signatures whose primitive type has
+    /// no explicit module override.
+    /// </summary>
+    public MetadataReader? ResolveSystemMetadata()
+    {
+        if (!_systemMetadataProbed)
+        {
+            _systemMetadata = _systemModuleMvid is { } mvid
+                ? _providerFor(mvid)?.GetMetadataReader()
+                : null;
+            _systemMetadataProbed = true;
+        }
+
+        return _systemMetadata;
+    }
 
     // Component assembly indices start at two from R2R major 6.3 (readytorun.h version history); the
     // manifest reserves index 1 for itself, so a component is index (position + offset).

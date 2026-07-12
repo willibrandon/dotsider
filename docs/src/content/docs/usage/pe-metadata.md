@@ -31,6 +31,10 @@ Webcil app assemblies are managed assemblies stored in a WebAssembly-compatible 
 
 R2R Sections and AOT Types apply to Native AOT binaries. ILC strips ECMA-335 metadata, but every AOT image embeds a ReadyToRun header that locates its runtime regions, and the reflection and stack-trace metadata it keeps still names the binary's own types and methods — so a stripped binary describes itself. Both work on every platform where the data is file-backed. For a crossgen2 ReadyToRun image the R2R Sections tab lists its classic section table instead (RuntimeFunctions, MethodDefEntryPoints, ImportSections, and the composite tables), each with its id, virtual address, size, and file offset.
 
+## Malformed metadata
+
+Dotsider treats metadata and signature blobs as untrusted. When an image is otherwise readable, cyclic or excessively nested type relationships and malformed ECMA-335 or ReadyToRun signatures are contained: affected names use token or unknown fallbacks, navigation remains unresolved, and unreadable native mappings are omitted instead of being guessed or terminating the analysis.
+
 Symbols reads whichever artifact the platform's publish produced — a native PDB on Windows, a `.dbg` ELF sidecar on Linux, a dSYM bundle on macOS, or `dotnet.native.js.symbols` beside `dotnet.native.wasm` — after validating or parsing the format-specific identity. ILC's mangled names are demangled by joining against the binary's own recovered metadata, so a managed name is marked exact only when the join is unambiguous. ReadyToRun symbols come from the runtime-function map and carry the owning MethodDef token. Wasm symbols come from the Wasm function/code sections, with names layered from the SDK symbol map, the Wasm name section, exports, then synthetic `func_N` fallbacks. Functions carry their declaring source file and line when the symbol file records them. Without a symbol file, unwind data (`.pdata`, `.eh_frame`, or `LC_FUNCTION_STARTS`) still recovers nameless function boundaries for native PE/ELF/Mach-O binaries — enough for counts and size histograms, though unwind data can miss leaf and thunk functions.
 
 ## Text selection and copy

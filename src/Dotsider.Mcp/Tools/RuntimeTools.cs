@@ -9,6 +9,7 @@ namespace Dotsider.Mcp.Tools;
 /// <summary>
 /// MCP tools for .NET runtime discovery and assembly resolution.
 /// </summary>
+/// <param name="sessionManager">Provides access to the active dotsider analysis sessions.</param>
 [McpServerToolType]
 public sealed partial class RuntimeTools(DotsiderSessionManager sessionManager)
 {
@@ -69,6 +70,8 @@ public sealed partial class RuntimeTools(DotsiderSessionManager sessionManager)
                     new ResolvedAssemblyInfo("file", p, null, null),
                 ResolvedAssembly.FromBundle(_, var name, var bundle) =>
                     new ResolvedAssemblyInfo("bundle", null, name, bundle),
+                ResolvedModule module =>
+                    new ResolvedAssemblyInfo("module", module.Path, null, null),
                 _ => null
             };
             return JsonSerializer.Serialize(info, DotsiderJsonOptions.Default);

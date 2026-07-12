@@ -297,6 +297,24 @@ public class AssemblyDifferTests
     }
 
     /// <summary>
+    /// Verifies that a non-empty local signature without an available metadata reader is treated as different.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void LocalSignaturesDiffer_NonNilSignatureWithoutReader_ReturnsTrue()
+    {
+        using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        var reader = analyzer.GetMetadataReader()!;
+        var method = analyzer.MethodDefs.First(candidate =>
+            candidate.Name == "Add" && candidate.DeclaringType.Contains("UserService"));
+        var body = analyzer.GetMethodBody(method)!;
+
+        Assert.IsFalse(body.LocalSignature.IsNil);
+        Assert.IsTrue(AssemblyDiffer.LocalSignaturesDiffer(null, body, reader, body));
+        Assert.IsTrue(AssemblyDiffer.LocalSignaturesDiffer(reader, body, null, body));
+    }
+
+    /// <summary>
     /// Verifies comparing an assembly against itself produces no body changes.
     /// </summary>
     [TestMethod]

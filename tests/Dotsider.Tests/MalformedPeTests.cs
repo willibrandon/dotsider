@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using System.Buffers.Binary;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Dotsider.Tests;
 
@@ -269,10 +270,7 @@ public class MalformedPeTests
                 try
                 {
                     using var analyzer = new AssemblyAnalyzer(tempPath);
-                    // If construction succeeds, basic property access should not throw
-                    _ = analyzer.FileName;
-                    _ = analyzer.FileSize;
-                    _ = analyzer.HasMetadata;
+                    ForceLazyAnalysis(analyzer);
                 }
                 catch (Exception ex) when (ex is BadImageFormatException or IOException or
                     UnauthorizedAccessException or ArgumentException or InvalidOperationException or OverflowException)
@@ -283,6 +281,69 @@ public class MalformedPeTests
             finally
             {
                 try { File.Delete(tempPath); } catch { }
+            }
+        }
+    }
+
+    private static void ForceLazyAnalysis(AssemblyAnalyzer analyzer)
+    {
+        _ = analyzer.FileName;
+        _ = analyzer.FileSize;
+        if (!analyzer.HasMetadata)
+        {
+            return;
+        }
+
+        var typeDefinitions = analyzer.TypeDefs;
+        var typeReferences = analyzer.TypeRefs;
+        var methodDefinitions = analyzer.MethodDefs;
+        var fieldDefinitions = analyzer.FieldDefs;
+        var memberReferences = analyzer.MemberRefs;
+
+        foreach (var type in typeDefinitions)
+        {
+            _ = IlNavigationResolver.Resolve(analyzer, type.Token);
+        }
+        foreach (var type in typeReferences)
+        {
+            _ = IlNavigationResolver.Resolve(analyzer, type.Token);
+        }
+        foreach (var field in fieldDefinitions)
+        {
+            _ = IlNavigationResolver.Resolve(analyzer, field.Token);
+        }
+        foreach (var member in memberReferences)
+        {
+            _ = IlNavigationResolver.Resolve(analyzer, member.Token);
+        }
+
+        var disassembler = new IlDisassembler(analyzer);
+        foreach (var method in methodDefinitions)
+        {
+            _ = analyzer.GetMethodBody(method);
+            _ = disassembler.DisassembleWithText(method);
+            _ = IlNavigationResolver.Resolve(analyzer, method.Token, method);
+        }
+
+        ForceNavigationTable(
+            analyzer,
+            TableIndex.TypeSpec,
+            row => MetadataTokens.GetToken(MetadataTokens.TypeSpecificationHandle(row)));
+        ForceNavigationTable(
+            analyzer,
+            TableIndex.MethodSpec,
+            row => MetadataTokens.GetToken(MetadataTokens.MethodSpecificationHandle(row)));
+
+        static void ForceNavigationTable(
+            AssemblyAnalyzer analyzer,
+            TableIndex table,
+            Func<int, int> getToken)
+        {
+            var metadataReader = analyzer.GetMetadataReader()!;
+            var rowCount = metadataReader.GetTableRowCount(table);
+            for (var row = 1; row <= rowCount; row++)
+            {
+                _ = IlNavigationResolver.Resolve(analyzer, getToken(row));
             }
         }
     }
