@@ -23,6 +23,7 @@ public static class NuGetBrowserView
         var pkg = state.Package;
         var search = state.BrowserSearch;
         var query = search.Query;
+        var displayQuery = UntrustedTerminalText.Escape(query ?? string.Empty);
 
         // Filter DLL list by search query
         var dlls = (IReadOnlyList<NuGetFileEntry>)pkg.DllFiles;
@@ -44,10 +45,10 @@ public static class NuGetBrowserView
 
         // Build Package Info text for read-only editor
         var infoText = string.Join("\n",
-            $"  Package ID:   {pkg.PackageId ?? "(unknown)"}",
-            $"  Version:      {pkg.PackageVersion ?? "(unknown)"}",
-            $"  Authors:      {pkg.Authors ?? "(unknown)"}",
-            $"  Description:  {pkg.Description ?? "(none)"}",
+            $"  Package ID:   {UntrustedTerminalText.Escape(pkg.PackageId ?? "(unknown)")}",
+            $"  Version:      {UntrustedTerminalText.Escape(pkg.PackageVersion ?? "(unknown)")}",
+            $"  Authors:      {UntrustedTerminalText.Escape(pkg.Authors ?? "(unknown)")}",
+            $"  Description:  {UntrustedTerminalText.Escape(pkg.Description ?? "(none)")}",
             "",
             $"  Total Files:  {pkg.Files.Count}",
             $"  DLL Files:    {pkg.DllFiles.Count}",
@@ -113,6 +114,8 @@ public static class NuGetBrowserView
                     ])
                     .Row((r, entry, rowState) =>
                     {
+                        var displayName = UntrustedTerminalText.Escape(entry.Name);
+                        var displayDirectory = UntrustedTerminalText.Escape(entry.Directory);
                         var flash = rowState.IsFocused && state.YankFlashRow;
                         var fg = flash ? Hex1bColor.FromRgb(24, 24, 37)
                             : rowState.IsFocused ? Hex1bColor.Black
@@ -125,12 +128,12 @@ public static class NuGetBrowserView
                         [
                             r.Cell(c => rowState.IsFocused
                                 ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg!.Value).Set(GlobalTheme.BackgroundColor, bg!.Value),
-                                    HighlightHelper.HighlightCell(c, entry.Name, query, !string.IsNullOrEmpty(query), fg, bg))
-                                : HighlightHelper.HighlightCell(c, entry.Name, query, !string.IsNullOrEmpty(query), fg, bg)),
+                                    HighlightHelper.HighlightCell(c, displayName, displayQuery, !string.IsNullOrEmpty(query), fg, bg))
+                                : HighlightHelper.HighlightCell(c, displayName, displayQuery, !string.IsNullOrEmpty(query), fg, bg)),
                             r.Cell(c => rowState.IsFocused
                                 ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg!.Value).Set(GlobalTheme.BackgroundColor, bg!.Value),
-                                    HighlightHelper.HighlightCell(c, entry.Directory, query, !string.IsNullOrEmpty(query), fg, bg))
-                                : HighlightHelper.HighlightCell(c, entry.Directory, query, !string.IsNullOrEmpty(query), fg, bg)),
+                                    HighlightHelper.HighlightCell(c, displayDirectory, displayQuery, !string.IsNullOrEmpty(query), fg, bg))
+                                : HighlightHelper.HighlightCell(c, displayDirectory, displayQuery, !string.IsNullOrEmpty(query), fg, bg)),
                             r.Cell(c => rowState.IsFocused
                                 ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg!.Value).Set(GlobalTheme.BackgroundColor, bg!.Value),
                                     c.Text(DotsiderState.FormatSize(entry.UncompressedSize)))
@@ -139,25 +142,7 @@ public static class NuGetBrowserView
                     })
                     .Focus(state.App.FocusedNode is EditorNode ? null : state.FileTreeFocusedKey)
                     .OnFocusChanged(key => state.FileTreeFocusedKey = key)
-                    .OnRowActivated((_, entry) =>
-                    {
-                        try
-                        {
-                            state.SavedFileTreeFocusedKey = state.FileTreeFocusedKey;
-                            var analyzer = pkg.OpenDll(entry);
-                            state.SelectedDllState?.Dispose();
-                            state.SelectedDllState = new DotsiderState(state.App, analyzer);
-                            state.SelectedDllEntry = entry;
-                            state.IsBrowsingPackage = false;
-                            state.App.RequestFocus(node =>
-                                node.GetType().Name.StartsWith("TableNode"));
-                            state.App.Invalidate();
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Failed to open DLL: {ex.Message}");
-                        }
-                    })
+                    .OnRowActivated((_, entry) => state.TryOpenDll(entry))
                     .Compact()
                     .Empty(e => e.Text("  No DLL files in package"))
                     .FillWidth()

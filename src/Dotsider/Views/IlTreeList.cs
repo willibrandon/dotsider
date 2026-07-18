@@ -51,7 +51,7 @@ internal static class IlTreeList
     /// collapsed row.</param>
     /// <param name="collapseRow">Invoked when LeftArrow targets an expandable
     /// expanded row.</param>
-    /// <returns>The composed <see cref="ScrollPanelWidget"/>-rooted tree widget.</returns>
+    /// <returns>The composed tree widget.</returns>
     internal static Hex1bWidget Build(
         IReadOnlyList<IlTreeRow> rows,
         IReadOnlyList<string> formattedRows,
@@ -211,13 +211,31 @@ internal static class IlTreeList
             })
             .Fill();
 
-        // Record the viewport this window was built against and verify it after the
-        // frame: a render that changes the pane height (search bar toggle, terminal
-        // resize) otherwise leaves a stale window with nothing scheduling a rebuild.
+        // Record the viewport this window was built against. The responsive wrapper's
+        // condition runs during layout with the actual pane height and schedules one
+        // follow-up build when this window no longer fills that height.
         state.IlTreeWindowViewport = viewportH;
-        state.RequestIlTreeViewportCheck();
 
-        return panel;
+        return new ResponsiveWidget(
+        [
+            new ConditionalWidget(
+                (_, availableHeight) => ObserveViewportHeight(state, availableHeight),
+                panel)
+        ]).Fill();
+    }
+
+    private static bool ObserveViewportHeight(DotsiderState state, int availableHeight)
+    {
+        // VStack measures children with unbounded height, then ResponsiveNode evaluates
+        // its condition again from the finite arranged bounds. Only the latter is the
+        // tree's real viewport and can justify a follow-up build.
+        if (availableHeight is > 0 and < int.MaxValue
+            && availableHeight != state.IlTreeWindowViewport)
+        {
+            state.RequestExtraFrame();
+        }
+
+        return true;
     }
 
     /// <summary>

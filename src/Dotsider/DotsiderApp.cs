@@ -32,8 +32,7 @@ public sealed class DotsiderApp(DotsiderState state)
     {
         // A new build is running: advance the generation so any in-flight extra-frame
         // nudger stops, and allow this build's views to arm a fresh one if needed.
-        unchecked { _state.BuildGeneration++; }
-        _state.ExtraFrameArmed = false;
+        _state.NotifyBuildStarted();
 
         // Drain pending mutations from the diagnostics socket listener
         while (_state.PendingMutations.TryDequeue(out var mutation))
@@ -880,6 +879,7 @@ public sealed class DotsiderApp(DotsiderState state)
         // Phase 2: replace analyzer. After Dispose(), every path must
         // commit a live replacement before returning — no exceptions
         // may propagate without first restoring state.Analyzer.
+        state.ResetDependencyGraphForAnalyzerReplacement();
         state.Analyzer.Dispose();
 
         // Move temp → original. If move fails, the file is still at tempPath.
@@ -956,7 +956,6 @@ public sealed class DotsiderApp(DotsiderState state)
         state.CachedUserStrings = null;
         state.CachedMetadataStrings = null;
         state.CachedRawStrings = null;
-        state.CachedGraph = null;
         state.CachedSizeTree = null;
         state.TreemapCurrentLevel = null;
         state.TreemapBreadcrumb.Clear();

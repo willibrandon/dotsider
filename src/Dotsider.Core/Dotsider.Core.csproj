@@ -12,8 +12,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Dotsider.Tests" />
     <InternalsVisibleTo Include="Dotsider.Benchmarks" />
+    <InternalsVisibleTo Include="Dotsider" />
+    <InternalsVisibleTo Include="Dotsider.Tests" />
   </ItemGroup>
 
   <ItemGroup>

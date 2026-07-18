@@ -13,7 +13,7 @@ No arguments required. The tool discovers the repo root automatically and writes
 ## Pipeline
 
 1. **DocFX metadata** — runs DocFX against `Dotsider.Core.csproj` to produce YAML files in `_metadata/`
-2. **YAML → Markdown** — converts each YAML file to a Starlight markdown page with frontmatter, syntax blocks, parameter tables, and cross-reference links
+2. **YAML → Markdown** — converts each YAML file to a Starlight markdown page with frontmatter, syntax blocks, parameter and exception documentation, and cross-reference links
 
 Hand-written `index.md` files in the output directory are preserved across regeneration.
 
@@ -24,6 +24,7 @@ Hand-written `index.md` files in the output directory are preserved across regen
 | `Program` | Entry point — discovers repo root, orchestrates DocFX then conversion |
 | `YamlToMarkdownConverter` | Parses DocFX YAML into `ApiItem` trees and emits Starlight markdown |
 | `ApiItem` | In-memory model for an API element (namespace, type, method, property, etc.) |
+| `ExceptionItem` | Exception type and description from XML docs |
 | `ParameterItem` | Parameter name, type, and description from XML docs |
 
 ## Output Format
@@ -35,6 +36,6 @@ Each generated page includes:
 - C# syntax block
 - Inheritance chain and implemented interfaces
 - Member sections (constructors, properties, methods, fields, events)
-- Parameters and return types
+- Parameters, return types, and documented exceptions
 - Remarks and examples from XML doc comments
 - Links to related types (internal cross-refs and Microsoft Learn)

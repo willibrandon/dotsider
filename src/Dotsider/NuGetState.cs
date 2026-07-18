@@ -2,6 +2,7 @@ using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Hex1b;
 using Hex1b.Widgets;
+using System.Diagnostics;
 
 namespace Dotsider;
 
@@ -15,6 +16,8 @@ namespace Dotsider;
 /// <param name="nupkgPath">File path to the .nupkg file.</param>
 public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
 {
+    private bool _disposed;
+
     /// <summary>The Hex1b application instance.</summary>
     public Hex1bApp App { get; } = app;
 
@@ -85,10 +88,97 @@ public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
     /// <summary>Generation counter for yank notification timer race prevention.</summary>
     public long YankGeneration { get; set; }
 
+    /// <summary>
+    /// Gets the sanitized error from the most recent DLL open attempt, or <see langword="null"/>.
+    /// </summary>
+    internal string? OpenError { get; private set; }
+
+    /// <summary>
+    /// Opens a package DLL and transitions to the DLL inspector when successful.
+    /// </summary>
+    /// <param name="entry">The package-owned DLL entry to open.</param>
+    /// <returns><see langword="true"/> when the DLL inspector was opened; otherwise, <see langword="false"/>.</returns>
+    internal bool TryOpenDll(NuGetFileEntry entry)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            var analyzer = Package.OpenDll(entry);
+            DotsiderState nextState;
+            try
+            {
+                nextState = new DotsiderState(App, analyzer);
+            }
+            catch
+            {
+                analyzer.Dispose();
+                throw;
+            }
+
+            try
+            {
+                SelectedDllState?.Dispose();
+            }
+            catch
+            {
+                nextState.Dispose();
+                throw;
+            }
+
+            SavedFileTreeFocusedKey = FileTreeFocusedKey;
+            SelectedDllState = nextState;
+            SelectedDllEntry = entry;
+            IsBrowsingPackage = false;
+            OpenError = null;
+            App.RequestFocus(node => node.GetType().Name.StartsWith("TableNode", StringComparison.Ordinal));
+            App.Invalidate();
+            return true;
+        }
+        catch (UnsafePackageEntryException ex)
+        {
+            return FailOpen("Cannot open DLL: unsafe package entry path", ex);
+        }
+        catch (BadImageFormatException ex)
+        {
+            return FailOpen("Cannot open DLL: invalid .NET assembly", ex);
+        }
+        catch (IOException ex)
+        {
+            return FailOpen("Cannot open DLL: extraction failed", ex);
+        }
+        catch (Exception ex)
+        {
+            return FailOpen("Cannot open DLL", ex);
+        }
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
-        SelectedDllState?.Dispose();
-        Package.Dispose();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        var selectedDllState = SelectedDllState;
+        SelectedDllState = null;
+        SelectedDllEntry = null;
+
+        try
+        {
+            selectedDllState?.Dispose();
+        }
+        finally
+        {
+            Package.Dispose();
+        }
+    }
+
+    private bool FailOpen(string message, Exception exception)
+    {
+        OpenError = message;
+        Debug.WriteLine($"Failed to open package DLL: {exception}");
+        App.Invalidate();
+        return false;
     }
 }

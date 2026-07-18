@@ -76,6 +76,11 @@ public sealed class ApiItem
     public List<string> Children { get; } = [];
 
     /// <summary>
+    /// Gets the exceptions documented for this API item.
+    /// </summary>
+    public List<ExceptionItem> Exceptions { get; } = [];
+
+    /// <summary>
     /// Gets the UIDs of types in the inheritance chain.
     /// </summary>
     public List<string> Inheritance { get; } = [];

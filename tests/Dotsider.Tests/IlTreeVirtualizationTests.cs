@@ -61,8 +61,7 @@ public sealed class IlTreeVirtualizationTests : IDisposable
         {
             _state ??= new DotsiderState(_app!, Samples.HelloWorldDll) { CurrentTab = TabId.IlInspector };
             // Mirror DotsiderApp.Build: only the root build advances the generation.
-            unchecked { _state.BuildGeneration++; }
-            _state.ExtraFrameArmed = false;
+            _state.NotifyBuildStarted();
             IlInspectorView.SyncTreeScroll(_state, _rows!);
             var tree = IlTreeList.Build(
                 _rows!,
@@ -337,8 +336,8 @@ public sealed class IlTreeVirtualizationTests : IDisposable
     /// <summary>
     /// When a render changes the pane height (search bar toggle, terminal resize), the
     /// window was built against the old height and nothing else schedules a rebuild —
-    /// the viewport verifier must re-clamp the offset and refill the viewport without
-    /// any further input.
+    /// the layout observer must re-clamp the offset and refill the viewport without any
+    /// further input.
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]

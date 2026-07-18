@@ -43,7 +43,8 @@ public NuGetPackageAnalyzer(string nupkgPath)
 
 ### Authors
 
-The package authors from the .nuspec manifest, or null.
+The raw, untrusted package authors from the .nuspec manifest, or null. This value is not
+display-safe.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -53,7 +54,8 @@ public string? Authors { get; }
 
 ### Description
 
-The package description from the .nuspec manifest, or null.
+The raw, untrusted package description from the .nuspec manifest, or null. This value is
+not display-safe.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -103,7 +105,8 @@ public IReadOnlyList<NuGetFileEntry> Files { get; }
 
 ### PackageId
 
-The NuGet package ID from the .nuspec manifest, or null.
+The raw, untrusted NuGet package ID from the .nuspec manifest, or null. This value is not
+display-safe.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -113,7 +116,8 @@ public string? PackageId { get; }
 
 ### PackageVersion
 
-The package version from the .nuspec manifest, or null.
+The raw, untrusted package version from the .nuspec manifest, or null. This value is not
+display-safe.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -133,13 +137,24 @@ public void Dispose()
 
 ### OpenDll(NuGetFileEntry)
 
-Extracts a DLL from the package to a temp file and creates an AssemblyAnalyzer.
+Extracts a DLL from the package into a private temporary directory and creates an analyzer.
 
 **Parameters:**
 
-- `entry` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/)): 
+- `entry` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/)): The exact [NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/) instance returned by this analyzer.
 
 **Returns:** [AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)
+
+An analyzer for the selected DLL. Dispose it before disposing this package analyzer.
+
+**Exceptions:**
+
+- [ArgumentNullException](https://learn.microsoft.com/dotnet/api/system.argumentnullexception): entry is null.
+- [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception): entry was not returned by this analyzer or does not represent a DLL.
+- [UnsafePackageEntryException](/api/dotsider.core.analysis.unsafepackageentryexception/): The package entry has an unsafe or ambiguous extraction path.
+- [ObjectDisposedException](https://learn.microsoft.com/dotnet/api/system.objectdisposedexception): This analyzer has been disposed.
+- [IOException](https://learn.microsoft.com/dotnet/api/system.io.ioexception): The DLL could not be extracted or read.
+- [BadImageFormatException](https://learn.microsoft.com/dotnet/api/system.badimageformatexception): The extracted file has an invalid format.
 
 ```csharp
 public AssemblyAnalyzer OpenDll(NuGetFileEntry entry)

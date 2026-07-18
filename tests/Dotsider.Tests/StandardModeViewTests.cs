@@ -10,8 +10,9 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for Standard Mode View.
 /// </summary>
+/// <param name="testContext">The current test context.</param>
 [TestClass]
-public class StandardModeViewTests : IDisposable
+public class StandardModeViewTests(TestContext testContext) : IDisposable
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -19,6 +20,8 @@ public class StandardModeViewTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+
+    private readonly TestContext _testContext = testContext;
 
     private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath, int? initialTab = null)
         => CreateDotsiderAppCore(dllPath, initialTab, enableMouse: false, enableInputCoalescing: false);
@@ -826,6 +829,55 @@ public class StandardModeViewTests : IDisposable
     }
 
     /// <summary>
+    /// A completed dependency-graph build failure replaces the transient build status with the
+    /// stable, generic error and does not disclose the underlying exception through the terminal.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab6_GraphBuildFault_ShowsStableError()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            _testContext.CancellationToken);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll);
+        var runTask = app.RunAsync(cts.Token);
+
+        try
+        {
+            await new Hex1bTerminalInputSequenceBuilder()
+                .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+                .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+
+            Assert.IsNotNull(_state);
+            _state.GraphBuilder = (_, _) =>
+                throw new InvalidOperationException("sensitive graph-build details");
+
+            await new Hex1bTerminalInputSequenceBuilder()
+                .Key(Hex1bKey.D6)
+                .WaitUntil(_ => _state.GraphNavigationError is not null,
+                    TimeSpan.FromSeconds(10))
+                .WaitUntil(s => s.ContainsText("Cannot build dependency graph"),
+                    TimeSpan.FromSeconds(10))
+                .Build()
+                .ApplyAsync(terminal, cts.Token);
+
+            await _state.GraphBuildTask.WaitAsync(cts.Token);
+
+            using var snapshot = terminal.CreateSnapshot();
+            var screenText = snapshot.GetScreenText();
+            Assert.Contains("Cannot build dependency graph", screenText);
+            Assert.DoesNotContain("Building dependency graph...", screenText);
+            Assert.DoesNotContain("sensitive graph-build details", screenText);
+        }
+        finally
+        {
+            cts.Cancel();
+            await runTask;
+        }
+    }
+
+    /// <summary>
     /// Opening the AppLocalRollForward sample on the Dep Graph tab must not render the
     /// <c>! </c> IdentityMismatch marker for <c>Microsoft.Diagnostics.NETCore.Client</c>.
     /// The sample's transitive AssemblyRef from <c>Microsoft.Diagnostics.Tracing.TraceEvent</c>
@@ -837,15 +889,26 @@ public class StandardModeViewTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Tab6_AppLocalRollForward_NoIdentityMismatchMarker()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            _testContext.CancellationToken);
         var (terminal, app) = CreateDotsiderApp(Samples.AppLocalRollForwardDll);
         var runTask = app.RunAsync(cts.Token);
-        await Task.Delay(100, cts.Token);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.D6)
+            .WaitUntil(_ => _state is { GraphBuildInProgress: true } or { CachedGraph: not null },
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.IsNotNull(_state);
+        await _state.GraphBuildTask.WaitAsync(cts.Token);
+        Assert.IsNull(_state.GraphNavigationError);
+        Assert.IsNotNull(_state.CachedGraph);
+
+        await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("Microsoft.Diagnostics.NETCore.Client"),
                 TimeSpan.FromSeconds(10))
             .Build()
@@ -855,8 +918,9 @@ public class StandardModeViewTests : IDisposable
         Assert.IsFalse(snapshot.ContainsText("! Microsoft.Diagnostics.NETCore.Client"),
             "AppLocal roll-forward must suppress the IdentityMismatch marker on the Dep Graph tab.");
 
-        Assert.IsNotNull(_state!.CachedGraph);
-        var clientNodes = _state.CachedGraph!.Value.Nodes
+        var graph = _state!.CachedGraph;
+        Assert.IsNotNull(graph);
+        var clientNodes = graph.Value.Nodes
             .Where(n => n.Name == "Microsoft.Diagnostics.NETCore.Client")
             .ToList();
         var clientNode = Assert.ContainsSingle(clientNodes);
@@ -910,9 +974,10 @@ public class StandardModeViewTests : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        Assert.IsNotNull(_state!.CachedGraph);
-        Assert.IsGreaterThan(0, _state.CachedGraph.Value.Nodes.Count);
-        Assert.IsGreaterThan(0, _state.CachedGraph.Value.Edges.Count);
+        var graph = _state!.CachedGraph;
+        Assert.IsNotNull(graph);
+        Assert.IsGreaterThan(0, graph.Value.Nodes.Count);
+        Assert.IsGreaterThan(0, graph.Value.Edges.Count);
 
         cts.Cancel();
         await runTask;
@@ -1231,10 +1296,15 @@ public class StandardModeViewTests : IDisposable
             .ApplyAsync(terminal, cts.Token);
 
         Assert.IsFalse(_state!.DepGraphHideFramework);
-        Assert.IsNotNull(_state.CachedGraph);
-        var rootId = _state.CachedGraph!.Value.Nodes.First(n => n.IsRoot).Id;
-        Assert.IsNotNull(_state.GraphNavigation);
-        Assert.Contains(n => _state.GraphNavigation!.TryGetValue(n.Id, out var c) && c.IsFrameworkAssembly, _state.CachedGraph.Value.Nodes);
+        var graph = _state.CachedGraph;
+        Assert.IsNotNull(graph);
+        var rootId = graph.Value.Nodes.First(n => n.IsRoot).Id;
+        var navigation = _state.GraphNavigation;
+        Assert.IsNotNull(navigation);
+        Assert.Contains(
+            n => navigation.TryGetValue(n.Id, out var context)
+                && context.IsFrameworkAssembly,
+            graph.Value.Nodes);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.F)
@@ -1245,7 +1315,7 @@ public class StandardModeViewTests : IDisposable
 
         Assert.IsTrue(_state.DepGraphHideFramework);
         // Root id is still in the cached graph after toggle (underlying graph not rebuilt).
-        Assert.Contains(n => n.Id == rootId && n.IsRoot, _state.CachedGraph.Value.Nodes);
+        Assert.Contains(n => n.Id == rootId && n.IsRoot, graph.Value.Nodes);
 
         cts.Cancel();
         await runTask;

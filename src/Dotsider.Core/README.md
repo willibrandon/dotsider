@@ -24,7 +24,7 @@ Core library for .NET assembly analysis. Provides analyzers, models, and the dia
 | `WebcilImageReader` | Unwraps Webcil app assemblies from browser-wasm publishes, including Wasm-wrapped payloads, so metadata, IL method bodies, debug directory entries, embedded PDBs, sidecar PDBs, and Source Link flow through the normal managed analyzer path |
 | `AssemblyDiffer` | Compares two assemblies and reports added, removed, and changed types, methods, and references. Method body comparison uses normalized IL instruction walks with semantic token resolution, deep local signature decoding, and exception region analysis |
 | `RuntimeTracer` | Launches a .NET process with EventPipe tracing for JIT, GC, exception, and counter events |
-| `NuGetPackageAnalyzer` | Reads `.nupkg` files for package metadata and DLL listing |
+| `NuGetPackageAnalyzer` | Reads `.nupkg` metadata and file listings, and extracts selected DLLs within a private temporary directory |
 | `NuGetDepsJsonResolver` | Resolves assembly references by consulting the referencing assembly's `.deps.json` to locate NuGet dependencies in the global packages folder |
 | `SingleFileBundleReader` | Detects and reads .NET single-file bundles — parses the manifest and extracts individual entries |
 | `DotNetRuntimeLocator` | Discovers system .NET installations and resolves shared framework assembly paths |

@@ -28,12 +28,22 @@ internal sealed class ClipboardCapturingWorkloadAdapter : IHex1bAppTerminalWorkl
     /// <inheritdoc />
     public void Write(string text)
     {
-        // Intercept OSC 52 clipboard sequences: ESC ] 52 ; c ; <base64> BEL
-        if (text.StartsWith("\x1b]52;c;") && text.EndsWith('\x07'))
+        // Intercept OSC 52 clipboard sequences: ESC ] 52 ; c ; <base64> BEL. Search the
+        // complete write so a regression that embeds an OSC sequence in rendered text is visible.
+        const string Prefix = "\x1b]52;c;";
+        var searchStart = 0;
+        while (text.IndexOf(Prefix, searchStart, StringComparison.Ordinal) is var sequenceStart &&
+            sequenceStart >= 0)
         {
-            var base64 = text["\x1b]52;c;".Length..^1];
+            var payloadStart = sequenceStart + Prefix.Length;
+            var sequenceEnd = text.IndexOf('\x07', payloadStart);
+            if (sequenceEnd < 0)
+                break;
+
+            var base64 = text[payloadStart..sequenceEnd];
             var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
             ClipboardWrites.Enqueue(decoded);
+            searchStart = sequenceEnd + 1;
         }
 
         _inner.Write(text);
