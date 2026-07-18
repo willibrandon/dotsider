@@ -74,6 +74,10 @@ Opens and analyzes the specified .NET assembly file.
 
 - `filePath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Absolute path to the assembly file.
 
+**Exceptions:**
+
+- [FileNotFoundException](https://learn.microsoft.com/dotnet/api/system.io.filenotfoundexception): The file does not exist.
+
 ```csharp
 public AssemblyAnalyzer(string filePath)
 ```

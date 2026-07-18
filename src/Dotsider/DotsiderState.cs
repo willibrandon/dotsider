@@ -6,6 +6,7 @@ using Hex1b.Documents;
 using Hex1b.Nodes;
 using Hex1b.Widgets;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Dotsider;
 
@@ -15,6 +16,19 @@ namespace Dotsider;
 /// </summary>
 public sealed class DotsiderState : IDisposable
 {
+    private readonly Lock _graphBuildLock = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly List<Task> _renderNudgerTasks = [];
+    private DependencyGraphSnapshot? _dependencyGraphSnapshot;
+    private CancellationTokenSource? _graphBuildCancellation;
+    private Task _graphBuildTask = Task.CompletedTask;
+    private int _graphBuildGeneration;
+    private bool _graphBuildFailed;
+    private bool _graphBuildInProgress;
+    private string? _graphNavigationError;
+    private IReadOnlyDictionary<string, GraphNavigationContext>? _legacyGraphNavigation;
+    private bool _disposed;
+
     /// <summary>
     /// Creates a new application state for the specified assembly file.
     /// </summary>
@@ -418,17 +432,11 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>
     /// The viewport height the current tree window was built against, recorded by
-    /// <see cref="Views.IlTreeList.Build"/>. The verifier behind
-    /// <see cref="RequestIlTreeViewportCheck"/> compares it to the panel's arranged
-    /// <see cref="ScrollPanelNode.ViewportSize"/> after the frame.
+    /// <see cref="Views.IlTreeList.Build"/>. The tree's layout observer compares it to
+    /// the actual height assigned during arrange and requests a follow-up build when
+    /// they differ.
     /// </summary>
     internal int IlTreeWindowViewport { get; set; }
-
-    /// <summary>
-    /// Whether a tree viewport verifier is in flight. At most one runs at a time; it
-    /// disarms itself on exit.
-    /// </summary>
-    internal bool IlTreeViewportCheckArmed { get; set; }
 
     /// <summary>One-shot flag set by <see cref="SetIlFocusedTreeKey"/> so the next IL
     /// Inspector render scrolls the focused row into view. Cleared by the consumer in
@@ -681,14 +689,69 @@ public sealed class DotsiderState : IDisposable
 
     // --- Dependency Graph Tab State ---
 
-    /// <summary>Cached dependency graph (nodes + edges) for the current analyzer.</summary>
-    public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges)? CachedGraph { get; set; }
+    /// <summary>Gets or sets the cached dependency graph topology for the current analyzer.</summary>
+    public (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges)? CachedGraph
+    {
+        get
+        {
+            var snapshot = GraphSnapshot;
+            return snapshot is null ? null : (snapshot.Nodes, snapshot.Edges);
+        }
+        set
+        {
+            lock (_graphBuildLock)
+            {
+                if (value is not { } graph)
+                {
+                    Volatile.Write(ref _dependencyGraphSnapshot, null);
+                    return;
+                }
+
+                Volatile.Write(
+                    ref _dependencyGraphSnapshot,
+                    new DependencyGraphSnapshot(
+                        graph.Nodes,
+                        graph.Edges,
+                        _legacyGraphNavigation));
+            }
+        }
+    }
 
     /// <summary>
-    /// Per-node navigation metadata for the cached graph, keyed by <see cref="GraphNode.Id"/>.
-    /// Populated alongside <see cref="CachedGraph"/>. Never serialized; TUI-only.
+    /// Gets or sets per-node navigation metadata for the cached graph, keyed by
+    /// <see cref="GraphNode.Id"/>. This data is never serialized and is used only by the TUI.
     /// </summary>
-    public IReadOnlyDictionary<string, GraphNavigationContext>? GraphNavigation { get; set; }
+    public IReadOnlyDictionary<string, GraphNavigationContext>? GraphNavigation
+    {
+        get
+        {
+            var snapshot = GraphSnapshot;
+            return snapshot?.NavigationById ?? Volatile.Read(ref _legacyGraphNavigation);
+        }
+        set
+        {
+            lock (_graphBuildLock)
+            {
+                Volatile.Write(ref _legacyGraphNavigation, value);
+                var snapshot = GraphSnapshot;
+                if (snapshot is not null)
+                {
+                    Volatile.Write(
+                        ref _dependencyGraphSnapshot,
+                        new DependencyGraphSnapshot(
+                            snapshot.Nodes,
+                            snapshot.Edges,
+                            value));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the immutable dependency graph snapshot consumed by production readers.
+    /// </summary>
+    internal DependencyGraphSnapshot? GraphSnapshot =>
+        Volatile.Read(ref _dependencyGraphSnapshot);
 
     /// <summary>
     /// Whether the Dep Graph view currently hides framework assemblies. Toggled by the
@@ -723,13 +786,52 @@ public sealed class DotsiderState : IDisposable
     /// True while the transitive dependency-graph build is in flight on a background task.
     /// The view shows a status message while this is set.
     /// </summary>
-    public bool GraphBuildInProgress { get; set; }
+    public bool GraphBuildInProgress
+    {
+        get => Volatile.Read(ref _graphBuildInProgress);
+        set => Volatile.Write(ref _graphBuildInProgress, value);
+    }
 
     /// <summary>
-    /// Error message produced by the most recent Enter-to-open attempt on the Dep Graph,
-    /// or <see langword="null"/> when the last attempt succeeded or none has been made.
+    /// Gets the current dependency-graph build task. Tests and internal coordinators can await the
+    /// real operation instead of polling rendered output.
     /// </summary>
-    public string? GraphNavigationError { get; set; }
+    internal Task GraphBuildTask
+    {
+        get
+        {
+            lock (_graphBuildLock)
+                return _graphBuildTask;
+        }
+    }
+
+    /// <summary>
+    /// Gets a task that completes when every currently-owned render nudger completes.
+    /// </summary>
+    internal Task RenderNudgerTask
+    {
+        get
+        {
+            lock (_graphBuildLock)
+                return Task.WhenAll([.. _renderNudgerTasks]);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the dependency-graph builder used by the owned background operation.
+    /// </summary>
+    internal Func<AssemblyAnalyzer, CancellationToken, DependencyGraphResult> GraphBuilder { get; set; } =
+        DependencyGraphBuilder.BuildWithCancellation;
+
+    /// <summary>
+    /// Error message produced by the dependency-graph build or the most recent Enter-to-open
+    /// attempt, or <see langword="null"/> when no error has occurred.
+    /// </summary>
+    public string? GraphNavigationError
+    {
+        get => Volatile.Read(ref _graphNavigationError);
+        set => Volatile.Write(ref _graphNavigationError, value);
+    }
 
     /// <summary>The currently hovered/selected node name in the graph view.</summary>
     public string? GraphSelectedNode { get; set; }
@@ -1543,70 +1645,85 @@ public sealed class DotsiderState : IDisposable
     }
 
     /// <summary>
+    /// Records the start of a widget build and releases the extra-frame request slot for work
+    /// produced by that build.
+    /// </summary>
+    internal void NotifyBuildStarted()
+    {
+        lock (_graphBuildLock)
+        {
+            if (_disposed)
+                return;
+
+            unchecked { BuildGeneration++; }
+            ExtraFrameArmed = false;
+        }
+    }
+
+    /// <summary>
     /// Guarantees a follow-up widget build. An <see cref="Hex1bApp.Invalidate"/> that
     /// lands while a frame is still rendering is drained by the Hex1b main loop's
     /// frame-rate guard without producing another frame — and the frame in flight can
     /// be arbitrarily slow (a first IL render disassembles the selected method). The
-    /// nudger keeps invalidating on a short period until it observes
-    /// <see cref="BuildGeneration"/> advance (a new build ran) or its attempt budget
-    /// runs out. At most one nudger is in flight; each build re-arms eligibility.
+    /// lifetime-owned nudger keeps invalidating on a short period until it observes
+    /// <see cref="BuildGeneration"/> advance (a new build ran), its attempt budget
+    /// runs out, or this state is disposed. Each build re-arms eligibility.
     /// </summary>
     internal void RequestExtraFrame()
     {
-        if (ExtraFrameArmed) return;
+        lock (_graphBuildLock)
+            RequestExtraFrameUnderLock();
+    }
+
+    private void RequestExtraFrameUnderLock()
+    {
+        if (_disposed || ExtraFrameArmed)
+            return;
+
         ExtraFrameArmed = true;
+        RemoveCompletedRenderNudgers();
 
         var generation = BuildGeneration;
-        _ = Task.Run(async () =>
+        var cancellationToken = _lifetimeCancellation.Token;
+        _renderNudgerTasks.Add(Task.Run(
+            () => NudgeExtraFramesAsync(generation, cancellationToken),
+            CancellationToken.None));
+    }
+
+    private async Task NudgeExtraFramesAsync(int generation, CancellationToken cancellationToken)
+    {
+        try
         {
             for (var attempt = 0; attempt < 50; attempt++)
             {
-                await Task.Delay(16).ConfigureAwait(false);
-                // The first nudge is unconditional: a caller racing the top of a root
-                // build can capture that build's generation, and a build already in
-                // flight when the request was made cannot have honored it. One extra
-                // frame at worst; later ticks stop as soon as a new build runs.
-                if (attempt > 0 && BuildGeneration != generation) return;
+                await Task.Delay(16, cancellationToken).ConfigureAwait(false);
+
+                lock (_graphBuildLock)
+                {
+                    if (_disposed || cancellationToken.IsCancellationRequested)
+                        return;
+
+                    // The first nudge is unconditional: a caller racing the top of a root
+                    // build can capture that build's generation, and a build already in
+                    // flight when the request was made cannot have honored it. One extra
+                    // frame at worst; later ticks stop as soon as a new build runs.
+                    if (attempt > 0 && BuildGeneration != generation)
+                        return;
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
                 App.Invalidate();
             }
-        });
-    }
-
-    /// <summary>
-    /// Verifies, after the frame, that the tree window was built against the viewport
-    /// height the panel actually arranged to. The window is sized from the previous
-    /// frame's layout, so a render that changes the pane height (search bar toggle,
-    /// terminal resize) leaves the tree underfilled or over-scrolled with nothing else
-    /// scheduling a rebuild. The verifier polls the live panel and nudges builds until
-    /// <see cref="IlTreeWindowViewport"/> matches the arranged
-    /// <see cref="ScrollPanelNode.ViewportSize"/> or its budget runs out. At most one
-    /// is in flight; it disarms on exit so the next build can re-arm.
-    /// </summary>
-    internal void RequestIlTreeViewportCheck()
-    {
-        if (CurrentTab != TabId.IlInspector) return;
-        if (IlTreeViewportCheckArmed) return;
-        IlTreeViewportCheckArmed = true;
-
-        _ = Task.Run(async () =>
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            try
-            {
-                for (var attempt = 0; attempt < 50; attempt++)
-                {
-                    await Task.Delay(16).ConfigureAwait(false);
-                    var live = IlScrollPanelNode?.ViewportSize ?? 0;
-                    if (live <= 0) continue;
-                    if (live == IlTreeWindowViewport) return;
-                    App.Invalidate();
-                }
-            }
-            finally
-            {
-                IlTreeViewportCheckArmed = false;
-            }
-        });
+        }
     }
+
+    private void RemoveCompletedRenderNudgers() =>
+        _renderNudgerTasks.RemoveAll(static task => task.IsCompleted);
 
     /// <summary>
     /// Returns a stable identity key for the given method/field token within an analyzer.
@@ -1943,6 +2060,7 @@ public sealed class DotsiderState : IDisposable
         _focusedDepStack.Push(GeneralFocusedDep);
         _tabStack.Push(CurrentTab);
         _graphSelectionStack.Push(GraphSelectedIndex);
+        ResetDependencyGraphForAnalyzerReplacement();
         NavigationStack.Push(Analyzer);
         Analyzer = analyzer;
         StringExtractor = new StringExtractor(Analyzer);
@@ -2034,6 +2152,7 @@ public sealed class DotsiderState : IDisposable
         _focusedDepStack.Push(GeneralFocusedDep);
         _tabStack.Push(CurrentTab);
         _graphSelectionStack.Push(GraphSelectedIndex);
+        ResetDependencyGraphForAnalyzerReplacement();
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
         StringExtractor = new StringExtractor(Analyzer);
@@ -2090,6 +2209,7 @@ public sealed class DotsiderState : IDisposable
         _focusedDepStack.Push(GeneralFocusedDep);
         _tabStack.Push(CurrentTab);
         _graphSelectionStack.Push(GraphSelectedIndex);
+        ResetDependencyGraphForAnalyzerReplacement();
         NavigationStack.Push(Analyzer);
         Analyzer = newAnalyzer;
         StringExtractor = new StringExtractor(Analyzer);
@@ -2112,6 +2232,7 @@ public sealed class DotsiderState : IDisposable
     {
         if (NavigationStack.Count == 0) return TabId.General;
         NavigationError = null;
+        ResetDependencyGraphForAnalyzerReplacement();
         Analyzer.Dispose();
         Analyzer = NavigationStack.Pop();
         StringExtractor = new StringExtractor(Analyzer);
@@ -2210,18 +2331,9 @@ public sealed class DotsiderState : IDisposable
         CachedRawStrings = null;
         CachedRawUtf16Strings = null;
         CachedFrozenStrings = null;
-        CachedGraph = null;
-        GraphNavigation = null;
-        GraphBuildInProgress = false;
-        GraphNavigationError = null;
-        GraphSelectedNode = null;
-        GraphMatchIndex = -1;
-        GraphSelectedIndex = -1;
         DepGraphScope = DependencyGraphScope.All;
         DepGraphHideFramework = false;
         DepGraphScrollY = 0;
-        CachedGraphRenderLayout = null;
-        CachedGraphRenderLayoutKey = null;
         CachedSizeTree = null;
         TreemapCurrentLevel = null;
         TreemapBreadcrumb.Clear();
@@ -2311,6 +2423,18 @@ public sealed class DotsiderState : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        lock (_graphBuildLock)
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            _lifetimeCancellation.Cancel();
+        }
+
+        CancelAndDrainGraphBuild();
+        CancelAndDrainRenderNudgers();
+        _lifetimeCancellation.Dispose();
         Tracer?.Dispose();
         foreach (var analyzer in NavigationStack)
             analyzer.Dispose();
@@ -2343,38 +2467,170 @@ public sealed class DotsiderState : IDisposable
     /// Kicks off a background build of the transitive dependency graph when the Dep Graph
     /// view is first rendered for the current analyzer. While the build runs, the view
     /// displays a placeholder message; when the build completes, the result is published
-    /// to <see cref="CachedGraph"/> and <see cref="GraphNavigation"/> and the UI is
-    /// invalidated to trigger a re-render. Calls made while a build is already in flight
-    /// or after the graph is cached are no-ops. If the analyzer changes before the build
-    /// completes, the stale result is discarded.
+    /// to <see cref="CachedGraph"/> and the UI is invalidated to trigger a re-render. Calls made
+    /// while a build is already in flight or after the graph is cached are no-ops. If the analyzer
+    /// changes before the build completes, the stale result is discarded.
     /// </summary>
     public void EnsureCachedGraphAsync()
     {
-        if (CachedGraph is not null || GraphBuildInProgress)
-            return;
-
-        GraphBuildInProgress = true;
-        var capturedAnalyzer = Analyzer;
-
-        _ = QueueDedicatedBackgroundWork(() =>
+        lock (_graphBuildLock)
         {
-            try
+            if (_disposed || GraphSnapshot is not null || GraphBuildInProgress ||
+                _graphBuildFailed)
+                return;
+
+            _graphBuildCancellation?.Dispose();
+            _graphBuildCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                _lifetimeCancellation.Token);
+            GraphBuildInProgress = true;
+            var capturedAnalyzer = Analyzer;
+            var capturedGeneration = _graphBuildGeneration;
+            var cancellation = _graphBuildCancellation;
+            var graphBuilder = GraphBuilder;
+
+            _graphBuildTask = Task.Factory.StartNew(
+                () => BuildAndPublishGraph(
+                    capturedAnalyzer,
+                    capturedGeneration,
+                    cancellation,
+                    graphBuilder),
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+        }
+    }
+
+    private void BuildAndPublishGraph(
+        AssemblyAnalyzer capturedAnalyzer,
+        int capturedGeneration,
+        CancellationTokenSource cancellation,
+        Func<AssemblyAnalyzer, CancellationToken, DependencyGraphResult> graphBuilder)
+    {
+        DependencyGraphResult? result = null;
+        Exception? error = null;
+        try
+        {
+            result = graphBuilder(capturedAnalyzer, cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            error = exception;
+        }
+
+        var snapshot = result is null
+            ? null
+            : new DependencyGraphSnapshot(result.Nodes, result.Edges, result.NavigationById);
+
+        bool invalidate;
+        lock (_graphBuildLock)
+        {
+            var ownsCurrentBuild = ReferenceEquals(_graphBuildCancellation, cancellation);
+            var canPublish = ownsCurrentBuild &&
+                capturedGeneration == _graphBuildGeneration &&
+                ReferenceEquals(Analyzer, capturedAnalyzer) &&
+                !_disposed &&
+                !cancellation.IsCancellationRequested;
+
+            if (canPublish && snapshot is not null)
             {
-                var result = DependencyGraphBuilder.Build(capturedAnalyzer);
-
-                if (!ReferenceEquals(Analyzer, capturedAnalyzer))
-                    return;
-
-                GraphNavigation = result.NavigationById;
-                CachedGraph = (result.Nodes, result.Edges);
+                Volatile.Write(ref _legacyGraphNavigation, snapshot.NavigationById);
+                Volatile.Write(ref _dependencyGraphSnapshot, snapshot);
             }
-            finally
+            else if (canPublish && error is not null)
             {
+                _graphBuildFailed = true;
+                GraphNavigationError = "Cannot build dependency graph";
+            }
+
+            if (ownsCurrentBuild)
                 GraphBuildInProgress = false;
-                App.Invalidate();
-                RequestExtraFrame();
+
+            invalidate = canPublish;
+        }
+
+        if (error is not null)
+            Debug.WriteLine($"Failed to build dependency graph: {error}");
+
+        if (invalidate)
+            InvalidateGraphCompletion();
+    }
+
+    private void InvalidateGraphCompletion()
+    {
+        lock (_graphBuildLock)
+        {
+            if (_disposed || _lifetimeCancellation.IsCancellationRequested)
+                return;
+        }
+
+        App.Invalidate();
+        RequestExtraFrame();
+    }
+
+    private void CancelAndDrainGraphBuild()
+    {
+        Task graphBuildTask;
+        CancellationTokenSource? cancellation;
+        lock (_graphBuildLock)
+        {
+            _graphBuildGeneration++;
+            cancellation = _graphBuildCancellation;
+            cancellation?.Cancel();
+            graphBuildTask = _graphBuildTask;
+        }
+
+        graphBuildTask.GetAwaiter().GetResult();
+
+        lock (_graphBuildLock)
+        {
+            if (ReferenceEquals(_graphBuildCancellation, cancellation))
+            {
+                _graphBuildCancellation = null;
+                _graphBuildTask = Task.CompletedTask;
+                GraphBuildInProgress = false;
             }
-        });
+        }
+
+        cancellation?.Dispose();
+    }
+
+    private void CancelAndDrainRenderNudgers()
+    {
+        Task[] tasks;
+        lock (_graphBuildLock)
+            tasks = [.. _renderNudgerTasks];
+
+        Task.WhenAll(tasks).GetAwaiter().GetResult();
+
+        lock (_graphBuildLock)
+            _renderNudgerTasks.Clear();
+    }
+
+    /// <summary>
+    /// Cancels and drains dependency-graph work before the active analyzer is replaced,
+    /// then clears every graph result and view cache owned by that analyzer.
+    /// </summary>
+    internal void ResetDependencyGraphForAnalyzerReplacement()
+    {
+        CancelAndDrainGraphBuild();
+
+        lock (_graphBuildLock)
+        {
+            Volatile.Write(ref _dependencyGraphSnapshot, null);
+            Volatile.Write(ref _legacyGraphNavigation, null);
+            GraphBuildInProgress = false;
+            GraphNavigationError = null;
+            _graphBuildFailed = false;
+        }
+
+        GraphSelectedNode = null;
+        GraphMatchIndex = -1;
+        GraphSelectedIndex = -1;
+        CachedGraphRenderLayout = null;
+        CachedGraphRenderLayoutKey = null;
     }
 
     private static Task QueueDedicatedBackgroundWork(Action work) =>

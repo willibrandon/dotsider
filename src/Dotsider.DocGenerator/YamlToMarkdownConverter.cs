@@ -144,6 +144,9 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
                         item.Example = string.Join("\n\n", examples);
                     }
                     break;
+                case "exceptions":
+                    ParseExceptions(value, item);
+                    break;
                 case "parent":
                     item.Parent = GetScalarValue(value);
                     break;
@@ -175,6 +178,32 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         }
 
         return string.IsNullOrEmpty(item.Uid) ? null : item;
+    }
+
+    private static void ParseExceptions(YamlNode value, ApiItem item)
+    {
+        if (value is not YamlSequenceNode exceptions)
+            return;
+
+        foreach (var exception in exceptions.OfType<YamlMappingNode>())
+        {
+            var exceptionItem = new ExceptionItem();
+            foreach (var (key, exceptionValue) in exception.Children)
+            {
+                switch ((key as YamlScalarNode)?.Value)
+                {
+                    case "description":
+                        exceptionItem.Description = GetScalarValue(exceptionValue);
+                        break;
+                    case "type":
+                        exceptionItem.Type = GetScalarValue(exceptionValue);
+                        break;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(exceptionItem.Type))
+                item.Exceptions.Add(exceptionItem);
+        }
     }
 
     private static void ParseSyntax(YamlNode value, ApiItem item)
@@ -340,6 +369,19 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
                         {
                             sb.AppendLine();
                             sb.AppendLine(ConvertXmlToMarkdown(child.ReturnDescription));
+                        }
+                        sb.AppendLine();
+                    }
+
+                    if (child.Exceptions.Count > 0)
+                    {
+                        sb.AppendLine("**Exceptions:**");
+                        sb.AppendLine();
+                        foreach (var exception in child.Exceptions)
+                        {
+                            var typeLink = FormatTypeLink(exception.Type!);
+                            var description = ConvertXmlToMarkdown(exception.Description ?? "");
+                            sb.AppendLine($"- {typeLink}: {description}");
                         }
                         sb.AppendLine();
                     }

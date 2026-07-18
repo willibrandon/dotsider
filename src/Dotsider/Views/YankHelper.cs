@@ -161,7 +161,7 @@ public static class YankHelper
         if (state.GraphSelectedNode is not null)
             return state.GraphSelectedNode;
 
-        if (state.GraphSelectedIndex < 0 || state.CachedGraph is not { } graph)
+        if (state.GraphSelectedIndex < 0 || state.GraphSnapshot is not { } graph)
             return null;
 
         // Selection indices and the rendered label both come from the visible model the view
@@ -169,7 +169,7 @@ public static class YankHelper
         // view with selection index 1 would yank the underlying cached node at index 1,
         // which is a hidden framework assembly, not the assembly the user sees.
         var visible = DependencyGraphView.BuildVisibleModel(
-            graph.Nodes, graph.Edges, state.GraphNavigation,
+            graph.Nodes, graph.Edges, graph.NavigationById,
             state.DepGraphScope, state.DepGraphHideFramework);
 
         if (state.GraphSelectedIndex >= visible.Nodes.Count)

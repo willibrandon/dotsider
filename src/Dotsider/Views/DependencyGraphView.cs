@@ -39,10 +39,11 @@ public static class DependencyGraphView
         // existing startup-focus tests still land on the graph surface.
         state.EnsureCachedGraphAsync();
 
-        var ready = state.CachedGraph is not null;
-        IReadOnlyList<GraphNode> allNodes = ready ? state.CachedGraph!.Value.Nodes : [];
-        IReadOnlyList<GraphEdge> allEdges = ready ? state.CachedGraph!.Value.Edges : [];
-        var nav = state.GraphNavigation;
+        var graph = state.GraphSnapshot;
+        var ready = graph is not null;
+        IReadOnlyList<GraphNode> allNodes = graph?.Nodes ?? [];
+        IReadOnlyList<GraphEdge> allEdges = graph?.Edges ?? [];
+        var nav = graph?.NavigationById;
         var visible = BuildVisibleModel(
             allNodes, allEdges, nav, state.DepGraphScope, state.DepGraphHideFramework);
         var nodes = visible.Nodes;
@@ -113,9 +114,11 @@ public static class DependencyGraphView
 
             // Scroll position now lives in the vertical scrollbar widget composed with the
             // graph surface below; the status line no longer carries a Scroll: N/M suffix.
-            var statusLeft = !ready
-                ? " Building dependency graph..."
-                : $" {baseCounts}";
+            var statusLeft = ready
+                ? $" {baseCounts}"
+                : state.GraphBuildInProgress
+                    ? " Building dependency graph..."
+                    : $" {state.GraphNavigationError ?? "Cannot build dependency graph"}";
 
             string scopeSuffix, filterSuffix;
             if (!ready)
@@ -141,7 +144,7 @@ public static class DependencyGraphView
                     : "  | Hover over a node for details").Fill()
             ]).FixedHeight(1));
 
-            if (state.GraphNavigationError is not null)
+            if (ready && state.GraphNavigationError is not null)
                 widgets.Add(outer.Text($" {state.GraphNavigationError}").FixedHeight(1));
 
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
@@ -171,7 +174,7 @@ public static class DependencyGraphView
                 row.Interactable(ic =>
                     ic.Surface(s =>
                     [
-                        s.Layer(surface => DrawGraph(surface, visible, nav, disambig,
+                        s.Layer(surface => DrawGraph(surface, visible, allNodes, nav, disambig,
                             state, s.MouseX, s.MouseY, query))
                     ]).Fill()
                 ).InputBindings(bindings =>
@@ -338,6 +341,7 @@ public static class DependencyGraphView
     private static void DrawGraph(
         Surface surface,
         VisibleGraphModel visible,
+        object nodesReference,
         IReadOnlyDictionary<string, GraphNavigationContext>? nav,
         IReadOnlyDictionary<string, IdentityDiscriminator> disambig,
         DotsiderState state,
@@ -349,7 +353,8 @@ public static class DependencyGraphView
         var h = surface.Height;
         if (w < 10 || h < 5) return;
 
-        var layout = GetOrBuildRenderLayout(state, visible, nav, disambig, w, h);
+        var layout = GetOrBuildRenderLayout(
+            state, visible, nodesReference, nav, disambig, w, h);
         var renderNodes = layout.Nodes;
         if (renderNodes.Count == 0) return;
 
@@ -558,14 +563,14 @@ public static class DependencyGraphView
     private static GraphRenderLayout GetOrBuildRenderLayout(
         DotsiderState state,
         VisibleGraphModel visible,
+        object nodesReference,
         IReadOnlyDictionary<string, GraphNavigationContext>? nav,
         IReadOnlyDictionary<string, IdentityDiscriminator> disambig,
         int width,
         int height)
     {
-        object? nodesRef = state.CachedGraph is { } cg ? cg.Nodes : null;
         var key = new GraphRenderLayoutKey(
-            nodesRef, state.DepGraphScope, state.DepGraphHideFramework, width, height);
+            nodesReference, state.DepGraphScope, state.DepGraphHideFramework, width, height);
 
         if (state.CachedGraphRenderLayoutKey is { } existingKey
             && existingKey.Equals(key)

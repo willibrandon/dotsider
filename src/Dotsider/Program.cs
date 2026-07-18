@@ -160,8 +160,24 @@ static async Task<int> RunTui(string[] args, string filePath)
         }
         finally
         {
-            CursorColorHelper.ResetCursorColor();
-            nugetHex1bApp.Dispose();
+            var nugetState = capturedNugetState;
+            capturedNugetState = null;
+
+            try
+            {
+                nugetState?.Dispose();
+            }
+            finally
+            {
+                try
+                {
+                    CursorColorHelper.ResetCursorColor();
+                }
+                finally
+                {
+                    nugetHex1bApp.Dispose();
+                }
+            }
         }
 
         return 0;

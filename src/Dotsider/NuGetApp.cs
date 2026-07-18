@@ -35,8 +35,7 @@ public sealed class NuGetApp(NuGetState state)
         // build generation stops any in-flight extra-frame nudger armed by the listener.
         if (_state.SelectedDllState is { } dllState)
         {
-            unchecked { dllState.BuildGeneration++; }
-            dllState.ExtraFrameArmed = false;
+            dllState.NotifyBuildStarted();
             while (dllState.PendingMutations.TryDequeue(out var mutation))
                 mutation(dllState);
         }
@@ -50,7 +49,7 @@ public sealed class NuGetApp(NuGetState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(160, 100, 200))),
                 bar.Divider(" "),
-                bar.Section(_state.Package.FileName).Theme(t => t
+                bar.Section(UntrustedTerminalText.Escape(_state.Package.FileName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.IsBrowsingPackage ? "Package Browser" : "DLL Inspector").Theme(t => t
@@ -114,6 +113,13 @@ public sealed class NuGetApp(NuGetState state)
                 {
                     hints.Add(s.Section(yankNotification).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
+                    hints.Add(s.Divider(" "));
+                }
+
+                if (_state.IsBrowsingPackage && _state.OpenError is { } openError)
+                {
+                    hints.Add(s.Section(openError).Theme(t => t
+                        .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                     hints.Add(s.Divider(" "));
                 }
 
@@ -201,19 +207,7 @@ public sealed class NuGetApp(NuGetState state)
 
                     if (entry is null) return;
 
-                    try
-                    {
-                        var analyzer = _state.Package.OpenDll(entry);
-                        _state.SelectedDllState?.Dispose();
-                        _state.SelectedDllState = new DotsiderState(_state.App, analyzer);
-                        _state.SelectedDllEntry = entry;
-                        _state.IsBrowsingPackage = false;
-                        _state.App.Invalidate();
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Failed to open DLL: {ex.Message}");
-                    }
+                    _state.TryOpenDll(entry);
                 }, "Open DLL");
             }
 
@@ -489,9 +483,10 @@ public sealed class NuGetApp(NuGetState state)
     private void ShowYankNotification(string text)
     {
         var gen = ++_state.YankGeneration;
+        var displayText = UntrustedTerminalText.Escape(text);
         _state.YankNotification = text.Contains('\n')
             ? $"Yanked {text.Count(c => c == '\n') + 1} lines"
-            : $"Yanked: {(text.Length > 40 ? text[..37] + "..." : text)}";
+            : $"Yanked: {UntrustedTerminalText.TruncateWithEllipsis(displayText, 40)}";
         _state.App.Invalidate();
         _ = Task.Delay(TimeSpan.FromMilliseconds(1500)).ContinueWith(_ =>
         {

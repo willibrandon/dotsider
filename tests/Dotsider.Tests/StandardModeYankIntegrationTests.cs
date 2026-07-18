@@ -1240,8 +1240,15 @@ public class StandardModeYankIntegrationTests : IDisposable
             .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.RightArrow)
+            .Key(Hex1bKey.RightArrow)
+            .WaitUntil(_ => _state!.GeneralInfoEditorState!.Cursor.Position.Value == 2,
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        Assert.AreEqual('A', _state!.GeneralInfoEditorState!.Document.GetText()[
+            _state.GeneralInfoEditorState.Cursor.Position.Value]);
 
         // Press y — verify it arms WaitingForYMotion
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1262,14 +1269,17 @@ public class StandardModeYankIntegrationTests : IDisposable
         // Press w — selects + yanks
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.W)
-            .WaitUntil(_ => _state!.YankNotification is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _),
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.IsNotNull(_state!.YankNotification);
-        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var clipboard));
-        Assert.IsFalse(string.IsNullOrEmpty(clipboard));
+        Assert.IsTrue(_clipboardAdapter!.ClipboardWrites.TryDequeue(out var clipboard),
+            "CopyToClipboard should have emitted an OSC 52 sequence");
+        Assert.AreEqual("Assembly", clipboard);
         Assert.AreEqual(VimMotionState.Idle, _state.VimPending);
+        Assert.IsFalse(_state.GeneralInfoEditorState.Cursor.HasSelection);
+        Assert.AreEqual(9, _state.GeneralInfoEditorState.Cursor.Position.Value);
 
         _cts!.Cancel();
         try { await runTask; } catch (OperationCanceledException) { }

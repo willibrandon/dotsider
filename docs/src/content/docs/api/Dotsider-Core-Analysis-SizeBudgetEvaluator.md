@@ -43,6 +43,10 @@ Evaluates budgets against a diff.
 
 The report, failing only on error-severity breaches.
 
+**Exceptions:**
+
+- [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception): A total-scope growth budget was supplied without a baseline; callers reject that combination before evaluating.
+
 ```csharp
 public static SizeBudgetReport Evaluate(IReadOnlyList<SizeBudget> budgets, MstatDiffResult diff, SizeBasis totalBasis, long currentTotalBytes, long? baselineTotalBytes, int defaultTopN = 10)
 ```

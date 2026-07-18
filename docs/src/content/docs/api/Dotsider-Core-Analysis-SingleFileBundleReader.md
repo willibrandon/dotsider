@@ -124,6 +124,10 @@ Reads the bundle manifest from a stream positioned at the header.
 
 The parsed bundle manifest.
 
+**Exceptions:**
+
+- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The bundle version is unsupported.
+
 ```csharp
 public static BundleManifest ReadManifest(Stream stream)
 ```
@@ -140,6 +144,10 @@ Reads the bundle manifest from the file at filePath.
 **Returns:** [BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/)
 
 The parsed bundle manifest.
+
+**Exceptions:**
+
+- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The bundle version is unsupported.
 
 ```csharp
 public static BundleManifest ReadManifest(string filePath, long headerOffset)

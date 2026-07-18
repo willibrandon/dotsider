@@ -384,3 +384,12 @@ and raw printable character sequences from the binary.
 public sealed class StringExtractor
 ```
 
+### [UnsafePackageEntryException](/api/dotsider.core.analysis.unsafepackageentryexception/)
+
+The exception that is thrown when a package entry cannot be safely extracted beneath its
+destination directory.
+
+```csharp
+public sealed class UnsafePackageEntryException : IOException, ISerializable
+```
+

@@ -32,12 +32,14 @@ Represents a file entry within a NuGet package (.nupkg).
 
 **Parameters:**
 
-- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): File name without directory path.
-- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Full path of the entry within the package archive.
-- `Directory` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Directory portion of the entry path.
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Raw, untrusted file-name portion of the archive entry path. This value is not display-safe.
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Raw, untrusted path of the entry within the package archive. This value is not a filesystem
+path and must be validated before extraction.
+- `Directory` ([String](https://learn.microsoft.com/dotnet/api/system.string)): Raw, untrusted directory portion of the archive entry path, normalized only to use forward
+slashes. This value is not a filesystem-safe path or display-safe text.
 - `CompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Compressed size in bytes inside the .nupkg.
 - `UncompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64)): Uncompressed size in bytes.
-- `IsDll` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the entry is a .NET assembly (.dll).
+- `IsDll` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether the archive entry name has a .dll file extension.
 
 ```csharp
 public NuGetFileEntry(string Name, string FullPath, string Directory, long CompressedSize, long UncompressedSize, bool IsDll)
@@ -57,7 +59,8 @@ public long CompressedSize { get; init; }
 
 ### Directory
 
-Directory portion of the entry path.
+Raw, untrusted directory portion of the archive entry path, normalized only to use forward
+slashes. This value is not a filesystem-safe path or display-safe text.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -67,7 +70,8 @@ public string Directory { get; init; }
 
 ### FullPath
 
-Full path of the entry within the package archive.
+Raw, untrusted path of the entry within the package archive. This value is not a filesystem
+path and must be validated before extraction.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -77,7 +81,7 @@ public string FullPath { get; init; }
 
 ### IsDll
 
-Whether the entry is a .NET assembly (.dll).
+Whether the archive entry name has a .dll file extension.
 
 **Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
 
@@ -87,7 +91,7 @@ public bool IsDll { get; init; }
 
 ### Name
 
-File name without directory path.
+Raw, untrusted file-name portion of the archive entry path. This value is not display-safe.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 

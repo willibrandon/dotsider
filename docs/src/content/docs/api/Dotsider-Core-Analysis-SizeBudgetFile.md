@@ -39,6 +39,11 @@ Loads a budget document from a file.
 
 The parsed budgets, in document order.
 
+**Exceptions:**
+
+- [FormatException](https://learn.microsoft.com/dotnet/api/system.formatexception): The document is not valid JSON or an entry is malformed.
+- [IOException](https://learn.microsoft.com/dotnet/api/system.io.ioexception): The file cannot be read.
+
 ```csharp
 public static IReadOnlyList<SizeBudget> Load(string path)
 ```
@@ -54,6 +59,10 @@ Parses a budget document from its JSON text.
 **Returns:** [IReadOnlyList\<SizeBudget\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 The parsed budgets, in document order.
+
+**Exceptions:**
+
+- [FormatException](https://learn.microsoft.com/dotnet/api/system.formatexception): The document is not valid JSON or an entry is malformed.
 
 ```csharp
 public static IReadOnlyList<SizeBudget> Parse(string json)

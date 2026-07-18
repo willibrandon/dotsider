@@ -68,11 +68,15 @@ public class IlInspectorViewTests : IDisposable
         var toTitleCase = _state!.Analyzer.MethodDefs.First(m => m.Name == "ToTitleCase");
         var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == toTitleCase.DeclaringType);
         var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
-        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
-        _state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
-        _state.IlSelectedMethod = toTitleCase;
-        _state.IlFocusedTreeKey = $"method:{toTitleCase.Token}";
-        _state.App.Invalidate();
+        _state.PendingMutations.Enqueue(state =>
+        {
+            state.IlTreeExpansionState[$"ns:{ns}"] = true;
+            state.IlTreeExpansionState[$"type:{toTitleCase.DeclaringType}"] = true;
+            state.IlSelectedMethod = toTitleCase;
+            state.IlSelectedMethodOwner = null;
+            state.SetIlFocusedTreeKey($"method:{toTitleCase.Token}");
+        });
+        _state.RequestExtraFrame();
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000"), TimeSpan.FromSeconds(10))
@@ -154,11 +158,15 @@ public class IlInspectorViewTests : IDisposable
         var firstMethod = _state!.Analyzer.MethodDefs.First(m => m.Rva > 0);
         var firstTypeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == firstMethod.DeclaringType);
         var firstNs = !string.IsNullOrEmpty(firstTypeDef.Namespace) ? firstTypeDef.Namespace : "(global)";
-        _state.IlTreeExpansionState[$"ns:{firstNs}"] = true;
-        _state.IlTreeExpansionState[$"type:{firstMethod.DeclaringType}"] = true;
-        _state.IlSelectedMethod = firstMethod;
-        _state.IlFocusedTreeKey = $"method:{firstMethod.Token}";
-        _state.App.Invalidate();
+        _state.PendingMutations.Enqueue(state =>
+        {
+            state.IlTreeExpansionState[$"ns:{firstNs}"] = true;
+            state.IlTreeExpansionState[$"type:{firstMethod.DeclaringType}"] = true;
+            state.IlSelectedMethod = firstMethod;
+            state.IlSelectedMethodOwner = null;
+            state.SetIlFocusedTreeKey($"method:{firstMethod.Token}");
+        });
+        _state.RequestExtraFrame();
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.ContainsText("IL_0000") || s.ContainsText("IL_"), TimeSpan.FromSeconds(10))

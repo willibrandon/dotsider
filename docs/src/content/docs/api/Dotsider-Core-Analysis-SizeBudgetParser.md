@@ -40,6 +40,10 @@ Parses one budget spec.
 
 The parsed budget, at error severity.
 
+**Exceptions:**
+
+- [FormatException](https://learn.microsoft.com/dotnet/api/system.formatexception): The spec does not match the grammar; the message names the offending part.
+
 ```csharp
 public static SizeBudget Parse(string spec)
 ```

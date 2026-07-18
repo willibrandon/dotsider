@@ -6,8 +6,8 @@ namespace Dotsider.Tests;
 /// <summary>
 /// Tests for <see cref="DependencyGraphBuilder"/> covering transitive traversal, identity-based
 /// dedupe, cycle and diamond preservation, unresolved and identity-mismatch leaves, per-edge
-/// TypeRef counts by full identity, determinism, and behavior across bundle, apphost, and
-/// native deployment shapes.
+/// TypeRef counts by full identity, cancellation, determinism, and behavior across bundle,
+/// apphost, and native deployment shapes.
 /// </summary>
 [TestClass]
 public class DependencyGraphBuilderTests
@@ -383,6 +383,68 @@ public class DependencyGraphBuilderTests
     }
 
     /// <summary>
+    /// A token canceled before the build begins is observed before any traversal work is reported.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void BuildWithCancellation_AlreadyCanceled_StopsBeforeTraversal()
+    {
+        using var analyzer = new AssemblyAnalyzer(Samples.HelloWorldDll);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var observed = new List<DependencyGraphBuildCheckpoint>();
+
+        var exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
+            DependencyGraphBuilder.BuildWithCancellation(
+                analyzer,
+                cancellation.Token,
+                observed.Add));
+
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.IsEmpty(observed);
+    }
+
+    /// <summary>
+    /// Cancellation requested after the first managed reference has been resolved stops the walk
+    /// and disposes a child analyzer that was already queued for transitive traversal.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void BuildWithCancellation_AfterManagedReferenceProcessed_StopsAndCleansUp()
+    {
+        using var scope = SyntheticAssemblyScope.Create();
+        scope.WriteAssembly("CancelChild");
+        var rootPath = scope.WriteAssembly(
+            "CancelRoot",
+            refs: [("CancelChild", new Version(1, 0, 0, 0))]);
+        var directory = scope.Directory;
+        var observed = new List<DependencyGraphBuildCheckpoint>();
+        using var cancellation = new CancellationTokenSource();
+
+        OperationCanceledException exception;
+        using (var analyzer = new AssemblyAnalyzer(rootPath))
+        {
+            exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
+                DependencyGraphBuilder.BuildWithCancellation(
+                    analyzer,
+                    cancellation.Token,
+                    checkpoint =>
+                    {
+                        observed.Add(checkpoint);
+                        cancellation.Cancel();
+                    }));
+        }
+
+        scope.Dispose();
+
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreSequenceEqual(
+            [DependencyGraphBuildCheckpoint.ManagedAssemblyReferenceProcessed],
+            observed);
+        Assert.IsFalse(System.IO.Directory.Exists(directory));
+    }
+
+    /// <summary>
     /// A Native AOT binary with mstat and DGML sidecars produces a real graph: the compiled
     /// assemblies as nodes, DGML links aggregated to assembly-pair edges, and the native
     /// import modules at depth 1.
@@ -404,6 +466,41 @@ public class DependencyGraphBuilderTests
 
         if (Samples.NativeAotConsoleDgml is not null)
             Assert.Contains(e => e.SourceId == root.Id && e.TypeRefCount > 0, graph.Edges);
+    }
+
+    /// <summary>
+    /// Cancellation requested after a real DGML link has been inspected stops Native AOT
+    /// assembly-edge aggregation before the remaining links are visited.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void BuildWithCancellation_AfterDgmlLinkProcessed_StopsAggregation()
+    {
+        TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
+        TestSkip.When(Samples.NativeAotConsoleDgml is null, "DGML sidecar was not produced");
+
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        Assert.IsNotEmpty(analyzer.Dgml!.Links);
+        var observed = new List<DependencyGraphBuildCheckpoint>();
+        using var cancellation = new CancellationTokenSource();
+
+        var exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
+            DependencyGraphBuilder.BuildWithCancellation(
+                analyzer,
+                cancellation.Token,
+                checkpoint =>
+                {
+                    if (checkpoint != DependencyGraphBuildCheckpoint.DgmlLinkProcessed)
+                        return;
+
+                    observed.Add(checkpoint);
+                    cancellation.Cancel();
+                }));
+
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreSequenceEqual(
+            [DependencyGraphBuildCheckpoint.DgmlLinkProcessed],
+            observed);
     }
 
     /// <summary>
