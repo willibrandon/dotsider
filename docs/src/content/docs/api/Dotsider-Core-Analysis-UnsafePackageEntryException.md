@@ -61,3 +61,4 @@ specified error message.
 ```csharp
 public UnsafePackageEntryException(string? message)
 ```
+

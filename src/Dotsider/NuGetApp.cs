@@ -236,7 +236,7 @@ public sealed class NuGetApp(NuGetState state)
                                 _state.App.Invalidate();
                                 return;
                             }
-                            
+
                             if (dllState.StringsDetailContent is not null)
                             {
                                 dllState.StringsDetailContent = null;
@@ -309,14 +309,6 @@ public sealed class NuGetApp(NuGetState state)
                 // Universal yank — same behavior as DotsiderApp
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
-                    // Timeout check — reset stale state on both stores
-                    if (_state.VimPending != VimMotionState.Idle
-                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
-                        _state.VimPending = VimMotionState.Idle;
-                    if (_state.SelectedDllState is { VimPending: not VimMotionState.Idle } dllTimeout
-                        && (DateTime.UtcNow - dllTimeout.VimPendingTimestamp).TotalSeconds > 1.0)
-                        dllTimeout.VimPending = VimMotionState.Idle;
-
                     // 1. yy: second y while already armed → yank entire line
                     // Check both state stores (browser vs DLL inspector)
                     if (ctx.FocusedNode is EditorNode { State: var yyState } yyEditor)
@@ -355,7 +347,7 @@ public sealed class NuGetApp(NuGetState state)
                     {
                         // Don't arm on hex dump normal mode (I conflicts with Insert)
                         var isHexNormal = _state.SelectedDllState is
-                            { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Normal };
+                        { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Normal };
                         if (isHexNormal)
                         {
                             _state.VimPending = VimMotionState.Idle;

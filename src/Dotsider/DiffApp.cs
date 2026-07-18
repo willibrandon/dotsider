@@ -149,11 +149,6 @@ public sealed class DiffApp(DiffState state)
                 // Universal yank
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
-                    // Timeout check
-                    if (_state.VimPending != VimMotionState.Idle
-                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
-                        _state.VimPending = VimMotionState.Idle;
-
                     // yy: second y while already armed → yank entire line
                     if (_state.VimPending == VimMotionState.WaitingForYMotion
                         && ctx.FocusedNode is EditorNode { State: var yyState } yyEditor

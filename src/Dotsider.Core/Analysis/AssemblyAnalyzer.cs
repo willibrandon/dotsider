@@ -80,6 +80,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// </summary>
     /// <param name="filePath">Absolute path to the assembly file.</param>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="BadImageFormatException">
+    /// The file contains a recognized managed PE or Webcil image that is malformed.
+    /// </exception>
     public AssemblyAnalyzer(string filePath)
     {
         FilePath = filePath;
@@ -95,8 +98,16 @@ public sealed class AssemblyAnalyzer : IDisposable
         IsReadOnly = fileInfo.IsReadOnly;
 
         _stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        if (TryInitializeWebcil(_rawBytes))
-            return;
+        try
+        {
+            if (TryInitializeWebcil(_rawBytes))
+                return;
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
 
         try
         {
@@ -146,6 +157,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// when the entry assembly is extracted from a bundle). If null, defaults to the file name
     /// portion of <paramref name="filePath"/>.
     /// </param>
+    /// <exception cref="BadImageFormatException">
+    /// <paramref name="bytes"/> contains a recognized managed PE or Webcil image that is malformed.
+    /// </exception>
     public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath = null,
         string? displayName = null)
         : this(
@@ -168,6 +182,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <param name="displayName">The logical name of the analyzed module.</param>
     /// <param name="targetFrameworkOverride">The manifest's target-framework context.</param>
     /// <param name="preferredRuntimePackOverride">The manifest's preferred runtime pack.</param>
+    /// <exception cref="BadImageFormatException">
+    /// <paramref name="bytes"/> contains a recognized managed PE or Webcil image that is malformed.
+    /// </exception>
     public AssemblyAnalyzer(
         byte[] bytes,
         string filePath,
@@ -188,8 +205,16 @@ public sealed class AssemblyAnalyzer : IDisposable
         CreatedTime = DateTime.UtcNow;
 
         _stream = new MemoryStream(bytes, writable: false);
-        if (TryInitializeWebcil(_rawBytes))
-            return;
+        try
+        {
+            if (TryInitializeWebcil(_rawBytes))
+                return;
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
 
         try
         {
@@ -1019,7 +1044,14 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Returns null if the method has no IL body (abstract, extern, or native).
     /// </summary>
     /// <param name="method">The method definition to get the body for.</param>
-    /// <returns>The method body block, or null.</returns>
+    /// <returns>
+    /// The method body block, or null. The returned block references analyzer-owned storage and
+    /// must not be used after this analyzer is disposed.
+    /// </returns>
+    /// <exception cref="BadImageFormatException">
+    /// The method RVA maps to a malformed or truncated method body.
+    /// </exception>
+    /// <exception cref="ObjectDisposedException">This analyzer has been disposed.</exception>
     public MethodBodyBlock? GetMethodBody(MethodDefInfo method)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -1421,7 +1453,8 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private bool TryInitializeWebcil(ReadOnlySpan<byte> bytes)
     {
-        if (!Wasm.WebcilImageReader.TryRead(bytes, out var webcil) || webcil is null)
+        Wasm.WebcilImageReader? webcil = Wasm.WebcilImageReader.Open(bytes);
+        if (webcil is null)
             return false;
 
         _peReader = null;

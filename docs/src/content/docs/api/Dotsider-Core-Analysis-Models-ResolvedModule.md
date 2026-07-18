@@ -96,3 +96,4 @@ The manifest assembly's target-framework context.
 ```csharp
 public string? TargetFramework { get; init; }
 ```
+

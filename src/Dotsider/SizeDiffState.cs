@@ -132,7 +132,7 @@ public sealed class SizeDiffState(Hex1bApp app, MstatSource left, MstatSource ri
     /// <summary>Cursor position when the text-object sequence was armed, for cursor affinity.</summary>
     public int VimPendingCursorOffset { get; set; }
 
-    /// <summary>Timestamp when the text-object sequence was armed, for 1-second timeout.</summary>
+    /// <summary>Timestamp of the latest text-object state transition.</summary>
     public DateTime VimPendingTimestamp { get; set; }
 
     /// <summary>Delegate to perform a neovim-style editor yank, set by the host app.</summary>

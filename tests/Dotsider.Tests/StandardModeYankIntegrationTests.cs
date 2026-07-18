@@ -1259,12 +1259,20 @@ public class StandardModeYankIntegrationTests : IDisposable
 
         Assert.AreEqual(VimMotionState.WaitingForYMotion, _state!.VimPending);
 
+        await Task.Delay(TimeSpan.FromMilliseconds(1_100), ct);
+        Assert.AreEqual(VimMotionState.WaitingForYMotion, _state.VimPending);
+
         // Press i — advances to WaitingForYTextObject
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.I)
             .WaitUntil(_ => _state!.VimPending == VimMotionState.WaitingForYTextObject, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
+
+        // Operator-pending input follows Vim semantics: it remains armed until completion or
+        // an actual cancelling input, independent of UI scheduling delays.
+        await Task.Delay(TimeSpan.FromMilliseconds(1_100), ct);
+        Assert.AreEqual(VimMotionState.WaitingForYTextObject, _state.VimPending);
 
         // Press w — selects + yanks
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1590,11 +1598,22 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // yy to yank the current line
+        // yy to yank the current line. Operator-pending y must not expire while the user pauses
+        // or the UI thread is delayed by other work.
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
+            .WaitUntil(_ => _state.VimPending == VimMotionState.WaitingForYMotion,
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1_100), ct);
+        Assert.AreEqual(VimMotionState.WaitingForYMotion, _state.VimPending);
+
+        await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _),
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 

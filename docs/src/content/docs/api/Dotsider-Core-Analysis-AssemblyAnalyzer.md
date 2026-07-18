@@ -42,6 +42,10 @@ manifest assembly.
 - `targetFrameworkOverride` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The manifest's target-framework context.
 - `preferredRuntimePackOverride` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The manifest's preferred runtime pack.
 
+**Exceptions:**
+
+- [BadImageFormatException](https://learn.microsoft.com/dotnet/api/system.badimageformatexception): bytes contains a recognized managed PE or Webcil image that is malformed.
+
 ```csharp
 public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath, string? displayName, string? targetFrameworkOverride, string? preferredRuntimePackOverride)
 ```
@@ -62,6 +66,10 @@ Used for assembly resolution context.
 when the entry assembly is extracted from a bundle). If null, defaults to the file name
 portion of filePath.
 
+**Exceptions:**
+
+- [BadImageFormatException](https://learn.microsoft.com/dotnet/api/system.badimageformatexception): bytes contains a recognized managed PE or Webcil image that is malformed.
+
 ```csharp
 public AssemblyAnalyzer(byte[] bytes, string filePath, string? sourceBundlePath = null, string? displayName = null)
 ```
@@ -77,6 +85,7 @@ Opens and analyzes the specified .NET assembly file.
 **Exceptions:**
 
 - [FileNotFoundException](https://learn.microsoft.com/dotnet/api/system.io.filenotfoundexception): The file does not exist.
+- [BadImageFormatException](https://learn.microsoft.com/dotnet/api/system.badimageformatexception): The file contains a recognized managed PE or Webcil image that is malformed.
 
 ```csharp
 public AssemblyAnalyzer(string filePath)
@@ -858,7 +867,13 @@ Returns null if the method has no IL body (abstract, extern, or native).
 
 **Returns:** [MethodBodyBlock](https://learn.microsoft.com/dotnet/api/system.reflection.metadata.methodbodyblock)
 
-The method body block, or null.
+The method body block, or null. The returned block references analyzer-owned storage and
+must not be used after this analyzer is disposed.
+
+**Exceptions:**
+
+- [BadImageFormatException](https://learn.microsoft.com/dotnet/api/system.badimageformatexception): The method RVA maps to a malformed or truncated method body.
+- [ObjectDisposedException](https://learn.microsoft.com/dotnet/api/system.objectdisposedexception): This analyzer has been disposed.
 
 ```csharp
 public MethodBodyBlock? GetMethodBody(MethodDefInfo method)

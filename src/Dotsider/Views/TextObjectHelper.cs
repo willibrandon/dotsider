@@ -112,7 +112,10 @@ public static class TextObjectHelper
     /// <param name="getVimPending">Returns the current <see cref="VimMotionState"/>.</param>
     /// <param name="getVimPendingEditor">Returns the editor that started the sequence.</param>
     /// <param name="getVimPendingCursorOffset">Returns the cursor offset when the sequence was armed.</param>
-    /// <param name="getVimPendingTimestamp">Returns the timestamp when the sequence was armed.</param>
+    /// <param name="getVimPendingTimestamp">
+    /// Returns the timestamp of the latest pending-state transition. The timestamp is retained for API compatibility;
+    /// operator-pending input is cancelled by input rather than elapsed wall-clock time.
+    /// </param>
     /// <param name="setVimState">Sets <see cref="VimMotionState"/>, pending editor, and cursor offset.</param>
     /// <param name="performYank">Called for <c>yiw</c>/<c>yiW</c> to yank the selection.</param>
     /// <param name="invalidate">Requests a UI refresh.</param>
@@ -127,19 +130,15 @@ public static class TextObjectHelper
         Action<InputBindingActionContext, EditorNode>? performYank,
         Action invalidate)
     {
+        // Retain the timestamp delegate in the public contract without making valid operator-pending
+        // input depend on wall-clock scheduling.
+        _ = getVimPendingTimestamp;
+
         void ResetToIdle() => setVimState(VimMotionState.Idle, null, 0);
 
         // --- I binding (always registered — starts text object from Idle) ---
         bindings.Key(Hex1bKey.I).Action(ctx =>
         {
-            // Timeout check — reset stale state, then fall through to process
-            // this i as a fresh sequence start (don't discard the keypress)
-            if (getVimPending() != VimMotionState.Idle
-                && (DateTime.UtcNow - getVimPendingTimestamp()).TotalSeconds > 1.0)
-            {
-                ResetToIdle();
-            }
-
             var pending = getVimPending();
             switch (pending)
             {
@@ -210,7 +209,7 @@ public static class TextObjectHelper
         bindings.Key(Hex1bKey.W).Action(ctx =>
         {
             CompleteTextObject(ctx, thisEditorState, getVimPending, getVimPendingEditor,
-                getVimPendingCursorOffset, getVimPendingTimestamp, setVimState,
+                getVimPendingCursorOffset, setVimState,
                 performYank, invalidate, isWord: true);
         }, "");
 
@@ -218,7 +217,7 @@ public static class TextObjectHelper
         bindings.Shift().Key(Hex1bKey.W).Action(ctx =>
         {
             CompleteTextObject(ctx, thisEditorState, getVimPending, getVimPendingEditor,
-                getVimPendingCursorOffset, getVimPendingTimestamp, setVimState,
+                getVimPendingCursorOffset, setVimState,
                 performYank, invalidate, isWord: false);
         }, "");
 
@@ -292,21 +291,12 @@ public static class TextObjectHelper
         Func<VimMotionState> getVimPending,
         Func<EditorState?> getVimPendingEditor,
         Func<int> getVimPendingCursorOffset,
-        Func<DateTime> getVimPendingTimestamp,
         Action<VimMotionState, EditorState?, int> setVimState,
         Action<InputBindingActionContext, EditorNode>? performYank,
         Action invalidate,
         bool isWord)
     {
         void ResetToIdle() => setVimState(VimMotionState.Idle, null, 0);
-
-        // Timeout check
-        if (getVimPending() != VimMotionState.Idle
-            && (DateTime.UtcNow - getVimPendingTimestamp()).TotalSeconds > 1.0)
-        {
-            ResetToIdle();
-            return;
-        }
 
         var pending = getVimPending();
 
