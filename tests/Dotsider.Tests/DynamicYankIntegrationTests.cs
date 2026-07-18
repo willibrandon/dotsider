@@ -96,12 +96,16 @@ public class DynamicYankIntegrationTests : IDisposable
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicCpuEditorState), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicMemoryEditorState), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicGcEditorState), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.DynamicThreadingEditorState), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
     }

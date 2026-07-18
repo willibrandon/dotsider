@@ -318,34 +318,21 @@ public static class AssemblyDiffer
 
         while (leftOffset < leftIl.Length && rightOffset < rightIl.Length)
         {
-            // Read opcodes
-            var leftOpByte = leftIl[leftOffset++];
-            var rightOpByte = rightIl[rightOffset++];
-
-            ILOpCode leftOp, rightOp;
-            if (leftOpByte == 0xFE)
+            if (!IlOperandReader.TryReadOpCode(leftIl, ref leftOffset, out ILOpCode leftOp)
+                || !IlOperandReader.TryReadOpCode(rightIl, ref rightOffset, out ILOpCode rightOp))
             {
-                if (leftOffset >= leftIl.Length) return true;
-                leftOp = (ILOpCode)(0xFE00 | leftIl[leftOffset++]);
-            }
-            else
-            {
-                leftOp = (ILOpCode)leftOpByte;
-            }
-
-            if (rightOpByte == 0xFE)
-            {
-                if (rightOffset >= rightIl.Length) return true;
-                rightOp = (ILOpCode)(0xFE00 | rightIl[rightOffset++]);
-            }
-            else
-            {
-                rightOp = (ILOpCode)rightOpByte;
+                return true;
             }
 
             if (leftOp != rightOp) return true;
 
             var operandKind = IlDisassembler.GetOperandType(leftOp);
+            if (!IlOperandReader.TryGetOperandLength(leftIl, leftOffset, operandKind, out int leftLength)
+                || !IlOperandReader.TryGetOperandLength(rightIl, rightOffset, operandKind, out int rightLength))
+            {
+                return true;
+            }
+
             switch (operandKind)
             {
                 case OperandKind.None:
@@ -354,34 +341,17 @@ public static class AssemblyDiffer
                 case OperandKind.ShortBranchTarget:
                 case OperandKind.ShortInlineI:
                 case OperandKind.ShortInlineVar:
-                    if (leftIl[leftOffset] != rightIl[rightOffset]) return true;
-                    leftOffset++;
-                    rightOffset++;
-                    break;
-
                 case OperandKind.InlineVar:
-                    if (leftIl[leftOffset] != rightIl[rightOffset]
-                        || leftIl[leftOffset + 1] != rightIl[rightOffset + 1])
-                        return true;
-                    leftOffset += 2;
-                    rightOffset += 2;
-                    break;
-
                 case OperandKind.BranchTarget:
                 case OperandKind.InlineI:
                 case OperandKind.ShortInlineR:
-                    if (!leftIl.AsSpan(leftOffset, 4).SequenceEqual(rightIl.AsSpan(rightOffset, 4)))
-                        return true;
-                    leftOffset += 4;
-                    rightOffset += 4;
-                    break;
-
                 case OperandKind.InlineI8:
                 case OperandKind.InlineR:
-                    if (!leftIl.AsSpan(leftOffset, 8).SequenceEqual(rightIl.AsSpan(rightOffset, 8)))
+                case OperandKind.InlineSwitch:
+                    if (leftLength != rightLength
+                        || !leftIl.AsSpan(leftOffset, leftLength)
+                            .SequenceEqual(rightIl.AsSpan(rightOffset, rightLength)))
                         return true;
-                    leftOffset += 8;
-                    rightOffset += 8;
                     break;
 
                 case OperandKind.InlineMethod:
@@ -389,8 +359,8 @@ public static class AssemblyDiffer
                 case OperandKind.InlineType:
                 case OperandKind.InlineTok:
                     {
-                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftToken = IlOperandReader.ReadInt32(leftIl, leftOffset);
+                        var rightToken = IlOperandReader.ReadInt32(rightIl, rightOffset);
                         var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
                         var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
                         if (leftResolved != rightResolved) return true;
@@ -399,8 +369,8 @@ public static class AssemblyDiffer
 
                 case OperandKind.InlineString:
                     {
-                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftToken = IlOperandReader.ReadInt32(leftIl, leftOffset);
+                        var rightToken = IlOperandReader.ReadInt32(rightIl, rightOffset);
                         var leftReader = leftAnalyzer.GetMetadataReader();
                         var rightReader = rightAnalyzer.GetMetadataReader();
                         if (leftReader is null || rightReader is null) return leftToken != rightToken;
@@ -421,31 +391,20 @@ public static class AssemblyDiffer
 
                 case OperandKind.InlineSig:
                     {
-                        var leftToken = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                        var rightToken = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
+                        var leftToken = IlOperandReader.ReadInt32(leftIl, leftOffset);
+                        var rightToken = IlOperandReader.ReadInt32(rightIl, rightOffset);
                         var leftResolved = leftAnalyzer.ResolveTokenForComparison(leftToken);
                         var rightResolved = rightAnalyzer.ResolveTokenForComparison(rightToken);
                         if (leftResolved != rightResolved) return true;
                         break;
                     }
 
-                case OperandKind.InlineSwitch:
-                    {
-                        var leftCount = IlDisassembler.ReadInt32(leftIl, ref leftOffset);
-                        var rightCount = IlDisassembler.ReadInt32(rightIl, ref rightOffset);
-                        if (leftCount != rightCount) return true;
-                        var targetBytes = leftCount * 4;
-                        if (!leftIl.AsSpan(leftOffset, targetBytes)
-                            .SequenceEqual(rightIl.AsSpan(rightOffset, targetBytes)))
-                            return true;
-                        leftOffset += targetBytes;
-                        rightOffset += targetBytes;
-                        break;
-                    }
-
                 default:
                     break;
             }
+
+            leftOffset += leftLength;
+            rightOffset += rightLength;
         }
 
         return leftOffset != leftIl.Length || rightOffset != rightIl.Length;

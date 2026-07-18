@@ -33,4 +33,14 @@ public sealed record IlInstruction(
     bool HasEmbeddedSource = false,
     int? LocalSlot = null,
     string? LocalName = null,
-    int? DisplayLine = null);
+    int? DisplayLine = null)
+{
+    /// <summary>
+    /// Gets or initializes a value indicating whether this is the terminal marker for malformed IL.
+    /// </summary>
+    /// <remarks>
+    /// A malformed instruction is emitted only after every valid instruction that precedes it. It
+    /// has no metadata token and must not be treated as navigable.
+    /// </remarks>
+    public bool IsMalformed { get; init; }
+}
