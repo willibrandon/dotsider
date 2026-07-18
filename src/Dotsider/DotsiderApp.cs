@@ -182,11 +182,6 @@ public sealed class DotsiderApp(DotsiderState state)
                 // Universal yank — works on all tabs with neovim-style behavior
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
-                    // Timeout check — reset stale vim pending state
-                    if (_state.VimPending != VimMotionState.Idle
-                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
-                        _state.VimPending = VimMotionState.Idle;
-
                     // 1. yy: second y while already armed → yank entire line
                     if (_state.VimPending == VimMotionState.WaitingForYMotion
                         && ctx.FocusedNode is EditorNode { State: var yyState } yyEditor

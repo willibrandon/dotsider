@@ -14,35 +14,37 @@ namespace Dotsider.Core.Analysis.Wasm;
 /// </summary>
 internal sealed class WebcilImageReader
 {
-    private const uint WebcilMagic = 0x4C496257;
-    private const uint WasmMagic = 0x6D736100;
-    private const uint WasmVersion = 1;
-    private const int HeaderV0Size = 28;
-    private const int HeaderV1Size = 32;
-    private const int SectionHeaderSize = 16;
+    private const int ClrHeaderSize = 72;
     private const int DebugDirectoryEntrySize = 28;
     private const uint EmbeddedPortablePdbSignature = 0x4244504D;
+    private const int HeaderV0Size = 28;
+    private const int HeaderV1Size = 32;
+    private const int MaxSections = 16;
+    private const int SectionHeaderSize = 16;
+    private const uint WasmMagic = 0x6D736100;
+    private const uint WasmVersion = 1;
+    private const uint WebcilMagic = 0x4C496257;
 
-    private readonly byte[] _image;
-    private readonly List<WebcilSection> _sections;
     private readonly List<WebcilDebugEntry> _debugEntries;
-    private readonly WebcilHeader _header;
+    private readonly byte[] _image;
     private readonly byte[] _metadataBytes;
+    private readonly List<WebcilSection> _sections;
 
     private WebcilImageReader(
         byte[] image,
-        long payloadOffset,
+        int payloadOffset,
         WebcilHeader header,
         List<WebcilSection> sections,
+        ClrHeader clrHeader,
         byte[] metadataBytes,
         List<WebcilDebugEntry> debugEntries)
     {
-        _image = image;
-        PayloadOffset = payloadOffset;
-        _header = header;
-        _sections = sections;
-        _metadataBytes = metadataBytes;
         _debugEntries = debugEntries;
+        _image = image;
+        _metadataBytes = metadataBytes;
+        _sections = sections;
+        PayloadOffset = payloadOffset;
+        ClrHeader = clrHeader;
         Info = new WebcilInfo(
             header.VersionMajor,
             header.VersionMinor,
@@ -50,8 +52,9 @@ internal sealed class WebcilImageReader
             payloadOffset,
             sections.Count,
             metadataBytes.Length,
-            checked((int)header.PeDebugSize));
-        ClrHeader = ReadClrHeader(header, sections, image, payloadOffset);
+            header.PeDebugRva == 0 || header.PeDebugSize == 0
+                ? 0
+                : checked((int)header.PeDebugSize));
     }
 
     /// <summary>
@@ -65,39 +68,36 @@ internal sealed class WebcilImageReader
     public ClrHeader ClrHeader { get; }
 
     /// <summary>
-    /// Attempts to read a Webcil image from raw bytes.
+    /// Opens a bare or WebAssembly-wrapped Webcil image.
     /// </summary>
     /// <param name="bytes">The candidate file bytes.</param>
-    /// <param name="reader">The parsed Webcil reader when the bytes contain Webcil.</param>
-    /// <returns>True when a bare or Wasm-wrapped Webcil payload was found and parsed.</returns>
-    public static bool TryRead(ReadOnlySpan<byte> bytes, out WebcilImageReader? reader)
+    /// <returns>The parsed reader, or <see langword="null"/> when no Webcil payload exists.</returns>
+    /// <exception cref="BadImageFormatException">
+    /// A Webcil payload was recognized, but its headers, sections, or managed directories are malformed.
+    /// </exception>
+    public static WebcilImageReader? Open(ReadOnlySpan<byte> bytes)
     {
-        reader = null;
-        if (!TryFindPayload(bytes, out var payloadOffset))
-            return false;
+        if (!TryFindPayload(bytes, out int payloadOffset, out int payloadLength))
+            return null;
 
-        try
-        {
-            if (!TryReadHeader(bytes, payloadOffset, out var header))
-                return false;
+        ReadOnlySpan<byte> payload = bytes.Slice(payloadOffset, payloadLength);
+        WebcilHeader header = ReadHeader(payload);
+        List<WebcilSection> sections = ReadSectionTable(payload, header);
+        ClrHeader clrHeader = ReadClrHeader(header, sections, payload);
+        ValidateClrDirectories(clrHeader, sections, payload.Length);
+        byte[] metadataBytes = ReadMetadata(payload, clrHeader, sections);
+        List<WebcilDebugEntry> debugEntries = ReadDebugEntries(payload, header, sections);
+        byte[] image = GC.AllocateUninitializedArray<byte>(payloadLength, pinned: true);
+        payload.CopyTo(image);
 
-            var sections = ReadSections(bytes, payloadOffset, header);
-            var metadataBytes = ReadMetadata(bytes, payloadOffset, header, sections);
-            var debugEntries = ReadDebugEntries(bytes, payloadOffset, header, sections);
-            reader = new WebcilImageReader(
-                bytes.ToArray(),
-                payloadOffset,
-                header,
-                sections,
-                metadataBytes,
-                debugEntries);
-            return true;
-        }
-        catch (Exception ex) when (ex is BadImageFormatException or ArgumentOutOfRangeException or OverflowException)
-        {
-            reader = null;
-            return false;
-        }
+        return new WebcilImageReader(
+            image,
+            payloadOffset,
+            header,
+            sections,
+            clrHeader,
+            metadataBytes,
+            debugEntries);
     }
 
     /// <summary>
@@ -114,12 +114,12 @@ internal sealed class WebcilImageReader
     /// <returns>The method body block, or null when the RVA does not map to Webcil bytes.</returns>
     public unsafe MethodBodyBlock? GetMethodBody(int rva)
     {
-        if (rva == 0 || !TryTranslateRva((uint)rva, out var offset, out var available) || available <= 0)
+        if (rva <= 0 || !TryTranslateRva((uint)rva, out int offset, out int available) || available == 0)
             return null;
 
-        fixed (byte* ptr = &_image[(int)offset])
+        fixed (byte* image = _image)
         {
-            var blob = new BlobReader(ptr, checked((int)available));
+            BlobReader blob = new(image + offset, available);
             return MethodBodyBlock.Create(blob);
         }
     }
@@ -129,12 +129,12 @@ internal sealed class WebcilImageReader
     /// </summary>
     /// <returns>Generic section rows with Webcil-adjusted raw data offsets.</returns>
     public IReadOnlyList<SectionInfo> ReadSections() =>
-        [.. _sections.Select((s, i) => new SectionInfo(
-            Name: $"webcil-section-{i}",
-            VirtualAddress: checked((int)s.VirtualAddress),
-            VirtualSize: checked((int)s.VirtualSize),
-            RawDataOffset: checked((int)(PayloadOffset + s.PointerToRawData)),
-            RawDataSize: checked((int)s.SizeOfRawData),
+        [.. _sections.Select((section, index) => new SectionInfo(
+            Name: $"webcil-section-{index}",
+            VirtualAddress: unchecked((int)section.VirtualAddress),
+            VirtualSize: unchecked((int)section.VirtualSize),
+            RawDataOffset: checked(PayloadOffset + (int)section.PointerToRawData),
+            RawDataSize: (int)section.SizeOfRawData,
             Characteristics: 0))];
 
     /// <summary>
@@ -142,15 +142,15 @@ internal sealed class WebcilImageReader
     /// </summary>
     /// <returns>Debug directory rows with formatted Webcil payload details.</returns>
     public IReadOnlyList<DebugDirectoryInfo> ReadDebugDirectory() =>
-        [.. _debugEntries.Select(e => new DebugDirectoryInfo(
-            Type: e.Type,
-            Stamp: e.Stamp,
-            MajorVersion: e.MajorVersion,
-            MinorVersion: e.MinorVersion,
-            DataSize: e.DataSize,
-            AddressOfRawData: e.DataRva,
-            PointerToRawData: checked((int)(PayloadOffset + e.DataPointer)),
-            Payload: FormatPayload(e)))];
+        [.. _debugEntries.Select(entry => new DebugDirectoryInfo(
+            Type: entry.Type,
+            Stamp: entry.Stamp,
+            MajorVersion: entry.MajorVersion,
+            MinorVersion: entry.MinorVersion,
+            DataSize: entry.DataSize,
+            AddressOfRawData: entry.DataRva,
+            PointerToRawData: checked(PayloadOffset + entry.DataPointer),
+            Payload: FormatPayload(entry)))];
 
     /// <summary>
     /// Opens an embedded portable PDB from a Webcil debug directory entry.
@@ -159,14 +159,14 @@ internal sealed class WebcilImageReader
     /// <returns>A metadata provider over the decompressed portable PDB image.</returns>
     public MetadataReaderProvider ReadEmbeddedPortablePdb(WebcilDebugEntry entry)
     {
-        var payload = ReadEntryPayload(entry);
+        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
         if (payload.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(payload) != EmbeddedPortablePdbSignature)
             throw new BadImageFormatException("Unexpected embedded portable PDB signature.");
 
-        var decompressedSize = BinaryPrimitives.ReadInt32LittleEndian(payload[4..]);
-        using var compressed = new MemoryStream(payload[8..].ToArray(), writable: false);
-        using var deflate = new DeflateStream(compressed, CompressionMode.Decompress);
-        var decompressed = new byte[decompressedSize];
+        int decompressedSize = BinaryPrimitives.ReadInt32LittleEndian(payload[4..]);
+        using MemoryStream compressed = new(payload[8..].ToArray(), writable: false);
+        using DeflateStream deflate = new(compressed, CompressionMode.Decompress);
+        byte[] decompressed = new byte[decompressedSize];
         deflate.ReadExactly(decompressed);
         return MetadataReaderProvider.FromPortablePdbImage(ImmutableArray.Create(decompressed));
     }
@@ -192,7 +192,7 @@ internal sealed class WebcilImageReader
     /// <returns>The portable PDB identity and build-time path.</returns>
     public WebcilCodeViewData ReadCodeView(WebcilDebugEntry entry)
     {
-        var payload = ReadEntryPayload(entry);
+        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
         if (payload.Length < 24
             || payload[0] != (byte)'R'
             || payload[1] != (byte)'S'
@@ -202,9 +202,9 @@ internal sealed class WebcilImageReader
             throw new BadImageFormatException("Unexpected CodeView payload signature.");
         }
 
-        var guid = new Guid(payload[4..20]);
-        var age = BinaryPrimitives.ReadInt32LittleEndian(payload[20..]);
-        var path = ReadUtf8NullTerminated(payload[24..]);
+        Guid guid = new(payload[4..20]);
+        int age = BinaryPrimitives.ReadInt32LittleEndian(payload[20..]);
+        string path = ReadUtf8NullTerminated(payload[24..]);
         return new WebcilCodeViewData(guid, age, path);
     }
 
@@ -218,218 +218,138 @@ internal sealed class WebcilImageReader
     public bool TryReadInt32AtRva(int rva, int relativeOffset, out int value)
     {
         value = 0;
-        if (!TryTranslateRva((uint)rva, out var offset, out var available)
+        if (rva == 0
             || relativeOffset < 0
-            || relativeOffset + 4 > available)
+            || !TryTranslateRva((uint)rva, out int offset, out int available)
+            || available < sizeof(int)
+            || relativeOffset > available - sizeof(int))
         {
             return false;
         }
 
-        value = BinaryPrimitives.ReadInt32LittleEndian(_image.AsSpan((int)offset + relativeOffset, 4));
+        value = BinaryPrimitives.ReadInt32LittleEndian(_image.AsSpan(offset + relativeOffset, sizeof(int)));
         return true;
     }
 
-    private long PayloadOffset { get; }
+    private int PayloadOffset { get; }
 
-    private static bool TryFindPayload(ReadOnlySpan<byte> bytes, out long payloadOffset)
+    private static WebcilHeader ReadHeader(ReadOnlySpan<byte> payload)
     {
-        payloadOffset = 0;
-        if (bytes.Length < 4)
-            return false;
+        if (payload.Length < HeaderV0Size)
+            throw new BadImageFormatException("The Webcil header is truncated.");
 
-        if (BinaryPrimitives.ReadUInt32LittleEndian(bytes) == WebcilMagic)
-            return true;
+        uint id = BinaryPrimitives.ReadUInt32LittleEndian(payload);
+        ushort versionMajor = BinaryPrimitives.ReadUInt16LittleEndian(payload[4..]);
+        ushort versionMinor = BinaryPrimitives.ReadUInt16LittleEndian(payload[6..]);
+        ushort coffSections = BinaryPrimitives.ReadUInt16LittleEndian(payload[8..]);
 
-        if (bytes.Length < 8
-            || BinaryPrimitives.ReadUInt32LittleEndian(bytes) != WasmMagic
-            || BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) != WasmVersion)
-        {
-            return false;
-        }
+        if (id != WebcilMagic)
+            throw new BadImageFormatException("The Webcil signature is invalid.");
+        if (versionMajor is not (0 or 1) || versionMinor != 0)
+            throw new BadImageFormatException("The Webcil version is unsupported.");
+        if (coffSections is 0 or > MaxSections)
+            throw new BadImageFormatException("The Webcil section count is invalid.");
 
-        var pos = 8;
-        while (pos < bytes.Length)
-        {
-            var sectionId = ReadByte(bytes, ref pos);
-            var sectionSize = checked((int)ReadUleb(bytes, ref pos));
-            var sectionEnd = checked(pos + sectionSize);
-            if (sectionEnd > bytes.Length)
-                return false;
+        int headerSize = versionMajor == 0 ? HeaderV0Size : HeaderV1Size;
+        int sectionTableSize = coffSections * SectionHeaderSize;
+        if (payload.Length < headerSize || sectionTableSize > payload.Length - headerSize)
+            throw new BadImageFormatException("The Webcil section table is truncated.");
 
-            if (sectionId != 11)
-            {
-                pos = sectionEnd;
-                continue;
-            }
-
-            var segmentCount = checked((int)ReadUleb(bytes, ref pos));
-            for (var i = 0; i < segmentCount && pos < sectionEnd; i++)
-            {
-                var mode = ReadByte(bytes, ref pos);
-                if (mode == 0)
-                    SkipConstExpr(bytes, ref pos, sectionEnd);
-                else if (mode == 2)
-                {
-                    _ = ReadUleb(bytes, ref pos);
-                    SkipConstExpr(bytes, ref pos, sectionEnd);
-                }
-                else if (mode != 1)
-                {
-                    return false;
-                }
-
-                var size = checked((int)ReadUleb(bytes, ref pos));
-                if (pos + size > sectionEnd)
-                    return false;
-
-                var segment = bytes[pos..(pos + size)];
-                if (segment.Length >= 4
-                    && BinaryPrimitives.ReadUInt32LittleEndian(segment) == WebcilMagic
-                    && TryReadHeader(bytes, pos, out _))
-                {
-                    payloadOffset = pos;
-                    return true;
-                }
-
-                pos += size;
-            }
-
-            return false;
-        }
-
-        return false;
+        return new WebcilHeader(
+            Id: id,
+            VersionMajor: versionMajor,
+            VersionMinor: versionMinor,
+            CoffSections: coffSections,
+            PeCliHeaderRva: BinaryPrimitives.ReadUInt32LittleEndian(payload[12..]),
+            PeCliHeaderSize: BinaryPrimitives.ReadUInt32LittleEndian(payload[16..]),
+            PeDebugRva: BinaryPrimitives.ReadUInt32LittleEndian(payload[20..]),
+            PeDebugSize: BinaryPrimitives.ReadUInt32LittleEndian(payload[24..]),
+            TableBase: versionMajor == 0
+                ? uint.MaxValue
+                : BinaryPrimitives.ReadUInt32LittleEndian(payload[HeaderV0Size..]));
     }
 
-    private static bool TryReadHeader(ReadOnlySpan<byte> bytes, long offset, out WebcilHeader header)
+    private static List<WebcilSection> ReadSectionTable(ReadOnlySpan<byte> payload, WebcilHeader header)
     {
-        header = default;
-        if (offset < 0 || offset + HeaderV0Size > bytes.Length)
-            return false;
-
-        var span = bytes[(int)offset..];
-        header = new WebcilHeader(
-            Id: BinaryPrimitives.ReadUInt32LittleEndian(span),
-            VersionMajor: BinaryPrimitives.ReadUInt16LittleEndian(span[4..]),
-            VersionMinor: BinaryPrimitives.ReadUInt16LittleEndian(span[6..]),
-            CoffSections: BinaryPrimitives.ReadUInt16LittleEndian(span[8..]),
-            PeCliHeaderRva: BinaryPrimitives.ReadUInt32LittleEndian(span[12..]),
-            PeCliHeaderSize: BinaryPrimitives.ReadUInt32LittleEndian(span[16..]),
-            PeDebugRva: BinaryPrimitives.ReadUInt32LittleEndian(span[20..]),
-            PeDebugSize: BinaryPrimitives.ReadUInt32LittleEndian(span[24..]),
-            TableBase: uint.MaxValue);
-
-        if (header.Id != WebcilMagic
-            || header.VersionMajor is not (0 or 1)
-            || header.VersionMinor != 0)
+        int sectionOffset = header.VersionMajor == 0 ? HeaderV0Size : HeaderV1Size;
+        List<WebcilSection> sections = new(header.CoffSections);
+        for (int index = 0; index < header.CoffSections; index++)
         {
-            return false;
-        }
-
-        if (header.VersionMajor >= 1)
-        {
-            if (offset + HeaderV1Size > bytes.Length)
-                return false;
-            header = header with { TableBase = BinaryPrimitives.ReadUInt32LittleEndian(span[HeaderV0Size..]) };
-        }
-
-        return true;
-    }
-
-    private static List<WebcilSection> ReadSections(ReadOnlySpan<byte> bytes, long payloadOffset, WebcilHeader header)
-    {
-        var sectionOffset = checked(payloadOffset + (header.VersionMajor >= 1 ? HeaderV1Size : HeaderV0Size));
-        var result = new List<WebcilSection>(header.CoffSections);
-        for (var i = 0; i < header.CoffSections; i++)
-        {
-            var offset = checked(sectionOffset + i * SectionHeaderSize);
-            if (offset + SectionHeaderSize > bytes.Length)
-                throw new BadImageFormatException("The Webcil section table is truncated.");
-
-            var span = bytes[(int)offset..];
-            result.Add(new WebcilSection(
+            int offset = sectionOffset + index * SectionHeaderSize;
+            ReadOnlySpan<byte> span = payload.Slice(offset, SectionHeaderSize);
+            WebcilSection section = new(
                 VirtualSize: BinaryPrimitives.ReadUInt32LittleEndian(span),
                 VirtualAddress: BinaryPrimitives.ReadUInt32LittleEndian(span[4..]),
                 SizeOfRawData: BinaryPrimitives.ReadUInt32LittleEndian(span[8..]),
-                PointerToRawData: BinaryPrimitives.ReadUInt32LittleEndian(span[12..])));
+                PointerToRawData: BinaryPrimitives.ReadUInt32LittleEndian(span[12..]));
+
+            ValidateSection(section, payload.Length);
+            foreach (WebcilSection previous in sections)
+            {
+                uint sectionEnd = section.VirtualAddress + section.VirtualSize;
+                uint previousEnd = previous.VirtualAddress + previous.VirtualSize;
+                if (sectionEnd > previous.VirtualAddress && previousEnd > section.VirtualAddress)
+                    throw new BadImageFormatException("Webcil sections overlap in virtual address space.");
+            }
+
+            sections.Add(section);
         }
 
-        return result;
+        return sections;
     }
 
-    private static byte[] ReadMetadata(
-        ReadOnlySpan<byte> bytes,
-        long payloadOffset,
-        WebcilHeader header,
-        IReadOnlyList<WebcilSection> sections)
+    private static void ValidateSection(WebcilSection section, int payloadLength)
     {
-        var clr = ReadClrHeader(header, sections, bytes, payloadOffset);
-        if (!TryTranslateRva(sections, payloadOffset, (uint)clr.MetadataRva, out var offset, out var available)
-            || clr.MetadataSize <= 0
-            || clr.MetadataSize > available)
+        if (section.PointerToRawData > (uint)payloadLength
+            || section.SizeOfRawData > (uint)payloadLength - section.PointerToRawData)
         {
-            throw new BadImageFormatException("The Webcil metadata directory does not map to file bytes.");
+            throw new BadImageFormatException("A Webcil section extends past the end of its payload.");
         }
 
-        return bytes.Slice((int)offset, clr.MetadataSize).ToArray();
-    }
-
-    private static List<WebcilDebugEntry> ReadDebugEntries(
-        ReadOnlySpan<byte> bytes,
-        long payloadOffset,
-        WebcilHeader header,
-        IReadOnlyList<WebcilSection> sections)
-    {
-        if (header.PeDebugRva == 0 || header.PeDebugSize == 0)
-            return [];
-
-        if (!TryTranslateRva(sections, payloadOffset, header.PeDebugRva, out var offset, out var available)
-            || header.PeDebugSize > available
-            || header.PeDebugSize % DebugDirectoryEntrySize != 0)
-        {
-            return [];
-        }
-
-        var count = checked((int)header.PeDebugSize / DebugDirectoryEntrySize);
-        var result = new List<WebcilDebugEntry>(count);
-        for (var i = 0; i < count; i++)
-        {
-            var span = bytes.Slice((int)offset + i * DebugDirectoryEntrySize, DebugDirectoryEntrySize);
-            var characteristics = BinaryPrimitives.ReadUInt32LittleEndian(span);
-            if (characteristics != 0)
-                continue;
-
-            result.Add(new WebcilDebugEntry(
-                Stamp: BinaryPrimitives.ReadUInt32LittleEndian(span[4..]),
-                MajorVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[8..]),
-                MinorVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[10..]),
-                Type: (DebugDirectoryEntryType)BinaryPrimitives.ReadInt32LittleEndian(span[12..]),
-                DataSize: BinaryPrimitives.ReadInt32LittleEndian(span[16..]),
-                DataRva: BinaryPrimitives.ReadInt32LittleEndian(span[20..]),
-                DataPointer: BinaryPrimitives.ReadInt32LittleEndian(span[24..])));
-        }
-
-        return result;
+        if (section.VirtualSize > uint.MaxValue - section.VirtualAddress)
+            throw new BadImageFormatException("A Webcil section's virtual address range overflows.");
     }
 
     private static ClrHeader ReadClrHeader(
         WebcilHeader header,
         IReadOnlyList<WebcilSection> sections,
-        ReadOnlySpan<byte> bytes,
-        long payloadOffset)
+        ReadOnlySpan<byte> payload)
     {
-        if (!TryTranslateRva(sections, payloadOffset, header.PeCliHeaderRva, out var offset, out var available)
-            || available < 72)
+        if (header.PeCliHeaderRva == 0
+            || header.PeCliHeaderSize < ClrHeaderSize
+            || !TryTranslateRva(
+                sections,
+                payload.Length,
+                header.PeCliHeaderRva,
+                out int offset,
+                out int available)
+            || available < ClrHeaderSize)
         {
             throw new BadImageFormatException("The Webcil CLR header does not map to file bytes.");
         }
 
-        var span = bytes[(int)offset..];
+        ReadOnlySpan<byte> span = payload.Slice(offset, ClrHeaderSize);
+        uint clrHeaderSize = BinaryPrimitives.ReadUInt32LittleEndian(span);
+        if (clrHeaderSize < ClrHeaderSize)
+            throw new BadImageFormatException("The Webcil CLR header is truncated.");
+
+        ushort majorRuntimeVersion = BinaryPrimitives.ReadUInt16LittleEndian(span[4..]);
+        CorFlags flags = (CorFlags)BinaryPrimitives.ReadUInt32LittleEndian(span[16..]);
+        if (majorRuntimeVersion is <= 1 or > 2)
+            throw new BadImageFormatException("The Webcil CLR runtime version is unsupported.");
+        if ((flags & CorFlags.NativeEntryPoint) != 0)
+            throw new BadImageFormatException("Webcil does not support native entry points.");
+        if (BinaryPrimitives.ReadUInt32LittleEndian(span[52..]) != 0)
+            throw new BadImageFormatException("Webcil does not support CLR vtable fixups.");
+        if (BinaryPrimitives.ReadUInt32LittleEndian(span[60..]) != 0)
+            throw new BadImageFormatException("Webcil does not support export address table jumps.");
+
         return new ClrHeader(
-            MajorRuntimeVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[4..]),
+            MajorRuntimeVersion: majorRuntimeVersion,
             MinorRuntimeVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[6..]),
             MetadataRva: BinaryPrimitives.ReadInt32LittleEndian(span[8..]),
             MetadataSize: BinaryPrimitives.ReadInt32LittleEndian(span[12..]),
-            Flags: (CorFlags)BinaryPrimitives.ReadUInt32LittleEndian(span[16..]),
+            Flags: flags,
             EntryPointToken: BinaryPrimitives.ReadInt32LittleEndian(span[20..]),
             ResourcesRva: BinaryPrimitives.ReadInt32LittleEndian(span[24..]),
             ResourcesSize: BinaryPrimitives.ReadInt32LittleEndian(span[28..]),
@@ -438,6 +358,144 @@ internal sealed class WebcilImageReader
             ManagedNativeHeader: new DirectoryEntry(
                 BinaryPrimitives.ReadInt32LittleEndian(span[64..]),
                 BinaryPrimitives.ReadInt32LittleEndian(span[68..])));
+    }
+
+    private static void ValidateClrDirectories(
+        ClrHeader clrHeader,
+        IReadOnlyList<WebcilSection> sections,
+        int payloadLength)
+    {
+        ValidateDirectory(
+            sections,
+            payloadLength,
+            clrHeader.MetadataRva,
+            clrHeader.MetadataSize,
+            required: true,
+            "metadata");
+        ValidateDirectory(
+            sections,
+            payloadLength,
+            clrHeader.ResourcesRva,
+            clrHeader.ResourcesSize,
+            required: false,
+            "resources");
+        ValidateDirectory(
+            sections,
+            payloadLength,
+            clrHeader.StrongNameSignatureRva,
+            clrHeader.StrongNameSignatureSize,
+            required: false,
+            "strong-name signature");
+        ValidateDirectory(
+            sections,
+            payloadLength,
+            clrHeader.ManagedNativeHeader.RelativeVirtualAddress,
+            clrHeader.ManagedNativeHeader.Size,
+            required: false,
+            "managed native header");
+
+        if ((clrHeader.Flags & CorFlags.StrongNameSigned) != 0
+            && clrHeader.StrongNameSignatureRva == 0)
+        {
+            throw new BadImageFormatException(
+                "The Webcil CLR header marks the image as strong-name signed without a signature.");
+        }
+    }
+
+    private static void ValidateDirectory(
+        IReadOnlyList<WebcilSection> sections,
+        int payloadLength,
+        int rva,
+        int size,
+        bool required,
+        string name)
+    {
+        if (rva == 0)
+        {
+            if (required)
+                throw new BadImageFormatException($"The Webcil {name} directory is invalid.");
+            return;
+        }
+
+        if (size < 0
+            || !TryTranslateRva(sections, payloadLength, (uint)rva, out _, out int available)
+            || size > available)
+        {
+            throw new BadImageFormatException($"The Webcil {name} directory does not map to file bytes.");
+        }
+    }
+
+    private static byte[] ReadMetadata(
+        ReadOnlySpan<byte> payload,
+        ClrHeader clrHeader,
+        IReadOnlyList<WebcilSection> sections)
+    {
+        if (!TryTranslateRva(
+                sections,
+                payload.Length,
+                (uint)clrHeader.MetadataRva,
+                out int offset,
+                out int available)
+            || clrHeader.MetadataSize <= 0
+            || clrHeader.MetadataSize > available)
+        {
+            throw new BadImageFormatException("The Webcil metadata directory does not map to file bytes.");
+        }
+
+        return payload.Slice(offset, clrHeader.MetadataSize).ToArray();
+    }
+
+    private static List<WebcilDebugEntry> ReadDebugEntries(
+        ReadOnlySpan<byte> payload,
+        WebcilHeader header,
+        IReadOnlyList<WebcilSection> sections)
+    {
+        if (header.PeDebugRva == 0 || header.PeDebugSize == 0)
+            return [];
+
+        if (header.PeDebugSize % DebugDirectoryEntrySize != 0
+            || !TryTranslateRva(
+                sections,
+                payload.Length,
+                header.PeDebugRva,
+                out int offset,
+                out int available)
+            || header.PeDebugSize > (uint)available)
+        {
+            throw new BadImageFormatException("The Webcil debug directory does not map to file bytes.");
+        }
+
+        int debugSize = (int)header.PeDebugSize;
+        int count = debugSize / DebugDirectoryEntrySize;
+        List<WebcilDebugEntry> result = new(count);
+        for (int index = 0; index < count; index++)
+        {
+            ReadOnlySpan<byte> span = payload.Slice(
+                offset + index * DebugDirectoryEntrySize,
+                DebugDirectoryEntrySize);
+            if (BinaryPrimitives.ReadUInt32LittleEndian(span) != 0)
+                throw new BadImageFormatException("Webcil debug-directory characteristics must be zero.");
+
+            uint dataSize = BinaryPrimitives.ReadUInt32LittleEndian(span[16..]);
+            uint dataRva = BinaryPrimitives.ReadUInt32LittleEndian(span[20..]);
+            uint dataPointer = BinaryPrimitives.ReadUInt32LittleEndian(span[24..]);
+            ValidatePayloadRange(
+                dataPointer,
+                dataSize,
+                payload.Length,
+                "The Webcil debug payload is out of range.");
+
+            result.Add(new WebcilDebugEntry(
+                Stamp: BinaryPrimitives.ReadUInt32LittleEndian(span[4..]),
+                MajorVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[8..]),
+                MinorVersion: BinaryPrimitives.ReadUInt16LittleEndian(span[10..]),
+                Type: (DebugDirectoryEntryType)BinaryPrimitives.ReadInt32LittleEndian(span[12..]),
+                DataSize: (int)dataSize,
+                DataRva: unchecked((int)dataRva),
+                DataPointer: (int)dataPointer));
+        }
+
+        return result;
     }
 
     private string FormatPayload(WebcilDebugEntry entry)
@@ -461,25 +519,25 @@ internal sealed class WebcilImageReader
 
     private string FormatCodeViewPayload(WebcilDebugEntry entry)
     {
-        var data = ReadCodeView(entry);
+        WebcilCodeViewData data = ReadCodeView(entry);
         return $"Portable PDB; PDB GUID: {data.Guid}; age: {data.Age}; path: {data.Path}";
     }
 
     private string FormatPdbChecksumPayload(WebcilDebugEntry entry)
     {
-        var payload = ReadEntryPayload(entry);
-        var nul = payload.IndexOf((byte)0);
+        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
+        int nul = payload.IndexOf((byte)0);
         if (nul < 0)
             return "";
 
-        var algorithm = System.Text.Encoding.UTF8.GetString(payload[..nul]);
-        var checksum = payload[(nul + 1)..];
+        string algorithm = System.Text.Encoding.UTF8.GetString(payload[..nul]);
+        ReadOnlySpan<byte> checksum = payload[(nul + 1)..];
         return $"Algorithm: {algorithm}; checksum: {Convert.ToHexString(checksum)}";
     }
 
     private string FormatEmbeddedPortablePdbPayload(WebcilDebugEntry entry)
     {
-        var payload = ReadEntryPayload(entry);
+        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
         return payload.Length >= 8
             ? $"present; uncompressed size: {BinaryPrimitives.ReadInt32LittleEndian(payload[4..])} bytes"
             : "present";
@@ -487,18 +545,20 @@ internal sealed class WebcilImageReader
 
     private ReadOnlySpan<byte> ReadEntryPayload(WebcilDebugEntry entry)
     {
-        var offset = checked(PayloadOffset + entry.DataPointer);
-        if (entry.DataSize < 0 || offset < 0 || offset + entry.DataSize > _image.Length)
-            throw new BadImageFormatException("The Webcil debug entry payload is out of range.");
-        return _image.AsSpan((int)offset, entry.DataSize);
+        ValidatePayloadRange(
+            entry.DataPointer,
+            entry.DataSize,
+            _image.Length,
+            "The Webcil debug entry payload is out of range.");
+        return _image.AsSpan(entry.DataPointer, entry.DataSize);
     }
 
-    private bool TryTranslateRva(uint rva, out long offset, out long available) =>
-        TryTranslateRva(_sections, PayloadOffset, rva, out offset, out available);
+    private bool TryTranslateRva(uint rva, out int offset, out int available) =>
+        TryTranslateRva(_sections, _image.Length, rva, out offset, out available);
 
     private WebcilDebugEntry? FindDebugEntry(DebugDirectoryEntryType type)
     {
-        foreach (var entry in _debugEntries)
+        foreach (WebcilDebugEntry entry in _debugEntries)
             if (entry.Type == type)
                 return entry;
 
@@ -507,96 +567,231 @@ internal sealed class WebcilImageReader
 
     private static bool TryTranslateRva(
         IReadOnlyList<WebcilSection> sections,
-        long payloadOffset,
+        int payloadLength,
         uint rva,
-        out long offset,
-        out long available)
+        out int offset,
+        out int available)
     {
         offset = 0;
         available = 0;
-        foreach (var section in sections)
+        foreach (WebcilSection section in sections)
         {
-            if (rva < section.VirtualAddress || rva >= section.VirtualAddress + section.VirtualSize)
+            if (rva < section.VirtualAddress)
                 continue;
 
-            var delta = rva - section.VirtualAddress;
-            if (delta >= section.SizeOfRawData)
+            uint delta = rva - section.VirtualAddress;
+            if (delta >= section.VirtualSize || delta >= section.SizeOfRawData)
+                continue;
+
+            uint rawOffset = section.PointerToRawData + delta;
+            if (rawOffset > (uint)payloadLength)
                 return false;
 
-            offset = checked(payloadOffset + section.PointerToRawData + delta);
-            available = section.SizeOfRawData - delta;
+            uint virtualAvailable = section.VirtualSize - delta;
+            uint rawAvailable = section.SizeOfRawData - delta;
+            uint payloadAvailable = (uint)payloadLength - rawOffset;
+            offset = (int)rawOffset;
+            available = (int)Math.Min(virtualAvailable, Math.Min(rawAvailable, payloadAvailable));
             return true;
         }
 
         return false;
     }
 
-    private static byte ReadByte(ReadOnlySpan<byte> bytes, ref int pos)
+    private static bool TryFindPayload(
+        ReadOnlySpan<byte> bytes,
+        out int payloadOffset,
+        out int payloadLength)
     {
-        if ((uint)pos >= (uint)bytes.Length)
-            throw new BadImageFormatException("Unexpected end of WebAssembly data.");
-        return bytes[pos++];
-    }
+        payloadOffset = 0;
+        payloadLength = 0;
+        if (bytes.Length < sizeof(uint))
+            return false;
 
-    private static uint ReadUleb(ReadOnlySpan<byte> bytes, ref int pos)
-    {
-        uint result = 0;
-        var shift = 0;
-        while (true)
+        if (BinaryPrimitives.ReadUInt32LittleEndian(bytes) == WebcilMagic)
         {
-            var b = ReadByte(bytes, ref pos);
-            result |= (uint)(b & 0x7F) << shift;
-            if ((b & 0x80) == 0)
-                return result;
-            shift += 7;
-            if (shift >= 35)
-                throw new BadImageFormatException("WebAssembly ULEB128 value is too large.");
+            payloadLength = bytes.Length;
+            return true;
         }
+
+        if (bytes.Length < 8
+            || BinaryPrimitives.ReadUInt32LittleEndian(bytes) != WasmMagic
+            || BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) != WasmVersion)
+        {
+            return false;
+        }
+
+        bool recognized = false;
+        try
+        {
+            int position = 8;
+            while (position < bytes.Length)
+            {
+                byte sectionId = ReadByte(bytes, ref position, bytes.Length);
+                uint sectionSize = ReadUleb32(bytes, ref position, bytes.Length);
+                bool sectionTruncated = sectionSize > (uint)(bytes.Length - position);
+                int sectionEnd = sectionTruncated ? bytes.Length : position + (int)sectionSize;
+                if (sectionId != 11)
+                {
+                    if (sectionTruncated)
+                        return false;
+                    position = sectionEnd;
+                    continue;
+                }
+
+                uint segmentCount = ReadUleb32(bytes, ref position, sectionEnd);
+                for (uint index = 0; index < segmentCount; index++)
+                {
+                    uint mode = ReadUleb32(bytes, ref position, sectionEnd);
+                    if (mode == 0)
+                    {
+                        SkipConstExpr(bytes, ref position, sectionEnd);
+                    }
+                    else if (mode == 2)
+                    {
+                        _ = ReadUleb32(bytes, ref position, sectionEnd);
+                        SkipConstExpr(bytes, ref position, sectionEnd);
+                    }
+                    else if (mode != 1)
+                    {
+                        return false;
+                    }
+
+                    uint size = ReadUleb32(bytes, ref position, sectionEnd);
+                    recognized = size >= sizeof(uint)
+                        && position <= sectionEnd - sizeof(uint)
+                        && BinaryPrimitives.ReadUInt32LittleEndian(bytes[position..]) == WebcilMagic;
+                    if (recognized && sectionTruncated)
+                    {
+                        throw new BadImageFormatException(
+                            "The WebAssembly data section containing Webcil extends past the file.");
+                    }
+                    if (size > (uint)(sectionEnd - position))
+                    {
+                        if (recognized)
+                            throw new BadImageFormatException(
+                                "The wrapped Webcil payload extends past its data segment.");
+                        return false;
+                    }
+
+                    if (recognized)
+                    {
+                        payloadOffset = position;
+                        payloadLength = (int)size;
+                        return true;
+                    }
+
+                    position += (int)size;
+                }
+
+                return false;
+            }
+        }
+        catch (Exception ex) when (
+            !recognized
+            && ex is BadImageFormatException or OverflowException or ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+        catch (Exception ex) when (
+            recognized
+            && ex is OverflowException or ArgumentOutOfRangeException)
+        {
+            throw new BadImageFormatException("The wrapped Webcil payload is malformed.", ex);
+        }
+
+        return false;
     }
 
-    private static void SkipConstExpr(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static uint ReadUleb32(ReadOnlySpan<byte> bytes, ref int position, int end)
     {
-        while (pos < end)
+        uint value = 0;
+        for (int index = 0; index < 5; index++)
         {
-            var opcode = ReadByte(bytes, ref pos);
+            byte current = ReadByte(bytes, ref position, end);
+            if (index == 4 && (current & 0xF0) != 0)
+                throw new BadImageFormatException("A WebAssembly ULEB128 value is too large.");
+
+            value |= (uint)(current & 0x7F) << (index * 7);
+            if ((current & 0x80) == 0)
+                return value;
+        }
+
+        throw new BadImageFormatException("A WebAssembly ULEB128 value is too large.");
+    }
+
+    private static byte ReadByte(ReadOnlySpan<byte> bytes, ref int position, int end)
+    {
+        if ((uint)position >= (uint)end || (uint)position >= (uint)bytes.Length)
+            throw new BadImageFormatException("Unexpected end of WebAssembly data.");
+        return bytes[position++];
+    }
+
+    private static void SkipConstExpr(ReadOnlySpan<byte> bytes, ref int position, int end)
+    {
+        while (position < end)
+        {
+            byte opcode = ReadByte(bytes, ref position, end);
             switch (opcode)
             {
                 case 0x0B:
                     return;
                 case 0x41:
+                    SkipLeb128(bytes, ref position, end, 5);
+                    break;
                 case 0x42:
-                    _ = ReadUleb(bytes, ref pos);
+                    SkipLeb128(bytes, ref position, end, 10);
+                    break;
+                case 0x43:
+                    SkipBytes(ref position, end, sizeof(float));
+                    break;
+                case 0x44:
+                    SkipBytes(ref position, end, sizeof(double));
                     break;
                 case 0x23:
-                    _ = ReadUleb(bytes, ref pos);
+                case 0xD2:
+                    _ = ReadUleb32(bytes, ref position, end);
                     break;
-                default:
+                case 0xD0:
+                    SkipLeb128(bytes, ref position, end, 5);
                     break;
             }
         }
+
+        throw new BadImageFormatException("A WebAssembly constant expression is unterminated.");
+    }
+
+    private static void SkipLeb128(ReadOnlySpan<byte> bytes, ref int position, int end, int maximumBytes)
+    {
+        for (int index = 0; index < maximumBytes; index++)
+            if ((ReadByte(bytes, ref position, end) & 0x80) == 0)
+                return;
+
+        throw new BadImageFormatException("A WebAssembly LEB128 value is too large.");
+    }
+
+    private static void SkipBytes(ref int position, int end, int count)
+    {
+        if (position > end - count)
+            throw new BadImageFormatException("Unexpected end of WebAssembly data.");
+        position += count;
+    }
+
+    private static void ValidatePayloadRange(int offset, int size, int payloadLength, string message)
+    {
+        if (offset < 0 || size < 0 || offset > payloadLength || size > payloadLength - offset)
+            throw new BadImageFormatException(message);
+    }
+
+    private static void ValidatePayloadRange(uint offset, uint size, int payloadLength, string message)
+    {
+        if (offset > (uint)payloadLength || size > (uint)payloadLength - offset)
+            throw new BadImageFormatException(message);
     }
 
     private static string ReadUtf8NullTerminated(ReadOnlySpan<byte> bytes)
     {
-        var nul = bytes.IndexOf((byte)0);
+        int nul = bytes.IndexOf((byte)0);
         return System.Text.Encoding.UTF8.GetString(nul >= 0 ? bytes[..nul] : bytes);
     }
-
-    private readonly record struct WebcilHeader(
-        uint Id,
-        int VersionMajor,
-        int VersionMinor,
-        int CoffSections,
-        uint PeCliHeaderRva,
-        uint PeCliHeaderSize,
-        uint PeDebugRva,
-        uint PeDebugSize,
-        uint TableBase);
-
-    private readonly record struct WebcilSection(
-        uint VirtualSize,
-        uint VirtualAddress,
-        uint SizeOfRawData,
-        uint PointerToRawData);
-
 }

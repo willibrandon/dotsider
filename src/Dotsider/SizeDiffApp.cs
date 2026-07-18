@@ -113,10 +113,6 @@ public sealed class SizeDiffApp(SizeDiffState state)
                 // Yank: editors only — the treemap has no row model to yank.
                 bindings.Key(Hex1bKey.Y).Global().Action(ctx =>
                 {
-                    if (_state.VimPending != VimMotionState.Idle
-                        && (DateTime.UtcNow - _state.VimPendingTimestamp).TotalSeconds > 1.0)
-                        _state.VimPending = VimMotionState.Idle;
-
                     if (_state.VimPending == VimMotionState.WaitingForYMotion
                         && ctx.FocusedNode is EditorNode { State: var yyState } yyEditor
                         && yyState == _state.VimPendingEditor

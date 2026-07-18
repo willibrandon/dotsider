@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
+using System.Buffers.Binary;
 
 namespace Dotsider.Tests;
 
@@ -113,6 +114,56 @@ public sealed class WasmSdkModuleDecoderTests
         Assert.IsNotNull(il);
         Assert.Contains("IL_", il.Value.Text);
         Assert.Contains("ldarg", il.Value.Text);
+    }
+
+    /// <summary>
+    /// A real SDK Webcil wrapper is rejected when its final section crosses the containing data
+    /// segment even though the claimed bytes remain present in the outer WebAssembly module.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void BrowserWasmWebcilAssembly_SectionCrossesPayloadBoundary_ThrowsBadImageFormatException()
+    {
+        TestSkip.When(
+            Samples.WasmConsoleWebcilWasm is null,
+            "browser-wasm publish did not produce the Webcil app assembly on this leg.");
+        string path = Samples.WasmConsoleWebcilWasm!;
+        byte[] bytes = File.ReadAllBytes(path);
+        (int payloadOffset, int payloadLength) = FindWebcilPayload(bytes);
+        int payloadEnd = checked(payloadOffset + payloadLength);
+        Assert.IsGreaterThan(
+            payloadEnd,
+            bytes.Length,
+            "The SDK wrapper must contain suffix bytes after its Webcil data segment.");
+
+        ushort version = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(payloadOffset + 4));
+        ushort sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(payloadOffset + 8));
+        Assert.IsInRange((ushort)1, (ushort)16, sectionCount);
+        int sectionTableOffset = checked(payloadOffset + (version == 0 ? 28 : 32));
+        int finalSectionOffset = sectionTableOffset;
+        uint finalRawEnd = 0;
+        uint rawPointer = 0;
+        for (int index = 0; index < sectionCount; index++)
+        {
+            int candidateOffset = checked(sectionTableOffset + index * 16);
+            uint candidateSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidateOffset + 8));
+            uint candidatePointer = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidateOffset + 12));
+            uint candidateEnd = checked(candidatePointer + candidateSize);
+            if (candidateEnd <= finalRawEnd)
+                continue;
+
+            finalSectionOffset = candidateOffset;
+            finalRawEnd = candidateEnd;
+            rawPointer = candidatePointer;
+        }
+
+        Assert.AreEqual(checked((uint)payloadLength), finalRawEnd);
+        Assert.IsLessThan(checked((uint)payloadLength), rawPointer);
+        uint crossingSize = checked((uint)payloadLength - rawPointer + 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(finalSectionOffset + 8), crossingSize);
+
+        Assert.ThrowsExactly<BadImageFormatException>(() =>
+            new AssemblyAnalyzer(bytes, path));
     }
 
     /// <summary>
@@ -281,5 +332,98 @@ public sealed class WasmSdkModuleDecoderTests
 
         TestAssert.All(values, index =>
             Assert.IsGreaterThanOrEqualTo(importCount, index, $"{label} index {index} should account for {importCount} imports."));
+    }
+
+    private static (int Offset, int Length) FindWebcilPayload(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length < 8
+            || BinaryPrimitives.ReadUInt32LittleEndian(bytes) != 0x6D736100
+            || BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) != 1)
+        {
+            throw new InvalidDataException("The SDK fixture is not a WebAssembly module.");
+        }
+
+        int position = 8;
+        while (position < bytes.Length)
+        {
+            byte sectionId = ReadByte(bytes, ref position, bytes.Length);
+            int sectionSize = checked((int)ReadUleb(bytes, ref position, bytes.Length));
+            int sectionEnd = checked(position + sectionSize);
+            if (sectionEnd > bytes.Length)
+                throw new InvalidDataException("The SDK fixture contains a truncated WebAssembly section.");
+
+            if (sectionId != 11)
+            {
+                position = sectionEnd;
+                continue;
+            }
+
+            int segmentCount = checked((int)ReadUleb(bytes, ref position, sectionEnd));
+            for (int index = 0; index < segmentCount; index++)
+            {
+                uint mode = ReadUleb(bytes, ref position, sectionEnd);
+                if (mode == 0)
+                {
+                    SkipInitializer(bytes, ref position, sectionEnd);
+                }
+                else if (mode == 2)
+                {
+                    _ = ReadUleb(bytes, ref position, sectionEnd);
+                    SkipInitializer(bytes, ref position, sectionEnd);
+                }
+                else if (mode != 1)
+                {
+                    throw new InvalidDataException($"Unsupported WebAssembly data-segment mode {mode}.");
+                }
+
+                int length = checked((int)ReadUleb(bytes, ref position, sectionEnd));
+                if (length > sectionEnd - position)
+                    throw new InvalidDataException("The SDK fixture contains a truncated data segment.");
+                if (length >= sizeof(uint)
+                    && BinaryPrimitives.ReadUInt32LittleEndian(bytes[position..]) == 0x4C496257)
+                {
+                    return (position, length);
+                }
+
+                position += length;
+            }
+
+            break;
+        }
+
+        throw new InvalidDataException("The SDK fixture does not contain a Webcil data segment.");
+    }
+
+    private static byte ReadByte(ReadOnlySpan<byte> bytes, ref int position, int end)
+    {
+        if ((uint)position >= (uint)end)
+            throw new InvalidDataException("Unexpected end of WebAssembly data.");
+        return bytes[position++];
+    }
+
+    private static uint ReadUleb(ReadOnlySpan<byte> bytes, ref int position, int end)
+    {
+        uint result = 0;
+        for (int shift = 0; shift < 35; shift += 7)
+        {
+            byte value = ReadByte(bytes, ref position, end);
+            result |= (uint)(value & 0x7F) << shift;
+            if ((value & 0x80) == 0)
+                return result;
+        }
+
+        throw new InvalidDataException("The SDK fixture contains an oversized ULEB128 value.");
+    }
+
+    private static void SkipInitializer(ReadOnlySpan<byte> bytes, ref int position, int end)
+    {
+        while (true)
+        {
+            byte opcode = ReadByte(bytes, ref position, end);
+            if (opcode == 0x0B)
+                return;
+            if (opcode is 0x41 or 0x42 or 0x23)
+                _ = ReadUleb(bytes, ref position, end);
+        }
     }
 }
