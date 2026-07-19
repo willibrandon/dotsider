@@ -225,7 +225,7 @@ public static class DynamicAnalysisView
             // Tab cycles focus through editors and subtab strip on Counters/Summary
             if (state.DynamicSubTab == DynamicSubTabId.Counters)
             {
-                bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+                bindings.Key(Hex1bKey.Tab).Global().Action(context =>
                 {
                     state.VimPending = VimMotionState.Idle;
                     var next = state.App.FocusedNode is EditorNode { State: var es } ? es switch
@@ -237,23 +237,23 @@ public static class DynamicAnalysisView
                     } : state.DynamicCpuEditorState; // subtab strip → CPU
 
                     if (next is not null)
-                        state.App.RequestFocus(node => node is EditorNode e && e.State == next);
+                        context.FocusWhere(node => node is EditorNode e && ReferenceEquals(e.State, next));
                     else
-                        state.App.RequestFocus(node =>
+                        context.FocusWhere(node =>
                             node is TabPanelNode { MetricName: "dynamic-subtabs" });
                     state.App.Invalidate();
                 }, "Cycle focus");
             }
             else if (state.DynamicSubTab == DynamicSubTabId.Summary)
             {
-                bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+                bindings.Key(Hex1bKey.Tab).Global().Action(context =>
                 {
                     state.VimPending = VimMotionState.Idle;
                     if (state.App.FocusedNode is EditorNode)
-                        state.App.RequestFocus(node =>
+                        context.FocusWhere(node =>
                             node is TabPanelNode { MetricName: "dynamic-subtabs" });
                     else
-                        state.App.RequestFocus(node => node is EditorNode);
+                        context.FocusWhere(node => node is EditorNode);
                     state.App.Invalidate();
                 }, "Toggle focus");
             }

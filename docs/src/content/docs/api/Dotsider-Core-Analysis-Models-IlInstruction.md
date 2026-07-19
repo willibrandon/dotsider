@@ -74,6 +74,16 @@ Whether the sequence point document has embedded source.
 public bool HasEmbeddedSource { get; init; }
 ```
 
+### IsMalformed
+
+Gets or initializes a value indicating whether this is the terminal marker for malformed IL.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool IsMalformed { get; init; }
+```
+
 ### LocalName
 
 The active PDB local variable name for LocalSlot, or null.

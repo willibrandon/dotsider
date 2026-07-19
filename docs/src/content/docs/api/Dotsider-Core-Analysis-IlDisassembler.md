@@ -39,7 +39,8 @@ public IlDisassembler(AssemblyAnalyzer analyzer)
 ### Disassemble(MethodDefInfo)
 
 Disassembles a method's IL body into a sequence of instructions.
-Returns an empty list if the method has no IL body.
+Returns an empty list if the method has no IL body. A body ending inside an opcode or operand
+returns its valid prefix followed by one [IsMalformed](/api/dotsider.core.analysis.models.ilinstruction.ismalformed/) marker.
 
 **Parameters:**
 
@@ -55,7 +56,8 @@ public IReadOnlyList<IlInstruction> Disassemble(MethodDefInfo method)
 
 ### DisassembleWithText(MethodDefInfo)
 
-Disassembles a method and returns the text, instruction list, and header line count.
+Disassembles a method and returns the text, instruction list, and header line count. A
+malformed terminal opcode or operand is represented by one [IsMalformed](/api/dotsider.core.analysis.models.ilinstruction.ismalformed/) marker.
 
 **Parameters:**
 
@@ -71,7 +73,8 @@ public (string Text, IReadOnlyList<IlInstruction> Instructions, int HeaderLineCo
 
 ### FormatDisassembly(MethodDefInfo)
 
-Formats a complete disassembly listing for a method, including header information.
+Formats a complete disassembly listing for a method, including header information and any
+terminal malformed-IL marker.
 
 **Parameters:**
 

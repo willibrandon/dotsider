@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Buffers.Binary;
 
 namespace Dotsider.Tests;
 
@@ -315,6 +316,92 @@ public class AssemblyDifferTests
     }
 
     /// <summary>
+    /// Verifies every truncated fixed-width operand fails closed as a changed method body.
+    /// </summary>
+    /// <param name="name">The operand shape under test.</param>
+    /// <param name="expectedOpcode">The corresponding disassembly mnemonic.</param>
+    /// <param name="il">The malformed method body.</param>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DynamicData(nameof(IlDisassemblerTests.TruncatedOperandCases), typeof(IlDisassemblerTests))]
+    public void Compare_IdenticalTruncatedFixedWidthOperands_AreDifferent(
+        string name,
+        string expectedOpcode,
+        byte[] il)
+    {
+        byte[] leftImage = SyntheticIlAssembly.Create(il);
+        byte[] rightImage = SyntheticIlAssembly.Create(il);
+        using var left = new AssemblyAnalyzer(leftImage, $"left-{name}.dll");
+        using var right = new AssemblyAnalyzer(rightImage, $"right-{name}.dll");
+
+        var result = AssemblyDiffer.Compare(left, right);
+
+        DiffEntry<MethodDefInfo> method = Assert.ContainsSingle(result.MethodDiffs);
+        Assert.AreEqual("Method", method.Left!.Name);
+        Assert.AreEqual(expectedOpcode, new IlDisassembler(left).Disassemble(method.Left)[1].OpCode);
+        Assert.AreEqual(DiffKind.Changed, method.Kind);
+    }
+
+    /// <summary>
+    /// Verifies malformed switch encodings fail closed as changed method bodies.
+    /// </summary>
+    /// <param name="name">The malformed switch shape.</param>
+    /// <param name="il">The malformed method body.</param>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DynamicData(nameof(IlDisassemblerTests.TruncatedSwitchCases), typeof(IlDisassemblerTests))]
+    public void Compare_IdenticalMalformedSwitches_AreDifferent(string name, byte[] il)
+    {
+        byte[] leftImage = SyntheticIlAssembly.Create(il);
+        byte[] rightImage = SyntheticIlAssembly.Create(il);
+        using var left = new AssemblyAnalyzer(leftImage, $"left-switch-{name}.dll");
+        using var right = new AssemblyAnalyzer(rightImage, $"right-switch-{name}.dll");
+
+        var result = AssemblyDiffer.Compare(left, right);
+
+        DiffEntry<MethodDefInfo> method = Assert.ContainsSingle(result.MethodDiffs);
+        Assert.AreEqual(DiffKind.Changed, method.Kind);
+    }
+
+    /// <summary>
+    /// Verifies an orphaned extended-opcode prefix fails closed as a changed method body.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Compare_IdenticalTruncatedExtendedOpcodes_AreDifferent()
+    {
+        byte[] il = [0x00, 0xFE];
+        byte[] leftImage = SyntheticIlAssembly.Create(il);
+        byte[] rightImage = SyntheticIlAssembly.Create(il);
+        using var left = new AssemblyAnalyzer(leftImage, "left-truncated-opcode.dll");
+        using var right = new AssemblyAnalyzer(rightImage, "right-truncated-opcode.dll");
+
+        var result = AssemblyDiffer.Compare(left, right);
+
+        DiffEntry<MethodDefInfo> method = Assert.ContainsSingle(result.MethodDiffs);
+        Assert.AreEqual(DiffKind.Changed, method.Kind);
+    }
+
+    /// <summary>
+    /// Verifies a complete large switch table remains equal and does not desynchronize the body walk.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Compare_EquivalentLargeSwitchBodies_AreUnchanged()
+    {
+        byte[] il = CreateLargeValidSwitch();
+        byte[] leftImage = SyntheticIlAssembly.Create(il);
+        byte[] rightImage = SyntheticIlAssembly.Create(il);
+        using var left = new AssemblyAnalyzer(leftImage, "left-large-switch.dll");
+        using var right = new AssemblyAnalyzer(rightImage, "right-large-switch.dll");
+
+        var result = AssemblyDiffer.Compare(left, right);
+
+        DiffEntry<MethodDefInfo> method = Assert.ContainsSingle(result.MethodDiffs);
+        Assert.AreEqual(DiffKind.Unchanged, method.Kind);
+    }
+
+    /// <summary>
     /// Verifies comparing an assembly against itself produces no body changes.
     /// </summary>
     [TestMethod]
@@ -404,5 +491,16 @@ public class AssemblyDifferTests
         Assert.IsNotNull(hasCallback);
         Assert.AreEqual(DiffKind.Changed, hasCallback.Kind);
         Assert.Contains("body", hasCallback.ChangeDescription!);
+    }
+
+    private static byte[] CreateLargeValidSwitch()
+    {
+        const int count = 1001;
+        var il = new byte[1 + 1 + sizeof(int) + (count * sizeof(int)) + 1];
+        il[0] = 0x00;
+        il[1] = 0x45;
+        BinaryPrimitives.WriteInt32LittleEndian(il.AsSpan(2), count);
+        il[^1] = 0x2A;
+        return il;
     }
 }

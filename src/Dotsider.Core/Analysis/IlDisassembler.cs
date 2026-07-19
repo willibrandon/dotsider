@@ -16,7 +16,8 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
 
     /// <summary>
     /// Disassembles a method's IL body into a sequence of instructions.
-    /// Returns an empty list if the method has no IL body.
+    /// Returns an empty list if the method has no IL body. A body ending inside an opcode or operand
+    /// returns its valid prefix followed by one <see cref="IlInstruction.IsMalformed"/> marker.
     /// </summary>
     /// <param name="method">The method to disassemble.</param>
     /// <returns>The list of decoded IL instructions.</returns>
@@ -37,22 +38,26 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         while (offset < ilBytes.Length)
         {
             var instructionOffset = offset;
-            var opCodeByte = ilBytes[offset++];
-
-            ILOpCode opCode;
-            if (opCodeByte == 0xFE)
+            if (!IlOperandReader.TryReadOpCode(ilBytes, ref offset, out ILOpCode opCode))
             {
-                if (offset >= ilBytes.Length) break;
-                var secondByte = ilBytes[offset++];
-                opCode = (ILOpCode)(0xFE00 | secondByte);
-            }
-            else
-            {
-                opCode = (ILOpCode)opCodeByte;
+                instructions.Add(CreateMalformedInstruction(
+                    instructionOffset,
+                    ".invalid",
+                    "<truncated opcode>"));
+                break;
             }
 
             var operandStart = offset;
-            var operand = DecodeOperand(ilBytes, ref offset, opCode);
+            if (!TryDecodeOperand(ilBytes, operandStart, opCode, out string operand, out int operandLength))
+            {
+                instructions.Add(CreateMalformedInstruction(
+                    instructionOffset,
+                    FormatOpCode(opCode),
+                    "<truncated operand>"));
+                break;
+            }
+
+            offset = operandStart + operandLength;
             var localSlot = TryGetLocalSlot(opCode, ilBytes, operandStart);
             var localName = localSlot is null
                 ? null
@@ -64,9 +69,9 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
             var operandKind = GetOperandType(opCode);
             if (operandKind is OperandKind.InlineMethod or OperandKind.InlineField
                 or OperandKind.InlineType or OperandKind.InlineTok
-                && operandStart + 4 <= ilBytes.Length)
+                && operandLength == sizeof(int))
             {
-                metadataToken = BitConverter.ToInt32(ilBytes, operandStart);
+                metadataToken = IlOperandReader.ReadInt32(ilBytes, operandStart);
             }
 
             sequencePointsByOffset.TryGetValue(instructionOffset, out var sequencePoint);
@@ -91,7 +96,8 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     }
 
     /// <summary>
-    /// Formats a complete disassembly listing for a method, including header information.
+    /// Formats a complete disassembly listing for a method, including header information and any
+    /// terminal malformed-IL marker.
     /// </summary>
     /// <param name="method">The method to disassemble.</param>
     /// <returns>A multi-line string with the full disassembly listing.</returns>
@@ -102,7 +108,8 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     }
 
     /// <summary>
-    /// Disassembles a method and returns the text, instruction list, and header line count.
+    /// Disassembles a method and returns the text, instruction list, and header line count. A
+    /// malformed terminal opcode or operand is represented by one <see cref="IlInstruction.IsMalformed"/> marker.
     /// </summary>
     /// <param name="method">The method to disassemble.</param>
     /// <returns>Tuple of (text, instructions, headerLineCount), or null if no IL body.</returns>
@@ -271,27 +278,44 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         };
     }
 
-    private string DecodeOperand(byte[] ilBytes, ref int offset, ILOpCode opCode)
+    private bool TryDecodeOperand(
+        byte[] ilBytes,
+        int operandStart,
+        ILOpCode opCode,
+        out string operand,
+        out int operandLength)
     {
-        return GetOperandType(opCode) switch
+        var operandKind = GetOperandType(opCode);
+        if (!IlOperandReader.TryGetOperandLength(ilBytes, operandStart, operandKind, out operandLength))
+        {
+            operand = string.Empty;
+            return false;
+        }
+
+        var operandEnd = operandStart + operandLength;
+        operand = operandKind switch
         {
             OperandKind.None => "",
-            OperandKind.ShortBranchTarget => FormatBranchTarget(offset + 1 + ReadSByte(ilBytes, ref offset)),
-            OperandKind.BranchTarget => FormatBranchTarget(offset + 4 + ReadInt32(ilBytes, ref offset)),
-            OperandKind.ShortInlineI => ReadSByte(ilBytes, ref offset).ToString(),
-            OperandKind.InlineI => ReadInt32(ilBytes, ref offset).ToString(),
-            OperandKind.InlineI8 => ReadInt64(ilBytes, ref offset).ToString(),
-            OperandKind.ShortInlineR => ReadSingle(ilBytes, ref offset).ToString("G"),
-            OperandKind.InlineR => ReadDouble(ilBytes, ref offset).ToString("G"),
-            OperandKind.ShortInlineVar => ReadByte(ilBytes, ref offset).ToString(),
-            OperandKind.InlineVar => ReadUInt16(ilBytes, ref offset).ToString(),
-            OperandKind.InlineString => ResolveStringToken(ReadInt32(ilBytes, ref offset)),
+            OperandKind.ShortBranchTarget => FormatBranchTarget(
+                (long)operandEnd + IlOperandReader.ReadSByte(ilBytes, operandStart)),
+            OperandKind.BranchTarget => FormatBranchTarget(
+                (long)operandEnd + IlOperandReader.ReadInt32(ilBytes, operandStart)),
+            OperandKind.ShortInlineI => IlOperandReader.ReadSByte(ilBytes, operandStart).ToString(),
+            OperandKind.InlineI => IlOperandReader.ReadInt32(ilBytes, operandStart).ToString(),
+            OperandKind.InlineI8 => IlOperandReader.ReadInt64(ilBytes, operandStart).ToString(),
+            OperandKind.ShortInlineR => IlOperandReader.ReadSingle(ilBytes, operandStart).ToString("G"),
+            OperandKind.InlineR => IlOperandReader.ReadDouble(ilBytes, operandStart).ToString("G"),
+            OperandKind.ShortInlineVar => IlOperandReader.ReadByte(ilBytes, operandStart).ToString(),
+            OperandKind.InlineVar => IlOperandReader.ReadUInt16(ilBytes, operandStart).ToString(),
+            OperandKind.InlineString => ResolveStringToken(IlOperandReader.ReadInt32(ilBytes, operandStart)),
             OperandKind.InlineMethod or OperandKind.InlineField or OperandKind.InlineType or OperandKind.InlineTok
-                => analyzer.ResolveToken(ReadInt32(ilBytes, ref offset)),
-            OperandKind.InlineSig => $"StandaloneSig(0x{ReadInt32(ilBytes, ref offset):X8})",
-            OperandKind.InlineSwitch => DecodeSwitch(ilBytes, ref offset),
+                => analyzer.ResolveToken(IlOperandReader.ReadInt32(ilBytes, operandStart)),
+            OperandKind.InlineSig => $"StandaloneSig(0x{IlOperandReader.ReadInt32(ilBytes, operandStart):X8})",
+            OperandKind.InlineSwitch => DecodeSwitch(ilBytes, operandStart, operandLength),
             _ => ""
         };
+
+        return true;
     }
 
     private string ResolveStringToken(int token)
@@ -308,62 +332,32 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
         }
     }
 
-    private static string DecodeSwitch(byte[] ilBytes, ref int offset)
+    private static string DecodeSwitch(byte[] ilBytes, int operandStart, int operandLength)
     {
-        var count = ReadInt32(ilBytes, ref offset);
-        if (count <= 0 || count > 1000) return $"({count} targets)";
+        var count = IlOperandReader.ReadInt32(ilBytes, operandStart);
+        if (count == 0) return "(0 targets)";
 
-        var baseOffset = offset + count * 4;
-        var targets = new List<string>();
+        var targetsOffset = operandStart + sizeof(int);
+        var baseOffset = operandStart + operandLength;
+        var targets = new List<string>(Math.Min(count, 10));
         for (var i = 0; i < count && i < 10; i++)
         {
-            var target = baseOffset + ReadInt32(ilBytes, ref offset);
+            var target = (long)baseOffset
+                + IlOperandReader.ReadInt32(ilBytes, targetsOffset + (i * sizeof(int)));
             targets.Add(FormatBranchTarget(target));
         }
-        // Skip remaining targets if more than 10
         if (count > 10)
         {
-            offset += (count - 10) * 4;
             targets.Add($"... ({count - 10} more)");
         }
         return $"({string.Join(", ", targets)})";
     }
 
-    private static string FormatBranchTarget(int target) => $"IL_{target:X4}";
-    private static string FormatOpCode(ILOpCode opCode) => opCode.ToString().ToLowerInvariant().Replace('_', '.');
+    private static IlInstruction CreateMalformedInstruction(int offset, string opCode, string operand) =>
+        new IlInstruction(offset, opCode, operand) { IsMalformed = true };
 
-    internal static sbyte ReadSByte(byte[] il, ref int offset) => (sbyte)il[offset++];
-    internal static byte ReadByte(byte[] il, ref int offset) => il[offset++];
-    internal static ushort ReadUInt16(byte[] il, ref int offset)
-    {
-        var v = BitConverter.ToUInt16(il, offset);
-        offset += 2;
-        return v;
-    }
-    internal static int ReadInt32(byte[] il, ref int offset)
-    {
-        var v = BitConverter.ToInt32(il, offset);
-        offset += 4;
-        return v;
-    }
-    internal static long ReadInt64(byte[] il, ref int offset)
-    {
-        var v = BitConverter.ToInt64(il, offset);
-        offset += 8;
-        return v;
-    }
-    internal static float ReadSingle(byte[] il, ref int offset)
-    {
-        var v = BitConverter.ToSingle(il, offset);
-        offset += 4;
-        return v;
-    }
-    internal static double ReadDouble(byte[] il, ref int offset)
-    {
-        var v = BitConverter.ToDouble(il, offset);
-        offset += 8;
-        return v;
-    }
+    private static string FormatBranchTarget(long target) => $"IL_{target:X4}";
+    private static string FormatOpCode(ILOpCode opCode) => opCode.ToString().ToLowerInvariant().Replace('_', '.');
 
     internal static OperandKind GetOperandType(ILOpCode opCode) => opCode switch
     {
