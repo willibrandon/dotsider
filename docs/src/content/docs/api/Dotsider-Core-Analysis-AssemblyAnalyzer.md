@@ -1040,7 +1040,8 @@ Resolves a metadata token to a human-readable name.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
-A display string for the token.
+A display string for the token. Constructed generic methods include their decoded type
+arguments; malformed or unsupported metadata is returned as the original hexadecimal token.
 
 ```csharp
 public string ResolveToken(int token)

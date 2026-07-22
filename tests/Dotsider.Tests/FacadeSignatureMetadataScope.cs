@@ -87,6 +87,7 @@ internal sealed class FacadeSignatureMetadataScope : IDisposable
     /// <param name="methodSpecification">The MethodSpec instantiation signature.</param>
     /// <param name="typeSpecifications">The TypeSpec signatures.</param>
     /// <param name="emitMethodBody">Whether the MethodDef should have a body referencing the local signature.</param>
+    /// <param name="methodSpecificationTargetsField">Whether the MethodSpec should target the field MemberRef.</param>
     /// <returns>A disposable metadata scope.</returns>
     public static FacadeSignatureMetadataScope Create(
         byte[]? method = null,
@@ -98,7 +99,8 @@ internal sealed class FacadeSignatureMetadataScope : IDisposable
         byte[]? memberReferenceField = null,
         byte[]? methodSpecification = null,
         IReadOnlyList<byte[]>? typeSpecifications = null,
-        bool emitMethodBody = false)
+        bool emitMethodBody = false,
+        bool methodSpecificationTargetsField = false)
     {
         var metadata = new MetadataBuilder();
         metadata.AddAssembly(
@@ -178,7 +180,9 @@ internal sealed class FacadeSignatureMetadataScope : IDisposable
             metadata.GetOrAddString("ReferencedField"),
             metadata.GetOrAddBlob(memberReferenceField ?? [0x06, 0x08]));
         var methodSpecificationHandle = metadata.AddMethodSpecification(
-            memberReferenceMethodHandle,
+            methodSpecificationTargetsField
+                ? memberReferenceFieldHandle
+                : memberReferenceMethodHandle,
             metadata.GetOrAddBlob(methodSpecification ?? [0x0A, 0x01, 0x08]));
 
         var typeSpecificationHandles = new List<TypeSpecificationHandle>(typeSpecifications?.Count ?? 0);

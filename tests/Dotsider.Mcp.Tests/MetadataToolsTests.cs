@@ -1,3 +1,6 @@
+using Dotsider.Core.Analysis;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -196,5 +199,50 @@ public class MetadataToolsTests : McpServerTestBase
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.IsTrue(json.TryGetProperty("resolved", out var resolved));
         Assert.IsFalse(string.IsNullOrEmpty(resolved.GetString()));
+    }
+
+    /// <summary>
+    /// resolve_token decodes a compiler-produced MethodSpec into its constructed generic method.
+    /// </summary>
+    [TestMethod]
+    public async Task ResolveToken_MethodSpecs_ReturnConstructedGenericMethods()
+    {
+        var assemblyPath = typeof(MethodSpecReproFixture).Assembly.Location;
+        int[] methodSpecTokens;
+        using (var analyzer = new AssemblyAnalyzer(assemblyPath))
+        {
+            var method = Assert.ContainsSingle(analyzer.MethodDefs.Where(candidate =>
+                candidate.DeclaringType == MethodSpecReproFixture.TypeName
+                && candidate.Name == MethodSpecReproFixture.MethodName));
+            methodSpecTokens = [.. new IlDisassembler(analyzer)
+                .Disassemble(method)
+                .Where(candidate => candidate.OpCode == "call"
+                    && candidate.MetadataToken is { } token
+                    && MetadataTokens.EntityHandle(token).Kind == HandleKind.MethodSpecification)
+                .Select(instruction => instruction.MetadataToken!.Value)];
+        }
+
+        Assert.HasCount(MethodSpecReproFixture.ExpectedDisplays.Count, methodSpecTokens);
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+        var resolvedNames = new List<string>();
+        foreach (var methodSpecToken in methodSpecTokens)
+        {
+            var result = await client.CallToolAsync(
+                "resolve_token",
+                new Dictionary<string, object?>
+                {
+                    ["assemblyPath"] = assemblyPath,
+                    ["token"] = methodSpecToken
+                },
+                cancellationToken: TestCancellationToken);
+
+            var text = GetTextContent(result);
+            Assert.IsNotNull(text);
+            var json = JsonSerializer.Deserialize<JsonElement>(text);
+            resolvedNames.Add(json.GetProperty("resolved").GetString()!);
+        }
+
+        Assert.AreSequenceEqual(MethodSpecReproFixture.ExpectedDisplays, resolvedNames);
     }
 }

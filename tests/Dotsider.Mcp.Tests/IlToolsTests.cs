@@ -40,6 +40,39 @@ public class IlToolsTests : McpServerTestBase
     }
 
     /// <summary>
+    /// disassemble_method renders compiler-produced MethodSpec operands as constructed generic methods.
+    /// </summary>
+    [TestMethod]
+    public async Task DisassembleMethod_MethodSpecs_ReturnConstructedGenericOperands()
+    {
+        await StartServerAsync();
+        await using var client = await CreateClientAsync();
+
+        var result = await client.CallToolAsync(
+            "disassemble_method",
+            new Dictionary<string, object?>
+            {
+                ["assemblyPath"] = typeof(MethodSpecReproFixture).Assembly.Location,
+                ["typeName"] = MethodSpecReproFixture.TypeName,
+                ["methodName"] = MethodSpecReproFixture.MethodName
+            },
+            cancellationToken: TestCancellationToken);
+
+        var text = GetTextContent(result);
+        Assert.IsNotNull(text);
+        var json = JsonSerializer.Deserialize<JsonElement>(text);
+        var methodSpecOperands = json.GetProperty("instructions")
+            .EnumerateArray()
+            .Where(instruction => instruction.TryGetProperty("metadataToken", out var token)
+                && token.ValueKind == JsonValueKind.Number
+                && (uint)token.GetInt32() >> 24 == 0x2B)
+            .Select(instruction => instruction.GetProperty("operand").GetString()!)
+            .ToArray();
+
+        Assert.AreSequenceEqual(MethodSpecReproFixture.ExpectedDisplays, methodSpecOperands);
+    }
+
+    /// <summary>
     /// disassemble_method can include portable PDB debug information when requested.
     /// </summary>
     [TestMethod]
