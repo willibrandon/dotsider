@@ -79,6 +79,25 @@ public class CliTests
     }
 
     /// <summary>
+    /// Verifies <c>analyze --il</c> renders a generic method instantiation instead of its raw
+    /// MethodSpec metadata token.
+    /// </summary>
+    [TestMethod]
+    public async Task Analyze_Il_MethodSpec_PrintsConstructedGenericMethod()
+    {
+        var (exitCode, stdout, _) = await RunDotsiderAsync(
+            "analyze",
+            typeof(MethodSpecReproFixture).Assembly.Location,
+            "--il",
+            $"{MethodSpecReproFixture.TypeName}.{MethodSpecReproFixture.MethodName}");
+
+        Assert.AreEqual(0, exitCode);
+        foreach (var expectedDisplay in MethodSpecReproFixture.ExpectedDisplays)
+            Assert.Contains($"call {expectedDisplay}", stdout);
+        Assert.DoesNotContain("call 0x2B", stdout);
+    }
+
+    /// <summary>
     /// Verifies analyze embedded source prints source text from an embedded portable PDB.
     /// </summary>
     [TestMethod]

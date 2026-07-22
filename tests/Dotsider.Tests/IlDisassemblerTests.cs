@@ -2,6 +2,7 @@ using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using System.Buffers.Binary;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Tests;
@@ -438,6 +439,35 @@ public class IlDisassemblerTests
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Verifies compiler-produced MethodSpec operands are decoded in IL instead of falling back to
+    /// their 0x2B metadata tokens.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void LinqMethodSpecs_ResolveForDisassembly()
+    {
+        using var analyzer = new AssemblyAnalyzer(typeof(MethodSpecReproFixture).Assembly.Location);
+        var method = Assert.ContainsSingle(analyzer.MethodDefs.Where(candidate =>
+            candidate.DeclaringType == MethodSpecReproFixture.TypeName
+            && candidate.Name == MethodSpecReproFixture.MethodName));
+        var instructions = new IlDisassembler(analyzer)
+            .Disassemble(method)
+            .Where(candidate => candidate.OpCode == "call"
+                && candidate.MetadataToken is { } token
+                && MetadataTokens.EntityHandle(token).Kind == HandleKind.MethodSpecification)
+            .ToArray();
+
+        Assert.HasCount(MethodSpecReproFixture.ExpectedDisplays.Count, instructions);
+        TestAssert.All(instructions, instruction =>
+            Assert.AreEqual(0x2B000000,
+                instruction.MetadataToken!.Value & unchecked((int)0xFF000000)));
+        Assert.AreSequenceEqual(
+            MethodSpecReproFixture.ExpectedDisplays,
+            instructions.Select(instruction => instruction.Operand));
+        TestAssert.All(instructions, instruction => Assert.DoesNotContain("0x2B", instruction.Operand));
     }
 
     /// <summary>

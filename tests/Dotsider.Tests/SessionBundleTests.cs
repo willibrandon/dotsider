@@ -468,6 +468,59 @@ public class SessionBundleTests : IAsyncDisposable
         Assert.IsGreaterThan(depthBefore, _state!.NavigationStack.Count);
     }
 
+    /// <summary>
+    /// Verifies that disassemble and resolve-token render MethodSpec tokens consistently
+    /// through the production diagnostics socket.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task MethodSpecs_ThroughDiagnosticsSession_ReturnConstructedGenericMethods()
+    {
+        var ct = CancellationToken.None;
+        var (_, socketPath) = await StartTuiWithDiagnosticsAsync(
+            typeof(MethodSpecReproFixture).Assembly.Location, ct);
+
+        var disassembleResponse = await DotsiderClient.SendAsync(socketPath,
+            new DotsiderRequest
+            {
+                Method = "disassemble",
+                TypeName = MethodSpecReproFixture.TypeName,
+                MethodName = MethodSpecReproFixture.MethodName
+            }, ct);
+        Assert.IsTrue(disassembleResponse.Success);
+
+        var instructions = ((disassembleResponse.Data as JsonElement?)!.Value)
+            .GetProperty("instructions");
+        var methodSpecs = instructions.EnumerateArray()
+            .Where(instruction => instruction.TryGetProperty("metadataToken", out var token)
+                && token.ValueKind == JsonValueKind.Number
+                && (uint)token.GetInt32() >> 24 == 0x2B)
+            .Select(instruction => new
+            {
+                Token = instruction.GetProperty("metadataToken").GetInt32(),
+                Operand = instruction.GetProperty("operand").GetString()!
+            })
+            .ToArray();
+
+        Assert.AreSequenceEqual(
+            MethodSpecReproFixture.ExpectedDisplays,
+            methodSpecs.Select(methodSpec => methodSpec.Operand));
+
+        var resolvedNames = new List<string>();
+        foreach (var methodSpec in methodSpecs)
+        {
+            var resolveResponse = await DotsiderClient.SendAsync(socketPath,
+                new DotsiderRequest { Method = "resolve-token", Token = methodSpec.Token }, ct);
+            Assert.IsTrue(resolveResponse.Success);
+
+            var resolved = (resolveResponse.Data as JsonElement?)!.Value;
+            Assert.AreEqual(methodSpec.Token, resolved.GetProperty("token").GetInt32());
+            resolvedNames.Add(resolved.GetProperty("resolved").GetString()!);
+        }
+
+        Assert.AreSequenceEqual(MethodSpecReproFixture.ExpectedDisplays, resolvedNames);
+    }
+
     // --- navigate-back ---
 
     /// <summary>

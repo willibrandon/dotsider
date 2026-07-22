@@ -1153,7 +1153,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Resolves a metadata token to a human-readable name.
     /// </summary>
     /// <param name="token">The metadata token to resolve.</param>
-    /// <returns>A display string for the token.</returns>
+    /// <returns>
+    /// A display string for the token. Constructed generic methods include their decoded type
+    /// arguments; malformed or unsupported metadata is returned as the original hexadecimal token.
+    /// </returns>
     public string ResolveToken(int token)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -1168,6 +1171,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 HandleKind.TypeDefinition => GetTypeDefName((TypeDefinitionHandle)handle),
                 HandleKind.MethodDefinition => GetMethodDefName((MethodDefinitionHandle)handle),
                 HandleKind.MemberReference => GetMemberRefName((MemberReferenceHandle)handle),
+                HandleKind.MethodSpecification => GetMethodSpecName((MethodSpecificationHandle)handle),
                 HandleKind.FieldDefinition => GetFieldDefName((FieldDefinitionHandle)handle),
                 HandleKind.StandaloneSignature => $"StandaloneSig(0x{token:X8})",
                 HandleKind.UserString => GetUserString(MetadataTokens.UserStringHandle(token & 0x00FFFFFF)),
@@ -2510,6 +2514,78 @@ public sealed class AssemblyAnalyzer : IDisposable
             _ => "?"
         };
         return $"{parent}::{name}";
+    }
+
+    private string GetMethodSpecName(MethodSpecificationHandle handle)
+    {
+        var token = MetadataTokens.GetToken(handle);
+        if (_metadataReader is null) return $"0x{token:X8}";
+
+        try
+        {
+            var provider = new AssemblySignatureTypeProvider(failOnInvalidMetadata: true);
+            var specification = _metadataReader.GetMethodSpecification(handle);
+            var typeArguments = SafeSignatureDecoder.DecodeMethodSpecificationSignature(
+                _metadataReader, handle, provider, genericContext: default);
+
+            string declaringType;
+            string methodName;
+            MethodSignature<string> methodSignature;
+
+            switch (specification.Method.Kind)
+            {
+                case HandleKind.MethodDefinition:
+                {
+                    var methodHandle = (MethodDefinitionHandle)specification.Method;
+                    var method = _metadataReader.GetMethodDefinition(methodHandle);
+                    declaringType = provider.GetTypeFromDefinition(
+                        _metadataReader, method.GetDeclaringType(), rawTypeKind: 0);
+                    methodName = _metadataReader.GetString(method.Name);
+                    methodSignature = SafeSignatureDecoder.DecodeMethodSignature(
+                        _metadataReader, methodHandle, provider, genericContext: default);
+                    break;
+                }
+                case HandleKind.MemberReference:
+                {
+                    var memberHandle = (MemberReferenceHandle)specification.Method;
+                    var member = _metadataReader.GetMemberReference(memberHandle);
+                    declaringType = member.Parent.Kind switch
+                    {
+                        HandleKind.TypeDefinition => provider.GetTypeFromDefinition(
+                            _metadataReader, (TypeDefinitionHandle)member.Parent, rawTypeKind: 0),
+                        HandleKind.TypeReference => provider.GetTypeFromReference(
+                            _metadataReader, (TypeReferenceHandle)member.Parent, rawTypeKind: 0),
+                        HandleKind.TypeSpecification => SafeSignatureDecoder.DecodeType(
+                            _metadataReader,
+                            (TypeSpecificationHandle)member.Parent,
+                            provider,
+                            genericContext: default),
+                        _ => throw new BadImageFormatException(
+                            $"MethodSpec 0x{token:X8} has an unsupported MemberRef parent."),
+                    };
+                    methodName = _metadataReader.GetString(member.Name);
+                    methodSignature = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
+                        _metadataReader, memberHandle, provider, genericContext: default);
+                    break;
+                }
+                default:
+                    throw new BadImageFormatException(
+                        $"MethodSpec 0x{token:X8} does not reference a method definition or member reference.");
+            }
+
+            if (methodSignature.GenericParameterCount == 0
+                || methodSignature.GenericParameterCount != typeArguments.Length)
+            {
+                throw new BadImageFormatException(
+                    $"MethodSpec 0x{token:X8} has a generic argument count that does not match its method.");
+            }
+
+            return $"{declaringType}::{methodName}<{string.Join(", ", typeArguments)}>";
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or InvalidOperationException)
+        {
+            return $"0x{token:X8}";
+        }
     }
 
     private string GetFieldDefName(FieldDefinitionHandle handle)

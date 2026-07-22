@@ -45,6 +45,56 @@ public class IlInspectorViewTests : IDisposable
     }
 
     /// <summary>
+    /// The IL Inspector renders a constructed generic method name instead of exposing the raw
+    /// MethodSpec token in its editor document.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab3_MethodSpec_RendersConstructedGenericMethod()
+    {
+        var (terminal, app, ct) = CreateDotsiderApp(
+            typeof(MethodSpecReproFixture).Assembly.Location);
+        var runTask = app.RunAsync(ct);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(screen => screen.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .WaitUntil(screen => screen.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D3)
+            .WaitUntil(screen => screen.ContainsText("▶") || screen.ContainsText("▼"),
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var method = _state!.Analyzer.MethodDefs.Single(candidate =>
+            candidate.DeclaringType == MethodSpecReproFixture.TypeName
+            && candidate.Name == MethodSpecReproFixture.MethodName);
+        _state.PendingMutations.Enqueue(state =>
+        {
+            state.IlTreeExpansionState["ns:(global)"] = true;
+            state.IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+            state.IlSelectedMethod = method;
+            state.IlSelectedMethodOwner = null;
+            state.SetIlFocusedTreeKey($"method:{method.Token}");
+        });
+        _state.RequestExtraFrame();
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => _state.IlEditorMethod?.Token == method.Token
+                && _state.IlEditorState?.Document.GetText().Contains("IL_", StringComparison.Ordinal) == true,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+
+        var documentText = _state.IlEditorState!.Document.GetText();
+        foreach (var expectedDisplay in MethodSpecReproFixture.ExpectedDisplays)
+            Assert.Contains($"call {expectedDisplay}", documentText);
+        Assert.DoesNotContain("call 0x2B", documentText);
+
+        _cts!.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
     /// After clicking in the IL editor and switching tabs, returning to IL
     /// must focus the tree table so arrow keys navigate methods, not the editor cursor.
     /// </summary>

@@ -1,5 +1,7 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
 namespace Dotsider.Tests;
@@ -769,6 +771,110 @@ public class AssemblyAnalyzerTests
     }
 
     /// <summary>
+    /// Verifies MethodSpecs backed by ordinary MemberRefs expose their constructed LINQ names.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ResolveToken_MethodSpecMemberRef_FormatsConstructedMethod()
+    {
+        using var analyzer = new AssemblyAnalyzer(typeof(MethodSpecReproFixture).Assembly.Location);
+        var tokens = GetMethodSpecificationTokens(
+            analyzer,
+            MethodSpecReproFixture.MethodName,
+            expectedCount: MethodSpecReproFixture.ExpectedDisplays.Count);
+        var reader = analyzer.GetMetadataReader()!;
+
+        TestAssert.All(tokens, token => Assert.AreEqual(
+            HandleKind.MemberReference,
+            reader.GetMethodSpecification((MethodSpecificationHandle)MetadataTokens.EntityHandle(token))
+                .Method.Kind));
+        Assert.AreSequenceEqual(
+            MethodSpecReproFixture.ExpectedDisplays,
+            tokens.Select(analyzer.ResolveToken));
+    }
+
+    /// <summary>
+    /// Verifies a MethodSpec may target a MethodDef and may itself contain a constructed generic
+    /// type argument.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ResolveToken_MethodSpecMethodDef_FormatsConstructedTypeArgument()
+    {
+        using var analyzer = new AssemblyAnalyzer(typeof(MethodSpecReproFixture).Assembly.Location);
+        var token = Assert.ContainsSingle(GetMethodSpecificationTokens(
+            analyzer,
+            MethodSpecReproFixture.MethodDefCallerName,
+            expectedCount: 1));
+        var specification = analyzer.GetMetadataReader()!.GetMethodSpecification(
+            (MethodSpecificationHandle)MetadataTokens.EntityHandle(token));
+
+        Assert.AreEqual(HandleKind.MethodDefinition, specification.Method.Kind);
+        Assert.AreEqual(MethodSpecReproFixture.MethodDefExpectedDisplay, analyzer.ResolveToken(token));
+    }
+
+    /// <summary>
+    /// Verifies a MethodSpec MemberRef can be owned by a TypeSpec and retains the constructed
+    /// declaring type in its display.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ResolveToken_MethodSpecMemberRefWithTypeSpecParent_FormatsConstructedOwner()
+    {
+        using var analyzer = new AssemblyAnalyzer(typeof(MethodSpecReproFixture).Assembly.Location);
+        var token = Assert.ContainsSingle(GetMethodSpecificationTokens(
+            analyzer,
+            MethodSpecReproFixture.TypeSpecParentCallerName,
+            expectedCount: 1));
+        var reader = analyzer.GetMetadataReader()!;
+        var specification = reader.GetMethodSpecification(
+            (MethodSpecificationHandle)MetadataTokens.EntityHandle(token));
+        var memberReference = reader.GetMemberReference((MemberReferenceHandle)specification.Method);
+
+        Assert.AreEqual(HandleKind.MemberReference, specification.Method.Kind);
+        Assert.AreEqual(HandleKind.TypeSpecification, memberReference.Parent.Kind);
+        Assert.AreEqual(MethodSpecReproFixture.TypeSpecParentExpectedDisplay, analyzer.ResolveToken(token));
+    }
+
+    /// <summary>
+    /// Verifies invalid MethodSpec metadata fails closed to the complete original token.
+    /// </summary>
+    /// <param name="name">The malformed metadata shape.</param>
+    /// <param name="memberReferenceMethod">The underlying MemberRef signature.</param>
+    /// <param name="methodSpecification">The MethodSpec signature.</param>
+    /// <param name="targetsField">Whether the MethodSpec targets the field MemberRef.</param>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DynamicData(nameof(InvalidMethodSpecificationCases))]
+    public void ResolveToken_InvalidMethodSpec_ReturnsExactRawToken(
+        string name,
+        byte[] memberReferenceMethod,
+        byte[] methodSpecification,
+        bool targetsField)
+    {
+        _ = name;
+        using var scope = FacadeSignatureMetadataScope.Create(
+            memberReferenceMethod: memberReferenceMethod,
+            methodSpecification: methodSpecification,
+            methodSpecificationTargetsField: targetsField);
+        using var analyzer = new AssemblyAnalyzer(scope.Image, "InvalidMethodSpec.dll");
+        var token = MetadataTokens.GetToken(scope.MethodSpecification);
+
+        Assert.AreEqual($"0x{token:X8}", analyzer.ResolveToken(token));
+    }
+
+    /// <summary>Verifies an out-of-range MethodSpec row retains the exact original token.</summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ResolveToken_OutOfRangeMethodSpec_ReturnsExactRawToken()
+    {
+        using var analyzer = new AssemblyAnalyzer(typeof(MethodSpecReproFixture).Assembly.Location);
+        const int token = 0x2BFFFFFF;
+
+        Assert.AreEqual("0x2BFFFFFF", analyzer.ResolveToken(token));
+    }
+
+    /// <summary>
     /// Verifies resolve token invalid token returns hex string.
     /// </summary>
     [TestMethod]
@@ -778,6 +884,59 @@ public class AssemblyAnalyzerTests
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var result = a.ResolveToken(0x7F000001);
         Assert.Contains("0x", result);
+    }
+
+    /// <summary>Supplies malformed or inconsistent MethodSpec metadata.</summary>
+    /// <returns>The case name, underlying method signature, MethodSpec signature, and field flag.</returns>
+    public static IEnumerable<object[]> InvalidMethodSpecificationCases()
+    {
+        // Generic method with one type parameter, no parameters, and an int return type.
+        byte[] genericArityOne = [0x10, 0x01, 0x00, 0x08];
+        byte[] validIntInstantiation = [0x0A, 0x01, 0x08];
+
+        yield return [
+            "truncated instantiation signature",
+            genericArityOne,
+            new byte[] { 0x0A, 0x01 },
+            false
+        ];
+        yield return [
+            "non-generic underlying method",
+            new byte[] { 0x00, 0x00, 0x08 },
+            validIntInstantiation,
+            false
+        ];
+        yield return [
+            "generic arity mismatch",
+            new byte[] { 0x10, 0x02, 0x00, 0x08 },
+            validIntInstantiation,
+            false
+        ];
+        yield return [
+            "field MemberRef",
+            genericArityOne,
+            validIntInstantiation,
+            true
+        ];
+    }
+
+    private static int[] GetMethodSpecificationTokens(
+        AssemblyAnalyzer analyzer,
+        string methodName,
+        int expectedCount)
+    {
+        var method = Assert.ContainsSingle(analyzer.MethodDefs.Where(candidate =>
+            candidate.DeclaringType == MethodSpecReproFixture.TypeName
+            && candidate.Name == methodName));
+        var tokens = new IlDisassembler(analyzer)
+            .Disassemble(method)
+            .Where(candidate => candidate.MetadataToken is { } token
+                && MetadataTokens.EntityHandle(token).Kind == HandleKind.MethodSpecification)
+            .Select(candidate => candidate.MetadataToken!.Value)
+            .ToArray();
+
+        Assert.HasCount(expectedCount, tokens);
+        return tokens;
     }
 
     /// <summary>
