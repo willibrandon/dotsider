@@ -282,7 +282,14 @@ static async Task<int> RunTui(string[] args, string filePath)
         try
         {
             CursorColorHelper.ResetCursorColor();
-            hex1bApp.Dispose();
+            try
+            {
+                capturedState?.Dispose();
+            }
+            finally
+            {
+                hex1bApp.Dispose();
+            }
         }
         catch (Exception ex)
         {

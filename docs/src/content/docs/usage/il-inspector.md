@@ -32,6 +32,32 @@ Press `Esc` to go back. The previous IL bytecode, cursor position, tree expansio
 - Press `o` on a selected method to open embedded source when the PDB carries it.
 - Press `Esc` to return to where you came from.
 
+### Opening embedded source
+
+Embedded source is copied to a private, uniquely named directory under the system
+temporary directory for the dotsider session. Generated names contain only ASCII
+letters, digits, `_`, and `-`. Known non-script source extensions are retained for
+configured editors; unknown, script, and executable extensions are saved as `.txt`.
+Temporary copies are removed during normal teardown when the platform permits it.
+
+`VISUAL` takes precedence over `EDITOR`. Native executables and executable Unix
+scripts are launched directly without a shell. Unquoted whitespace separates
+arguments; single and double quotes group text, adjacent segments join, and empty
+quoted arguments are preserved. A backslash escapes whitespace, a matching quote,
+or another backslash and otherwise remains literal. Variable, command, and wildcard
+expansion, pipes, redirects, and command chaining are unsupported. On Windows, a
+resolved local `.cmd` or `.bat` editor shim such as VS Code's `code.cmd` is invoked
+through the system `cmd.exe`; the embedded-source path is carried as data rather
+than inserted as raw command text. A literal double quote inside an argument is
+rejected for batch shims because `cmd.exe` cannot represent that value
+unambiguously; quote characters used for grouping are unaffected.
+
+If neither configured editor resolves, dotsider attempts to open a `.txt` copy with
+the platform's default application. A graphical opener might not be available in a
+headless Linux environment; dotsider then displays the safe temporary path instead.
+Private copies left by a hard process termination remain subject to the operating
+system's normal temporary-file cleanup.
+
 ## Copy
 
 Select text in the disassembly pane with click-drag or `Shift` + arrow keys, then press `y` to yank it to the clipboard. The cursor collapses to the end of the selection and a brief flash confirms the copied range — matching neovim's yank behavior.
