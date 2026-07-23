@@ -1,3 +1,4 @@
+using Dotsider.Tests.Shared;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -49,6 +50,39 @@ public class BundleToolsTests : McpServerTestBase
         Assert.IsNotNull(text);
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.IsFalse(json.GetProperty("isBundle").GetBoolean());
+    }
+
+    /// <summary>
+    /// Verifies that malformed recognized bundles return stable tool results instead of a server exception.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task MalformedBundle_ReturnsSafeErrors()
+    {
+        var path = SyntheticSingleFileBundle.Create(fileCount: 0);
+        try
+        {
+            await StartServerAsync();
+            await using var client = await CreateClientAsync();
+
+            var infoResult = await client.CallToolAsync("get_bundle_info",
+                new Dictionary<string, object?> { ["assemblyPath"] = path },
+                cancellationToken: TestCancellationToken);
+            var infoText = GetTextContent(infoResult);
+            Assert.IsNotNull(infoText);
+            var info = JsonSerializer.Deserialize<JsonElement>(infoText);
+            Assert.IsFalse(info.GetProperty("isBundle").GetBoolean());
+            Assert.AreEqual("Invalid single-file bundle manifest.", info.GetProperty("error").GetString());
+
+            var entriesResult = await client.CallToolAsync("list_bundle_entries",
+                new Dictionary<string, object?> { ["assemblyPath"] = path },
+                cancellationToken: TestCancellationToken);
+            Assert.AreEqual("Error: Invalid single-file bundle manifest.", GetTextContent(entriesResult));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     /// <summary>

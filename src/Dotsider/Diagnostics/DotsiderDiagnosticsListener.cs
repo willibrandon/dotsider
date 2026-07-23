@@ -1121,8 +1121,15 @@ internal sealed class DotsiderDiagnosticsListener(
         if (!SingleFileBundleReader.IsBundle(request.AssemblyPath, out var headerOffset))
             return DotsiderResponse.Fail("File is not a single-file bundle");
 
-        var manifest = SingleFileBundleReader.ReadManifest(request.AssemblyPath, headerOffset);
-        return DotsiderResponse.Ok(manifest);
+        try
+        {
+            var manifest = SingleFileBundleReader.ReadManifest(request.AssemblyPath, headerOffset);
+            return DotsiderResponse.Ok(manifest);
+        }
+        catch (InvalidDataException)
+        {
+            return DotsiderResponse.Fail("Invalid single-file bundle manifest");
+        }
     }
 
     // --- Assembly Resolution Handlers ---

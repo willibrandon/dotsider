@@ -35,8 +35,8 @@ for extensionless files, appends `.dll` to the full filename.
 
 **Returns:** [Nullable\<Byte[], String\>\>](https://learn.microsoft.com/dotnet/api/system.nullable-2)
 
-The entry assembly bytes and name, or `null` if the file is not a bundle
-or no entry assembly could be identified.
+The entry assembly bytes and name, or `null` if the file is not a bundle,
+the manifest is invalid, or no entry assembly could be identified.
 
 ```csharp
 public static (byte[] Bytes, string Name)? FindEntryAssembly(string bundlePath)
@@ -88,7 +88,7 @@ Finds and reads an assembly entry by assembly name (without extension).
 
 **Returns:** [Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])
 
-The assembly bytes, or `null` if not found in the bundle.
+The assembly bytes, or `null` if the entry is not found, is unsafe, or cannot be read.
 
 ```csharp
 public static byte[]? ReadAssembly(string filePath, BundleManifest manifest, string assemblyName)
@@ -106,7 +106,7 @@ Reads a specific entry's raw bytes from the bundle.
 
 **Returns:** [Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[])
 
-The entry's bytes, or `null` if the entry was not found.
+The entry's bytes, or `null` if the entry was not found, is unsafe, or cannot be read.
 
 ```csharp
 public static byte[]? ReadEntry(string filePath, BundleManifest manifest, string entryRelativePath)
@@ -114,11 +114,11 @@ public static byte[]? ReadEntry(string filePath, BundleManifest manifest, string
 
 ### ReadManifest(Stream)
 
-Reads the bundle manifest from a stream positioned at the header.
+Reads the bundle manifest from a readable, seekable stream positioned at the header.
 
 **Parameters:**
 
-- `stream` ([Stream](https://learn.microsoft.com/dotnet/api/system.io.stream)): A readable stream positioned at the bundle header offset.
+- `stream` ([Stream](https://learn.microsoft.com/dotnet/api/system.io.stream)): A readable, seekable stream positioned at the bundle header offset.
 
 **Returns:** [BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/)
 
@@ -126,7 +126,7 @@ The parsed bundle manifest.
 
 **Exceptions:**
 
-- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The bundle version is unsupported.
+- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The stream is unsuitable, the manifest is malformed, or the bundle version is unsupported.
 
 ```csharp
 public static BundleManifest ReadManifest(Stream stream)
@@ -147,7 +147,7 @@ The parsed bundle manifest.
 
 **Exceptions:**
 
-- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The bundle version is unsupported.
+- [InvalidDataException](https://learn.microsoft.com/dotnet/api/system.io.invaliddataexception): The header offset is invalid, the manifest is malformed, or the bundle version is unsupported.
 
 ```csharp
 public static BundleManifest ReadManifest(string filePath, long headerOffset)

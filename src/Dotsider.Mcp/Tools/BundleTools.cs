@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis;
+using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
 using System.Text.Json;
@@ -28,7 +29,18 @@ public sealed partial class BundleTools
             return Task.FromResult(JsonSerializer.Serialize(
                 new { IsBundle = false }, DotsiderJsonOptions.Default));
 
-        var manifest = SingleFileBundleReader.ReadManifest(assemblyPath, headerOffset);
+        BundleManifest manifest;
+        try
+        {
+            manifest = SingleFileBundleReader.ReadManifest(assemblyPath, headerOffset);
+        }
+        catch (InvalidDataException)
+        {
+            return Task.FromResult(JsonSerializer.Serialize(
+                new { IsBundle = false, Error = "Invalid single-file bundle manifest." },
+                DotsiderJsonOptions.Default));
+        }
+
         return Task.FromResult(JsonSerializer.Serialize(new
         {
             IsBundle = true,
@@ -36,7 +48,7 @@ public sealed partial class BundleTools
             manifest.MinorVersion,
             manifest.FileCount,
             manifest.BundleId,
-            TotalSize = manifest.Entries.Sum(e => e.Size)
+            TotalSize = CalculateTotalSize(manifest.Entries)
         }, DotsiderJsonOptions.Default));
     }
 
@@ -56,7 +68,16 @@ public sealed partial class BundleTools
         if (!SingleFileBundleReader.IsBundle(assemblyPath, out var headerOffset))
             return Task.FromResult("Error: File is not a single-file bundle.");
 
-        var manifest = SingleFileBundleReader.ReadManifest(assemblyPath, headerOffset);
+        BundleManifest manifest;
+        try
+        {
+            manifest = SingleFileBundleReader.ReadManifest(assemblyPath, headerOffset);
+        }
+        catch (InvalidDataException)
+        {
+            return Task.FromResult("Error: Invalid single-file bundle manifest.");
+        }
+
         var entries = manifest.Entries.Select(e => new
         {
             e.RelativePath,
@@ -65,5 +86,19 @@ public sealed partial class BundleTools
             e.CompressedSize
         });
         return Task.FromResult(JsonSerializer.Serialize(entries, DotsiderJsonOptions.Default));
+    }
+
+    private static long CalculateTotalSize(IEnumerable<BundleEntry> entries)
+    {
+        var totalSize = 0L;
+        foreach (var entry in entries)
+        {
+            if (entry.Size > long.MaxValue - totalSize)
+                return long.MaxValue;
+
+            totalSize += entry.Size;
+        }
+
+        return totalSize;
     }
 }

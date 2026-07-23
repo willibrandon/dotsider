@@ -1,6 +1,7 @@
 using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
+using Dotsider.Tests.Shared;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Widgets;
@@ -298,6 +299,31 @@ public class SessionBundleTests : IAsyncDisposable
 
         var data = (response.Data as JsonElement?)!.Value;
         Assert.IsGreaterThan(0, data.GetProperty("fileCount").GetInt32());
+    }
+
+    /// <summary>
+    /// Verifies that diagnostics reports a malformed recognized bundle with a stable generic failure.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetBundleManifest_MalformedBundle_ReturnsSafeFailure()
+    {
+        var path = SyntheticSingleFileBundle.Create(fileCount: 0);
+        try
+        {
+            var ct = CancellationToken.None;
+            var (_, socketPath) = await StartTuiWithDiagnosticsAsync(Samples.HelloWorldDll, ct);
+
+            var response = await DotsiderClient.SendAsync(socketPath,
+                new DotsiderRequest { Method = "get-bundle-manifest", AssemblyPath = path }, ct);
+
+            Assert.IsFalse(response.Success);
+            Assert.AreEqual("Invalid single-file bundle manifest", response.Error);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     // --- resolve-assembly ---
