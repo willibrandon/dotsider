@@ -20,6 +20,8 @@ public sealed class DotsiderState : IDisposable
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly List<Task> _renderNudgerTasks = [];
     private DependencyGraphSnapshot? _dependencyGraphSnapshot;
+    private readonly Lazy<EmbeddedSourceTempFileStore> _embeddedSourceTempFiles =
+        new(static () => new EmbeddedSourceTempFileStore());
     private CancellationTokenSource? _graphBuildCancellation;
     private Task _graphBuildTask = Task.CompletedTask;
     private int _graphBuildGeneration;
@@ -95,6 +97,18 @@ public sealed class DotsiderState : IDisposable
 
     /// <summary>The Hex1b application instance.</summary>
     public Hex1bApp App { get; }
+
+    /// <summary>
+    /// Gets the private temporary store used for PDB-embedded source documents.
+    /// </summary>
+    internal EmbeddedSourceTempFileStore EmbeddedSourceTempFiles
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _embeddedSourceTempFiles.Value;
+        }
+    }
 
     /// <summary>
     /// Queue of mutations to apply on the UI thread, drained at the top of each render frame.
@@ -2434,6 +2448,8 @@ public sealed class DotsiderState : IDisposable
 
         CancelAndDrainGraphBuild();
         CancelAndDrainRenderNudgers();
+        if (_embeddedSourceTempFiles.IsValueCreated)
+            _embeddedSourceTempFiles.Value.Dispose();
         _lifetimeCancellation.Dispose();
         Tracer?.Dispose();
         foreach (var analyzer in NavigationStack)

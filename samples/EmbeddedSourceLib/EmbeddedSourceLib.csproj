@@ -8,4 +8,8 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Payload.cmd" />
+  </ItemGroup>
 </Project>
