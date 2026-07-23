@@ -1264,7 +1264,16 @@ internal static class AnalyzeCommand
             return 1;
         }
 
-        var manifest = SingleFileBundleReader.ReadManifest(filePath, offset);
+        BundleManifest manifest;
+        try
+        {
+            manifest = SingleFileBundleReader.ReadManifest(filePath, offset);
+        }
+        catch (InvalidDataException)
+        {
+            OutputFormatter.WriteError("Error: Invalid single-file bundle manifest");
+            return 1;
+        }
 
         if (fmt.JsonMode)
         {

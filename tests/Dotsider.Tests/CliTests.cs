@@ -1,3 +1,5 @@
+using Dotsider.Tests.Shared;
+
 namespace Dotsider.Tests;
 
 /// <summary>
@@ -390,6 +392,28 @@ public class CliTests
 
         Assert.AreNotEqual(0, exitCode);
         Assert.Contains("not a single-file bundle", stderr);
+    }
+
+    /// <summary>
+    /// Verifies that the real CLI reports a malformed recognized bundle without exposing parser details.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Analyze_Bundle_MalformedManifest_ReturnsStableError()
+    {
+        var path = SyntheticSingleFileBundle.Create(fileCount: 0);
+        try
+        {
+            var (exitCode, _, stderr) = await RunDotsiderAsync("analyze", path, "--bundle");
+
+            Assert.AreEqual(1, exitCode);
+            Assert.Contains("Error: Invalid single-file bundle manifest", stderr);
+            Assert.DoesNotContain("file count", stderr, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     /// <summary>Verifies that --bundle -o rejects writing to the same input file.</summary>

@@ -57,6 +57,35 @@ public sealed class AssemblyLoaderTests
         bundle.EntryAnalyzer.Dispose();
     }
 
+    /// <summary>
+    /// Verifies that a recognized bundle with a malformed manifest never creates a bundle-backed analyzer.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Open_MalformedSingleFileBundle_DoesNotCreateBundleEntry()
+    {
+        Assert.IsNotNull(Samples.SelfContainedConsoleExe);
+        var path = Path.Combine(Path.GetTempPath(), $"dotsider-malformed-bundle-{Guid.NewGuid():N}.exe");
+        try
+        {
+            File.Copy(Samples.SelfContainedConsoleExe!, path);
+            Assert.IsTrue(SingleFileBundleReader.IsBundle(path, out var headerOffset));
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                stream.Position = headerOffset + (sizeof(uint) * 2);
+                stream.Write(BitConverter.GetBytes(0));
+            }
+
+            var result = AssemblyLoader.Open(path);
+            Assert.IsExactInstanceOfType<AssemblyOpenResult.Direct>(result);
+            ((AssemblyOpenResult.Direct)result).Analyzer.Dispose();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Verifies that bundle-backed analyzers expose correct capabilities.</summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
