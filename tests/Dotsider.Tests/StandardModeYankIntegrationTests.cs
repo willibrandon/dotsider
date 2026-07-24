@@ -1496,7 +1496,9 @@ public class StandardModeYankIntegrationTests : IDisposable
         // Yank the selection
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("y")
-            .WaitUntil(s => s.ContainsText("Yanked"), TimeSpan.FromSeconds(5))
+            .WaitUntil(
+                snapshot => _clipboardAdapter!.ClipboardWrites.TryPeek(out _),
+                TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 

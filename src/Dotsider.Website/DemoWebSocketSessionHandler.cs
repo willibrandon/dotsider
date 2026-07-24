@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.WebSockets;
 
 namespace Dotsider.Website;
@@ -37,7 +36,7 @@ internal sealed class DemoWebSocketSessionHandler
             return;
         }
 
-        var ipAddress = GetClientIpAddress(context);
+        var clientAddress = DemoClientIdentity.GetPartitionKey(context);
         var userAgent = context.Request.Headers.UserAgent.ToString();
         var sessionId = Guid.NewGuid().ToString("N")[..12];
 
@@ -48,7 +47,7 @@ internal sealed class DemoWebSocketSessionHandler
 
         try
         {
-            Log.AuditConnect(_logger, sessionId, ipAddress, userAgent);
+            Log.AuditConnect(_logger, sessionId, clientAddress, userAgent);
             Log.SessionStarted(_logger, activeSessions, _maxSessions);
 
             using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(
@@ -74,21 +73,10 @@ internal sealed class DemoWebSocketSessionHandler
             Log.AuditDisconnect(
                 _logger,
                 sessionId,
-                ipAddress,
+                clientAddress,
                 (DateTimeOffset.UtcNow - sessionStart).TotalSeconds);
             Log.SessionEnded(_logger, remainingSessions, _maxSessions);
         }
     }
 
-    private static IPAddress GetClientIpAddress(HttpContext context)
-    {
-        var ipAddress = context.Connection.RemoteIpAddress ?? IPAddress.Loopback;
-        if (!context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwarded))
-            return ipAddress;
-
-        var firstAddress = forwarded.ToString().Split(',', StringSplitOptions.TrimEntries)[0];
-        return IPAddress.TryParse(firstAddress, out var parsedAddress)
-            ? parsedAddress
-            : ipAddress;
-    }
 }

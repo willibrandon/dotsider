@@ -2,31 +2,43 @@ using Dotsider;
 using Dotsider.Infrastructure;
 using Dotsider.Website;
 using Hex1b;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var maxSessions = builder.Configuration.GetValue("Demo:MaxSessions", 50);
-var sessionTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("Demo:SessionTimeoutMinutes", 10));
-var sampleAssembly = builder.Configuration.GetValue<string>("Demo:SampleAssembly") ?? "sample.dll";
-var allowedOrigins = builder.Configuration.GetSection("Demo:AllowedOrigins").Get<string[]>() ?? ["*"];
-
 builder.Services.AddCors();
-builder.Services.AddDemoSessionRateLimiting(maxSessions);
+builder.Services.AddDemoOptions(builder.Configuration);
+builder.Services.AddDemoSessionRateLimiting();
 
 var app = builder.Build();
+var demoOptions = app.Services.GetRequiredService<IOptions<DemoOptions>>().Value;
 var logger = app.Logger;
+var maxSessions = demoOptions.MaxSessions;
+var maxSessionsPerClient = demoOptions.MaxSessionsPerClient;
+var originPolicy = app.Services.GetRequiredService<DemoOriginPolicy>();
+var sampleAssembly = demoOptions.SampleAssembly;
+var sessionTimeout = TimeSpan.FromMinutes(demoOptions.SessionTimeoutMinutes);
 
+app.UseForwardedHeaders();
 app.UseCors(policy =>
 {
-    if (allowedOrigins is ["*"])
+    if (originPolicy.AllowsAnyOrigin)
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
     else
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(originPolicy.AllowedOrigins).AllowAnyHeader().AllowAnyMethod();
 });
 
-app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
+var webSocketOptions = new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(30)
+};
+foreach (var origin in originPolicy.AllowedOrigins)
+    webSocketOptions.AllowedOrigins.Add(origin);
+
+app.UseWebSockets(webSocketOptions);
+app.UseMiddleware<DemoWebSocketOriginMiddleware>(!originPolicy.AllowsAnyOrigin);
 app.UseRateLimiter();
 
 var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
@@ -42,6 +54,7 @@ app.MapGet("/health", () => Results.Ok(new
     status = "ok",
     activeSessions = sessionHandler.ActiveSessions,
     maxSessions,
+    maxSessionsPerClient
 }));
 
 app.Map("/ws", sessionHandler.HandleAsync)

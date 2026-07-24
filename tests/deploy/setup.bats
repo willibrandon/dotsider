@@ -160,9 +160,14 @@ load 'helpers/common'
         "Demo__SampleAssembly=/opt/dotsider-website/sample/RichLibrary.dll"
 }
 
-@test "dotsider-website.service restricts CORS to dotsider.dev" {
+@test "dotsider-website.service restricts browser origins to dotsider.dev" {
     assert_file_contains /etc/systemd/system/dotsider-website.service \
         "Demo__AllowedOrigins__0=https://dotsider.dev"
+}
+
+@test "dotsider-website.service limits concurrent sessions per client" {
+    assert_file_contains /etc/systemd/system/dotsider-website.service \
+        "Demo__MaxSessionsPerClient=3"
 }
 
 # ── Metrics report ────────────────────────────────────────────────

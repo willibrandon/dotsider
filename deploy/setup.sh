@@ -68,6 +68,7 @@ Environment=ASPNETCORE_URLS=http://localhost:5100
 Environment=DOTNET_ENVIRONMENT=Production
 Environment=Demo__SampleAssembly=/opt/dotsider-website/sample/RichLibrary.dll
 Environment=Demo__MaxSessions=50
+Environment=Demo__MaxSessionsPerClient=3
 Environment=Demo__SessionTimeoutMinutes=10
 Environment=Demo__AllowedOrigins__0=https://dotsider.dev
 
