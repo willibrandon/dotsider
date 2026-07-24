@@ -22,7 +22,10 @@ namespace Dotsider.Core.Analysis.Models;
 /// <param name="SymbolMapPath">The symbol-map sidecar path, when loaded.</param>
 /// <param name="SymbolMapStatus">The symbol-map probe outcome.</param>
 /// <param name="SymbolMapEntryCount">The number of parsed sidecar entries.</param>
-/// <param name="Diagnostic">A diagnostic note when parsing had to degrade, or null.</param>
+/// <param name="Diagnostic">
+/// The reason standard-section parsing stopped after the safely decoded prefix, or null when all
+/// standard sections were decoded.
+/// </param>
 public sealed record WasmModuleInfo(
     int Version,
     IReadOnlyList<WasmSectionInfo> Sections,

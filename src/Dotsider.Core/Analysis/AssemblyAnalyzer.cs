@@ -350,7 +350,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <summary>
     /// Parsed WebAssembly module facts when this file is a raw <c>.wasm</c> module, or null for
     /// PE, ELF, and Mach-O inputs. The main .NET browser-wasm native module is
-    /// <c>dotnet.native.wasm</c>.
+    /// <c>dotnet.native.wasm</c>. Malformed modules preserve the safely decoded prefix and report
+    /// the reason through <see cref="Models.WasmModuleInfo.Diagnostic"/>.
     /// </summary>
     public WasmModuleInfo? WasmModuleInfo
     {

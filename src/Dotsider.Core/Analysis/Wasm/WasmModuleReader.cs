@@ -10,9 +10,10 @@ namespace Dotsider.Core.Analysis.Wasm;
 /// </summary>
 internal static class WasmModuleReader
 {
+    internal const int MaxDecodedItems = 1 << 20;
+
     private const uint WasmMagic = 0x6D736100;
     private const uint WasmVersion = 1;
-    private const uint WebcilMagic = 0x4C496257;
 
     /// <summary>
     /// Returns true when the bytes start with the WebAssembly binary magic and version.
@@ -25,7 +26,8 @@ internal static class WasmModuleReader
         && BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) == WasmVersion;
 
     /// <summary>
-    /// Reads a WebAssembly module, preserving partial results when optional sections are malformed.
+    /// Reads a WebAssembly module, preserving the valid standard-section prefix and ignoring
+    /// malformed descriptive custom sections.
     /// </summary>
     /// <param name="bytes">The WebAssembly module bytes.</param>
     /// <param name="filePath">The source path used to locate SDK symbol-map sidecars.</param>
@@ -55,82 +57,87 @@ internal static class WasmModuleReader
         int? dataCount = null;
         string? diagnostic = null;
 
-        var pos = 8;
-        while (pos < bytes.Length)
+        var reader = new WasmDataReader(bytes, 8);
+        var remainingItems = MaxDecodedItems;
+        while (!reader.AtEnd)
         {
             try
             {
-                var sectionId = ReadByte(bytes, ref pos);
-                var sectionSize = checked((int)ReadUleb(bytes, ref pos));
-                var sectionPayloadOffset = pos;
-                var sectionEnd = checked(pos + sectionSize);
-                if (sectionEnd > bytes.Length)
-                    throw new InvalidDataException("A WebAssembly section extends past the end of the file.");
+                ChargeItems(ref remainingItems, 1, "section");
+                var sectionId = reader.ReadByte();
+                var sectionSize = ReadLength(ref reader, "section");
+                var sectionPayloadOffset = reader.Position;
+                var sectionReader = reader.ReadSubReader(sectionSize);
 
                 var sectionName = StandardSectionName(sectionId);
                 if (sectionId == 0)
                 {
-                    var customPos = sectionPayloadOffset;
-                    sectionName = ReadName(bytes, ref customPos, sectionEnd);
-                    ParseCustomSection(sectionName, bytes, customPos, sectionEnd, functionNames, targetFeatures, producers);
+                    sectionName = ReadName(ref sectionReader, "custom-section name");
+                    ParseCustomSection(
+                        sectionName, ref sectionReader, functionNames, targetFeatures, producers,
+                        ref remainingItems);
                 }
                 else
                 {
-                    var sectionPos = sectionPayloadOffset;
                     switch (sectionId)
                     {
                         case 1:
-                            types = ReadTypeSection(bytes, ref sectionPos, sectionEnd);
+                            types = ReadTypeSection(ref sectionReader, ref remainingItems);
                             break;
                         case 2:
-                            ReadImportSection(bytes, ref sectionPos, sectionEnd, imports, functionImports);
+                            (imports, functionImports) = ReadImportSection(
+                                ref sectionReader, ref remainingItems);
                             break;
                         case 3:
-                            functionTypeIndices = ReadFunctionSection(bytes, ref sectionPos, sectionEnd);
+                            functionTypeIndices = ReadFunctionSection(
+                                ref sectionReader, ref remainingItems);
                             break;
                         case 4:
                             tables = ReadTableSection(
-                                bytes, ref sectionPos, sectionEnd,
-                                imports.Count(static i => i.Kind == WasmExternalKind.Table));
+                                ref sectionReader,
+                                imports.Count(static i => i.Kind == WasmExternalKind.Table),
+                                ref remainingItems);
                             break;
                         case 5:
                             memories = ReadMemorySection(
-                                bytes, ref sectionPos, sectionEnd,
-                                imports.Count(static i => i.Kind == WasmExternalKind.Memory));
+                                ref sectionReader,
+                                imports.Count(static i => i.Kind == WasmExternalKind.Memory),
+                                ref remainingItems);
                             break;
                         case 6:
                             globals = ReadGlobalSection(
-                                bytes, ref sectionPos, sectionEnd,
-                                imports.Count(static i => i.Kind == WasmExternalKind.Global));
+                                ref sectionReader,
+                                imports.Count(static i => i.Kind == WasmExternalKind.Global),
+                                ref remainingItems);
                             break;
                         case 7:
-                            exports = ReadExportSection(bytes, ref sectionPos, sectionEnd);
+                            exports = ReadExportSection(ref sectionReader, ref remainingItems);
                             break;
                         case 8:
-                            startFunctionIndex = ReadStartSection(bytes, ref sectionPos, sectionEnd);
+                            startFunctionIndex = ReadStartSection(ref sectionReader);
                             break;
                         case 9:
-                            elements = ReadElementSection(bytes, ref sectionPos, sectionEnd);
+                            elements = ReadElementSection(ref sectionReader, ref remainingItems);
                             break;
                         case 10:
-                            bodies = ReadCodeSection(bytes, ref sectionPos, sectionEnd, sectionPayloadOffset);
+                            bodies = ReadCodeSection(ref sectionReader, ref remainingItems);
                             break;
                         case 11:
-                            dataSegments = ReadDataSection(bytes, ref sectionPos, sectionEnd);
+                            dataSegments = ReadDataSection(ref sectionReader, ref remainingItems);
                             break;
                         case 12:
-                            dataCount = ReadDataCountSection(bytes, ref sectionPos, sectionEnd);
+                            dataCount = ReadDataCountSection(ref sectionReader);
                             break;
                         case 13:
                             tags = ReadTagSection(
-                                bytes, ref sectionPos, sectionEnd,
-                                imports.Count(static i => i.Kind == WasmExternalKind.Tag));
+                                ref sectionReader,
+                                imports.Count(static i => i.Kind == WasmExternalKind.Tag),
+                                ref remainingItems);
                             break;
                     }
                 }
 
                 sections.Add(new WasmSectionInfo(sectionId, sectionName, sectionPayloadOffset, sectionSize));
-                pos = sectionEnd;
             }
             catch (Exception ex) when (ex is InvalidDataException or OverflowException or ArgumentOutOfRangeException)
             {
@@ -166,103 +173,53 @@ internal static class WasmModuleReader
             Diagnostic: diagnostic);
     }
 
-    /// <summary>
-    /// Finds a Webcil payload embedded as a passive Wasm data segment.
-    /// </summary>
-    public static bool TryExtractWebcilPayload(ReadOnlySpan<byte> bytes, out byte[] payload)
+    private static List<WasmTypeInfo> ReadTypeSection(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        payload = [];
-        if (!IsWasmModule(bytes))
-            return false;
-
-        var pos = 8;
-        while (pos < bytes.Length)
-        {
-            var sectionId = ReadByte(bytes, ref pos);
-            var sectionSize = checked((int)ReadUleb(bytes, ref pos));
-            var sectionEnd = checked(pos + sectionSize);
-            if (sectionEnd > bytes.Length)
-                return false;
-
-            if (sectionId != 11)
-            {
-                pos = sectionEnd;
-                continue;
-            }
-
-            var count = checked((int)ReadUleb(bytes, ref pos));
-            for (var i = 0; i < count && pos < sectionEnd; i++)
-            {
-                var mode = checked((int)ReadUleb(bytes, ref pos));
-                if (mode == 0)
-                    SkipConstExpr(bytes, ref pos, sectionEnd);
-                else if (mode == 2)
-                {
-                    _ = ReadUleb(bytes, ref pos);
-                    SkipConstExpr(bytes, ref pos, sectionEnd);
-                }
-
-                var size = checked((int)ReadUleb(bytes, ref pos));
-                if (pos + size > sectionEnd)
-                    return false;
-
-                var segment = bytes[pos..(pos + size)];
-                if (IsWebcilPayload(segment))
-                {
-                    payload = segment.ToArray();
-                    return true;
-                }
-
-                pos += size;
-            }
-
-            return false;
-        }
-
-        return false;
-    }
-
-    private static List<WasmTypeInfo> ReadTypeSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
-    {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "type-section");
         var types = new List<WasmTypeInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var form = ReadByte(bytes, ref pos);
+            var form = reader.ReadByte();
             if (form != 0x60)
                 throw new InvalidDataException("Only WebAssembly function types are supported.");
 
-            var paramCount = checked((int)ReadUleb(bytes, ref pos));
+            var paramCount = ReadVectorCount(
+                ref reader, minimumElementSize: 1, ref remainingItems, "parameter");
             var parameters = new byte[paramCount];
             for (var p = 0; p < paramCount; p++)
-                parameters[p] = ReadByte(bytes, ref pos);
+                parameters[p] = reader.ReadByte();
 
-            var resultCount = checked((int)ReadUleb(bytes, ref pos));
+            var resultCount = ReadVectorCount(
+                ref reader, minimumElementSize: 1, ref remainingItems, "result");
             var results = new byte[resultCount];
             for (var r = 0; r < resultCount; r++)
-                results[r] = ReadByte(bytes, ref pos);
+                results[r] = reader.ReadByte();
 
             types.Add(new WasmTypeInfo(i, parameters, results));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return types;
     }
 
-    private static void ReadImportSection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end,
-        List<WasmImportInfo> imports, List<WasmImportInfo> functionImports)
+    private static (List<WasmImportInfo> Imports, List<WasmImportInfo> FunctionImports)
+        ReadImportSection(ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 4, ref remainingItems, "import-section");
+        var imports = new List<WasmImportInfo>(count);
+        var functionImports = new List<WasmImportInfo>();
         var tableIndex = 0;
         var memoryIndex = 0;
         var globalIndex = 0;
         var tagIndex = 0;
         for (var i = 0; i < count; i++)
         {
-            var module = ReadName(bytes, ref pos, end);
-            var name = ReadName(bytes, ref pos, end);
-            var kindByte = ReadByte(bytes, ref pos);
+            var module = ReadName(ref reader, "import module name");
+            var name = ReadName(ref reader, "import name");
+            var kindByte = reader.ReadByte();
             var kind = ExternalKind(kindByte);
             var index = kind switch
             {
@@ -278,21 +235,21 @@ internal static class WasmModuleReader
             switch (kind)
             {
                 case WasmExternalKind.Function:
-                    typeIndex = checked((int)ReadUleb(bytes, ref pos));
+                    typeIndex = ReadIndex(ref reader, "function type index");
                     break;
                 case WasmExternalKind.Table:
-                    SkipTableType(bytes, ref pos);
+                    SkipTableType(ref reader);
                     break;
                 case WasmExternalKind.Memory:
-                    SkipLimits(bytes, ref pos);
+                    SkipLimits(ref reader);
                     break;
                 case WasmExternalKind.Global:
-                    _ = ReadByte(bytes, ref pos);
-                    _ = ReadByte(bytes, ref pos);
+                    _ = reader.ReadByte();
+                    _ = reader.ReadByte();
                     break;
                 case WasmExternalKind.Tag:
-                    _ = ReadUleb(bytes, ref pos);
-                    typeIndex = checked((int)ReadUleb(bytes, ref pos));
+                    _ = reader.ReadUnsignedLeb12832();
+                    typeIndex = ReadIndex(ref reader, "tag type index");
                     break;
                 default:
                     throw new InvalidDataException($"Unsupported WebAssembly import kind 0x{kindByte:X2}.");
@@ -304,98 +261,108 @@ internal static class WasmModuleReader
                 functionImports.Add(import);
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
+        return (imports, functionImports);
     }
 
-    private static List<int> ReadFunctionSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static List<int> ReadFunctionSection(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 1, ref remainingItems, "function-section");
         var result = new List<int>(count);
         for (var i = 0; i < count; i++)
-            result.Add(checked((int)ReadUleb(bytes, ref pos)));
+            result.Add(ReadIndex(ref reader, "function type index"));
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
     private static List<WasmTableInfo> ReadTableSection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end, int importCount)
+        ref WasmDataReader reader, int importCount, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "table-section");
         var result = new List<WasmTableInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var refType = ReadRefTypeName(bytes, ref pos);
-            var (minimum, maximum, _, _) = ReadLimits(bytes, ref pos);
+            var refType = ReadRefTypeName(ref reader);
+            var (minimum, maximum, _, _) = ReadLimits(ref reader);
             result.Add(new WasmTableInfo(importCount + i, refType, minimum, maximum));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
     private static List<WasmMemoryInfo> ReadMemorySection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end, int importCount)
+        ref WasmDataReader reader, int importCount, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 2, ref remainingItems, "memory-section");
         var result = new List<WasmMemoryInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var (minimum, maximum, isShared, isMemory64) = ReadLimits(bytes, ref pos);
+            var (minimum, maximum, isShared, isMemory64) = ReadLimits(ref reader);
             result.Add(new WasmMemoryInfo(importCount + i, minimum, maximum, isShared, isMemory64));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
     private static List<WasmGlobalInfo> ReadGlobalSection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end, int importCount)
+        ref WasmDataReader reader, int importCount, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "global-section");
         var result = new List<WasmGlobalInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var valueType = ReadByte(bytes, ref pos);
-            var mutable = ReadByte(bytes, ref pos);
-            SkipConstExpr(bytes, ref pos, end);
+            var valueType = reader.ReadByte();
+            var mutable = reader.ReadByte();
+            SkipConstExpr(ref reader);
             result.Add(new WasmGlobalInfo(importCount + i, valueType, ValueTypeName(valueType), mutable != 0));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
-    private static List<WasmExportInfo> ReadExportSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static List<WasmExportInfo> ReadExportSection(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "export-section");
         var result = new List<WasmExportInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var name = ReadName(bytes, ref pos, end);
-            var kind = ExternalKind(ReadByte(bytes, ref pos));
-            var index = checked((int)ReadUleb(bytes, ref pos));
+            var name = ReadName(ref reader, "export name");
+            var kind = ExternalKind(reader.ReadByte());
+            var index = ReadIndex(ref reader, "export index");
             result.Add(new WasmExportInfo(name, kind, index));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
-    private static int ReadStartSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static int ReadStartSection(ref WasmDataReader reader)
     {
-        var index = checked((int)ReadUleb(bytes, ref pos));
-        RequireSectionConsumed(pos, end);
+        var index = ReadIndex(ref reader, "start function index");
+        RequireSectionConsumed(ref reader);
         return index;
     }
 
-    private static List<WasmElementSegmentInfo> ReadElementSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static List<WasmElementSegmentInfo> ReadElementSection(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "element-section");
         var result = new List<WasmElementSegmentInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var flags = checked((int)ReadUleb(bytes, ref pos));
+            var flags = ReadIndex(ref reader, "element segment flags");
             string mode;
             int? tableIndex = null;
             string elementType;
@@ -406,50 +373,58 @@ internal static class WasmModuleReader
                 case 0:
                     mode = "active";
                     tableIndex = 0;
-                    SkipConstExpr(bytes, ref pos, end);
+                    SkipConstExpr(ref reader);
                     elementType = "funcref";
-                    elementCount = SkipFunctionIndexVector(bytes, ref pos);
+                    elementCount = SkipFunctionIndexVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 1:
                     mode = "passive";
-                    elementType = ElementKindName(ReadByte(bytes, ref pos));
-                    elementCount = SkipFunctionIndexVector(bytes, ref pos);
+                    elementType = ElementKindName(reader.ReadByte());
+                    elementCount = SkipFunctionIndexVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 2:
                     mode = "active-explicit-table";
-                    tableIndex = checked((int)ReadUleb(bytes, ref pos));
-                    SkipConstExpr(bytes, ref pos, end);
-                    elementType = ElementKindName(ReadByte(bytes, ref pos));
-                    elementCount = SkipFunctionIndexVector(bytes, ref pos);
+                    tableIndex = ReadIndex(ref reader, "element table index");
+                    SkipConstExpr(ref reader);
+                    elementType = ElementKindName(reader.ReadByte());
+                    elementCount = SkipFunctionIndexVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 3:
                     mode = "declarative";
-                    elementType = ElementKindName(ReadByte(bytes, ref pos));
-                    elementCount = SkipFunctionIndexVector(bytes, ref pos);
+                    elementType = ElementKindName(reader.ReadByte());
+                    elementCount = SkipFunctionIndexVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 4:
                     mode = "active";
                     tableIndex = 0;
-                    SkipConstExpr(bytes, ref pos, end);
+                    SkipConstExpr(ref reader);
                     elementType = "funcref";
-                    elementCount = SkipExpressionVector(bytes, ref pos, end);
+                    elementCount = SkipExpressionVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 5:
                     mode = "passive";
-                    elementType = ReadRefTypeName(bytes, ref pos);
-                    elementCount = SkipExpressionVector(bytes, ref pos, end);
+                    elementType = ReadRefTypeName(ref reader);
+                    elementCount = SkipExpressionVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 6:
                     mode = "active-explicit-table";
-                    tableIndex = checked((int)ReadUleb(bytes, ref pos));
-                    SkipConstExpr(bytes, ref pos, end);
-                    elementType = ReadRefTypeName(bytes, ref pos);
-                    elementCount = SkipExpressionVector(bytes, ref pos, end);
+                    tableIndex = ReadIndex(ref reader, "element table index");
+                    SkipConstExpr(ref reader);
+                    elementType = ReadRefTypeName(ref reader);
+                    elementCount = SkipExpressionVector(
+                        ref reader, ref remainingItems);
                     break;
                 case 7:
                     mode = "declarative";
-                    elementType = ReadRefTypeName(bytes, ref pos);
-                    elementCount = SkipExpressionVector(bytes, ref pos, end);
+                    elementType = ReadRefTypeName(ref reader);
+                    elementCount = SkipExpressionVector(
+                        ref reader, ref remainingItems);
                     break;
                 default:
                     throw new InvalidDataException($"Unsupported WebAssembly element segment flags {flags}.");
@@ -458,72 +433,77 @@ internal static class WasmModuleReader
             result.Add(new WasmElementSegmentInfo(i, mode, tableIndex, elementType, elementCount));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
     private static List<WasmFunctionBody> ReadCodeSection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end, int sectionPayloadOffset)
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        _ = sectionPayloadOffset;
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 3, ref remainingItems, "code-section");
         var result = new List<WasmFunctionBody>(count);
         for (var i = 0; i < count; i++)
         {
-            var bodySize = checked((int)ReadUleb(bytes, ref pos));
-            var bodyOffset = pos;
-            var bodyEnd = checked(pos + bodySize);
-            if (bodyEnd > end)
-                throw new InvalidDataException("A WebAssembly function body extends past the code section.");
+            var bodySize = ReadLength(ref reader, "function body");
+            var bodyOffset = reader.Position;
+            var bodyReader = reader.ReadSubReader(bodySize);
 
-            var localCount = checked((int)ReadUleb(bytes, ref pos));
+            var localCount = ReadVectorCount(
+                ref bodyReader, minimumElementSize: 2, ref remainingItems,
+                "function-local declaration");
             var locals = new List<WasmLocalInfo>(localCount);
             for (var l = 0; l < localCount; l++)
             {
-                var localRunCount = ReadUleb(bytes, ref pos);
-                var valueType = ReadByte(bytes, ref pos);
-                locals.Add(new WasmLocalInfo((uint)localRunCount, valueType, ValueTypeName(valueType)));
+                var localRunCount = bodyReader.ReadUnsignedLeb12832();
+                ChargeItems(ref remainingItems, localRunCount, "function local");
+                var valueType = bodyReader.ReadByte();
+                locals.Add(new WasmLocalInfo(
+                    localRunCount, valueType, ValueTypeName(valueType)));
             }
 
-            var codeOffset = pos;
-            result.Add(new WasmFunctionBody(bodyOffset, bodySize, codeOffset, bodyEnd - codeOffset, locals));
-            pos = bodyEnd;
+            var codeOffset = bodyReader.Position;
+            result.Add(new WasmFunctionBody(
+                bodyOffset, bodySize, codeOffset, bodyReader.Remaining, locals));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
-    private static int ReadDataCountSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static int ReadDataCountSection(ref WasmDataReader reader)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
-        RequireSectionConsumed(pos, end);
+        var count = ReadIndex(ref reader, "data count");
+        RequireSectionConsumed(ref reader);
         return count;
     }
 
     private static List<WasmTagInfo> ReadTagSection(
-        ReadOnlySpan<byte> bytes, ref int pos, int end, int importCount)
+        ref WasmDataReader reader, int importCount, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 2, ref remainingItems, "tag-section");
         var result = new List<WasmTagInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var attribute = checked((uint)ReadUleb(bytes, ref pos));
-            var typeIndex = checked((int)ReadUleb(bytes, ref pos));
+            var attribute = reader.ReadUnsignedLeb12832();
+            var typeIndex = ReadIndex(ref reader, "tag type index");
             result.Add(new WasmTagInfo(importCount + i, attribute, typeIndex));
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
-    private static List<WasmDataSegmentInfo> ReadDataSection(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static List<WasmDataSegmentInfo> ReadDataSection(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 2, ref remainingItems, "data-section");
         var result = new List<WasmDataSegmentInfo>(count);
         for (var i = 0; i < count; i++)
         {
-            var modeValue = checked((int)ReadUleb(bytes, ref pos));
+            var modeValue = ReadIndex(ref reader, "data segment mode");
             var mode = modeValue switch
             {
                 0 => "active",
@@ -533,45 +513,55 @@ internal static class WasmModuleReader
             };
 
             if (modeValue == 0)
-                SkipConstExpr(bytes, ref pos, end);
+                SkipConstExpr(ref reader);
             else if (modeValue == 2)
             {
-                _ = ReadUleb(bytes, ref pos);
-                SkipConstExpr(bytes, ref pos, end);
+                _ = reader.ReadUnsignedLeb12832();
+                SkipConstExpr(ref reader);
             }
             else if (modeValue != 1)
             {
                 throw new InvalidDataException($"Unsupported WebAssembly data segment mode {modeValue}.");
             }
 
-            var size = checked((int)ReadUleb(bytes, ref pos));
-            if (pos + size > end)
-                throw new InvalidDataException("A WebAssembly data segment extends past the data section.");
-            result.Add(new WasmDataSegmentInfo(i, mode, pos, size));
-            pos += size;
+            var size = ReadLength(ref reader, "data segment");
+            result.Add(new WasmDataSegmentInfo(i, mode, reader.Position, size));
+            _ = reader.ReadBytes(size);
         }
 
-        RequireSectionConsumed(pos, end);
+        RequireSectionConsumed(ref reader);
         return result;
     }
 
     private static void ParseCustomSection(
         string name,
-        ReadOnlySpan<byte> bytes,
-        int pos,
-        int end,
+        ref WasmDataReader reader,
         Dictionary<int, string> functionNames,
         List<string> targetFeatures,
-        List<string> producers)
+        List<string> producers,
+        ref int remainingItems)
     {
         try
         {
             if (name == "name")
-                ParseNameSection(bytes, pos, end, functionNames);
+            {
+                var parsedNames = new Dictionary<int, string>();
+                ParseNameSection(ref reader, parsedNames, ref remainingItems);
+                foreach (var (index, functionName) in parsedNames)
+                    functionNames[index] = functionName;
+            }
             else if (name == "target_features")
-                ParseTargetFeatures(bytes, pos, end, targetFeatures);
+            {
+                var parsedFeatures = new List<string>();
+                ParseTargetFeatures(ref reader, parsedFeatures, ref remainingItems);
+                targetFeatures.AddRange(parsedFeatures);
+            }
             else if (name == "producers")
-                ParseProducers(bytes, pos, end, producers);
+            {
+                var parsedProducers = new List<string>();
+                ParseProducers(ref reader, parsedProducers, ref remainingItems);
+                producers.AddRange(parsedProducers);
+            }
         }
         catch (Exception ex) when (ex is InvalidDataException or OverflowException or ArgumentOutOfRangeException)
         {
@@ -579,56 +569,72 @@ internal static class WasmModuleReader
         }
     }
 
-    private static void ParseNameSection(ReadOnlySpan<byte> bytes, int pos, int end, Dictionary<int, string> functionNames)
+    private static void ParseNameSection(
+        ref WasmDataReader reader,
+        Dictionary<int, string> functionNames,
+        ref int remainingItems)
     {
-        while (pos < end)
+        while (!reader.AtEnd)
         {
-            var subSectionId = ReadByte(bytes, ref pos);
-            var size = checked((int)ReadUleb(bytes, ref pos));
-            var subEnd = checked(pos + size);
-            if (subEnd > end)
-                throw new InvalidDataException("A WebAssembly name subsection extends past the custom section.");
+            var subSectionId = reader.ReadByte();
+            var size = ReadLength(ref reader, "name subsection");
+            var subReader = reader.ReadSubReader(size);
 
             if (subSectionId == 1)
             {
-                var count = checked((int)ReadUleb(bytes, ref pos));
+                var count = ReadVectorCount(
+                    ref subReader, minimumElementSize: 2, ref remainingItems,
+                    "function-name");
                 for (var i = 0; i < count; i++)
                 {
-                    var index = checked((int)ReadUleb(bytes, ref pos));
-                    var name = ReadName(bytes, ref pos, subEnd);
+                    var index = ReadIndex(ref subReader, "function-name index");
+                    var name = ReadName(ref subReader, "function name");
                     functionNames[index] = name;
                 }
-            }
 
-            pos = subEnd;
+                RequireSectionConsumed(ref subReader);
+            }
         }
     }
 
-    private static void ParseTargetFeatures(ReadOnlySpan<byte> bytes, int pos, int end, List<string> targetFeatures)
+    private static void ParseTargetFeatures(
+        ref WasmDataReader reader,
+        List<string> targetFeatures,
+        ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
-        for (var i = 0; i < count && pos < end; i++)
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 2, ref remainingItems, "target-feature");
+        for (var i = 0; i < count; i++)
         {
-            var prefix = ReadByte(bytes, ref pos);
-            var feature = ReadName(bytes, ref pos, end);
+            var prefix = reader.ReadByte();
+            var feature = ReadName(ref reader, "target feature name");
             targetFeatures.Add($"{(char)prefix}{feature}");
         }
+
+        RequireSectionConsumed(ref reader);
     }
 
-    private static void ParseProducers(ReadOnlySpan<byte> bytes, int pos, int end, List<string> producers)
+    private static void ParseProducers(
+        ref WasmDataReader reader,
+        List<string> producers,
+        ref int remainingItems)
     {
-        var fieldCount = checked((int)ReadUleb(bytes, ref pos));
-        for (var f = 0; f < fieldCount && pos < end; f++)
+        var fieldCount = ReadVectorCount(
+            ref reader, minimumElementSize: 2, ref remainingItems, "producer field");
+        for (var f = 0; f < fieldCount; f++)
         {
-            var fieldName = ReadName(bytes, ref pos, end);
-            var valueCount = checked((int)ReadUleb(bytes, ref pos));
-            for (var i = 0; i < valueCount && pos < end; i++)
+            var fieldName = ReadName(ref reader, "producer field name");
+            var valueCount = ReadVectorCount(
+                ref reader, minimumElementSize: 2, ref remainingItems, "producer value");
+            for (var i = 0; i < valueCount; i++)
             {
-                var name = ReadName(bytes, ref pos, end);
-                var version = ReadName(bytes, ref pos, end);
+                var name = ReadName(ref reader, "producer name");
+                var version = ReadName(ref reader, "producer version");
                 producers.Add($"{fieldName}: {name} {version}".TrimEnd());
             }
         }
+
+        RequireSectionConsumed(ref reader);
     }
 
     private static List<WasmFunctionInfo> BuildFunctions(
@@ -767,66 +773,174 @@ internal static class WasmModuleReader
             : (path, WasmSymbolMapStatus.Corrupt, entries);
     }
 
-    private static bool IsWebcilPayload(ReadOnlySpan<byte> bytes)
+    private static void ChargeItems(
+        ref int remainingItems, uint count, string description)
     {
-        if (bytes.Length < 28)
-            return false;
+        if (count > (uint)remainingItems)
+        {
+            throw new InvalidDataException(
+                $"The WebAssembly {description} count exceeds the "
+                + "1,048,576-item decoding budget.");
+        }
 
-        var magic = BinaryPrimitives.ReadUInt32LittleEndian(bytes);
-        var major = BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]);
-        var minor = BinaryPrimitives.ReadUInt16LittleEndian(bytes[6..]);
-        return magic == WebcilMagic && major is 0 or 1 && minor == 0;
+        remainingItems -= (int)count;
     }
 
-    private static void SkipTableType(ReadOnlySpan<byte> bytes, ref int pos)
+    private static int ReadIndex(ref WasmDataReader reader, string description)
     {
-        _ = ReadRefTypeName(bytes, ref pos);
-        SkipLimits(bytes, ref pos);
+        var value = reader.ReadUnsignedLeb12832();
+        if (value > int.MaxValue)
+        {
+            throw new InvalidDataException(
+                $"The WebAssembly {description} exceeds the supported range.");
+        }
+
+        return (int)value;
     }
 
-    private static void SkipLimits(ReadOnlySpan<byte> bytes, ref int pos)
+    private static int ReadLength(ref WasmDataReader reader, string description)
     {
-        _ = ReadLimits(bytes, ref pos);
+        var length = reader.ReadUnsignedLeb12832();
+        if (length > (uint)reader.Remaining)
+        {
+            throw new InvalidDataException(
+                $"The WebAssembly {description} extends past its containing data.");
+        }
+
+        return (int)length;
     }
 
     private static (ulong Minimum, ulong? Maximum, bool IsShared, bool IsMemory64) ReadLimits(
-        ReadOnlySpan<byte> bytes, ref int pos)
+        ref WasmDataReader reader)
     {
-        var flags = ReadUleb(bytes, ref pos);
-        var minimum = ReadUleb(bytes, ref pos);
+        var flags = reader.ReadUnsignedLeb12832();
+        var isMemory64 = (flags & 0x04) != 0;
+        var minimum = isMemory64
+            ? reader.ReadUnsignedLeb12864()
+            : reader.ReadUnsignedLeb12832();
         ulong? maximum = null;
         if ((flags & 0x01) != 0)
-            maximum = ReadUleb(bytes, ref pos);
+        {
+            maximum = isMemory64
+                ? reader.ReadUnsignedLeb12864()
+                : reader.ReadUnsignedLeb12832();
+        }
 
-        return (minimum, maximum, (flags & 0x02) != 0, (flags & 0x04) != 0);
+        return (minimum, maximum, (flags & 0x02) != 0, isMemory64);
     }
 
-    private static string ReadRefTypeName(ReadOnlySpan<byte> bytes, ref int pos)
+    private static string ReadName(ref WasmDataReader reader, string description)
     {
-        var first = ReadByte(bytes, ref pos);
+        var length = ReadLength(ref reader, description);
+        return Encoding.UTF8.GetString(reader.ReadBytes(length));
+    }
+
+    private static string ReadRefTypeName(ref WasmDataReader reader)
+    {
+        var first = reader.ReadByte();
         if (first is 0x63 or 0x64)
         {
-            var heapType = ReadSleb(bytes, ref pos);
-            return first == 0x63 ? $"ref null {HeapTypeName(heapType)}" : $"ref {HeapTypeName(heapType)}";
+            var heapType = reader.ReadSignedLeb128();
+            return first == 0x63
+                ? $"ref null {HeapTypeName(heapType)}"
+                : $"ref {HeapTypeName(heapType)}";
         }
 
         return RefTypeName(first);
     }
 
-    private static int SkipFunctionIndexVector(ReadOnlySpan<byte> bytes, ref int pos)
+    private static int ReadVectorCount(
+        ref WasmDataReader reader,
+        int minimumElementSize,
+        ref int remainingItems,
+        string description)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = reader.ReadUnsignedLeb12832();
+        if (count > (uint)(reader.Remaining / minimumElementSize))
+        {
+            throw new InvalidDataException(
+                $"The WebAssembly {description} count exceeds its containing data.");
+        }
+
+        if (count > (uint)remainingItems)
+        {
+            throw new InvalidDataException(
+                $"The WebAssembly {description} count exceeds the "
+                + "1,048,576-item decoding budget.");
+        }
+
+        remainingItems -= (int)count;
+        return (int)count;
+    }
+
+    private static void RequireSectionConsumed(ref WasmDataReader reader)
+    {
+        if (!reader.AtEnd)
+            throw new InvalidDataException("A WebAssembly section was not consumed exactly.");
+    }
+
+    private static void SkipConstExpr(ref WasmDataReader reader)
+    {
+        while (!reader.AtEnd)
+        {
+            var op = reader.ReadByte();
+            if (op == 0x0B)
+                return;
+
+            switch (op)
+            {
+                case 0x41:
+                case 0x42:
+                    _ = reader.ReadSignedLeb128();
+                    break;
+                case 0x43:
+                    _ = reader.ReadBytes(4);
+                    break;
+                case 0x44:
+                    _ = reader.ReadBytes(8);
+                    break;
+                case 0x23:
+                case 0xD0:
+                case 0xD2:
+                    _ = reader.ReadUnsignedLeb12832();
+                    break;
+            }
+        }
+
+        throw new InvalidDataException("A WebAssembly constant expression is unterminated.");
+    }
+
+    private static int SkipExpressionVector(
+        ref WasmDataReader reader, ref int remainingItems)
+    {
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 1, ref remainingItems, "element expression");
         for (var i = 0; i < count; i++)
-            _ = ReadUleb(bytes, ref pos);
+            SkipConstExpr(ref reader);
+
         return count;
     }
 
-    private static int SkipExpressionVector(ReadOnlySpan<byte> bytes, ref int pos, int end)
+    private static int SkipFunctionIndexVector(
+        ref WasmDataReader reader, ref int remainingItems)
     {
-        var count = checked((int)ReadUleb(bytes, ref pos));
+        var count = ReadVectorCount(
+            ref reader, minimumElementSize: 1, ref remainingItems, "element function-index");
         for (var i = 0; i < count; i++)
-            SkipConstExpr(bytes, ref pos, end);
+            _ = reader.ReadUnsignedLeb12832();
+
         return count;
+    }
+
+    private static void SkipLimits(ref WasmDataReader reader)
+    {
+        _ = ReadLimits(ref reader);
+    }
+
+    private static void SkipTableType(ref WasmDataReader reader)
+    {
+        _ = ReadRefTypeName(ref reader);
+        SkipLimits(ref reader);
     }
 
     private static string ElementKindName(byte elementKind) => elementKind switch
@@ -870,104 +984,6 @@ internal static class WasmModuleReader
         -0x1B => "noexn",
         _ => heapType.ToString(CultureInfo.InvariantCulture),
     };
-
-    private static void SkipRefType(ReadOnlySpan<byte> bytes, ref int pos)
-    {
-        var first = ReadByte(bytes, ref pos);
-        if (first is 0x63 or 0x64)
-            _ = ReadSleb(bytes, ref pos);
-    }
-
-    private static void SkipConstExpr(ReadOnlySpan<byte> bytes, ref int pos, int end)
-    {
-        while (pos < end)
-        {
-            var op = ReadByte(bytes, ref pos);
-            if (op == 0x0B)
-                return;
-
-            switch (op)
-            {
-                case 0x41:
-                case 0x42:
-                    _ = ReadSleb(bytes, ref pos);
-                    break;
-                case 0x43:
-                    pos = checked(pos + 4);
-                    break;
-                case 0x44:
-                    pos = checked(pos + 8);
-                    break;
-                case 0x23:
-                case 0xD0:
-                case 0xD2:
-                    _ = ReadUleb(bytes, ref pos);
-                    break;
-            }
-        }
-
-        throw new InvalidDataException("A WebAssembly constant expression is unterminated.");
-    }
-
-    private static string ReadName(ReadOnlySpan<byte> bytes, ref int pos, int end)
-    {
-        var length = checked((int)ReadUleb(bytes, ref pos));
-        if (pos + length > end)
-            throw new InvalidDataException("A WebAssembly name extends past its containing section.");
-
-        var name = Encoding.UTF8.GetString(bytes.Slice(pos, length));
-        pos += length;
-        return name;
-    }
-
-    private static byte ReadByte(ReadOnlySpan<byte> bytes, ref int pos)
-    {
-        if ((uint)pos >= (uint)bytes.Length)
-            throw new InvalidDataException("Unexpected end of WebAssembly data.");
-
-        return bytes[pos++];
-    }
-
-    private static ulong ReadUleb(ReadOnlySpan<byte> bytes, ref int pos)
-    {
-        ulong value = 0;
-        var shift = 0;
-        while (true)
-        {
-            var b = ReadByte(bytes, ref pos);
-            value |= (ulong)(b & 0x7F) << shift;
-            if ((b & 0x80) == 0)
-                return value;
-
-            shift += 7;
-            if (shift >= 64)
-                throw new InvalidDataException("A WebAssembly LEB128 value is too large.");
-        }
-    }
-
-    private static long ReadSleb(ReadOnlySpan<byte> bytes, ref int pos)
-    {
-        long value = 0;
-        var shift = 0;
-        byte b;
-        do
-        {
-            b = ReadByte(bytes, ref pos);
-            value |= (long)(b & 0x7F) << shift;
-            shift += 7;
-        } while ((b & 0x80) != 0 && shift < 64);
-
-        if (shift < 64 && (b & 0x40) != 0)
-            value |= -1L << shift;
-
-        return value;
-    }
-
-    private static void RequireSectionConsumed(int pos, int end)
-    {
-        if (pos != end)
-            throw new InvalidDataException("A WebAssembly section was not consumed exactly.");
-    }
 
     private static WasmExternalKind ExternalKind(byte kind) => kind switch
     {

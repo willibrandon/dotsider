@@ -31,6 +31,7 @@ public sealed class WasmSdkModuleDecoderTests
 
         var wasm = analyzer.WasmModuleInfo;
         Assert.IsNotNull(wasm);
+        Assert.IsNull(wasm.Diagnostic);
         Assert.AreEqual(1, wasm.Version);
         Assert.IsNotEmpty(wasm.Sections);
         Assert.IsGreaterThan(0, wasm.ImportedFunctionCount);
@@ -87,6 +88,7 @@ public sealed class WasmSdkModuleDecoderTests
         Assert.AreEqual(BinaryKind.Wasm, analyzer.BinaryKind);
         var wasm = analyzer.WasmModuleInfo;
         Assert.IsNotNull(wasm);
+        Assert.IsNull(wasm.Diagnostic);
         Assert.IsGreaterThan(0, wasm.DefinedFunctionCount);
         Assert.IsGreaterThan(0, wasm.CodeSize);
         Assert.IsNotEmpty(analyzer.NativeSymbols?.Symbols ?? []);

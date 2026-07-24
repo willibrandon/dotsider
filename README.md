@@ -49,7 +49,7 @@ When the Native AOT build tree is available, dotsider can attach the pre-ILC man
 
 ReadyToRun (crossgen2) images keep their full managed metadata, and dotsider joins that metadata to the precompiled method bodies in the same file or composite image. You can see IL beside native code, named call targets from import tables, and component assemblies followed in both directions.
 
-Browser-wasm outputs split into two useful views. Point dotsider at `dotnet.native.wasm` and it parses the runtime module's Wasm sections, type/table/memory/global declarations, imports, exports, element and data segments, function bodies, and `dotnet.native.js.symbols`, then renders Wasm32 disassembly with direct-call targets and typed operands named from the same indexes the runtime uses. Point it at a Webcil app assembly such as `WasmConsole.wasm` and it unwraps the managed metadata and IL instead of treating the container as runtime code.
+Browser-wasm outputs split into two useful views. Point dotsider at `dotnet.native.wasm` and it parses the runtime module's Wasm sections, type/table/memory/global declarations, imports, exports, element and data segments, function bodies, and `dotnet.native.js.symbols`, then renders Wasm32 disassembly with direct-call targets and typed operands named from the same indexes the runtime uses. Structured vectors are bounded by their containing section and a shared 1,048,576-item decoding budget; malformed standard data retains the safely decoded prefix and reports a diagnostic instead of driving count-sized allocations. Point dotsider at a Webcil app assembly such as `WasmConsole.wasm` and it unwraps the managed metadata and IL instead of treating the container as runtime code.
 
 | Tab | What you see |
 |-----|-------------|
