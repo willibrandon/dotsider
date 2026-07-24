@@ -44,10 +44,16 @@ internal static class CaptureDisasmOracleApp
         string fixture = ScriptSupport.GetString(values, "Fixture");
         string oraclePath = ScriptSupport.GetString(values, "OraclePath");
         string outputDirectory = ScriptSupport.GetString(values, "OutputDirectory", Path.Combine(repositoryRoot, "artifacts", "oracles", "disasm"));
-        string runtimeRoot = ScriptSupport.GetString(
+        string runtimeRootValue = ScriptSupport.GetString(
             values,
             "RuntimeRoot",
-            Environment.GetEnvironmentVariable("DOTSIDER_RUNTIME_ROOT") ?? Path.Combine(Directory.GetParent(repositoryRoot)?.FullName ?? repositoryRoot, "runtime"));
+            Environment.GetEnvironmentVariable("DOTSIDER_RUNTIME_ROOT") ?? string.Empty);
+        string? runtimeRoot = string.IsNullOrWhiteSpace(runtimeRootValue)
+            ? null
+            : ScriptSupport.ResolveExistingPath(
+                runtimeRootValue,
+                "runtime root",
+                Directory.GetCurrentDirectory());
         string workingDirectory = ScriptSupport.GetString(values, "WorkingDirectory");
         int maxOutputCharacters = ParsePositiveInt(
             ScriptSupport.GetString(values, "MaxOutputCharacters", "4000000"),
@@ -107,9 +113,13 @@ internal static class CaptureDisasmOracleApp
             ["StderrTruncated"] = stderrTruncated,
             ["StdoutPath"] = stdoutPath,
             ["StderrPath"] = stderrPath,
-            ["RuntimeRoot"] = Directory.Exists(runtimeRoot) ? Path.GetFullPath(runtimeRoot) : runtimeRoot,
-            ["RuntimeCommit"] = ScriptSupport.TryRunGit(runtimeRoot, "rev-parse", "HEAD"),
-            ["RuntimeBranch"] = ScriptSupport.TryRunGit(runtimeRoot, "branch", "--show-current"),
+            ["RuntimeRoot"] = runtimeRoot,
+            ["RuntimeCommit"] = runtimeRoot is null
+                ? null
+                : ScriptSupport.TryRunGit(runtimeRoot, "rev-parse", "HEAD"),
+            ["RuntimeBranch"] = runtimeRoot is null
+                ? null
+                : ScriptSupport.TryRunGit(runtimeRoot, "branch", "--show-current"),
             ["Dotnet"] = dotnetVersion,
             ["CapturedUtc"] = DateTimeOffset.UtcNow.ToString("O"),
         };

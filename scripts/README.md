@@ -9,7 +9,18 @@ Run a utility with `dotnet run --file`:
 
 ```powershell
 dotnet run --file ./scripts/Run-Tests.cs
-dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
+dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -RuntimeRoot path/to/runtime -- -D -b binary -m riscv:rv64 path/to/blob.bin
+```
+
+`-RuntimeRoot` and `DOTSIDER_RUNTIME_ROOT` are optional. Supply one when the
+fixture or oracle comes from a local runtime clone so its path, commit, and
+branch are captured. Without either setting, those provenance fields are null.
+
+Automation can build once and reuse that output:
+
+```powershell
+dotnet build ./scripts/Capture-DisasmOracle.cs --nologo --verbosity quiet
+dotnet run --file ./scripts/Capture-DisasmOracle.cs --no-build -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -RuntimeRoot path/to/runtime -- -D -b binary -m riscv:rv64 path/to/blob.bin
 ```
 
 Keep file-based apps under `scripts/`, outside project directories. The local

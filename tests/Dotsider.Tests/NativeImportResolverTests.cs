@@ -91,6 +91,25 @@ public class NativeImportResolverTests
         Assert.AreEqual("malloc", import.Name);
     }
 
+    /// <summary>
+    /// Verifies an oversized compressed ELF symbol table fails closed instead of allocating from
+    /// its declared size or producing a partially populated import resolver.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Build_ElfWithOversizedCompressedSymbolTable_ReturnsNull()
+    {
+        byte[] dynsym = SyntheticImageBuilders.CompressDebugSection(new byte[48]);
+        BinaryPrimitives.WriteUInt64LittleEndian(
+            dynsym.AsSpan(8),
+            (ulong)NativeImageDataLimits.MaxMaterializedBytes + 1);
+        byte[] image = SyntheticImageBuilders.BuildElf(
+            (".dynsym", 0, dynsym, 11u, 2u, 0x800UL),
+            (".dynstr", 0, new byte[] { 0 }, 3u, 0u, 0UL));
+
+        Assert.IsNull(NativeImportResolver.Build(image));
+    }
+
     /// <summary>Verifies the ELF resolver composes into DisassembleSymbol: a PLT stub's inner jmp through the GOT slot names the import.</summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]

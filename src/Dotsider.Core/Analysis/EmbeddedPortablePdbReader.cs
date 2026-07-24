@@ -39,7 +39,7 @@ internal static class EmbeddedPortablePdbReader
         }
 
         int compressedLength = payloadSize - (2 * sizeof(int));
-        if (!BoundedDeflateDecoder.TryDecode(
+        if (!BoundedCompressionDecoder.TryDecodeDeflate(
                 image,
                 payloadOffset + (2 * sizeof(int)),
                 compressedLength,

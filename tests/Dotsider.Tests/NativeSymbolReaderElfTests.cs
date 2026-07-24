@@ -300,6 +300,36 @@ public class NativeSymbolReaderElfTests
     }
 
     /// <summary>
+    /// Verifies an oversized compressed DWARF declaration fails through the public symbol facade
+    /// and preserves the existing corrupt-symbol <c>.eh_frame</c> fallback.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Read_OversizedCompressedDwarf_FallsBackToEhFrame()
+    {
+        byte[] oversizedInfo = SyntheticImageBuilders.CompressDebugSection([0x01]);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(
+            oversizedInfo.AsSpan(8),
+            (ulong)NativeImageDataLimits.MaxMaterializedBytes + 1);
+        byte[] image = SyntheticImageBuilders.BuildElf(
+            (".text", 0x1000, new byte[0x100], 1u, 0u, 0UL),
+            (".debug_info", 0, oversizedInfo, 1u, 0u, 0x800UL),
+            (".debug_abbrev", 0, new byte[] { 0x01 }, 1u, 0u, 0UL),
+            (".eh_frame", 0x3000, SyntheticImageBuilders.EhFrame((0x1010, 0x40)), 1u, 0u, 0UL));
+
+        var result = NativeSymbolReader.Read("oversized-elf", image, []);
+
+        Assert.AreEqual(NativeSymbolSource.EhFrameFallback, result.Source);
+        Assert.AreEqual(NativeSymbolStatus.CorruptSymbolFile, result.Status);
+        Assert.IsNull(result.Path);
+        Assert.Contains("no readable symbols", result.Diagnostic!);
+        var boundary = Assert.ContainsSingle(result.Symbols);
+        Assert.AreEqual(NativeSymbolKind.Boundary, boundary.Kind);
+        Assert.AreEqual(0x1010UL, boundary.VirtualAddress);
+        Assert.AreEqual(0x40, boundary.Size);
+    }
+
+    /// <summary>
     /// Verifies a matched sidecar with unreadable debug data reports
     /// <see cref="NativeSymbolStatus.CorruptSymbolFile"/>.
     /// </summary>

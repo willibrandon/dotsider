@@ -184,7 +184,7 @@ internal static class PortablePdbUtilities
         }
 
         byte[] payload = blob.ReadBytes(payloadLength);
-        return BoundedDeflateDecoder.TryDecode(
+        return BoundedCompressionDecoder.TryDecodeDeflate(
             payload,
             offset: 0,
             payload.Length,

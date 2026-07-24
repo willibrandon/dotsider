@@ -31,7 +31,8 @@ public sealed class NativeImportResolver
 ### Build(ReadOnlyMemory\<byte\>, NativeArchitecture)
 
 Builds the resolver from a binary's raw bytes, dispatching on the image format (PE, ELF, or
-Mach-O), or null when the format carries no resolvable import slots.
+Mach-O), or null when the format carries no resolvable import slots or its import data is
+malformed or oversized.
 
 **Parameters:**
 
