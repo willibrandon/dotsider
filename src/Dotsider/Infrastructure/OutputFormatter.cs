@@ -16,7 +16,7 @@ internal sealed class OutputFormatter : IDisposable
     public bool JsonMode { get; set; }
 
     /// <summary>Creates a formatter that writes to stdout.</summary>
-    public OutputFormatter() : this(null) { }
+    public OutputFormatter() : this((string?)null) { }
 
     /// <summary>
     /// Creates a formatter that writes to the specified file, or stdout if null.
@@ -35,6 +35,17 @@ internal sealed class OutputFormatter : IDisposable
         }
     }
 
+    /// <summary>
+    /// Creates a formatter that writes to the supplied writer.
+    /// </summary>
+    /// <param name="writer">The destination writer.</param>
+    internal OutputFormatter(TextWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        _writer = writer;
+        _ownsWriter = false;
+    }
+
     /// <summary>Serializes the value as JSON and writes it as a line.</summary>
     public void WriteJson<T>(T value)
     {
@@ -46,13 +57,57 @@ internal sealed class OutputFormatter : IDisposable
     public void WriteLine(string message)
     {
         if (!JsonMode)
-            _writer.WriteLine(message);
+            _writer.WriteLine(TerminalText.Escape(message));
+    }
+
+    /// <summary>
+    /// Writes a multiline text block while preserving logical line boundaries and escaping
+    /// terminal controls within each line.
+    /// </summary>
+    /// <param name="message">The multiline text.</param>
+    public void WriteBlock(string message)
+    {
+        if (JsonMode)
+        {
+            return;
+        }
+
+        var escaped = TerminalText.EscapeMultiline(message);
+        var lineStart = 0;
+        while (lineStart < escaped.Length)
+        {
+            var lineEnd = escaped.IndexOf('\n', lineStart);
+            if (lineEnd < 0)
+            {
+                _writer.WriteLine(escaped.AsSpan(lineStart));
+                return;
+            }
+
+            _writer.WriteLine(escaped.AsSpan(lineStart, lineEnd - lineStart));
+            lineStart = lineEnd + 1;
+        }
+
+        if (escaped.Length == 0)
+        {
+            _writer.WriteLine();
+        }
     }
 
     /// <summary>Writes an error message to stderr (always, regardless of mode).</summary>
     public static void WriteError(string message)
     {
-        Console.Error.WriteLine(message);
+        WriteError(Console.Error, message);
+    }
+
+    /// <summary>
+    /// Writes a terminal-safe error message to the supplied writer.
+    /// </summary>
+    /// <param name="writer">The error destination.</param>
+    /// <param name="message">The error message.</param>
+    internal static void WriteError(TextWriter writer, string message)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        writer.WriteLine(TerminalText.Escape(message));
     }
 
     /// <summary>Writes a column-aligned table with headers (suppressed in JSON mode).</summary>
@@ -60,11 +115,14 @@ internal sealed class OutputFormatter : IDisposable
     {
         if (JsonMode) return;
 
-        var allRows = rows.ToList();
-        var widths = new int[headers.Length];
+        var escapedHeaders = headers.Select(TerminalText.Escape).ToArray();
+        var allRows = rows
+            .Select(row => row.Select(TerminalText.Escape).ToArray())
+            .ToList();
+        var widths = new int[escapedHeaders.Length];
 
-        for (var i = 0; i < headers.Length; i++)
-            widths[i] = headers[i].Length;
+        for (var i = 0; i < escapedHeaders.Length; i++)
+            widths[i] = escapedHeaders[i].Length;
 
         foreach (var row in allRows)
         {
@@ -72,9 +130,9 @@ internal sealed class OutputFormatter : IDisposable
                 widths[i] = Math.Max(widths[i], row[i].Length);
         }
 
-        var last = headers.Length - 1;
-        _writer.WriteLine(string.Join("  ", headers.Select((h, i) => i < last ? h.PadRight(widths[i]) : h)));
-        _writer.WriteLine(string.Join("  ", widths.Select((w, i) => new string('-', i < last ? w : headers[last].Length))));
+        var last = escapedHeaders.Length - 1;
+        _writer.WriteLine(string.Join("  ", escapedHeaders.Select((h, i) => i < last ? h.PadRight(widths[i]) : h)));
+        _writer.WriteLine(string.Join("  ", widths.Select((w, i) => new string('-', i < last ? w : escapedHeaders[last].Length))));
 
         foreach (var row in allRows)
         {

@@ -103,6 +103,8 @@ TUI options:
 ### CLI: `dotsider analyze`
 
 Run analysis without the TUI — pipe to other tools, write to files, or output JSON for scripting.
+Human-readable TUI, terminal, redirected, and `-o` text escapes control and Unicode formatting
+characters recovered from analyzed files. Use `--json` when exact string values are required.
 
 ```
 dotsider analyze MyLib.dll                      # assembly info (default)
@@ -300,16 +302,22 @@ src/Dotsider.Core/
   Analysis/           PE reading, metadata extraction, IL disassembly, diffing,
                       dependency graphs, size analysis, runtime tracing,
                       single-file bundle reading, .NET shared framework discovery
+  Analysis/Disasm/    Native instruction decoders
+  Analysis/Dwarf/     DWARF symbols, line programs, and unwind data
   Analysis/Models/    Data types for analysis results
+  Analysis/NativePdb/ Native PDB/MSF readers
+  Analysis/ReadyToRun/ ReadyToRun metadata, signatures, and method maps
+  Analysis/Signatures/ Bounded ECMA-335 signature validation and decoding
+  Analysis/Wasm/      WebAssembly, Webcil, and SDK symbol readers
   Protocol/           Request/response types and JSON options for the UDS protocol
 
 src/Dotsider/
-  Commands/           CLI subcommands (analyze, sessions, agent)
+  Commands/           CLI subcommands (analyze, diff, size-check, sessions, agent)
   Diagnostics/        Unix domain socket listener for TUI state access
-  Infrastructure/     Output formatting, session discovery
-  Views/              One file per tab — widget trees built each frame
+  Infrastructure/     Output formatting, terminal escaping, and session discovery
+  Views/              TUI widget trees, renderers, and view helpers
   DotsiderApp.cs      Main app shell (tab panel, key bindings, hints bar)
-  DotsiderState.cs    All mutable UI state in one place
+  DotsiderState.cs    Standard analysis-mode state
   DiffApp.cs          Diff mode shell
   SizeDiffApp.cs      Size-diff mode shell (Native AOT mstat pairs)
   NuGetApp.cs         NuGet mode shell
@@ -320,33 +328,55 @@ src/Dotsider.Mcp/
   Prompts/            Guided analysis prompts (security, API review, breaking changes)
   Program.cs          MCP server entry point (stdio transport)
 
+src/Dotsider.Website/
+  Program.cs          Hosted interactive demo and WebSocket session endpoint
+
+src/Dotsider.DocGenerator/
+  Program.cs          DocFX-to-Starlight API reference generator
+
 samples/
-  HelloWorld/         Minimal console app
-  ComplexApp/         Async pipeline with embedded resources
-  EmbeddedSourceLib/  Embedded portable PDB source fixture
-  RichLibrary/        Library with NuGet deps (Newtonsoft.Json, System.Text.Json)
-  RichLibraryV2/      Same library with deliberate API changes (for diff testing)
-  MinimalApi/         ASP.NET Core minimal API (web SDK, hosted entry point)
-  NativeLib/          Unsafe code, P/Invoke, pointer operations
-  EmptyLib/           Minimal library (edge case testing)
-  NetFxConsole/       .NET Framework 4.8 console app (Dynamic tab guard testing)
-  NativeAotConsole/   NativeAOT-published console app (Dynamic tab tracing tests)
-  NativeAotConsoleV2/ Same app rebuilt with deliberate size deltas (AOT size-diff fixture)
-  SelfContainedConsole/ Self-contained single-file bundle (bundle reading, resolution tests)
-  Dotted.Name.App/    Console app with a dotted assembly name (apphost detection)
-  NetFxBindingRedirects/  .NET Framework 4.8 fixture for the netfx binder — GAC, framework
-                      runtime dir, binding redirects, codeBase, privatePath, satellite culture.
-                      Five sibling projects (OldDep, NewDep, PrivatePathLib, CodeBaseLib,
-                      CulturedLib) supply the references the root EXE deploys and resolves.
+  HelloWorld/               Minimal console app
+  ComplexApp/               Async pipeline with embedded resources
+  RichLibrary*/             NuGet-backed library pair with deliberate API changes
+  MinimalApi/               ASP.NET Core hosted entry point
+  NativeLib/                Unsafe code, P/Invoke, and pointer operations
+  EmptyLib/                 Minimal-library edge cases
+  EmbeddedSourceLib/        Embedded portable PDB source
+  TerminalControlLib/       Compiler-emitted hostile terminal-control strings
+  Dotted.Name.App/          Dotted assembly name for apphost detection
+  AppLocalRollForward/      App-local runtime roll-forward resolution
+  SelfContainedConsole/     Self-contained single-file bundle
+  NativeAotConsole*/        NativeAOT tracing and size-diff pair
+  NativeAotArtifactsConsole/ NativeAOT sidecar and symbol artifacts
+  NativeAotLibrary/         NativeAOT shared-library exports
+  HardwareIntrinsics/       NativeAOT hardware-intrinsic code generation
+  ReadyToRunConsole/        Cross-RID ReadyToRun and Webcil publishing
+  ReadyToRunComponentLib/   ReadyToRun composite component
+  ReadyToRunComposite/      Composite ReadyToRun image
+  WasmConsole/              Browser-Wasm and Wasm-AOT publishing
+  MultiModule*/             Manifest/netmodule resolution pair
+  NetFxConsole/             .NET Framework 4.8 Dynamic-tab guard
+  NetFxBindingRedirects*/   CLR 4 and CLR 2 binding, GAC, codeBase, privatePath,
+                            version, and satellite-culture fixture families
 
 tests/Dotsider.Tests/
-  SampleAssemblyFixture.cs   Builds every sample once and runs the netfx oracle EXE,
-                             shared across tests
-  *Tests.cs                  Integration tests against real assemblies
+  SampleAssemblyFixture.cs   Builds and publishes shared real artifacts once per test run
+  Synthetic*                 Malformed and boundary-format fixture builders
+  *Tests.cs                  Unit, real-artifact, CLI, and headless-TUI tests
 
 tests/Dotsider.Mcp.Tests/
   McpServerTestBase.cs       In-memory MCP server setup for testing
   *Tests.cs                  MCP tool and prompt integration tests
+
+tests/Dotsider.Website.Tests/
+  *Tests.cs                  Demo admission and WebSocket limit tests
+
+tests/Shared/                 Shared MSTest settings, assertions, and socket identifiers
+scripts/                      Test runner and native-disassembly oracle tooling
+benchmarks/Dotsider.Benchmarks/ BenchmarkDotNet performance suite
+docs/                         Starlight documentation site
+deploy/                       Hosted-demo deployment and monitoring configuration
+wix/ and winget/              Windows installer and package manifests
 ```
 
 ## Testing
@@ -355,7 +385,11 @@ tests/Dotsider.Mcp.Tests/
 dotnet test
 ```
 
-Integration tests run against real .NET assemblies. The test fixture builds all sample projects automatically, including cross-RID ReadyToRun publishes for architecture-specific native decoder coverage when the SDK has the required packs. First run takes longer due to NuGet restore; subsequent runs use cache.
+The suite combines unit tests, synthetic malformed-format fixtures, real compiler and publisher
+artifacts, CLI subprocesses, and headless TUI scenarios. The shared fixture builds the required
+sample projects automatically, including cross-RID ReadyToRun publishes for architecture-specific
+native decoder coverage when the SDK has the required packs. First run takes longer due to NuGet
+restore; subsequent runs use the cache.
 
 Native-disassembly goldens are regenerated explicitly with the .NET file-based oracle tool:
 

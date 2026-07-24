@@ -74,7 +74,7 @@ static async Task<int> RunTui(string[] args, string filePath)
 {
     if (!File.Exists(filePath))
     {
-        Console.Error.WriteLine($"Error: File not found: {filePath}");
+        OutputFormatter.WriteError($"Error: File not found: {filePath}");
         return 1;
     }
 
@@ -256,7 +256,7 @@ static async Task<int> RunTui(string[] args, string filePath)
         {
             var log = Path.Combine(Path.GetTempPath(), "dotsider-crash.log");
             File.AppendAllText(log, $"{DateTime.Now:O}\n{(e.ExceptionObject as Exception)?.ToString() ?? e.ExceptionObject}\n\n");
-            Console.Error.WriteLine($"dotsider crashed; details written to {log}");
+            OutputFormatter.WriteError($"dotsider crashed; details written to {log}");
         }
         catch
         {

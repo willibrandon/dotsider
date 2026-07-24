@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -72,7 +73,8 @@ public static class StringsView
         if (state.StringsDetailContent is not null && state.StringsDetailEditorText != state.StringsDetailContent)
         {
             state.StringsDetailEditorText = state.StringsDetailContent;
-            var detailText = $"  Length: {state.StringsDetailContent.Length}\n\n  {state.StringsDetailContent.Replace("\n", "\n  ")}";
+            var escapedContent = TerminalText.EscapeMultiline(state.StringsDetailContent);
+            var detailText = $"  Length: {state.StringsDetailContent.Length}\n\n  {escapedContent.Replace("\n", "\n  ")}";
             state.StringsDetailEditorState = new EditorState(new Hex1bDocument(detailText)) { IsReadOnly = true };
         }
 

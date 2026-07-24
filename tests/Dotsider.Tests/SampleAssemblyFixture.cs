@@ -58,6 +58,10 @@ internal class SampleAssemblyFixture
     /// Path to the built EmbeddedSourceLib.dll sample assembly.
     /// </summary>
     public string EmbeddedSourceLibDll { get; private set; } = null!;
+    /// <summary>
+    /// Path to the compiler-built terminal-control sample assembly.
+    /// </summary>
+    public string TerminalControlLibDll { get; private set; } = null!;
 
     /// <summary>
     /// Path to the built AppLocalRollForward.dll sample assembly. Reproduces the AppLocal
@@ -341,6 +345,7 @@ internal class SampleAssemblyFixture
             BuildProject("samples/NativeLib"),
             BuildProject("samples/EmptyLib"),
             BuildProject("samples/EmbeddedSourceLib"),
+            BuildProject("samples/TerminalControlLib"),
             BuildProject("samples/Dotted.Name.App"),
             BuildProject("samples/AppLocalRollForward"),
         };
@@ -394,6 +399,7 @@ internal class SampleAssemblyFixture
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
         EmptyLibDll = SamplePath("EmptyLib", config, tfm, "EmptyLib.dll");
         EmbeddedSourceLibDll = SamplePath("EmbeddedSourceLib", config, tfm, "EmbeddedSourceLib.dll");
+        TerminalControlLibDll = SamplePath("TerminalControlLib", config, tfm, "TerminalControlLib.dll");
         AppLocalRollForwardDll = SamplePath(
             "AppLocalRollForward", config, tfm, "AppLocalRollForward.dll");
         DottedNameAppDll = SamplePath("Dotted.Name.App", config, tfm, "Dotted.Name.App.dll");

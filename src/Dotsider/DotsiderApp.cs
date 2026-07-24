@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Documents;
@@ -67,15 +68,15 @@ public sealed class DotsiderApp(DotsiderState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(0, 200, 180))),
                 bar.Divider(" "),
-                bar.Section(_state.NavigationStack.Count > 0
+                bar.Section(TerminalText.Escape(_state.NavigationStack.Count > 0
                     ? $"{_state.Analyzer.DisplayName} (depth {_state.NavigationStack.Count + 1})"
-                    : _state.Analyzer.DisplayName).Theme(t => t
+                    : _state.Analyzer.DisplayName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 .. _state.Analyzer.PreIlcCompanions is { } companions
                     ? new IInfoBarChild[]
                     {
                         bar.Divider(" "),
-                        bar.Section($"⇄ {companions.Root.FileName}").Theme(t => t
+                        bar.Section($"⇄ {TerminalText.Escape(companions.Root.FileName)}").Theme(t => t
                             .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(0, 160, 140))),
                     }
                     : [],
@@ -477,7 +478,7 @@ public sealed class DotsiderApp(DotsiderState state)
                             dlg.Text("  It has no .NET metadata to inspect."),
                             dlg.Text(""),
                             dlg.Text("  A managed assembly was found:"),
-                            dlg.Text($"  {dllName}"),
+                            dlg.Text($"  {TerminalText.Escape(dllName)}"),
                             dlg.Text(""),
                             dlg.Text("  Open the managed .dll instead?"),
                             dlg.Text(""),
@@ -526,7 +527,7 @@ public sealed class DotsiderApp(DotsiderState state)
                             dlg.Text("  This is a Native AOT binary. Its pre-ILC"),
                             dlg.Text("  build outputs were found:"),
                             dlg.Text(""),
-                            dlg.Text($"  {dllName}{extras}{symbols}"),
+                            dlg.Text($"  {TerminalText.Escape(dllName)}{extras}{symbols}"),
                             dlg.Text(""),
                             dlg.Text("  Attach to see IL, metadata, and native"),
                             dlg.Text("  code side by side?"),
@@ -797,7 +798,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // Yank notification (right side, auto-clearing)
             if (!string.IsNullOrEmpty(_state.YankNotification))
             {
-                hints.Add(s.Section(_state.YankNotification).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.YankNotification)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
                 hints.Add(s.Divider(" "));
             }
@@ -805,7 +806,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // Transient notice (right side, all tabs)
             if (!string.IsNullOrEmpty(_state.TransientNotice))
             {
-                hints.Add(s.Section(_state.TransientNotice).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.TransientNotice)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                 hints.Add(s.Divider(" "));
             }
@@ -813,7 +814,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // General tab: navigation error (right side)
             if (_state.CurrentTab == 0 && !string.IsNullOrEmpty(_state.NavigationError))
             {
-                hints.Add(s.Section(_state.NavigationError).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.NavigationError)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                 hints.Add(s.Divider(" "));
             }
@@ -821,7 +822,7 @@ public sealed class DotsiderApp(DotsiderState state)
             // Hex tab: vim-style save notification (right side)
             if (_state.CurrentTab == 4 && !string.IsNullOrEmpty(_state.HexNotification))
             {
-                hints.Add(s.Section(_state.HexNotification).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.HexNotification)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 110, 30))));
                 hints.Add(s.Divider(" "));
             }

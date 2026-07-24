@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -219,7 +220,8 @@ public static class GeneralView
         if (state.GeneralInfoEditorText != infoText)
         {
             state.GeneralInfoEditorText = infoText;
-            state.GeneralInfoEditorState = new EditorState(new Hex1bDocument(infoText)) { IsReadOnly = true };
+            state.GeneralInfoEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(infoText))) { IsReadOnly = true };
         }
 
         // Adjust word boundaries after double-click (consistent with IL Inspector)
@@ -281,9 +283,9 @@ public static class GeneralView
                         [
                             r.Cell(c => FocusStyle(c, HighlightHelper.HighlightCell(c, asmRef.Name, query,
                                 !string.IsNullOrEmpty(query), fg, bg), rs.IsFocused, flash)),
-                            r.Cell(c => FocusStyle(c, c.Text(asmRef.Version), rs.IsFocused, flash)),
-                            r.Cell(c => FocusStyle(c, c.Text(asmRef.Culture), rs.IsFocused, flash)),
-                            r.Cell(c => FocusStyle(c, c.Text(asmRef.PublicKeyToken ?? ""), rs.IsFocused, flash))
+                            r.Cell(c => FocusStyle(c, c.Text(TerminalText.Escape(asmRef.Version)), rs.IsFocused, flash)),
+                            r.Cell(c => FocusStyle(c, c.Text(TerminalText.Escape(asmRef.Culture)), rs.IsFocused, flash)),
+                            r.Cell(c => FocusStyle(c, c.Text(TerminalText.Escape(asmRef.PublicKeyToken ?? "")), rs.IsFocused, flash))
                         ];
                     })
                     .Focus(state.App.FocusedNode is EditorNode
@@ -475,7 +477,7 @@ public static class GeneralView
         [
             row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
                 row.Text($"  {label}: ")).FixedWidth(22),
-            row.Text(value)
+            row.Text(TerminalText.Escape(value))
         ]).FixedHeight(1);
     }
 }

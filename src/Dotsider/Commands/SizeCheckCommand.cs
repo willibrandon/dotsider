@@ -221,7 +221,7 @@ internal static class SizeCheckCommand
                     fmt.WriteJson(SizeDiffReportWriter.BuildDocument(context));
                     break;
                 case "markdown":
-                    fmt.WriteLine(SizeDiffReportWriter.BuildMarkdown(context));
+                    fmt.WriteBlock(SizeDiffReportWriter.BuildMarkdown(context));
                     break;
                 default:
                     SizeDiffReportWriter.WriteText(fmt, context);

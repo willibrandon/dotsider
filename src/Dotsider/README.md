@@ -14,6 +14,8 @@
 ### analyze
 
 Headless assembly analysis. Defaults to assembly info; use flags to select output.
+Human-readable output renders controls recovered from analyzed files as visible text, including
+redirected and `-o` output. JSON preserves the exact values.
 
 ```
 dotsider analyze MyApp.dll                  # assembly info

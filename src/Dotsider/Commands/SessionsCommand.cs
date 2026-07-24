@@ -331,7 +331,7 @@ internal static class SessionsCommand
                     if (json)
                         formatter.WriteJson(new { Content = content });
                     else
-                        Console.Write(content);
+                        formatter.WriteBlock(content);
                 }
                 else
                 {

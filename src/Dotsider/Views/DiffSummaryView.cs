@@ -1,3 +1,4 @@
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -39,7 +40,8 @@ public static class DiffSummaryView
         if (state.LeftInfoEditorText != leftText)
         {
             state.LeftInfoEditorText = leftText;
-            state.LeftInfoEditorState = new EditorState(new Hex1bDocument(leftText)) { IsReadOnly = true };
+            state.LeftInfoEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(leftText))) { IsReadOnly = true };
         }
 
         var rightText = string.Join("\n",
@@ -53,7 +55,8 @@ public static class DiffSummaryView
         if (state.RightInfoEditorText != rightText)
         {
             state.RightInfoEditorText = rightText;
-            state.RightInfoEditorState = new EditorState(new Hex1bDocument(rightText)) { IsReadOnly = true };
+            state.RightInfoEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(rightText))) { IsReadOnly = true };
         }
 
         // Build change stats text for read-only editor (fixed-width columns for alignment)
@@ -79,7 +82,8 @@ public static class DiffSummaryView
         if (state.ChangeStatsEditorText != statsText)
         {
             state.ChangeStatsEditorText = statsText;
-            state.ChangeStatsEditorState = new EditorState(new Hex1bDocument(statsText)) { IsReadOnly = true };
+            state.ChangeStatsEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(statsText))) { IsReadOnly = true };
         }
 
         var leftSearchProvider = new DiffSearchDecorationProvider { Query = query };
@@ -119,7 +123,7 @@ public static class DiffSummaryView
                                     () => state.App.Invalidate());
                             })
                             .FillWidth().FillHeight())
-                    ).Title($" {state.Left.FileName} (Left) ").Fill()
+                    ).Title($" {TerminalText.Escape(state.Left.FileName)} (Left) ").Fill()
                 ],
                 right =>
                 [
@@ -145,7 +149,7 @@ public static class DiffSummaryView
                                     () => state.App.Invalidate());
                             })
                             .FillWidth().FillHeight())
-                    ).Title($" {state.Right.FileName} (Right) ").Fill()
+                    ).Title($" {TerminalText.Escape(state.Right.FileName)} (Right) ").Fill()
                 ],
                 leftWidth: 50).FixedHeight(9));
 

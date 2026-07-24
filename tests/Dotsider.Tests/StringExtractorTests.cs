@@ -28,6 +28,22 @@ public class StringExtractorTests
     }
 
     /// <summary>
+    /// Verifies compiler-emitted terminal controls remain exact in the analysis model.
+    /// Presentation layers, rather than the extractor, own terminal escaping.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void TerminalControlLib_UserStrings_PreservesExactValue()
+    {
+        using var analyzer = new AssemblyAnalyzer(Samples.TerminalControlLibDll);
+        var extractor = new StringExtractor(analyzer);
+
+        var strings = extractor.ExtractUserStrings();
+
+        Assert.Contains(entry => entry.Value == TerminalControlTestData.CompilerPayload, strings);
+    }
+
+    /// <summary>
     /// Verifies rich library metadata strings contain type names.
     /// </summary>
     [TestMethod]

@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text;
 
-namespace Dotsider.Views;
+namespace Dotsider.Infrastructure;
 
 /// <summary>
 /// Converts untrusted text to a printable terminal representation without changing the source
 /// value used for identity or application behavior.
 /// </summary>
-internal static class UntrustedTerminalText
+internal static class TerminalText
 {
     /// <summary>
     /// Replaces terminal controls, Unicode formatting controls, and invalid surrogate code units
@@ -15,52 +15,15 @@ internal static class UntrustedTerminalText
     /// </summary>
     /// <param name="value">The untrusted text.</param>
     /// <returns>The original string when it is printable; otherwise, a printable representation.</returns>
-    internal static string Escape(string value)
-    {
-        StringBuilder? builder = null;
-        var index = 0;
-        while (index < value.Length)
-        {
-            var characterCount = 1;
-            Rune rune;
-            if (char.IsHighSurrogate(value[index]) &&
-                index + 1 < value.Length &&
-                char.IsLowSurrogate(value[index + 1]))
-            {
-                rune = new Rune(value[index], value[index + 1]);
-                characterCount = 2;
-            }
-            else if (char.IsSurrogate(value[index]))
-            {
-                builder ??= CreateBuilder(value, index);
-                AppendUnicodeEscape(builder, value[index]);
-                index++;
-                continue;
-            }
-            else
-            {
-                rune = new Rune(value[index]);
-            }
+    internal static string Escape(string value) => EscapeCore(value, allowLineFeeds: false);
 
-            var category = Rune.GetUnicodeCategory(rune);
-            if (category is UnicodeCategory.Control or
-                UnicodeCategory.Format or
-                UnicodeCategory.LineSeparator or
-                UnicodeCategory.ParagraphSeparator)
-            {
-                builder ??= CreateBuilder(value, index);
-                AppendEscapedRune(builder, rune);
-            }
-            else if (builder is not null)
-            {
-                builder.Append(value.AsSpan(index, characterCount));
-            }
-
-            index += characterCount;
-        }
-
-        return builder?.ToString() ?? value;
-    }
+    /// <summary>
+    /// Replaces unsafe characters while preserving logical line boundaries as line feeds.
+    /// Carriage-return and carriage-return/line-feed boundaries are normalized to line feeds.
+    /// </summary>
+    /// <param name="value">The untrusted multiline text.</param>
+    /// <returns>The terminal-safe multiline representation.</returns>
+    internal static string EscapeMultiline(string value) => EscapeCore(value, allowLineFeeds: true);
 
     /// <summary>
     /// Truncates printable text without splitting a UTF-16 surrogate pair and appends an ellipsis
@@ -78,7 +41,9 @@ internal static class UntrustedTerminalText
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumLength, Ellipsis.Length);
 
         if (value.Length <= maximumLength)
+        {
             return value;
+        }
 
         var prefixLength = maximumLength - Ellipsis.Length;
         if (prefixLength > 0 &&
@@ -126,5 +91,67 @@ internal static class UntrustedTerminalText
         var builder = new StringBuilder(value.Length + 8);
         builder.Append(value.AsSpan(0, safePrefixLength));
         return builder;
+    }
+
+    private static string EscapeCore(string value, bool allowLineFeeds)
+    {
+        StringBuilder? builder = null;
+        var index = 0;
+        while (index < value.Length)
+        {
+            if (allowLineFeeds && value[index] == '\n')
+            {
+                builder?.Append('\n');
+                index++;
+                continue;
+            }
+
+            if (allowLineFeeds && value[index] == '\r')
+            {
+                builder ??= CreateBuilder(value, index);
+                builder.Append('\n');
+                index += index + 1 < value.Length && value[index + 1] == '\n' ? 2 : 1;
+                continue;
+            }
+
+            var characterCount = 1;
+            Rune rune;
+            if (char.IsHighSurrogate(value[index]) &&
+                index + 1 < value.Length &&
+                char.IsLowSurrogate(value[index + 1]))
+            {
+                rune = new Rune(value[index], value[index + 1]);
+                characterCount = 2;
+            }
+            else if (char.IsSurrogate(value[index]))
+            {
+                builder ??= CreateBuilder(value, index);
+                AppendUnicodeEscape(builder, value[index]);
+                index++;
+                continue;
+            }
+            else
+            {
+                rune = new Rune(value[index]);
+            }
+
+            var category = Rune.GetUnicodeCategory(rune);
+            if (category is UnicodeCategory.Control or
+                UnicodeCategory.Format or
+                UnicodeCategory.LineSeparator or
+                UnicodeCategory.ParagraphSeparator)
+            {
+                builder ??= CreateBuilder(value, index);
+                AppendEscapedRune(builder, rune);
+            }
+            else if (builder is not null)
+            {
+                builder.Append(value.AsSpan(index, characterCount));
+            }
+
+            index += characterCount;
+        }
+
+        return builder?.ToString() ?? value;
     }
 }

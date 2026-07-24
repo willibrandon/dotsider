@@ -94,8 +94,8 @@ internal static class AgentCommand
                 }
             }
 
-            Console.Error.WriteLine("Error: dotsider-mcp not found.");
-            Console.Error.WriteLine("Install it with: dotnet tool install -g dotsider-mcp");
+            OutputFormatter.WriteError("Error: dotsider-mcp not found.");
+            OutputFormatter.WriteError("Install it with: dotnet tool install -g dotsider-mcp");
             return 1;
         });
 
@@ -145,7 +145,8 @@ internal static class AgentCommand
             // --stdout: just print and exit
             if (stdout)
             {
-                Console.Write(content);
+                using var formatter = new OutputFormatter();
+                formatter.WriteBlock(content);
                 return Task.FromResult(0);
             }
 
@@ -159,8 +160,8 @@ internal static class AgentCommand
             {
                 if (!s_providerPaths.TryGetValue(ai, out var relativePath))
                 {
-                    Console.Error.WriteLine($"Error: Unknown provider '{ai}'.");
-                    Console.Error.WriteLine($"Valid providers: {string.Join(", ", s_providerPaths.Keys.Order())}");
+                    OutputFormatter.WriteError($"Error: Unknown provider '{ai}'.");
+                    OutputFormatter.WriteError($"Valid providers: {string.Join(", ", s_providerPaths.Keys.Order())}");
                     return Task.FromResult(1);
                 }
 
@@ -168,15 +169,15 @@ internal static class AgentCommand
             }
             else
             {
-                Console.Error.WriteLine("Error: Specify --ai <provider>, --path <file>, or --stdout.");
+                OutputFormatter.WriteError("Error: Specify --ai <provider>, --path <file>, or --stdout.");
                 return Task.FromResult(1);
             }
 
             // Check for existing file
             if (File.Exists(outputPath) && !force)
             {
-                Console.Error.WriteLine($"Error: File already exists: {outputPath}");
-                Console.Error.WriteLine("Use --force to overwrite.");
+                OutputFormatter.WriteError($"Error: File already exists: {outputPath}");
+                OutputFormatter.WriteError("Use --force to overwrite.");
                 return Task.FromResult(1);
             }
 
@@ -192,7 +193,8 @@ internal static class AgentCommand
             }
             else
             {
-                Console.WriteLine($"Created: {outputPath}");
+                using var formatter = new OutputFormatter();
+                formatter.WriteLine($"Created: {outputPath}");
             }
 
             return Task.FromResult(0);

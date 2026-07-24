@@ -34,6 +34,7 @@
     <Project Path="samples/SelfContainedConsole/SelfContainedConsole.csproj" />
     <Project Path="samples/AppLocalRollForward/AppLocalRollForward.csproj" />
     <Project Path="samples/EmbeddedSourceLib/EmbeddedSourceLib.csproj" />
+    <Project Path="samples/TerminalControlLib/TerminalControlLib.csproj" />
     <Project Path="samples/ReadyToRunConsole/ReadyToRunConsole.csproj" />
     <Project Path="samples/ReadyToRunComponentLib/ReadyToRunComponentLib.csproj" />
     <Project Path="samples/ReadyToRunComposite/ReadyToRunComposite.csproj" />

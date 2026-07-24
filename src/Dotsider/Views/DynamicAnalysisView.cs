@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -88,10 +89,10 @@ public static class DynamicAnalysisView
         return ctx.VStack(outer =>
         [
             outer.Text(""),
-            outer.Text($"  {line1}"),
-            outer.Text($"  {line2}"),
+            outer.Text($"  {TerminalText.Escape(line1)}"),
+            outer.Text($"  {TerminalText.Escape(line2)}"),
             outer.Text(""),
-            outer.Text($"  {line3}")
+            outer.Text($"  {TerminalText.Escape(line3)}")
         ]).Fill();
     }
 
@@ -572,7 +573,7 @@ public static class DynamicAnalysisView
                     ? c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text("err"))
                     : c.Text(line.IsStdErr ? "err" : "out"), rs.IsFocused)),
                 r.Cell(c => line.IsStdErr && !rs.IsFocused
-                    ? FocusStyle(c, c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(line.Text)), rs.IsFocused)
+                    ? FocusStyle(c, c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Red), c.Text(TerminalText.Escape(line.Text))), rs.IsFocused)
                     : FocusHighlightCell(c, line.Text, query,
                         !string.IsNullOrEmpty(query), rs.IsFocused))
             ])
@@ -638,7 +639,7 @@ public static class DynamicAnalysisView
         [
             row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
                 row.Text($"  {label}")).FixedWidth(16),
-            row.Text(value).Fill()
+            row.Text(TerminalText.Escape(value)).Fill()
         ]).FixedHeight(1);
     }
 
@@ -659,7 +660,8 @@ public static class DynamicAnalysisView
         if ((editorText != newText && !isLiveAndFocused) || wasNull)
         {
             newEditorText = newText;
-            newEditorState = new EditorState(new Hex1bDocument(newText)) { IsReadOnly = true };
+            newEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(newText))) { IsReadOnly = true };
         }
         else
         {
