@@ -51,3 +51,9 @@ Internet → Caddy (:443) → /ws, /health → Dotsider.Website (:5100)
                         → /*           → /var/www/dotsider-docs/ (static)
                         → :2019        → Prometheus scrape (internal only)
 ```
+
+Caddy replaces `X-Forwarded-For` with the direct client's address. The website
+trusts one forwarded hop from the local loopback proxy, which keeps per-client
+WebSocket limits meaningful without accepting spoofed forwarding headers.
+Deployments that move the proxy off-host must configure a specific trusted
+proxy or network instead of broadening trust to all peers.

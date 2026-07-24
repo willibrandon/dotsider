@@ -5,9 +5,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 
@@ -20,6 +23,7 @@ namespace Dotsider.Website.Tests;
 [TestClass]
 public sealed class DemoSessionRateLimitingTests(TestContext testContext)
 {
+    private const string TestRemoteAddressHeader = "X-Test-Remote-Address";
     private readonly TestContext _testContext = testContext;
 
     /// <summary>
@@ -31,12 +35,20 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
     [DataRow(-1)]
     public void AddDemoSessionRateLimiting_NonPositiveLimit_Throws(int maxSessions)
     {
-        var services = new ServiceCollection();
+        var options = new DemoOptions
+        {
+            MaxSessions = maxSessions,
+            MaxSessionsPerClient = 1
+        };
+        var validator = (IValidateOptions<DemoOptions>)new DemoOptionsValidator();
 
-        var exception = Assert.ThrowsExactly<InvalidOperationException>(
-            () => services.AddDemoSessionRateLimiting(maxSessions));
+        var result = validator.Validate(name: null, options);
 
-        Assert.AreEqual("Demo:MaxSessions must be greater than zero.", exception.Message);
+        Assert.IsFalse(result.Succeeded);
+        Assert.IsNotNull(result.Failures);
+        Assert.Contains(
+            "Demo:MaxSessions must be greater than zero.",
+            result.Failures);
     }
 
     /// <summary>
@@ -206,6 +218,142 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
     }
 
     /// <summary>
+    /// Verifies that one client cannot consume another client's available session share.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task WebSocketRequests_ClientAtCapacity_OtherClientStillConnects()
+    {
+        const string firstClient = "192.0.2.10";
+        const int maxSessions = 4;
+        const int maxSessionsPerClient = 3;
+        var activeByClient = new ConcurrentDictionary<string, int>();
+        var activeRequests = 0;
+        var maximumActiveRequests = 0;
+        var maximumFirstClientRequests = 0;
+        using var admitted = new SemaphoreSlim(0);
+        var release = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var host = await StartHostAsync(
+            new DemoOptions
+            {
+                AllowedOrigins = ["*"],
+                MaxSessions = maxSessions,
+                MaxSessionsPerClient = maxSessionsPerClient
+            },
+            context => context.Request.Query.ContainsKey("websocket")
+                ? AbortingWebSocketFeature.Instance
+                : null,
+            (_, endpoints) =>
+            {
+                endpoints.Map(
+                        "/ws",
+                        async context =>
+                        {
+                            var identity = DemoClientIdentity.GetPartitionKey(context);
+                            var clientActive = activeByClient.AddOrUpdate(
+                                identity,
+                                1,
+                                static (_, active) => active + 1);
+                            var totalActive = Interlocked.Increment(ref activeRequests);
+                            UpdateMaximum(ref maximumActiveRequests, totalActive);
+                            if (identity == firstClient)
+                            {
+                                UpdateMaximum(
+                                    ref maximumFirstClientRequests,
+                                    clientActive);
+                            }
+
+                            admitted.Release();
+
+                            try
+                            {
+                                await release.Task.WaitAsync(context.RequestAborted);
+                                context.Response.StatusCode =
+                                    StatusCodes.Status204NoContent;
+                            }
+                            finally
+                            {
+                                activeByClient.AddOrUpdate(
+                                    identity,
+                                    0,
+                                    static (_, active) => active - 1);
+                                Interlocked.Decrement(ref activeRequests);
+                            }
+                        })
+                    .RequireRateLimiting(
+                        DemoSessionRateLimitingExtensions.PolicyName);
+            },
+            _testContext.CancellationToken);
+
+        using var client = host.GetTestClient();
+        var firstClientRequests = Enumerable.Range(0, maxSessionsPerClient)
+            .Select(_ => SendWebSocketRequestAsync(
+                client,
+                firstClient,
+                _testContext.CancellationToken))
+            .ToArray();
+        for (var request = 0; request < maxSessionsPerClient; request++)
+            await admitted.WaitAsync(_testContext.CancellationToken);
+
+        using (var clientRejectedResponse = await SendWebSocketRequestAsync(
+                   client,
+                   firstClient,
+                   _testContext.CancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.TooManyRequests,
+                clientRejectedResponse.StatusCode);
+            Assert.AreEqual(
+                "Too many active sessions for this client",
+                await clientRejectedResponse.Content.ReadAsStringAsync(
+                    _testContext.CancellationToken));
+        }
+
+        var secondClientRequest = SendWebSocketRequestAsync(
+            client,
+            "192.0.2.20",
+            _testContext.CancellationToken);
+        await admitted.WaitAsync(_testContext.CancellationToken);
+
+        using (var globallyRejectedResponse = await SendWebSocketRequestAsync(
+                   client,
+                   "192.0.2.30",
+                   _testContext.CancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.ServiceUnavailable,
+                globallyRejectedResponse.StatusCode);
+            Assert.AreEqual(
+                "Too many active sessions",
+                await globallyRejectedResponse.Content.ReadAsStringAsync(
+                    _testContext.CancellationToken));
+        }
+
+        Assert.AreEqual(maxSessionsPerClient, maximumFirstClientRequests);
+        Assert.AreEqual(maxSessions, maximumActiveRequests);
+
+        release.SetResult();
+
+        var completedResponses = await Task.WhenAll(
+            [.. firstClientRequests, secondClientRequest]);
+        foreach (var response in completedResponses)
+        {
+            using (response)
+                Assert.AreEqual(HttpStatusCode.NoContent, response.StatusCode);
+        }
+
+        using var recoveredResponse = await SendWebSocketRequestAsync(
+            client,
+            firstClient,
+            _testContext.CancellationToken);
+
+        Assert.AreEqual(HttpStatusCode.NoContent, recoveredResponse.StatusCode);
+        Assert.AreEqual(0, Volatile.Read(ref activeRequests));
+    }
+
+    /// <summary>
     /// Verifies that health reports only accepted sessions and returns to zero after completion.
     /// </summary>
     [TestMethod]
@@ -236,7 +384,8 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
                 endpoints.MapGet("/health", () => Results.Ok(new
                 {
                     activeSessions = sessionHandler.ActiveSessions,
-                    maxSessions
+                    maxSessions,
+                    maxSessionsPerClient = maxSessions
                 }));
             },
             _testContext.CancellationToken);
@@ -256,6 +405,9 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
             Assert.AreEqual(HttpStatusCode.OK, activeResponse.StatusCode);
             Assert.Contains(
                 "\"activeSessions\":1",
+                await activeResponse.Content.ReadAsStringAsync(_testContext.CancellationToken));
+            Assert.Contains(
+                "\"maxSessionsPerClient\":1",
                 await activeResponse.Content.ReadAsStringAsync(_testContext.CancellationToken));
         }
 
@@ -341,18 +493,75 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
         Action<IServiceProvider, IEndpointRouteBuilder> configureEndpoints,
         CancellationToken cancellationToken)
     {
+        return await StartHostAsync(
+            new DemoOptions
+            {
+                AllowedOrigins = ["*"],
+                MaxSessions = maxSessions,
+                MaxSessionsPerClient = Math.Min(maxSessions, 3)
+            },
+            featureFactory,
+            configureEndpoints,
+            cancellationToken);
+    }
+
+    private static async Task<IHost> StartHostAsync(
+        DemoOptions demoOptions,
+        Func<HttpContext, IHttpWebSocketFeature?>? featureFactory,
+        Action<IServiceProvider, IEndpointRouteBuilder> configureEndpoints,
+        CancellationToken cancellationToken)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["Demo:MaxSessions"] = demoOptions.MaxSessions.ToString(),
+            ["Demo:MaxSessionsPerClient"] =
+                demoOptions.MaxSessionsPerClient.ToString()
+        };
+        for (var index = 0; index < demoOptions.AllowedOrigins.Length; index++)
+        {
+            settings[$"Demo:AllowedOrigins:{index}"] =
+                demoOptions.AllowedOrigins[index];
+        }
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
         var host = await new HostBuilder()
             .ConfigureWebHost(webHost =>
             {
                 webHost.UseTestServer();
                 webHost.ConfigureServices(services =>
                 {
-                    services.AddDemoSessionRateLimiting(maxSessions);
+                    services.AddDemoOptions(configuration);
+                    services.AddDemoSessionRateLimiting();
                     services.AddRouting();
                 });
                 webHost.Configure(app =>
                 {
-                    app.UseWebSockets();
+                    app.Use((context, next) =>
+                    {
+                        if (context.Request.Headers.TryGetValue(
+                                TestRemoteAddressHeader,
+                                out var remoteAddress) &&
+                            IPAddress.TryParse(
+                                remoteAddress.ToString(),
+                                out var parsedAddress))
+                        {
+                            context.Connection.RemoteIpAddress = parsedAddress;
+                            context.Request.Headers.Remove(TestRemoteAddressHeader);
+                        }
+
+                        return next(context);
+                    });
+                    app.UseForwardedHeaders();
+
+                    var originPolicy =
+                        app.ApplicationServices.GetRequiredService<DemoOriginPolicy>();
+                    var webSocketOptions = new WebSocketOptions();
+                    foreach (var origin in originPolicy.AllowedOrigins)
+                        webSocketOptions.AllowedOrigins.Add(origin);
+
+                    app.UseWebSockets(webSocketOptions);
 
                     if (featureFactory is not null)
                     {
@@ -366,6 +575,8 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
                         });
                     }
 
+                    app.UseMiddleware<DemoWebSocketOriginMiddleware>(
+                        !originPolicy.AllowsAnyOrigin);
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseEndpoints(
@@ -375,6 +586,19 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
             .StartAsync(cancellationToken);
 
         return host;
+    }
+
+    private static async Task<HttpResponseMessage> SendWebSocketRequestAsync(
+        HttpClient client,
+        string remoteAddress,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/ws?websocket=true");
+        request.Headers.Add(TestRemoteAddressHeader, remoteAddress);
+
+        return await client.SendAsync(request, cancellationToken);
     }
 
     private static async Task WaitUntilAsync(
