@@ -40,7 +40,8 @@ public sealed class NativeImportResolver
 
     /// <summary>
     /// Builds the resolver from a binary's raw bytes, dispatching on the image format (PE, ELF, or
-    /// Mach-O), or null when the format carries no resolvable import slots.
+    /// Mach-O), or null when the format carries no resolvable import slots or its import data is
+    /// malformed or oversized.
     /// </summary>
     /// <param name="rawBytes">The image's raw bytes.</param>
     /// <param name="architecture">The selected architecture, used to pick the slice of a fat Mach-O.</param>
@@ -118,15 +119,27 @@ public sealed class NativeImportResolver
                 || !ElfImageReader.TryGetSection(bytes, ".dynstr", out var dynstrSection))
                 return null;
 
-            var dynsym = ElfImageReader.ReadSectionBytes(bytes, dynsymSection);
-            var dynstr = ElfImageReader.ReadSectionBytes(bytes, dynstrSection);
+            var remainingBytes = NativeImageDataLimits.MaxMaterializedBytes;
+            byte[]? Read(ElfImageReader.ElfSection section)
+            {
+                byte[]? materialized = ElfImageReader.ReadSectionBytes(
+                    rawBytes,
+                    section,
+                    remainingBytes);
+                if (materialized is not null)
+                    remainingBytes -= materialized.Length;
+                return materialized;
+            }
+
+            var dynsym = Read(dynsymSection);
+            var dynstr = Read(dynstrSection);
             if (dynsym is null || dynstr is null) return null;
 
             var slots = new Dictionary<ulong, string>();
             foreach (var relocSection in (string[])[".rela.plt", ".rela.dyn"])
             {
                 if (!ElfImageReader.TryGetSection(bytes, relocSection, out var section)) continue;
-                var relocs = ElfImageReader.ReadSectionBytes(bytes, section);
+                var relocs = Read(section);
                 if (relocs is not null) MapElfRelocations(relocs, dynsym, dynstr, slots);
             }
 

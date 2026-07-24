@@ -600,10 +600,61 @@ public class DwarfReaderTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Collect_MapsBaseNamesAndToleratesAbsent()
     {
-        var sections = DwarfSections.Collect(name => name == "info" ? [0xAB] : null);
+        var sections = DwarfSections.Collect(
+            (name, _) => name == "info" ? [0xAB] : null,
+            maximumTotalBytes: 1);
 
         Assert.AreSequenceEqual(new byte[] { 0xAB }, sections.Info);
         Assert.IsEmpty(sections.Abbrev);
         Assert.IsFalse(sections.HasInfo); // DIEs without abbreviations are unreadable
+    }
+
+    /// <summary>
+    /// Verifies section collection shares one budget and stops materializing when it is exhausted.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Collect_ExactAggregateBudget_StopsLaterLookups()
+    {
+        var lookups = new List<(string Name, int Remaining)>();
+
+        var sections = DwarfSections.Collect((name, remaining) =>
+        {
+            lookups.Add((name, remaining));
+            return name switch
+            {
+                "info" => [0x01, 0x02],
+                "abbrev" => [0x03],
+                _ => [0x04],
+            };
+        }, maximumTotalBytes: 3);
+
+        Assert.AreSequenceEqual(new byte[] { 0x01, 0x02 }, sections.Info);
+        Assert.AreSequenceEqual(new byte[] { 0x03 }, sections.Abbrev);
+        Assert.IsEmpty(sections.Str);
+        Assert.AreSequenceEqual<(string Name, int Remaining)>(
+            [("info", 3), ("abbrev", 1)],
+            lookups);
+    }
+
+    /// <summary>
+    /// Verifies an over-budget required section is discarded and stops unnecessary sibling lookups.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Collect_RequiredSectionExceedsBudget_StopsFurtherLookups()
+    {
+        var lookups = new List<string>();
+
+        var sections = DwarfSections.Collect((name, _) =>
+        {
+            lookups.Add(name);
+            return [0x01, 0x02, 0x03];
+        },
+            maximumTotalBytes: 2);
+
+        Assert.IsEmpty(sections.Info);
+        Assert.IsEmpty(sections.Abbrev);
+        Assert.AreSequenceEqual<string>(["info"], lookups);
     }
 }

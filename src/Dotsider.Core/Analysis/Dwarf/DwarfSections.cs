@@ -30,17 +30,52 @@ internal sealed record DwarfSections(
     /// passed without their platform prefix; the lookup applies <c>.debug_*</c> (ELF) or
     /// <c>__debug_*</c> (Mach-O) itself.
     /// </summary>
-    /// <param name="lookup">Resolves a DWARF section's bytes by base name (e.g. <c>info</c>), or null.</param>
-    public static DwarfSections Collect(Func<string, byte[]?> lookup) => new(
-        lookup("info") ?? [],
-        lookup("abbrev") ?? [],
-        lookup("str") ?? [],
-        lookup("line_str") ?? [],
-        lookup("str_offsets") ?? [],
-        lookup("addr") ?? [],
-        lookup("line") ?? [],
-        lookup("ranges") ?? [],
-        lookup("rnglists") ?? []);
+    /// <param name="lookup">
+    /// Resolves a DWARF section's bytes by base name (e.g. <c>info</c>) and remaining budget,
+    /// or null.
+    /// </param>
+    /// <param name="maximumTotalBytes">The maximum total bytes returned across all sections.</param>
+    public static DwarfSections Collect(
+        Func<string, int, byte[]?> lookup,
+        int maximumTotalBytes)
+    {
+        ArgumentNullException.ThrowIfNull(lookup);
+        ArgumentOutOfRangeException.ThrowIfNegative(maximumTotalBytes);
+
+        var remainingBytes = maximumTotalBytes;
+
+        byte[] Read(string name)
+        {
+            if (remainingBytes == 0)
+                return [];
+
+            byte[]? section = lookup(name, remainingBytes);
+            if (section is null || section.Length > remainingBytes)
+                return [];
+
+            remainingBytes -= section.Length;
+            return section;
+        }
+
+        byte[] info = Read("info");
+        if (info.Length == 0)
+            return new DwarfSections([], [], [], [], [], [], [], [], []);
+
+        byte[] abbrev = Read("abbrev");
+        if (abbrev.Length == 0)
+            return new DwarfSections(info, [], [], [], [], [], [], [], []);
+
+        return new DwarfSections(
+            info,
+            abbrev,
+            Read("str"),
+            Read("line_str"),
+            Read("str_offsets"),
+            Read("addr"),
+            Read("line"),
+            Read("ranges"),
+            Read("rnglists"));
+    }
 
     /// <summary>Whether the image carries any DIE data at all.</summary>
     public bool HasInfo => Info.Length > 0 && Abbrev.Length > 0;

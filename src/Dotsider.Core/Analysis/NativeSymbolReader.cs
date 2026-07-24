@@ -17,6 +17,7 @@ public static class NativeSymbolReader
     /// <summary>
     /// Reads the native symbols of a binary, dispatching on image format. Managed and
     /// unrecognized images return an empty result marked <see cref="NativeSymbolStatus.NotApplicable"/>.
+    /// Malformed or oversized symbol data degrades to the applicable platform fallback and status.
     /// </summary>
     /// <param name="imagePath">The binary's path, used to probe for sidecar symbol files.</param>
     /// <param name="imageBytes">The binary's raw bytes.</param>
@@ -269,7 +270,7 @@ public static class NativeSymbolReader
         long sliceShift, List<RawNativeSymbol> raw)
     {
         var sections = MachOImageReader.ReadSectionList(dsymBytes);
-        var dwarf = DwarfSections.Collect(name =>
+        var dwarf = DwarfSections.Collect((name, remainingBytes) =>
         {
             // Mach-O section names cap at 16 chars: __debug_str_offsets -> __debug_str_offs.
             var wanted = "__debug_" + name;
@@ -277,14 +278,16 @@ public static class NativeSymbolReader
             foreach (var s in sections)
             {
                 if (s.Name == wanted && s.Size > 0 && s.FileOffset >= 0
-                    && s.FileOffset + s.Size <= dsymBytes.Length)
+                    && s.FileOffset <= dsymBytes.Length
+                    && s.Size <= dsymBytes.Length - s.FileOffset
+                    && s.Size <= remainingBytes)
                 {
                     return dsymBytes.AsSpan((int)s.FileOffset, (int)s.Size).ToArray();
                 }
             }
 
             return null;
-        });
+        }, NativeImageDataLimits.MaxMaterializedBytes);
 
         AppendDwarfFunctions(dwarf, va => MapMachOAddress(imageSections, va, sliceShift), raw);
     }
@@ -417,10 +420,11 @@ public static class NativeSymbolReader
     private static void ReadDwarfFunctions(
         byte[] symbolBytes, IReadOnlyList<ElfImageReader.ElfSection> imageSections, List<RawNativeSymbol> raw)
     {
-        var dwarf = DwarfSections.Collect(name =>
+        var dwarf = DwarfSections.Collect((name, remainingBytes) =>
             ElfImageReader.TryGetSection(symbolBytes, ".debug_" + name, out var s)
-                ? ElfImageReader.ReadSectionBytes(symbolBytes, s)
-                : null);
+                ? ElfImageReader.ReadSectionBytes(symbolBytes, s, remainingBytes)
+                : null,
+            NativeImageDataLimits.MaxMaterializedBytes);
         AppendDwarfFunctions(dwarf, va =>
             ElfImageReader.TryMapAddress(imageSections, va, out var name, out var offset)
                 ? (name, offset)

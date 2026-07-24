@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis.Models;
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace Dotsider.Core.Analysis;
@@ -20,9 +21,11 @@ internal static class ElfImageReader
     private const int MaxStringLength = 4_096;
 
     private const uint ShtDynSym = 11;
+    private const uint ShtNoBits = 8;
     private const int StbGlobal = 1;
     private const int StbWeak = 2;
     private const ushort ShnUndef = 0;
+    private const ulong ShfAlloc = 0x2;
     private const ulong ShfCompressed = 0x800;
     private const uint ElfCompressZlib = 1;
 
@@ -202,36 +205,67 @@ internal static class ElfImageReader
     /// </summary>
     /// <param name="bytes">The raw image bytes.</param>
     /// <param name="section">The section to read.</param>
-    internal static byte[]? ReadSectionBytes(ReadOnlySpan<byte> bytes, ElfSection section)
+    /// <param name="maximumMaterializedLength">
+    /// The remaining byte budget for materializing this and any sibling sections.
+    /// </param>
+    internal static byte[]? ReadSectionBytes(
+        ReadOnlyMemory<byte> bytes,
+        ElfSection section,
+        int maximumMaterializedLength)
     {
+        maximumMaterializedLength = Math.Min(
+            maximumMaterializedLength,
+            NativeImageDataLimits.MaxMaterializedBytes);
+        ReadOnlySpan<byte> span = bytes.Span;
         if (section.Size <= 0 || section.FileOffset < 0
-            || section.FileOffset + section.Size > bytes.Length)
+            || maximumMaterializedLength <= 0
+            || section.FileOffset > span.Length
+            || section.Size > span.Length - section.FileOffset)
         {
             return null;
         }
 
-        var raw = bytes.Slice(section.FileOffset, section.Size);
-        if ((section.Flags & ShfCompressed) == 0) return raw.ToArray();
+        ReadOnlySpan<byte> raw = span.Slice(section.FileOffset, section.Size);
+        if ((section.Flags & ShfCompressed) == 0)
+            return raw.Length <= maximumMaterializedLength ? raw.ToArray() : null;
 
         // Elf64_Chdr: ch_type u32, ch_reserved u32, ch_size u64, ch_addralign u64.
-        if (raw.Length < 24) return null;
-        var compressionType = BinaryPrimitives.ReadUInt32LittleEndian(raw);
-        var uncompressedSize = BinaryPrimitives.ReadUInt64LittleEndian(raw[8..]);
-        if (compressionType != ElfCompressZlib || uncompressedSize is 0 or > int.MaxValue) return null;
-
-        try
-        {
-            using var compressed = new MemoryStream(raw[24..].ToArray());
-            using var zlib = new System.IO.Compression.ZLibStream(
-                compressed, System.IO.Compression.CompressionMode.Decompress);
-            var inflated = new byte[(int)uncompressedSize];
-            zlib.ReadExactly(inflated);
-            return inflated;
-        }
-        catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException)
+        if (raw.Length <= 24
+            || section.Type == ShtNoBits
+            || (section.Flags & ShfAlloc) != 0)
         {
             return null;
         }
+
+        var compressionType = BinaryPrimitives.ReadUInt32LittleEndian(raw);
+        var reserved = BinaryPrimitives.ReadUInt32LittleEndian(raw[4..]);
+        var uncompressedSize = BinaryPrimitives.ReadUInt64LittleEndian(raw[8..]);
+        var uncompressedAlignment = BinaryPrimitives.ReadUInt64LittleEndian(raw[16..]);
+        var compressedLength = raw.Length - 24;
+        int maximumCompressedLength = Math.Min(
+            NativeImageDataLimits.MaxMaterializedBytes + NativeImageDataLimits.MaxCompressedOverheadBytes,
+            maximumMaterializedLength + NativeImageDataLimits.MaxCompressedOverheadBytes);
+        if (compressionType != ElfCompressZlib
+            || reserved != 0
+            || uncompressedSize == 0
+            || uncompressedSize > (ulong)maximumMaterializedLength
+            || uncompressedSize > (ulong)compressedLength * NativeImageDataLimits.MaxCompressionRatio
+            || (uncompressedAlignment != 0 && !BitOperations.IsPow2(uncompressedAlignment))
+            || compressedLength > maximumCompressedLength)
+        {
+            return null;
+        }
+
+        return BoundedCompressionDecoder.TryDecodeZLib(
+            bytes,
+            section.FileOffset + 24,
+            compressedLength,
+            (int)uncompressedSize,
+            maximumCompressedLength,
+            maximumMaterializedLength,
+            out byte[] inflated)
+            ? inflated
+            : null;
     }
 
     /// <summary>
