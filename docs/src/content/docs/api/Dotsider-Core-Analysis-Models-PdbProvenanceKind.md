@@ -58,6 +58,16 @@ An embedded portable PDB was opened.
 Embedded = 4
 ```
 
+### InvalidEmbeddedPdb
+
+An embedded portable PDB was present, but it was malformed or exceeded a safety limit.
+
+**Returns:** [PdbProvenanceKind](/api/dotsider.core.analysis.models.pdbprovenancekind/)
+
+```csharp
+InvalidEmbeddedPdb = 8
+```
+
 ### NativePdb
 
 A Windows native PDB was found beside the binary and its GUID and age match the CodeView entry.

@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis.Models;
 using System.Buffers.Binary;
 using System.Collections.Immutable;
-using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -16,7 +15,6 @@ internal sealed class WebcilImageReader
 {
     private const int ClrHeaderSize = 72;
     private const int DebugDirectoryEntrySize = 28;
-    private const uint EmbeddedPortablePdbSignature = 0x4244504D;
     private const int HeaderV0Size = 28;
     private const int HeaderV1Size = 32;
     private const int MaxSections = 16;
@@ -159,16 +157,13 @@ internal sealed class WebcilImageReader
     /// <returns>A metadata provider over the decompressed portable PDB image.</returns>
     public MetadataReaderProvider ReadEmbeddedPortablePdb(WebcilDebugEntry entry)
     {
-        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
-        if (payload.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(payload) != EmbeddedPortablePdbSignature)
-            throw new BadImageFormatException("Unexpected embedded portable PDB signature.");
-
-        int decompressedSize = BinaryPrimitives.ReadInt32LittleEndian(payload[4..]);
-        using MemoryStream compressed = new(payload[8..].ToArray(), writable: false);
-        using DeflateStream deflate = new(compressed, CompressionMode.Decompress);
-        byte[] decompressed = new byte[decompressedSize];
-        deflate.ReadExactly(decompressed);
-        return MetadataReaderProvider.FromPortablePdbImage(ImmutableArray.Create(decompressed));
+        return EmbeddedPortablePdbReader.Read(
+            _image,
+            entry.DataPointer,
+            entry.DataSize,
+            entry.Type,
+            entry.MajorVersion,
+            entry.MinorVersion);
     }
 
     /// <summary>
@@ -537,10 +532,17 @@ internal sealed class WebcilImageReader
 
     private string FormatEmbeddedPortablePdbPayload(WebcilDebugEntry entry)
     {
-        ReadOnlySpan<byte> payload = ReadEntryPayload(entry);
-        return payload.Length >= 8
-            ? $"present; uncompressed size: {BinaryPrimitives.ReadInt32LittleEndian(payload[4..])} bytes"
-            : "present";
+        return EmbeddedPortablePdbReader.TryReadHeader(
+            _image,
+            entry.DataPointer,
+            entry.DataSize,
+            entry.Type,
+            entry.MajorVersion,
+            entry.MinorVersion,
+            out int declaredSize,
+            out string? error)
+            ? $"present; uncompressed size: {declaredSize} bytes"
+            : $"unreadable: {error}";
     }
 
     private ReadOnlySpan<byte> ReadEntryPayload(WebcilDebugEntry entry)

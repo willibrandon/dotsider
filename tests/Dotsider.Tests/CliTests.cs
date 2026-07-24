@@ -63,6 +63,42 @@ public class CliTests
     }
 
     /// <summary>
+    /// An oversized embedded portable PDB is reported without aborting CLI analysis.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Analyze_OversizedEmbeddedPdb_JsonReportsInvalidProvenance()
+    {
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-oversized-embedded-pdb-{Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(
+                path,
+                EmbeddedPortablePdbTestImage.WithDeclaredSize(
+                    Fixture.EmbeddedSourceLibDll,
+                    int.MaxValue));
+
+            var (exitCode, stdout, _) = await RunDotsiderAsync(
+                "analyze", path, "--json");
+
+            Assert.AreEqual(0, exitCode);
+            var json = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                stdout);
+            Assert.IsTrue(json.GetProperty("hasMetadata").GetBoolean());
+            Assert.AreEqual(
+                "invalidEmbeddedPdb",
+                json.GetProperty("pdbProvenance").GetProperty("kind").GetString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     /// Verifies analyze IL output includes portable PDB annotations.
     /// </summary>
     [TestMethod]

@@ -1,5 +1,4 @@
 using Dotsider.Core.Analysis.Models;
-using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
@@ -102,8 +101,17 @@ internal static class PortablePdbUtilities
                 if (pdbReader.GetGuid(customInfo.Kind) != EmbeddedSourceKind)
                     continue;
 
-                var blob = pdbReader.GetBlobBytes(customInfo.Value);
-                var bytes = DecodeEmbeddedSourceBlob(blob);
+                byte[]? bytes;
+                try
+                {
+                    var blob = pdbReader.GetBlobReader(customInfo.Value);
+                    bytes = DecodeEmbeddedSourceBlob(blob);
+                }
+                catch (BadImageFormatException)
+                {
+                    return null;
+                }
+
                 if (bytes is null) return null;
                 return new EmbeddedSourceInfo(currentPath, DecodeSourceText(bytes), bytes);
             }
@@ -154,23 +162,39 @@ internal static class PortablePdbUtilities
         return id is not null && id.Value.Guid == guid && id.Value.Age == age;
     }
 
-    private static byte[]? DecodeEmbeddedSourceBlob(byte[] blob)
+    private static byte[]? DecodeEmbeddedSourceBlob(BlobReader blob)
     {
-        if (blob.Length < 4) return null;
+        if (blob.RemainingBytes < sizeof(int)) return null;
 
-        var uncompressedSize = BitConverter.ToInt32(blob, 0);
-        var payload = blob.AsSpan(4).ToArray();
+        int uncompressedSize = blob.ReadInt32();
+        int payloadLength = blob.RemainingBytes;
         if (uncompressedSize == 0)
-            return payload;
+        {
+            return payloadLength <= EmbeddedDebugDataLimits.MaxEmbeddedSourceBytes
+                ? blob.ReadBytes(payloadLength)
+                : null;
+        }
 
-        if (uncompressedSize < 0) return null;
+        if (uncompressedSize < 0
+            || uncompressedSize > EmbeddedDebugDataLimits.MaxEmbeddedSourceBytes
+            || payloadLength > EmbeddedDebugDataLimits.MaxEmbeddedSourceBytes
+                + EmbeddedDebugDataLimits.MaxCompressedOverheadBytes)
+        {
+            return null;
+        }
 
-        using var input = new MemoryStream(payload);
-        using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-        using var output = new MemoryStream(uncompressedSize);
-        deflate.CopyTo(output);
-        var decoded = output.ToArray();
-        return decoded.Length == uncompressedSize ? decoded : null;
+        byte[] payload = blob.ReadBytes(payloadLength);
+        return BoundedDeflateDecoder.TryDecode(
+            payload,
+            offset: 0,
+            payload.Length,
+            uncompressedSize,
+            EmbeddedDebugDataLimits.MaxEmbeddedSourceBytes
+                + EmbeddedDebugDataLimits.MaxCompressedOverheadBytes,
+            EmbeddedDebugDataLimits.MaxEmbeddedSourceBytes,
+            out byte[] decoded)
+            ? decoded
+            : null;
     }
 
     private static string DecodeSourceText(byte[] bytes)

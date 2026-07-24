@@ -361,17 +361,150 @@ public class AssemblyAnalyzerTests
     {
         using var a = new AssemblyAnalyzer(Samples.EmbeddedSourceLibDll);
         var method = FindMethod(a, "EmbeddedSourceLib.EmbeddedSourceFixture", "Compute");
+        int embeddedPdbSize = EmbeddedPortablePdbTestImage.ReadDeclaredSize(
+            Samples.EmbeddedSourceLibDll);
 
         var debugInfo = a.GetMethodDebugInfo(method);
         var source = a.GetEmbeddedSource(method);
 
         Assert.IsTrue(a.HasPortablePdb);
         Assert.AreEqual(PdbProvenanceKind.Embedded, a.PdbProvenance.Kind);
-        Assert.Contains(entry => entry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb, a.DebugDirectory);
+        DebugDirectoryInfo embeddedEntry = Assert.ContainsSingle(
+            static entry => entry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb,
+            a.DebugDirectory);
+        Assert.AreEqual(
+            $"present; uncompressed size: {embeddedPdbSize} bytes",
+            embeddedEntry.Payload);
         Assert.Contains(point => point.HasEmbeddedSource, debugInfo.SequencePoints);
         Assert.IsNotNull(source);
         Assert.Contains("return doubled + 1;", source.Text);
         Assert.IsNotEmpty(source.Bytes);
+    }
+
+    /// <summary>
+    /// An oversized embedded portable PDB is ignored without losing assembly metadata.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void EmbeddedSourceLib_OversizedEmbeddedPdb_ReportsInvalidProvenance()
+    {
+        byte[] image = EmbeddedPortablePdbTestImage.WithDeclaredSize(
+            Samples.EmbeddedSourceLibDll,
+            (256 * 1024 * 1024) + 1);
+
+        using AssemblyAnalyzer analyzer = new(image, "EmbeddedSourceLib.dll");
+
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.IsNotEmpty(analyzer.MethodDefs);
+        Assert.IsFalse(analyzer.HasPortablePdb);
+        Assert.AreEqual(PdbProvenanceKind.InvalidEmbeddedPdb, analyzer.PdbProvenance.Kind);
+        Assert.Contains("256 MiB", analyzer.PdbProvenance.Details!);
+        DebugDirectoryInfo embeddedEntry = Assert.ContainsSingle(
+            static entry => entry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb,
+            analyzer.DebugDirectory);
+        Assert.Contains("unreadable:", embeddedEntry.Payload);
+        Assert.Contains("256 MiB", embeddedEntry.Payload);
+    }
+
+    /// <summary>
+    /// Oversized embedded-source declarations fail closed without invalidating the enclosing PDB.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow((16 * 1024 * 1024) + 1)]
+    [DataRow(int.MaxValue)]
+    public void EmbeddedSourceLib_OversizedEmbeddedSource_ReturnsNull(int declaredSize)
+    {
+        byte[] image = EmbeddedPortablePdbTestImage.WithEmbeddedSourceDeclaredSize(
+            Samples.EmbeddedSourceLibDll,
+            "EmbeddedSourceFixture.cs",
+            declaredSize);
+        using AssemblyAnalyzer analyzer = new(image, "EmbeddedSourceLib.dll");
+        MethodDefInfo method = FindMethod(
+            analyzer,
+            "EmbeddedSourceLib.EmbeddedSourceFixture",
+            "Compute");
+
+        EmbeddedSourceInfo? source = analyzer.GetEmbeddedSource(method);
+
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.IsTrue(analyzer.HasPortablePdb);
+        Assert.AreEqual(PdbProvenanceKind.Embedded, analyzer.PdbProvenance.Kind);
+        Assert.IsNull(source);
+    }
+
+    /// <summary>
+    /// Embedded-source deflate output must match the compiler-recorded length exactly.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(-1)]
+    [DataRow(1)]
+    public void EmbeddedSourceLib_EmbeddedSourceLengthMismatch_ReturnsNull(int adjustment)
+    {
+        const string documentFileName = "EmbeddedSourceFixture.cs";
+        int declaredSize = EmbeddedPortablePdbTestImage.ReadEmbeddedSourceDeclaredSize(
+            Samples.EmbeddedSourceLibDll,
+            documentFileName);
+        byte[] image = EmbeddedPortablePdbTestImage.WithEmbeddedSourceDeclaredSize(
+            Samples.EmbeddedSourceLibDll,
+            documentFileName,
+            checked(declaredSize + adjustment));
+        using AssemblyAnalyzer analyzer = new(image, "EmbeddedSourceLib.dll");
+        MethodDefInfo method = FindMethod(
+            analyzer,
+            "EmbeddedSourceLib.EmbeddedSourceFixture",
+            "Compute");
+
+        EmbeddedSourceInfo? source = analyzer.GetEmbeddedSource(method);
+
+        Assert.IsTrue(analyzer.HasPortablePdb);
+        Assert.AreEqual(PdbProvenanceKind.Embedded, analyzer.PdbProvenance.Kind);
+        Assert.IsNull(source);
+    }
+
+    /// <summary>
+    /// A valid matching sidecar remains usable when the embedded copy is malformed.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void EmbeddedSourceLib_InvalidEmbeddedPdb_UsesMatchingSidecar()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-embedded-pdb-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        string assemblyPath = Path.Combine(directory, "EmbeddedSourceLib.dll");
+        string pdbPath = Path.Combine(directory, "EmbeddedSourceLib.pdb");
+
+        try
+        {
+            File.WriteAllBytes(
+                assemblyPath,
+                EmbeddedPortablePdbTestImage.WithDeclaredSize(
+                    Samples.EmbeddedSourceLibDll,
+                    int.MaxValue));
+            File.WriteAllBytes(
+                pdbPath,
+                EmbeddedPortablePdbTestImage.ExtractPortablePdb(Samples.EmbeddedSourceLibDll));
+            using AssemblyAnalyzer analyzer = new(assemblyPath);
+            MethodDefInfo method = FindMethod(
+                analyzer,
+                "EmbeddedSourceLib.EmbeddedSourceFixture",
+                "Compute");
+
+            EmbeddedSourceInfo? source = analyzer.GetEmbeddedSource(method);
+
+            Assert.IsTrue(analyzer.HasPortablePdb);
+            Assert.AreEqual(PdbProvenanceKind.Sidecar, analyzer.PdbProvenance.Kind);
+            Assert.AreEqual(pdbPath, analyzer.PdbProvenance.Path);
+            Assert.IsNotNull(source);
+            Assert.Contains("return doubled + 1;", source.Text);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     // --- RichLibraryV2 (same AssemblyName as V1) ---

@@ -15,6 +15,11 @@ Each instruction shows:
 
 When a portable PDB is available, the disassembly also shows PDB provenance, source spans, Source Link markers, and local variable names. Press `u` on a `[source link]` marker to copy the resolved URL. Embedded source documents can be opened from selected methods.
 
+Embedded portable PDBs are limited to 256 MiB after decompression, and each embedded source
+document is limited to 16 MiB. Malformed data, an incorrect declared length, or data beyond
+either limit is ignored without preventing the assembly itself from opening. A matching
+sidecar PDB can still supply debug information when the embedded copy is unusable.
+
 ## Go to definition
 
 Press `Enter` or `gd` while the cursor is on a token-bearing instruction (`call`, `callvirt`, `newobj`, `ldfld`, `castclass`, etc.) to navigate to the target. Navigable operands are underlined.

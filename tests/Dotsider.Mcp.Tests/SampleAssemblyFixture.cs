@@ -35,6 +35,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     /// </summary>
     public string EmptyLibDll { get; private set; } = null!;
     /// <summary>
+    /// Path to the compiler-produced assembly containing an embedded portable PDB and sources.
+    /// </summary>
+    public string EmbeddedSourceLibDll { get; private set; } = null!;
+    /// <summary>
     /// Path to the NativeLib.dll sample with P/Invoke declarations.
     /// </summary>
     public string NativeLibDll { get; private set; } = null!;
@@ -132,6 +136,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         await BuildProject("samples/RichLibrary");
         await BuildProject("samples/RichLibraryV2");
         await BuildProject("samples/ComplexApp");
+        await BuildProject("samples/EmbeddedSourceLib");
         await BuildProject("samples/NativeLib");
         await BuildProject("samples/EmptyLib");
         await BuildProject("samples/MinimalApi");
@@ -152,6 +157,11 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         RichLibraryDll = SamplePath("RichLibrary", config, tfm, "RichLibrary.dll");
         RichLibraryV2Dll = SamplePath("RichLibraryV2", config, tfm, "RichLibrary.dll");
         EmptyLibDll = SamplePath("EmptyLib", config, tfm, "EmptyLib.dll");
+        EmbeddedSourceLibDll = SamplePath(
+            "EmbeddedSourceLib",
+            config,
+            tfm,
+            "EmbeddedSourceLib.dll");
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
         MinimalApiDll = SamplePath("MinimalApi", config, tfm, "MinimalApi.dll");
         RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
@@ -179,6 +189,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
         Assert.IsTrue(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
         Assert.IsTrue(File.Exists(HelloWorldExe), $"HelloWorld apphost not found at {HelloWorldExe}");
+        Assert.IsTrue(
+            File.Exists(EmbeddedSourceLibDll),
+            $"EmbeddedSourceLib.dll not found at {EmbeddedSourceLibDll}");
         Assert.IsTrue(File.Exists(RichLibraryDll), $"RichLibrary.dll not found at {RichLibraryDll}");
         Assert.IsTrue(File.Exists(RichLibraryNupkg), $"RichLibrary.nupkg not found at {RichLibraryNupkg}");
         Assert.IsTrue(File.Exists(MinimalApiDll), $"MinimalApi.dll not found at {MinimalApiDll}");

@@ -22,6 +22,7 @@ public sealed record PdbProvenance(
         PdbProvenanceKind.UnsupportedWindowsPdb => Details ?? "UnsupportedWindowsPdb",
         PdbProvenanceKind.NativePdb => Details ?? "NativePdb",
         PdbProvenanceKind.BundleSidecarSkipped => Details ?? "BundleSidecarSkipped",
+        PdbProvenanceKind.InvalidEmbeddedPdb => Details ?? "InvalidEmbeddedPdb",
         _ => Kind.ToString()
     };
 }
