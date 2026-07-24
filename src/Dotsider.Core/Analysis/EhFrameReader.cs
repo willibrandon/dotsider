@@ -240,7 +240,7 @@ internal static class EhFrameReader
     }
 
     private static RawNativeSymbol Boundary(
-        ulong va, ulong size, IReadOnlyList<ElfImageReader.ElfSection> sections)
+        ulong va, ulong size, IReadOnlyList<ElfSection> sections)
     {
         var mapped = ElfImageReader.TryMapAddress(sections, va, out var name, out var offset);
         string? sectionName = mapped ? name : null;

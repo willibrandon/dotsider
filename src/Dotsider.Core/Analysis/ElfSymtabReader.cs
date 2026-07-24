@@ -26,13 +26,13 @@ internal static class ElfSymtabReader
     /// <param name="symbolBytes">The bytes carrying <c>.symtab</c> (the image or its sidecar).</param>
     /// <param name="imageSections">The analyzed image's sections, for address mapping.</param>
     public static IReadOnlyList<RawNativeSymbol> ReadDataSymbols(
-        ReadOnlySpan<byte> symbolBytes, IReadOnlyList<ElfImageReader.ElfSection> imageSections)
+        ReadOnlySpan<byte> symbolBytes, IReadOnlyList<ElfSection> imageSections)
     {
         var result = new List<RawNativeSymbol>();
         try
         {
             var sections = ElfImageReader.ReadSections(symbolBytes);
-            ElfImageReader.ElfSection symtab = default;
+            ElfSection symtab = default;
             foreach (var section in sections)
             {
                 if (section.Type == ShtSymTab)

@@ -120,7 +120,7 @@ public sealed class NativeImportResolver
                 return null;
 
             var remainingBytes = NativeImageDataLimits.MaxMaterializedBytes;
-            byte[]? Read(ElfImageReader.ElfSection section)
+            byte[]? Read(ElfSection section)
             {
                 byte[]? materialized = ElfImageReader.ReadSectionBytes(
                     rawBytes,

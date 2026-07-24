@@ -905,6 +905,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// <summary>
     /// Gets the native import table: PE import descriptors, ELF needed libraries and
     /// undefined dynamic symbols, or Mach-O loaded dylibs and undefined symbols.
+    /// ELF symbols whose GNU version requirements are absent or malformed are grouped
+    /// under <c>(unversioned)</c> rather than attributed to untrusted metadata.
     /// Needs no CLR header.
     /// </summary>
     public IReadOnlyList<ImportedModuleInfo> Imports

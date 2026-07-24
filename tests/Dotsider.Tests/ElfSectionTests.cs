@@ -253,9 +253,9 @@ public sealed class ElfSectionTests
     public void ReadSectionBytes_OverflowingExtent_ReturnsNull()
     {
         byte[] image = new byte[64];
-        var overflowingOffset = new ElfImageReader.ElfSection(
+        var overflowingOffset = new ElfSection(
             ".debug_info", 1, 0, int.MaxValue, 1, 0, 0, 0);
-        var overflowingSize = new ElfImageReader.ElfSection(
+        var overflowingSize = new ElfSection(
             ".debug_info", 1, 0, 1, int.MaxValue, 0, 0, 0);
 
         Assert.IsNull(ElfImageReader.ReadSectionBytes(

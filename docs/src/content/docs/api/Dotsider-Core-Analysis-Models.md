@@ -443,7 +443,8 @@ public sealed record ImportedFunctionInfo : IEquatable<ImportedFunctionInfo>
 
 ### [ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/)
 
-A native module referenced by the PE import table, with the functions imported from it.
+A module referenced by a PE, ELF, Mach-O, or WebAssembly import table, with the
+functions imported from it.
 
 ```csharp
 public sealed record ImportedModuleInfo : IEquatable<ImportedModuleInfo>
