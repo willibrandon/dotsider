@@ -51,7 +51,8 @@ Parsed facts for a WebAssembly module, including its functions and optional .NET
 - `SymbolMapPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The symbol-map sidecar path, when loaded.
 - `SymbolMapStatus` ([WasmSymbolMapStatus](/api/dotsider.core.analysis.models.wasmsymbolmapstatus/)): The symbol-map probe outcome.
 - `SymbolMapEntryCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): The number of parsed sidecar entries.
-- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string)): A diagnostic note when parsing had to degrade, or null.
+- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The reason standard-section parsing stopped after the safely decoded prefix, or null when all
+standard sections were decoded.
 
 ```csharp
 public WasmModuleInfo(int Version, IReadOnlyList<WasmSectionInfo> Sections, IReadOnlyList<WasmTypeInfo> Types, IReadOnlyList<WasmImportInfo> Imports, IReadOnlyList<WasmExportInfo> Exports, IReadOnlyList<WasmFunctionInfo> Functions, IReadOnlyList<WasmTableInfo> Tables, IReadOnlyList<WasmMemoryInfo> Memories, IReadOnlyList<WasmGlobalInfo> Globals, IReadOnlyList<WasmElementSegmentInfo> Elements, IReadOnlyList<WasmDataSegmentInfo> DataSegments, IReadOnlyList<WasmTagInfo> Tags, int? StartFunctionIndex, int? DataCount, IReadOnlyList<string> TargetFeatures, IReadOnlyList<string> ProducerFields, string? SymbolMapPath, WasmSymbolMapStatus SymbolMapStatus, int SymbolMapEntryCount, string? Diagnostic)
@@ -111,7 +112,8 @@ public int DefinedFunctionCount { get; }
 
 ### Diagnostic
 
-A diagnostic note when parsing had to degrade, or null.
+The reason standard-section parsing stopped after the safely decoded prefix, or null when all
+standard sections were decoded.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 

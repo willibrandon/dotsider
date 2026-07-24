@@ -762,7 +762,8 @@ public IReadOnlyList<TypeRefInfo> TypeRefs { get; }
 
 Parsed WebAssembly module facts when this file is a raw `.wasm` module, or null for
 PE, ELF, and Mach-O inputs. The main .NET browser-wasm native module is
-`dotnet.native.wasm`.
+`dotnet.native.wasm`. Malformed modules preserve the safely decoded prefix and report
+the reason through [Diagnostic](/api/dotsider.core.analysis.models.wasmmoduleinfo.diagnostic/).
 
 **Returns:** [WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/)
 
