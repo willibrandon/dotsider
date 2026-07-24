@@ -30,6 +30,7 @@ internal sealed class DwarfLineProgram
     private const ulong LnctDirectoryIndex = 2;
 
     private const int MaxRows = 1 << 20;
+    private const int MaxV5TableEntries = 65_536;
 
     private readonly record struct Row(ulong Address, int File, int Line, bool EndSequence);
 
@@ -139,17 +140,23 @@ internal sealed class DwarfLineProgram
 
         var headerLength = (long)reader.ReadSectionOffset(is64);
         var programStart = reader.Position + headerLength;
-        if (programStart > end) return null;
+        if (programStart < reader.Position || programStart > end) return null;
 
-        var minimumInstructionLength = reader.ReadU8();
-        if (version >= 4) reader.Skip(1); // maximum_operations_per_instruction
-        reader.Skip(1); // default_is_stmt
-        var lineBase = (sbyte)reader.ReadU8();
-        var lineRange = reader.ReadU8();
-        var opcodeBase = reader.ReadU8();
+        // Parse the prologue through a bounded reader so malformed tables cannot consume bytes
+        // from the line-number program that follows.
+        var headerReader = new DwarfDataReader(sections.Line.AsSpan(0, (int)programStart))
+        {
+            Position = reader.Position,
+        };
+        var minimumInstructionLength = headerReader.ReadU8();
+        if (version >= 4) headerReader.Skip(1); // maximum_operations_per_instruction
+        headerReader.Skip(1); // default_is_stmt
+        var lineBase = (sbyte)headerReader.ReadU8();
+        var lineRange = headerReader.ReadU8();
+        var opcodeBase = headerReader.ReadU8();
         if (lineRange == 0 || opcodeBase == 0) return null;
         var standardLengths = new byte[opcodeBase];
-        for (var i = 1; i < opcodeBase; i++) standardLengths[i] = reader.ReadU8();
+        for (var i = 1; i < opcodeBase; i++) standardLengths[i] = headerReader.ReadU8();
 
         var directories = new List<string>();
         var files = new List<string>();
@@ -157,8 +164,13 @@ internal sealed class DwarfLineProgram
         if (version >= 5)
         {
             oneBased = false;
-            ReadV5Table(sections, ref reader, is64, directories, isFileTable: false, files);
-            ReadV5Table(sections, ref reader, is64, directories, isFileTable: true, files);
+            if (!TryReadV5Table(
+                    sections, ref headerReader, is64, directories, isFileTable: false, files)
+                || !TryReadV5Table(
+                    sections, ref headerReader, is64, directories, isFileTable: true, files))
+            {
+                return null;
+            }
         }
         else
         {
@@ -166,23 +178,24 @@ internal sealed class DwarfLineProgram
             directories.Add(""); // index 0 = the compilation directory, unknown here
             while (true)
             {
-                var dir = reader.ReadCString();
+                var dir = headerReader.ReadCString();
                 if (dir.Length == 0) break;
                 directories.Add(dir);
             }
 
             while (true)
             {
-                var name = reader.ReadCString();
+                var name = headerReader.ReadCString();
                 if (name.Length == 0) break;
-                var dirIndex = (int)reader.ReadULeb128();
-                reader.ReadULeb128(); // mtime
-                reader.ReadULeb128(); // length
+                var dirIndex = (int)headerReader.ReadULeb128();
+                headerReader.ReadULeb128(); // mtime
+                headerReader.ReadULeb128(); // length
                 files.Add(Join(directories, dirIndex, name));
             }
         }
 
-        // header_length positions the machine independently of table quirks above.
+        if (headerReader.Position != programStart) return null;
+
         reader.Position = (int)programStart;
         var rows = RunMachine(ref reader, (int)end, minimumInstructionLength, lineBase, lineRange,
             opcodeBase, standardLengths, directories, files);
@@ -276,31 +289,78 @@ internal sealed class DwarfLineProgram
         return rows;
     }
 
-    private static void ReadV5Table(
+    private static bool TryReadV5Table(
         DwarfSections sections, ref DwarfDataReader reader, bool is64,
         List<string> directories, bool isFileTable, List<string> files)
     {
         var formatCount = reader.ReadU8();
         var formats = new (ulong Content, ulong Form)[formatCount];
+        var hasPath = false;
+        var hasUnsupportedForm = false;
+        var minimumEntrySize = 0;
         for (var i = 0; i < formatCount; i++)
-            formats[i] = (reader.ReadULeb128(), reader.ReadULeb128());
+        {
+            var content = reader.ReadULeb128();
+            var form = reader.ReadULeb128();
+            formats[i] = (content, form);
+            hasPath |= content == LnctPath;
+
+            var minimumValueSize = MinimumEntryValueSize(form, is64);
+            if (minimumValueSize == 0)
+                hasUnsupportedForm = true;
+            else
+                minimumEntrySize += minimumValueSize;
+        }
 
         var count = reader.ReadULeb128();
+        if (count == 0) return true;
+        if (!hasPath || hasUnsupportedForm || count > MaxV5TableEntries)
+            return false;
+        if (count > (ulong)(reader.Remaining / minimumEntrySize))
+            return false;
+
         for (ulong i = 0; i < count; i++)
         {
+            var entryStart = reader.Position;
             string? path = null;
             var dirIndex = 0;
             foreach (var (content, form) in formats)
             {
-                if (ReadEntryValue(sections, ref reader, form, is64) is not { } value) return;
-                if (content == LnctPath) path = value.S;
-                else if (content == LnctDirectoryIndex) dirIndex = (int)value.U;
+                if (ReadEntryValue(sections, ref reader, form, is64) is not { } value)
+                    return false;
+                if (content == LnctPath)
+                {
+                    if (value.S is null) return false;
+                    path = value.S;
+                }
+                else if (content == LnctDirectoryIndex)
+                {
+                    if (value.U > int.MaxValue) return false;
+                    dirIndex = (int)value.U;
+                }
             }
 
-            if (isFileTable) files.Add(Join(directories, dirIndex, path ?? ""));
-            else directories.Add(path ?? "");
+            if (reader.Position <= entryStart || reader.Remaining < 0 || path is null)
+                return false;
+
+            if (isFileTable) files.Add(Join(directories, dirIndex, path));
+            else directories.Add(path);
         }
+
+        return true;
     }
+
+    private static int MinimumEntryValueSize(ulong form, bool is64) =>
+        form switch
+        {
+            DwarfForm.String or DwarfForm.Udata or DwarfForm.Data1 or DwarfForm.Block => 1,
+            DwarfForm.Data2 => 2,
+            DwarfForm.Data4 => 4,
+            DwarfForm.Data8 => 8,
+            DwarfForm.Data16 => 16,
+            DwarfForm.Strp or DwarfForm.LineStrp => is64 ? 8 : 4,
+            _ => 0,
+        };
 
     private static (ulong U, string? S)? ReadEntryValue(
         DwarfSections sections, ref DwarfDataReader reader, ulong form, bool is64)

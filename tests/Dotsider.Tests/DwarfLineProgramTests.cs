@@ -10,6 +10,8 @@ namespace Dotsider.Tests;
 [TestClass]
 public class DwarfLineProgramTests
 {
+    private const int MaxV5TableEntries = 65_536;
+
     private static readonly byte[] StandardLengths = [0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1];
 
     private static DwarfSections Sections(byte[] line, byte[]? str = null, byte[]? lineStr = null) =>
@@ -36,6 +38,28 @@ public class DwarfLineProgramTests
 
         var body = new DwarfBlob().U16(version).U32((uint)tail.Length).Bytes(tail.ToArray()).Bytes(ops);
         return new DwarfBlob().U32((uint)body.Length).Bytes(body.ToArray()).ToArray();
+    }
+
+    /// <summary>Builds a v5 line program from raw directory and file table encodings.</summary>
+    private static byte[] V5Program(
+        byte[] directoryTable, byte[] fileTable, byte[]? ops = null, bool is64 = false)
+    {
+        var tail = new DwarfBlob()
+            .U8(1).U8(1).U8(1)
+            .U8(unchecked((byte)(sbyte)-5)).U8(14).U8(13);
+        foreach (var length in StandardLengths) tail.U8(length);
+        tail.Bytes(directoryTable).Bytes(fileTable);
+
+        var body = new DwarfBlob().U16(5).U8(8).U8(0);
+        if (is64)
+            body.U64((ulong)tail.Length);
+        else
+            body.U32((uint)tail.Length);
+        body.Bytes(tail.ToArray()).Bytes(ops ?? []);
+
+        return is64
+            ? new DwarfBlob().U32(0xFFFF_FFFF).U64((ulong)body.Length).Bytes(body.ToArray()).ToArray()
+            : new DwarfBlob().U32((uint)body.Length).Bytes(body.ToArray()).ToArray();
     }
 
     /// <summary>
@@ -180,6 +204,228 @@ public class DwarfLineProgramTests
         Assert.IsTrue(program.TryFindLine(0x9008, out var file, out var lineNo));
         Assert.AreEqual("src/util.cs", file);
         Assert.AreEqual(1, lineNo);
+    }
+
+    /// <summary>
+    /// Verifies the specification-defined empty v5 file table, and an empty directory table,
+    /// consume no entries and still produce a valid empty line program.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5ZeroFormatsAndEntries_AcceptsEmptyTables()
+    {
+        var emptyTable = new DwarfBlob().U8(0).ULeb(0).ToArray();
+
+        var program = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyTable, emptyTable)), 0);
+
+        Assert.IsNotNull(program);
+        Assert.IsNull(program.FileName(0));
+        Assert.IsFalse(program.TryFindLine(0, out _, out _));
+    }
+
+    /// <summary>
+    /// Verifies a non-empty directory or file table with no entry descriptors is rejected before
+    /// iterating its attacker-controlled count.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5ZeroFormatsWithEntries_RejectsBothTables()
+    {
+        var emptyTable = new DwarfBlob().U8(0).ULeb(0).ToArray();
+        var nonProgressingTable = new DwarfBlob()
+            .U8(0).ULeb(MaxV5TableEntries + 1UL)
+            .ToArray();
+        var directoryTable = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(1).CStr("src")
+            .ToArray();
+
+        var badDirectories = DwarfLineProgram.Parse(
+            Sections(V5Program(nonProgressingTable, emptyTable)), 0);
+        var badFiles = DwarfLineProgram.Parse(
+            Sections(V5Program(directoryTable, nonProgressingTable)), 0);
+
+        Assert.IsNull(badDirectories);
+        Assert.IsNull(badFiles);
+    }
+
+    /// <summary>
+    /// Verifies the v5 table entry ceiling accepts its exact boundary and rejects the first
+    /// value above it before allocating entries.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5EntryLimit_EnforcesExactBoundary()
+    {
+        var emptyDirectories = new DwarfBlob().U8(0).ULeb(0).ToArray();
+        var maximumFiles = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(MaxV5TableEntries).Bytes(new byte[MaxV5TableEntries])
+            .ToArray();
+        var excessiveFiles = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(MaxV5TableEntries + 1UL).Bytes(new byte[MaxV5TableEntries + 1])
+            .ToArray();
+
+        var maximum = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyDirectories, maximumFiles)), 0);
+        var excessive = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyDirectories, excessiveFiles)), 0);
+
+        Assert.IsNotNull(maximum);
+        Assert.AreEqual("", maximum.FileName(MaxV5TableEntries - 1));
+        Assert.IsNull(maximum.FileName(MaxV5TableEntries));
+        Assert.IsNull(excessive);
+    }
+
+    /// <summary>
+    /// Verifies a structurally impossible entry count and a table that would have to borrow
+    /// line-program bytes both invalidate the prologue.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5EntryDataOutsidePrologue_IsRejected()
+    {
+        var emptyTable = new DwarfBlob().U8(0).ULeb(0).ToArray();
+        var truncatedFiles = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(2).CStr("one.cs")
+            .ToArray();
+        var headerWithoutEntry = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(1)
+            .ToArray();
+
+        var truncated = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyTable, truncatedFiles)), 0);
+        var borrowed = DwarfLineProgram.Parse(
+            Sections(V5Program(headerWithoutEntry, emptyTable, "borrowed\0"u8.ToArray())), 0);
+
+        Assert.IsNull(truncated);
+        Assert.IsNull(borrowed);
+    }
+
+    /// <summary>
+    /// Verifies every truncation of otherwise valid v5 directory and file tables fails closed
+    /// when the enclosing unit and prologue lengths describe that truncated data exactly.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5TablesTruncatedAtEveryByte_FailClosed()
+    {
+        var directoryTable = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(1).CStr("src")
+            .ToArray();
+        var fileTable = new DwarfBlob()
+            .U8(2)
+            .ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(2).ULeb(DwarfForm.Udata)
+            .ULeb(1).CStr("app.cs").ULeb(0)
+            .ToArray();
+        byte[] tables = [.. directoryTable, .. fileTable];
+
+        var complete = DwarfLineProgram.Parse(
+            Sections(V5Program(directoryTable, fileTable)), 0);
+        Assert.IsNotNull(complete);
+
+        for (var length = 0; length < tables.Length; length++)
+        {
+            var truncated = DwarfLineProgram.Parse(
+                Sections(V5Program(tables[..length], [])), 0);
+            Assert.IsNull(truncated, $"table prefix length {length} unexpectedly parsed");
+        }
+    }
+
+    /// <summary>
+    /// Verifies a table with entries rejects an unsupported form instead of treating it as a
+    /// zero-width value.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5UnsupportedEntryForm_IsRejected()
+    {
+        var unknownFormTable = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(0xFF)
+            .ULeb(MaxV5TableEntries)
+            .ToArray();
+        var emptyTable = new DwarfBlob().U8(0).ULeb(0).ToArray();
+
+        var program = DwarfLineProgram.Parse(
+            Sections(V5Program(unknownFormTable, emptyTable)), 0);
+
+        Assert.IsNull(program);
+    }
+
+    /// <summary>
+    /// Verifies a directory index that cannot fit the parser's index representation invalidates
+    /// the table rather than wrapping to a plausible directory.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5DirectoryIndexAboveInt32_IsRejected()
+    {
+        var directoryTable = new DwarfBlob()
+            .U8(1).ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(1).CStr("src")
+            .ToArray();
+        var fileTable = new DwarfBlob()
+            .U8(2)
+            .ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(2).ULeb(DwarfForm.Udata)
+            .ULeb(1).CStr("app.cs").ULeb((ulong)int.MaxValue + 1)
+            .ToArray();
+
+        var program = DwarfLineProgram.Parse(
+            Sections(V5Program(directoryTable, fileTable)), 0);
+
+        Assert.IsNull(program);
+    }
+
+    /// <summary>
+    /// Verifies every v5 form supported by the table reader consumes its minimum encoded width
+    /// in DWARF32 and DWARF64, and rejects a value truncated by one byte.
+    /// </summary>
+    [TestMethod]
+    [DataRow(DwarfForm.String, 1, false)]
+    [DataRow(DwarfForm.Udata, 1, false)]
+    [DataRow(DwarfForm.Data1, 1, false)]
+    [DataRow(DwarfForm.Data2, 2, false)]
+    [DataRow(DwarfForm.Data4, 4, false)]
+    [DataRow(DwarfForm.Data8, 8, false)]
+    [DataRow(DwarfForm.Data16, 16, false)]
+    [DataRow(DwarfForm.Block, 1, false)]
+    [DataRow(DwarfForm.Strp, 4, false)]
+    [DataRow(DwarfForm.Strp, 8, true)]
+    [DataRow(DwarfForm.LineStrp, 4, false)]
+    [DataRow(DwarfForm.LineStrp, 8, true)]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Parse_V5SupportedEntryForm_RequiresItsMinimumWidth(
+        ulong form, int minimumWidth, bool is64)
+    {
+        var emptyDirectories = new DwarfBlob().U8(0).ULeb(0).ToArray();
+        var exactFiles = new DwarfBlob()
+            .U8(2)
+            .ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(0x2000).ULeb(form)
+            .ULeb(1).CStr("app.cs").Bytes(new byte[minimumWidth])
+            .ToArray();
+        var truncatedFiles = new DwarfBlob()
+            .U8(2)
+            .ULeb(1).ULeb(DwarfForm.String)
+            .ULeb(0x2000).ULeb(form)
+            .ULeb(1).CStr("app.cs").Bytes(new byte[minimumWidth - 1])
+            .ToArray();
+
+        var exact = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyDirectories, exactFiles, is64: is64)), 0);
+        var truncated = DwarfLineProgram.Parse(
+            Sections(V5Program(emptyDirectories, truncatedFiles, is64: is64)), 0);
+
+        Assert.IsNotNull(exact);
+        Assert.AreEqual("app.cs", exact.FileName(0));
+        Assert.IsNull(truncated);
     }
 
     /// <summary>
