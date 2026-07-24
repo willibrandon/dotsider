@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Dotsider.Tests;
@@ -45,6 +46,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.DoesNotContain("dotnet-suggest", runTestsScript);
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
         Assert.Contains("Current utilities", readme);
+        Assert.Contains("-RuntimeRoot path/to/runtime", readme);
         Assert.Contains("scripts/*.cs text eol=lf", attributes);
         Assert.Contains("scripts/**/*.cs text eol=lf", attributes);
     }
@@ -92,6 +94,8 @@ public sealed partial class ScriptConventionTests : IDisposable
             "dotnet",
             "-OutputDirectory",
             outputDirectory,
+            "-RuntimeRoot",
+            "",
             "--",
             "--version");
 
@@ -101,10 +105,50 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.IsTrue(File.Exists(stdoutPath), stdoutPath);
         Assert.IsTrue(File.Exists(metadataPath), metadataPath);
         Assert.IsFalse(string.IsNullOrWhiteSpace(File.ReadAllText(stdoutPath)));
-        string metadata = File.ReadAllText(metadataPath);
-        Assert.Contains("\"Architecture\": \"test\"", metadata);
-        Assert.Contains("\"FixtureSha256\"", metadata);
-        Assert.Contains("\"OracleArguments\"", metadata);
+        using JsonDocument metadata = JsonDocument.Parse(File.ReadAllText(metadataPath));
+        JsonElement metadataRoot = metadata.RootElement;
+        Assert.AreEqual("test", metadataRoot.GetProperty("Architecture").GetString());
+        Assert.IsTrue(metadataRoot.TryGetProperty("FixtureSha256", out _));
+        Assert.IsTrue(metadataRoot.TryGetProperty("OracleArguments", out _));
+        Assert.AreEqual(JsonValueKind.Null, metadataRoot.GetProperty("RuntimeRoot").ValueKind);
+        Assert.AreEqual(JsonValueKind.Null, metadataRoot.GetProperty("RuntimeCommit").ValueKind);
+        Assert.AreEqual(JsonValueKind.Null, metadataRoot.GetProperty("RuntimeBranch").ValueKind);
+    }
+
+    /// <summary>
+    /// Verifies an explicitly configured runtime clone is resolved without assuming a host layout.
+    /// Runtime provenance must describe the supplied repository and never a machine-specific default.
+    /// </summary>
+    [TestMethod]
+    public void CaptureDisasmOracle_ExplicitRuntimeRoot_RecordsProvenance()
+    {
+        string root = FindRepositoryRoot();
+        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Combine(_tempRoot, "runtime-root-oracle");
+
+        var (exitCode, _, _) = RunFileApp(
+            root,
+            scriptPath,
+            "-Architecture",
+            "test",
+            "-Fixture",
+            "README.md",
+            "-OraclePath",
+            "dotnet",
+            "-OutputDirectory",
+            outputDirectory,
+            "-RuntimeRoot",
+            ".",
+            "--",
+            "--version");
+
+        Assert.AreEqual(0, exitCode);
+        using JsonDocument metadata = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json")));
+        JsonElement metadataRoot = metadata.RootElement;
+        Assert.AreEqual(root, metadataRoot.GetProperty("RuntimeRoot").GetString());
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            metadataRoot.GetProperty("RuntimeCommit").GetString()));
     }
 
     /// <summary>

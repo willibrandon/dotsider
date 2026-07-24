@@ -363,7 +363,7 @@ Native-disassembly goldens are regenerated explicitly with the .NET file-based o
 dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -- -D -b binary -m riscv:rv64 path/to/blob.bin
 ```
 
-Set `DOTSIDER_RUNTIME_ROOT` when the runtime clone is not at `D:\SRC\runtime`. The tool records the oracle command, SDK version, runtime commit, and normalized output beside the golden so decoder changes stay reviewable. See `scripts/README.md` for the build-first form used by automation.
+Pass `-RuntimeRoot path/to/runtime` or set `DOTSIDER_RUNTIME_ROOT` when the oracle input comes from a local runtime clone. The tool records the oracle command, SDK version, runtime provenance when supplied, and normalized output beside the golden so decoder changes stay reviewable. See `scripts/README.md` for the build-first form used by automation.
 
 ## Samples
 
