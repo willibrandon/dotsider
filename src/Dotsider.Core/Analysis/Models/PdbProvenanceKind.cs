@@ -27,5 +27,8 @@ public enum PdbProvenanceKind
     NativePdb,
 
     /// <summary>The assembly came from a single-file bundle, so sidecar probing was intentionally skipped.</summary>
-    BundleSidecarSkipped
+    BundleSidecarSkipped,
+
+    /// <summary>An embedded portable PDB was present, but it was malformed or exceeded a safety limit.</summary>
+    InvalidEmbeddedPdb
 }

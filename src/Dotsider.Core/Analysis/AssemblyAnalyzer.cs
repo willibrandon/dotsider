@@ -1120,7 +1120,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Gets embedded source for a portable PDB document path.
     /// </summary>
     /// <param name="documentPath">The document path from the portable PDB.</param>
-    /// <returns>The decoded embedded source, or null when the document has none.</returns>
+    /// <returns>
+    /// The decoded embedded source, or null when the document has none or its data is malformed
+    /// or exceeds the supported size limit.
+    /// </returns>
     public EmbeddedSourceInfo? GetEmbeddedSource(string documentPath)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -1131,7 +1134,10 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// Gets the first embedded source document referenced by a method's sequence points.
     /// </summary>
     /// <param name="method">The method whose source should be resolved.</param>
-    /// <returns>The decoded embedded source, or null when none is available.</returns>
+    /// <returns>
+    /// The decoded embedded source, or null when none is available or its data is malformed
+    /// or exceeds the supported size limit.
+    /// </returns>
     public EmbeddedSourceInfo? GetEmbeddedSource(MethodDefInfo method)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -1647,12 +1653,17 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string FormatEmbeddedPortablePdbPayload(DebugDirectoryEntry entry)
     {
-        var uncompressedSize = entry.DataPointer >= 0 && entry.DataPointer + 4 <= _rawBytes.Length
-            ? BitConverter.ToInt32(_rawBytes, entry.DataPointer)
-            : -1;
-        return uncompressedSize >= 0
-            ? $"present; uncompressed size: {uncompressedSize} bytes"
-            : "present";
+        return EmbeddedPortablePdbReader.TryReadHeader(
+            _rawBytes,
+            entry.DataPointer,
+            entry.DataSize,
+            entry.Type,
+            entry.MajorVersion,
+            entry.MinorVersion,
+            out int declaredSize,
+            out string? error)
+            ? $"present; uncompressed size: {declaredSize} bytes"
+            : $"unreadable: {error}";
     }
 
     private void OpenPortablePdb()
@@ -1679,17 +1690,22 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (!IsBundleBacked && TryOpenAssociatedPortablePdb())
             return;
 
+        PdbProvenance? invalidEmbeddedPdb = null;
         var embeddedEntry = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
+        string? embeddedPdbError = null;
         if (embeddedEntry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb
-            && TryOpenEmbeddedPortablePdb(embeddedEntry))
+            && TryOpenEmbeddedPortablePdb(embeddedEntry, out embeddedPdbError))
         {
             return;
         }
+        if (embeddedEntry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb)
+            invalidEmbeddedPdb = CreateInvalidEmbeddedPdbProvenance(embeddedPdbError);
 
         var codeViewEntry = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.CodeView);
         if (codeViewEntry.Type != DebugDirectoryEntryType.CodeView)
         {
-            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
             return;
         }
 
@@ -1700,9 +1716,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
         catch (Exception ex) when (ex is BadImageFormatException or IOException)
         {
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.UnsupportedWindowsPdb,
-                Details: $"UnsupportedWindowsPdb ({ex.Message})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.UnsupportedWindowsPdb,
+                    Details: $"UnsupportedWindowsPdb ({ex.Message})");
             return;
         }
 
@@ -1719,19 +1736,21 @@ public sealed class AssemblyAnalyzer : IDisposable
                 return;
             }
 
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.UnsupportedWindowsPdb,
-                codeViewData.Path,
-                $"UnsupportedWindowsPdb ({codeViewData.Path})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.UnsupportedWindowsPdb,
+                    codeViewData.Path,
+                    $"UnsupportedWindowsPdb ({codeViewData.Path})");
             return;
         }
 
         if (IsBundleBacked)
         {
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.BundleSidecarSkipped,
-                codeViewData.Path,
-                "BundleSidecarSkipped (sidecar probing skipped for bundle-backed assembly)");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.BundleSidecarSkipped,
+                    codeViewData.Path,
+                    "BundleSidecarSkipped (sidecar probing skipped for bundle-backed assembly)");
             return;
         }
 
@@ -1740,24 +1759,26 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (foundPath is null)
         {
             var expected = probePaths.Count > 0 ? probePaths[0] : codeViewData.Path;
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.CodeViewSidecarMissing,
-                expected,
-                $"CodeViewSidecarMissing ({expected})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.CodeViewSidecarMissing,
+                    expected,
+                    $"CodeViewSidecarMissing ({expected})");
             return;
         }
 
         if (!TryOpenPortablePdbFile(foundPath, codeViewData.Guid, codeViewData.Age, out var mismatch))
         {
-            PdbProvenance = mismatch
-                ? new PdbProvenance(
-                    PdbProvenanceKind.CodeViewSidecarMismatched,
-                    foundPath,
-                    $"CodeViewSidecarMismatched ({foundPath})")
-                : new PdbProvenance(
-                    PdbProvenanceKind.UnsupportedWindowsPdb,
-                    foundPath,
-                    $"UnsupportedWindowsPdb ({foundPath})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? (mismatch
+                    ? new PdbProvenance(
+                        PdbProvenanceKind.CodeViewSidecarMismatched,
+                        foundPath,
+                        $"CodeViewSidecarMismatched ({foundPath})")
+                    : new PdbProvenance(
+                        PdbProvenanceKind.UnsupportedWindowsPdb,
+                        foundPath,
+                        $"UnsupportedWindowsPdb ({foundPath})"));
         }
     }
 
@@ -1772,14 +1793,21 @@ public sealed class AssemblyAnalyzer : IDisposable
             return;
         }
 
+        PdbProvenance? invalidEmbeddedPdb = null;
         var embeddedEntry = _webcilReader.EmbeddedPortablePdbEntry();
-        if (embeddedEntry is not null && TryOpenWebcilEmbeddedPortablePdb(embeddedEntry.Value))
-            return;
+        if (embeddedEntry is not null)
+        {
+            if (TryOpenWebcilEmbeddedPortablePdb(embeddedEntry.Value, out string? error))
+                return;
+
+            invalidEmbeddedPdb = CreateInvalidEmbeddedPdbProvenance(error);
+        }
 
         var codeViewEntry = _webcilReader.CodeViewEntry();
         if (codeViewEntry is null)
         {
-            PdbProvenance = new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(PdbProvenanceKind.NoDebugDirectory);
             return;
         }
 
@@ -1790,9 +1818,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
         catch (Exception ex) when (ex is BadImageFormatException or IOException)
         {
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.UnsupportedWindowsPdb,
-                Details: $"UnsupportedWindowsPdb ({ex.Message})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.UnsupportedWindowsPdb,
+                    Details: $"UnsupportedWindowsPdb ({ex.Message})");
             return;
         }
 
@@ -1801,40 +1830,50 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (foundPath is null)
         {
             var expected = probePaths.Count > 0 ? probePaths[0] : codeViewData.Path;
-            PdbProvenance = new PdbProvenance(
-                PdbProvenanceKind.CodeViewSidecarMissing,
-                expected,
-                $"CodeViewSidecarMissing ({expected})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? new PdbProvenance(
+                    PdbProvenanceKind.CodeViewSidecarMissing,
+                    expected,
+                    $"CodeViewSidecarMissing ({expected})");
             return;
         }
 
         if (!TryOpenPortablePdbFile(foundPath, codeViewData.Guid, codeViewData.Age, out var mismatch))
         {
-            PdbProvenance = mismatch
-                ? new PdbProvenance(
-                    PdbProvenanceKind.CodeViewSidecarMismatched,
-                    foundPath,
-                    $"CodeViewSidecarMismatched ({foundPath})")
-                : new PdbProvenance(
-                    PdbProvenanceKind.UnsupportedWindowsPdb,
-                    foundPath,
-                    $"UnsupportedWindowsPdb ({foundPath})");
+            PdbProvenance = invalidEmbeddedPdb
+                ?? (mismatch
+                    ? new PdbProvenance(
+                        PdbProvenanceKind.CodeViewSidecarMismatched,
+                        foundPath,
+                        $"CodeViewSidecarMismatched ({foundPath})")
+                    : new PdbProvenance(
+                        PdbProvenanceKind.UnsupportedWindowsPdb,
+                        foundPath,
+                        $"UnsupportedWindowsPdb ({foundPath})"));
         }
     }
 
-    private bool TryOpenWebcilEmbeddedPortablePdb(Wasm.WebcilDebugEntry entry)
+    private bool TryOpenWebcilEmbeddedPortablePdb(
+        Wasm.WebcilDebugEntry entry,
+        out string? error)
     {
+        error = null;
         if (_webcilReader is null) return false;
 
+        MetadataReaderProvider? provider = null;
         try
         {
-            _pdbReaderProvider = _webcilReader.ReadEmbeddedPortablePdb(entry);
-            _pdbReader = _pdbReaderProvider.GetMetadataReader();
+            provider = _webcilReader.ReadEmbeddedPortablePdb(entry);
+            MetadataReader reader = provider.GetMetadataReader();
+            _pdbReaderProvider = provider;
+            _pdbReader = reader;
             PdbProvenance = new PdbProvenance(PdbProvenanceKind.Embedded);
             return true;
         }
         catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or InvalidOperationException)
         {
+            provider?.Dispose();
+            error = ex.Message;
             return false;
         }
     }
@@ -1900,21 +1939,43 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
     }
 
-    private bool TryOpenEmbeddedPortablePdb(DebugDirectoryEntry entry)
+    private bool TryOpenEmbeddedPortablePdb(
+        DebugDirectoryEntry entry,
+        out string? error)
     {
+        error = null;
         if (_peReader is null) return false;
 
+        MetadataReaderProvider? provider = null;
         try
         {
-            _pdbReaderProvider = _peReader.ReadEmbeddedPortablePdbDebugDirectoryData(entry);
-            _pdbReader = _pdbReaderProvider.GetMetadataReader();
+            provider = EmbeddedPortablePdbReader.Read(
+                _rawBytes,
+                entry.DataPointer,
+                entry.DataSize,
+                entry.Type,
+                entry.MajorVersion,
+                entry.MinorVersion);
+            MetadataReader reader = provider.GetMetadataReader();
+            _pdbReaderProvider = provider;
+            _pdbReader = reader;
             PdbProvenance = new PdbProvenance(PdbProvenanceKind.Embedded);
             return true;
         }
         catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or InvalidOperationException)
         {
+            provider?.Dispose();
+            error = ex.Message;
             return false;
         }
+    }
+
+    private static PdbProvenance CreateInvalidEmbeddedPdbProvenance(string? error)
+    {
+        var details = string.IsNullOrWhiteSpace(error)
+            ? "InvalidEmbeddedPdb"
+            : $"InvalidEmbeddedPdb ({error})";
+        return new PdbProvenance(PdbProvenanceKind.InvalidEmbeddedPdb, Details: details);
     }
 
     private bool TryOpenPortablePdbFile(string path, Guid expectedGuid, int expectedAge, out bool mismatched)

@@ -823,7 +823,8 @@ Gets the first embedded source document referenced by a method's sequence points
 
 **Returns:** [EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/)
 
-The decoded embedded source, or null when none is available.
+The decoded embedded source, or null when none is available or its data is malformed
+or exceeds the supported size limit.
 
 ```csharp
 public EmbeddedSourceInfo? GetEmbeddedSource(MethodDefInfo method)
@@ -839,7 +840,8 @@ Gets embedded source for a portable PDB document path.
 
 **Returns:** [EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/)
 
-The decoded embedded source, or null when the document has none.
+The decoded embedded source, or null when the document has none or its data is malformed
+or exceeds the supported size limit.
 
 ```csharp
 public EmbeddedSourceInfo? GetEmbeddedSource(string documentPath)

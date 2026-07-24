@@ -13,6 +13,8 @@ namespace Dotsider.Tests;
 [TestClass]
 public sealed class WebcilImageReaderTests
 {
+    private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
+
     /// <summary>
     /// Both Webcil revisions open in bare and minimally wrapped form.
     /// </summary>
@@ -544,6 +546,176 @@ public sealed class WebcilImageReaderTests
         Assert.AreEqual(entry.DataSize, publicEntry.DataSize);
         Assert.AreEqual(entry.AddressOfRawData, publicEntry.AddressOfRawData);
         Assert.AreEqual(entry.PointerToRawData, publicEntry.PointerToRawData);
+    }
+
+    /// <summary>
+    /// A compiler-produced embedded portable PDB remains readable from bare and wrapped Webcil.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ReadEmbeddedPortablePdb_CompilerProducedPayload_Decodes(bool wrapped)
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        int expectedSize = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(sizeof(int)));
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(
+            payload,
+            wrapped);
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+        WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
+        Assert.IsTrue(embeddedEntry.HasValue);
+        WebcilDebugEntry entry = embeddedEntry.Value;
+
+        using MetadataReaderProvider provider = reader.ReadEmbeddedPortablePdb(entry);
+
+        MetadataReader metadata = provider.GetMetadataReader();
+        Assert.IsGreaterThan(0, metadata.Documents.Count);
+        DebugDirectoryInfo publicEntry = Assert.ContainsSingle(
+            static candidate => candidate.Type == DebugDirectoryEntryType.EmbeddedPortablePdb,
+            reader.ReadDebugDirectory());
+        Assert.AreEqual(
+            $"present; uncompressed size: {expectedSize} bytes",
+            publicEntry.Payload);
+    }
+
+    /// <summary>
+    /// Invalid or oversized embedded-PDB declarations fail closed without hiding managed metadata.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(-1)]
+    [DataRow(0)]
+    [DataRow((256 * 1024 * 1024) + 1)]
+    [DataRow(int.MaxValue)]
+    public void ReadEmbeddedPortablePdb_InvalidDeclaredSize_IsRejected(int declaredSize)
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(sizeof(int)), declaredSize);
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(payload);
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+        WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
+        Assert.IsTrue(embeddedEntry.HasValue);
+        WebcilDebugEntry entry = embeddedEntry.Value;
+
+        Assert.ThrowsExactly<BadImageFormatException>(() =>
+            reader.ReadEmbeddedPortablePdb(entry));
+
+        using AssemblyAnalyzer analyzer = new(image.Bytes, "oversized-pdb.webcil");
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.IsFalse(analyzer.HasPortablePdb);
+        Assert.AreEqual(PdbProvenanceKind.InvalidEmbeddedPdb, analyzer.PdbProvenance.Kind);
+    }
+
+    /// <summary>
+    /// Embedded-PDB deflate output must match the declared size exactly.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(-1)]
+    [DataRow(1)]
+    public void ReadEmbeddedPortablePdb_OutputLengthMismatch_IsRejected(int sizeAdjustment)
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        int declaredSize = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(sizeof(int)));
+        BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(sizeof(int)),
+            checked(declaredSize + sizeAdjustment));
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(payload);
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+        WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
+        Assert.IsTrue(embeddedEntry.HasValue);
+        WebcilDebugEntry entry = embeddedEntry.Value;
+
+        Assert.ThrowsExactly<BadImageFormatException>(() =>
+            reader.ReadEmbeddedPortablePdb(entry));
+    }
+
+    /// <summary>
+    /// The maximum supported embedded-PDB declaration is accepted by the header guard.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void ReadEmbeddedPortablePdb_MaximumDeclaredSize_PassesHeaderGuard()
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(sizeof(int)),
+            256 * 1024 * 1024);
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(payload);
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+
+        DebugDirectoryInfo entry = Assert.ContainsSingle(
+            static candidate => candidate.Type == DebugDirectoryEntryType.EmbeddedPortablePdb,
+            reader.ReadDebugDirectory());
+
+        Assert.AreEqual(
+            "present; uncompressed size: 268435456 bytes",
+            entry.Payload);
+    }
+
+    /// <summary>
+    /// Unsupported embedded-PDB directory versions fail closed and remain diagnostic.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(8, 0x00FF)]
+    [DataRow(10, 0x0101)]
+    public void ReadEmbeddedPortablePdb_UnsupportedVersion_IsRejected(
+        int fieldOffset,
+        int version)
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(payload);
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            image.Bytes.AsSpan(image.GetSectionDataOffset(1) + fieldOffset),
+            checked((ushort)version));
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+        WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
+        Assert.IsTrue(embeddedEntry.HasValue);
+
+        Assert.ThrowsExactly<BadImageFormatException>(() =>
+            reader.ReadEmbeddedPortablePdb(embeddedEntry.Value));
+        DebugDirectoryInfo publicEntry = Assert.ContainsSingle(reader.ReadDebugDirectory());
+        Assert.Contains("unreadable:", publicEntry.Payload);
+        Assert.Contains("version", publicEntry.Payload);
+    }
+
+    /// <summary>
+    /// Invalid signatures and deflate streams are rejected without invalidating Webcil metadata.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ReadEmbeddedPortablePdb_MalformedPayload_IsRejected(bool corruptSignature)
+    {
+        byte[] payload = EmbeddedPortablePdbTestImage.ExtractPayload(Samples.EmbeddedSourceLibDll);
+        if (corruptSignature)
+        {
+            payload[0] ^= 0xFF;
+        }
+        else
+        {
+            payload.AsSpan(2 * sizeof(int)).Fill(0xFF);
+        }
+
+        SyntheticWebcilImage image = SyntheticWebcilBuilder.CreateWithEmbeddedPortablePdb(payload);
+        WebcilImageReader? reader = WebcilImageReader.Open(image.Bytes);
+        Assert.IsNotNull(reader);
+        WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
+        Assert.IsTrue(embeddedEntry.HasValue);
+
+        Assert.ThrowsExactly<BadImageFormatException>(() =>
+            reader.ReadEmbeddedPortablePdb(embeddedEntry.Value));
+        using AssemblyAnalyzer analyzer = new(image.Bytes, "malformed-pdb.webcil");
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.AreEqual(PdbProvenanceKind.InvalidEmbeddedPdb, analyzer.PdbProvenance.Kind);
     }
 
     /// <summary>

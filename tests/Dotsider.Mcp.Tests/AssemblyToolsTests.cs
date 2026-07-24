@@ -58,6 +58,46 @@ public class AssemblyToolsTests : McpServerTestBase
     }
 
     /// <summary>
+    /// An oversized embedded portable PDB is reported without aborting MCP assembly inspection.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetAssemblyInfo_OversizedEmbeddedPdb_ReportsInvalidProvenance()
+    {
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-mcp-oversized-embedded-pdb-{Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(
+                path,
+                EmbeddedPortablePdbTestImage.WithDeclaredSize(
+                    Samples.EmbeddedSourceLibDll,
+                    int.MaxValue));
+            await StartServerAsync();
+            await using var client = await CreateClientAsync();
+
+            var result = await client.CallToolAsync(
+                "get_assembly_info",
+                new Dictionary<string, object?> { ["assemblyPath"] = path },
+                cancellationToken: TestCancellationToken);
+
+            string? text = GetTextContent(result);
+            Assert.IsNotNull(text);
+            JsonElement json = JsonSerializer.Deserialize<JsonElement>(text);
+            Assert.IsTrue(json.GetProperty("hasMetadata").GetBoolean());
+            Assert.AreEqual(
+                "invalidEmbeddedPdb",
+                json.GetProperty("pdbProvenance").GetProperty("kind").GetString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     /// Invoking get_assembly_info without required arguments yields a descriptive error payload.
     /// </summary>
     [TestMethod]

@@ -151,6 +151,39 @@ internal static class SyntheticWebcilBuilder
         return image;
     }
 
+    internal static SyntheticWebcilImage CreateWithEmbeddedPortablePdb(
+        byte[] payload,
+        bool wrapped = false)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        SyntheticWebcilImage image = Create(
+            wrapped: wrapped,
+            sectionCount: 2,
+            additionalSectionSize: checked(DebugDirectoryEntrySize + payload.Length));
+        uint directoryRva = image.GetSectionVirtualAddress(1);
+        uint directoryPointer = image.GetSectionPointer(1);
+        uint dataRva = checked(directoryRva + DebugDirectoryEntrySize);
+        uint dataPointer = checked(directoryPointer + DebugDirectoryEntrySize);
+        image.SetPeDebugRva(directoryRva);
+        image.SetPeDebugSize(DebugDirectoryEntrySize);
+
+        Span<byte> entry = image.Bytes.AsSpan(
+            image.GetSectionDataOffset(1),
+            DebugDirectoryEntrySize);
+        entry.Clear();
+        BinaryPrimitives.WriteUInt16LittleEndian(entry[8..], 0x0100);
+        BinaryPrimitives.WriteUInt16LittleEndian(entry[10..], 0x0100);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            entry[12..],
+            (int)DebugDirectoryEntryType.EmbeddedPortablePdb);
+        BinaryPrimitives.WriteInt32LittleEndian(entry[16..], payload.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(entry[20..], dataRva);
+        BinaryPrimitives.WriteUInt32LittleEndian(entry[24..], dataPointer);
+        payload.CopyTo(image.Bytes.AsSpan(checked(image.PayloadOffset + (int)dataPointer)));
+        return image;
+    }
+
     internal static SyntheticWebcilImage CreateWithOversizedWasmDataSection(int version = 1)
     {
         SyntheticWebcilImage bare = Create(version);
