@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -92,13 +93,15 @@ public static class SizeDiffTreemapView
         if (state.WhyContent is not null && state.WhyEditorText != state.WhyContent)
         {
             state.WhyEditorText = state.WhyContent;
-            state.WhyEditorState = new EditorState(new Hex1bDocument(state.WhyContent)) { IsReadOnly = true };
+            state.WhyEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.WhyContent))) { IsReadOnly = true };
         }
 
         if (state.DisasmContent is not null && state.DisasmEditorText != state.DisasmContent)
         {
             state.DisasmEditorText = state.DisasmContent;
-            state.DisasmEditorState = new EditorState(new Hex1bDocument(state.DisasmContent)) { IsReadOnly = true };
+            state.DisasmEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.DisasmContent))) { IsReadOnly = true };
         }
 
         return ctx.ZStack(z =>
@@ -109,7 +112,7 @@ public static class SizeDiffTreemapView
                 {
                     outer.HStack(row =>
                     [
-                        row.Text($" {BuildBreadcrumb(state, root)} "),
+                        row.Text($" {TerminalText.Escape(BuildBreadcrumb(state, root))} "),
                         row.Text($"| Δ {FormatDelta(currentLevel.Delta)}"
                             + $" | filter: {state.FilterMode}").Fill()
                     ]).FixedHeight(1)
@@ -264,7 +267,7 @@ public static class SizeDiffTreemapView
                     detailText = DetailText(currentLevel.Children[matchingItems[state.TreemapMatchIndex]]);
                 }
 
-                widgets.Add(outer.Text(detailText ?? "").FixedHeight(1));
+                widgets.Add(outer.Text(TerminalText.Escape(detailText ?? "")).FixedHeight(1));
 
                 return [.. widgets];
             })
@@ -721,7 +724,7 @@ public static class SizeDiffTreemapView
             if (cellW > 3 && cellH > 0)
             {
                 var fg = LabelForeground(color);
-                var label = $"{glyph} {node.Name}";
+                var label = $"{glyph} {TerminalText.Escape(node.Name)}";
                 if (label.Length > cellW - 2) label = label[..(cellW - 4)] + "..";
                 surface.WriteText(x1 + 1, y1, label, fg, color);
 

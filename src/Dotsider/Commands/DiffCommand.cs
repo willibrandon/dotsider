@@ -57,13 +57,13 @@ internal static class DiffCommand
 
             if (!left.Exists)
             {
-                Console.Error.WriteLine($"Error: File not found: {left.FullName}");
+                OutputFormatter.WriteError($"Error: File not found: {left.FullName}");
                 return 1;
             }
 
             if (!right.Exists)
             {
-                Console.Error.WriteLine($"Error: File not found: {right.FullName}");
+                OutputFormatter.WriteError($"Error: File not found: {right.FullName}");
                 return 1;
             }
 
@@ -86,7 +86,7 @@ internal static class DiffCommand
             {
                 var mstatSide = leftSource is not null ? left.Name : right.Name;
                 var otherSide = leftSource is not null ? right.Name : left.Name;
-                Console.Error.WriteLine(
+                OutputFormatter.WriteError(
                     $"Error: cannot diff {mstatSide} (an mstat-backed size input) against "
                     + $"{otherSide}. Give two .mstat reports, two AOT binaries with mstat "
                     + "sidecars, or two assemblies.");
@@ -229,13 +229,13 @@ internal static class DiffCommand
         {
             case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                 host.Dispose();
-                Console.Error.WriteLine(
+                OutputFormatter.WriteError(
                     $"Note: {left.Name} is a native apphost. "
                     + $"Analyzing {Path.GetFileName(companion)} instead.");
                 leftAnalyzer = new AssemblyAnalyzer(companion);
                 break;
             case AssemblyOpenResult.BundleEntry(var entry, _):
-                Console.Error.WriteLine(
+                OutputFormatter.WriteError(
                     $"Note: {left.Name} is a single-file bundle. "
                     + $"Analyzing entry assembly {entry.FileName} instead.");
                 leftAnalyzer = entry;
@@ -254,13 +254,13 @@ internal static class DiffCommand
         {
             case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                 host.Dispose();
-                Console.Error.WriteLine(
+                OutputFormatter.WriteError(
                     $"Note: {right.Name} is a native apphost. "
                     + $"Analyzing {Path.GetFileName(companion)} instead.");
                 rightAnalyzer = new AssemblyAnalyzer(companion);
                 break;
             case AssemblyOpenResult.BundleEntry(var entry, _):
-                Console.Error.WriteLine(
+                OutputFormatter.WriteError(
                     $"Note: {right.Name} is a single-file bundle. "
                     + $"Analyzing entry assembly {entry.FileName} instead.");
                 rightAnalyzer = entry;

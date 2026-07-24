@@ -1,3 +1,4 @@
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Theming;
@@ -41,14 +42,16 @@ public static class HighlightHelper
     /// <summary>
     /// Wraps each case-insensitive match of <paramref name="query"/> in <paramref name="text"/>
     /// with ANSI background (yellow) + foreground (black) codes, returning an ANSI-annotated string.
-    /// After each match, restores <paramref name="restoreFg"/> and <paramref name="restoreBg"/>
-    /// so the caller's active styling (e.g. focused-row colors) is preserved.
+    /// Untrusted controls in <paramref name="text"/> are converted to visible text before trusted
+    /// highlighting codes are added. After each match, restores <paramref name="restoreFg"/> and
+    /// <paramref name="restoreBg"/> so the caller's active styling (e.g. focused-row colors) is
+    /// preserved.
     /// </summary>
     public static string HighlightSubstring(string text, string? query,
         Hex1bColor? restoreFg = null, Hex1bColor? restoreBg = null)
     {
         if (string.IsNullOrEmpty(query) || string.IsNullOrEmpty(text))
-            return text;
+            return TerminalText.Escape(text);
 
         // Build the restore sequence from the caller's colors, falling back to
         // default fg/bg resets when no explicit color is provided.
@@ -63,16 +66,16 @@ public static class HighlightHelper
             var idx = text.IndexOf(query, pos, StringComparison.OrdinalIgnoreCase);
             if (idx < 0)
             {
-                sb.Append(text, pos, text.Length - pos);
+                sb.Append(TerminalText.Escape(text[pos..]));
                 break;
             }
 
             if (idx > pos)
-                sb.Append(text, pos, idx - pos);
+                sb.Append(TerminalText.Escape(text[pos..idx]));
 
             sb.Append(MatchBgAnsi);
             sb.Append(MatchFgAnsi);
-            sb.Append(text, idx, query.Length);
+            sb.Append(TerminalText.Escape(text.Substring(idx, query.Length)));
             sb.Append(restoreAnsi);
 
             pos = idx + query.Length;
@@ -85,6 +88,7 @@ public static class HighlightHelper
     /// Creates a table cell with optional inline match highlighting.
     /// When a query is active and the row matches, matching substrings render
     /// with yellow background + black foreground via embedded ANSI codes.
+    /// Untrusted controls are converted to visible text in both matching and non-matching cells.
     /// After each match, <paramref name="restoreFg"/> and <paramref name="restoreBg"/>
     /// are re-applied so focused-row or cell-specific styling is preserved.
     /// </summary>
@@ -95,11 +99,11 @@ public static class HighlightHelper
         if (!string.IsNullOrEmpty(query) && isMatch)
             return ctx.Text(HighlightSubstring(text, query, restoreFg, restoreBg));
 
-        return ctx.Text(text);
+        return ctx.Text(TerminalText.Escape(text));
     }
 
     /// <summary>
-    /// Creates a text widget with optional inline match highlighting.
+    /// Creates a terminal-safe text widget with optional inline match highlighting.
     /// For use in non-table contexts such as the IL Inspector disassembly.
     /// </summary>
     public static Hex1bWidget HighlightText<T>(
@@ -109,6 +113,6 @@ public static class HighlightHelper
         if (!string.IsNullOrEmpty(query))
             return ctx.Text(HighlightSubstring(text, query, restoreFg, restoreBg));
 
-        return ctx.Text(text);
+        return ctx.Text(TerminalText.Escape(text));
     }
 }

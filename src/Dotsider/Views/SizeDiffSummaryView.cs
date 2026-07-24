@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -33,7 +34,8 @@ public static class SizeDiffSummaryView
         if (state.SummaryEditorText != text)
         {
             state.SummaryEditorText = text;
-            state.SummaryEditorState = new EditorState(new Hex1bDocument(text)) { IsReadOnly = true };
+            state.SummaryEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(text))) { IsReadOnly = true };
         }
 
         var searchProvider = new DiffSearchDecorationProvider { Query = search.Query };

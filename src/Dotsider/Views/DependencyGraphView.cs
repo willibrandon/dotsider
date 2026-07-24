@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Nodes;
@@ -138,14 +139,14 @@ public static class DependencyGraphView
 
             widgets.Add(outer.HStack(row =>
             [
-                row.Text(statusLeft + scopeSuffix + filterSuffix),
+                row.Text(TerminalText.Escape(statusLeft + scopeSuffix + filterSuffix)),
                 row.Text(displayNode is not null
-                    ? $"  | {displayNode}"
+                    ? $"  | {TerminalText.Escape(displayNode)}"
                     : "  | Hover over a node for details").Fill()
             ]).FixedHeight(1));
 
             if (ready && state.GraphNavigationError is not null)
-                widgets.Add(outer.Text($" {state.GraphNavigationError}").FixedHeight(1));
+                widgets.Add(outer.Text($" {TerminalText.Escape(state.GraphNavigationError)}").FixedHeight(1));
 
             SearchBarHelper.AddSearchBar(widgets, outer, search, state.App);
 
@@ -492,7 +493,10 @@ public static class DependencyGraphView
 
         if (y0 + 1 >= 0 && y0 + 1 < surfaceHeight)
         {
-            var truncLabel = rn.Label.Length > boxW - 2 ? rn.Label[..(boxW - 4)] + ".." : rn.Label;
+            var displayLabel = TerminalText.Escape(rn.Label);
+            var truncLabel = displayLabel.Length > boxW - 2
+                ? displayLabel[..(boxW - 4)] + ".."
+                : displayLabel;
             surface.WriteText(x0 + 1, y0 + 1, truncLabel, fg, bg);
         }
     }

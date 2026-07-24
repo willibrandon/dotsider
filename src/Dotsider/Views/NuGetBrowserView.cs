@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Layout;
@@ -23,7 +24,7 @@ public static class NuGetBrowserView
         var pkg = state.Package;
         var search = state.BrowserSearch;
         var query = search.Query;
-        var displayQuery = UntrustedTerminalText.Escape(query ?? string.Empty);
+        var displayQuery = TerminalText.Escape(query ?? string.Empty);
 
         // Filter DLL list by search query
         var dlls = (IReadOnlyList<NuGetFileEntry>)pkg.DllFiles;
@@ -45,10 +46,10 @@ public static class NuGetBrowserView
 
         // Build Package Info text for read-only editor
         var infoText = string.Join("\n",
-            $"  Package ID:   {UntrustedTerminalText.Escape(pkg.PackageId ?? "(unknown)")}",
-            $"  Version:      {UntrustedTerminalText.Escape(pkg.PackageVersion ?? "(unknown)")}",
-            $"  Authors:      {UntrustedTerminalText.Escape(pkg.Authors ?? "(unknown)")}",
-            $"  Description:  {UntrustedTerminalText.Escape(pkg.Description ?? "(none)")}",
+            $"  Package ID:   {TerminalText.Escape(pkg.PackageId ?? "(unknown)")}",
+            $"  Version:      {TerminalText.Escape(pkg.PackageVersion ?? "(unknown)")}",
+            $"  Authors:      {TerminalText.Escape(pkg.Authors ?? "(unknown)")}",
+            $"  Description:  {TerminalText.Escape(pkg.Description ?? "(none)")}",
             "",
             $"  Total Files:  {pkg.Files.Count}",
             $"  DLL Files:    {pkg.DllFiles.Count}",
@@ -114,8 +115,8 @@ public static class NuGetBrowserView
                     ])
                     .Row((r, entry, rowState) =>
                     {
-                        var displayName = UntrustedTerminalText.Escape(entry.Name);
-                        var displayDirectory = UntrustedTerminalText.Escape(entry.Directory);
+                        var displayName = TerminalText.Escape(entry.Name);
+                        var displayDirectory = TerminalText.Escape(entry.Directory);
                         var flash = rowState.IsFocused && state.YankFlashRow;
                         var fg = flash ? Hex1bColor.FromRgb(24, 24, 37)
                             : rowState.IsFocused ? Hex1bColor.Black

@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
@@ -39,10 +40,10 @@ public sealed class DiffApp(DiffState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(200, 200, 80))),
                 bar.Divider(" "),
-                bar.Section(_state.Left.FileName).Theme(t => t
+                bar.Section(TerminalText.Escape(_state.Left.FileName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Section(" <> "),
-                bar.Section(_state.Right.FileName).Theme(t => t
+                bar.Section(TerminalText.Escape(_state.Right.FileName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section($"+{summary.TypesAdded + summary.MethodsAdded}").Theme(t => t
@@ -285,7 +286,7 @@ public sealed class DiffApp(DiffState state)
 
             if (!string.IsNullOrEmpty(_state.YankNotification))
             {
-                hints.Add(s.Section(_state.YankNotification).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.YankNotification)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
                 hints.Add(s.Divider(" "));
             }

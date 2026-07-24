@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -139,7 +140,8 @@ public static class PeMetadataView
         if (state.PeHeadersEditorText != peText)
         {
             state.PeHeadersEditorText = peText;
-            state.PeHeadersEditorState = new EditorState(new Hex1bDocument(peText)) { IsReadOnly = true };
+            state.PeHeadersEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(peText))) { IsReadOnly = true };
         }
 
         // Build CLR Header text — the companion's when attached (the native AOT image has none).
@@ -159,14 +161,16 @@ public static class PeMetadataView
         if (state.ClrHeaderEditorText != clrText)
         {
             state.ClrHeaderEditorText = clrText;
-            state.ClrHeaderEditorState = new EditorState(new Hex1bDocument(clrText)) { IsReadOnly = true };
+            state.ClrHeaderEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(clrText))) { IsReadOnly = true };
         }
 
         // Build detail popup editor state when content changes
         if (state.PeDetailContent is not null && state.PeDetailEditorText != state.PeDetailContent)
         {
             state.PeDetailEditorText = state.PeDetailContent;
-            state.PeDetailEditorState = new EditorState(new Hex1bDocument(state.PeDetailContent)) { IsReadOnly = true };
+            state.PeDetailEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.PeDetailContent))) { IsReadOnly = true };
         }
 
         // Adjust word boundaries after double-click (consistent with IL Inspector)

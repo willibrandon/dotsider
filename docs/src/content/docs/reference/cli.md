@@ -28,6 +28,9 @@ dotsider agent <command>        # CLI — MCP server and AI skill generation
 ## `dotsider analyze`
 
 Run analysis without the TUI — pipe to other tools, write to files, or output JSON.
+Human-readable output escapes terminal controls and Unicode formatting characters recovered from
+the analyzed file. The same safe representation is used for stdout, redirected output, and `-o`
+text files; JSON preserves the exact values after decoding.
 
 ```
 dotsider analyze MyLib.dll                    # assembly info (default)

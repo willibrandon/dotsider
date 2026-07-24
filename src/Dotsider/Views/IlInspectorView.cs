@@ -1,6 +1,7 @@
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Analysis.ReadyToRun;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -659,7 +660,7 @@ public static class IlInspectorView
                 && IsMethodInNamespace(sm, row.Label, state) => "● ",
             _ => ""
         };
-        return $"{indent}{glyph}{marker}{CorrelationGlyph(row, state)}{row.Label}";
+        return $"{indent}{glyph}{marker}{CorrelationGlyph(row, state)}{TerminalText.Escape(row.Label)}";
     }
 
     /// <summary>
@@ -752,7 +753,7 @@ public static class IlInspectorView
             var result = NativeDisassembler.DisassembleSymbol(state.Analyzer, symbol);
             var disassembly = result?.Text
                 ?? $"// {symbol.ManagedName ?? symbol.Name}\n// No disassemblable bytes.";
-            var doc = new Hex1bDocument(disassembly);
+            var doc = new Hex1bDocument(TerminalText.EscapeMultiline(disassembly));
             state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlEditorNativeSymbol = symbol;
             state.IlEditorMethod = null;
@@ -890,7 +891,7 @@ public static class IlInspectorView
 
         return
         [
-            ctx.Text(status).FixedHeight(1),
+            ctx.Text(TerminalText.Escape(status)).FixedHeight(1),
             content,
         ];
     }
@@ -976,7 +977,7 @@ public static class IlInspectorView
 
         return
         [
-            ctx.Text(status).FixedHeight(1),
+            ctx.Text(TerminalText.Escape(status)).FixedHeight(1),
             content,
         ];
     }
@@ -1039,7 +1040,7 @@ public static class IlInspectorView
                 : NativeDisassembler.DisassembleSymbol(state.Analyzer, symbol, ManagedNameResolver);
             var disassembly = result?.Text
                 ?? $"// {symbol.ManagedName ?? symbol.Name}\n// No disassemblable bytes.";
-            var doc = new Hex1bDocument(disassembly);
+            var doc = new Hex1bDocument(TerminalText.EscapeMultiline(disassembly));
             state.IlPairNativeEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlPairNativeSymbol = symbol;
             state.IlPairNativeInstructions = result?.Instructions;
@@ -1133,7 +1134,7 @@ public static class IlInspectorView
                         + "\n"
                         + "// Fields do not have IL bodies.\n"
                         + "// Press Esc to go back.";
-                    var fieldDoc = new Hex1bDocument(fieldInfo);
+                    var fieldDoc = new Hex1bDocument(TerminalText.EscapeMultiline(fieldInfo));
                     state.IlEditorState = new EditorState(fieldDoc) { IsReadOnly = true };
                     state.IlEditorField = field;
                     state.IlEditorMethod = null;
@@ -1163,7 +1164,7 @@ public static class IlInspectorView
 
             var result = disassembler.DisassembleWithText(method);
             var disassembly = result?.Text ?? disassembler.FormatDisassembly(method);
-            var doc = new Hex1bDocument(disassembly);
+            var doc = new Hex1bDocument(TerminalText.EscapeMultiline(disassembly));
             state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
             state.IlEditorMethod = method;
             state.IlEditorField = null;

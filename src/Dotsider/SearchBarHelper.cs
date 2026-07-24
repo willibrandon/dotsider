@@ -1,3 +1,4 @@
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
 
@@ -40,7 +41,7 @@ public static class SearchBarHelper
             };
             widgets.Add(ctx.HStack(row =>
             [
-                row.Text($" {modePrefix}/ {search.Query ?? ""}"),
+                row.Text(TerminalText.Escape($" {modePrefix}/ {search.Query ?? ""}")),
                 row.Text(countText),
                 row.Text("  n/N: navigate | /: edit | Esc: close").Fill()
             ]).FixedHeight(1));

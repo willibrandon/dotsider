@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
@@ -49,7 +50,7 @@ public sealed class NuGetApp(NuGetState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(160, 100, 200))),
                 bar.Divider(" "),
-                bar.Section(UntrustedTerminalText.Escape(_state.Package.FileName)).Theme(t => t
+                bar.Section(TerminalText.Escape(_state.Package.FileName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section(_state.IsBrowsingPackage ? "Package Browser" : "DLL Inspector").Theme(t => t
@@ -111,14 +112,14 @@ public sealed class NuGetApp(NuGetState state)
                     ?? _state.SelectedDllState?.YankNotification;
                 if (!string.IsNullOrEmpty(yankNotification))
                 {
-                    hints.Add(s.Section(yankNotification).Theme(t => t
+                    hints.Add(s.Section(TerminalText.Escape(yankNotification)).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
                     hints.Add(s.Divider(" "));
                 }
 
                 if (_state.IsBrowsingPackage && _state.OpenError is { } openError)
                 {
-                    hints.Add(s.Section(openError).Theme(t => t
+                    hints.Add(s.Section(TerminalText.Escape(openError)).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                     hints.Add(s.Divider(" "));
                 }
@@ -126,7 +127,7 @@ public sealed class NuGetApp(NuGetState state)
                 // Navigation error in DLL inspector (right side)
                 if (!_state.IsBrowsingPackage && _state.SelectedDllState is { NavigationError: { } navError })
                 {
-                    hints.Add(s.Section(navError).Theme(t => t
+                    hints.Add(s.Section(TerminalText.Escape(navError)).Theme(t => t
                         .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(200, 80, 60))));
                     hints.Add(s.Divider(" "));
                 }
@@ -475,10 +476,10 @@ public sealed class NuGetApp(NuGetState state)
     private void ShowYankNotification(string text)
     {
         var gen = ++_state.YankGeneration;
-        var displayText = UntrustedTerminalText.Escape(text);
+        var displayText = TerminalText.Escape(text);
         _state.YankNotification = text.Contains('\n')
             ? $"Yanked {text.Count(c => c == '\n') + 1} lines"
-            : $"Yanked: {UntrustedTerminalText.TruncateWithEllipsis(displayText, 40)}";
+            : $"Yanked: {TerminalText.TruncateWithEllipsis(displayText, 40)}";
         _state.App.Invalidate();
         _ = Task.Delay(TimeSpan.FromMilliseconds(1500)).ContinueWith(_ =>
         {

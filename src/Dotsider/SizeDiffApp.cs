@@ -1,3 +1,4 @@
+using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
 using Hex1b.Input;
@@ -49,10 +50,10 @@ public sealed class SizeDiffApp(SizeDiffState state)
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.Black)
                     .Set(GlobalTheme.BackgroundColor, Hex1bColor.FromRgb(200, 200, 80))),
                 bar.Divider(" "),
-                bar.Section(_state.LeftName).Theme(t => t
+                bar.Section(TerminalText.Escape(_state.LeftName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Section(" <> "),
-                bar.Section(_state.RightName).Theme(t => t
+                bar.Section(TerminalText.Escape(_state.RightName)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(80, 80, 100))),
                 bar.Spacer(),
                 bar.Section($"Δ {SizeDiffTreemapView.FormatDelta(summary.Delta)}").Theme(t => t
@@ -232,7 +233,7 @@ public sealed class SizeDiffApp(SizeDiffState state)
 
             if (!string.IsNullOrEmpty(_state.YankNotification))
             {
-                hints.Add(s.Section(_state.YankNotification).Theme(t => t
+                hints.Add(s.Section(TerminalText.Escape(_state.YankNotification)).Theme(t => t
                     .Set(GlobalTheme.ForegroundColor, Hex1bColor.FromRgb(120, 180, 120))));
                 hints.Add(s.Divider(" "));
             }

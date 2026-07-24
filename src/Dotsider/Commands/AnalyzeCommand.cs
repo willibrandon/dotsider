@@ -137,7 +137,7 @@ internal static class AnalyzeCommand
 
             if (!file.Exists)
             {
-                Console.Error.WriteLine($"Error: File not found: {file.FullName}");
+                OutputFormatter.WriteError($"Error: File not found: {file.FullName}");
                 return Task.FromResult(1);
             }
 
@@ -148,7 +148,7 @@ internal static class AnalyzeCommand
                     && string.Equals(Path.GetFullPath(outputPath), Path.GetFullPath(file.FullName),
                         StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                    OutputFormatter.WriteError("Error: Output path cannot be the same as the input file");
                     return Task.FromResult(1);
                 }
 
@@ -168,14 +168,14 @@ internal static class AnalyzeCommand
                 {
                     case AssemblyOpenResult.ApphostWithCompanion(var host, var companion):
                         host.Dispose();
-                        Console.Error.WriteLine(
+                        OutputFormatter.WriteError(
                             $"Note: {file.Name} is a native apphost. "
                             + $"Analyzing {Path.GetFileName(companion)} instead.");
                         analyzer = new AssemblyAnalyzer(companion);
                         analyzedPath = companion;
                         break;
                     case AssemblyOpenResult.BundleEntry(var entry, var bundle):
-                        Console.Error.WriteLine(
+                        OutputFormatter.WriteError(
                             $"Note: {file.Name} is a single-file bundle. "
                             + $"Analyzing entry assembly {entry.FileName} instead.");
                         analyzer = entry;
@@ -201,7 +201,7 @@ internal static class AnalyzeCommand
                         || string.Equals(Path.GetFullPath(originalPath), outputFull,
                             StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.Error.WriteLine("Error: Output path cannot be the same as the input file");
+                        OutputFormatter.WriteError("Error: Output path cannot be the same as the input file");
                         analyzer.Dispose();
                         return Task.FromResult(1);
                     }
@@ -223,7 +223,7 @@ internal static class AnalyzeCommand
                 {
                     if (disassembler is null)
                     {
-                        Console.Error.WriteLine("Error: --il requires a .NET assembly with metadata");
+                        OutputFormatter.WriteError("Error: --il requires a .NET assembly with metadata");
                         return Task.FromResult(1);
                     }
                     
@@ -271,7 +271,7 @@ internal static class AnalyzeCommand
                     or UnauthorizedAccessException or ArgumentException
                     or PathTooLongException or NotSupportedException)
             {
-                Console.Error.WriteLine($"Error: {ex.Message}");
+                OutputFormatter.WriteError($"Error: {ex.Message}");
                 return Task.FromResult(1);
             }
         });
@@ -499,7 +499,7 @@ internal static class AnalyzeCommand
             return 0;
         }
 
-        fmt.WriteLine(dis.FormatDisassembly(method));
+        fmt.WriteBlock(dis.FormatDisassembly(method));
 
         return 0;
     }
@@ -550,7 +550,7 @@ internal static class AnalyzeCommand
             return 0;
         }
 
-        fmt.WriteLine(text);
+        fmt.WriteBlock(text);
         return 0;
     }
 
@@ -587,7 +587,7 @@ internal static class AnalyzeCommand
             return 0;
         }
 
-        fmt.WriteLine(native);
+        fmt.WriteBlock(native);
         return 0;
     }
 
@@ -618,7 +618,7 @@ internal static class AnalyzeCommand
             return 0;
         }
 
-        fmt.WriteLine(source.Text);
+        fmt.WriteBlock(source.Text);
         return 0;
     }
 
@@ -742,7 +742,7 @@ internal static class AnalyzeCommand
     {
         if (a.NativeSymbols is not { } info)
         {
-            Console.Error.WriteLine("Error: managed assembly; no native symbols to read");
+            OutputFormatter.WriteError("Error: managed assembly; no native symbols to read");
             return 1;
         }
 
@@ -805,7 +805,7 @@ internal static class AnalyzeCommand
     {
         if (a.BinaryKind != BinaryKind.NativeAot || a.Mstat is not { } mstat)
         {
-            Console.Error.WriteLine(
+            OutputFormatter.WriteError(
                 "Error: --why requires a Native AOT binary with an mstat sidecar — beside the binary "
                 + "or in the build tree (obj\\<cfg>\\<tfm>\\<rid>\\native) — publish with IlcGenerateMstatFile");
             return 1;
@@ -813,7 +813,7 @@ internal static class AnalyzeCommand
 
         if (a.Dgml is not { } dgml)
         {
-            Console.Error.WriteLine(
+            OutputFormatter.WriteError(
                 "Error: --why requires a DGML sidecar — beside the binary or in the build tree "
                 + "(obj\\<cfg>\\<tfm>\\<rid>\\native) — publish with IlcGenerateDgmlFile");
             return 1;
@@ -840,17 +840,17 @@ internal static class AnalyzeCommand
 
         if (matches.Count == 0)
         {
-            Console.Error.WriteLine($"Error: no compiled type or method matches '{target}'");
+            OutputFormatter.WriteError($"Error: no compiled type or method matches '{target}'");
             return 1;
         }
 
         if (matches.Count > 1)
         {
-            Console.Error.WriteLine($"Error: '{target}' is ambiguous ({matches.Count} matches):");
+            OutputFormatter.WriteError($"Error: '{target}' is ambiguous ({matches.Count} matches):");
             foreach (var (Display, NodeName) in matches.Take(10))
-                Console.Error.WriteLine($"  {Display}");
+                OutputFormatter.WriteError($"  {Display}");
             if (matches.Count > 10)
-                Console.Error.WriteLine($"  ... and {matches.Count - 10} more");
+                OutputFormatter.WriteError($"  ... and {matches.Count - 10} more");
             return 1;
         }
 
@@ -858,7 +858,7 @@ internal static class AnalyzeCommand
         var chain = dgml.PathToRoot(nodeName);
         if (chain.Count == 0)
         {
-            Console.Error.WriteLine($"Error: '{display}' is not present in the DGML dependency graph");
+            OutputFormatter.WriteError($"Error: '{display}' is not present in the DGML dependency graph");
             return 1;
         }
 
@@ -1091,14 +1091,14 @@ internal static class AnalyzeCommand
         {
             fmt.WriteLine("");
             fmt.WriteLine("--- IL (pre-ILC) ---");
-            fmt.WriteLine(il);
+            fmt.WriteBlock(il);
         }
 
         if (report.NativeDisassembly is { } native)
         {
             fmt.WriteLine("");
             fmt.WriteLine("--- Native ---");
-            fmt.WriteLine(native);
+            fmt.WriteBlock(native);
         }
         else if (report.Symbols.Count == 0)
         {
@@ -1222,14 +1222,14 @@ internal static class AnalyzeCommand
         {
             fmt.WriteLine("");
             fmt.WriteLine("--- IL ---");
-            fmt.WriteLine(il);
+            fmt.WriteBlock(il);
         }
 
         if (report.NativeText is { } native)
         {
             fmt.WriteLine("");
             fmt.WriteLine("--- Native ---");
-            fmt.WriteLine(native);
+            fmt.WriteBlock(native);
         }
 
         return 0;

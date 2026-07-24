@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
@@ -76,7 +77,8 @@ public static class SizeTreemapView
         if (state.SizeMapWhyContent is not null && state.SizeMapWhyEditorText != state.SizeMapWhyContent)
         {
             state.SizeMapWhyEditorText = state.SizeMapWhyContent;
-            state.SizeMapWhyEditorState = new EditorState(new Hex1bDocument(state.SizeMapWhyContent)) { IsReadOnly = true };
+            state.SizeMapWhyEditorState = new EditorState(
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.SizeMapWhyContent))) { IsReadOnly = true };
         }
 
         return ctx.ZStack(z =>
@@ -89,7 +91,7 @@ public static class SizeTreemapView
                 // Breadcrumb
                 outer.HStack(row =>
                 [
-                    row.Text($" {BuildBreadcrumb(state)} "),
+                    row.Text($" {TerminalText.Escape(BuildBreadcrumb(state))} "),
                     row.Text($"| Total: {state.FormatSizeToggleable(currentLevel.Size)}").Fill()
                 ]).FixedHeight(1)
             };
@@ -262,7 +264,7 @@ public static class SizeTreemapView
                 var child = currentLevel.Children[matchingItems[state.TreemapMatchIndex]];
                 detailText = $" {child.FullPath}: {state.FormatSizeToggleable(child.Size)} ({child.Children.Count} children)";
             }
-            widgets.Add(outer.Text(detailText ?? "").FixedHeight(1));
+            widgets.Add(outer.Text(TerminalText.Escape(detailText ?? "")).FixedHeight(1));
 
             return [.. widgets];
         })
@@ -401,7 +403,7 @@ public static class SizeTreemapView
             var cellH = y2 - y1;
             if (cellW > 3 && cellH > 0)
             {
-                var label = rect.Node.Name;
+                var label = TerminalText.Escape(rect.Node.Name);
                 if (label.Length > cellW - 2) label = label[..(cellW - 4)] + "..";
                 surface.WriteText(x1 + 1, y1, label, Hex1bColor.Black, color);
 

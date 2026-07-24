@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.Models;
+using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -92,9 +93,9 @@ public static class DiffRefsView
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(prefix))),
                         r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg),
                             HighlightHelper.HighlightCell(c, name, query, !string.IsNullOrEmpty(query), fg))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(leftVer))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(rightVer))),
-                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(entry.ChangeDescription ?? "")))
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(TerminalText.Escape(leftVer)))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(TerminalText.Escape(rightVer)))),
+                        r.Cell(c => c.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, fg).Set(GlobalTheme.BackgroundColor, bg), c.Text(TerminalText.Escape(entry.ChangeDescription ?? ""))))
                     ];
                 })
                 .Focus(state.DiffFocusedKey)

@@ -130,6 +130,71 @@ internal static class SyntheticMetadataBuilder
     }
 
     /// <summary>
+    /// Builds an assembly whose type, method, field, metadata, and user strings contain terminal
+    /// control sequences that cannot be expressed in C# identifiers.
+    /// </summary>
+    /// <param name="typeName">The hostile type name.</param>
+    /// <param name="methodName">The hostile method name.</param>
+    /// <param name="fieldName">The hostile field name.</param>
+    /// <param name="userString">The hostile user string.</param>
+    /// <returns>The serialized managed PE image.</returns>
+    internal static byte[] BuildTerminalControlAssembly(
+        string typeName,
+        string methodName,
+        string fieldName,
+        string userString)
+    {
+        var metadata = new MetadataBuilder();
+        metadata.AddAssembly(
+            metadata.GetOrAddString("TerminalControlMetadata"),
+            new Version(1, 0, 0, 0),
+            default,
+            default,
+            0,
+            AssemblyHashAlgorithm.None);
+        metadata.AddModule(
+            0,
+            metadata.GetOrAddString("TerminalControlMetadata.dll"),
+            metadata.GetOrAddGuid(Guid.NewGuid()),
+            default,
+            default);
+        metadata.AddTypeDefinition(
+            default,
+            default,
+            metadata.GetOrAddString("<Module>"),
+            baseType: default,
+            fieldList: MetadataTokens.FieldDefinitionHandle(1),
+            methodList: MetadataTokens.MethodDefinitionHandle(1));
+        metadata.AddTypeDefinition(
+            TypeAttributes.Public,
+            metadata.GetOrAddString("Synthetic"),
+            metadata.GetOrAddString(typeName),
+            baseType: default,
+            fieldList: MetadataTokens.FieldDefinitionHandle(1),
+            methodList: MetadataTokens.MethodDefinitionHandle(1));
+        metadata.AddFieldDefinition(
+            FieldAttributes.Public | FieldAttributes.Static,
+            metadata.GetOrAddString(fieldName),
+            metadata.GetOrAddBlob(new byte[] { 0x06, 0x08 }));
+        metadata.AddMethodDefinition(
+            MethodAttributes.Public | MethodAttributes.Static,
+            MethodImplAttributes.IL,
+            metadata.GetOrAddString(methodName),
+            metadata.GetOrAddBlob(new byte[] { 0x00, 0x00, 0x01 }),
+            bodyOffset: 0,
+            parameterList: MetadataTokens.ParameterHandle(1));
+        metadata.GetOrAddUserString(userString);
+
+        var pe = new ManagedPEBuilder(
+            new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll),
+            new MetadataRootBuilder(metadata),
+            ilStream: new BlobBuilder());
+        var image = new BlobBuilder();
+        pe.Serialize(image);
+        return image.ToArray();
+    }
+
+    /// <summary>
     /// Builds an assembly containing custom-modified VAR/MVAR TypeSpecs and MemberRefs whose parent
     /// is each TypeSpec.
     /// </summary>
