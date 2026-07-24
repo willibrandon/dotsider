@@ -10,7 +10,8 @@ namespace Dotsider.Core.Analysis;
 /// import/export analog of the PE data directories for Linux Native AOT output.
 /// Imports are the needed shared objects (each with the undefined symbols attributed
 /// to it via GNU version requirements); exports are the defined global symbols.
-/// Malformed images yield empty results rather than throwing.
+/// Malformed base tables yield empty results rather than throwing. Malformed GNU
+/// version requirements retain readable imports without unsafe library attribution.
 /// </summary>
 internal static class ElfImageReader
 {
@@ -34,18 +35,6 @@ internal static class ElfImageReader
         bytes.Length >= Elf64HeaderSize
         && bytes[0] == 0x7F && bytes[1] == (byte)'E' && bytes[2] == (byte)'L' && bytes[3] == (byte)'F'
         && bytes[4] == 2; // ELFCLASS64
-
-    /// <summary>One ELF section header's identity and location.</summary>
-    /// <param name="Name">The section name from the section-header string table.</param>
-    /// <param name="Type">The <c>sh_type</c> value.</param>
-    /// <param name="Address">The section's virtual address (<c>sh_addr</c>).</param>
-    /// <param name="FileOffset">The section's file offset (<c>sh_offset</c>).</param>
-    /// <param name="Size">The section's byte size (<c>sh_size</c>).</param>
-    /// <param name="Link">The <c>sh_link</c> value (for a symbol table, its string table's section index).</param>
-    /// <param name="Info">The <c>sh_info</c> value (meaning varies by section type).</param>
-    /// <param name="Flags">The <c>sh_flags</c> value (<c>SHF_COMPRESSED</c> marks a compressed payload).</param>
-    internal readonly record struct ElfSection(
-        string Name, uint Type, ulong Address, int FileOffset, int Size, uint Link, uint Info, ulong Flags);
 
     /// <summary>
     /// Walks the section headers into named sections, or an empty list when the image is not a
@@ -138,7 +127,11 @@ internal static class ElfImageReader
                 var sectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(symbolOffset + 6)..]);
                 if (sectionIndex != ShnUndef) continue;
 
-                var name = ReadString(bytes, layout.DynStr.Offset, nameOffset);
+                var name = ReadBoundedString(
+                    bytes,
+                    layout.DynStr.Offset,
+                    layout.DynStr.Size,
+                    nameOffset);
                 if (string.IsNullOrEmpty(name)) continue;
 
                 var library = layout.ResolveVersionLibrary(bytes, i) ?? "(unversioned)";
@@ -182,7 +175,11 @@ internal static class ElfImageReader
                 var bind = info >> 4;
                 if (bind != StbGlobal && bind != StbWeak) continue;
 
-                var name = ReadString(bytes, layout.DynStr.Offset, nameOffset);
+                var name = ReadBoundedString(
+                    bytes,
+                    layout.DynStr.Offset,
+                    layout.DynStr.Size,
+                    nameOffset);
                 if (string.IsNullOrEmpty(name)) continue;
 
                 exports.Add(new ExportedFunctionInfo(
@@ -369,163 +366,48 @@ internal static class ElfImageReader
         return Encoding.UTF8.GetString(slice[..end]);
     }
 
-    /// <summary>Resolved offsets of the dynamic symbol/string tables plus dependency data.</summary>
-    private readonly struct ElfLayout
+    /// <summary>
+    /// Reads a NUL-terminated string wholly contained in an ELF string table.
+    /// </summary>
+    /// <param name="bytes">The complete ELF image.</param>
+    /// <param name="tableOffset">The string table's file offset.</param>
+    /// <param name="tableSize">The string table's byte size.</param>
+    /// <param name="offset">The string's table-relative offset.</param>
+    /// <returns>The decoded string, or null when its range or terminator is invalid.</returns>
+    internal static string? ReadBoundedString(
+        ReadOnlySpan<byte> bytes,
+        int tableOffset,
+        int tableSize,
+        uint offset)
     {
-        private ElfLayout(
-            (int Offset, int Size) dynSym, (int Offset, int Size) dynStr,
-            int versionOffset, int versionNeedOffset, int versionNeedCount,
-            List<string> needed)
+        if (!TryGetFileRange(tableOffset, tableSize, bytes.Length)
+            || offset >= (uint)tableSize)
         {
-            DynSym = dynSym;
-            DynStr = dynStr;
-            _versionOffset = versionOffset;
-            _versionNeedOffset = versionNeedOffset;
-            _versionNeedCount = versionNeedCount;
-            Needed = needed;
-        }
-
-        public (int Offset, int Size) DynSym { get; }
-        public (int Offset, int Size) DynStr { get; }
-        public List<string> Needed { get; }
-
-        private readonly int _versionOffset;
-        private readonly int _versionNeedOffset;
-        private readonly int _versionNeedCount;
-
-        /// <summary>
-        /// Parses the section headers to locate the dynamic tables and the dependency
-        /// libraries. Returns null when the image is not little-endian, lacks section
-        /// headers, or has no dynamic symbol table.
-        /// </summary>
-        public static ElfLayout? Parse(ReadOnlySpan<byte> bytes)
-        {
-            if (bytes[5] != 1) return null; // ELFDATA2LSB only
-
-            var sectionOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[40..]);
-            var sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(bytes[58..]);
-            var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes[60..]);
-            var stringSectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(bytes[62..]);
-            if (sectionOffset <= 0 || sectionEntrySize < SectionHeaderSize || sectionCount == 0)
-                return null;
-
-            var shStrTableOffset = (int)SectionField(bytes, sectionOffset, sectionEntrySize,
-                stringSectionIndex, offset: 24);
-
-            (int Offset, int Size) dynSym = default;
-            (int Offset, int Size) dynStr = default;
-            var versionOffset = 0;
-            var versionNeedOffset = 0;
-            var versionNeedCount = 0;
-
-            for (var i = 0; i < sectionCount; i++)
-            {
-                var header = sectionOffset + (long)i * sectionEntrySize;
-                var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)header..]);
-                var name = ReadString(bytes, shStrTableOffset, nameOffset);
-                var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
-                var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
-
-                switch (name)
-                {
-                    case ".dynsym": dynSym = (offset, size); break;
-                    case ".dynstr": dynStr = (offset, size); break;
-                    case ".gnu.version": versionOffset = offset; break;
-                    case ".gnu.version_r":
-                        versionNeedOffset = offset;
-                        versionNeedCount = (int)BinaryPrimitives.ReadUInt32LittleEndian(
-                            bytes[(int)(header + 44)..]); // sh_info = number of Verneed entries
-                        break;
-                }
-            }
-
-            if (dynSym.Offset == 0 || dynStr.Offset == 0) return null;
-
-            var needed = ReadNeeded(bytes, sectionOffset, sectionEntrySize, sectionCount, dynStr.Offset);
-            return new ElfLayout(dynSym, dynStr, versionOffset, versionNeedOffset,
-                versionNeedCount, needed);
-        }
-
-        /// <summary>
-        /// Maps a dynamic symbol index to the library that provides its required version
-        /// via the <c>.gnu.version</c> and <c>.gnu.version_r</c> tables, or null when the
-        /// symbol carries no version requirement.
-        /// </summary>
-        public string? ResolveVersionLibrary(ReadOnlySpan<byte> bytes, int symbolIndex)
-        {
-            if (_versionOffset == 0 || _versionNeedOffset == 0) return null;
-
-            var versionIndex = BinaryPrimitives.ReadUInt16LittleEndian(
-                bytes[(_versionOffset + symbolIndex * 2)..]) & 0x7FFF;
-            if (versionIndex < 2) return null; // 0 = local, 1 = global, no requirement
-
-            var need = _versionNeedOffset;
-            for (var v = 0; v < _versionNeedCount; v++)
-            {
-                var count = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(need + 2)..]);
-                // vn_file names the library; the aux entries below name its versions.
-                var fileOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(need + 4)..]);
-                var auxOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(need + 8)..]);
-                var nextOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(need + 12)..]);
-
-                var aux = need + (int)auxOffset;
-                for (var a = 0; a < count; a++)
-                {
-                    var other = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(aux + 6)..]) & 0x7FFF;
-                    var auxNext = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(aux + 12)..]);
-
-                    if (other == versionIndex)
-                        return ReadString(bytes, DynStr.Offset, fileOffset);
-
-                    if (auxNext == 0) break;
-                    aux += (int)auxNext;
-                }
-
-                if (nextOffset == 0) break;
-                need += (int)nextOffset;
-            }
-
             return null;
         }
 
-        private static List<string> ReadNeeded(
-            ReadOnlySpan<byte> bytes, long sectionOffset, int sectionEntrySize,
-            int sectionCount, int dynStrOffset)
-        {
-            // Find the .dynamic section (SHT_DYNAMIC = 6) and read its DT_NEEDED entries.
-            const uint shtDynamic = 6;
-            var needed = new List<string>();
-            for (var i = 0; i < sectionCount; i++)
-            {
-                var header = sectionOffset + (long)i * sectionEntrySize;
-                var type = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 4)..]);
-                if (type != shtDynamic) continue;
+        var relativeOffset = (int)offset;
+        var available = tableSize - relativeOffset;
+        var slice = bytes.Slice(
+            tableOffset + relativeOffset,
+            Math.Min(available, MaxStringLength + 1));
+        var end = slice.IndexOf((byte)0);
+        if (end < 0 || end > MaxStringLength)
+            return null;
 
-                var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
-                var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
-                for (var p = offset; p + 16 <= offset + size; p += 16)
-                {
-                    var tag = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[p..]);
-                    var value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(p + 8)..]);
-                    if (tag == 0) break; // DT_NULL
-                    if (tag == 1) // DT_NEEDED
-                    {
-                        var name = ReadString(bytes, dynStrOffset, (uint)value);
-                        if (!string.IsNullOrEmpty(name)) needed.Add(name);
-                    }
-                }
-
-                break;
-            }
-
-            return needed;
-        }
-
-        private static ulong SectionField(
-            ReadOnlySpan<byte> bytes, long sectionOffset, int entrySize, int index, int offset)
-        {
-            var header = sectionOffset + (long)index * entrySize;
-            return BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + offset)..]);
-        }
+        return Encoding.UTF8.GetString(slice[..end]);
     }
+
+    /// <summary>
+    /// Determines whether a non-negative file range is wholly contained in an image.
+    /// </summary>
+    /// <param name="offset">The range's file offset.</param>
+    /// <param name="size">The range's byte size.</param>
+    /// <param name="imageLength">The complete image length.</param>
+    /// <returns>True when the range is safe to slice.</returns>
+    internal static bool TryGetFileRange(int offset, int size, int imageLength) =>
+        offset >= 0
+        && size >= 0
+        && offset <= imageLength
+        && size <= imageLength - offset;
 }

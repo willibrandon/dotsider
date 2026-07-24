@@ -419,7 +419,7 @@ public static class NativeSymbolReader
     /// analyzed image's sections, not the sidecar's.
     /// </summary>
     private static void ReadDwarfFunctions(
-        byte[] symbolBytes, IReadOnlyList<ElfImageReader.ElfSection> imageSections, List<RawNativeSymbol> raw)
+        byte[] symbolBytes, IReadOnlyList<ElfSection> imageSections, List<RawNativeSymbol> raw)
     {
         var dwarf = DwarfSections.Collect((name, remainingBytes) =>
             ElfImageReader.TryGetSection(symbolBytes, ".debug_" + name, out var s)

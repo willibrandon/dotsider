@@ -181,7 +181,20 @@ internal static class SyntheticImageBuilders
     /// </summary>
     /// <param name="sections">Each section's name, address, content, <c>sh_type</c>, <c>sh_link</c>, and <c>sh_flags</c>.</param>
     public static byte[] BuildElf(
-        params (string Name, ulong Address, byte[] Content, uint Type, uint Link, ulong Flags)[] sections)
+        params (string Name, ulong Address, byte[] Content, uint Type, uint Link, ulong Flags)[] sections) =>
+        BuildElf([.. sections.Select(s =>
+            (s.Name, s.Address, s.Content, s.Type, s.Link, 0u, s.Flags))]);
+
+    /// <summary>
+    /// Builds a minimal 64-bit little-endian ELF image with explicit section types, links,
+    /// information values, and flags.
+    /// </summary>
+    /// <param name="sections">
+    /// Each section's name, address, content, <c>sh_type</c>, <c>sh_link</c>,
+    /// <c>sh_info</c>, and <c>sh_flags</c>.
+    /// </param>
+    public static byte[] BuildElf(
+        params (string Name, ulong Address, byte[] Content, uint Type, uint Link, uint Info, ulong Flags)[] sections)
     {
         const int headerSize = 64;
         const int sectionHeaderSize = 64;
@@ -232,7 +245,16 @@ internal static class SyntheticImageBuilders
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(60), (ushort)sectionCount);
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(62), (ushort)(sectionCount - 1)); // e_shstrndx
 
-        void WriteHeader(int index, uint nameOffset, uint type, ulong address, long fileOffset, long size, uint link, ulong flags)
+        void WriteHeader(
+            int index,
+            uint nameOffset,
+            uint type,
+            ulong address,
+            long fileOffset,
+            long size,
+            uint link,
+            uint info,
+            ulong flags)
         {
             var h = tableOffset + index * sectionHeaderSize;
             BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h), nameOffset);
@@ -242,17 +264,28 @@ internal static class SyntheticImageBuilders
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 24), (ulong)fileOffset);
             BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(h + 32), (ulong)size);
             BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h + 40), link);
+            BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(h + 44), info);
         }
 
         for (var i = 0; i < sections.Length; i++)
         {
             sections[i].Content.CopyTo(image.AsSpan(contentOffsets[i]));
             WriteHeader(i + 1, nameOffsets[i], sections[i].Type, sections[i].Address,
-                contentOffsets[i], sections[i].Content.Length, sections[i].Link, sections[i].Flags);
+                contentOffsets[i], sections[i].Content.Length, sections[i].Link,
+                sections[i].Info, sections[i].Flags);
         }
 
         shStrTab.CopyTo(image.AsSpan(shStrTabOffset));
-        WriteHeader(sectionCount - 1, nameOffsets[^1], 3 /* SHT_STRTAB */, 0, shStrTabOffset, shStrTab.Length, 0, 0);
+        WriteHeader(
+            sectionCount - 1,
+            nameOffsets[^1],
+            3 /* SHT_STRTAB */,
+            0,
+            shStrTabOffset,
+            shStrTab.Length,
+            0,
+            0,
+            0);
         return image;
     }
 

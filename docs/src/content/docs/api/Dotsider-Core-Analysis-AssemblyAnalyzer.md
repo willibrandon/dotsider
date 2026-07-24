@@ -350,6 +350,8 @@ public bool HasPortablePdb { get; }
 
 Gets the native import table: PE import descriptors, ELF needed libraries and
 undefined dynamic symbols, or Mach-O loaded dylibs and undefined symbols.
+ELF symbols whose GNU version requirements are absent or malformed are grouped
+under `(unversioned)` rather than attributed to untrusted metadata.
 Needs no CLR header.
 
 **Returns:** [IReadOnlyList\<ImportedModuleInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)

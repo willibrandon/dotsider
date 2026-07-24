@@ -55,10 +55,17 @@ public class PeDirectoryReaderTests
         var imports = analyzer.Imports;
 
         Assert.IsNotEmpty(imports);
-        Assert.Contains(m =>
-            m.ModuleName.Contains(CoreImportLibrary, StringComparison.OrdinalIgnoreCase), imports);
+        var coreModules = imports
+            .Where(m => m.ModuleName.Contains(
+                CoreImportLibrary,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Assert.IsNotEmpty(coreModules);
 
-        var named = imports.SelectMany(m => m.Functions).Where(f => f.Name is not null).ToList();
+        var named = coreModules
+            .SelectMany(m => m.Functions)
+            .Where(f => f.Name is not null)
+            .ToList();
         Assert.IsNotEmpty(named);
         TestAssert.All(named, f => Assert.IsNull(f.Ordinal));
     }

@@ -1,6 +1,6 @@
 ---
 title: "ImportedModuleInfo"
-description: "A native module referenced by the PE import table, with the functions imported from it."
+description: "A module referenced by a PE, ELF, Mach-O, or WebAssembly import table, with the functions imported from it."
 slug: api/dotsider.core.analysis.models.importedmoduleinfo
 sidebar:
   order: 2
@@ -10,7 +10,8 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-A native module referenced by the PE import table, with the functions imported from it.
+A module referenced by a PE, ELF, Mach-O, or WebAssembly import table, with the
+functions imported from it.
 
 ```csharp
 public sealed record ImportedModuleInfo : IEquatable<ImportedModuleInfo>
@@ -28,11 +29,13 @@ public sealed record ImportedModuleInfo : IEquatable<ImportedModuleInfo>
 
 ### ImportedModuleInfo(string, IReadOnlyList\<ImportedFunctionInfo\>)
 
-A native module referenced by the PE import table, with the functions imported from it.
+A module referenced by a PE, ELF, Mach-O, or WebAssembly import table, with the
+functions imported from it.
 
 **Parameters:**
 
-- `ModuleName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The module file name (e.g. "KERNEL32.dll").
+- `ModuleName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The module name, such as `KERNEL32.dll`, `libc.so.6`, or
+`(unversioned)` for an ELF symbol without safe library attribution.
 - `Functions` ([IReadOnlyList\<ImportedFunctionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): The functions imported from the module.
 
 ```csharp
@@ -53,7 +56,8 @@ public IReadOnlyList<ImportedFunctionInfo> Functions { get; init; }
 
 ### ModuleName
 
-The module file name (e.g. "KERNEL32.dll").
+The module name, such as `KERNEL32.dll`, `libc.so.6`, or
+`(unversioned)` for an ELF symbol without safe library attribution.
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
