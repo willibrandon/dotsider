@@ -3,23 +3,20 @@ using Dotsider.Infrastructure;
 using Dotsider.Website;
 using Hex1b;
 using System.Collections.Concurrent;
-using System.Net;
 using System.Net.WebSockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var maxSessions = builder.Configuration.GetValue("Demo:MaxSessions", 50);
+var sessionTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("Demo:SessionTimeoutMinutes", 10));
+var sampleAssembly = builder.Configuration.GetValue<string>("Demo:SampleAssembly") ?? "sample.dll";
+var allowedOrigins = builder.Configuration.GetSection("Demo:AllowedOrigins").Get<string[]>() ?? ["*"];
+
 builder.Services.AddCors();
+builder.Services.AddDemoSessionRateLimiting(maxSessions);
 
 var app = builder.Build();
-
-var config = app.Configuration;
 var logger = app.Logger;
-var maxSessions = config.GetValue("Demo:MaxSessions", 50);
-var sessionTimeout = TimeSpan.FromMinutes(config.GetValue("Demo:SessionTimeoutMinutes", 10));
-var sampleAssembly = config.GetValue<string>("Demo:SampleAssembly") ?? "sample.dll";
-var allowedOrigins = config.GetSection("Demo:AllowedOrigins").Get<string[]>() ?? ["*"];
-
-var activeSessions = 0;
 
 app.UseCors(policy =>
 {
@@ -30,72 +27,25 @@ app.UseCors(policy =>
 });
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
+app.UseRateLimiter();
+
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+var sessionHandler = new DemoWebSocketSessionHandler(
+    lifetime,
+    logger,
+    maxSessions,
+    sessionTimeout,
+    RunDotsiderSession);
 
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
-    activeSessions,
+    activeSessions = sessionHandler.ActiveSessions,
     maxSessions,
 }));
 
-var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-
-app.Map("/ws", async context =>
-{
-    if (!context.WebSockets.IsWebSocketRequest)
-    {
-        context.Response.StatusCode = 400;
-        await context.Response.WriteAsync("WebSocket connections only");
-        return;
-    }
-
-    // Resolve client IP (trust X-Forwarded-For from Caddy)
-    var ip = context.Connection.RemoteIpAddress ?? IPAddress.Loopback;
-    if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwarded))
-    {
-        var first = forwarded.ToString().Split(',', StringSplitOptions.TrimEntries)[0];
-        if (IPAddress.TryParse(first, out var parsed))
-            ip = parsed;
-    }
-
-    var userAgent = context.Request.Headers.UserAgent.ToString();
-    var sessionId = Guid.NewGuid().ToString("N")[..12];
-
-    // Global session cap
-    if (Interlocked.Increment(ref activeSessions) > maxSessions)
-    {
-        Interlocked.Decrement(ref activeSessions);
-        context.Response.StatusCode = 503;
-        await context.Response.WriteAsync("Too many active sessions");
-        return;
-    }
-
-    using var ws = await context.WebSockets.AcceptWebSocketAsync();
-
-    Log.AuditConnect(logger, sessionId, ip, userAgent);
-    Log.SessionStarted(logger, activeSessions, maxSessions);
-
-    var sessionStart = DateTimeOffset.UtcNow;
-
-    var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(
-        context.RequestAborted, lifetime.ApplicationStopping);
-    sessionCts.CancelAfter(sessionTimeout);
-
-    try
-    {
-        await RunDotsiderSession(ws, sessionCts.Token);
-    }
-    catch (OperationCanceledException) { }
-    catch (WebSocketException) { }
-    catch (Exception ex) { Log.SessionError(logger, ex); }
-    finally
-    {
-        Interlocked.Decrement(ref activeSessions);
-        Log.AuditDisconnect(logger, sessionId, ip, (DateTimeOffset.UtcNow - sessionStart).TotalSeconds);
-        Log.SessionEnded(logger, activeSessions, maxSessions);
-        sessionCts.Dispose();
-    }
-});
+app.Map("/ws", sessionHandler.HandleAsync)
+    .RequireRateLimiting(DemoSessionRateLimitingExtensions.PolicyName);
 
 app.Run();
 
