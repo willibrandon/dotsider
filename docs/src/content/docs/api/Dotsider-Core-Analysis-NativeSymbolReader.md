@@ -31,7 +31,8 @@ public static class NativeSymbolReader
 
 Reads the native symbols of a binary, dispatching on image format. Managed and
 unrecognized images return an empty result marked [NotApplicable](/api/dotsider.core.analysis.models.nativesymbolstatus.notapplicable/).
-Malformed or oversized symbol data degrades to the applicable platform fallback and status.
+A malformed line program omits source attribution from otherwise readable functions;
+symbol data that yields no functions degrades to the applicable platform fallback and status.
 
 **Parameters:**
 

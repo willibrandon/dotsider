@@ -16,6 +16,7 @@ public class NativeSymbolReaderElfTests
 
     private static readonly byte[] IdA = [0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3, 4];
     private static readonly byte[] IdB = [0xCA, 0xFE, 0xBA, 0xBE, 5, 6, 7, 8];
+    private static readonly byte[] StandardLineOpcodeLengths = [0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1];
 
     private static bool HasDbg =>
         Samples.NativeAotConsoleSymbols is not null
@@ -40,6 +41,49 @@ public class NativeSymbolReaderElfTests
         var body = new DwarfBlob().U16(4).U32(0).U8(8).Bytes(dies.ToArray());
         var info = new DwarfBlob().U32((uint)body.Length).Bytes(body.ToArray()).ToArray();
         return (info, abbrev.ToArray());
+    }
+
+    /// <summary>
+    /// Builds one function whose declaration points at line program zero and file-table entry zero.
+    /// </summary>
+    private static (byte[] Info, byte[] Abbrev) DwarfWithLineReference(
+        string name, ulong lowPc, uint size)
+    {
+        var abbrev = new DwarfBlob()
+            .ULeb(1).ULeb(0x11).U8(1)                                    // compile_unit, children
+            .ULeb(0x10).ULeb(0x17)                                        //   stmt_list: sec_offset
+            .ULeb(0).ULeb(0)
+            .ULeb(2).ULeb(0x2E).U8(0)                                     // subprogram
+            .ULeb(0x03).ULeb(0x08)                                        //   name: string
+            .ULeb(0x11).ULeb(0x01)                                        //   low_pc: addr
+            .ULeb(0x12).ULeb(0x06)                                        //   high_pc: data4
+            .ULeb(0x3A).ULeb(0x0F)                                        //   decl_file: udata
+            .ULeb(0x3B).ULeb(0x0F)                                        //   decl_line: udata
+            .ULeb(0).ULeb(0)
+            .ULeb(0);
+
+        var dies = new DwarfBlob()
+            .ULeb(1).U32(0)
+            .ULeb(2).CStr(name).U64(lowPc).U32(size).ULeb(0).ULeb(7)
+            .ULeb(0);
+        var body = new DwarfBlob().U16(4).U32(0).U8(8).Bytes(dies.ToArray());
+        var info = new DwarfBlob().U32((uint)body.Length).Bytes(body.ToArray()).ToArray();
+        return (info, abbrev.ToArray());
+    }
+
+    /// <summary>Builds a v5 line program whose file table cannot make progress.</summary>
+    private static byte[] MalformedV5LineProgram()
+    {
+        var tail = new DwarfBlob()
+            .U8(1).U8(1).U8(1)
+            .U8(unchecked((byte)(sbyte)-5)).U8(14).U8(13);
+        foreach (var length in StandardLineOpcodeLengths) tail.U8(length);
+        tail.U8(1).ULeb(1).ULeb(0x08).ULeb(1).CStr("src"); // valid directory table
+        tail.U8(0).ULeb(65_537);                           // file count without descriptors
+
+        var body = new DwarfBlob().U16(5).U8(8).U8(0)
+            .U32((uint)tail.Length).Bytes(tail.ToArray());
+        return new DwarfBlob().U32((uint)body.Length).Bytes(body.ToArray()).ToArray();
     }
 
     private static string Write(string directory, string name, byte[] bytes)
@@ -79,6 +123,33 @@ public class NativeSymbolReaderElfTests
         {
             dir.Delete(recursive: true);
         }
+    }
+
+    /// <summary>
+    /// Verifies a hostile v5 line table fails closed through the public native-symbol facade:
+    /// the valid function remains available while only its source attribution is omitted.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Read_ElfWithMalformedV5LineTable_PreservesFunctionWithoutSource()
+    {
+        var (info, abbrev) = DwarfWithLineReference("frost_main", 0x1010, 0x40);
+        var image = SyntheticImageBuilders.BuildElf(
+            (".text", 0x1000, new byte[0x100]),
+            (".debug_info", 0, info),
+            (".debug_abbrev", 0, abbrev),
+            (".debug_line", 0, MalformedV5LineProgram()));
+
+        var result = NativeSymbolReader.Read("malformed-line", image, []);
+
+        Assert.AreEqual(NativeSymbolSource.Dwarf, result.Source);
+        Assert.AreEqual(NativeSymbolStatus.Loaded, result.Status);
+        var symbol = Assert.ContainsSingle(result.Symbols);
+        Assert.AreEqual("frost_main", symbol.Name);
+        Assert.AreEqual(0x1010UL, symbol.VirtualAddress);
+        Assert.AreEqual(0x40, symbol.Size);
+        Assert.IsNull(symbol.SourceFile);
+        Assert.IsNull(symbol.Line);
     }
 
     /// <summary>
