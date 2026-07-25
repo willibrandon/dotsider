@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Runtime.InteropServices;
 
 namespace Dotsider.Tests;
 
@@ -11,7 +12,7 @@ namespace Dotsider.Tests;
 /// rendered instantiation.
 /// </summary>
 [TestClass]
-public class ReadyToRunMethodMapTests
+public sealed class ReadyToRunMethodMapTests
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -36,6 +37,31 @@ public class ReadyToRunMethodMapTests
             // Exactly one hot entry per method.
             Assert.ContainsSingle(r => r.Kind == ReadyToRunCodeRangeKind.HotEntry, method.CodeRanges);
         }
+    }
+
+    /// <summary>
+    /// Verifies a real host-produced ARM64 image exposes a positive final code range through the
+    /// public method-map facade.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Arm64_FinalRuntimeFunction_HasPositiveRangeThroughFacade()
+    {
+        TestSkip.When(
+            RuntimeInformation.ProcessArchitecture != Architecture.Arm64,
+            "The host ReadyToRun fixture is ARM64 only on an ARM64 test leg.");
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+
+        using var analyzer = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!);
+        var methods = analyzer.ReadyToRunMethods;
+        var finalRange = methods
+            .SelectMany(static method => method.CodeRanges)
+            .MaxBy(static range => range.VirtualAddress);
+
+        Assert.AreEqual(NativeArchitecture.Arm64, analyzer.ReadyToRunInfo!.Architecture);
+        Assert.IsNotEmpty(methods);
+        Assert.IsNotNull(finalRange);
+        Assert.IsGreaterThan(0, finalRange.Size);
     }
 
     /// <summary>The async state machine's MoveNext spans multiple disjoint ranges (hot plus funclet/cold).</summary>

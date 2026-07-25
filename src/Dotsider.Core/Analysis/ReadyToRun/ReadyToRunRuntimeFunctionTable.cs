@@ -169,15 +169,19 @@ internal sealed class ReadyToRunRuntimeFunctionTable
 
                     if (i == count - 1)
                     {
-                        var declaredSize = TryReadUnwindLength(
-                            sectionReader,
-                            imageBase,
-                            addressSpace,
-                            arch,
-                            unwindRva,
-                            out var unwindLength)
-                            ? unwindLength
-                            : 0;
+                        if (!TryReadUnwindLength(
+                                reader,
+                                imageBase,
+                                addressSpace,
+                                arch,
+                                unwindRva,
+                                out var declaredSize))
+                        {
+                            diagnostic =
+                                "ReadyToRun RuntimeFunctions contains invalid final unwind data.";
+                            return false;
+                        }
+
                         if (!TryClampSize(
                                 imageBase,
                                 addressSpace,
@@ -271,23 +275,29 @@ internal sealed class ReadyToRunRuntimeFunctionTable
     {
         length = 0;
         if (!NativeImageRange.TryAdd(imageBase, unchecked((uint)unwindRva), out var unwindAddress)
-            || !addressSpace.TryGetFileOffset(unwindAddress, out var offset, out _))
+            || !addressSpace.TryGetFileOffset(unwindAddress, out var offset, out var available))
         {
             return false;
         }
 
         try
         {
+            var unwindReader = reader.Slice(offset, available);
             switch (arch)
             {
                 case NativeArchitecture.X86:
-                    length = reader.DecodeUnsignedGc(ref offset);
+                    length = unwindReader.DecodeUnsignedGc(ref offset);
                     return length > 0;
 
+                // Crossgen2 stores a full-xdata RVA in non-x86 ReadyToRun records. The low
+                // 18 header bits are the function length in architecture instruction units.
                 case NativeArchitecture.Arm32:
-                    var header = reader.ReadInt32(ref offset);
-                    length = (header & 0x3FFFF) * 2L;
-                    return length > 0;
+                case NativeArchitecture.RiscV64:
+                    return TryReadXdataLength(unwindReader, ref offset, 2, out length);
+
+                case NativeArchitecture.Arm64:
+                case NativeArchitecture.LoongArch64:
+                    return TryReadXdataLength(unwindReader, ref offset, 4, out length);
 
                 default:
                     return false;
@@ -298,5 +308,18 @@ internal sealed class ReadyToRunRuntimeFunctionTable
             length = 0;
             return false;
         }
+    }
+
+    private static bool TryReadXdataLength(
+        R2RNativeReader reader,
+        ref int offset,
+        int instructionSize,
+        out long length)
+    {
+        var header = reader.ReadUInt32(ref offset);
+        var version = (header >> 18) & 0x3;
+        var instructionCount = header & 0x3FFFF;
+        length = instructionCount * (long)instructionSize;
+        return version == 0 && length > 0;
     }
 }

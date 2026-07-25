@@ -75,15 +75,16 @@ public sealed class ReadyToRunTableBoundsTests
     [TestMethod]
     public void RuntimeFunctions_ExactNonAmd64Records_AreAccepted()
     {
-        var records = new byte[16];
+        var records = new byte[0x80];
         WriteNonAmd64Record(records, 0, 0x1000, 0);
-        WriteNonAmd64Record(records, 8, 0x1010, 0);
+        WriteNonAmd64Record(records, 8, 0x1010, 0x1040);
+        BinaryPrimitives.WriteUInt32LittleEndian(records.AsSpan(0x40), 4);
         var (reader, addressSpace) = CreateImage(records);
 
         var valid = ReadyToRunRuntimeFunctionTable.TryRead(
             reader,
             SectionFileOffset,
-            records.Length,
+            16,
             NativeArchitecture.Arm64,
             0x1400_0000_0,
             addressSpace,
@@ -94,8 +95,120 @@ public sealed class ReadyToRunTableBoundsTests
         Assert.IsNotNull(table);
         Assert.AreEqual(2, table.Count);
         Assert.AreEqual(0x10, table.Size(0));
-        Assert.AreEqual(0, table.Size(1));
+        Assert.AreEqual(0x10, table.Size(1));
         Assert.IsNull(diagnostic);
+    }
+
+    /// <summary>
+    /// Verifies the final runtime-function size comes from full xdata outside the table slice.
+    /// </summary>
+    /// <param name="architecture">The architecture-specific full-xdata format.</param>
+    /// <param name="instructionScale">The byte scale applied to the header's function length.</param>
+    /// <param name="unwindRva">The mapped full-xdata RVA, including the exact end boundary.</param>
+    [TestMethod]
+    [DataRow(NativeArchitecture.Arm32, 2, 0x1040)]
+    [DataRow(NativeArchitecture.Arm32, 2, 0x11FC)]
+    [DataRow(NativeArchitecture.Arm64, 4, 0x1040)]
+    [DataRow(NativeArchitecture.Arm64, 4, 0x11FC)]
+    [DataRow(NativeArchitecture.LoongArch64, 4, 0x1040)]
+    [DataRow(NativeArchitecture.LoongArch64, 4, 0x11FC)]
+    [DataRow(NativeArchitecture.RiscV64, 2, 0x1040)]
+    [DataRow(NativeArchitecture.RiscV64, 2, 0x11FC)]
+    public void RuntimeFunctions_FinalXdataRecord_UsesArchitectureScale(
+        NativeArchitecture architecture,
+        int instructionScale,
+        int unwindRva)
+    {
+        const int encodedLength = 9;
+        const int exceptionAndSingleEpilogueFlags = (1 << 20) | (1 << 21);
+        var header = encodedLength | exceptionAndSingleEpilogueFlags;
+        var (reader, addressSpace) = CreateFinalXdataImage(unwindRva, header);
+
+        var valid = ReadyToRunRuntimeFunctionTable.TryRead(
+            reader,
+            SectionFileOffset,
+            8,
+            architecture,
+            0x1400_0000_0,
+            addressSpace,
+            out var table,
+            out var diagnostic);
+
+        Assert.IsTrue(valid);
+        Assert.IsNotNull(table);
+        Assert.AreEqual(1, table.Count);
+        Assert.AreEqual(encodedLength * instructionScale, table.Size(0));
+        Assert.IsNull(diagnostic);
+    }
+
+    /// <summary>Verifies malformed final full-xdata records fail closed.</summary>
+    /// <param name="architecture">The architecture-specific full-xdata format.</param>
+    /// <param name="malformation">The full-xdata rule to violate.</param>
+    [TestMethod]
+    [DataRow(NativeArchitecture.Arm32, "Overflow")]
+    [DataRow(NativeArchitecture.Arm32, "Truncated")]
+    [DataRow(NativeArchitecture.Arm32, "Unmapped")]
+    [DataRow(NativeArchitecture.Arm32, "Version1")]
+    [DataRow(NativeArchitecture.Arm32, "Version2")]
+    [DataRow(NativeArchitecture.Arm32, "Version3")]
+    [DataRow(NativeArchitecture.Arm32, "ZeroLength")]
+    [DataRow(NativeArchitecture.Arm64, "Overflow")]
+    [DataRow(NativeArchitecture.Arm64, "Truncated")]
+    [DataRow(NativeArchitecture.Arm64, "Unmapped")]
+    [DataRow(NativeArchitecture.Arm64, "Version1")]
+    [DataRow(NativeArchitecture.Arm64, "Version2")]
+    [DataRow(NativeArchitecture.Arm64, "Version3")]
+    [DataRow(NativeArchitecture.Arm64, "ZeroLength")]
+    [DataRow(NativeArchitecture.LoongArch64, "Overflow")]
+    [DataRow(NativeArchitecture.LoongArch64, "Truncated")]
+    [DataRow(NativeArchitecture.LoongArch64, "Unmapped")]
+    [DataRow(NativeArchitecture.LoongArch64, "Version1")]
+    [DataRow(NativeArchitecture.LoongArch64, "Version2")]
+    [DataRow(NativeArchitecture.LoongArch64, "Version3")]
+    [DataRow(NativeArchitecture.LoongArch64, "ZeroLength")]
+    [DataRow(NativeArchitecture.RiscV64, "Overflow")]
+    [DataRow(NativeArchitecture.RiscV64, "Truncated")]
+    [DataRow(NativeArchitecture.RiscV64, "Unmapped")]
+    [DataRow(NativeArchitecture.RiscV64, "Version1")]
+    [DataRow(NativeArchitecture.RiscV64, "Version2")]
+    [DataRow(NativeArchitecture.RiscV64, "Version3")]
+    [DataRow(NativeArchitecture.RiscV64, "ZeroLength")]
+    public void RuntimeFunctions_InvalidFinalXdata_IsRejected(
+        NativeArchitecture architecture,
+        string malformation)
+    {
+        var unwindRva = malformation switch
+        {
+            "Truncated" => 0x11FE,
+            "Unmapped" => 0x5000,
+            _ => 0x1040,
+        };
+        var imageBase = malformation == "Overflow"
+            ? ulong.MaxValue - 0x800
+            : 0x1400_0000_0;
+        var header = malformation switch
+        {
+            "Version1" => (1 << 18) | 9,
+            "Version2" => (2 << 18) | 9,
+            "Version3" => (3 << 18) | 9,
+            "ZeroLength" => 0,
+            _ => 9,
+        };
+        var (reader, addressSpace) = CreateFinalXdataImage(unwindRva, header);
+
+        var valid = ReadyToRunRuntimeFunctionTable.TryRead(
+            reader,
+            SectionFileOffset,
+            8,
+            architecture,
+            imageBase,
+            addressSpace,
+            out var table,
+            out var diagnostic);
+
+        Assert.IsFalse(valid);
+        Assert.IsNull(table);
+        Assert.Contains("unwind", diagnostic!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Verifies the exact runtime-function resource budget remains accepted.</summary>
@@ -108,13 +221,20 @@ public sealed class ReadyToRunTableBoundsTests
         NativeArchitecture architecture,
         int recordSize)
     {
-        var records = new byte[ReadyToRunRuntimeFunctionTable.MaxRuntimeFunctionCount * recordSize];
+        var declaredSize = ReadyToRunRuntimeFunctionTable.MaxRuntimeFunctionCount * recordSize;
+        var records = new byte[declaredSize + (architecture == NativeArchitecture.X64 ? 0 : sizeof(int))];
+        if (architecture != NativeArchitecture.X64)
+        {
+            var unwindRva = 0x1000 + declaredSize;
+            WriteNonAmd64Record(records, declaredSize - recordSize, 0, unwindRva);
+            BinaryPrimitives.WriteUInt32LittleEndian(records.AsSpan(declaredSize), 1);
+        }
         var (reader, addressSpace) = CreateImage(records);
 
         var valid = ReadyToRunRuntimeFunctionTable.TryRead(
             reader,
             SectionFileOffset,
-            records.Length,
+            declaredSize,
             architecture,
             0x1400_0000_0,
             addressSpace,
@@ -600,6 +720,22 @@ public sealed class ReadyToRunTableBoundsTests
         var addressSpace = NativeAddressSpace.Create(image);
         Assert.IsNotNull(addressSpace);
         return (new R2RNativeReader(image), addressSpace);
+    }
+
+    private static (R2RNativeReader Reader, NativeAddressSpace AddressSpace) CreateFinalXdataImage(
+        int unwindRva,
+        int header)
+    {
+        var section = new byte[0x200];
+        WriteNonAmd64Record(section, 0, 0x1100, unwindRva);
+
+        var xdataOffset = unwindRva - 0x1000;
+        if (xdataOffset >= 0 && xdataOffset <= section.Length - sizeof(int))
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(section.AsSpan(xdataOffset), header);
+        }
+
+        return CreateImage(section);
     }
 
     private static void WriteNonAmd64Record(byte[] destination, int offset, int startRva, int unwindRva)

@@ -180,13 +180,21 @@ public class ReadyToRunArchitectureDecoderTests
     private static void AssertRealReadyToRunRangesDecode(AssemblyAnalyzer analyzer, NativeArchitecture expected)
     {
         Assert.AreEqual(expected, analyzer.ReadyToRunInfo!.Architecture);
+        Assert.IsNotEmpty(analyzer.ReadyToRunMethods);
 
         var failures = new List<string>();
+        var rangeCount = 0;
         foreach (var method in analyzer.ReadyToRunMethods)
         {
             foreach (var range in method.CodeRanges)
             {
-                if (range.FileOffset is not { } fileOffset || range.Size <= 0)
+                rangeCount++;
+                Assert.IsGreaterThan(
+                    0,
+                    range.Size,
+                    $"{method.DeclaringType}.{method.Name} {range.Kind} must have a positive size.");
+
+                if (range.FileOffset is not { } fileOffset)
                     continue;
 
                 var code = analyzer.RawBytes.Span.Slice(fileOffset, (int)range.Size);
@@ -204,6 +212,7 @@ public class ReadyToRunArchitectureDecoderTests
             }
         }
 
+        Assert.IsGreaterThan(0, rangeCount);
         Assert.IsEmpty(failures, string.Join(Environment.NewLine, failures.Take(20)));
     }
 }
