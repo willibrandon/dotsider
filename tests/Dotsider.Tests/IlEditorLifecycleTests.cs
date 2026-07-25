@@ -286,16 +286,24 @@ public class IlEditorLifecycleTests : IDisposable
 
         // Focus editor and scroll down
         RequestEditorFocusForRender();
-        await auto.WaitUntilAsync(_ => app.FocusedNode is EditorNode, description: "editor focused");
+        EditorNode? editorNodeA = null;
+        await auto.WaitUntilAsync(
+            _ =>
+            {
+                editorNodeA = app.FocusedNode as EditorNode;
+                return editorNodeA is not null;
+            },
+            description: "editor focused");
+        Assert.IsNotNull(editorNodeA);
         for (var i = 0; i < 10; i++)
             await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Capture the EditorNode's scroll offset after moving down
-        var editorNodeA = app.FocusedNode as EditorNode;
-        Assert.IsNotNull(editorNodeA);
-        var scrollAfterMove = editorNodeA!.ScrollOffset;
-        // Scroll should have moved from the default (1) after 10 down-arrows
-        Assert.IsGreaterThanOrEqualTo(1, scrollAfterMove, $"Expected scroll > 0, got {scrollAfterMove}");
+        var scrollAfterMove = editorNodeA.ScrollOffset;
+        Assert.IsGreaterThanOrEqualTo(
+            1,
+            scrollAfterMove,
+            $"Expected scroll >= 1, got {scrollAfterMove}");
 
         // Switch to a different method via tree
         var methodB = _state.Analyzer.MethodDefs.First(m => m.Token != methodA.Token && m.Rva > 0);
@@ -306,16 +314,29 @@ public class IlEditorLifecycleTests : IDisposable
         // Switch back to original method
         SelectMethodForRender(methodA);
         RequestEditorFocusForRender();
-        await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == methodA.Token,
-            description: "method A reloaded");
-        // Wait for StatePanelWidget reconciliation to settle
-        await auto.WaitAsync(TimeSpan.FromMilliseconds(200), ct: ct);
+        EditorNode? restoredEditorNode = null;
+        await auto.WaitUntilAsync(
+            _ =>
+            {
+                if (_state.IlEditorMethod?.Token != methodA.Token
+                    || app.FocusedNode is not EditorNode candidate
+                    || !ReferenceEquals(editorNodeA, candidate)
+                    || candidate.ScrollOffset != scrollAfterMove)
+                {
+                    return false;
+                }
 
-        // The visible EditorNode should be the same cached node with preserved scroll
-        var restoredEditorNode = app.Focusables.OfType<EditorNode>().FirstOrDefault();
+                restoredEditorNode = candidate;
+                return true;
+            },
+            description: "method A editor restored with preserved scroll");
+
         Assert.IsNotNull(restoredEditorNode);
+        Assert.IsNotNull(_state.IlEditorMethod);
+        Assert.AreEqual(methodA.Token, _state.IlEditorMethod.Token);
+        Assert.IsTrue(restoredEditorNode.IsFocused);
         Assert.AreSame(editorNodeA, restoredEditorNode);
-        Assert.AreEqual(scrollAfterMove, restoredEditorNode!.ScrollOffset);
+        Assert.AreEqual(scrollAfterMove, restoredEditorNode.ScrollOffset);
 
         _cts!.Cancel();
         await runTask;
