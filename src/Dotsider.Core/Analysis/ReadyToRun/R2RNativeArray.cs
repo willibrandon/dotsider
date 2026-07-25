@@ -69,8 +69,16 @@ internal sealed class R2RNativeArray
         }
 
         // Block index: the offset of the block's tree root, stored as a 1/2/4-byte entry.
-        var blockIndexOffset = checked(
-            _baseOffset + (int)(index / BlockSize) * EntryIndexSizeStride());
+        var stride = EntryIndexSizeStride();
+        var blockIndexOffsetValue = (long)_baseOffset + (long)(index / BlockSize) * stride;
+        if (blockIndexOffsetValue < _baseOffset
+            || blockIndexOffsetValue > _treeStartOffset - stride)
+        {
+            throw new BadImageFormatException(
+                "ReadyToRun NativeArray block index lies outside its boundary table.");
+        }
+
+        var blockIndexOffset = (int)blockIndexOffsetValue;
         uint offset = _entryIndexSize switch
         {
             0 => _reader.ReadByte(ref blockIndexOffset),

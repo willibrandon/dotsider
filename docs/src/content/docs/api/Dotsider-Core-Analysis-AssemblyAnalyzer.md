@@ -619,8 +619,8 @@ public IReadOnlyList<ReadyToRunComponent> ReadyToRunComponents { get; }
 ### ReadyToRunIndex
 
 The queryable index over this image's precompiled methods, or null when the image is not
-ReadyToRun or its method-map tables are unavailable. Built lazily from
-[ReadyToRunMethods](/api/dotsider.core.analysis.assemblyanalyzer.readytorunmethods/).
+ReadyToRun or its method-map tables are unavailable, malformed, or over budget. Built
+lazily from [ReadyToRunMethods](/api/dotsider.core.analysis.assemblyanalyzer.readytorunmethods/).
 
 **Returns:** [ReadyToRunIndex](/api/dotsider.core.analysis.readytorunindex/)
 
@@ -656,9 +656,11 @@ public IReadOnlyList<AssemblyAnalyzer> ReadyToRunMetadataProviders { get; }
 ### ReadyToRunMethods
 
 The precompiled methods of a ReadyToRun image joined to their native code ranges, or an
-empty list when this is not a usable ReadyToRun image. Built lazily from the entry-point
-tables. For a non-composite image the code lives in this file; composite resolution is
-layered on in ReadyToRunImageReader.
+empty list when this is not a usable ReadyToRun image or its method-map tables are malformed
+or exceed their traversal budget. The remaining ReadyToRun header, section, and managed
+metadata remain available. Built lazily from the entry-point tables. For a non-composite
+image the code lives in this file; composite resolution is layered on in
+ReadyToRunImageReader.
 
 **Returns:** [IReadOnlyList\<ReadyToRunMethodEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

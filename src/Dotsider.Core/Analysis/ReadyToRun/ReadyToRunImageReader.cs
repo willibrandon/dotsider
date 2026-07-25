@@ -51,9 +51,21 @@ internal static class ReadyToRunImageReader
                 io, instance.Size, analyzer.GetMetadataReader(), analyzer.AssemblyName ?? "", mvid, analyzer.MethodDefs)
             : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
 
-        var methods = SafeBuild(tables, sources, global);
+        var mapUsable = TryBuild(
+            tables,
+            sources,
+            global,
+            out var methods,
+            out var methodMapDiagnostic);
         return new ReadyToRunModel(
-            methods, analyzer, providers, [], [], OwnerCompositeMissing: false, MapUsable: true, null);
+            methods,
+            analyzer,
+            providers,
+            [],
+            [],
+            OwnerCompositeMissing: false,
+            MapUsable: mapUsable,
+            methodMapDiagnostic);
     }
 
     // A composite opened directly: one source per resolved component; native code is this file.
@@ -110,15 +122,22 @@ internal static class ReadyToRunImageReader
             ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
                 io, instance.Size, null, analyzer.AssemblyName ?? "", Guid.Empty, [])
             : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
-        var methods = SafeBuild(tables, sources, global, moduleContext);
+        var mapUsable = TryBuild(
+            tables,
+            sources,
+            global,
+            out var methods,
+            out var methodMapDiagnostic,
+            moduleContext);
 
-        var diagnostic = unresolved > 0
+        var resolutionDiagnostic = unresolved > 0
             ? $"{unresolved} of {components.Count} component assemblies could not be resolved beside "
                 + $"'{Path.GetFileName(analyzer.FilePath)}'; their methods are unnamed"
             : null;
+        var diagnostic = CombineDiagnostics(methodMapDiagnostic, resolutionDiagnostic);
         return new ReadyToRunModel(
             methods, analyzer, providers, owned, listing,
-            OwnerCompositeMissing: false, MapUsable: true, diagnostic);
+            OwnerCompositeMissing: false, MapUsable: mapUsable, diagnostic);
     }
 
     // A component DLL: metadata is self, native code lives in the owner composite (opened sibling).
@@ -186,14 +205,21 @@ internal static class ReadyToRunImageReader
             ? new ReadyToRunMethodMapReader.GlobalInstanceSource(
                 io, instance.Size, null, owner.AssemblyName ?? "", Guid.Empty, [])
             : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
-        var allMethods = SafeBuild(tables, sources, global, moduleContext, mvid);
+        var mapUsable = TryBuild(
+            tables,
+            sources,
+            global,
+            out var allMethods,
+            out var methodMapDiagnostic,
+            moduleContext,
+            mvid);
 
         var methods = allMethods
             .Where(m => m.Mvid == mvid || string.Equals(m.AssemblyName, analyzer.AssemblyName, StringComparison.Ordinal))
             .ToList();
         return new ReadyToRunModel(
             methods, owner, providers, [owner], listing,
-            OwnerCompositeMissing: false, MapUsable: true, null);
+            OwnerCompositeMissing: false, MapUsable: mapUsable, methodMapDiagnostic);
     }
 
     private readonly record struct Tables(
@@ -274,24 +300,44 @@ internal static class ReadyToRunImageReader
         }
     }
 
-    private static List<ReadyToRunMethodEntry> SafeBuild(
+    private static bool TryBuild(
         Tables tables,
         IReadOnlyList<ReadyToRunMethodMapReader.MethodMapSource> sources,
         ReadyToRunMethodMapReader.GlobalInstanceSource? global,
+        out List<ReadyToRunMethodEntry> methods,
+        out string? diagnostic,
         ReadyToRunModuleContext? moduleContext = null,
         Guid? targetMvid = null)
     {
         try
         {
-            return [.. ReadyToRunMethodMapReader.Build(
+            methods = [.. ReadyToRunMethodMapReader.Build(
                 tables.Reader, tables.RuntimeFunctions, tables.HotColdMap,
                 tables.ImageBase, tables.AddressSpace, sources, global, moduleContext, targetMvid)];
+            diagnostic = null;
+            return true;
         }
-        catch (Exception ex) when (ex is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
+        catch (Exception ex) when (
+            ex is
+                BadImageFormatException
+                or IndexOutOfRangeException
+                or ArgumentOutOfRangeException
+                or OverflowException)
         {
-            return [];
+            methods = [];
+            diagnostic = $"ReadyToRun method-map tables are malformed: {ex.Message}";
+            return false;
         }
     }
+
+    private static string? CombineDiagnostics(string? first, string? second) =>
+        (first, second) switch
+        {
+            (null, null) => null,
+            (not null, null) => first,
+            (null, not null) => second,
+            _ => $"{first} {second}",
+        };
 
     private static ReadyToRunModel Unavailable(AssemblyAnalyzer analyzer, string? diagnostic) =>
         new(

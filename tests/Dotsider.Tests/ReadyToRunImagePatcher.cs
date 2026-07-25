@@ -12,7 +12,190 @@ namespace Dotsider.Tests;
 internal static class ReadyToRunImagePatcher
 {
     private const byte FixupMethodEntry = 0x13;
+    private const byte FixupHelper = 0x1A;
     private const int ImportSectionRecordSize = 20;
+
+    /// <summary>
+    /// Replaces the import directory with two records whose cumulative slot count can exercise the
+    /// image-wide traversal budget. The first slot of each record resolves to
+    /// <c>DelayLoad_MethodCall</c>; every remaining signature is nil.
+    /// </summary>
+    /// <param name="path">The real ReadyToRun image to copy and patch.</param>
+    /// <param name="firstCount">The first import record's slot count.</param>
+    /// <param name="secondCount">The second import record's slot count.</param>
+    /// <returns>The patched image and the first slot address of each record.</returns>
+    internal static (
+        byte[] Image,
+        ulong FirstSlotVirtualAddress,
+        ulong SecondSlotVirtualAddress)
+        PatchImportSlotBudget(string path, int firstCount, int secondCount)
+    {
+        if (firstCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(firstCount));
+        }
+
+        if (secondCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(secondCount));
+        }
+
+        var original = File.ReadAllBytes(path);
+        using var analyzer = new AssemblyAnalyzer(original, path);
+        var info = RequireValidReadyToRunInfo(analyzer);
+        var imageBase = analyzer.PeHeaders?.ImageBase
+            ?? throw new InvalidOperationException("The ReadyToRun fixture has no PE image base.");
+
+        var firstSlotsOffset = ImportSectionRecordSize * 2;
+        var firstSignaturesOffset = checked(firstSlotsOffset + firstCount);
+        var secondSlotsOffset = checked(firstSignaturesOffset + firstCount * sizeof(uint));
+        var secondSignaturesOffset = checked(secondSlotsOffset + secondCount);
+        var helperOffset = checked(secondSignaturesOffset + secondCount * sizeof(uint));
+        var payload = new byte[checked(helperOffset + 2)];
+        payload[helperOffset] = FixupHelper;
+        payload[helperOffset + 1] = 0x08;
+
+        var appended = AppendPayload(original, payload);
+        WriteImportRecord(
+            appended.Image,
+            appended.Offset,
+            checked(appended.Rva + firstSlotsOffset),
+            firstCount,
+            checked(appended.Rva + firstSignaturesOffset));
+        WriteImportRecord(
+            appended.Image,
+            appended.Offset + ImportSectionRecordSize,
+            checked(appended.Rva + secondSlotsOffset),
+            secondCount,
+            checked(appended.Rva + secondSignaturesOffset));
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            appended.Image.AsSpan(appended.Offset + firstSignaturesOffset),
+            checked((uint)(appended.Rva + helperOffset)));
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            appended.Image.AsSpan(appended.Offset + secondSignaturesOffset),
+            checked((uint)(appended.Rva + helperOffset)));
+        PatchReadyToRunSection(
+            appended.Image,
+            info,
+            ReadyToRunSectionType.ImportSections,
+            appended.Rva,
+            ImportSectionRecordSize * 2);
+
+        return (
+            appended.Image,
+            checked(imageBase + (uint)(appended.Rva + firstSlotsOffset)),
+            checked(imageBase + (uint)(appended.Rva + secondSlotsOffset)));
+    }
+
+    /// <summary>
+    /// Replaces the import directory with a two-slot record whose first helper is valid and whose
+    /// second helper is truncated at the final file-backed byte.
+    /// </summary>
+    /// <param name="path">The real ReadyToRun image to copy and patch.</param>
+    /// <returns>The patched image and the virtual address of each slot.</returns>
+    internal static (
+        byte[] Image,
+        ulong ValidSlotVirtualAddress,
+        ulong MalformedSlotVirtualAddress)
+        PatchImportValidThenMalformedSlots(string path)
+    {
+        var original = File.ReadAllBytes(path);
+        using var analyzer = new AssemblyAnalyzer(original, path);
+        var info = RequireValidReadyToRunInfo(analyzer);
+        var imageBase = analyzer.PeHeaders?.ImageBase
+            ?? throw new InvalidOperationException("The ReadyToRun fixture has no PE image base.");
+
+        const int slotsOffset = ImportSectionRecordSize;
+        const int signaturesOffset = slotsOffset + 2;
+        const int helperOffset = signaturesOffset + 2 * sizeof(uint);
+        var payload = new byte[helperOffset + 4];
+        payload[helperOffset] = FixupHelper;
+        payload[helperOffset + 1] = 0x08;
+
+        var appended = AppendPayload(original, payload);
+        WriteImportRecord(
+            appended.Image,
+            appended.Offset,
+            checked(appended.Rva + slotsOffset),
+            slotCount: 2,
+            checked(appended.Rva + signaturesOffset));
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            appended.Image.AsSpan(appended.Offset + signaturesOffset),
+            checked((uint)(appended.Rva + helperOffset)));
+
+        var malformedOffset = appended.Image.Length - 2;
+        var malformedRva = checked(appended.Rva + malformedOffset - appended.Offset);
+        appended.Image[malformedOffset] = FixupHelper;
+        appended.Image[malformedOffset + 1] = 0xE0;
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            appended.Image.AsSpan(appended.Offset + signaturesOffset + sizeof(uint)),
+            checked((uint)malformedRva));
+        PatchReadyToRunSection(
+            appended.Image,
+            info,
+            ReadyToRunSectionType.ImportSections,
+            appended.Rva,
+            ImportSectionRecordSize);
+
+        var firstSlotAddress = checked(imageBase + (uint)(appended.Rva + slotsOffset));
+        return (
+            appended.Image,
+            firstSlotAddress,
+            checked(firstSlotAddress + 1));
+    }
+
+    /// <summary>
+    /// Replaces the import directory with one record whose slot or signature-table RVA is forged
+    /// while its other ranges remain file-backed.
+    /// </summary>
+    /// <param name="path">The real ReadyToRun image to copy and patch.</param>
+    /// <param name="forgeSlotsRva">
+    /// Whether <paramref name="forgedRva"/> replaces the slots RVA; otherwise it replaces the
+    /// signature-table RVA.
+    /// </param>
+    /// <param name="forgedRva">The signed RVA written to the selected record field.</param>
+    /// <returns>The patched image and the address the valid slot range would occupy.</returns>
+    internal static (byte[] Image, ulong ValidSlotVirtualAddress) PatchImportRvaBoundary(
+        string path,
+        bool forgeSlotsRva,
+        int forgedRva)
+    {
+        var original = File.ReadAllBytes(path);
+        using var analyzer = new AssemblyAnalyzer(original, path);
+        var info = RequireValidReadyToRunInfo(analyzer);
+        var imageBase = analyzer.PeHeaders?.ImageBase
+            ?? throw new InvalidOperationException("The ReadyToRun fixture has no PE image base.");
+
+        const int slotsOffset = ImportSectionRecordSize;
+        const int signaturesOffset = slotsOffset + 1;
+        const int helperOffset = signaturesOffset + sizeof(uint);
+        var payload = new byte[helperOffset + 2];
+        payload[helperOffset] = FixupHelper;
+        payload[helperOffset + 1] = 0x08;
+
+        var appended = AppendPayload(original, payload);
+        var slotsRva = checked(appended.Rva + slotsOffset);
+        var signaturesRva = checked(appended.Rva + signaturesOffset);
+        WriteImportRecord(
+            appended.Image,
+            appended.Offset,
+            forgeSlotsRva ? forgedRva : slotsRva,
+            slotCount: 1,
+            forgeSlotsRva ? signaturesRva : forgedRva);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            appended.Image.AsSpan(appended.Offset + signaturesOffset),
+            checked((uint)(appended.Rva + helperOffset)));
+        PatchReadyToRunSection(
+            appended.Image,
+            info,
+            ReadyToRunSectionType.ImportSections,
+            appended.Rva,
+            ImportSectionRecordSize);
+
+        return (
+            appended.Image,
+            checked(imageBase + (uint)slotsRva));
+    }
 
     /// <summary>
     /// Replaces <c>InstanceMethodEntryPoints</c> with a one-entry NativeHashtable whose payload is
@@ -418,6 +601,19 @@ internal static class ReadyToRunImagePatcher
         }
 
         throw new BadImageFormatException($"PE RVA 0x{rva:X8} is not file-backed.");
+    }
+
+    private static void WriteImportRecord(
+        byte[] image,
+        int recordOffset,
+        int slotsRva,
+        int slotCount,
+        int signaturesRva)
+    {
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(recordOffset), slotsRva);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(recordOffset + 4), slotCount);
+        image[recordOffset + 11] = 1;
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(recordOffset + 12), signaturesRva);
     }
 
     private static void PatchReadyToRunSection(
