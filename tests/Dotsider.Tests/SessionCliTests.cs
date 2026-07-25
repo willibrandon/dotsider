@@ -8,7 +8,7 @@ namespace Dotsider.Tests;
 /// CLI integration tests for session commands using real Unix domain sockets.
 /// </summary>
 [TestClass]
-public class SessionCliTests
+public sealed class SessionCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
@@ -18,6 +18,7 @@ public class SessionCliTests
     private int _testPid;
     private TestDotsiderSocket _dotsiderSocket = null!;
     private TestRawJsonSocket _hex1bSocket = null!;
+    private string[]? _lastTraceArguments;
 
     private static string DetectBuildConfig()
     {
@@ -92,7 +93,11 @@ public class SessionCliTests
             new { Stream = "stderr", Text = "Warning: test" }
         });
 
-        _dotsiderSocket.On("start-trace", _ => new { Message = "Trace start queued" });
+        _dotsiderSocket.On("start-trace", request =>
+        {
+            _lastTraceArguments = request.Arguments;
+            return new { Message = "Trace start queued" };
+        });
         _dotsiderSocket.On("stop-trace", _ => new { Message = "Trace stopped" });
 
         _dotsiderSocket.Start();
@@ -262,16 +267,41 @@ public class SessionCliTests
     }
 
     /// <summary>
-    /// Verifies sessions trace start queues trace.
+    /// Verifies sessions trace start preserves positional child arguments.
     /// </summary>
     [TestMethod]
-    public async Task Sessions_TraceStart_QueuesTrace()
+    public async Task Sessions_TraceStart_PreservesLiteralArguments()
     {
-        var (exitCode, stdout, _) = await RunDotsiderAsync(
-            "sessions", "trace", "start", _testPid.ToString());
+        string[] expected =
+        [
+            "--fx-version",
+            "value with spaces",
+            "a&b",
+            "$(whoami)"
+        ];
+        string[] commandArguments =
+        [
+            "sessions",
+            "trace",
+            "start",
+            _testPid.ToString(),
+            "--",
+            .. expected
+        ];
+
+        var (exitCode, stdout, _) = await RunDotsiderAsync(commandArguments);
 
         Assert.AreEqual(0, exitCode);
         Assert.Contains("Trace start queued", stdout);
+        Assert.IsNotNull(_lastTraceArguments);
+        Assert.HasCount(expected.Length, _lastTraceArguments);
+        for (var index = 0; index < expected.Length; index++)
+        {
+            Assert.AreEqual(
+                expected[index],
+                _lastTraceArguments[index],
+                $"Argument {index} differs.");
+        }
     }
 
     /// <summary>

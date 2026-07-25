@@ -98,17 +98,13 @@ public static class DynamicAnalysisView
 
     private static VStackWidget BuildIdleView(WidgetContext<VStackWidget> ctx, DotsiderState state)
     {
-        var argsDisplay = string.IsNullOrEmpty(state.DynamicArguments)
-            ? "(none — press 'a' to set)"
-            : state.DynamicArguments;
-
         return ctx.VStack(outer =>
         [
             outer.Text(""),
             IdleLine(outer, "Assembly:   ", state.Analyzer.FileName),
             IdleLine(outer, "Entry Point:", state.Analyzer.ClrHeader is { } clr
                 ? $"0x{clr.EntryPointToken:X8}" : "(native)"),
-            IdleLine(outer, "Args:       ", argsDisplay),
+            BuildArgumentsLine(outer, state),
             outer.Text(""),
             outer.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, Teal),
                 outer.Text("  Press Enter to launch with EventPipe tracing.")),
@@ -121,26 +117,42 @@ public static class DynamicAnalysisView
         ])
         .InputBindings(bindings =>
         {
-            bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
+            if (state.DynamicEditingArgs)
             {
-                state.VimPending = VimMotionState.Idle;
-                if (!state.DynamicEditingArgs)
+                bindings.Key(Hex1bKey.Enter).Global().OverridesCapture().Action(_ =>
                 {
-                    state.Tracer = new RuntimeTracer(
-                        state.Analyzer.LaunchPath, state.DynamicArguments, () => state.App.Invalidate());
-                    state.Tracer.Start();
-                    state.App.RequestFocus(node =>
-                        node.GetType().Name.StartsWith("TableNode"));
-                    state.App.Invalidate();
-                }
-            }, "Launch process");
+                    state.VimPending = VimMotionState.Idle;
+                    if (TryCommitDynamicArguments(state))
+                    {
+                        LaunchTrace(state);
+                    }
+                }, "Apply args and launch");
 
-            bindings.Key(Hex1bKey.A).Global().Action(_ =>
+                bindings.Key(Hex1bKey.Escape).Global().OverridesCapture().Action(_ =>
+                {
+                    state.VimPending = VimMotionState.Idle;
+                    state.DynamicArgumentDraft = null;
+                    state.DynamicEditingArgs = false;
+                    state.App.Invalidate();
+                }, "Cancel args");
+            }
+            else
             {
-                state.VimPending = VimMotionState.Idle;
-                state.DynamicEditingArgs = !state.DynamicEditingArgs;
-                state.App.Invalidate();
-            }, "Edit args");
+                bindings.Key(Hex1bKey.Enter).Global().Action(_ =>
+                {
+                    state.VimPending = VimMotionState.Idle;
+                    LaunchTrace(state);
+                }, "Launch process");
+
+                bindings.Key(Hex1bKey.A).Global().Action(_ =>
+                {
+                    state.VimPending = VimMotionState.Idle;
+                    state.DynamicArgumentDraft = state.DynamicArguments;
+                    state.DynamicEditingArgs = true;
+                    state.App.RequestFocus(node => node is TextBoxNode);
+                    state.App.Invalidate();
+                }, "Edit args");
+            }
         })
         .Fill();
     }
@@ -282,7 +294,9 @@ public static class DynamicAnalysisView
 
                     state.Tracer?.Dispose();
                     state.Tracer = new RuntimeTracer(
-                        state.Analyzer.LaunchPath, state.DynamicArguments, () => state.App.Invalidate());
+                        state.Analyzer.LaunchPath,
+                        state.DynamicArgumentList,
+                        () => state.App.Invalidate());
                     state.Tracer.Start();
                     state.DynamicEventsFocusedKey = null;
                     state.DynamicOutputFocusedKey = null;
@@ -641,6 +655,64 @@ public static class DynamicAnalysisView
                 row.Text($"  {label}")).FixedWidth(16),
             row.Text(TerminalText.Escape(value)).Fill()
         ]).FixedHeight(1);
+    }
+
+    private static HStackWidget BuildArgumentsLine(
+        WidgetContext<VStackWidget> ctx,
+        DotsiderState state)
+    {
+        if (!state.DynamicEditingArgs)
+        {
+            var argsDisplay = string.IsNullOrEmpty(state.DynamicArguments)
+                ? "(none — press 'a' to set)"
+                : state.DynamicArguments;
+            return IdleLine(ctx, "Args:       ", argsDisplay);
+        }
+
+        return ctx.HStack(row =>
+        [
+            row.ThemePanel(t => t.Set(GlobalTheme.ForegroundColor, LabelColor),
+                row.Text("  Args:       ")).FixedWidth(16),
+            row.TextBox(state.DynamicArgumentDraft ?? "")
+                .OnTextChanged(args =>
+                {
+                    state.DynamicArgumentDraft = args.NewText;
+                    state.App.Invalidate();
+                })
+                .Fill()
+        ]).FixedHeight(1);
+    }
+
+    private static void LaunchTrace(DotsiderState state)
+    {
+        state.Tracer?.Dispose();
+        state.Tracer = new RuntimeTracer(
+            state.Analyzer.LaunchPath,
+            state.DynamicArgumentList,
+            () => state.App.Invalidate());
+        state.Tracer.Start();
+        state.App.RequestFocus(node =>
+            node.GetType().Name.StartsWith("TableNode"));
+        state.App.Invalidate();
+    }
+
+    private static bool TryCommitDynamicArguments(DotsiderState state)
+    {
+        var draft = state.DynamicArgumentDraft ?? "";
+        if (!ShellFreeArgumentTokenizer.TryTokenize(
+                draft,
+                rejectShellOperators: false,
+                out var arguments))
+        {
+            state.ShowTransientNotice(
+                "Trace arguments contain an unmatched quote or trailing escape");
+            return false;
+        }
+
+        state.CommitDynamicArguments(draft, arguments);
+        state.DynamicArgumentDraft = null;
+        state.DynamicEditingArgs = false;
+        return true;
     }
 
     /// <summary>

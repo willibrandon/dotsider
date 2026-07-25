@@ -24,12 +24,12 @@ public sealed class DotsiderRequest
 
 ### Arguments
 
-Command-line arguments for starting a trace.
+Literal command-line arguments for starting a trace.
 
-**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+**Returns:** [String[]](https://learn.microsoft.com/dotnet/api/system.string[])
 
 ```csharp
-public string? Arguments { get; set; }
+public string[]? Arguments { get; set; }
 ```
 
 ### AssemblyName

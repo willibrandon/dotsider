@@ -28,4 +28,9 @@ internal sealed class DemoOptions
     /// Gets or sets the maximum session duration in minutes.
     /// </summary>
     public int SessionTimeoutMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets the exact proxy addresses trusted to supply <c>X-Forwarded-For</c>.
+    /// </summary>
+    public string[] TrustedProxies { get; set; } = [];
 }

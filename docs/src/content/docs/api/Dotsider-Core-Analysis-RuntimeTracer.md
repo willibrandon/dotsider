@@ -27,19 +27,19 @@ public sealed class RuntimeTracer : IDisposable
 
 ## Constructors
 
-### RuntimeTracer(string, string, Action)
+### RuntimeTracer(string, IReadOnlyList\<string\>, Action)
 
 Manages launching a .NET assembly as a child process and collecting
 runtime events via EventPipe diagnostics (PID-based connect with retry).
 
 **Parameters:**
 
-- `assemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `arguments` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `invalidate` ([Action](https://learn.microsoft.com/dotnet/api/system.action)): 
+- `assemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): The managed DLL or executable apphost to launch.
+- `arguments` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): The literal application arguments to pass to the launched process.
+- `invalidate` ([Action](https://learn.microsoft.com/dotnet/api/system.action)): The callback that requests a UI refresh.
 
 ```csharp
-public RuntimeTracer(string assemblyPath, string arguments, Action invalidate)
+public RuntimeTracer(string assemblyPath, IReadOnlyList<string> arguments, Action invalidate)
 ```
 
 ## Properties

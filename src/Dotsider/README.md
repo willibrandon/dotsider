@@ -49,6 +49,7 @@ dotsider sessions trace events <pid>        # trace events
 dotsider sessions trace counters <pid>      # performance counters
 dotsider sessions trace output <pid>        # process stdout/stderr
 dotsider sessions trace start <pid>         # start tracing
+dotsider sessions trace start <pid> -- --flag "two words"
 dotsider sessions trace stop <pid>          # stop tracing
 ```
 

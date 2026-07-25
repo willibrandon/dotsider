@@ -519,22 +519,23 @@ internal static class SessionsCommand
 
     private static Command CreateTraceStartCommand(Option<bool> jsonOption)
     {
-        var argsOption = new Option<string?>("--args")
+        var argumentsArgument = new Argument<string[]>("arguments")
         {
-            Description = "Command-line arguments for the traced process"
+            Arity = ArgumentArity.ZeroOrMore,
+            Description = "Literal arguments for the traced process"
         };
 
         var command = new Command("start", "Start tracing in a running instance")
         {
             s_pidArg,
-            argsOption
+            argumentsArgument
         };
 
         command.SetAction(async (parseResult, ct) =>
         {
             var pid = parseResult.GetValue(s_pidArg);
             var json = parseResult.GetValue(jsonOption);
-            var arguments = parseResult.GetValue(argsOption);
+            var arguments = parseResult.GetValue(argumentsArgument) ?? [];
             using var formatter = new OutputFormatter { JsonMode = json };
 
             var response = await SendToSession(pid,

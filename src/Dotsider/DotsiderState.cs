@@ -1269,13 +1269,44 @@ public sealed class DotsiderState : IDisposable
     public TraceEventCategory? DynamicCategoryFilter { get; set; }
 
     /// <summary>Command-line arguments to pass to the traced process.</summary>
-    public string DynamicArguments { get; set; } = "";
+    public string DynamicArguments { get; private set; } = "";
+
+    /// <summary>The committed literal arguments passed to the traced process.</summary>
+    public IReadOnlyList<string> DynamicArgumentList { get; private set; } = [];
+
+    /// <summary>The editable trace-argument text, or <see langword="null"/> when not editing.</summary>
+    public string? DynamicArgumentDraft { get; set; }
 
     /// <summary>Whether the args editing mode is active.</summary>
     public bool DynamicEditingArgs { get; set; }
 
     /// <summary>Focused key in the output table.</summary>
     public object? DynamicOutputFocusedKey { get; set; }
+
+    /// <summary>
+    /// Commits validated trace argument text and its literal token representation.
+    /// </summary>
+    /// <param name="text">The text displayed when the argument editor is closed.</param>
+    /// <param name="arguments">The validated literal argument tokens.</param>
+    public void CommitDynamicArguments(
+        string text,
+        IReadOnlyList<string> arguments)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(arguments);
+
+        var copy = new string[arguments.Count];
+        for (var index = 0; index < copy.Length; index++)
+        {
+            copy[index] = arguments[index]
+                ?? throw new ArgumentException(
+                    "Trace arguments cannot contain null values.",
+                    nameof(arguments));
+        }
+
+        DynamicArguments = text;
+        DynamicArgumentList = Array.AsReadOnly(copy);
+    }
 
     // --- Cross-View Navigation ---
 
@@ -2372,6 +2403,7 @@ public sealed class DotsiderState : IDisposable
         DynamicEventsFocusedKey = null;
         DynamicAutoScroll = true;
         DynamicCategoryFilter = null;
+        DynamicArgumentDraft = null;
         DynamicEditingArgs = false;
         DynamicOutputFocusedKey = null;
         DynamicCpuEditorState = null;

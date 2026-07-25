@@ -10,12 +10,24 @@ namespace Dotsider.Mcp;
 /// </summary>
 public sealed class RemoteDotsiderTarget(string socketPath)
 {
+    private static readonly UTF8Encoding s_utf8NoBom =
+        new(encoderShouldEmitUTF8Identifier: false);
+
     /// <summary>
     /// Sends a request and returns the deserialized response.
     /// </summary>
     public async Task<DotsiderResponse> SendAsync(
         DotsiderRequest request, CancellationToken ct = default)
     {
+        var requestJson = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var requestBytes = Encoding.UTF8.GetByteCount(requestJson);
+        if (requestBytes > DotsiderProtocol.MaxRequestBytes)
+        {
+            return DotsiderResponse.Fail(
+                $"Request is {requestBytes} bytes and exceeds the " +
+                $"{DotsiderProtocol.MaxRequestBytes}-byte limit");
+        }
+
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         socket.ReceiveTimeout = 10_000;
         socket.SendTimeout = 5_000;
@@ -23,10 +35,12 @@ public sealed class RemoteDotsiderTarget(string socketPath)
         await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
 
         await using var stream = new NetworkStream(socket, ownsSocket: false);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        await using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+        using var reader = new StreamReader(stream, s_utf8NoBom);
+        await using var writer = new StreamWriter(stream, s_utf8NoBom)
+        {
+            AutoFlush = true
+        };
 
-        var requestJson = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
         await writer.WriteLineAsync(requestJson.AsMemory(), ct);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -82,8 +96,11 @@ public sealed class RemoteDotsiderTarget(string socketPath)
         await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
 
         await using var stream = new NetworkStream(socket, ownsSocket: false);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        await using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+        using var reader = new StreamReader(stream, s_utf8NoBom);
+        await using var writer = new StreamWriter(stream, s_utf8NoBom)
+        {
+            AutoFlush = true
+        };
 
         await writer.WriteLineAsync(json.AsMemory(), ct);
         return await reader.ReadLineAsync(ct) ?? "";

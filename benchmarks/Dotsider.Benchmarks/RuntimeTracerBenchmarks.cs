@@ -31,7 +31,7 @@ public class RuntimeTracerDataRetrievalBenchmarks
             throw new FileNotFoundException($"HelloWorld.dll not found: {_helloWorldDll}");
 
         // Start a real trace — HelloWorld prints and exits quickly, populating ring buffer
-        _tracer = new RuntimeTracer(_helloWorldDll, "", static () => { });
+        _tracer = new RuntimeTracer(_helloWorldDll, [], static () => { });
         _tracer.Start();
 
         // Wait for the process to exit and events to be collected
@@ -159,7 +159,7 @@ public class RuntimeTracerThroughputBenchmarks
             throw new FileNotFoundException($"LoadGen.dll not found: {_loadGenDll}");
 
         // Start the live trace
-        _tracer = new RuntimeTracer(_loadGenDll, "", static () => { });
+        _tracer = new RuntimeTracer(_loadGenDll, [], static () => { });
         _tracer.Start();
 
         // Wait for the trace to reach Running state
@@ -315,7 +315,7 @@ public class RuntimeTracerWritePathBenchmarks
     [BenchmarkCategory("WritePath")]
     public int EventCollectionThroughput()
     {
-        var tracer = new RuntimeTracer(_loadGenDll, "", static () => { });
+        var tracer = new RuntimeTracer(_loadGenDll, [], static () => { });
         _lastTracer = tracer;
         tracer.Start();
 
@@ -339,7 +339,7 @@ public class RuntimeTracerWritePathBenchmarks
     [BenchmarkCategory("WritePath")]
     public CounterSnapshot? CounterAcquisitionThroughput()
     {
-        var tracer = new RuntimeTracer(_loadGenDll, "", static () => { });
+        var tracer = new RuntimeTracer(_loadGenDll, [], static () => { });
         _lastTracer = tracer;
         tracer.Start();
 
@@ -363,7 +363,7 @@ public class RuntimeTracerWritePathBenchmarks
     [BenchmarkCategory("Lifecycle")]
     public int StartStopLifecycle()
     {
-        var tracer = new RuntimeTracer(_helloWorldDll, "", static () => { });
+        var tracer = new RuntimeTracer(_helloWorldDll, [], static () => { });
         _lastTracer = tracer;
         tracer.Start();
 

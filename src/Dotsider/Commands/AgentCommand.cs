@@ -246,7 +246,7 @@ internal static class AgentCommand
 
         ```bash
         dotsider sessions trace start <pid>             # start tracing the loaded assembly
-        dotsider sessions trace start <pid> --args "-v" # start with arguments
+        dotsider sessions trace start <pid> -- -v       # pass arguments to the traced process
         dotsider sessions trace events <pid>            # get JIT, GC, exception events
         dotsider sessions trace events <pid> --category jit --max 50
         dotsider sessions trace counters <pid>          # get performance counters

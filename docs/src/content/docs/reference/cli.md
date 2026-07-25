@@ -177,11 +177,16 @@ dotsider sessions view <pid>                      # current tab and view state
 dotsider sessions navigate <pid> <tab>            # switch to tab (1-8)
 dotsider sessions capture <pid>                   # capture screen as text
 dotsider sessions trace start <pid>               # start tracing
+dotsider sessions trace start <pid> -- --flag "two words"
 dotsider sessions trace events <pid>              # get JIT, GC, exception events
 dotsider sessions trace counters <pid>            # get performance counters
 dotsider sessions trace output <pid>              # get stdout/stderr
 dotsider sessions trace stop <pid>                # stop tracing
 ```
+
+Arguments after `trace start <pid> --` are passed as literal process arguments. The
+delimiter lets child arguments begin with `-`; the launcher uses
+`ProcessStartInfo.ArgumentList`.
 
 ## `dotsider agent`
 

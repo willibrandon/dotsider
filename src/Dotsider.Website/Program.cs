@@ -16,7 +16,6 @@ var app = builder.Build();
 var demoOptions = app.Services.GetRequiredService<IOptions<DemoOptions>>().Value;
 var logger = app.Logger;
 var maxSessions = demoOptions.MaxSessions;
-var maxSessionsPerClient = demoOptions.MaxSessionsPerClient;
 var originPolicy = app.Services.GetRequiredService<DemoOriginPolicy>();
 var sampleAssembly = demoOptions.SampleAssembly;
 var sessionTimeout = TimeSpan.FromMinutes(demoOptions.SessionTimeoutMinutes);
@@ -49,13 +48,7 @@ var sessionHandler = new DemoWebSocketSessionHandler(
     sessionTimeout,
     RunDotsiderSession);
 
-app.MapGet("/health", () => Results.Ok(new
-{
-    status = "ok",
-    activeSessions = sessionHandler.ActiveSessions,
-    maxSessions,
-    maxSessionsPerClient
-}));
+app.MapDemoHealth();
 
 app.Map("/ws", sessionHandler.HandleAsync)
     .RequireRateLimiting(DemoSessionRateLimitingExtensions.PolicyName);

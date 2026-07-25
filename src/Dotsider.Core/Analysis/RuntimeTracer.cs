@@ -16,14 +16,26 @@ namespace Dotsider.Core.Analysis;
 /// Manages launching a .NET assembly as a child process and collecting
 /// runtime events via EventPipe diagnostics (PID-based connect with retry).
 /// </summary>
-public sealed class RuntimeTracer(string assemblyPath, string arguments, Action invalidate) : IDisposable
+/// <param name="assemblyPath">The managed DLL or executable apphost to launch.</param>
+/// <param name="arguments">The literal application arguments to pass to the launched process.</param>
+/// <param name="invalidate">The callback that requests a UI refresh.</param>
+public sealed class RuntimeTracer(
+    string assemblyPath,
+    IReadOnlyList<string> arguments,
+    Action invalidate) : IDisposable
 {
     private const int MaxEvents = 10_000;
     private const int MaxOutputLines = 5_000;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromMilliseconds(200);
 
-    private readonly bool _isExe = assemblyPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+    private readonly string _assemblyPath = ValidateAssemblyPath(assemblyPath);
+    private readonly string[] _arguments = CopyArguments(arguments);
+    private readonly Action _invalidate = invalidate
+        ?? throw new ArgumentNullException(nameof(invalidate));
+    private readonly bool _requiresDotnetHost =
+        ValidateAssemblyPath(assemblyPath)
+            .EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
 
     private Process? _process;
     private DiagnosticsClientConnector? _connector;
@@ -160,14 +172,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
         // Launch with diagnostic port suspend so we can attach EventPipe
         // before Main() runs — this captures events even for short-lived processes
-        var psi = new ProcessStartInfo
-        {
-            FileName = _isExe ? assemblyPath : "dotnet",
-            Arguments = _isExe ? arguments : $"exec \"{assemblyPath}\" {arguments}",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
+        var psi = CreateStartInfo();
         psi.Environment["DOTNET_DiagnosticPorts"] = _diagnosticPort;
         psi.Environment.Remove("DOTNET_DefaultDiagnosticPortSuspend");
         if (!psi.Environment.ContainsKey("ASPNETCORE_URLS")
@@ -207,7 +212,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             }
 
             _stopwatch?.Stop();
-            invalidate();
+            _invalidate();
         };
 
         lock (_stateLock) _processState = TraceProcessState.Starting;
@@ -228,7 +233,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 if (Interlocked.Exchange(ref _dirty, 0) == 1
                     || IsProcessRunning())
                 {
-                    invalidate();
+                    _invalidate();
                 }
             }
             finally
@@ -302,7 +307,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
                 DisposeDiagnosticConnector();
                 CleanupDiagnosticPort();
                 _stopwatch?.Stop();
-                invalidate();
+                _invalidate();
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
     }
@@ -341,7 +346,7 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
             }
         }
         if (stopped)
-            invalidate();
+            _invalidate();
     }
 
     /// <inheritdoc/>
@@ -354,7 +359,57 @@ public sealed class RuntimeTracer(string assemblyPath, string arguments, Action 
 
     // --- Private implementation ---
 
+    /// <summary>
+    /// Creates the shell-free process start information for the configured target.
+    /// </summary>
+    /// <returns>The process start information with literal argument tokens.</returns>
+    internal ProcessStartInfo CreateStartInfo()
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = _requiresDotnetHost ? "dotnet" : _assemblyPath,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false
+        };
+
+        if (_requiresDotnetHost)
+        {
+            startInfo.ArgumentList.Add("exec");
+            startInfo.ArgumentList.Add(_assemblyPath);
+        }
+
+        foreach (var argument in _arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        return startInfo;
+    }
+
     private void MarkDirty() => Volatile.Write(ref _dirty, 1);
+
+    private static string[] CopyArguments(IReadOnlyList<string> arguments)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+
+        var copy = new string[arguments.Count];
+        for (var index = 0; index < copy.Length; index++)
+        {
+            copy[index] = arguments[index]
+                ?? throw new ArgumentException(
+                    "Trace arguments cannot contain null values.",
+                    nameof(arguments));
+        }
+
+        return copy;
+    }
+
+    private static string ValidateAssemblyPath(string assemblyPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
+        return assemblyPath;
+    }
 
     private static string CreateDiagnosticPort()
     {

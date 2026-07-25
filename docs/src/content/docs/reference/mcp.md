@@ -99,7 +99,10 @@ Native disassembly tools return structured instructions for x64, Arm64, x86, Arm
 
 `diff_size` compares two Native AOT builds via their mstat size reports (bare `.mstat` files or binaries with sidecars): summary, per-assembly and per-namespace deltas, top contributors, and — only on request — the delta tree, pruned to a node cap with explicit truncation metadata. `check_size_budgets` evaluates size budgets against a build (optionally versus a baseline) and returns the per-budget report; budgets arrive as grammar strings, an inline budgets JSON document, or a budgets file path, at full parity with the CLI including named budgets and warning severity. See [Size Regression](/usage/size-regression/).
 
-Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and a versioned protocol rejects mismatched clients. Concurrent connections are capped at four per session.
+`start_trace` accepts `arguments` as an array of literal strings. Argument boundaries are
+preserved through the session protocol and `ProcessStartInfo.ArgumentList`.
+
+Session sockets are access-controlled. The socket directory and socket file are restricted to the current user on all platforms, connections are verified against the process owner, and protocol version 2 rejects mismatched clients. Concurrent connections are capped at four per session, and each UTF-8 request payload is capped at 1 MiB.
 
 ## Guided prompts
 
