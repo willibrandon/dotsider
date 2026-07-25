@@ -13,7 +13,7 @@ namespace Dotsider.Tests;
 /// Uses the full headless TUI stack with real assemblies.
 /// </summary>
 [TestClass]
-public class ConnectionLimitTests : IAsyncDisposable
+public sealed class ConnectionLimitTests : IAsyncDisposable
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -108,11 +108,11 @@ public class ConnectionLimitTests : IAsyncDisposable
     }
 
     /// <summary>
-    /// Verifies fifth connection is rejected.
+    /// Verifies an oversized fifth connection is bounded and rejected.
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task FifthConnection_IsRejected()
+    public async Task FifthOversizedConnection_IsRejected()
     {
         var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
@@ -138,10 +138,17 @@ public class ConnectionLimitTests : IAsyncDisposable
         // Wait for the 4 handlers to acquire their slots and enter the delay hook
         await Task.Delay(200, ct);
 
-        // The 5th connection should be rejected immediately
-        var response = await DotsiderClient.SendAsync(socketPath,
-            new DotsiderRequest { Method = "assembly-info" }, ct);
+        // The fifth request exceeds the protocol limit. The saturated path must
+        // discard it with bounded storage before returning the connection-limit error.
+        var responseJson = await DotsiderClient.SendRawAsync(
+            socketPath,
+            new string('a', DotsiderProtocol.MaxRequestBytes + 1),
+            ct);
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(
+            responseJson,
+            DotsiderJsonOptions.Default);
 
+        Assert.IsNotNull(response);
         Assert.IsFalse(response.Success);
         Assert.Contains("too many", response.Error!, StringComparison.OrdinalIgnoreCase);
 

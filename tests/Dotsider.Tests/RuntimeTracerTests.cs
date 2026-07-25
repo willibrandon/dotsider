@@ -10,7 +10,7 @@ namespace Dotsider.Tests;
 /// Tests for Runtime Tracer.
 /// </summary>
 [TestClass]
-public class RuntimeTracerTests : IDisposable
+public sealed class RuntimeTracerTests : IDisposable
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -19,7 +19,9 @@ public class RuntimeTracerTests : IDisposable
     private Hex1bAppWorkloadAdapter? _workload;
     private Hex1bTerminal? _terminal;
 
-    private RuntimeTracer CreateTracer(string assemblyPath, string args = "")
+    private RuntimeTracer CreateTracer(
+        string assemblyPath,
+        IReadOnlyList<string>? arguments = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -30,8 +32,85 @@ public class RuntimeTracerTests : IDisposable
         _app = new Hex1bApp(
             _ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("test")),
             new Hex1bAppOptions { WorkloadAdapter = _workload });
-        _tracer = new RuntimeTracer(assemblyPath, args, () => _app.Invalidate());
+        _tracer = new RuntimeTracer(
+            assemblyPath,
+            arguments ?? [],
+            () => _app.Invalidate());
         return _tracer;
+    }
+
+    /// <summary>
+    /// Verifies managed DLL launch information uses discrete host and application arguments.
+    /// </summary>
+    [TestMethod]
+    public void CreateStartInfo_ManagedDll_UsesArgumentList()
+    {
+        var assemblyPath = Path.Combine("directory with spaces", "sample.DLL");
+        using var tracer = new RuntimeTracer(
+            assemblyPath,
+            ["--fx-version", "value with spaces", "", "a&b"],
+            static () => { });
+
+        var startInfo = tracer.CreateStartInfo();
+
+        Assert.AreEqual("dotnet", startInfo.FileName);
+        Assert.AreEqual("", startInfo.Arguments);
+        Assert.IsFalse(startInfo.UseShellExecute);
+        Assert.IsTrue(startInfo.RedirectStandardOutput);
+        Assert.IsTrue(startInfo.RedirectStandardError);
+        AssertArguments(
+            ["exec", assemblyPath, "--fx-version", "value with spaces", "", "a&b"],
+            startInfo.ArgumentList);
+    }
+
+    /// <summary>
+    /// Verifies extensionless Unix apphosts are launched directly with literal arguments.
+    /// </summary>
+    [TestMethod]
+    public void CreateStartInfo_ExtensionlessAppHost_LaunchesDirectly()
+    {
+        var appHostPath = Path.Combine("publish", "sample");
+        using var tracer = new RuntimeTracer(
+            appHostPath,
+            ["$(whoami)", "quote\"slash\\"],
+            static () => { });
+
+        var startInfo = tracer.CreateStartInfo();
+
+        Assert.AreEqual(appHostPath, startInfo.FileName);
+        Assert.AreEqual("", startInfo.Arguments);
+        AssertArguments(["$(whoami)", "quote\"slash\\"], startInfo.ArgumentList);
+    }
+
+    /// <summary>
+    /// Verifies constructor input is copied and cannot mutate a later launch.
+    /// </summary>
+    [TestMethod]
+    public void Constructor_MutableArguments_DefensivelyCopies()
+    {
+        var arguments = new List<string> { "original" };
+        using var tracer = new RuntimeTracer("sample.dll", arguments, static () => { });
+
+        arguments[0] = "changed";
+        arguments.Add("extra");
+
+        AssertArguments(
+            ["exec", "sample.dll", "original"],
+            tracer.CreateStartInfo().ArgumentList);
+    }
+
+    /// <summary>
+    /// Verifies null argument elements are rejected at the API boundary.
+    /// </summary>
+    [TestMethod]
+    public void Constructor_NullArgumentElement_Throws()
+    {
+        string[] arguments = [null!];
+
+        var exception = Assert.ThrowsExactly<ArgumentException>(
+            () => new RuntimeTracer("sample.dll", arguments, static () => { }));
+
+        Assert.AreEqual("arguments", exception.ParamName);
     }
 
     /// <summary>
@@ -140,6 +219,38 @@ public class RuntimeTracerTests : IDisposable
         Assert.AreEqual(TraceProcessState.Exited, tracer.ProcessState);
         var output = tracer.GetOutput();
         Assert.IsNotEmpty(output);
+    }
+
+    /// <summary>
+    /// Verifies real EventPipe launch preserves every literal application argument.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task LaunchHelloWorld_LiteralArguments_PreserveExactBoundaries()
+    {
+        string[] arguments =
+        [
+            "--fx-version",
+            "value with spaces",
+            "",
+            "a&b",
+            "$(whoami)",
+            "quote\"slash\\"
+        ];
+        var tracer = CreateTracer(Samples.HelloWorldDll, arguments);
+
+        tracer.Start();
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(15));
+
+        Assert.AreEqual(TraceProcessState.Exited, tracer.ProcessState);
+        var output = tracer.GetOutput()
+            .Where(static line => line.Text.StartsWith("ARG[", StringComparison.Ordinal))
+            .Select(static line => line.Text)
+            .ToArray();
+        var expected = arguments
+            .Select(static (argument, index) => $"ARG[{index}]={argument}")
+            .ToArray();
+        AssertArguments(expected, output);
     }
 
     /// <summary>
@@ -375,5 +486,19 @@ public class RuntimeTracerTests : IDisposable
         _app?.Dispose();
         _terminal?.Dispose();
         _workload?.Dispose();
+    }
+
+    private static void AssertArguments(
+        string[] expected,
+        IReadOnlyList<string> actual)
+    {
+        Assert.HasCount(expected.Length, actual);
+        for (var index = 0; index < expected.Length; index++)
+        {
+            Assert.AreEqual(
+                expected[index],
+                actual[index],
+                $"Argument {index} differs.");
+        }
     }
 }

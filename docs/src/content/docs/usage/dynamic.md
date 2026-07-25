@@ -39,7 +39,17 @@ Press `Enter` on a JIT compilation event to jump to that method's IL disassembly
 
 ## Re-running
 
-After the process exits, press `Enter` to re-run with the same arguments. Press `a` on the idle screen to set command-line arguments before launching.
+Press `a` on the idle screen to open the argument editor. Enter validates the text and
+launches the process. Escape discards the draft and restores the last committed arguments.
+After the process exits, press Enter to re-run with the committed arguments.
+
+Whitespace separates arguments. Single and double quotes group text, adjacent quoted and
+unquoted segments form one argument, and `""` or `''` passes an empty argument. A
+backslash escapes whitespace, the active quote, or another backslash. Unmatched quotes and
+trailing escapes remain in the editor with a validation notice.
+
+Shell operators such as `&`, `;`, `|`, `>`, `$()`, and `*` are literal argument content.
+The launcher passes every value through `ProcessStartInfo.ArgumentList`.
 
 ## How it works
 

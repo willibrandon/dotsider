@@ -1,7 +1,9 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
+using Dotsider.Views;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 
 namespace Dotsider.Diagnostics;
@@ -16,6 +18,9 @@ internal sealed class DotsiderDiagnosticsListener(
     Func<object?>? currentViewProvider = null) : IAsyncDisposable
 {
     private const int MaxConnections = 4;
+
+    private static readonly UTF8Encoding s_utf8NoBom =
+        new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _connectionSlots = new(MaxConnections, MaxConnections);
@@ -100,13 +105,24 @@ internal sealed class DotsiderDiagnosticsListener(
             try
             {
                 await using var s = new NetworkStream(client, ownsSocket: true);
-                using var r = new StreamReader(s, leaveOpen: true);
-                await using var w = new StreamWriter(s, leaveOpen: true) { AutoFlush = true };
+                await using var w = new StreamWriter(s, s_utf8NoBom, leaveOpen: true)
+                {
+                    AutoFlush = true
+                };
 
                 // Read and discard the client's request before responding
                 // to avoid EPIPE on the client side
                 using var readCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                try { await r.ReadLineAsync(readCts.Token); } catch { /* timeout or error */ }
+                try
+                {
+                    await BoundedUtf8LineReader.ReadAsync(
+                        s,
+                        DotsiderProtocol.MaxRequestBytes,
+                        readCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
 
                 var rejection = DotsiderResponse.Fail(
                     $"Connection rejected: too many concurrent connections (limit: {MaxConnections})");
@@ -128,24 +144,27 @@ internal sealed class DotsiderDiagnosticsListener(
                 await TestDelayHook();
 
             await using var stream = new NetworkStream(client, ownsSocket: true);
-            using var reader = new StreamReader(stream, leaveOpen: true);
-            await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
+            await using var writer = new StreamWriter(stream, s_utf8NoBom, leaveOpen: true)
+            {
+                AutoFlush = true
+            };
 
             // 2. Read with timeout to prevent stalled clients from pinning slots
             using var readCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             readCts.CancelAfter(TimeSpan.FromSeconds(5));
 
-            string? line;
+            BoundedUtf8LineReadResult readResult;
             try
             {
-                line = await reader.ReadLineAsync(readCts.Token);
+                readResult = await BoundedUtf8LineReader.ReadAsync(
+                    stream,
+                    DotsiderProtocol.MaxRequestBytes,
+                    readCts.Token);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
-
-            if (string.IsNullOrWhiteSpace(line)) return;
 
             // 3. Peer credential check (after read so the client's write completes
             //    before we close — avoids EPIPE on the client side)
@@ -155,6 +174,35 @@ internal sealed class DotsiderDiagnosticsListener(
                     "Connection rejected: peer is not the same user");
                 await writer.WriteLineAsync(
                     JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+                return;
+            }
+
+            if (readResult.Status == BoundedUtf8LineReadStatus.EndOfStream)
+            {
+                return;
+            }
+
+            if (readResult.Status == BoundedUtf8LineReadStatus.TooLarge)
+            {
+                var errorResponse = DotsiderResponse.Fail(
+                    $"Request exceeds the {DotsiderProtocol.MaxRequestBytes}-byte limit");
+                await writer.WriteLineAsync(
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                return;
+            }
+
+            if (readResult.Status == BoundedUtf8LineReadStatus.InvalidUtf8)
+            {
+                var errorResponse = DotsiderResponse.Fail(
+                    "Request is not valid UTF-8");
+                await writer.WriteLineAsync(
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                return;
+            }
+
+            var line = readResult.Value;
+            if (string.IsNullOrWhiteSpace(line))
+            {
                 return;
             }
 
@@ -956,8 +1004,11 @@ internal sealed class DotsiderDiagnosticsListener(
 
         state.PendingMutations.Enqueue(s =>
         {
-            var args = request.Arguments ?? "";
+            var args = request.Arguments ?? [];
             s.Tracer?.Dispose();
+            s.CommitDynamicArguments(
+                ShellFreeArgumentTokenizer.Format(args),
+                args);
             s.Tracer = new RuntimeTracer(
                 s.Analyzer.LaunchPath, args, () => s.App.Invalidate());
             s.Tracer.Start();

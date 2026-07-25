@@ -1,5 +1,9 @@
 // A simple .NET console application for testing dotsider
 Console.WriteLine("Hello from dotsider test assembly!");
+for (var argumentIndex = 0; argumentIndex < args.Length; argumentIndex++)
+{
+    Console.WriteLine($"ARG[{argumentIndex}]={args[argumentIndex]}");
+}
 
 // Allocate some objects to trigger GC events
 var list = new List<byte[]>();

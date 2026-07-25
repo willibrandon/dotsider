@@ -1,5 +1,6 @@
 using Dotsider.Core.Protocol;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 
 namespace Dotsider.Infrastructure;
@@ -10,6 +11,9 @@ namespace Dotsider.Infrastructure;
 /// </summary>
 internal sealed class DotsiderClient
 {
+    private static readonly UTF8Encoding s_utf8NoBom =
+        new(encoderShouldEmitUTF8Identifier: false);
+
     /// <summary>
     /// Sends a DotsiderRequest to the specified socket and returns the response.
     /// </summary>
@@ -17,6 +21,14 @@ internal sealed class DotsiderClient
         string socketPath, DotsiderRequest request, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var requestBytes = Encoding.UTF8.GetByteCount(json);
+        if (requestBytes > DotsiderProtocol.MaxRequestBytes)
+        {
+            return DotsiderResponse.Fail(
+                $"Request is {requestBytes} bytes and exceeds the " +
+                $"{DotsiderProtocol.MaxRequestBytes}-byte limit");
+        }
+
         var responseJson = await SendRawAsync(socketPath, json, ct);
 
         DotsiderResponse response;
@@ -48,8 +60,11 @@ internal sealed class DotsiderClient
         await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
 
         await using var stream = new NetworkStream(socket, ownsSocket: false);
-        await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
-        using var reader = new StreamReader(stream, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, s_utf8NoBom, leaveOpen: true)
+        {
+            AutoFlush = true
+        };
+        using var reader = new StreamReader(stream, s_utf8NoBom, leaveOpen: true);
 
         await writer.WriteLineAsync(json.AsMemory(), ct);
         return await reader.ReadLineAsync(ct) ?? "";

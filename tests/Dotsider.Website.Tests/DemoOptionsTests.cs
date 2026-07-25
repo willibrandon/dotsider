@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using System.Net;
 
 namespace Dotsider.Website.Tests;
 
@@ -113,6 +115,70 @@ public sealed class DemoOptionsTests(TestContext testContext)
     }
 
     /// <summary>
+    /// Verifies malformed trusted-proxy entries fail validation.
+    /// </summary>
+    /// <param name="trustedProxy">The invalid proxy address.</param>
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("localhost")]
+    [DataRow("10.0.0.0/8")]
+    [DataRow("not-an-address")]
+    public void Validate_InvalidTrustedProxy_Fails(string trustedProxy)
+    {
+        var options = new DemoOptions
+        {
+            AllowedOrigins = ["*"],
+            TrustedProxies = [trustedProxy]
+        };
+
+        var result = Validate(options);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.IsNotNull(result.Failures);
+        Assert.Contains(
+            "Demo:TrustedProxies",
+            Assert.ContainsSingle(result.Failures));
+    }
+
+    /// <summary>
+    /// Verifies an empty trusted-proxy list is a valid fail-closed configuration.
+    /// </summary>
+    [TestMethod]
+    public void Validate_EmptyTrustedProxyList_Succeeds()
+    {
+        var options = new DemoOptions
+        {
+            AllowedOrigins = ["*"],
+            TrustedProxies = []
+        };
+
+        var result = Validate(options);
+
+        Assert.IsTrue(result.Succeeded);
+    }
+
+    /// <summary>
+    /// Verifies a null trusted-proxy collection produces a validation failure.
+    /// </summary>
+    [TestMethod]
+    public void Validate_NullTrustedProxyList_Fails()
+    {
+        var options = new DemoOptions
+        {
+            AllowedOrigins = ["*"],
+            TrustedProxies = null!
+        };
+
+        var result = Validate(options);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.IsNotNull(result.Failures);
+        Assert.Contains(
+            "Demo:TrustedProxies must be an array of exact IP addresses.",
+            Assert.ContainsSingle(result.Failures));
+    }
+
+    /// <summary>
     /// Verifies that equivalent explicit origins are normalized and deduplicated.
     /// </summary>
     [TestMethod]
@@ -205,6 +271,62 @@ public sealed class DemoOptionsTests(TestContext testContext)
         Assert.Contains(
             "Demo:MaxSessionsPerClient must not exceed Demo:MaxSessions.",
             exception.Failures);
+    }
+
+    /// <summary>
+    /// Verifies configured trusted proxies replace the loopback defaults.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task StartAsync_ConfiguredTrustedProxy_ReplacesDefaults()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Demo:TrustedProxies:0"] = "127.0.0.1",
+                ["Demo:TrustedProxies:1"] = "::1"
+            })
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Demo:TrustedProxies:0"] = "10.0.0.5"
+            })
+            .Build();
+        using var host = new HostBuilder()
+            .ConfigureServices(services => services.AddDemoOptions(configuration))
+            .Build();
+
+        await host.StartAsync(_testContext.CancellationToken);
+        var options = host.Services
+            .GetRequiredService<IOptions<ForwardedHeadersOptions>>()
+            .Value;
+
+        Assert.HasCount(1, options.KnownProxies);
+        Assert.Contains(IPAddress.Parse("10.0.0.5"), options.KnownProxies);
+        Assert.DoesNotContain(IPAddress.Loopback, options.KnownProxies);
+        Assert.DoesNotContain(IPAddress.IPv6Loopback, options.KnownProxies);
+    }
+
+    /// <summary>
+    /// Verifies malformed trusted-proxy configuration fails when the host starts.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task StartAsync_InvalidTrustedProxy_FailsBeforeServingRequests()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Demo:TrustedProxies:0"] = "10.0.0.0/8"
+            })
+            .Build();
+        using var host = new HostBuilder()
+            .ConfigureServices(services => services.AddDemoOptions(configuration))
+            .Build();
+
+        var exception = await Assert.ThrowsExactlyAsync<OptionsValidationException>(
+            () => host.StartAsync(_testContext.CancellationToken));
+
+        Assert.Contains("Demo:TrustedProxies", Assert.ContainsSingle(exception.Failures));
     }
 
     private static ValidateOptionsResult Validate(DemoOptions options)

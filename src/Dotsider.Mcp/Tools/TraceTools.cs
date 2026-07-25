@@ -68,7 +68,7 @@ public sealed partial class TraceTools(DotsiderSessionManager sessionManager)
     [McpServerTool(ReadOnly = false, Destructive = false, OpenWorld = false)]
     public async partial Task<string> StartTrace(
         int sessionId,
-        string? arguments = null,
+        string[]? arguments = null,
         CancellationToken ct = default)
     {
         return await sessionManager.GetTarget(sessionId)

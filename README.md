@@ -60,7 +60,7 @@ Browser-wasm outputs split into two useful views. Point dotsider at `dotnet.nati
 | **5 Hex Dump** | Hex editor with vi-style modal editing (read-only by default), byte category coloring, data interpretation panel, jump-to-offset, and vim navigation. |
 | **6 Dep Graph** | Visual dependency graph — your assembly at the root, references as nodes, edge weights by TypeRef count. Press Enter on a node to open that assembly. |
 | **7 Size Map** | Treemap of code size — Assembly > Namespace > Type > Method, sized by IL byte count. Click to drill in; Enter on a method leaf jumps to its IL. |
-| **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. Press Enter on a JIT event to jump to that method's IL. |
+| **8 Dynamic** | Launch the assembly and trace it live via EventPipe — GC events, JIT compilations, exceptions, performance counters, stdout. Press `a` to edit literal process arguments; press Enter on a JIT event to jump to that method's IL. |
 
 ### Additional modes
 
@@ -164,6 +164,7 @@ dotsider sessions view <pid>                    # current tab and view state
 dotsider sessions navigate <pid> <tab>          # switch to tab (1-8)
 dotsider sessions capture <pid>                 # capture screen as plain text
 dotsider sessions trace start <pid>             # start tracing the loaded assembly
+dotsider sessions trace start <pid> -- --flag "two words"
 dotsider sessions trace events <pid>            # get JIT, GC, exception events
 dotsider sessions trace counters <pid>          # get performance counters
 dotsider sessions trace output <pid>            # get stdout/stderr from traced process

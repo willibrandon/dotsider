@@ -134,11 +134,14 @@ Most tools accept either parameter. Session-only tools (navigation, tracing) req
 
 | Tool | Description |
 |------|-------------|
-| `start_trace` | Launch and monitor the loaded assembly |
+| `start_trace` | Launch and monitor the loaded assembly; `arguments` is an array of literal strings |
 | `stop_trace` | Stop the active trace session |
 | `get_trace_events` | JIT, GC, exception events with optional category filter |
 | `get_trace_counters` | Latest performance counter snapshot |
 | `get_process_output` | Captured stdout/stderr from the traced process |
+
+Session requests use protocol version 2 and a 1 MiB UTF-8 payload limit. Oversized
+requests return a normal tool error before a connection is opened.
 
 ## Prompts
 

@@ -72,6 +72,11 @@ All models live in `Analysis/Models/` and are plain records or enums suitable fo
 
 The diagnostics protocol enables communication between the dotsider TUI and external clients (CLI, MCP server) over Unix domain sockets.
 
+Protocol version 2 carries trace arguments as an array of literal strings. Each request is
+one UTF-8 JSON payload with a 1 MiB byte limit, framed by LF, CRLF, or connection EOF. An
+optional UTF-8 byte-order mark is accepted. Oversized and invalid UTF-8 requests receive a
+versioned failure response.
+
 | Class | Description |
 |-------|-------------|
 | `DotsiderProtocol` | Protocol-version constant. Bumped on breaking changes; adding optional fields does not bump |
@@ -123,5 +128,5 @@ The diagnostics protocol enables communication between the dotsider TUI and exte
 | `get-trace-counters` | — | Performance counter snapshot |
 | `get-trace-summary` | — | Aggregated trace summary (durations, counts, exceptions) |
 | `get-process-output` | — | Traced process stdout/stderr |
-| `start-trace` | Arguments? | Launch and trace the assembly |
+| `start-trace` | Arguments? (`string[]`) | Launch and trace the assembly with literal arguments |
 | `stop-trace` | — | Stop the active trace |

@@ -162,6 +162,6 @@ public class PeerCredentialTests : IAsyncDisposable
                 DotsiderJsonOptions.Default), ct);
 
         var doc = JsonDocument.Parse(rawResponse);
-        Assert.AreEqual(1, doc.RootElement.GetProperty("v").GetInt32());
+        Assert.AreEqual(DotsiderProtocol.Version, doc.RootElement.GetProperty("v").GetInt32());
     }
 }

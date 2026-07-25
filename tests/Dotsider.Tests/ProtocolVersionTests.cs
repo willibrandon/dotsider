@@ -12,7 +12,7 @@ namespace Dotsider.Tests;
 /// Uses the full headless TUI stack with real assemblies.
 /// </summary>
 [TestClass]
-public class ProtocolVersionTests : IAsyncDisposable
+public sealed class ProtocolVersionTests : IAsyncDisposable
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -98,6 +98,50 @@ public class ProtocolVersionTests : IAsyncDisposable
     }
 
     /// <summary>
+    /// Verifies protocol-v2 trace arguments reach the TUI as exact literal tokens.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task StartTrace_ArgumentArray_PreservesExactTokens()
+    {
+        var ct = CancellationToken.None;
+        var socketPath = await StartTuiWithDiagnosticsAsync(ct);
+        string[] expected =
+        [
+            "--fx-version",
+            "value with spaces",
+            "",
+            "a&b",
+            "$(whoami)"
+        ];
+
+        var response = await DotsiderClient.SendAsync(
+            socketPath,
+            new DotsiderRequest
+            {
+                Method = "start-trace",
+                Arguments = expected
+            },
+            ct);
+        await TestHelpers.WaitUntilAsync(
+            () => _state?.Tracer is not null,
+            TimeSpan.FromSeconds(10));
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.IsNotNull(_state);
+        Assert.HasCount(expected.Length, _state.DynamicArgumentList);
+        for (var index = 0; index < expected.Length; index++)
+        {
+            Assert.AreEqual(
+                expected[index],
+                _state.DynamicArgumentList[index],
+                $"Argument {index} differs.");
+        }
+
+        _state.Tracer?.Stop();
+    }
+
+    /// <summary>
     /// Verifies missing version is rejected.
     /// </summary>
     [TestMethod]
@@ -118,17 +162,17 @@ public class ProtocolVersionTests : IAsyncDisposable
     }
 
     /// <summary>
-    /// Verifies wrong version is rejected.
+    /// Verifies protocol-v1 clients are rejected after the trace argument wire change.
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task WrongVersion_IsRejected()
+    public async Task ProtocolV1_IsRejected()
     {
         var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
-            """{"v":99,"method":"assembly-info"}""", ct);
+            """{"v":1,"method":"assembly-info"}""", ct);
 
         var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
         Assert.IsNotNull(response);
@@ -152,7 +196,7 @@ public class ProtocolVersionTests : IAsyncDisposable
 
         var doc = JsonDocument.Parse(rawResponse);
         Assert.IsTrue(doc.RootElement.TryGetProperty("v", out var v));
-        Assert.AreEqual(1, v.GetInt32());
+        Assert.AreEqual(DotsiderProtocol.Version, v.GetInt32());
     }
 
     /// <summary>
@@ -165,19 +209,23 @@ public class ProtocolVersionTests : IAsyncDisposable
         var ct = CancellationToken.None;
         var socketPath = await StartTuiWithDiagnosticsAsync(ct);
 
-        // Version mismatch error carries "v":1
+        // Version mismatch errors carry the current protocol version.
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             """{"v":99,"method":"assembly-info"}""", ct);
         var doc = JsonDocument.Parse(rawResponse);
-        Assert.AreEqual(1, doc.RootElement.GetProperty("v").GetInt32());
+        Assert.AreEqual(
+            DotsiderProtocol.Version,
+            doc.RootElement.GetProperty("v").GetInt32());
 
-        // Peer rejection error carries "v":1
+        // Peer rejection errors carry the current protocol version.
         _listener!.ForceRejectPeers = true;
         rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
                 DotsiderJsonOptions.Default), ct);
         doc = JsonDocument.Parse(rawResponse);
-        Assert.AreEqual(1, doc.RootElement.GetProperty("v").GetInt32());
+        Assert.AreEqual(
+            DotsiderProtocol.Version,
+            doc.RootElement.GetProperty("v").GetInt32());
         _listener.ForceRejectPeers = false;
     }
 

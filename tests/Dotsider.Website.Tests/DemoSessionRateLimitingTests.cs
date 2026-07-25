@@ -354,11 +354,11 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
     }
 
     /// <summary>
-    /// Verifies that health reports only accepted sessions and returns to zero after completion.
+    /// Verifies accepted-session state returns to zero after completion.
     /// </summary>
     [TestMethod]
     [Timeout(10_000, CooperativeCancellation = true)]
-    public async Task AcceptedWebSocket_WhileSessionRuns_HealthTracksSession()
+    public async Task AcceptedWebSocket_WhileSessionRuns_TracksAcceptedSession()
     {
         const int maxSessions = 1;
         var sessionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -381,17 +381,10 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
 
                 endpoints.Map("/ws", sessionHandler.HandleAsync)
                     .RequireRateLimiting(DemoSessionRateLimitingExtensions.PolicyName);
-                endpoints.MapGet("/health", () => Results.Ok(new
-                {
-                    activeSessions = sessionHandler.ActiveSessions,
-                    maxSessions,
-                    maxSessionsPerClient = maxSessions
-                }));
             },
             _testContext.CancellationToken);
 
         Assert.IsNotNull(sessionHandler);
-        using var httpClient = host.GetTestClient();
         var webSocketClient = host.GetTestServer().CreateWebSocketClient();
         using var webSocket = await webSocketClient.ConnectAsync(
             new Uri("ws://localhost/ws"),
@@ -399,30 +392,13 @@ public sealed class DemoSessionRateLimitingTests(TestContext testContext)
 
         await sessionStarted.Task.WaitAsync(_testContext.CancellationToken);
 
-        using (var activeResponse =
-               await httpClient.GetAsync("/health", _testContext.CancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.OK, activeResponse.StatusCode);
-            Assert.Contains(
-                "\"activeSessions\":1",
-                await activeResponse.Content.ReadAsStringAsync(_testContext.CancellationToken));
-            Assert.Contains(
-                "\"maxSessionsPerClient\":1",
-                await activeResponse.Content.ReadAsStringAsync(_testContext.CancellationToken));
-        }
+        Assert.AreEqual(1, sessionHandler.ActiveSessions);
 
         finishSession.SetResult();
         await WaitUntilAsync(
             () => sessionHandler.ActiveSessions == 0,
             _testContext.CancellationToken);
-
-        using var completedResponse =
-            await httpClient.GetAsync("/health", _testContext.CancellationToken);
-
-        Assert.AreEqual(HttpStatusCode.OK, completedResponse.StatusCode);
-        Assert.Contains(
-            "\"activeSessions\":0",
-            await completedResponse.Content.ReadAsStringAsync(_testContext.CancellationToken));
+        Assert.AreEqual(0, sessionHandler.ActiveSessions);
     }
 
     /// <summary>

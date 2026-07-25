@@ -56,21 +56,107 @@ public sealed class DemoClientIdentityTests(TestContext testContext)
     }
 
     /// <summary>
+    /// Verifies the default IPv6 loopback proxy can supply the original client address.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task ForwardedFor_Ipv6LoopbackProxy_IsApplied()
+    {
+        using var host = await StartHostAsync(_testContext.CancellationToken);
+
+        var identity = await SendIdentityAsync(
+            host.GetTestServer(),
+            IPAddress.IPv6Loopback,
+            "198.51.100.21",
+            _testContext.CancellationToken);
+
+        Assert.AreEqual("198.51.100.21", identity);
+    }
+
+    /// <summary>
+    /// Verifies loopback aliases are not trusted unless their exact address is configured.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task ForwardedFor_UnconfiguredLoopbackAlias_IsIgnored()
+    {
+        using var host = await StartHostAsync(_testContext.CancellationToken);
+        var proxyAddress = IPAddress.Parse("127.0.0.2");
+
+        var identity = await SendIdentityAsync(
+            host.GetTestServer(),
+            proxyAddress,
+            "198.51.100.22",
+            _testContext.CancellationToken);
+
+        Assert.AreEqual(proxyAddress.ToString(), identity);
+    }
+
+    /// <summary>
+    /// Verifies a configured proxy replaces the defaults rather than extending them.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task ForwardedFor_CustomProxy_ReplacesDefaults()
+    {
+        var configuredProxy = IPAddress.Parse("10.0.0.5");
+        using var host = await StartHostAsync(
+            _testContext.CancellationToken,
+            [configuredProxy.ToString()]);
+
+        var configuredIdentity = await SendIdentityAsync(
+            host.GetTestServer(),
+            configuredProxy,
+            "198.51.100.23",
+            _testContext.CancellationToken);
+        var formerDefaultIdentity = await SendIdentityAsync(
+            host.GetTestServer(),
+            IPAddress.Loopback,
+            "198.51.100.24",
+            _testContext.CancellationToken);
+
+        Assert.AreEqual("198.51.100.23", configuredIdentity);
+        Assert.AreEqual(IPAddress.Loopback.ToString(), formerDefaultIdentity);
+    }
+
+    /// <summary>
+    /// Verifies an empty trusted-proxy list disables forwarded address processing.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    public async Task ForwardedFor_EmptyTrustedProxyList_IsIgnored()
+    {
+        using var host = await StartHostAsync(
+            _testContext.CancellationToken,
+            []);
+
+        var identity = await SendIdentityAsync(
+            host.GetTestServer(),
+            IPAddress.Loopback,
+            "198.51.100.25",
+            _testContext.CancellationToken);
+
+        Assert.AreEqual(IPAddress.Loopback.ToString(), identity);
+    }
+
+    /// <summary>
     /// Verifies that only the nearest forwarded hop is consumed.
     /// </summary>
     [TestMethod]
     [Timeout(10_000, CooperativeCancellation = true)]
     public async Task ForwardedFor_MultipleValues_UsesNearestHopOnly()
     {
-        using var host = await StartHostAsync(_testContext.CancellationToken);
+        using var host = await StartHostAsync(
+            _testContext.CancellationToken,
+            [IPAddress.Loopback.ToString(), "10.0.0.5"]);
 
         var identity = await SendIdentityAsync(
             host.GetTestServer(),
             IPAddress.Loopback,
-            "198.51.100.30, 203.0.113.30",
+            "198.51.100.30, 10.0.0.5",
             _testContext.CancellationToken);
 
-        Assert.AreEqual("203.0.113.30", identity);
+        Assert.AreEqual("10.0.0.5", identity);
     }
 
     /// <summary>
@@ -145,10 +231,25 @@ public sealed class DemoClientIdentityTests(TestContext testContext)
         return context.Response.Headers["X-Test-Client-Identity"].ToString();
     }
 
-    private static async Task<IHost> StartHostAsync(CancellationToken cancellationToken)
+    private static async Task<IHost> StartHostAsync(
+        CancellationToken cancellationToken,
+        string[]? trustedProxies = null)
     {
+        var settings = new Dictionary<string, string?>();
+        if (trustedProxies is { Length: 0 })
+        {
+            settings["Demo:TrustedProxies"] = "";
+        }
+        else if (trustedProxies is not null)
+        {
+            for (var index = 0; index < trustedProxies.Length; index++)
+            {
+                settings[$"Demo:TrustedProxies:{index}"] = trustedProxies[index];
+            }
+        }
+
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection()
+            .AddInMemoryCollection(settings)
             .Build();
         var host = await new HostBuilder()
             .ConfigureWebHost(webHost =>

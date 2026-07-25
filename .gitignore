@@ -491,6 +491,9 @@ $RECYCLE.BIN/
 # Claude AI
 .claude/
 
+# Agent scratch files
+.testagent/
+
 # MCP server config (developer-specific)
 .mcp.json
 

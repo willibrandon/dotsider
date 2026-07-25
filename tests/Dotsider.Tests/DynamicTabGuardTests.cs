@@ -10,7 +10,7 @@ namespace Dotsider.Tests;
 /// Tests for Dynamic Tab Guard.
 /// </summary>
 [TestClass]
-public class DynamicTabGuardTests : IDisposable
+public sealed class DynamicTabGuardTests : IDisposable
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
@@ -136,6 +136,109 @@ public class DynamicTabGuardTests : IDisposable
     }
 
     // --- Input sequence tests ---
+
+    /// <summary>
+    /// Verifies the Dynamic argument editor commits literal tokens before launching.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab8_ArgumentEditor_ValidText_CommitsAndLaunches()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.A)
+            .WaitUntil(_ => _state!.DynamicEditingArgs, TimeSpan.FromSeconds(5))
+            .Type("\"two words\" a&b")
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(
+                _ => !_state!.DynamicEditingArgs && _state.Tracer is not null,
+                TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.AreEqual("\"two words\" a&b", _state!.DynamicArguments);
+        Assert.HasCount(2, _state.DynamicArgumentList);
+        Assert.AreEqual("two words", _state.DynamicArgumentList[0]);
+        Assert.AreEqual("a&b", _state.DynamicArgumentList[1]);
+
+        _state.Tracer?.Stop();
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies malformed argument text remains editable and does not launch a process.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab8_ArgumentEditor_UnmatchedQuote_ShowsNoticeWithoutLaunching()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.A)
+            .WaitUntil(_ => _state!.DynamicEditingArgs, TimeSpan.FromSeconds(5))
+            .Type("\"unterminated")
+            .Key(Hex1bKey.Enter)
+            .WaitUntil(
+                _ => _state!.TransientNotice is not null,
+                TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.IsTrue(_state!.DynamicEditingArgs);
+        Assert.IsNull(_state.Tracer);
+        Assert.Contains("unmatched quote", _state.TransientNotice!);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies Escape discards an argument draft and preserves committed arguments.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab8_ArgumentEditor_Escape_CancelsDraft()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(Samples.HelloWorldDll);
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(s => s.ContainsText("EventPipe"), TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.A)
+            .WaitUntil(_ => _state!.DynamicEditingArgs, TimeSpan.FromSeconds(5))
+            .Type("discarded")
+            .Key(Hex1bKey.Escape)
+            .WaitUntil(_ => !_state!.DynamicEditingArgs, TimeSpan.FromSeconds(5))
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.AreEqual("", _state!.DynamicArguments);
+        Assert.IsEmpty(_state.DynamicArgumentList);
+        Assert.IsNull(_state.DynamicArgumentDraft);
+        Assert.IsNull(_state.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
 
     /// <summary>
     /// Verifies tab8 net framework shows guard message.

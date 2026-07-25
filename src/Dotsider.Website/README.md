@@ -7,7 +7,7 @@ WebSocket server that powers the live demo on [dotsider.dev](https://dotsider.de
 | Path | Description |
 |------|-------------|
 | `/ws` | WebSocket — spawns a dotsider TUI session for the connecting client |
-| `/health` | JSON health check — accepted active sessions and configured global and per-client limits |
+| `/health` | Readiness check returning `{"status":"ok"}` |
 
 ## Configuration
 
@@ -20,6 +20,7 @@ All settings are read from `IConfiguration` under the `Demo:` prefix:
 | `Demo:SessionTimeoutMinutes` | 10 | Max session duration before forced disconnect |
 | `Demo:SampleAssembly` | `sample.dll` | Path to the assembly loaded in the TUI |
 | `Demo:AllowedOrigins` | `*` | HTTP and WebSocket origins; `*` is development mode and must be the only entry |
+| `Demo:TrustedProxies` | `127.0.0.1`, `::1` | Exact IP addresses allowed to supply one `X-Forwarded-For` hop |
 
 All sessions are logged with structured audit events (`CONNECT`, `DISCONNECT`).
 Connections above `Demo:MaxSessionsPerClient` are rejected immediately with HTTP 429,
@@ -34,8 +35,9 @@ authentication.
 
 Published as a self-contained `linux-x64` binary and deployed to a Hetzner VM behind Caddy. See `deploy/` for the Caddyfile, systemd unit, and setup script.
 
-The application accepts `X-Forwarded-For` only from the framework's trusted
-loopback proxy boundary and consumes one forwarded hop. Caddy replaces the
-incoming header with its direct client's address. Deployments with a different
-proxy topology must configure an equally narrow trusted-proxy boundary rather
-than forwarding arbitrary client-supplied values.
+The application accepts one `X-Forwarded-For` hop from an exact address in
+`Demo:TrustedProxies`. Caddy runs on loopback, so the defaults match the supplied
+deployment. A higher-precedence configuration source replaces the complete proxy
+list from lower sources. Set `Demo__TrustedProxies__0` and subsequent indexes for a
+different proxy topology. Set `Demo__TrustedProxies` to an empty value to disable
+forwarded-address processing.

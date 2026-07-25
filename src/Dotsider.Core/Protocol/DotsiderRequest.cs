@@ -53,8 +53,8 @@ public sealed class DotsiderRequest
     /// <summary>Trace event category filter.</summary>
     public string? CategoryFilter { get; set; }
 
-    /// <summary>Command-line arguments for starting a trace.</summary>
-    public string? Arguments { get; set; }
+    /// <summary>Literal command-line arguments for starting a trace.</summary>
+    public string[]? Arguments { get; set; }
 
     /// <summary>Minimum string length for raw string extraction.</summary>
     public int? MinLength { get; set; }
