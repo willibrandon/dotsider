@@ -2739,8 +2739,9 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>
     /// Resolves a referenced assembly name to a file on disk or bytes from a bundle.
-    /// Probes: app-local, runtime directory, source bundle, host process bundle,
-    /// adjacent bundles, and .NET shared framework.
+    /// Probes: app-local, contained NuGet package assets named by <c>.deps.json</c>,
+    /// runtime directory, source bundle, host process bundle, adjacent bundles, and
+    /// .NET shared framework.
     /// </summary>
     /// <param name="referencingAssemblyPath">Path of the assembly that references the target.</param>
     /// <param name="assemblyName">Assembly name without extension (e.g. "System.Runtime").</param>
@@ -2778,19 +2779,19 @@ public sealed class AssemblyAnalyzer : IDisposable
         var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
         if (File.Exists(runtimeDll)) return new ResolvedAssembly.FromFile(runtimeDll);
 
-        // 3. Source bundle — if the referencing assembly came from a bundle
+        // 4. Source bundle — if the referencing assembly came from a bundle
         var fromSourceBundle = TryResolveFromBundle(sourceBundlePath, assemblyName);
         if (fromSourceBundle is not null) return fromSourceBundle;
 
-        // 4. Host process bundle — if the current process is a single-file bundle
+        // 5. Host process bundle — if the current process is a single-file bundle
         var fromHostBundle = TryResolveFromBundle(Environment.ProcessPath, assemblyName);
         if (fromHostBundle is not null) return fromHostBundle;
 
-        // 5. Adjacent bundles — scan same directory for other bundles
+        // 6. Adjacent bundles — scan same directory for other bundles
         var fromAdjacentBundle = TryResolveFromAdjacentBundles(directory, assemblyName);
         if (fromAdjacentBundle is not null) return fromAdjacentBundle;
 
-        // 6. .NET shared framework discovery
+        // 7. .NET shared framework discovery
         var sharedResult = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
             assemblyName, targetFramework, preferredRuntimePack);
         if (sharedResult is not null) return new ResolvedAssembly.FromFile(sharedResult.Path);

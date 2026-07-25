@@ -954,8 +954,9 @@ public AssemblyAnalyzer ReadyToRunMetadataProviderFor(Guid mvid)
 ### ResolveAssembly(string, string, string?, string?, string?)
 
 Resolves a referenced assembly name to a file on disk or bytes from a bundle.
-Probes: app-local, runtime directory, source bundle, host process bundle,
-adjacent bundles, and .NET shared framework.
+Probes: app-local, contained NuGet package assets named by `.deps.json`,
+runtime directory, source bundle, host process bundle, adjacent bundles, and
+.NET shared framework.
 
 **Parameters:**
 

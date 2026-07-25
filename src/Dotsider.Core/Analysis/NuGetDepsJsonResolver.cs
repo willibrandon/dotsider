@@ -10,7 +10,8 @@ namespace Dotsider.Core.Analysis;
 /// probe step that makes library projects work — <c>dotnet build</c> does not copy NuGet
 /// package assemblies next to a library's <c>bin</c> output, but the <c>.deps.json</c>
 /// manifest records the exact resolved package version and runtime asset path, matching
-/// what the .NET host uses at runtime.
+/// what the .NET host uses at runtime. Manifest paths are treated as untrusted and must
+/// remain inside the selected package in the configured global packages folder.
 /// </summary>
 public static class NuGetDepsJsonResolver
 {
@@ -20,35 +21,74 @@ public static class NuGetDepsJsonResolver
     /// </summary>
     /// <param name="referencingAssemblyPath">Path of the assembly whose <c>.deps.json</c> is consulted.</param>
     /// <param name="assemblyName">Simple name of the assembly to locate (e.g. <c>Newtonsoft.Json</c>).</param>
-    /// <returns>A <see cref="ResolvedAssembly.FromFile"/> pointing at the packaged dll, or <see langword="null"/>.</returns>
-    public static ResolvedAssembly? TryResolve(string referencingAssemblyPath, string assemblyName)
+    /// <returns>
+    /// A <see cref="ResolvedAssembly.FromFile"/> pointing at a contained packaged DLL, or
+    /// <see langword="null"/> when the dependency is absent or its manifest path is unsafe.
+    /// </returns>
+    public static ResolvedAssembly? TryResolve(
+        string referencingAssemblyPath,
+        string assemblyName) =>
+        TryResolve(referencingAssemblyPath, assemblyName, GetNuGetPackagesRoots());
+
+    /// <summary>
+    /// Resolves an assembly through a caller-supplied set of NuGet global package roots.
+    /// </summary>
+    /// <param name="referencingAssemblyPath">Path of the assembly whose <c>.deps.json</c> is consulted.</param>
+    /// <param name="assemblyName">Simple name of the assembly to locate.</param>
+    /// <param name="packageRoots">Trusted NuGet global package roots in probe order.</param>
+    /// <returns>
+    /// A <see cref="ResolvedAssembly.FromFile"/> pointing at a contained packaged DLL, or
+    /// <see langword="null"/> when the dependency is absent or its manifest path is unsafe.
+    /// </returns>
+    internal static ResolvedAssembly? TryResolve(
+        string referencingAssemblyPath,
+        string assemblyName,
+        IEnumerable<string> packageRoots)
     {
         var depsJsonPath = FindDepsJsonFor(referencingAssemblyPath);
         if (depsJsonPath is null) return null;
 
         string? libraryKey;
         string? runtimeRelative;
+        string? packagePath;
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllBytes(depsJsonPath));
             if (!TryFindRuntimeAsset(doc.RootElement, assemblyName, out libraryKey, out runtimeRelative))
                 return null;
+
+            packagePath = libraryKey is null
+                ? null
+                : ReadLibraryPath(doc.RootElement, libraryKey);
         }
         catch (IOException) { return null; }
         catch (JsonException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
 
-        if (libraryKey is null || runtimeRelative is null) return null;
-
-        var packagePath = ReadLibraryPath(depsJsonPath, libraryKey);
-        if (packagePath is null) return null;
-
-        foreach (var root in GetNuGetPackagesRoots())
+        if (packagePath is null ||
+            runtimeRelative is null ||
+            !ContainedPathResolver.IsSafeRelativePath(packagePath) ||
+            !ContainedPathResolver.IsSafeRelativePath(runtimeRelative))
         {
-            var candidate = Path.Combine(root, packagePath.Replace('/', Path.DirectorySeparatorChar),
-                runtimeRelative.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate))
-                return new ResolvedAssembly.FromFile(candidate);
+            return null;
+        }
+
+        foreach (var root in packageRoots)
+        {
+            if (string.IsNullOrWhiteSpace(root) ||
+                !ContainedPathResolver.TryResolveExistingDirectory(
+                    root,
+                    packagePath,
+                    out var packageDirectory) ||
+                !ContainedPathResolver.TryResolveExistingFile(
+                    packageDirectory,
+                    runtimeRelative,
+                    out var candidate))
+            {
+                continue;
+            }
+
+            return new ResolvedAssembly.FromFile(candidate);
         }
 
         return null;
@@ -93,7 +133,7 @@ public static class NuGetDepsJsonResolver
 
                 foreach (var asset in runtime.EnumerateObject())
                 {
-                    var fileName = Path.GetFileNameWithoutExtension(asset.Name);
+                    var fileName = GetPortableFileNameWithoutExtension(asset.Name);
                     if (string.Equals(fileName, assemblyName, StringComparison.OrdinalIgnoreCase))
                     {
                         libraryKey = lib.Name;
@@ -107,33 +147,41 @@ public static class NuGetDepsJsonResolver
         return false;
     }
 
-    private static string? ReadLibraryPath(string depsJsonPath, string libraryKey)
+    private static string GetPortableFileNameWithoutExtension(string path)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllBytes(depsJsonPath));
-            if (!doc.RootElement.TryGetProperty("libraries", out var libs)
-                || libs.ValueKind != JsonValueKind.Object)
-                return null;
+        var separator = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+        var fileName = path.AsSpan(separator + 1);
+        var extension = fileName.LastIndexOf('.');
+        return extension < 0
+            ? fileName.ToString()
+            : fileName[..extension].ToString();
+    }
 
-            if (!libs.TryGetProperty(libraryKey, out var entry) || entry.ValueKind != JsonValueKind.Object)
-                return null;
-
-            if (!entry.TryGetProperty("type", out var type) || type.GetString() != "package")
-                return null;
-
-            if (entry.TryGetProperty("path", out var pathProp) && pathProp.ValueKind == JsonValueKind.String)
-                return pathProp.GetString();
-
-            var slash = libraryKey.IndexOf('/');
-            return slash > 0
-                ? $"{libraryKey[..slash].ToLowerInvariant()}/{libraryKey[(slash + 1)..]}"
-                : null;
-        }
-        catch
+    private static string? ReadLibraryPath(JsonElement root, string libraryKey)
+    {
+        if (!root.TryGetProperty("libraries", out var libs)
+            || libs.ValueKind != JsonValueKind.Object)
         {
             return null;
         }
+
+        if (!libs.TryGetProperty(libraryKey, out var entry) || entry.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (!entry.TryGetProperty("type", out var type) ||
+            type.ValueKind != JsonValueKind.String ||
+            !string.Equals(type.GetString(), "package", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (entry.TryGetProperty("path", out var pathProp) && pathProp.ValueKind == JsonValueKind.String)
+            return pathProp.GetString();
+
+        var slash = libraryKey.IndexOf('/');
+        return slash > 0
+            ? $"{libraryKey[..slash].ToLowerInvariant()}/{libraryKey[(slash + 1)..]}"
+            : null;
     }
 
     private static IEnumerable<string> GetNuGetPackagesRoots()

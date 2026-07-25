@@ -123,7 +123,7 @@ IdentityMismatch = 9
 
 Resolved from the NuGet global packages folder by consulting the referencing
 assembly's `.deps.json` manifest for the exact resolved package version and
-runtime asset path.
+runtime asset path after both paths are contained beneath the selected package.
 
 **Returns:** [AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/)
 
