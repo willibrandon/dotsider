@@ -10,6 +10,8 @@ namespace Dotsider.Core.Analysis;
 /// Imports are the loaded dylibs (each with the undefined external symbols bound to
 /// it through the two-level namespace library ordinal); exports are the defined
 /// external symbols. Fat archives and 32-bit images yield empty results.
+/// Malformed or overflowing structural ranges also yield empty results rather than
+/// partially trusted tables.
 /// </summary>
 internal static class MachOImageReader
 {
@@ -36,6 +38,9 @@ internal static class MachOImageReader
 
     private const int Segment64HeaderSize = 72;
     private const int Section64Size = 80;
+    private const uint SectionTypeGbZeroFill = 0xC;
+    private const uint SectionTypeThreadLocalZeroFill = 0x12;
+    private const uint SectionTypeZeroFill = 0x1;
 
     private const byte NStab = 0xE0;
     private const byte NType = 0x0E;
@@ -53,12 +58,6 @@ internal static class MachOImageReader
         bytes.Length >= 8
         && BinaryPrimitives.ReadUInt32BigEndian(bytes) is FatMagic or FatMagic64;
 
-    /// <summary>One architecture slice of a fat/universal archive.</summary>
-    /// <param name="CpuType">The slice's <c>cputype</c>.</param>
-    /// <param name="Offset">The slice's byte offset in the archive.</param>
-    /// <param name="Size">The slice's byte size.</param>
-    internal readonly record struct MachOFatSlice(uint CpuType, long Offset, long Size);
-
     /// <summary>
     /// Enumerates the architecture slices of a fat archive (both the 32- and 64-bit header
     /// forms, which are big-endian), or an empty list for thin images.
@@ -66,39 +65,46 @@ internal static class MachOImageReader
     /// <param name="bytes">The raw archive bytes.</param>
     internal static IReadOnlyList<MachOFatSlice> ReadFatSlices(ReadOnlySpan<byte> bytes)
     {
-        var slices = new List<MachOFatSlice>();
-        try
+        if (!IsFat(bytes)) return [];
+        var is64 = BinaryPrimitives.ReadUInt32BigEndian(bytes) == FatMagic64;
+        var count = BinaryPrimitives.ReadUInt32BigEndian(bytes[4..]);
+        var entrySize = is64 ? 32U : 20U;
+        if (count > MaxFatSlices
+            || !NativeImageRange.TryGetTable(
+                bytes.Length,
+                8,
+                count,
+                entrySize,
+                entrySize,
+                out var tableOffset,
+                out _))
         {
-            if (!IsFat(bytes)) return slices;
-            var is64 = BinaryPrimitives.ReadUInt32BigEndian(bytes) == FatMagic64;
-            var count = BinaryPrimitives.ReadUInt32BigEndian(bytes[4..]);
-            if (count > MaxFatSlices) return slices;
-
-            var entrySize = is64 ? 32 : 20;
-            for (var i = 0; i < count; i++)
-            {
-                var entry = 8 + i * entrySize;
-                if (entry + entrySize > bytes.Length) break;
-                var cpuType = BinaryPrimitives.ReadUInt32BigEndian(bytes[entry..]);
-                long offset, size;
-                if (is64)
-                {
-                    offset = (long)BinaryPrimitives.ReadUInt64BigEndian(bytes[(entry + 8)..]);
-                    size = (long)BinaryPrimitives.ReadUInt64BigEndian(bytes[(entry + 16)..]);
-                }
-                else
-                {
-                    offset = BinaryPrimitives.ReadUInt32BigEndian(bytes[(entry + 8)..]);
-                    size = BinaryPrimitives.ReadUInt32BigEndian(bytes[(entry + 12)..]);
-                }
-
-                if (offset < 0 || size <= 0 || offset + size > bytes.Length) continue;
-                slices.Add(new MachOFatSlice(cpuType, offset, size));
-            }
+            return [];
         }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+
+        var slices = new List<MachOFatSlice>((int)count);
+        for (var i = 0; i < count; i++)
         {
-            // Keep the slices parsed so far.
+            var entry = tableOffset + (int)(i * entrySize);
+            var cpuType = BinaryPrimitives.ReadUInt32BigEndian(bytes[entry..]);
+            var offset = is64
+                ? BinaryPrimitives.ReadUInt64BigEndian(bytes[(entry + 8)..])
+                : BinaryPrimitives.ReadUInt32BigEndian(bytes[(entry + 8)..]);
+            var size = is64
+                ? BinaryPrimitives.ReadUInt64BigEndian(bytes[(entry + 16)..])
+                : BinaryPrimitives.ReadUInt32BigEndian(bytes[(entry + 12)..]);
+            if (size == 0
+                || !NativeImageRange.TryGet(
+                    bytes.Length,
+                    offset,
+                    size,
+                    out var sliceOffset,
+                    out var sliceSize))
+            {
+                return [];
+            }
+
+            slices.Add(new MachOFatSlice(cpuType, sliceOffset, sliceSize));
         }
 
         return slices;
@@ -110,7 +116,8 @@ internal static class MachOImageReader
     internal static bool TryReadUuid(ReadOnlySpan<byte> bytes, out byte[] uuid)
     {
         uuid = [];
-        foreach (var (cmd, offset, size) in Commands(bytes))
+        if (!TryReadCommands(bytes, out var commands)) return false;
+        foreach (var (cmd, offset, size) in commands)
         {
             if (cmd != LcUuid || size < 24) continue;
             uuid = bytes.Slice(offset + 8, 16).ToArray();
@@ -120,30 +127,6 @@ internal static class MachOImageReader
         return false;
     }
 
-    /// <summary>One Mach-O section's identity, location, and flags.</summary>
-    /// <param name="Name">The section name (e.g. <c>__text</c>).</param>
-    /// <param name="Segment">The owning segment's name (e.g. <c>__TEXT</c>).</param>
-    /// <param name="Address">The section's virtual address.</param>
-    /// <param name="FileOffset">The section's file offset.</param>
-    /// <param name="Size">The section's byte size.</param>
-    /// <param name="Flags">The section flags (instruction attributes mark executable code).</param>
-    /// <param name="Ordinal">The 1-based ordinal <c>n_sect</c> refers to, across all segments in load order.</param>
-    /// <param name="IndirectSymbolIndex">The <c>reserved1</c> field — a stub/pointer section's base index into the indirect symbol table.</param>
-    /// <param name="StubSize">The <c>reserved2</c> field — the byte size of each entry in a symbol-stub section, else 0.</param>
-    internal readonly record struct MachOSection(
-        string Name, string Segment, ulong Address, long FileOffset, long Size, uint Flags, int Ordinal,
-        int IndirectSymbolIndex = 0, int StubSize = 0)
-    {
-        /// <summary>The section type (low byte of the flags), e.g. stubs (0x8) or symbol pointers (0x6/0x7).</summary>
-        public uint Type => Flags & 0xFF;
-
-        /// <summary>
-        /// Whether the section holds code: ILC uses <c>__text</c>, <c>__managedcode</c>, and the
-        /// <c>__unbox</c> stubs, so the instruction attributes decide, not the name.
-        /// </summary>
-        public bool IsExecutable => (Flags & 0x8000_0400) != 0; // S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS
-    }
-
     /// <summary>
     /// Walks every <c>LC_SEGMENT_64</c> into its sections, in load order, with the running
     /// 1-based ordinals the symbol table's <c>n_sect</c> field references.
@@ -151,37 +134,77 @@ internal static class MachOImageReader
     /// <param name="bytes">The raw image bytes.</param>
     internal static IReadOnlyList<MachOSection> ReadSectionList(ReadOnlySpan<byte> bytes)
     {
-        var sections = new List<MachOSection>();
-        try
-        {
-            var ordinal = 0;
-            foreach (var (cmd, offset, size) in Commands(bytes))
-            {
-                if (cmd != LcSegment64 || size < Segment64HeaderSize) continue;
-                var segmentName = ReadFixedName(bytes, offset + 8);
-                var sectionCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 64)..]);
+        if (!TryReadCommands(bytes, out var commands)) return [];
 
-                for (var i = 0; i < sectionCount; i++)
-                {
-                    var s = offset + Segment64HeaderSize + i * Section64Size;
-                    if (s + Section64Size > offset + size || s + Section64Size > bytes.Length) break;
-                    ordinal++;
-                    sections.Add(new MachOSection(
-                        Name: ReadFixedName(bytes, s),
-                        Segment: segmentName,
-                        Address: BinaryPrimitives.ReadUInt64LittleEndian(bytes[(s + 32)..]),
-                        FileOffset: BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 48)..]),
-                        Size: (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(s + 40)..]),
-                        Flags: BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 64)..]),
-                        Ordinal: ordinal,
-                        IndirectSymbolIndex: (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 72)..]),
-                        StubSize: (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(s + 76)..])));
-                }
-            }
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+        var sections = new List<MachOSection>();
+        var ordinal = 0;
+        foreach (var (cmd, offset, size) in commands)
         {
-            // Keep the sections parsed so far.
+            if (cmd != LcSegment64) continue;
+            if (size < Segment64HeaderSize) return [];
+            var segmentName = ReadFixedName(bytes, offset + 8);
+            var sectionCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 64)..]);
+            if (!NativeImageRange.TryGetTable(
+                offset + size,
+                (ulong)(offset + Segment64HeaderSize),
+                sectionCount,
+                Section64Size,
+                Section64Size,
+                out var sectionTable,
+                out _))
+            {
+                return [];
+            }
+
+            for (var i = 0; i < sectionCount; i++)
+            {
+                var sectionOffset = sectionTable + (int)(i * Section64Size);
+                var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(sectionOffset + 32)..]);
+                var sizeValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(sectionOffset + 40)..]);
+                var fileOffsetValue = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(sectionOffset + 48)..]);
+                var flags = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(sectionOffset + 64)..]);
+                var indirectSymbolIndex = BinaryPrimitives.ReadUInt32LittleEndian(
+                    bytes[(sectionOffset + 72)..]);
+                var stubSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(sectionOffset + 76)..]);
+                if (sizeValue > long.MaxValue
+                    || indirectSymbolIndex > int.MaxValue
+                    || stubSize > int.MaxValue
+                    || !NativeImageRange.TryAdd(address, sizeValue, out _))
+                {
+                    return [];
+                }
+
+                long fileOffset;
+                if (IsZeroFill(flags))
+                {
+                    fileOffset = fileOffsetValue;
+                }
+                else if (!NativeImageRange.TryGet(
+                    bytes.Length,
+                    fileOffsetValue,
+                    sizeValue,
+                    out var validatedFileOffset,
+                    out _))
+                {
+                    return [];
+                }
+                else
+                {
+                    fileOffset = validatedFileOffset;
+                }
+
+                ordinal++;
+                sections.Add(new MachOSection(
+                    Name: ReadFixedName(bytes, sectionOffset),
+                    Segment: segmentName,
+                    Address: address,
+                    FileOffset: fileOffset,
+                    Size: (long)sizeValue,
+                    Flags: flags,
+                    Ordinal: ordinal,
+                    IndirectSymbolIndex: (int)indirectSymbolIndex,
+                    StubSize: (int)stubSize));
+            }
         }
 
         return sections;
@@ -196,7 +219,8 @@ internal static class MachOImageReader
     internal static bool TryGetTextBase(ReadOnlySpan<byte> bytes, out ulong vmaddr)
     {
         vmaddr = 0;
-        foreach (var (cmd, offset, size) in Commands(bytes))
+        if (!TryReadCommands(bytes, out var commands)) return false;
+        foreach (var (cmd, offset, size) in commands)
         {
             if (cmd != LcSegment64 || size < Segment64HeaderSize) continue;
             if (ReadFixedName(bytes, offset + 8) != "__TEXT") continue;
@@ -215,12 +239,19 @@ internal static class MachOImageReader
     {
         fileOffset = 0;
         size = 0;
-        foreach (var (cmd, offset, cmdSize) in Commands(bytes))
+        if (!TryReadCommands(bytes, out var commands)) return false;
+        foreach (var (cmd, offset, cmdSize) in commands)
         {
             if (cmd != LcFunctionStarts || cmdSize < 16) continue;
-            fileOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 8)..]);
-            size = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 12)..]);
-            return fileOffset >= 0 && size > 0 && fileOffset + size <= bytes.Length;
+            var fileOffsetValue = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 8)..]);
+            var sizeValue = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 12)..]);
+            return sizeValue > 0
+                && NativeImageRange.TryGet(
+                    bytes.Length,
+                    fileOffsetValue,
+                    sizeValue,
+                    out fileOffset,
+                    out size);
         }
 
         return false;
@@ -228,18 +259,15 @@ internal static class MachOImageReader
 
     /// <summary>Finds the <c>LC_SYMTAB</c> table locations.</summary>
     /// <param name="bytes">The raw image bytes.</param>
-    /// <param name="symtab">The nlist array's offset and count, and the string table's offset.</param>
-    internal static bool TryGetSymtab(ReadOnlySpan<byte> bytes, out (int Offset, int Count, int StringOffset) symtab)
+    /// <param name="symtab">The validated symbol and string table ranges.</param>
+    internal static bool TryGetSymtab(ReadOnlySpan<byte> bytes, out MachOSymbolTable symtab)
     {
         symtab = default;
-        foreach (var (cmd, offset, size) in Commands(bytes))
+        if (!TryReadCommands(bytes, out var commands)) return false;
+        foreach (var (cmd, offset, size) in commands)
         {
             if (cmd != LcSymtab || size < 24) continue;
-            symtab = (
-                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 8)..]),
-                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 12)..]),
-                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 16)..]));
-            return symtab.Count > 0;
+            return TryReadSymbolTable(bytes, offset, out symtab);
         }
 
         return false;
@@ -247,43 +275,98 @@ internal static class MachOImageReader
 
     /// <summary>Finds the <c>LC_DYSYMTAB</c> indirect symbol table, which maps stub/pointer slots to symbols.</summary>
     /// <param name="bytes">The raw image bytes.</param>
-    /// <param name="table">The indirect symbol table's file offset and entry count (each a uint32 symbol index).</param>
-    internal static bool TryGetIndirectSymbolTable(ReadOnlySpan<byte> bytes, out (int Offset, int Count) table)
+    /// <param name="table">The validated indirect-symbol table.</param>
+    internal static bool TryGetIndirectSymbolTable(
+        ReadOnlySpan<byte> bytes,
+        out MachOIndirectSymbolTable table)
     {
         table = default;
-        foreach (var (cmd, offset, size) in Commands(bytes))
+        if (!TryReadCommands(bytes, out var commands)) return false;
+        foreach (var (cmd, offset, size) in commands)
         {
             if (cmd != LcDysymtab || size < 80) continue;
-            table = (
-                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 56)..]),  // indirectsymoff
-                (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 60)..])); // nindirectsyms
-            return table.Count > 0;
+            var tableOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 56)..]);
+            var count = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(offset + 60)..]);
+            if (count == 0
+                || !NativeImageRange.TryGetTable(
+                    bytes.Length,
+                    tableOffset,
+                    count,
+                    sizeof(uint),
+                    sizeof(uint),
+                    out var fileOffset,
+                    out _))
+            {
+                return false;
+            }
+
+            table = new MachOIndirectSymbolTable(fileOffset, (int)count);
+            return true;
         }
 
         return false;
     }
 
-    /// <summary>Enumerates the load commands of a thin image as (cmd, offset, size) triples.</summary>
-    private static List<(uint Cmd, int Offset, int Size)> Commands(ReadOnlySpan<byte> bytes)
+    private static bool IsZeroFill(uint flags) =>
+        (flags & 0xFF) is SectionTypeZeroFill or SectionTypeGbZeroFill or SectionTypeThreadLocalZeroFill;
+
+    /// <summary>Enumerates fully validated load commands of a thin image.</summary>
+    private static bool TryReadCommands(
+        ReadOnlySpan<byte> bytes,
+        out List<(uint Cmd, int Offset, int Size)> commands)
     {
-        var commands = new List<(uint, int, int)>();
-        if (!IsMachO(bytes)) return commands;
+        commands = [];
+        if (!IsMachO(bytes)) return false;
 
         var commandCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[16..]);
-        if (commandCount > MaxCommands) return commands;
+        var commandsSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes[20..]);
+        if (commandCount > MaxCommands
+            || !NativeImageRange.TryGet(
+                bytes.Length,
+                HeaderSize,
+                commandsSize,
+                out var command,
+                out var commandBytes))
+        {
+            return false;
+        }
 
-        var command = HeaderSize;
+        var commandsEnd = command + commandBytes;
+        commands = new List<(uint, int, int)>((int)commandCount);
         for (var i = 0; i < commandCount; i++)
         {
-            if (command + 8 > bytes.Length) break;
+            if (!NativeImageRange.TryGet(commandsEnd, command, 8, out _, out _))
+            {
+                commands = [];
+                return false;
+            }
+
             var cmd = BinaryPrimitives.ReadUInt32LittleEndian(bytes[command..]);
-            var cmdSize = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 4)..]);
-            if (cmdSize < 8 || command + cmdSize > bytes.Length) break;
+            var cmdSizeValue = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 4)..]);
+            if (cmdSizeValue < 8
+                || (cmdSizeValue & 7) != 0
+                || !NativeImageRange.TryGet(
+                    commandsEnd,
+                    (ulong)command,
+                    cmdSizeValue,
+                    out _,
+                    out var cmdSize))
+            {
+                commands = [];
+                return false;
+            }
+
             commands.Add((cmd, command, cmdSize));
             command += cmdSize;
         }
 
-        return commands;
+        if (command != commandsEnd)
+        {
+            commands = [];
+            return false;
+        }
+
+        return true;
     }
 
     private static string ReadFixedName(ReadOnlySpan<byte> bytes, int offset)
@@ -297,118 +380,105 @@ internal static class MachOImageReader
     /// <summary>Reads the loaded dylibs and the undefined external symbols bound to each.</summary>
     internal static IReadOnlyList<ImportedModuleInfo> ReadImports(ReadOnlySpan<byte> bytes)
     {
-        try
+        if (!IsMachO(bytes)) return [];
+        if (Parse(bytes) is not { } image) return [];
+
+        var modules = image.Dylibs
+            .Select(d => (Name: d, Functions: new List<ImportedFunctionInfo>()))
+            .ToList();
+
+        if (image.Symbols is { } symtab)
         {
-            if (!IsMachO(bytes)) return [];
-            if (Parse(bytes) is not { } image) return [];
-
-            var modules = image.Dylibs
-                .Select(d => (Name: d, Functions: new List<ImportedFunctionInfo>()))
-                .ToList();
-
-            if (image.Symbols is { } symtab)
-            {
-                for (var i = 0; i < symtab.Count && i < MaxSymbols; i++)
-                {
-                    var entry = symtab.Offset + i * NListSize;
-                    var type = bytes[entry + 4];
-                    if ((type & NStab) != 0) continue;
-                    if ((type & NExt) == 0 || (type & NType) != NUndef) continue;
-
-                    var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[entry..]);
-                    var desc = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(entry + 6)..]);
-                    var name = ReadString(bytes, symtab.StringOffset, nameOffset);
-                    if (string.IsNullOrEmpty(name)) continue;
-
-                    // Two-level namespace: high byte of n_desc is the 1-based dylib ordinal.
-                    var ordinal = (desc >> 8) & 0xFF;
-                    if (ordinal >= 1 && ordinal <= modules.Count)
-                        modules[ordinal - 1].Functions.Add(
-                            new ImportedFunctionInfo(name, Ordinal: null, Hint: null));
-                }
-            }
-
-            return [.. modules.Select(m => new ImportedModuleInfo(m.Name, m.Functions))];
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
-        {
-            return [];
-        }
-    }
-
-    /// <summary>Reads the defined external symbols (the exported symbols).</summary>
-    internal static IReadOnlyList<ExportedFunctionInfo> ReadExports(ReadOnlySpan<byte> bytes)
-    {
-        try
-        {
-            if (!IsMachO(bytes)) return [];
-            if (Parse(bytes) is not { Symbols: { } symtab }) return [];
-
-            var exports = new List<ExportedFunctionInfo>();
             for (var i = 0; i < symtab.Count && i < MaxSymbols; i++)
             {
                 var entry = symtab.Offset + i * NListSize;
                 var type = bytes[entry + 4];
                 if ((type & NStab) != 0) continue;
-                if ((type & NExt) == 0 || (type & NType) != NSect) continue;
+                if ((type & NExt) == 0 || (type & NType) != NUndef) continue;
 
                 var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[entry..]);
-                var value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(entry + 8)..]);
-                var name = ReadString(bytes, symtab.StringOffset, nameOffset);
+                var desc = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(entry + 6)..]);
+                var name = ReadString(
+                    bytes,
+                    symtab.StringOffset,
+                    symtab.StringSize,
+                    nameOffset);
                 if (string.IsNullOrEmpty(name)) continue;
 
-                exports.Add(new ExportedFunctionInfo(
-                    Ordinal: i, Name: name, Rva: (int)value, ForwardedTo: null));
+                // Two-level namespace: high byte of n_desc is the 1-based dylib ordinal.
+                var ordinal = (desc >> 8) & 0xFF;
+                if (ordinal >= 1 && ordinal <= modules.Count)
+                    modules[ordinal - 1].Functions.Add(
+                        new ImportedFunctionInfo(name, Ordinal: null, Hint: null));
             }
+        }
 
-            return exports;
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
-        {
-            return [];
-        }
+        return [.. modules.Select(m => new ImportedModuleInfo(m.Name, m.Functions))];
     }
 
-    private static MachOImage? Parse(ReadOnlySpan<byte> bytes)
+    /// <summary>Reads the defined external symbols (the exported symbols).</summary>
+    internal static IReadOnlyList<ExportedFunctionInfo> ReadExports(ReadOnlySpan<byte> bytes)
     {
-        var commandCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[16..]);
-        if (commandCount > MaxCommands) return null;
+        if (!IsMachO(bytes)) return [];
+        if (Parse(bytes) is not { Symbols: { } symtab }) return [];
+
+        var exports = new List<ExportedFunctionInfo>();
+        for (var i = 0; i < symtab.Count && i < MaxSymbols; i++)
+        {
+            var entry = symtab.Offset + i * NListSize;
+            var type = bytes[entry + 4];
+            if ((type & NStab) != 0) continue;
+            if ((type & NExt) == 0 || (type & NType) != NSect) continue;
+
+            var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[entry..]);
+            var value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(entry + 8)..]);
+            var name = ReadString(
+                bytes,
+                symtab.StringOffset,
+                symtab.StringSize,
+                nameOffset);
+            if (string.IsNullOrEmpty(name)) continue;
+
+            exports.Add(new ExportedFunctionInfo(
+                Ordinal: i, Name: name, Rva: (int)value, ForwardedTo: null));
+        }
+
+        return exports;
+    }
+
+    private static (IReadOnlyList<string> Dylibs, MachOSymbolTable? Symbols)? Parse(
+        ReadOnlySpan<byte> bytes)
+    {
+        if (!TryReadCommands(bytes, out var commands)) return null;
 
         var dylibs = new List<string>();
-        (int Offset, int Count, int StringOffset)? symbols = null;
+        MachOSymbolTable? symbols = null;
 
-        var command = HeaderSize;
-        for (var i = 0; i < commandCount; i++)
+        foreach (var (cmd, command, cmdSize) in commands)
         {
-            if (command + 8 > bytes.Length) break;
-            var cmd = BinaryPrimitives.ReadUInt32LittleEndian(bytes[command..]);
-            var cmdSize = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 4)..]);
-            if (cmdSize < 8 || command + cmdSize > bytes.Length) break;
-
             switch (cmd)
             {
                 case LcLoadDylib or LcLoadWeakDylib or LcReexportDylib or LcLoadUpwardDylib:
                 {
+                    if (cmdSize < 24) return null;
                     var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 8)..]);
-                    var name = ReadString(bytes, command, nameOffset);
+                    var name = ReadString(bytes, command, cmdSize, nameOffset);
                     dylibs.Add(string.IsNullOrEmpty(name) ? "(unknown)" : ShortDylibName(name));
                     break;
                 }
 
                 case LcSymtab:
                 {
-                    var symOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 8)..]);
-                    var symCount = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 12)..]);
-                    var stringOffset = (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 16)..]);
-                    symbols = (symOffset, symCount, stringOffset);
+                    if (cmdSize < 24
+                        || !TryReadSymbolTable(bytes, command, out var symbolTable))
+                        return null;
+                    symbols = symbolTable;
                     break;
                 }
             }
-
-            command += cmdSize;
         }
 
-        return new MachOImage(dylibs, symbols);
+        return (dylibs, symbols);
     }
 
     private static string ShortDylibName(string path)
@@ -417,19 +487,68 @@ internal static class MachOImageReader
         return slash >= 0 && slash < path.Length - 1 ? path[(slash + 1)..] : path;
     }
 
-    private static string? ReadString(ReadOnlySpan<byte> bytes, long tableOffset, uint offset)
+    private static string? ReadString(
+        ReadOnlySpan<byte> bytes,
+        int tableOffset,
+        int tableSize,
+        uint offset)
     {
-        var start = tableOffset + offset;
-        if (start < 0 || start >= bytes.Length) return null;
+        if (offset >= (uint)tableSize
+            || !NativeImageRange.TryGet(
+                bytes.Length,
+                tableOffset,
+                tableSize,
+                out _,
+                out _)
+            || !NativeImageRange.TryAdd((ulong)tableOffset, offset, out var startValue)
+            || !NativeImageRange.TryGet(bytes.Length, startValue, 1, out var start, out _))
+        {
+            return null;
+        }
 
-        var slice = bytes[(int)start..];
+        var available = tableSize - (int)offset;
+        var slice = bytes.Slice(start, Math.Min(available, MaxStringLength + 1));
         var end = slice.IndexOf((byte)0);
-        if (end < 0) end = Math.Min(slice.Length, MaxStringLength);
-        if (end > MaxStringLength) return null;
+        if (end < 0 || end > MaxStringLength) return null;
 
         return Encoding.UTF8.GetString(slice[..end]);
     }
 
-    private readonly record struct MachOImage(
-        IReadOnlyList<string> Dylibs, (int Offset, int Count, int StringOffset)? Symbols);
+    private static bool TryReadSymbolTable(
+        ReadOnlySpan<byte> bytes,
+        int commandOffset,
+        out MachOSymbolTable symbolTable)
+    {
+        var symbolOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(commandOffset + 8)..]);
+        var symbolCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(commandOffset + 12)..]);
+        var stringOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(commandOffset + 16)..]);
+        var stringSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(commandOffset + 20)..]);
+        if (symbolCount == 0
+            || !NativeImageRange.TryGetTable(
+                bytes.Length,
+                symbolOffset,
+                symbolCount,
+                NListSize,
+                NListSize,
+                out var symbols,
+                out _)
+            || !NativeImageRange.TryGet(
+                bytes.Length,
+                stringOffset,
+                stringSize,
+                out var strings,
+                out var stringsLength))
+        {
+            symbolTable = default;
+            return false;
+        }
+
+        symbolTable = new MachOSymbolTable(
+            symbols,
+            (int)symbolCount,
+            strings,
+            stringsLength);
+        return true;
+    }
+
 }

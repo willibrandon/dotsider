@@ -76,7 +76,9 @@ public sealed class NativeImportResolver
 
             for (var i = 0; i < 4096; i++)
             {
-                var descriptorRva = directory.RelativeVirtualAddress + i * 20;
+                var descriptorRvaValue = (long)directory.RelativeVirtualAddress + i * 20L;
+                if (descriptorRvaValue > int.MaxValue) break;
+                var descriptorRva = (int)descriptorRvaValue;
                 var d = ReaderAt(pe, descriptorRva, 20);
                 if (d is null) break;
 
@@ -173,10 +175,20 @@ public sealed class NativeImportResolver
 
     private static string? ReadElfSymbolName(byte[] dynsym, byte[] dynstr, int symbolIndex)
     {
+        if (symbolIndex < 0
+            || !NativeImageRange.TryGetTable(
+                dynsym.Length,
+                0,
+                (ulong)symbolIndex + 1,
+                24,
+                4,
+                out _,
+                out _))
+            return null;
+
         var offset = symbolIndex * 24; // sizeof(Elf64_Sym); st_name is the leading uint32.
-        if (symbolIndex < 0 || offset + 4 > dynsym.Length) return null;
         var stName = BinaryPrimitives.ReadUInt32LittleEndian(dynsym.AsSpan(offset));
-        return ReadCString(dynstr, (int)stName);
+        return stName <= int.MaxValue ? ReadCString(dynstr, (int)stName) : null;
     }
 
     private static string? ReadCString(byte[] data, int offset)
@@ -219,7 +231,14 @@ public sealed class NativeImportResolver
                     if (symbolIndex is null || (symbolIndex.Value & 0xC000_0000) != 0) continue;
 
                     var name = ReadMachOSymbolName(bytes, symtab, (int)symbolIndex.Value);
-                    if (name is not null) slots[section.Address + (ulong)(i * stride)] = name;
+                    if (name is not null
+                        && NativeImageRange.TryAdd(
+                            section.Address,
+                            (ulong)(i * stride),
+                            out var slotAddress))
+                    {
+                        slots[slotAddress] = name;
+                    }
                 }
             }
 
@@ -248,31 +267,39 @@ public sealed class NativeImportResolver
             _ => 0u,
         };
         var slice = slices.FirstOrDefault(s => s.CpuType == wanted, slices[0]);
-        if (slice.Offset < 0 || slice.Offset >= rawBytes.Length) return rawBytes;
-
-        var end = (int)Math.Min(slice.Offset + slice.Size, rawBytes.Length);
-        return rawBytes[(int)slice.Offset..end];
+        return rawBytes.Slice((int)slice.Offset, (int)slice.Size);
     }
 
-    private static uint? ReadIndirectSymbol(ReadOnlySpan<byte> bytes, (int Offset, int Count) indirect, int index)
+    private static uint? ReadIndirectSymbol(
+        ReadOnlySpan<byte> bytes,
+        MachOIndirectSymbolTable indirect,
+        int index)
     {
         if (index < 0 || index >= indirect.Count) return null;
         var offset = indirect.Offset + index * 4;
-        if (offset < 0 || offset + 4 > bytes.Length) return null;
+        if (!NativeImageRange.TryGet(bytes.Length, offset, sizeof(uint), out _, out _)) return null;
         return BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]);
     }
 
     private static string? ReadMachOSymbolName(
-        ReadOnlySpan<byte> bytes, (int Offset, int Count, int StringOffset) symtab, int symbolIndex)
+        ReadOnlySpan<byte> bytes,
+        MachOSymbolTable symtab,
+        int symbolIndex)
     {
         if (symbolIndex < 0 || symbolIndex >= symtab.Count) return null;
         var nlist = symtab.Offset + symbolIndex * 16; // sizeof(nlist_64); n_strx is the leading uint32
-        if (nlist < 0 || nlist + 4 > bytes.Length) return null;
+        var stringOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[nlist..]);
+        if (stringOffset >= (uint)symtab.StringSize
+            || !NativeImageRange.TryAdd(
+                (ulong)symtab.StringOffset,
+                stringOffset,
+                out var nameOffsetValue)
+            || !NativeImageRange.TryGet(bytes.Length, nameOffsetValue, 1, out var nameOffset, out _))
+        {
+            return null;
+        }
 
-        var nameOffset = symtab.StringOffset + (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[nlist..]);
-        if (nameOffset < 0 || nameOffset >= bytes.Length) return null;
-
-        var slice = bytes[nameOffset..];
+        var slice = bytes.Slice(nameOffset, symtab.StringSize - (int)stringOffset);
         var end = slice.IndexOf((byte)0);
         return end <= 0 ? null : Encoding.ASCII.GetString(slice[..end]);
     }
@@ -283,14 +310,18 @@ public sealed class NativeImportResolver
     {
         for (var i = 0; i < 8192; i++)
         {
-            var entry = ReaderAt(pe, (int)thunkRva + i * ptrSize, ptrSize);
+            var entryRva = (ulong)thunkRva + (ulong)(i * ptrSize);
+            if (entryRva > int.MaxValue) break;
+            var entry = ReaderAt(pe, (int)entryRva, ptrSize);
             if (entry is null) break;
 
             var reader = entry.Value;
             var value = is64 ? reader.ReadUInt64() : reader.ReadUInt32();
             if (value == 0) break;
 
-            var slotVa = imageBase + iatRva + (ulong)(i * ptrSize);
+            if (!NativeImageRange.TryAdd(imageBase, iatRva, out var tableAddress)
+                || !NativeImageRange.TryAdd(tableAddress, (ulong)(i * ptrSize), out var slotVa))
+                break;
             var isOrdinal = is64 ? (value & 0x8000_0000_0000_0000) != 0 : (value & 0x8000_0000) != 0;
             if (isOrdinal)
             {
@@ -299,7 +330,8 @@ public sealed class NativeImportResolver
             }
 
             // The low bits are the RVA of an IMAGE_IMPORT_BY_NAME (2-byte hint + ASCII name).
-            var name = ReadAscii(pe, (int)(value & 0x7FFF_FFFF) + 2);
+            var nameRva = (value & 0x7FFF_FFFF) + 2;
+            var name = nameRva <= int.MaxValue ? ReadAscii(pe, (int)nameRva) : null;
             if (name is not null)
                 slots[slotVa] = $"{module}!{name}";
         }
@@ -309,7 +341,7 @@ public sealed class NativeImportResolver
     {
         var image = pe.GetEntireImage();
         var offset = RvaToOffset(pe, rva);
-        if (offset < 0 || offset + size > image.Length) return null;
+        if (!NativeImageRange.TryGet(image.Length, offset, size, out _, out _)) return null;
         return new PEMemoryBlockReader(image, offset);
     }
 
@@ -326,10 +358,25 @@ public sealed class NativeImportResolver
 
     private static int RvaToOffset(PEReader pe, int rva)
     {
+        if (rva < 0) return -1;
         foreach (var section in pe.PEHeaders.SectionHeaders)
         {
-            if (rva >= section.VirtualAddress && rva < section.VirtualAddress + section.VirtualSize)
-                return section.PointerToRawData + (rva - section.VirtualAddress);
+            if (section.VirtualAddress < 0
+                || section.VirtualSize <= 0
+                || section.PointerToRawData < 0
+                || rva < section.VirtualAddress)
+                continue;
+
+            var delta = (uint)(rva - section.VirtualAddress);
+            if (delta >= (uint)section.VirtualSize
+                || !NativeImageRange.TryAdd(
+                    (uint)section.PointerToRawData,
+                    delta,
+                    out var offset)
+                || offset > int.MaxValue)
+                continue;
+
+            return (int)offset;
         }
 
         return -1;

@@ -44,14 +44,27 @@ internal static class ElfSymtabReader
 
             if (symtab.Type != ShtSymTab || symtab.Link >= sections.Count) return result;
             var strtab = sections[(int)symtab.Link];
-            if (symtab.FileOffset < 0 || symtab.FileOffset + symtab.Size > symbolBytes.Length) return result;
-            if (strtab.FileOffset < 0 || strtab.FileOffset + strtab.Size > symbolBytes.Length) return result;
+            if (!NativeImageRange.TryGet(
+                    symbolBytes.Length,
+                    symtab.FileOffset,
+                    symtab.Size,
+                    out var symbolOffset,
+                    out var symbolSize)
+                || !NativeImageRange.TryGet(
+                    symbolBytes.Length,
+                    strtab.FileOffset,
+                    strtab.Size,
+                    out var stringOffset,
+                    out var stringSize))
+            {
+                return result;
+            }
 
-            var strings = symbolBytes.Slice(strtab.FileOffset, strtab.Size);
-            var count = Math.Min(symtab.Size / SymbolSize, MaxSymbols);
+            var strings = symbolBytes.Slice(stringOffset, stringSize);
+            var count = Math.Min(symbolSize / SymbolSize, MaxSymbols);
             for (var i = 1; i < count; i++) // entry 0 is the reserved null symbol
             {
-                var entry = symbolBytes.Slice(symtab.FileOffset + i * SymbolSize, SymbolSize);
+                var entry = symbolBytes.Slice(symbolOffset + i * SymbolSize, SymbolSize);
                 if ((entry[4] & 0xF) != SttObject) continue;
 
                 var sectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(entry[6..]);

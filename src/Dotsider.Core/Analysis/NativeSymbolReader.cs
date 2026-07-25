@@ -48,8 +48,14 @@ public static class NativeSymbolReader
     private static NativeArchitecture PeArch(ReadOnlySpan<byte> image)
     {
         if (image.Length < 0x40) return NativeArchitecture.Unknown;
-        var peOffset = BinaryPrimitives.ReadInt32LittleEndian(image[0x3C..]);
-        if (peOffset < 0 || peOffset + 6 > image.Length) return NativeArchitecture.Unknown;
+        var peOffsetValue = BinaryPrimitives.ReadUInt32LittleEndian(image[0x3C..]);
+        if (!NativeImageRange.TryGet(
+            image.Length,
+            peOffsetValue,
+            6,
+            out var peOffset,
+            out _))
+            return NativeArchitecture.Unknown;
         return BinaryPrimitives.ReadUInt16LittleEndian(image[(peOffset + 4)..]) switch
         {
             0x014C => NativeArchitecture.X86,
@@ -163,7 +169,7 @@ public static class NativeSymbolReader
     /// then the Native AOT signal; -1 when nothing disambiguates.
     /// </summary>
     private static int ChooseFatSlice(
-        ReadOnlySpan<byte> archive, IReadOnlyList<MachOImageReader.MachOFatSlice> slices,
+        ReadOnlySpan<byte> archive, IReadOnlyList<MachOFatSlice> slices,
         List<byte[]>? dsymSlices)
     {
         if (slices.Count == 1) return 0;
@@ -267,7 +273,7 @@ public static class NativeSymbolReader
 
     /// <summary>Walks the dSYM's <c>__DWARF</c> sections into function records.</summary>
     private static void AppendMachODwarfFunctions(
-        byte[] dsymBytes, IReadOnlyList<MachOImageReader.MachOSection> imageSections,
+        byte[] dsymBytes, IReadOnlyList<MachOSection> imageSections,
         long sliceShift, List<RawNativeSymbol> raw)
     {
         var sections = MachOImageReader.ReadSectionList(dsymBytes);
@@ -295,27 +301,52 @@ public static class NativeSymbolReader
 
     /// <summary>Re-anchors a dSYM-derived symbol's section and file offset onto the analyzed image.</summary>
     private static RawNativeSymbol RemapToImage(
-        RawNativeSymbol symbol, IReadOnlyList<MachOImageReader.MachOSection> imageSections, long sliceShift)
+        RawNativeSymbol symbol, IReadOnlyList<MachOSection> imageSections, long sliceShift)
     {
         var (section, fileOffset) = MapMachOAddress(imageSections, symbol.VirtualAddress, sliceShift);
         return symbol with { Section = section ?? symbol.Section, FileOffset = fileOffset };
     }
 
     private static (string? Section, long? FileOffset) MapMachOAddress(
-        IReadOnlyList<MachOImageReader.MachOSection> sections, ulong va, long sliceShift)
+        IReadOnlyList<MachOSection> sections, ulong va, long sliceShift)
     {
         foreach (var section in sections)
         {
-            if (section.Address != 0 && va >= section.Address && va < section.Address + (ulong)section.Size)
-                return (section.Name, sliceShift + section.FileOffset + (long)(va - section.Address));
+            if (section.Address == 0
+                || section.Size <= 0
+                || section.FileOffset < 0
+                || section.Type is 0x1 or 0xC or 0x12
+                || sliceShift < 0
+                || va < section.Address)
+                continue;
+
+            var delta = va - section.Address;
+            if (delta >= (ulong)section.Size
+                || !NativeImageRange.TryAdd((ulong)section.FileOffset, delta, out var relativeOffset)
+                || !NativeImageRange.TryAdd((ulong)sliceShift, relativeOffset, out var fileOffset)
+                || fileOffset > long.MaxValue)
+                continue;
+
+            return (section.Name, (long)fileOffset);
         }
 
         return (null, null);
     }
 
     /// <summary>Shifts a fat-slice-relative file offset to the whole archive.</summary>
-    private static RawNativeSymbol Shift(RawNativeSymbol symbol, long sliceShift) =>
-        symbol.FileOffset is { } offset ? symbol with { FileOffset = offset + sliceShift } : symbol;
+    private static RawNativeSymbol Shift(RawNativeSymbol symbol, long sliceShift)
+    {
+        if (symbol.FileOffset is not { } offset
+            || offset < 0
+            || sliceShift < 0
+            || !NativeImageRange.TryAdd((ulong)offset, (ulong)sliceShift, out var shifted)
+            || shifted > long.MaxValue)
+        {
+            return symbol with { FileOffset = null };
+        }
+
+        return symbol with { FileOffset = (long)shifted };
+    }
 
     private static NativeSymbolInfo ReadElf(string imagePath, ReadOnlyMemory<byte> imageBytes, IlcNameDemangler demangler)
     {
@@ -570,7 +601,7 @@ public static class NativeSymbolReader
     /// mismatching or unreadable candidates exist, the first is reported so a stale or corrupt
     /// sidecar is visible to callers.
     /// </summary>
-    private static (PdbProbe Outcome, string? Path) ProbePdb(string imagePath, PeCodeView.CodeViewId id)
+    private static (PdbProbe Outcome, string? Path) ProbePdb(string imagePath, CodeViewId id)
     {
         var directory = Path.GetDirectoryName(imagePath);
         if (string.IsNullOrEmpty(directory)) return (PdbProbe.None, null);

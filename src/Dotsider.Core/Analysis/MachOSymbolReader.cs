@@ -45,13 +45,16 @@ internal static class MachOSymbolReader
             for (var i = 0; i < count; i++)
             {
                 var entry = symtab.Offset + i * NListSize;
-                if (entry < 0 || entry + NListSize > bytes.Length) break;
 
                 var type = bytes[entry + 4];
                 var ordinal = bytes[entry + 5];
                 var value = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(entry + 8)..]);
                 var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[entry..]);
-                var name = ReadName(bytes, symtab.StringOffset, nameOffset);
+                var name = ReadName(
+                    bytes,
+                    symtab.StringOffset,
+                    symtab.StringSize,
+                    nameOffset);
 
                 if ((type & NStab) != 0)
                 {
@@ -131,7 +134,8 @@ internal static class MachOSymbolReader
                 while ((b & 0x80) != 0);
 
                 if (delta == 0) break; // padding terminates the stream
-                address += delta;
+                if (!NativeImageRange.TryAdd(address, delta, out address))
+                    return Finish(starts, sections, result);
                 starts.Add(address);
             }
 
@@ -144,7 +148,7 @@ internal static class MachOSymbolReader
     }
 
     private static List<RawNativeSymbol> Finish(
-        List<ulong> starts, IReadOnlyList<MachOImageReader.MachOSection> sections, List<RawNativeSymbol> result)
+        List<ulong> starts, IReadOnlyList<MachOSection> sections, List<RawNativeSymbol> result)
     {
         for (var i = 0; i < starts.Count; i++)
         {
@@ -152,12 +156,17 @@ internal static class MachOSymbolReader
             var section = FindSectionByAddress(sections, va);
             var end = i + 1 < starts.Count
                 ? starts[i + 1]
-                : section is { } s ? s.Address + (ulong)s.Size : va;
-            if (section is { } clamp && end > clamp.Address + (ulong)clamp.Size)
-                end = clamp.Address + (ulong)clamp.Size;
+                : section is { } s && TryGetSectionEnd(s, out var sectionEnd) ? sectionEnd : va;
+            if (section is { } clamp
+                && TryGetSectionEnd(clamp, out var clampEnd)
+                && end > clampEnd)
+                end = clampEnd;
             if (end <= va) continue;
 
-            long? fileOffset = section is { } fo ? fo.FileOffset + (long)(va - fo.Address) : null;
+            long? fileOffset = section is { } fo
+                && TryMapFileOffset(fo, va, out var mappedOffset)
+                ? mappedOffset
+                : null;
             result.Add(new RawNativeSymbol(
                 Name: $"sub_{va:x}",
                 VirtualAddress: va,
@@ -176,7 +185,7 @@ internal static class MachOSymbolReader
 
     private static void AppendSizedFunctions(
         List<(string Name, ulong Va, int Ordinal, long Size)> functions,
-        IReadOnlyList<MachOImageReader.MachOSection> sections, List<RawNativeSymbol> result)
+        IReadOnlyList<MachOSection> sections, List<RawNativeSymbol> result)
     {
         // nlist carries no sizes: sort and size each unsized function by the next start,
         // clamped to its containing section's end so the last one never bleeds across sections.
@@ -191,9 +200,13 @@ internal static class MachOSymbolReader
                 while (j < functions.Count && functions[j].Va <= va) j++;
                 var end = j < functions.Count
                     ? functions[j].Va
-                    : section is { } s ? s.Address + (ulong)s.Size : va;
-                if (section is { } clamp && end > clamp.Address + (ulong)clamp.Size)
-                    end = clamp.Address + (ulong)clamp.Size;
+                    : section is { } s && TryGetSectionEnd(s, out var sectionEnd)
+                        ? sectionEnd
+                        : va;
+                if (section is { } clamp
+                    && TryGetSectionEnd(clamp, out var clampEnd)
+                    && end > clampEnd)
+                    end = clampEnd;
                 size = end > va ? (long)(end - va) : 0;
             }
 
@@ -203,14 +216,12 @@ internal static class MachOSymbolReader
     }
 
     private static RawNativeSymbol Raw(
-        string name, ulong va, MachOImageReader.MachOSection section, long size, bool isData) =>
+        string name, ulong va, MachOSection section, long size, bool isData) =>
         new(
             Name: name,
             VirtualAddress: va,
             Rva: null,
-            FileOffset: va >= section.Address && va < section.Address + (ulong)section.Size
-                ? section.FileOffset + (long)(va - section.Address)
-                : null,
+            FileOffset: TryMapFileOffset(section, va, out var fileOffset) ? fileOffset : null,
             Section: section.Name,
             Size: size,
             IsData: isData,
@@ -218,8 +229,8 @@ internal static class MachOSymbolReader
             SourceFile: null,
             Line: null);
 
-    private static MachOImageReader.MachOSection? FindSection(
-        IReadOnlyList<MachOImageReader.MachOSection> sections, int ordinal)
+    private static MachOSection? FindSection(
+        IReadOnlyList<MachOSection> sections, int ordinal)
     {
         foreach (var section in sections)
         {
@@ -229,12 +240,15 @@ internal static class MachOSymbolReader
         return null;
     }
 
-    private static MachOImageReader.MachOSection? FindSectionByAddress(
-        IReadOnlyList<MachOImageReader.MachOSection> sections, ulong va)
+    private static MachOSection? FindSectionByAddress(
+        IReadOnlyList<MachOSection> sections, ulong va)
     {
         foreach (var section in sections)
         {
-            if (section.Address != 0 && va >= section.Address && va < section.Address + (ulong)section.Size)
+            if (section.Address != 0
+                && va >= section.Address
+                && TryGetSectionEnd(section, out var end)
+                && va < end)
                 return section;
         }
 
@@ -242,14 +256,57 @@ internal static class MachOSymbolReader
     }
 
     /// <summary>Reads a symbol name, stripping the Mach-O leading underscore.</summary>
-    private static string ReadName(ReadOnlySpan<byte> bytes, int stringOffset, uint nameOffset)
+    private static string ReadName(
+        ReadOnlySpan<byte> bytes,
+        int stringOffset,
+        int stringSize,
+        uint nameOffset)
     {
-        var start = (long)stringOffset + nameOffset;
-        if (start < 0 || start >= bytes.Length) return "";
-        var slice = bytes[(int)start..];
+        if (nameOffset >= (uint)stringSize
+            || !NativeImageRange.TryAdd((ulong)stringOffset, nameOffset, out var startValue)
+            || !NativeImageRange.TryGet(bytes.Length, startValue, 1, out var start, out _))
+            return "";
+
+        var available = stringSize - (int)nameOffset;
+        var slice = bytes.Slice(start, available);
         var end = slice.IndexOf((byte)0);
-        if (end < 0) end = slice.Length;
+        if (end < 0) return "";
         var name = Encoding.UTF8.GetString(slice[..end]);
         return name.StartsWith('_') ? name[1..] : name;
+    }
+
+    private static bool TryGetSectionEnd(MachOSection section, out ulong end)
+    {
+        if (section.Size < 0)
+        {
+            end = 0;
+            return false;
+        }
+
+        return NativeImageRange.TryAdd(section.Address, (ulong)section.Size, out end);
+    }
+
+    private static bool TryMapFileOffset(MachOSection section, ulong address, out long fileOffset)
+    {
+        if (section.FileOffset < 0
+            || section.Size <= 0
+            || section.Type is 0x1 or 0xC or 0x12
+            || address < section.Address)
+        {
+            fileOffset = 0;
+            return false;
+        }
+
+        var delta = address - section.Address;
+        if (delta >= (ulong)section.Size
+            || !NativeImageRange.TryAdd((ulong)section.FileOffset, delta, out var offset)
+            || offset > long.MaxValue)
+        {
+            fileOffset = 0;
+            return false;
+        }
+
+        fileOffset = (long)offset;
+        return true;
     }
 }

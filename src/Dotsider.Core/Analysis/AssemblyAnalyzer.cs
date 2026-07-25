@@ -830,7 +830,8 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>
     /// The virtual-address to file-offset map for a native image, or null when the format
-    /// is unrecognized. Shared by the Native AOT section and object readers.
+    /// is unrecognized, malformed, or truncated. Shared by the Native AOT section and object
+    /// readers.
     /// </summary>
     private NativeAddressSpace? AddressSpace
     {

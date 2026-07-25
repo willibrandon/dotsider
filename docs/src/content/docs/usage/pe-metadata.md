@@ -33,7 +33,7 @@ R2R Sections and AOT Types apply to Native AOT binaries. ILC strips ECMA-335 met
 
 ## Malformed metadata
 
-Dotsider treats metadata and signature blobs as untrusted. When an image is otherwise readable, cyclic or excessively nested type relationships and malformed ECMA-335 or ReadyToRun signatures are contained: affected names use token or unknown fallbacks, navigation remains unresolved, and unreadable native mappings are omitted instead of being guessed or terminating the analysis.
+Dotsider treats metadata, signatures, and native container headers as untrusted. When an image is otherwise readable, cyclic or excessively nested type relationships and malformed ECMA-335 or ReadyToRun signatures are contained: affected names use token or unknown fallbacks and navigation remains unresolved. Truncated or overflowing PE, ELF, and Mach-O tables and mappings are treated as malformed, and analysis continues with the affected data omitted.
 
 Metadata names, recovered strings, IL, symbols, and other artifact-controlled text are rendered
 through a shared terminal-safe projection. Control and Unicode formatting characters appear
