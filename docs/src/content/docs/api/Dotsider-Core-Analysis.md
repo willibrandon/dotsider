@@ -180,8 +180,8 @@ formats) `RvaFields`, `FrozenObjects`, `ManifestResources`, and
 in a custom `.names` PE section; those names equal the node labels in the DGML graphs
 `IlcGenerateDgmlFile` emits, which is how sizes join to dependency chains.
 
-Malformed input never throws: unreadable files return null, and a truncated IL stream
-yields the entries parsed before the damage.
+Malformed input never throws: unreadable files return null, and damage within an IL stream,
+including an impossible nested count, yields the entries parsed before the damage.
 
 ```csharp
 public static class MstatReader
