@@ -683,6 +683,7 @@ public IReadOnlyList<RtrSection> ReadyToRunSections { get; }
 Types and method names recovered from a Native AOT binary's embedded NativeFormat
 metadata (ReadyToRun section 313, or the reduced stack-trace metadata in 326). Empty
 when this is not a Native AOT binary or the binary carries no readable metadata.
+Malformed, cyclic, or excessively large metadata yields the fully decoded prefix.
 
 **Returns:** [IReadOnlyList\<RecoveredType\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
