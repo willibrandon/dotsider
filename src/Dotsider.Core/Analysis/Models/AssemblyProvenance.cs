@@ -20,7 +20,7 @@ public enum AssemblyProvenance
     /// <summary>
     /// Resolved from the NuGet global packages folder by consulting the referencing
     /// assembly's <c>.deps.json</c> manifest for the exact resolved package version and
-    /// runtime asset path.
+    /// runtime asset path after both paths are contained beneath the selected package.
     /// </summary>
     NuGetPackageCache,
 

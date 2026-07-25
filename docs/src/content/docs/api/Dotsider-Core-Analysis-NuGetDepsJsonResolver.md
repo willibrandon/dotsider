@@ -1,6 +1,6 @@
 ---
 title: "NuGetDepsJsonResolver"
-description: "Resolves assembly references by consulting the referencing assembly's .deps.json file to locate its NuGet dependencies in the NuGet global packages folder. This is the probe step that makes library projects work — dotnet build does not copy NuGet package assemblies next to a library's bin output, but the .deps.json manifest records the exact resolved package version and runtime asset path, matching what the .NET host uses at runtime."
+description: "Resolves assembly references by consulting the referencing assembly's .deps.json file to locate its NuGet dependencies in the NuGet global packages folder. This is the probe step that makes library projects work — dotnet build does not copy NuGet package assemblies next to a library's bin output, but the .deps.json manifest records the exact resolved package version and runtime asset path, matching what the .NET host uses at runtime. Manifest paths are treated as untrusted and must remain inside the selected package in the configured global packages folder."
 slug: api/dotsider.core.analysis.nugetdepsjsonresolver
 sidebar:
   order: 0
@@ -15,7 +15,8 @@ file to locate its NuGet dependencies in the NuGet global packages folder. This 
 probe step that makes library projects work — `dotnet build` does not copy NuGet
 package assemblies next to a library's `bin` output, but the `.deps.json`
 manifest records the exact resolved package version and runtime asset path, matching
-what the .NET host uses at runtime.
+what the .NET host uses at runtime. Manifest paths are treated as untrusted and must
+remain inside the selected package in the configured global packages folder.
 
 ```csharp
 public static class NuGetDepsJsonResolver
@@ -39,7 +40,8 @@ Attempts to locate assemblyName in the referencing assembly's
 
 **Returns:** [ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/)
 
-A [FromFile](/api/dotsider.core.analysis.models.resolvedassembly.fromfile/) pointing at the packaged dll, or null.
+A [FromFile](/api/dotsider.core.analysis.models.resolvedassembly.fromfile/) pointing at a contained packaged DLL, or
+null when the dependency is absent or its manifest path is unsafe.
 
 ```csharp
 public static ResolvedAssembly? TryResolve(string referencingAssemblyPath, string assemblyName)

@@ -16,7 +16,7 @@ Identity is keyed on the full `(name, version, culture, public key token)` tuple
 
 ## Unresolved and identity-mismatched nodes
 
-References that cannot be located on disk or inside a bundle render as leaf nodes prefixed with `?`. When a probe produces a file whose simple name matches but whose manifest identity does not, the node renders with a `!` prefix and the graph does not expand from the mismatched file — the closure stays honest about what it actually contains. A `↪` prefix marks a node where binding policy rewrote the requested version; a `×` prefix marks a configured `<codeBase>` whose `href` does not exist on disk.
+References that cannot be located on disk or inside a bundle render as leaf nodes prefixed with `?`. This includes NuGet assets whose `.deps.json` package or asset path is rooted, traverses out of the selected package, or is redirected outside it by a filesystem link. When a probe produces a file whose simple name matches but whose manifest identity does not, the node renders with a `!` prefix and the graph does not expand from the mismatched file — the closure stays honest about what it actually contains. A `↪` prefix marks a node where binding policy rewrote the requested version; a `×` prefix marks a configured `<codeBase>` whose `href` does not exist on disk.
 
 ## Native AOT binaries
 

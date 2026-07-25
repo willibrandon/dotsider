@@ -8,10 +8,16 @@ namespace Dotsider.Core.Analysis;
 /// </summary>
 internal static class ContainedPathResolver
 {
+    private const int MaxSymbolicLinkDepth = 64;
+
     private static StringComparison PathComparison { get; } = OperatingSystem.IsWindows()
         || OperatingSystem.IsMacOS()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
+
+    private static StringComparison PhysicalPathComparison { get; } = OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
 
     /// <summary>
     /// Gets the comparer used for canonical filesystem paths on the current platform.
@@ -128,6 +134,40 @@ internal static class ContainedPathResolver
     }
 
     /// <summary>
+    /// Resolves an existing untrusted relative directory beneath a trusted directory, follows
+    /// filesystem links, and verifies that the physical target remains contained.
+    /// </summary>
+    /// <param name="rootDirectory">The trusted root directory.</param>
+    /// <param name="relativePath">The untrusted relative directory path.</param>
+    /// <param name="fullPath">The canonical contained directory path when resolution succeeds.</param>
+    /// <returns>
+    /// <see langword="true"/> when the directory and its physical target are strictly beneath
+    /// <paramref name="rootDirectory"/>; otherwise, <see langword="false"/>.
+    /// </returns>
+    internal static bool TryResolveExistingDirectory(
+        string rootDirectory,
+        string relativePath,
+        out string fullPath) =>
+        TryResolveExisting(rootDirectory, relativePath, isDirectory: true, out fullPath);
+
+    /// <summary>
+    /// Resolves an existing untrusted relative file beneath a trusted directory, follows
+    /// filesystem links, and verifies that the physical target remains contained.
+    /// </summary>
+    /// <param name="rootDirectory">The trusted root directory.</param>
+    /// <param name="relativePath">The untrusted relative file path.</param>
+    /// <param name="fullPath">The canonical contained file path when resolution succeeds.</param>
+    /// <returns>
+    /// <see langword="true"/> when the file and its physical target are strictly beneath
+    /// <paramref name="rootDirectory"/>; otherwise, <see langword="false"/>.
+    /// </returns>
+    internal static bool TryResolveExistingFile(
+        string rootDirectory,
+        string relativePath,
+        out string fullPath) =>
+        TryResolveExisting(rootDirectory, relativePath, isDirectory: false, out fullPath);
+
+    /// <summary>
     /// Determines whether one canonical path is strictly beneath a canonical directory path.
     /// </summary>
     /// <param name="canonicalRoot">The canonical directory path, with or without a trailing separator.</param>
@@ -162,7 +202,8 @@ internal static class ContainedPathResolver
     private static bool IsDirectorySeparator(char value) => value is '/' or '\\';
 
     private static bool IsPathException(Exception exception) =>
-        exception is ArgumentException or IOException or NotSupportedException or SecurityException;
+        exception is ArgumentException or IOException or NotSupportedException or SecurityException
+            or UnauthorizedAccessException;
 
     private static bool IsWindowsDeviceName(ReadOnlySpan<char> segment)
     {
@@ -185,4 +226,101 @@ internal static class ContainedPathResolver
 
     private static string NormalizeSeparators(string path) =>
         path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
+    private static bool TryGetPhysicalPath(
+        string path,
+        bool isDirectory,
+        out string physicalPath)
+    {
+        var remainingLinks = MaxSymbolicLinkDepth;
+        return TryGetPhysicalPath(path, isDirectory, ref remainingLinks, out physicalPath);
+    }
+
+    private static bool TryGetPhysicalPath(
+        string path,
+        bool isDirectory,
+        ref int remainingLinks,
+        out string physicalPath)
+    {
+        physicalPath = string.Empty;
+        var canonicalPath = Path.GetFullPath(path);
+        var pathRoot = Path.GetPathRoot(canonicalPath);
+        if (string.IsNullOrEmpty(pathRoot) || !Directory.Exists(pathRoot))
+            return false;
+
+        var currentPath = Path.GetFullPath(pathRoot);
+        var relativePath = canonicalPath[pathRoot.Length..];
+        var segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            var entryPath = Path.Combine(currentPath, segments[index]);
+            var entryIsDirectory = index < segments.Length - 1 || isDirectory;
+            FileSystemInfo entry = entryIsDirectory
+                ? new DirectoryInfo(entryPath)
+                : new FileInfo(entryPath);
+            if (!entry.Exists)
+                return false;
+
+            var target = entry.ResolveLinkTarget(returnFinalTarget: true);
+            if (target is not null)
+            {
+                if (remainingLinks-- == 0 ||
+                    !TryGetPhysicalPath(
+                        target.FullName,
+                        entryIsDirectory,
+                        ref remainingLinks,
+                        out currentPath))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            currentPath = entry.FullName;
+        }
+
+        physicalPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(currentPath));
+        return true;
+    }
+
+    private static bool TryResolveExisting(
+        string rootDirectory,
+        string relativePath,
+        bool isDirectory,
+        out string fullPath)
+    {
+        fullPath = string.Empty;
+        if (!TryResolve(rootDirectory, relativePath, out var candidatePath))
+            return false;
+
+        try
+        {
+            if (!TryGetPhysicalPath(rootDirectory, isDirectory: true, out var physicalRoot) ||
+                !TryGetPhysicalPath(candidatePath, isDirectory, out var physicalCandidate) ||
+                !IsStrictPhysicalDescendant(physicalRoot, physicalCandidate))
+            {
+                return false;
+            }
+
+            fullPath = candidatePath;
+            return true;
+        }
+        catch (Exception exception) when (IsPathException(exception))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsStrictPhysicalDescendant(string physicalRoot, string physicalCandidate)
+    {
+        var rootWithSeparator = Path.EndsInDirectorySeparator(physicalRoot)
+            ? physicalRoot
+            : string.Concat(physicalRoot, Path.DirectorySeparatorChar);
+        return physicalCandidate.Length > rootWithSeparator.Length &&
+            physicalCandidate.StartsWith(rootWithSeparator, PhysicalPathComparison);
+    }
 }

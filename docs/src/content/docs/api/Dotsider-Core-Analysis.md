@@ -246,7 +246,8 @@ file to locate its NuGet dependencies in the NuGet global packages folder. This 
 probe step that makes library projects work — `dotnet build` does not copy NuGet
 package assemblies next to a library's `bin` output, but the `.deps.json`
 manifest records the exact resolved package version and runtime asset path, matching
-what the .NET host uses at runtime.
+what the .NET host uses at runtime. Manifest paths are treated as untrusted and must
+remain inside the selected package in the configured global packages folder.
 
 ```csharp
 public static class NuGetDepsJsonResolver
