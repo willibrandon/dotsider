@@ -16,68 +16,124 @@ internal static class PublicsReader
     private const ushort SPub32 = 0x110E;
     private const uint PublicSymbolIsFunction = 0x2;
 
-    /// <summary>A public symbol before RVA resolution.</summary>
-    /// <param name="Name">The raw symbol name.</param>
-    /// <param name="Segment">The one-based section index.</param>
-    /// <param name="Offset">The offset within the section.</param>
-    /// <param name="IsFunction">Whether the record carries the function flag.</param>
-    internal readonly record struct PublicSymbol(string Name, int Segment, uint Offset, bool IsFunction);
-
     /// <summary>
     /// Reads the public symbols from the publics and symbol-record streams.
     /// </summary>
     /// <param name="publicsStream">The DBI publics hash stream.</param>
     /// <param name="symbolRecordStream">The global symbol-record stream the address map indexes.</param>
     public static List<PublicSymbol> Read(byte[] publicsStream, byte[] symbolRecordStream)
+        => TryRead(publicsStream, symbolRecordStream, out var symbols) ? symbols : [];
+
+    /// <summary>
+    /// Tries to read the public symbols from the publics and symbol-record streams.
+    /// </summary>
+    /// <param name="publicsStream">The DBI publics hash stream.</param>
+    /// <param name="symbolRecordStream">The global symbol-record stream the address map indexes.</param>
+    /// <param name="symbols">The symbols read from structurally valid streams.</param>
+    /// <returns><see langword="true"/> when every declared range and record is valid.</returns>
+    public static bool TryRead(
+        byte[] publicsStream,
+        byte[] symbolRecordStream,
+        out List<PublicSymbol> symbols)
     {
-        var result = new List<PublicSymbol>();
-        try
+        symbols = [];
+        var publics = publicsStream.AsSpan();
+        if (publics.Length < 28)
         {
-            var pub = publicsStream.AsSpan();
-            if (pub.Length < 28) return result;
+            return false;
+        }
 
-            // PSGSIHDR: SymHash size, AddrMap size, then thunk fields.
-            var symHashSize = BinaryPrimitives.ReadInt32LittleEndian(pub);
-            var addrMapSize = BinaryPrimitives.ReadInt32LittleEndian(pub[4..]);
-            if (symHashSize < 0 || addrMapSize < 0) return result;
+        // PSGSIHDR: SymHash size, AddrMap size, then thunk fields.
+        var symbolHashByteSize = BinaryPrimitives.ReadUInt32LittleEndian(publics);
+        var addressMapByteSize = BinaryPrimitives.ReadUInt32LittleEndian(publics[4..]);
+        if (addressMapByteSize % sizeof(uint) != 0
+            || !NativeImageRange.TryAdd(28, symbolHashByteSize, out var addressMapOffset)
+            || !NativeImageRange.TryGet(
+                publics.Length,
+                addressMapOffset,
+                addressMapByteSize,
+                out var containedAddressMapOffset,
+                out var containedAddressMapByteSize))
+        {
+            return false;
+        }
 
-            var addrMapStart = 28 + symHashSize;
-            if (addrMapStart < 0 || (long)addrMapStart + addrMapSize > pub.Length) return result;
-
-            var records = symbolRecordStream.AsSpan();
-            var count = addrMapSize / 4;
-            for (var i = 0; i < count; i++)
+        var records = symbolRecordStream.AsSpan();
+        var count = containedAddressMapByteSize / sizeof(uint);
+        for (var i = 0; i < count; i++)
+        {
+            var recordOffset = BinaryPrimitives.ReadUInt32LittleEndian(
+                publics[(containedAddressMapOffset + i * sizeof(uint))..]);
+            if (!NativeImageRange.TryGet(
+                    records.Length,
+                    recordOffset,
+                    2 * sizeof(ushort),
+                    out var containedRecordOffset,
+                    out _))
             {
-                var recordOffset = BinaryPrimitives.ReadInt32LittleEndian(pub[(addrMapStart + i * 4)..]);
-                if (recordOffset < 0 || recordOffset + 4 > records.Length) continue;
+                symbols = [];
+                return false;
+            }
 
-                var length = BinaryPrimitives.ReadUInt16LittleEndian(records[recordOffset..]);
-                var kind = BinaryPrimitives.ReadUInt16LittleEndian(records[(recordOffset + 2)..]);
-                if (kind != SPub32 || length < 2) continue;
+            var length = BinaryPrimitives.ReadUInt16LittleEndian(records[containedRecordOffset..]);
+            var kind = BinaryPrimitives.ReadUInt16LittleEndian(
+                records[(containedRecordOffset + sizeof(ushort))..]);
+            if (length < sizeof(ushort)
+                || !NativeImageRange.TryGet(
+                    records.Length,
+                    recordOffset,
+                    (ulong)sizeof(ushort) + length,
+                    out _,
+                    out var recordByteSize))
+            {
+                symbols = [];
+                return false;
+            }
 
-                var body = records[(recordOffset + 4)..Math.Min(records.Length, recordOffset + 2 + length)];
-                if (body.Length < 11) continue; // flags(4), offset(4), segment(2), name
+            if (kind != SPub32)
+            {
+                continue;
+            }
 
-                var flags = BinaryPrimitives.ReadUInt32LittleEndian(body);
-                var offset = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
-                var segment = BinaryPrimitives.ReadUInt16LittleEndian(body[8..]);
-                var name = ReadCString(body[10..]);
-                if (name.Length > 0)
-                    result.Add(new PublicSymbol(name, segment, offset, (flags & PublicSymbolIsFunction) != 0));
+            var body = records.Slice(containedRecordOffset + 4, recordByteSize - 4);
+            if (body.Length < 11)
+            {
+                symbols = [];
+                return false;
+            }
+
+            var flags = BinaryPrimitives.ReadUInt32LittleEndian(body);
+            var offset = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
+            var segment = BinaryPrimitives.ReadUInt16LittleEndian(body[8..]);
+            if (!TryReadCString(body[10..], out var name))
+            {
+                symbols = [];
+                return false;
+            }
+
+            if (name.Length > 0)
+            {
+                symbols.Add(new PublicSymbol(
+                    name,
+                    segment,
+                    offset,
+                    (flags & PublicSymbolIsFunction) != 0));
             }
         }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
-        {
-            // Return whatever was read before the stream went out of shape.
-        }
 
-        return result;
+        return true;
     }
 
-    private static string ReadCString(ReadOnlySpan<byte> span)
+    private static bool TryReadCString(ReadOnlySpan<byte> span, out string value)
     {
         var end = span.IndexOf((byte)0);
-        if (end < 0) end = span.Length;
-        return Encoding.UTF8.GetString(span[..end]);
+        if (end < 0)
+        {
+            value = string.Empty;
+            return false;
+        }
+
+        value = Encoding.UTF8.GetString(span[..end]);
+        return true;
     }
 }

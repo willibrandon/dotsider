@@ -12,11 +12,6 @@ namespace Dotsider.Core.Analysis.NativePdb;
 /// </summary>
 internal sealed class MsfFile
 {
-    // "Microsoft C/C++ MSF 7.00\r\n" + 0x1A + "DS" + three NULs. Built from explicit bytes so
-    // the 0x1A control byte cannot be misread as part of a variable-length \x escape.
-    private static readonly byte[] Magic =
-        [.. "Microsoft C/C++ MSF 7.00\r\n"u8, 0x1A, .. "DS"u8, 0, 0, 0];
-
     private readonly byte[] _bytes;
     private readonly int _blockSize;
     private readonly int[][] _streamBlocks;
@@ -41,73 +36,116 @@ internal sealed class MsfFile
     /// <param name="bytes">The complete file content.</param>
     public static MsfFile? TryOpen(byte[] bytes)
     {
-        try
-        {
-            var span = bytes.AsSpan();
-            if (span.Length < 56 || !span[..Magic.Length].SequenceEqual(Magic)) return null;
-
-            var blockSize = BinaryPrimitives.ReadInt32LittleEndian(span[32..]);
-            if (blockSize is not (512 or 1024 or 2048 or 4096 or 8192)) return null;
-
-            var numBlocks = BinaryPrimitives.ReadInt32LittleEndian(span[40..]);
-            var numDirectoryBytes = BinaryPrimitives.ReadInt32LittleEndian(span[44..]);
-            var blockMapAddr = BinaryPrimitives.ReadInt32LittleEndian(span[52..]);
-            if (numBlocks <= 0 || (long)numBlocks * blockSize > bytes.Length) return null;
-            if (numDirectoryBytes <= 0 || blockMapAddr <= 0 || blockMapAddr >= numBlocks) return null;
-
-            bool InBounds(int block) => block >= 0 && block < numBlocks;
-            Span<byte> Block(int i) => bytes.AsSpan(i * blockSize, blockSize);
-            int BlockCount(int size) => (size + blockSize - 1) / blockSize;
-
-            // The block map lists the directory's own blocks; concatenate them into the directory.
-            var directoryBlockCount = BlockCount(numDirectoryBytes);
-            var mapBlock = Block(blockMapAddr);
-            if (directoryBlockCount * 4 > blockSize) return null; // map must fit one block
-            var directory = new byte[directoryBlockCount * blockSize];
-            for (var i = 0; i < directoryBlockCount; i++)
-            {
-                var block = BinaryPrimitives.ReadInt32LittleEndian(mapBlock[(i * 4)..]);
-                if (!InBounds(block)) return null;
-                Block(block).CopyTo(directory.AsSpan(i * blockSize));
-            }
-
-            // Directory: numStreams, each stream's size, then each stream's block list. Read from
-            // the full block-padded buffer so a final entry landing on the numDirectoryBytes
-            // boundary has slack; the entry counts bound the loops within the real content.
-            var dir = directory.AsSpan();
-            var p = 0;
-            var numStreams = ReadI32(dir, ref p);
-            if (numStreams is < 0 or > 1_000_000) return null;
-
-            var sizes = new int[numStreams];
-            for (var i = 0; i < numStreams; i++)
-            {
-                var size = ReadI32(dir, ref p);
-                sizes[i] = size == unchecked((int)0xFFFFFFFF) ? 0 : size; // 0xFFFFFFFF = nil stream
-                if (sizes[i] < 0) return null;
-            }
-
-            var streamBlocks = new int[numStreams][];
-            for (var i = 0; i < numStreams; i++)
-            {
-                var count = BlockCount(sizes[i]);
-                var blocks = new int[count];
-                for (var j = 0; j < count; j++)
-                {
-                    var block = ReadI32(dir, ref p);
-                    if (!InBounds(block)) return null;
-                    blocks[j] = block;
-                }
-
-                streamBlocks[i] = blocks;
-            }
-
-            return new MsfFile(bytes, blockSize, sizes, streamBlocks);
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+        var span = bytes.AsSpan();
+        if (!MsfSuperBlock.TryRead(span, span.Length, out var superBlock))
         {
             return null;
         }
+
+        if (!superBlock.TryGetBlockOffset(superBlock.BlockMapAddress, out var mapOffsetValue))
+        {
+            return null;
+        }
+
+        var mapOffset = (int)mapOffsetValue;
+        var mapBlock = span.Slice(mapOffset, superBlock.BlockSize);
+        var directory = new byte[superBlock.DirectoryByteCount];
+        for (var i = 0; i < superBlock.DirectoryBlockCount; i++)
+        {
+            var block = BinaryPrimitives.ReadUInt32LittleEndian(mapBlock[(i * sizeof(uint))..]);
+            if (!superBlock.TryGetBlockOffset(block, out var blockOffsetValue))
+            {
+                return null;
+            }
+
+            var destinationOffset = i * superBlock.BlockSize;
+            var byteCount = Math.Min(
+                superBlock.BlockSize,
+                superBlock.DirectoryByteCount - destinationOffset);
+            span.Slice((int)blockOffsetValue, byteCount)
+                .CopyTo(directory.AsSpan(destinationOffset));
+        }
+
+        var dir = directory.AsSpan();
+        var p = 0;
+        if (!TryReadUInt32(dir, ref p, out var streamCountValue)
+            || streamCountValue > int.MaxValue
+            || !NativeImageRange.TryGetTable(
+                dir.Length,
+                (ulong)p,
+                streamCountValue,
+                sizeof(uint),
+                sizeof(uint),
+                out _,
+                out _))
+        {
+            return null;
+        }
+
+        var streamCount = (int)streamCountValue;
+        var sizes = new int[streamCount];
+        var blockCounts = new int[streamCount];
+        ulong totalStreamBlocks = 0;
+        for (var i = 0; i < streamCount; i++)
+        {
+            _ = TryReadUInt32(dir, ref p, out var size);
+            if (size == uint.MaxValue)
+            {
+                continue;
+            }
+
+            if (size > int.MaxValue
+                || !superBlock.TryGetStreamBlockCount(size, out var blockCount)
+                || !NativeImageRange.TryAdd(
+                    totalStreamBlocks,
+                    (ulong)blockCount,
+                    out totalStreamBlocks))
+            {
+                return null;
+            }
+
+            sizes[i] = (int)size;
+            blockCounts[i] = blockCount;
+        }
+
+        if (!NativeImageRange.TryGetTable(
+            dir.Length,
+            (ulong)p,
+            totalStreamBlocks,
+            sizeof(uint),
+            sizeof(uint),
+            out _,
+            out _))
+        {
+            return null;
+        }
+
+        var streamBlocks = new int[streamCount][];
+        for (var i = 0; i < streamCount; i++)
+        {
+            var count = blockCounts[i];
+            if (count == 0)
+            {
+                streamBlocks[i] = [];
+                continue;
+            }
+
+            var blocks = new int[count];
+            for (var j = 0; j < count; j++)
+            {
+                _ = TryReadUInt32(dir, ref p, out var block);
+                if (!superBlock.TryGetBlockOffset(block, out var blockOffset))
+                {
+                    return null;
+                }
+
+                blocks[j] = checked((int)(blockOffset / superBlock.BlockSize));
+            }
+
+            streamBlocks[i] = blocks;
+        }
+
+        return new MsfFile(bytes, superBlock.BlockSize, sizes, streamBlocks);
     }
 
     /// <summary>The byte size of the stream at <paramref name="index"/>, or 0 when out of range.</summary>
@@ -137,10 +175,16 @@ internal sealed class MsfFile
         return buffer;
     }
 
-    private static int ReadI32(ReadOnlySpan<byte> span, ref int p)
+    private static bool TryReadUInt32(ReadOnlySpan<byte> span, ref int offset, out uint value)
     {
-        var value = BinaryPrimitives.ReadInt32LittleEndian(span[p..]);
-        p += 4;
-        return value;
+        if (offset < 0 || offset > span.Length - sizeof(uint))
+        {
+            value = 0;
+            return false;
+        }
+
+        value = BinaryPrimitives.ReadUInt32LittleEndian(span[offset..]);
+        offset += sizeof(uint);
+        return true;
     }
 }

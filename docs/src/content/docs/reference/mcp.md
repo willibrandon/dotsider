@@ -51,7 +51,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ## What it provides
 
-**50 tools** across:
+**52 tools** across:
 
 | Category | Tools |
 |----------|-------|
@@ -62,6 +62,8 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 | Dependencies | `get_assembly_refs`, `get_dependency_graph`, `get_type_refs` |
 | Size analysis | `get_size_breakdown`, `get_largest_methods` |
 | Native symbols | `get_native_symbols`, `get_native_disassembly` |
+| Native AOT | `get_native_aot_info`, `list_native_aot_sections`, `get_native_aot_size_contributors`, `explain_native_aot_size` |
+| WebAssembly | `list_wasm_sections`, `list_wasm_functions` |
 | Correlation | `correlate_method`, `correlate_r2r_method` |
 | String extraction | `extract_strings` |
 | Diffing | `diff_assemblies`, `diff_size`, `check_size_budgets` |
@@ -82,6 +84,8 @@ Single-file executables and native apphosts are handled transparently in direct 
 Native AOT executables are recognized by their embedded ReadyToRun header: `get_assembly_info` reports `binaryKind` (`managed`, `nativeAot`, `readyToRun`, `wasm`, or `native`), a `nativeAotInfo` object with the RTR format version, section count, and heuristically recovered runtime version, plus `readyToRunSectionCount`, `recoveredTypeCount`, and `frozenStringCount`. `list_types` falls back to the types recovered from the embedded NativeFormat metadata, so it names a stripped binary's own types. `extract_strings` returns `rawStrings` (ASCII), `rawUtf16Strings`, and `frozenStrings` alongside the metadata heaps — for AOT binaries the raw scans and frozen literals are the populated categories, and the frozen strings are the AOT counterpart of the #US heap.
 
 Native DWARF materialization from ELF images and dSYM bundles is limited to 256 MiB total per symbol read. Line-table prologues and entry counts are bounded; malformed line metadata omits file-and-line attribution from otherwise readable symbols. Oversized or wholly unreadable DWARF leaves the remaining analysis available; `get_native_symbols` reports corrupt symbol data and returns `.eh_frame` boundaries when present.
+
+Native PDB MSF directories and CodeView module ranges are validated before allocation or decoding. A malformed companion PDB is reported as corrupt symbol data, and `get_native_symbols` returns `.pdata` boundaries when the image provides them.
 
 ReadyToRun (crossgen2) images keep their full metadata: `get_assembly_info` reports `binaryKind` `readyToRun` and a `readyToRun` object (version, status, architecture, composite/component, method counts). `correlate_r2r_method` takes a `Type.Method`, a `0x06…` token, or a `0x…` native address and returns the method's IL beside its precompiled native code ranges with import-resolved call targets; an overloaded name raises an error listing the candidates. It follows a composite across its component assemblies in both directions, resolving them by name and MVID.
 

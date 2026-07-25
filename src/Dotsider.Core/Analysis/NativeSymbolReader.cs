@@ -555,13 +555,16 @@ public static class NativeSymbolReader
             switch (outcome)
             {
                 case PdbProbe.Matched:
-                {
-                    var raw = NativePdb.NativePdbReader.Read(File.ReadAllBytes(pdbPath!), imageBytes);
-                    if (raw.Count > 0)
-                        return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null, arch);
-                    return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
-                        $"'{Path.GetFileName(pdbPath)}' matched but contains no readable symbols", arch);
-                }
+                    {
+                        var isValid = NativePdb.NativePdbReader.TryRead(
+                            File.ReadAllBytes(pdbPath!),
+                            imageBytes,
+                            out var raw);
+                        if (isValid && raw.Count > 0)
+                            return Build(raw, demangler, NativeSymbolSource.NativePdb, NativeSymbolStatus.Loaded, pdbPath, null, arch);
+                        return PdataFallback(imageBytes, demangler, NativeSymbolStatus.CorruptSymbolFile,
+                            $"'{Path.GetFileName(pdbPath)}' matched but contains no readable symbols", arch);
+                    }
 
                 case PdbProbe.Mismatched:
                     return PdataFallback(imageBytes, demangler, NativeSymbolStatus.IdMismatch,

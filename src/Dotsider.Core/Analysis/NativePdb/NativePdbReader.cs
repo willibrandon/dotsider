@@ -29,60 +29,95 @@ internal static class NativePdbReader
         {
             using var fs = File.OpenRead(path);
             Span<byte> header = stackalloc byte[56];
-            if (fs.Read(header) != header.Length) return false;
-
-            var magic = Encoding.ASCII.GetString(header[..24]);
-            if (!magic.StartsWith("Microsoft C/C++ MSF 7.00", StringComparison.Ordinal)) return false;
-
-            var blockSize = BinaryPrimitives.ReadInt32LittleEndian(header[32..]);
-            if (blockSize is not (512 or 1024 or 2048 or 4096 or 8192)) return false;
-            var numDirectoryBytes = BinaryPrimitives.ReadInt32LittleEndian(header[44..]);
-            var blockMapAddr = BinaryPrimitives.ReadInt32LittleEndian(header[52..]);
-            if (numDirectoryBytes <= 0 || blockMapAddr <= 0) return false;
-
-            var directoryBlockCount = (numDirectoryBytes + blockSize - 1) / blockSize;
-            var block = new byte[blockSize];
-
-            // Read the block map, then the directory blocks it points at.
-            fs.Position = (long)blockMapAddr * blockSize;
-            if (fs.Read(block, 0, blockSize) != blockSize) return false;
-            var directory = new byte[directoryBlockCount * blockSize];
-            for (var i = 0; i < directoryBlockCount; i++)
+            fs.ReadExactly(header);
+            if (!MsfSuperBlock.TryRead(header, fs.Length, out var superBlock))
             {
-                var dirBlock = BinaryPrimitives.ReadInt32LittleEndian(block.AsSpan(i * 4));
-                fs.Position = (long)dirBlock * blockSize;
-                if (fs.Read(directory, i * blockSize, blockSize) != blockSize) return false;
+                return false;
+            }
+
+            var block = new byte[superBlock.BlockSize];
+            if (!TryReadBlock(fs, superBlock, superBlock.BlockMapAddress, block))
+            {
+                return false;
+            }
+
+            var directory = new byte[superBlock.DirectoryByteCount];
+            for (var i = 0; i < superBlock.DirectoryBlockCount; i++)
+            {
+                var directoryBlock = BinaryPrimitives.ReadUInt32LittleEndian(
+                    block.AsSpan(i * sizeof(uint)));
+                if (!superBlock.TryGetBlockOffset(directoryBlock, out var directoryBlockOffset))
+                {
+                    return false;
+                }
+
+                var destinationOffset = i * superBlock.BlockSize;
+                var byteCount = Math.Min(
+                    superBlock.BlockSize,
+                    superBlock.DirectoryByteCount - destinationOffset);
+                fs.Position = directoryBlockOffset;
+                fs.ReadExactly(directory.AsSpan(destinationOffset, byteCount));
             }
 
             // Directory: numStreams, sizes[], then block lists. Stream 1's first block holds the
             // version/signature/age/GUID.
-            var dir = directory.AsSpan(0, numDirectoryBytes);
+            var dir = directory.AsSpan();
             var p = 0;
-            var numStreams = BinaryPrimitives.ReadInt32LittleEndian(dir[p..]);
-            p += 4;
-            if (numStreams < 2) return false;
-            var sizes = new int[numStreams];
-            for (var i = 0; i < numStreams; i++)
+            if (!TryReadUInt32(dir, ref p, out var streamCount)
+                || streamCount < 2
+                || !NativeImageRange.TryGetTable(
+                    dir.Length,
+                    (ulong)p,
+                    streamCount,
+                    sizeof(uint),
+                    sizeof(uint),
+                    out var sizeTableOffset,
+                    out var sizeTableLength))
             {
-                var s = BinaryPrimitives.ReadInt32LittleEndian(dir[p..]);
-                p += 4;
-                sizes[i] = s == unchecked((int)0xFFFFFFFF) ? 0 : s;
+                return false;
+            }
+
+            var sizes = dir.Slice(sizeTableOffset, sizeTableLength);
+            var stream0Size = BinaryPrimitives.ReadUInt32LittleEndian(sizes);
+            var stream1Size = BinaryPrimitives.ReadUInt32LittleEndian(sizes[sizeof(uint)..]);
+            if (stream0Size == uint.MaxValue
+                || stream1Size is uint.MaxValue or < 28
+                || !superBlock.TryGetStreamBlockCount(stream0Size, out var stream0BlockCount)
+                || !superBlock.TryGetStreamBlockCount(stream1Size, out var stream1BlockCount)
+                || stream1BlockCount == 0)
+            {
+                return false;
             }
 
             // Skip stream 0's block list to reach stream 1's first block index.
-            var stream0Blocks = (sizes[0] + blockSize - 1) / blockSize;
-            p += stream0Blocks * 4;
-            if (sizes[1] < 28) return false;
-            var stream1FirstBlock = BinaryPrimitives.ReadInt32LittleEndian(dir[p..]);
+            var blockListOffset = (ulong)sizeTableOffset + (ulong)sizeTableLength;
+            if (!NativeImageRange.TryAdd(
+                    blockListOffset,
+                    (ulong)stream0BlockCount * sizeof(uint),
+                    out var stream1BlockOffset)
+                || !NativeImageRange.TryGet(
+                    dir.Length,
+                    stream1BlockOffset,
+                    sizeof(uint),
+                    out var stream1BlockFileOffset,
+                    out _))
+            {
+                return false;
+            }
 
-            fs.Position = (long)stream1FirstBlock * blockSize;
-            if (fs.Read(block, 0, blockSize) != blockSize) return false;
+            var stream1FirstBlock = BinaryPrimitives.ReadUInt32LittleEndian(
+                dir[stream1BlockFileOffset..]);
+            if (!TryReadBlock(fs, superBlock, stream1FirstBlock, block))
+            {
+                return false;
+            }
+
             age = BinaryPrimitives.ReadInt32LittleEndian(block.AsSpan(8));
             guid = new Guid(block.AsSpan(12, 16));
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or IndexOutOfRangeException or ArgumentOutOfRangeException)
+            or ArgumentException or NotSupportedException)
         {
             return false;
         }
@@ -96,15 +131,29 @@ internal static class NativePdbReader
     /// <param name="pdbBytes">The complete PDB file bytes.</param>
     /// <param name="peImageBytes">The PE image the PDB describes, for RVA→file mapping and section fallback.</param>
     public static IReadOnlyList<RawNativeSymbol> Read(byte[] pdbBytes, ReadOnlyMemory<byte> peImageBytes)
+        => TryRead(pdbBytes, peImageBytes, out var symbols) ? symbols : [];
+
+    /// <summary>
+    /// Tries to read the module and public symbols from a PDB resolved against its PE image.
+    /// </summary>
+    /// <param name="pdbBytes">The complete PDB file bytes.</param>
+    /// <param name="peImageBytes">The PE image the PDB describes.</param>
+    /// <param name="symbols">The symbols read from a structurally valid PDB.</param>
+    /// <returns><see langword="true"/> when every required container and symbol range is valid.</returns>
+    public static bool TryRead(
+        byte[] pdbBytes,
+        ReadOnlyMemory<byte> peImageBytes,
+        out IReadOnlyList<RawNativeSymbol> symbols)
     {
+        symbols = [];
         var msf = MsfFile.TryOpen(pdbBytes);
-        if (msf is null || msf.StreamCount < 4) return [];
+        if (msf is null || msf.StreamCount < 4) return false;
 
         var dbi = DbiStream.Parse(msf.GetStream(3));
-        if (dbi is null) return [];
+        if (dbi is null) return false;
 
         var sectionMap = BuildSectionMap(msf, dbi, peImageBytes.Span);
-        if (sectionMap is null) return [];
+        if (sectionMap is null) return false;
 
         var names = ResolveNamesStream(msf);
         var imageBase = ReadImageBase(peImageBytes.Span);
@@ -115,7 +164,7 @@ internal static class NativePdbReader
         RawNativeSymbol? Resolve(string name, int segment, uint offset, uint size, bool isData, string? file, int? line)
         {
             if (sectionMap.ToRva(segment, offset) is not { } rva) return null;
-            var va = imageBase + rva;
+            if (!NativeImageRange.TryAdd(imageBase, rva, out var va)) return null;
             long? fileOffset = addressSpace is not null
                 && addressSpace.TryGetFileOffset(va, out var fo, out _) ? fo : null;
             return new RawNativeSymbol(
@@ -128,9 +177,23 @@ internal static class NativePdbReader
         // Module procedures and data records — the rich source with sizes and line info.
         foreach (var module in dbi.Modules)
         {
-            if (module.SymbolStream < 0 || module.SymbolStream >= msf.StreamCount) continue;
+            if (module.SymbolStream < 0)
+            {
+                continue;
+            }
+
+            if (module.SymbolStream >= msf.StreamCount)
+            {
+                return false;
+            }
+
             var moduleStream = msf.GetStream(module.SymbolStream);
-            foreach (var symbol in CodeViewSymbolReader.ReadModule(moduleStream, module, names))
+            if (!CodeViewSymbolReader.TryReadModule(moduleStream, module, names, out var moduleSymbols))
+            {
+                return false;
+            }
+
+            foreach (var symbol in moduleSymbols)
             {
                 if (Resolve(symbol.Name, symbol.Segment, symbol.Offset, symbol.Size, symbol.IsData,
                     symbol.SourceFile, symbol.Line) is { } raw)
@@ -142,10 +205,23 @@ internal static class NativePdbReader
 
         // Publics — named symbols without sizes; the merge pass sizes and dedups them against the
         // richer module records above.
-        if (dbi.PublicStream >= 0 && dbi.PublicStream < msf.StreamCount
-            && dbi.SymbolRecordStream >= 0 && dbi.SymbolRecordStream < msf.StreamCount)
+        if ((dbi.PublicStream < 0) != (dbi.SymbolRecordStream < 0))
         {
-            var publics = PublicsReader.Read(msf.GetStream(dbi.PublicStream), msf.GetStream(dbi.SymbolRecordStream));
+            return false;
+        }
+
+        if (dbi.PublicStream >= 0)
+        {
+            if (dbi.PublicStream >= msf.StreamCount
+                || dbi.SymbolRecordStream >= msf.StreamCount
+                || !PublicsReader.TryRead(
+                    msf.GetStream(dbi.PublicStream),
+                    msf.GetStream(dbi.SymbolRecordStream),
+                    out var publics))
+            {
+                return false;
+            }
+
             foreach (var pub in publics)
             {
                 var isData = !pub.IsFunction && !sectionMap.IsExecutable(pub.Segment);
@@ -154,7 +230,8 @@ internal static class NativePdbReader
             }
         }
 
-        return result;
+        symbols = result;
+        return true;
     }
 
     private static PdbSectionMap? BuildSectionMap(MsfFile msf, DbiStream dbi, ReadOnlySpan<byte> peImage)
@@ -163,6 +240,12 @@ internal static class NativePdbReader
         {
             var headers = msf.GetStream(dbi.SectionHeaderStream);
             if (headers.Length >= 40) return PdbSectionMap.FromSectionHeaders(headers);
+            return null;
+        }
+
+        if (dbi.SectionHeaderStream >= msf.StreamCount)
+        {
+            return null;
         }
 
         // Fall back to the PE image's own section headers.
@@ -177,83 +260,167 @@ internal static class NativePdbReader
         var info = msf.GetStream(1).AsSpan();
         if (info.Length < 32) return [];
 
-        var stringBytes = BinaryPrimitives.ReadInt32LittleEndian(info[28..]);
-        var blobStart = 32;
-        if (stringBytes < 0 || blobStart + stringBytes > info.Length) return [];
-        var blob = info.Slice(blobStart, stringBytes);
-
-        var p = blobStart + stringBytes;
-        if (p + 8 > info.Length) return [];
-        var size = BinaryPrimitives.ReadInt32LittleEndian(info[p..]);
-        var capacity = BinaryPrimitives.ReadInt32LittleEndian(info[(p + 4)..]);
-        p += 8;
-        // Present bit vector, then deleted bit vector, then the entries.
-        p = SkipBitVector(info, ref p);
-        p = SkipBitVector(info, ref p);
-        for (var i = 0; i < size && p + 8 <= info.Length; i++)
+        var stringByteSize = BinaryPrimitives.ReadUInt32LittleEndian(info[28..]);
+        if (!NativeImageRange.TryGet(
+                info.Length,
+                32,
+                stringByteSize,
+                out var blobOffset,
+                out var blobLength)
+            || !NativeImageRange.TryAdd(32, stringByteSize, out var hashTableOffset)
+            || !NativeImageRange.TryGet(
+                info.Length,
+                hashTableOffset,
+                2 * sizeof(uint),
+                out var p,
+                out _))
         {
-            var nameOffset = BinaryPrimitives.ReadInt32LittleEndian(info[p..]);
-            var streamIndex = BinaryPrimitives.ReadInt32LittleEndian(info[(p + 4)..]);
-            p += 8;
-            if (nameOffset >= 0 && nameOffset < blob.Length)
+            return [];
+        }
+
+        var blob = info.Slice(blobOffset, blobLength);
+        var size = BinaryPrimitives.ReadUInt32LittleEndian(info[p..]);
+        var capacity = BinaryPrimitives.ReadUInt32LittleEndian(info[(p + sizeof(uint))..]);
+        p += 2 * sizeof(uint);
+        if (size > capacity)
+        {
+            return [];
+        }
+
+        // Present bit vector, then deleted bit vector, then the entries.
+        if (!TrySkipBitVector(info, ref p)
+            || !TrySkipBitVector(info, ref p)
+            || !NativeImageRange.TryGetTable(
+                info.Length,
+                (ulong)p,
+                size,
+                2 * sizeof(uint),
+                2 * sizeof(uint),
+                out _,
+                out _))
+        {
+            return [];
+        }
+
+        for (uint i = 0; i < size; i++)
+        {
+            var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(info[p..]);
+            var streamIndex = BinaryPrimitives.ReadUInt32LittleEndian(
+                info[(p + sizeof(uint))..]);
+            p += 2 * sizeof(uint);
+            if (nameOffset < (uint)blob.Length && streamIndex <= int.MaxValue)
             {
-                var name = ReadCString(blob[nameOffset..]);
-                if (name == "/names" && streamIndex >= 0 && streamIndex < msf.StreamCount)
-                    return msf.GetStream(streamIndex);
+                var name = ReadCString(blob[(int)nameOffset..]);
+                if (name == "/names" && streamIndex < (uint)msf.StreamCount)
+                    return msf.GetStream((int)streamIndex);
             }
         }
 
-        _ = capacity;
         return [];
     }
 
-    private static int SkipBitVector(ReadOnlySpan<byte> span, ref int p)
+    private static bool TrySkipBitVector(ReadOnlySpan<byte> span, ref int offset)
     {
-        if (p + 4 > span.Length) return p;
-        var words = BinaryPrimitives.ReadInt32LittleEndian(span[p..]);
-        p += 4 + Math.Max(0, words) * 4;
-        return p;
+        if (!NativeImageRange.TryGet(
+                span.Length,
+                (ulong)offset,
+                sizeof(uint),
+                out var wordCountOffset,
+                out _))
+        {
+            return false;
+        }
+
+        var wordCount = BinaryPrimitives.ReadUInt32LittleEndian(span[wordCountOffset..]);
+        if (!NativeImageRange.TryAdd(
+                (ulong)wordCountOffset + sizeof(uint),
+                (ulong)wordCount * sizeof(uint),
+                out var end)
+            || end > (ulong)span.Length)
+        {
+            return false;
+        }
+
+        offset = (int)end;
+        return true;
     }
 
     private static ulong ReadImageBase(ReadOnlySpan<byte> pe)
     {
-        try
-        {
-            if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z') return 0;
-            var peHeader = BinaryPrimitives.ReadInt32LittleEndian(pe[0x3C..]);
-            if (peHeader <= 0 || peHeader + 24 > pe.Length) return 0;
-            if (BinaryPrimitives.ReadUInt32LittleEndian(pe[peHeader..]) != 0x0000_4550) return 0;
-            var optional = peHeader + 24;
-            var magic = BinaryPrimitives.ReadUInt16LittleEndian(pe[optional..]);
-            return magic == 0x20B
-                ? BinaryPrimitives.ReadUInt64LittleEndian(pe[(optional + 24)..])
-                : BinaryPrimitives.ReadUInt32LittleEndian(pe[(optional + 28)..]);
-        }
-        catch (ArgumentOutOfRangeException)
+        if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z')
         {
             return 0;
         }
+
+        var peHeader = BinaryPrimitives.ReadUInt32LittleEndian(pe[0x3C..]);
+        if (!NativeImageRange.TryGet(
+                pe.Length,
+                peHeader,
+                24,
+                out var containedPeHeader,
+                out _)
+            || BinaryPrimitives.ReadUInt32LittleEndian(pe[containedPeHeader..]) != 0x0000_4550)
+        {
+            return 0;
+        }
+
+        var optional = (ulong)peHeader + 24;
+        if (!NativeImageRange.TryGet(
+                pe.Length,
+                optional,
+                32,
+                out var containedOptional,
+                out _))
+        {
+            return 0;
+        }
+
+        var magic = BinaryPrimitives.ReadUInt16LittleEndian(pe[containedOptional..]);
+        return magic switch
+        {
+            0x20B => BinaryPrimitives.ReadUInt64LittleEndian(pe[(containedOptional + 24)..]),
+            0x10B => BinaryPrimitives.ReadUInt32LittleEndian(pe[(containedOptional + 28)..]),
+            _ => 0,
+        };
     }
 
     private static byte[] ReadPeSectionHeaders(ReadOnlySpan<byte> pe)
     {
-        try
-        {
-            if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z') return [];
-            var peHeader = BinaryPrimitives.ReadInt32LittleEndian(pe[0x3C..]);
-            if (peHeader <= 0 || peHeader + 24 > pe.Length) return [];
-            if (BinaryPrimitives.ReadUInt32LittleEndian(pe[peHeader..]) != 0x0000_4550) return [];
-            var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(pe[(peHeader + 6)..]);
-            var optionalSize = BinaryPrimitives.ReadUInt16LittleEndian(pe[(peHeader + 20)..]);
-            var sectionTable = peHeader + 24 + optionalSize;
-            var byteCount = sectionCount * 40;
-            if (sectionTable < 0 || sectionTable + byteCount > pe.Length) return [];
-            return pe.Slice(sectionTable, byteCount).ToArray();
-        }
-        catch (ArgumentOutOfRangeException)
+        if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z')
         {
             return [];
         }
+
+        var peHeader = BinaryPrimitives.ReadUInt32LittleEndian(pe[0x3C..]);
+        if (!NativeImageRange.TryGet(
+                pe.Length,
+                peHeader,
+                24,
+                out var containedPeHeader,
+                out _)
+            || BinaryPrimitives.ReadUInt32LittleEndian(pe[containedPeHeader..]) != 0x0000_4550)
+        {
+            return [];
+        }
+
+        var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(
+            pe[(containedPeHeader + 6)..]);
+        var optionalSize = BinaryPrimitives.ReadUInt16LittleEndian(
+            pe[(containedPeHeader + 20)..]);
+        var sectionTable = (ulong)peHeader + 24 + optionalSize;
+        if (!NativeImageRange.TryGetTable(
+                pe.Length,
+                sectionTable,
+                sectionCount,
+                40,
+                40,
+                out var containedSectionTable,
+                out var sectionTableByteSize))
+        {
+            return [];
+        }
+
+        return pe.Slice(containedSectionTable, sectionTableByteSize).ToArray();
     }
 
     private static string ReadCString(ReadOnlySpan<byte> span)
@@ -261,5 +428,35 @@ internal static class NativePdbReader
         var end = span.IndexOf((byte)0);
         if (end < 0) end = span.Length;
         return Encoding.UTF8.GetString(span[..end]);
+    }
+
+    private static bool TryReadBlock(
+        FileStream stream,
+        MsfSuperBlock superBlock,
+        uint blockIndex,
+        Span<byte> destination)
+    {
+        if (destination.Length != superBlock.BlockSize
+            || !superBlock.TryGetBlockOffset(blockIndex, out var fileOffset))
+        {
+            return false;
+        }
+
+        stream.Position = fileOffset;
+        stream.ReadExactly(destination);
+        return true;
+    }
+
+    private static bool TryReadUInt32(ReadOnlySpan<byte> span, ref int offset, out uint value)
+    {
+        if (offset < 0 || offset > span.Length - sizeof(uint))
+        {
+            value = 0;
+            return false;
+        }
+
+        value = BinaryPrimitives.ReadUInt32LittleEndian(span[offset..]);
+        offset += sizeof(uint);
+        return true;
     }
 }

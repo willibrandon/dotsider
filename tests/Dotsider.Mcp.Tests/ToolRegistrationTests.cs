@@ -18,6 +18,7 @@ public class ToolRegistrationTests : McpServerTestBase
         var tools = await client.ListToolsAsync(cancellationToken: TestCancellationToken);
 
         var names = tools.Select(t => t.Name).ToList();
+        Assert.HasCount(52, names);
 
         // Assembly tools
         Assert.Contains("get_assembly_info", names);

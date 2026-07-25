@@ -24,7 +24,7 @@ Opening a Native AOT executable adds a block below the standard fields. ILC stri
 - **R2R sections** — how many ReadyToRun runtime sections the header describes (the table is in the PE/Metadata tab)
 - **Recovered types** — type and method counts recovered from the embedded metadata (the list is in the PE/Metadata tab)
 - **Frozen strings** — how many frozen string literals were recovered (the list is in the Strings tab)
-- **Native symbols** — the symbol count and its source (native PDB, DWARF, or dSYM), or — when none loaded — the reason: missing, identity mismatch, corrupt, or boundaries-only fallback (the table is in the PE/Metadata tab). Native DWARF materialization from ELF images and dSYM bundles is limited to 256 MiB per symbol read. Malformed line metadata omits source locations from otherwise readable symbols; oversized or wholly unreadable data is treated as corrupt and falls back to unwind boundaries when available.
+- **Native symbols** — the symbol count and its source (native PDB, DWARF, or dSYM), or — when none loaded — the reason: missing, identity mismatch, corrupt, or boundaries-only fallback (the table is in the PE/Metadata tab). Native DWARF materialization from ELF images and dSYM bundles is limited to 256 MiB per symbol read. Malformed line metadata omits source locations from otherwise readable symbols; oversized or wholly unreadable data is treated as corrupt and falls back to unwind boundaries when available. Native PDB MSF directories and CodeView module ranges are validated before materialization; malformed PDBs are reported as corrupt and use `.pdata` boundaries when available.
 
 ## ReadyToRun images
 

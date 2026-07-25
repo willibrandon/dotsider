@@ -49,7 +49,8 @@ internal sealed class PdbSectionMap
     public uint? ToRva(int segment, uint offset)
     {
         if (segment < 1 || segment > _sections.Length) return null;
-        return _sections[segment - 1].VirtualAddress + offset;
+        var rva = (ulong)_sections[segment - 1].VirtualAddress + offset;
+        return rva <= uint.MaxValue ? (uint)rva : null;
     }
 
     /// <summary>The name of a one-based segment, or null when out of range.</summary>
@@ -68,8 +69,15 @@ internal sealed class PdbSectionMap
 
     /// <summary>The end RVA of a one-based segment (address + virtual size), for sizing by containment.</summary>
     /// <param name="segment">The one-based section index.</param>
-    public uint SectionEndRva(int segment) =>
-        segment >= 1 && segment <= _sections.Length
-            ? _sections[segment - 1].VirtualAddress + _sections[segment - 1].VirtualSize
-            : 0;
+    public uint SectionEndRva(int segment)
+    {
+        if (segment < 1 || segment > _sections.Length)
+        {
+            return 0;
+        }
+
+        var end = (ulong)_sections[segment - 1].VirtualAddress
+            + _sections[segment - 1].VirtualSize;
+        return end <= uint.MaxValue ? (uint)end : 0;
+    }
 }

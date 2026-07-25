@@ -20,17 +20,6 @@ internal static class CodeViewSymbolReader
     private const uint DebugSFileChecksums = 0xF4;
     private const uint NamesSignature = 0xEFFE_EFFE;
 
-    /// <summary>A function or data symbol recovered from a module, before RVA resolution.</summary>
-    /// <param name="Name">The raw symbol name.</param>
-    /// <param name="Segment">The one-based section index.</param>
-    /// <param name="Offset">The offset within the section.</param>
-    /// <param name="Size">The code/data size, or 0 for data records that carry none.</param>
-    /// <param name="IsData">Whether this is a data record rather than a procedure.</param>
-    /// <param name="SourceFile">The declaring source file, when C13 line data resolved it.</param>
-    /// <param name="Line">The first source line, when C13 line data resolved it.</param>
-    internal readonly record struct ModuleSymbol(
-        string Name, int Segment, uint Offset, uint Size, bool IsData, string? SourceFile, int? Line);
-
     /// <summary>
     /// Reads the function and data symbols of one module, attributing source file and line from
     /// the module's C13 line subsections.
@@ -38,144 +27,388 @@ internal static class CodeViewSymbolReader
     /// <param name="moduleStream">The module's full symbol stream.</param>
     /// <param name="module">The module descriptor giving the symbol and line block sizes.</param>
     /// <param name="names">The <c>/names</c> string table stream, for resolving file names.</param>
-    public static List<ModuleSymbol> ReadModule(
-        byte[] moduleStream, DbiStream.Module module, byte[] names)
-    {
-        var result = new List<ModuleSymbol>();
-        var span = moduleStream.AsSpan();
-        if (module.SymbolStream < 0 || module.SymByteSize <= 4 || module.SymByteSize > span.Length)
-            return result;
+    public static List<CodeViewModuleSymbol> ReadModule(
+        byte[] moduleStream, DbiModule module, byte[] names)
+        => TryReadModule(moduleStream, module, names, out var symbols) ? symbols : [];
 
-        // Line lookup keyed by (segment, offset): each function has its own DEBUG_S_LINES block.
-        var lines = ParseLineTable(moduleStream, module, names);
+    /// <summary>
+    /// Tries to read the function and data symbols of one module.
+    /// </summary>
+    /// <param name="moduleStream">The module's full symbol stream.</param>
+    /// <param name="module">The module descriptor giving the symbol and line block sizes.</param>
+    /// <param name="names">The <c>/names</c> string table stream, for resolving file names.</param>
+    /// <param name="symbols">The symbols read from a structurally valid module.</param>
+    /// <returns><see langword="true"/> when every declared module range is valid.</returns>
+    public static bool TryReadModule(
+        byte[] moduleStream,
+        DbiModule module,
+        byte[] names,
+        out List<CodeViewModuleSymbol> symbols)
+    {
+        symbols = [];
+        var span = moduleStream.AsSpan();
+        if (module.SymbolStream < 0
+            || module.SymbolByteSize <= sizeof(uint)
+            || module.C11ByteSize != 0 && module.C13ByteSize != 0
+            || !NativeImageRange.TryAdd(
+                module.SymbolByteSize,
+                module.C11ByteSize,
+                out var lineDataEnd)
+            || !NativeImageRange.TryAdd(
+                lineDataEnd,
+                module.C13ByteSize,
+                out var moduleDataEnd)
+            || !NativeImageRange.TryGet(
+                span.Length,
+                0,
+                moduleDataEnd,
+                out _,
+                out _)
+            || !NativeImageRange.TryGet(
+                span.Length,
+                0,
+                module.SymbolByteSize,
+                out _,
+                out var symbolByteSize)
+            || !TryParseLineTable(moduleStream, module, names, out var lines))
+        {
+            return false;
+        }
 
         var p = 4; // past the CodeView signature
-        var end = module.SymByteSize;
-        while (p + 4 <= end)
+        while (p < symbolByteSize)
         {
+            if (p > symbolByteSize - sizeof(uint))
+            {
+                symbols = [];
+                return false;
+            }
+
             var length = BinaryPrimitives.ReadUInt16LittleEndian(span[p..]);
-            if (length < 2) break;
-            var recordEnd = p + 2 + length;
-            if (recordEnd > end) break;
+            if (length < sizeof(ushort)
+                || !NativeImageRange.TryGet(
+                    symbolByteSize,
+                    (ulong)p,
+                    (ulong)sizeof(ushort) + length,
+                    out _,
+                    out var recordByteSize))
+            {
+                symbols = [];
+                return false;
+            }
 
             var kind = BinaryPrimitives.ReadUInt16LittleEndian(span[(p + 2)..]);
-            var body = span[(p + 4)..recordEnd];
+            var body = span.Slice(p + 4, recordByteSize - 4);
 
-            if (kind is SGProc32 or SLProc32 && body.Length >= 35)
+            if (kind is SGProc32 or SLProc32)
             {
                 // parent,end,next,codeSize,dbgStart,dbgEnd,typeIndex,offset (8×4), segment(2), flags(1), name
+                if (body.Length < 35
+                    || !TryReadCString(body[35..], out var name))
+                {
+                    symbols = [];
+                    return false;
+                }
+
                 var codeSize = BinaryPrimitives.ReadUInt32LittleEndian(body[12..]);
                 var offset = BinaryPrimitives.ReadUInt32LittleEndian(body[28..]);
                 var segment = BinaryPrimitives.ReadUInt16LittleEndian(body[32..]);
-                var name = ReadCString(body[35..]);
                 if (name.Length > 0)
                 {
                     var (file, line) = lines.GetValueOrDefault((segment, offset));
-                    result.Add(new ModuleSymbol(name, segment, offset, codeSize, false, file, line));
+                    symbols.Add(new CodeViewModuleSymbol(
+                        name,
+                        segment,
+                        offset,
+                        codeSize,
+                        false,
+                        file,
+                        line));
                 }
             }
-            else if (kind is SGData32 or SLData32 && body.Length >= 10)
+            else if (kind is SGData32 or SLData32)
             {
                 // typeIndex(4), offset(4), segment(2), name
+                if (body.Length < 10
+                    || !TryReadCString(body[10..], out var name))
+                {
+                    symbols = [];
+                    return false;
+                }
+
                 var offset = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
                 var segment = BinaryPrimitives.ReadUInt16LittleEndian(body[8..]);
-                var name = ReadCString(body[10..]);
                 if (name.Length > 0)
-                    result.Add(new ModuleSymbol(name, segment, offset, 0, true, null, null));
+                {
+                    symbols.Add(new CodeViewModuleSymbol(
+                        name,
+                        segment,
+                        offset,
+                        0,
+                        true,
+                        null,
+                        null));
+                }
             }
 
-            p = recordEnd;
+            p += recordByteSize;
         }
 
-        return result;
+        return true;
     }
 
-    private static Dictionary<(int Segment, uint Offset), (string? File, int? Line)> ParseLineTable(
-        byte[] moduleStream, DbiStream.Module module, byte[] names)
+    private static bool TryParseLineTable(
+        byte[] moduleStream,
+        DbiModule module,
+        byte[] names,
+        out Dictionary<(int Segment, uint Offset), (string? File, int? Line)> table)
     {
-        var table = new Dictionary<(int, uint), (string?, int?)>();
-        var c13Start = module.SymByteSize + module.C11ByteSize;
-        if (module.C13ByteSize <= 0 || c13Start + module.C13ByteSize > moduleStream.Length) return table;
+        table = [];
+        if (module.C13ByteSize == 0)
+        {
+            return true;
+        }
 
-        var c13 = moduleStream.AsSpan(c13Start, module.C13ByteSize);
+        if (!NativeImageRange.TryAdd(
+                module.SymbolByteSize,
+                module.C11ByteSize,
+                out var c13Start)
+            || !NativeImageRange.TryGet(
+                moduleStream.Length,
+                c13Start,
+                module.C13ByteSize,
+                out var c13Offset,
+                out var c13ByteSize))
+        {
+            return false;
+        }
+
+        var c13 = moduleStream.AsSpan(c13Offset, c13ByteSize);
 
         // First pass: collect the file-checksums subsection (offset-within-it → /names offset).
-        ReadOnlySpan<byte> checksums = default;
+        Dictionary<uint, uint>? checksumNames = null;
         var p = 0;
-        while (p + 8 <= c13.Length)
+        while (p < c13.Length)
         {
-            var kind = BinaryPrimitives.ReadUInt32LittleEndian(c13[p..]);
-            var length = (int)BinaryPrimitives.ReadUInt32LittleEndian(c13[(p + 4)..]);
-            var contentStart = p + 8;
-            if (length < 0 || contentStart + length > c13.Length) break;
-            if (kind == DebugSFileChecksums) checksums = c13.Slice(contentStart, length);
-            p = contentStart + ((length + 3) & ~3);
+            if (!TryReadSubsection(c13, p, out var kind, out var content, out var nextOffset))
+            {
+                return false;
+            }
+
+            if (kind == DebugSFileChecksums)
+            {
+                if (checksumNames is not null
+                    || !TryReadChecksums(content, out checksumNames))
+                {
+                    return false;
+                }
+            }
+
+            p = nextOffset;
         }
 
         // Second pass: DEBUG_S_LINES blocks → first line per (segment, offset).
         p = 0;
-        while (p + 8 <= c13.Length)
+        while (p < c13.Length)
         {
-            var kind = BinaryPrimitives.ReadUInt32LittleEndian(c13[p..]);
-            var length = (int)BinaryPrimitives.ReadUInt32LittleEndian(c13[(p + 4)..]);
-            var contentStart = p + 8;
-            if (length < 0 || contentStart + length > c13.Length) break;
-
-            if (kind == DebugSLines && length >= 12)
+            if (!TryReadSubsection(c13, p, out var kind, out var content, out var nextOffset))
             {
-                var content = c13.Slice(contentStart, length);
-                var contribOffset = BinaryPrimitives.ReadUInt32LittleEndian(content);
-                var contribSegment = BinaryPrimitives.ReadUInt16LittleEndian(content[4..]);
-                var flags = BinaryPrimitives.ReadUInt16LittleEndian(content[6..]);
-                var hasColumns = (flags & 1) != 0;
-
-                var bp = 12;
-                while (bp + 12 <= content.Length)
-                {
-                    var fileChecksumOffset = BinaryPrimitives.ReadUInt32LittleEndian(content[bp..]);
-                    var numLines = BinaryPrimitives.ReadUInt32LittleEndian(content[(bp + 4)..]);
-                    bp += 12; // fileId, numLines, blockSize
-                    if (numLines == 0 || bp + 8 > content.Length) break;
-
-                    var firstLineData = BinaryPrimitives.ReadUInt32LittleEndian(content[(bp + 4)..]);
-                    var line = (int)(firstLineData & 0xFFFFFF);
-                    var file = ResolveFile(checksums, fileChecksumOffset, names);
-                    table.TryAdd((contribSegment, contribOffset), (file, line));
-
-                    // Advance past this block's line (and optional column) entries.
-                    bp += (int)numLines * 8;
-                    if (hasColumns) bp += (int)numLines * 4;
-                }
+                return false;
             }
 
-            p = contentStart + ((length + 3) & ~3);
+            if (kind == DebugSLines
+                && !TryReadLines(content, checksumNames, names, table))
+            {
+                return false;
+            }
+
+            p = nextOffset;
         }
 
-        return table;
+        return true;
     }
 
-    private static string? ResolveFile(ReadOnlySpan<byte> checksums, uint checksumOffset, byte[] names)
+    private static bool TryReadLines(
+        ReadOnlySpan<byte> content,
+        Dictionary<uint, uint>? checksumNames,
+        byte[] names,
+        Dictionary<(int Segment, uint Offset), (string? File, int? Line)> table)
     {
-        if (checksums.IsEmpty || checksumOffset + 4 > (uint)checksums.Length) return null;
-        var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(checksums[(int)checksumOffset..]);
-        return ResolveName(names, nameOffset);
+        if (content.Length < 12)
+        {
+            return false;
+        }
+
+        var contributionOffset = BinaryPrimitives.ReadUInt32LittleEndian(content);
+        var contributionSegment = BinaryPrimitives.ReadUInt16LittleEndian(content[4..]);
+        var flags = BinaryPrimitives.ReadUInt16LittleEndian(content[6..]);
+        var lineStride = (flags & 1) != 0 ? 12u : 8u;
+        var blockOffset = 12;
+        while (blockOffset < content.Length)
+        {
+            if (blockOffset > content.Length - 12)
+            {
+                return false;
+            }
+
+            var fileChecksumOffset = BinaryPrimitives.ReadUInt32LittleEndian(
+                content[blockOffset..]);
+            var lineCount = BinaryPrimitives.ReadUInt32LittleEndian(
+                content[(blockOffset + 4)..]);
+            var blockByteSize = BinaryPrimitives.ReadUInt32LittleEndian(
+                content[(blockOffset + 8)..]);
+            if (lineCount == 0
+                || blockByteSize < 12
+                || !NativeImageRange.TryGet(
+                    content.Length,
+                    (ulong)blockOffset,
+                    blockByteSize,
+                    out _,
+                    out var containedBlockByteSize)
+                || !NativeImageRange.TryGetTable(
+                    containedBlockByteSize,
+                    12,
+                    lineCount,
+                    lineStride,
+                    lineStride,
+                    out _,
+                    out _)
+                || checksumNames is null
+                || !checksumNames.TryGetValue(fileChecksumOffset, out var nameOffset)
+                || !TryResolveName(names, nameOffset, out var file))
+            {
+                return false;
+            }
+
+            var firstLineData = BinaryPrimitives.ReadUInt32LittleEndian(
+                content[(blockOffset + 16)..]);
+            var line = (int)(firstLineData & 0xFF_FFFF);
+            table.TryAdd((contributionSegment, contributionOffset), (file, line));
+            blockOffset += containedBlockByteSize;
+        }
+
+        return true;
     }
 
-    private static string? ResolveName(byte[] names, uint nameOffset)
+    private static bool TryReadSubsection(
+        ReadOnlySpan<byte> c13,
+        int offset,
+        out uint kind,
+        out ReadOnlySpan<byte> content,
+        out int nextOffset)
     {
-        // /names layout: u32 signature, u32 hashVersion, u32 byteSize, then the string data.
+        kind = 0;
+        content = default;
+        nextOffset = 0;
+        if (offset < 0 || offset > c13.Length - 8)
+        {
+            return false;
+        }
+
+        kind = BinaryPrimitives.ReadUInt32LittleEndian(c13[offset..]);
+        var length = BinaryPrimitives.ReadUInt32LittleEndian(c13[(offset + 4)..]);
+        var contentOffset = offset + 8;
+        if (!NativeImageRange.TryGet(
+                c13.Length,
+                (ulong)contentOffset,
+                length,
+                out _,
+                out var contentLength)
+            || !NativeImageRange.TryAdd((ulong)contentOffset, length, out var contentEnd)
+            || !NativeImageRange.TryAlignUp(contentEnd, 4, out var alignedEnd)
+            || alignedEnd > (ulong)c13.Length)
+        {
+            return false;
+        }
+
+        content = c13.Slice(contentOffset, contentLength);
+        nextOffset = (int)alignedEnd;
+        return true;
+    }
+
+    private static bool TryReadChecksums(
+        ReadOnlySpan<byte> checksums,
+        out Dictionary<uint, uint> names)
+    {
+        names = [];
+        var offset = 0;
+        while (offset < checksums.Length)
+        {
+            if (!NativeImageRange.TryGet(
+                    checksums.Length,
+                    (ulong)offset,
+                    sizeof(uint) + 2,
+                    out var containedOffset,
+                    out _))
+            {
+                return false;
+            }
+
+            var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(
+                checksums[containedOffset..]);
+            var checksumByteSize = checksums[containedOffset + sizeof(uint)];
+            if (!NativeImageRange.TryAdd(
+                    (ulong)containedOffset + sizeof(uint) + 2,
+                    checksumByteSize,
+                    out var checksumEnd)
+                || !NativeImageRange.TryAlignUp(checksumEnd, 4, out var nextOffset)
+                || nextOffset > (ulong)checksums.Length)
+            {
+                return false;
+            }
+
+            names.Add((uint)offset, nameOffset);
+            offset = (int)nextOffset;
+        }
+
+        return true;
+    }
+
+    private static bool TryResolveName(byte[] names, uint nameOffset, out string name)
+    {
+        name = string.Empty;
         var span = names.AsSpan();
-        if (span.Length < 12 || BinaryPrimitives.ReadUInt32LittleEndian(span) != NamesSignature) return null;
+        if (span.Length < 12
+            || BinaryPrimitives.ReadUInt32LittleEndian(span) != NamesSignature)
+        {
+            return false;
+        }
+
         var byteSize = BinaryPrimitives.ReadUInt32LittleEndian(span[8..]);
-        var dataStart = 12;
-        if (dataStart + byteSize > span.Length || nameOffset >= byteSize) return null;
-        return ReadCString(span[(dataStart + (int)nameOffset)..]);
+        if (nameOffset >= byteSize
+            || !NativeImageRange.TryGet(
+                span.Length,
+                12,
+                byteSize,
+                out var dataOffset,
+                out var dataLength)
+            || !NativeImageRange.TryGet(
+                dataLength,
+                nameOffset,
+                1,
+                out var containedNameOffset,
+                out _))
+        {
+            return false;
+        }
+
+        return TryReadCString(
+            span.Slice(
+                dataOffset + containedNameOffset,
+                dataLength - containedNameOffset),
+            out name);
     }
 
-    private static string ReadCString(ReadOnlySpan<byte> span)
+    private static bool TryReadCString(ReadOnlySpan<byte> span, out string value)
     {
         var end = span.IndexOf((byte)0);
-        if (end < 0) end = span.Length;
-        return Encoding.UTF8.GetString(span[..end]);
+        if (end < 0)
+        {
+            value = string.Empty;
+            return false;
+        }
+
+        value = Encoding.UTF8.GetString(span[..end]);
+        return true;
     }
 }

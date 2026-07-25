@@ -1,4 +1,5 @@
 using Dotsider.Core.Analysis.NativePdb;
+using System.Buffers.Binary;
 
 namespace Dotsider.Tests;
 
@@ -7,7 +8,7 @@ namespace Dotsider.Tests;
 /// block and directory math is exercised on every platform.
 /// </summary>
 [TestClass]
-public class MsfFileTests
+public sealed class MsfFileTests
 {
     /// <summary>
     /// Verifies a stream's bytes round-trip through the block directory, including a stream whose
@@ -89,5 +90,142 @@ public class MsfFileTests
         image[blockMapOffset + 1] = 0xFF;
 
         Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies a stream block index cannot escape the declared MSF container.</summary>
+    [TestMethod]
+    public void TryOpen_StreamBlockOutsideContainer_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        var directoryOffset = DirectoryOffset(image);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            image.AsSpan(directoryOffset + 3 * sizeof(uint)),
+            uint.MaxValue);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies required superblock fields reject their invalid zero values.</summary>
+    /// <param name="fieldOffset">The superblock field to clear.</param>
+    [TestMethod]
+    [DataRow(40)]
+    [DataRow(44)]
+    [DataRow(52)]
+    public void TryOpen_RequiredSuperblockFieldIsZero_ReturnsNull(int fieldOffset)
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(fieldOffset), 0);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies unsupported MSF block sizes are rejected before block arithmetic.</summary>
+    [TestMethod]
+    public void TryOpen_UnsupportedBlockSize_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(32), 256);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies directory block-count rounding cannot overflow signed arithmetic.</summary>
+    [TestMethod]
+    public void TryOpen_DirectoryByteCountRoundingOverflow_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(44), int.MaxValue);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies the directory block list must fit in its single block-map block.</summary>
+    [TestMethod]
+    public void TryOpen_DirectoryMapCapacityExceeded_ReturnsNull()
+    {
+        const int blockSize = 512;
+        var image = SyntheticImageBuilders.BuildMsf(blockSize, [1, 2, 3, 4]);
+        var mapCapacity = blockSize / sizeof(int);
+        var declaredBlockCount = mapCapacity + 2;
+        Array.Resize(ref image, declaredBlockCount * blockSize);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(40), declaredBlockCount);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            image.AsSpan(44),
+            checked((mapCapacity + 1) * blockSize));
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies a directory may use every entry in its one-block block map.</summary>
+    [TestMethod]
+    public void TryOpen_DirectoryAtMapCapacity_IsAccepted()
+    {
+        const int blockSize = 512;
+        var directoryByteCapacity = blockSize * (blockSize / sizeof(uint));
+        var totalStreamCount = (directoryByteCapacity - sizeof(uint)) / sizeof(uint);
+        var streamCount = totalStreamCount - 1;
+        var image = SyntheticImageBuilders.BuildMsf(
+            blockSize,
+            new byte[]?[streamCount]);
+
+        var msf = MsfFile.TryOpen(image);
+
+        Assert.IsNotNull(msf);
+        Assert.AreEqual(streamCount + 1, msf.StreamCount);
+    }
+
+    /// <summary>Verifies the declared block count cannot describe bytes absent from the file.</summary>
+    [TestMethod]
+    public void TryOpen_DeclaredBlockCountBeyondFile_ReturnsNull()
+    {
+        const int blockSize = 512;
+        var image = SyntheticImageBuilders.BuildMsf(blockSize, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            image.AsSpan(40),
+            image.Length / blockSize + 1);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies the stream-size table must fit in the declared directory bytes.</summary>
+    [TestMethod]
+    public void TryOpen_StreamSizeTableBeyondDeclaredDirectory_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(44), sizeof(int));
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies stream block lists must fit in the declared directory bytes.</summary>
+    [TestMethod]
+    public void TryOpen_StreamBlockTableBeyondDeclaredDirectory_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(44), 3 * sizeof(int));
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    /// <summary>Verifies stream block-count rounding cannot overflow signed arithmetic.</summary>
+    [TestMethod]
+    public void TryOpen_StreamBlockCountRoundingOverflow_ReturnsNull()
+    {
+        var image = SyntheticImageBuilders.BuildMsf(512, [1, 2, 3, 4]);
+        var directoryOffset = DirectoryOffset(image);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            image.AsSpan(directoryOffset + 2 * sizeof(int)),
+            int.MaxValue);
+
+        Assert.IsNull(MsfFile.TryOpen(image));
+    }
+
+    private static int DirectoryOffset(byte[] image)
+    {
+        var blockSize = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(32));
+        var blockMap = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(52));
+        var directoryBlock = BinaryPrimitives.ReadInt32LittleEndian(
+            image.AsSpan(blockMap * blockSize));
+        return directoryBlock * blockSize;
     }
 }
