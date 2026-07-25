@@ -618,8 +618,9 @@ public IReadOnlyList<ReadyToRunComponent> ReadyToRunComponents { get; }
 
 ### ReadyToRunIndex
 
-The queryable index over this image's precompiled methods, or null when it is not a
-ReadyToRun image. Built lazily from [ReadyToRunMethods](/api/dotsider.core.analysis.assemblyanalyzer.readytorunmethods/).
+The queryable index over this image's precompiled methods, or null when the image is not
+ReadyToRun or its method-map tables are unavailable. Built lazily from
+[ReadyToRunMethods](/api/dotsider.core.analysis.assemblyanalyzer.readytorunmethods/).
 
 **Returns:** [ReadyToRunIndex](/api/dotsider.core.analysis.readytorunindex/)
 

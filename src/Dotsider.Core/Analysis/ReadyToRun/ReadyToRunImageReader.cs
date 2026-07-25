@@ -7,7 +7,7 @@ namespace Dotsider.Core.Analysis.ReadyToRun;
 /// tables, then joins each metadata source's <c>MethodDefEntryPoints</c> to them. A non-composite
 /// image contributes a single source (itself); a composite resolves one source per component (by
 /// name + MVID) with a shared code image; a component DLL delegates to its owner composite. Never
-/// throws — a malformed table yields the entries that parsed.
+/// throws — a malformed image-wide table produces an explicitly unavailable method map.
 /// </summary>
 internal static class ReadyToRunImageReader
 {
@@ -29,18 +29,21 @@ internal static class ReadyToRunImageReader
     // Metadata and native code in the same file: one source (self), the image's own instance table.
     private static ReadyToRunModel BuildNonComposite(AssemblyAnalyzer analyzer, ReadyToRunInfo info)
     {
-        var self = Empty(analyzer);
-        if (!TryOpenTables(analyzer, info, out var tables)
-            || Section(info, ReadyToRunSectionType.MethodDefEntryPoints)
-                is not { FileOffset: { } entryOffset, Size: > 0 } entryPoints)
+        if (!TryOpenTables(analyzer, info, out var tables, out var tableDiagnostic))
         {
-            return self;
+            return Unavailable(analyzer, tableDiagnostic);
         }
 
         var mvid = ReadMvid(analyzer);
-        var source = new ReadyToRunMethodMapReader.MethodMapSource(
-            analyzer.AssemblyName ?? "", mvid, entryOffset, entryPoints.Size,
-            analyzer.MethodDefs, analyzer.GetMetadataReader());
+        var providers = new Dictionary<Guid, AssemblyAnalyzer> { [mvid] = analyzer };
+        var sources = new List<ReadyToRunMethodMapReader.MethodMapSource>();
+        if (Section(info, ReadyToRunSectionType.MethodDefEntryPoints)
+            is { FileOffset: { } entryOffset, Size: > 0 } entryPoints)
+        {
+            sources.Add(new ReadyToRunMethodMapReader.MethodMapSource(
+                analyzer.AssemblyName ?? "", mvid, entryOffset, entryPoints.Size,
+                analyzer.MethodDefs, analyzer.GetMetadataReader()));
+        }
 
         var instance = Section(info, ReadyToRunSectionType.InstanceMethodEntryPoints);
         var global = instance is { FileOffset: { } io }
@@ -48,19 +51,16 @@ internal static class ReadyToRunImageReader
                 io, instance.Size, analyzer.GetMetadataReader(), analyzer.AssemblyName ?? "", mvid, analyzer.MethodDefs)
             : (ReadyToRunMethodMapReader.GlobalInstanceSource?)null;
 
-        var methods = SafeBuild(tables, [source], global);
+        var methods = SafeBuild(tables, sources, global);
         return new ReadyToRunModel(
-            methods, analyzer,
-            new Dictionary<Guid, AssemblyAnalyzer> { [mvid] = analyzer },
-            [], [], OwnerCompositeMissing: false, null);
+            methods, analyzer, providers, [], [], OwnerCompositeMissing: false, MapUsable: true, null);
     }
 
     // A composite opened directly: one source per resolved component; native code is this file.
     private static ReadyToRunModel BuildComposite(AssemblyAnalyzer analyzer, ReadyToRunInfo info)
     {
-        var self = Empty(analyzer);
-        if (!TryOpenTables(analyzer, info, out var tables))
-            return self;
+        if (!TryOpenTables(analyzer, info, out var tables, out var tableDiagnostic))
+            return Unavailable(analyzer, tableDiagnostic);
 
         var raw = analyzer.RawBytes;
         var imageBase = analyzer.PeHeaders?.ImageBase ?? 0;
@@ -117,7 +117,8 @@ internal static class ReadyToRunImageReader
                 + $"'{Path.GetFileName(analyzer.FilePath)}'; their methods are unnamed"
             : null;
         return new ReadyToRunModel(
-            methods, analyzer, providers, owned, listing, OwnerCompositeMissing: false, diagnostic);
+            methods, analyzer, providers, owned, listing,
+            OwnerCompositeMissing: false, MapUsable: true, diagnostic);
     }
 
     // A component DLL: metadata is self, native code lives in the owner composite (opened sibling).
@@ -128,7 +129,8 @@ internal static class ReadyToRunImageReader
         if (info.OwnerCompositeExecutable is not { Length: > 0 } ownerName)
         {
             return new ReadyToRunModel(
-                [], analyzer, providers, [], [], OwnerCompositeMissing: true, "owner composite is not named");
+                [], analyzer, providers, [], [],
+                OwnerCompositeMissing: true, MapUsable: false, "owner composite is not named");
         }
 
         var directory = Path.GetDirectoryName(analyzer.FilePath) ?? ".";
@@ -136,7 +138,8 @@ internal static class ReadyToRunImageReader
         if (owner is null)
         {
             return new ReadyToRunModel(
-                [], analyzer, providers, [], [], OwnerCompositeMissing: true,
+                [], analyzer, providers, [], [],
+                OwnerCompositeMissing: true, MapUsable: false,
                 $"owner composite '{ownerName}' not found beside the component; native code unavailable");
         }
 
@@ -144,12 +147,15 @@ internal static class ReadyToRunImageReader
         // owner's tables instead of materializing every sibling metadata provider: all entry points
         // are still marked so funclet boundaries are correct, but only this component's metadata is
         // resolved. Disassembly routes through the owner bytes.
+        string? tableDiagnostic = null;
         if (owner.ReadyToRunInfo is not { Status: ReadyToRunStatus.Valid, IsComposite: true } ownerInfo
-            || !TryOpenTables(owner, ownerInfo, out var tables))
+            || !TryOpenTables(owner, ownerInfo, out var tables, out tableDiagnostic))
         {
             return new ReadyToRunModel(
-                [], owner, providers, [owner], [], OwnerCompositeMissing: false,
-                $"owner composite '{ownerName}' does not expose a usable ReadyToRun method map");
+                [], owner, providers, [owner], [],
+                OwnerCompositeMissing: false, MapUsable: false,
+                tableDiagnostic
+                    ?? $"owner composite '{ownerName}' does not expose a usable ReadyToRun method map");
         }
 
         var ownerRaw = owner.RawBytes;
@@ -185,7 +191,9 @@ internal static class ReadyToRunImageReader
         var methods = allMethods
             .Where(m => m.Mvid == mvid || string.Equals(m.AssemblyName, analyzer.AssemblyName, StringComparison.Ordinal))
             .ToList();
-        return new ReadyToRunModel(methods, owner, providers, [owner], listing, OwnerCompositeMissing: false, null);
+        return new ReadyToRunModel(
+            methods, owner, providers, [owner], listing,
+            OwnerCompositeMissing: false, MapUsable: true, null);
     }
 
     private readonly record struct Tables(
@@ -198,29 +206,70 @@ internal static class ReadyToRunImageReader
     // Opens the image-wide tables (runtime functions + hot/cold). The MethodDefEntryPoints table is
     // per-source (top-level for a non-composite, per-component for a composite), so it is not required
     // here — a composite's top-level header carries no section 103.
-    private static bool TryOpenTables(AssemblyAnalyzer analyzer, ReadyToRunInfo info, out Tables tables)
+    private static bool TryOpenTables(
+        AssemblyAnalyzer analyzer,
+        ReadyToRunInfo info,
+        out Tables tables,
+        out string? diagnostic)
     {
         tables = default;
-        if (Section(info, ReadyToRunSectionType.RuntimeFunctions) is not { FileOffset: { } rfOffset } runtimeFunctions)
+        if (Section(info, ReadyToRunSectionType.RuntimeFunctions) is not { } runtimeFunctions)
+        {
+            diagnostic = "ReadyToRun RuntimeFunctions section is missing.";
             return false;
+        }
+
+        if (runtimeFunctions.FileOffset is not { } rfOffset)
+        {
+            diagnostic = "ReadyToRun RuntimeFunctions has no file-backed section range.";
+            return false;
+        }
 
         var addressSpace = NativeAddressSpace.Create(analyzer.RawBytes.Span);
-        if (addressSpace is null) return false;
+        if (addressSpace is null)
+        {
+            diagnostic = "ReadyToRun RuntimeFunctions cannot be mapped through the image address space.";
+            return false;
+        }
         var imageBase = analyzer.PeHeaders?.ImageBase ?? 0;
 
         try
         {
             var reader = new R2RNativeReader(analyzer.RawBytes);
-            var rfTable = new ReadyToRunRuntimeFunctionTable(
-                reader, rfOffset, runtimeFunctions.Size, info.Architecture, imageBase, addressSpace);
+            if (!ReadyToRunRuntimeFunctionTable.TryRead(
+                    reader,
+                    rfOffset,
+                    runtimeFunctions.Size,
+                    info.Architecture,
+                    imageBase,
+                    addressSpace,
+                    out var rfTable,
+                    out diagnostic))
+            {
+                return false;
+            }
+
             var hotCold = Section(info, ReadyToRunSectionType.HotColdMap);
-            var hotColdMap = ReadyToRunHotColdMap.Read(
-                reader, hotCold?.FileOffset, hotCold?.Size ?? 0, rfTable.Count);
-            tables = new Tables(reader, rfTable, hotColdMap, imageBase, addressSpace);
+            if (!ReadyToRunHotColdMap.TryRead(
+                    reader,
+                    addressSpace,
+                    hotCold?.FileOffset,
+                    hotCold?.Size ?? 0,
+                    rfTable!.Count,
+                    out var hotColdMap,
+                    out diagnostic))
+            {
+                return false;
+            }
+
+            tables = new Tables(reader, rfTable, hotColdMap!, imageBase, addressSpace);
             return true;
         }
-        catch (Exception ex) when (ex is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
+        catch (Exception ex) when (ex is OverflowException or OutOfMemoryException)
         {
+            diagnostic = ex is OutOfMemoryException
+                ? "ReadyToRun method-map tables exceeded available memory."
+                : "ReadyToRun method-map table dimensions overflowed.";
             return false;
         }
     }
@@ -244,8 +293,11 @@ internal static class ReadyToRunImageReader
         }
     }
 
-    private static ReadyToRunModel Empty(AssemblyAnalyzer analyzer) =>
-        new([], analyzer, new Dictionary<Guid, AssemblyAnalyzer>(), [], [], OwnerCompositeMissing: false, null);
+    private static ReadyToRunModel Unavailable(AssemblyAnalyzer analyzer, string? diagnostic) =>
+        new(
+            [], analyzer, new Dictionary<Guid, AssemblyAnalyzer>(), [], [],
+            OwnerCompositeMissing: false, MapUsable: false,
+            diagnostic ?? "ReadyToRun method-map tables are unavailable.");
 
     private static ReadyToRunSectionEntry? Section(ReadyToRunInfo info, ReadyToRunSectionType type)
     {

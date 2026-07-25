@@ -125,6 +125,35 @@ internal sealed class NativeAddressSpace
         return false;
     }
 
+    /// <summary>
+    /// Gets the bytes remaining in the file-backed segment containing a file offset.
+    /// </summary>
+    /// <param name="fileOffset">The file offset to locate.</param>
+    /// <param name="available">Bytes remaining from the offset to the end of its segment.</param>
+    /// <returns>True when the offset belongs to a validated file-backed segment.</returns>
+    public bool TryGetAvailableBytes(int fileOffset, out int available)
+    {
+        foreach (var segment in _segments)
+        {
+            if (fileOffset < segment.FileOffset)
+            {
+                continue;
+            }
+
+            var delta = fileOffset - segment.FileOffset;
+            if (delta >= segment.FileSize)
+            {
+                continue;
+            }
+
+            available = segment.FileSize - delta;
+            return true;
+        }
+
+        available = 0;
+        return false;
+    }
+
     private static NativeAddressSpace? CreatePe(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length < 0x40) return null;
