@@ -3,10 +3,10 @@
 A TUI for analyzing .NET assemblies — structure, metadata, IL, strings, dependencies, and more. Inspired by [binsider](https://github.com/orhun/binsider) for ELF binaries, built for the .NET ecosystem.
 
 ```
-dotsider HelloWorld.dll
+dotsider RichLibrary.dll
 ```
 
-![dotsider IL and native inspection](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/tinytooltown.png)
+![dotsider assembly overview](https://raw.githubusercontent.com/willibrandon/dotsider/main/assets/tinytooltown.png)
 
 ## Installation
 

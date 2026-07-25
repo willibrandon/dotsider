@@ -1,6 +1,7 @@
-# dotsider Documentation Screenshots (HiDPI)
-# 2x pixel density capture while preserving the original terminal layout.
-# Consistent: 2800x1600, fontSize 28, Catppuccin Mocha, RichLibrary.dll
+# dotsider documentation screenshots
+# HiDPI stills at a consistent 2800x1600 using current managed and native fixtures.
+
+Require dotnet
 
 Set Shell bash
 Set FontSize 28
@@ -10,145 +11,115 @@ Set Padding 40
 Set Theme "Catppuccin Mocha"
 Set WindowBar Colorful
 Set TypingSpeed 0ms
-Set Framerate 25
+Set Framerate 1
+Set WaitTimeout 90s
 
 Hide
-Type "export PATH=/tmp/dotsider-bin:$PATH"
-Enter
-Sleep 500ms
-Type "clear"
-Enter
-Sleep 500ms
+Source vhs/setup.tape
 Show
 
-# Launch with RichLibrary.dll
+# Managed assembly overview and PE metadata.
 Type "dotsider samples/RichLibrary/bin/Debug/net10.0/RichLibrary.dll"
 Enter
-Sleep 6s
-
-# Tab 1: General
+Wait+Screen /Assembly References/
 Screenshot docs/src/assets/screenshots/general.png
-Sleep 2s
+Sleep 4s
 
-# Tab 2: PE/Metadata
 Type "2"
-Sleep 4s
+Wait+Screen /PE Headers/
 Screenshot docs/src/assets/screenshots/pe-metadata.png
-Sleep 2s
-
-# Tab 3: IL view — navigate to a method to show IL disassembly
-Type "3"
 Sleep 4s
 
-# Navigate tree down to ProductCatalog (15 items from top — GenericParamFixture and FunctionPointerHelpers added)
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-Down
-Sleep 200ms
+Type "q"
+Wait
 
-# Expand ProductCatalog (Right expands tree nodes)
-Right
-Sleep 1s
-
-# Down to first interesting method (skip AddProduct, go to Search)
-Down
-Sleep 200ms
-Down
-Sleep 200ms
-
-# Select the method to show IL disassembly
+# Native AOT with its pre-ILC companion, mstat, DGML, and dSYM sidecars.
+Type "dotsider $AOT_V1"
 Enter
-Sleep 2s
+Wait+Screen /Native AOT Sidecars Detected/
+Enter
+Wait+Screen /Assembly References \(pre-ILC\)/
 
-Screenshot docs/src/assets/screenshots/il-inspector.png
-Sleep 2s
+# The side-by-side IL/native screenshot uses a wider terminal grid and is
+# generated separately by screenshots-il-hidpi.tape.
 
-# Tab 4: Strings
+# Frozen string literals recovered from the Native AOT image.
 Type "4"
-Sleep 4s
+Wait+Screen /User Strings/
+Right 4
+Wait+Screen /Frozen \(AOT\)/
+Type "/"
+Sleep 1s
+Type "dotsider"
+Sleep 2s
+Enter
+Sleep 3s
 Screenshot docs/src/assets/screenshots/strings.png
+Sleep 4s
+Escape
 Sleep 2s
 
-# Tab 5: Hex Dump
+# Mach-O/ELF/PE bytes, native dependency graph, and ILC size map.
 Type "5"
-Sleep 4s
+Wait+Screen /Data Interpretation/
 Screenshot docs/src/assets/screenshots/hex-dump.png
-Sleep 2s
+Sleep 4s
 
-# Tab 6: Dep Graph
 Type "6"
-Sleep 4s
+Wait+Screen /Hover over a node for details/
 Screenshot docs/src/assets/screenshots/dep-graph.png
-Sleep 2s
-
-# Tab 7: Size Map
-Type "7"
 Sleep 4s
+
+Type "7"
+Wait+Screen /Total:/
 Screenshot docs/src/assets/screenshots/size-map.png
-Sleep 2s
+Sleep 4s
 
-# Quit RichLibrary session
 Type "q"
+Wait
+
+# EventPipe tracing of the async pipeline sample.
+Type "dotsider samples/ComplexApp/bin/Debug/net10.0/ComplexApp.dll --tab 8"
+Enter
+Wait+Screen /Press Enter to launch with EventPipe tracing/
+Sleep 2s
+Enter
+Wait+Screen /Events:/
 Sleep 3s
-
-# ── Dynamic tab with HelloWorld.dll (executable, can trace) ──
-Type "dotsider samples/HelloWorld/bin/Debug/net10.0/HelloWorld.dll --tab 8"
-Enter
-Sleep 6s
-
-# Launch trace with Enter
-Enter
-Sleep 8s
-
 Screenshot docs/src/assets/screenshots/dynamic.png
-Sleep 2s
+Sleep 4s
 
-# Quit HelloWorld session
 Type "q"
-Sleep 3s
+Wait
 
-# ── Diff mode ──
+# Managed API diff.
 Type "dotsider diff samples/RichLibrary/bin/Debug/net10.0/RichLibrary.dll samples/RichLibraryV2/bin/Debug/net10.0/RichLibrary.dll"
 Enter
-Sleep 8s
+Wait+Screen /Change Summary/
 Screenshot docs/src/assets/screenshots/diff-mode.png
-Sleep 2s
+Sleep 4s
 
 Type "q"
-Sleep 3s
+Wait
 
-# ── NuGet mode ──
+# NuGet package browser.
 Type "dotsider samples/RichLibrary/bin/Debug/RichLibrary.2.5.1.nupkg"
 Enter
-Sleep 8s
+Wait+Screen /Package Info/
 Screenshot docs/src/assets/screenshots/nuget-mode.png
-Sleep 2s
+Sleep 4s
 
 Type "q"
-Sleep 1s
+Wait
+
+# Native AOT size regression delta treemap.
+Type "dotsider diff artifacts/vhs/before.mstat artifacts/vhs/after.mstat"
+Enter
+Wait+Screen /changed entries/
+Type "2"
+Sleep 4s
+Screenshot docs/src/assets/screenshots/size-regression.png
+Sleep 4s
+
+Type "q"
+Sleep 2s

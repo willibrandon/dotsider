@@ -130,8 +130,15 @@ public class PreIlcIlInspectorTests : IDisposable
 
         await auto.WaitUntilAsync(_ => _state!.IlPairNativeEditorState is not null,
             description: "pair native pane populated");
+        await auto.WaitUntilAsync(_ =>
+                GetEditorNode(_state!.IlEditorState)?.Bounds.Width > 0
+                && GetEditorNode(_state.IlPairNativeEditorState)?.Bounds.Width > 0,
+            description: "pair editors arranged");
 
         Assert.IsNotNull(_state.IlPairNativeEditorState);
+        var ilWidth = GetEditorNode(_state.IlEditorState)!.Bounds.Width;
+        var nativeWidth = GetEditorNode(_state.IlPairNativeEditorState)!.Bounds.Width;
+        Assert.IsInRange(0, 1, Math.Abs(ilWidth - nativeWidth));
 
         _cts!.Cancel();
     }
@@ -173,4 +180,9 @@ public class PreIlcIlInspectorTests : IDisposable
         _terminal?.Dispose();
         _workload?.Dispose();
     }
+
+    private EditorNode? GetEditorNode(EditorState? editorState)
+        => _state?.App.Focusables
+            .OfType<EditorNode>()
+            .FirstOrDefault(node => ReferenceEquals(node.State, editorState));
 }

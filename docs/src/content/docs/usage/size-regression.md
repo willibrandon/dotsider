@@ -3,6 +3,8 @@ title: Size Regression
 description: Diff two Native AOT builds by size and gate CI on size budgets.
 ---
 
+![Native AOT size regression delta treemap](../../../assets/screenshots/size-regression.png)
+
 Native AOT binaries grow for reasons the source diff never shows: a new generic instantiation
 drags in the type loader, a LINQ call materializes a family of enumerator types, a string
 literal freezes into the image. dotsider turns that into a first-class workflow: **diff two

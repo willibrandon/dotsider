@@ -5,6 +5,7 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
 using Hex1b.Input;
+using Hex1b.Layout;
 using Hex1b.Nodes;
 using Hex1b.Theming;
 using Hex1b.Widgets;
@@ -17,6 +18,9 @@ namespace Dotsider.Views;
 /// </summary>
 public static class IlInspectorView
 {
+    private const int DefaultPairPaneWidth = 60;
+    private const int HorizontalSplitterDividerWidth = 3;
+
     /// <summary>
     /// Builds the IL Inspector view widget tree.
     /// </summary>
@@ -876,7 +880,7 @@ public static class IlInspectorView
             content = ctx.HSplitter(
                 l => BuildManagedEditorPane(l, state, ownerCaptured, methodCaptured),
                 r => BuildPairNativePane(r, state, symbolCaptured),
-                leftWidth: 60).FillWidth().FillHeight();
+                leftWidth: CalculatePairIlPaneWidth(state.IlRightPaneWidth)).FillWidth().FillHeight();
         }
         else if (method is not null && (!showBoth || state.IlFocusedPane != IlPane.Native))
         {
@@ -962,7 +966,7 @@ public static class IlInspectorView
             content = ctx.HSplitter(
                 l => BuildManagedEditorPane(l, state, owner, method),
                 r => BuildPairNativePane(r, state, sym, native),
-                leftWidth: 60).FillWidth().FillHeight();
+                leftWidth: CalculatePairIlPaneWidth(state.IlRightPaneWidth)).FillWidth().FillHeight();
         }
         else if (!showBoth || state.IlFocusedPane != IlPane.Native)
         {
@@ -984,9 +988,9 @@ public static class IlInspectorView
 
     /// <summary>
     /// Captures the width of the right-pane area from the arranged editor nodes (the same
-    /// last-frame node pattern the tree list uses for viewport height). Both pane
-    /// viewports sum to the area regardless of split state; zero until first arrival,
-    /// which renders split by default.
+    /// last-frame node pattern the tree list uses for viewport height). Before an editor
+    /// arrives, derives the available area from the outer splitter so a newly created
+    /// IL/native pair can divide the current terminal width evenly.
     /// </summary>
     private static void MeasureRightPane(DotsiderState state)
     {
@@ -996,15 +1000,39 @@ public static class IlInspectorView
         {
             if (node is not EditorNode editor) continue;
             if (state.IlEditorState is not null && ReferenceEquals(editor.State, state.IlEditorState))
-                il = editor.ViewportColumns;
+                il = editor.Bounds.Width;
             else if (state.IlPairNativeEditorState is not null
                 && ReferenceEquals(editor.State, state.IlPairNativeEditorState))
-                native = editor.ViewportColumns;
+                native = editor.Bounds.Width;
         }
 
-        var total = il + native + (il > 0 && native > 0 ? 1 : 0);
+        var total = il + native + (il > 0 && native > 0 ? HorizontalSplitterDividerWidth : 0);
+        if (total == 0)
+        {
+            var outer = state.App.Focusables
+                .OfType<SplitterNode>()
+                .Where(static splitter => splitter.Orientation == SplitterOrientation.Horizontal)
+                .MaxBy(static splitter => splitter.Bounds.Width);
+            if (outer is not null)
+            {
+                total = Math.Max(
+                    0,
+                    outer.Bounds.Width - outer.FirstSize - HorizontalSplitterDividerWidth);
+            }
+        }
+
         if (total > 0) state.IlRightPaneWidth = total;
     }
+
+    /// <summary>
+    /// Calculates the initial managed-IL width for a side-by-side IL/native pair.
+    /// </summary>
+    /// <param name="rightPaneWidth">The full width available to both editors and their divider.</param>
+    /// <returns>Half of the editor area, or the standard initial width before layout is known.</returns>
+    internal static int CalculatePairIlPaneWidth(int rightPaneWidth)
+        => rightPaneWidth > HorizontalSplitterDividerWidth
+            ? (rightPaneWidth - HorizontalSplitterDividerWidth) / 2
+            : DefaultPairPaneWidth;
 
     /// <summary>
     /// Builds the native pair pane: the correlated symbol's disassembly with

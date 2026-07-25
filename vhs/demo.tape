@@ -1,157 +1,126 @@
-# dotsider Quick Start Demo
-Output assets/demo.gif
+# dotsider quick-start demo
+
+Output docs/public/demo.gif
+
+Require dotnet
 
 Set Shell bash
 Set FontSize 14
-Set Width 1400
-Set Height 800
+Set Width 1792
+Set Height 1008
 Set Padding 20
 Set Theme "Catppuccin Mocha"
 Set WindowBar Colorful
-Set TypingSpeed 30ms
+Set TypingSpeed 15ms
+Set Framerate 20
+Set WaitTimeout 90s
 
 Hide
-Type "export PATH=/tmp/dotsider-bin:$PATH"
-Enter
-Sleep 500ms
-Type "clear"
-Enter
-Sleep 500ms
+Source vhs/setup.tape
 Show
 
-# ── 1. Open an assembly ───────────────────────────────
-# "Point dotsider at any .NET DLL or EXE"
-# "You land on the General tab showing assembly identity,
-#  target framework, architecture, and the dependency table."
-Type "dotsider samples/HelloWorld/bin/Debug/net10.0/HelloWorld.dll"
-Sleep 500ms
-Enter
-Sleep 5s
-
-# ── 2. Navigate tabs ──────────────────────────────────
-# "Press 1 through 8 to switch between tabs"
-Type "1"
-Sleep 1500ms
-
-Type "2"
-Sleep 1500ms
-
-Type "3"
-Sleep 1500ms
-
-Type "4"
-Sleep 1500ms
-
-Type "5"
-Sleep 1500ms
-
-Type "6"
-Sleep 1500ms
-
-Type "7"
-Sleep 1500ms
-
-Type "8"
-Sleep 1500ms
-
-# ── 3. Drill in ──────────────────────────────────────
-# "Press Enter on any highlighted item to drill deeper —
-#  an assembly reference, a method in the IL tree,
-#  or a dependency node in the graph."
-# Go to General tab to drill into an assembly reference
-Type "1"
-Sleep 1500ms
-
-# Enter to drill into the highlighted assembly reference
-Enter
+# Correlate a Native AOT binary with its pre-ILC assembly.
+Type "dotsider artifacts/a/publish/n/h/NativeAotConsole"
 Sleep 2s
-
-# "Press Esc to go back."
-Escape
-Sleep 1500ms
-
-# ── 4. Search ─────────────────────────────────────────
-# "Press / to search. Matches are highlighted inline.
-#  Use n and N to jump between matches."
-Type "/"
-Sleep 500ms
-Type "System"
-Sleep 1500ms
 Enter
-Sleep 1s
-
-Type "n"
-Sleep 800ms
-Type "n"
-Sleep 800ms
-Type "N"
-Sleep 800ms
-
-Escape
-Sleep 1s
-
-# Quit the analyzer
-Type "q"
-Sleep 1500ms
-
-# ── 5. Compare two assemblies ─────────────────────────
-# "dotsider diff v1.dll v2.dll"
-# "Opens a side-by-side view."
-Type "dotsider diff samples/RichLibrary/bin/Debug/net10.0/RichLibrary.dll samples/RichLibraryV2/bin/Debug/net10.0/RichLibrary.dll"
-Sleep 500ms
+Wait+Screen /Native AOT Sidecars Detected/
+Sleep 2s
 Enter
-Sleep 5s
-
-# Cycle through diff subtabs: Summary, Types, Methods, References
-Type "2"
-Sleep 1500ms
-Type "3"
-Sleep 1500ms
-Type "4"
-Sleep 1500ms
-Type "1"
-Sleep 1500ms
-
-# "Press f to cycle filters: All, Added, Removed, Changed."
-Type "f"
-Sleep 1500ms
-Type "f"
-Sleep 1500ms
-Type "f"
-Sleep 1500ms
-
-Type "q"
-Sleep 1500ms
-
-# ── 6. Browse a NuGet package ─────────────────────────
-# "dotsider package.nupkg"
-# "Lists the package contents."
-Type "dotsider samples/RichLibrary/bin/Debug/RichLibrary.2.5.1.nupkg"
-Sleep 500ms
-Enter
-Sleep 5s
-
-# "Press Enter on any DLL to open it in the full analyzer."
-Enter
+Wait+Screen /Assembly References \(pre-ILC\)/
 Sleep 3s
 
-# Cycle through analyzer tabs on the opened DLL
+# Walk every analysis tab in order.
+Hide
 Type "2"
-Sleep 1500ms
-Type "3"
-Sleep 1500ms
-Type "4"
-Sleep 1500ms
-Type "5"
-Sleep 1500ms
-Type "6"
-Sleep 1500ms
-Type "7"
-Sleep 1500ms
+Wait+Screen /PE Headers/
+Right 12
+Wait+Screen /System\.Object/
+Show
+Sleep 4s
 
-# ── 7. Quit ───────────────────────────────────────────
-# "Press q."
+Type "3"
+Wait+Screen /Select a method to view IL disassembly/
+Down 2
+Right
+Down 2
+Enter
+Wait+Screen /native: .*get_Name/
+Sleep 4s
+
+Type "4"
+Wait+Screen /User Strings/
+Sleep 2s
+Type "/"
+Sleep 500ms
+Type@200ms "me"
+Sleep 2s
+Enter
+Sleep 1s
+Type "n"
+Sleep 1s
+Type "n"
+Sleep 1s
+Type "N"
+Sleep 2s
+Escape
+Sleep 1s
+
+Right 4
+Wait+Screen /Frozen \(AOT\)/
+Sleep 3s
+
+Type "5"
+Wait+Screen /Data Interpretation/
+Sleep 3s
+
+Type "6"
+Wait+Screen /Hover over a node for details/
+Sleep 3s
+
+Type "7"
+Wait+Screen /Total:/
+Sleep 3s
+
+Type "q"
+Wait
+
+# Compare two Native AOT size reports.
+Type "dotsider diff artifacts/vhs/before.mstat artifacts/vhs/after.mstat"
+Sleep 2s
+Enter
+Wait+Screen /changed entries/
+Sleep 3s
+
+Type "2"
+Sleep 4s
+
+Type "q"
+Wait
+
+# Trace a real async application through EventPipe.
+Type "dotsider samples/ComplexApp/bin/Debug/net10.0/ComplexApp.dll --tab 8"
+Sleep 2s
+Enter
+Wait+Screen /Press Enter to launch with EventPipe tracing/
+Sleep 2s
+Enter
+Wait+Screen /Events:/
+Sleep 4s
+
+Type "q"
+Wait
+
+# Browse a NuGet package and open its managed assembly.
+Type "dotsider samples/RichLibrary/bin/Debug/RichLibrary.2.5.1.nupkg"
+Sleep 2s
+Enter
+Wait+Screen /Package Info/
+Sleep 3s
+Enter
+Wait+Screen /Assembly References/
+Sleep 3s
+
 Type "q"
 Sleep 1s
 Type "q"
-Sleep 1s
+Sleep 2s
