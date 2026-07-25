@@ -10,7 +10,7 @@ namespace Dotsider.Tests;
 /// image-base-relative offsets (arm64) and absolute targets (x64).
 /// </summary>
 [TestClass]
-public class NativeAddressSpaceTests
+public sealed class NativeAddressSpaceTests
 {
     private const ulong ImageBase = 0x1_0000_0000;
 
@@ -30,7 +30,11 @@ public class NativeAddressSpaceTests
         Assert.AreEqual(ImageBase, space.MachOImageBase);
 
         var raw = (0x123UL << 51) | 0x40; // next bits set; low 36 hold the offset
-        var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm: true, space.MachOImageBase);
+        Assert.IsTrue(NativeAddressSpace.TryDecodeChainedRebase(
+            raw,
+            offsetForm: true,
+            space.MachOImageBase,
+            out var va));
         Assert.AreEqual(ImageBase + 0x40, va);
 
         Assert.IsTrue(space.TryGetFileOffset(va, out var fileOffset, out _));
@@ -49,7 +53,11 @@ public class NativeAddressSpaceTests
         Assert.IsNotNull(space);
 
         var raw = (0x123UL << 51) | (ImageBase + 0x80); // next bits set; low 36 hold the address
-        var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm: false, space.MachOImageBase);
+        Assert.IsTrue(NativeAddressSpace.TryDecodeChainedRebase(
+            raw,
+            offsetForm: false,
+            space.MachOImageBase,
+            out var va));
         Assert.AreEqual(ImageBase + 0x80, va);
 
         Assert.IsTrue(space.TryGetFileOffset(va, out var fileOffset, out _));
@@ -65,7 +73,29 @@ public class NativeAddressSpaceTests
     public void DecodeChainedRebase_BindPointer_IsNotDecoded()
     {
         var bind = 0x8000_0000_0000_0000UL | 0x40;
-        Assert.AreEqual(bind, NativeAddressSpace.DecodeChainedRebase(bind, offsetForm: true, ImageBase));
+        Assert.IsTrue(NativeAddressSpace.TryDecodeChainedRebase(
+            bind,
+            offsetForm: true,
+            ImageBase,
+            out var address));
+        Assert.AreEqual(bind, address);
+    }
+
+    /// <summary>
+    /// Verifies an image-base-relative target whose addition would overflow remains unmapped
+    /// rather than wrapping to a plausible low address.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void DecodeChainedRebase_OverflowingOffset_DoesNotWrap()
+    {
+        const ulong raw = 0x40;
+
+        Assert.IsFalse(NativeAddressSpace.TryDecodeChainedRebase(
+            raw,
+            offsetForm: true,
+            ulong.MaxValue - 0x20,
+            out _));
     }
 
     /// <summary>
@@ -75,40 +105,28 @@ public class NativeAddressSpaceTests
     private static byte[] BuildMachO()
     {
         var image = new byte[0x2000];
-        var w = new Writer(image);
 
         // mach_header_64
-        w.U32(0, 0xFEEDFACF);        // magic (64-bit little-endian)
-        w.U32(4, 0x0100000C);        // cputype ARM64
-        w.U32(16, 2);                // ncmds
-        w.U32(20, 88);               // sizeofcmds
+        BinaryPrimitives.WriteUInt32LittleEndian(image, 0xFEEDFACF); // magic
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(4), 0x0100000C); // ARM64
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(16), 2); // ncmds
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(20), 88); // sizeofcmds
 
         // LC_SEGMENT_64 __TEXT, covering the whole file
-        w.U32(32, 0x19);             // cmd
-        w.U32(36, 72);               // cmdsize
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(32), 0x19);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(36), 72);
         System.Text.Encoding.ASCII.GetBytes("__TEXT").CopyTo(image, 40);
-        w.U64(56, ImageBase);        // vmaddr
-        w.U64(64, 0x2000);           // vmsize
-        w.U64(72, 0);                // fileoff
-        w.U64(80, 0x2000);           // filesize
+        BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(56), ImageBase);
+        BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(64), 0x2000);
+        BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(72), 0);
+        BinaryPrimitives.WriteUInt64LittleEndian(image.AsSpan(80), 0x2000);
 
         // LC_DYLD_CHAINED_FIXUPS (presence marks the image as chained)
-        w.U32(104, 0x80000034);      // cmd
-        w.U32(108, 16);              // cmdsize
-        w.U32(112, 0x200);           // dataoff
-        w.U32(116, 0x100);           // datasize
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(104), 0x80000034);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(108), 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(112), 0x200);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(116), 0x100);
 
         return image;
-    }
-
-    private readonly ref struct Writer(Span<byte> span)
-    {
-        private readonly Span<byte> _span = span;
-
-        public void U32(int offset, uint value) =>
-            BinaryPrimitives.WriteUInt32LittleEndian(_span[offset..], value);
-
-        public void U64(int offset, ulong value) =>
-            BinaryPrimitives.WriteUInt64LittleEndian(_span[offset..], value);
     }
 }

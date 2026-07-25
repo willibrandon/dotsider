@@ -32,7 +32,8 @@ public static class NativeDisassembler
         NativeSymbolResolver? resolver = null)
     {
         var result = new List<NativeInstruction>();
-        var windowEnd = baseAddress + (ulong)code.Length;
+        if (!NativeImageRange.TryAdd(baseAddress, (ulong)code.Length, out var windowEnd))
+            return result;
         var offset = 0;
 
         var decodable = NativeDecoderRegistry.IsSupported(arch);
@@ -145,8 +146,16 @@ public static class NativeDisassembler
         // native code lives in the code image. Slice (and resolve imports) from there for R2R.
         var codeImage = analyzer.IsReadyToRun ? analyzer.ReadyToRunCodeImage ?? analyzer : analyzer;
         var raw = codeImage.RawBytes;
-        if (fileOffset < 0 || fileOffset + symbol.Size > raw.Length) return null;
-        var code = raw.Span.Slice((int)fileOffset, (int)symbol.Size).ToArray();
+        if (fileOffset < 0
+            || symbol.Size > int.MaxValue
+            || !NativeImageRange.TryGet(
+                raw.Length,
+                (ulong)fileOffset,
+                (ulong)symbol.Size,
+                out var codeOffset,
+                out var codeSize))
+            return null;
+        var code = raw.Span.Slice(codeOffset, codeSize).ToArray();
 
         if (arch == NativeArchitecture.Wasm32 && codeImage.WasmModuleInfo is not null)
             return Wasm.WasmDisassembler.DisassembleSymbol(codeImage, symbol);

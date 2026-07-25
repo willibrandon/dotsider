@@ -64,15 +64,37 @@ internal static class ReadyToRunReader
             long size;
             if (hasEndField)
             {
-                start = Decode(ReadPointer(bytes, row + 8, pointerSize), addressSpace, offsetForm);
-                var end = Decode(ReadPointer(bytes, row + 8 + pointerSize, pointerSize), addressSpace, offsetForm);
+                if (!TryDecode(
+                        ReadPointer(bytes, row + 8, pointerSize),
+                        addressSpace,
+                        offsetForm,
+                        out start)
+                    || !TryDecode(
+                        ReadPointer(bytes, row + 8 + pointerSize, pointerSize),
+                        addressSpace,
+                        offsetForm,
+                        out var end))
+                {
+                    continue;
+                }
+
                 // TypeManagerIndirection (204) records End = 0; its size is not expressed here.
-                size = end > start ? (long)(end - start) : 0;
+                var sectionSize = end > start ? end - start : 0;
+                if (sectionSize > long.MaxValue) continue;
+                size = (long)sectionSize;
             }
             else
             {
                 size = BinaryPrimitives.ReadInt32LittleEndian(bytes[(row + 4)..]);
-                start = Decode(ReadPointer(bytes, row + 8, pointerSize), addressSpace, offsetForm);
+                if (size < 0) continue;
+                if (!TryDecode(
+                    ReadPointer(bytes, row + 8, pointerSize),
+                    addressSpace,
+                    offsetForm,
+                    out start))
+                {
+                    continue;
+                }
             }
 
             int? fileOffset = addressSpace.TryGetFileOffset(start, out var offset, out _)
@@ -88,10 +110,24 @@ internal static class ReadyToRunReader
     /// <summary>
     /// Decodes a section pointer, applying the Mach-O chained-fixup rebase decode when needed.
     /// </summary>
-    private static ulong Decode(ulong raw, NativeAddressSpace addressSpace, bool offsetForm) =>
-        addressSpace.MachOChained
-            ? NativeAddressSpace.DecodeChainedRebase(raw, offsetForm, addressSpace.MachOImageBase)
-            : raw;
+    private static bool TryDecode(
+        ulong raw,
+        NativeAddressSpace addressSpace,
+        bool offsetForm,
+        out ulong address)
+    {
+        if (addressSpace.MachOChained)
+        {
+            return NativeAddressSpace.TryDecodeChainedRebase(
+                raw,
+                offsetForm,
+                addressSpace.MachOImageBase,
+                out address);
+        }
+
+        address = raw;
+        return true;
+    }
 
     /// <summary>
     /// Determines the Mach-O chained rebase form by decoding the embedded metadata section's
@@ -110,8 +146,12 @@ internal static class ReadyToRunReader
             var raw = ReadPointer(bytes, row + 8, addressSpace.PointerSize);
             foreach (var offsetForm in stackalloc[] { true, false })
             {
-                var va = NativeAddressSpace.DecodeChainedRebase(raw, offsetForm, addressSpace.MachOImageBase);
-                if (addressSpace.TryGetFileOffset(va, out var offset, out var available)
+                if (NativeAddressSpace.TryDecodeChainedRebase(
+                        raw,
+                        offsetForm,
+                        addressSpace.MachOImageBase,
+                        out var va)
+                    && addressSpace.TryGetFileOffset(va, out var offset, out var available)
                     && available >= sizeof(uint)
                     && BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]) == NativeMetadataSignature)
                 {

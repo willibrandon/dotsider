@@ -31,28 +31,43 @@ internal static class EhFrameReader
         var result = new List<RawNativeSymbol>();
         var sections = ElfImageReader.ReadSections(imageBytes);
         if (!ElfImageReader.TryGetSection(imageBytes, ".eh_frame", out var ehFrame)) return result;
-        if (ehFrame.FileOffset < 0 || ehFrame.FileOffset + ehFrame.Size > imageBytes.Length) return result;
+        if (!NativeImageRange.TryGet(
+            imageBytes.Length,
+            ehFrame.FileOffset,
+            ehFrame.Size,
+            out var sectionOffset,
+            out var sectionSize))
+            return result;
 
-        var data = imageBytes.Slice(ehFrame.FileOffset, ehFrame.Size);
+        var data = imageBytes.Slice(sectionOffset, sectionSize);
         var cieEncodings = new Dictionary<long, byte>();
 
         try
         {
             var position = 0;
-            for (var entries = 0; entries < MaxEntries && position + 4 <= data.Length; entries++)
+            for (var entries = 0; entries < MaxEntries && position <= data.Length - 4; entries++)
             {
                 var entryStart = position;
-                long length = BinaryPrimitives.ReadUInt32LittleEndian(data[position..]);
+                ulong length = BinaryPrimitives.ReadUInt32LittleEndian(data[position..]);
                 position += 4;
                 if (length == 0) break; // terminator
                 if (length == 0xFFFF_FFFF)
                 {
-                    length = (long)BinaryPrimitives.ReadUInt64LittleEndian(data[position..]);
+                    if (position > data.Length - sizeof(ulong)) break;
+                    length = BinaryPrimitives.ReadUInt64LittleEndian(data[position..]);
                     position += 8;
                 }
 
-                var next = position + length;
-                if (length < 4 || next > data.Length) break;
+                if (length < 4
+                    || !NativeImageRange.TryGet(
+                        data.Length,
+                        (ulong)position,
+                        length,
+                        out _,
+                        out var entryLength))
+                    break;
+
+                var next = position + entryLength;
 
                 var idPosition = position;
                 var id = BinaryPrimitives.ReadUInt32LittleEndian(data[position..]);
@@ -69,7 +84,7 @@ internal static class EhFrameReader
                     result.Add(Boundary(va, size, sections));
                 }
 
-                position = (int)next;
+                position = next;
             }
         }
         catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
@@ -137,13 +152,17 @@ internal static class EhFrameReader
         var application = encoding & PeApplicationMask;
         if (application is not (0 or PePcrel)) return false; // text/data/func-relative: no base here
 
-        var fieldVa = sectionAddress + (ulong)position;
+        if (!NativeImageRange.TryAdd(sectionAddress, (ulong)position, out var fieldVa))
+            return false;
         var initialLocation = DecodePointer(data, ref position, encoding, fieldVa);
         if (initialLocation is not { } location) return false;
 
         // The range is a length: same format, no application.
         var range = DecodePointer(data, ref position, (byte)(encoding & PeFormatMask), fieldVa: 0);
-        if (range is not { } r) return false;
+        if (range is not { } r
+            || r > long.MaxValue
+            || !NativeImageRange.TryAdd(location, r, out _))
+            return false;
 
         va = location;
         size = r;
@@ -196,7 +215,22 @@ internal static class EhFrameReader
                 return null;
         }
 
-        return (encoding & PeApplicationMask) == PePcrel ? fieldVa + value : value;
+        if ((encoding & PeApplicationMask) != PePcrel) return value;
+
+        var format = encoding & PeFormatMask;
+        if (format is not (0x09 or 0x0A or 0x0B or 0x0C))
+            return NativeImageRange.TryAdd(fieldVa, value, out var unsignedAddress)
+                ? unsignedAddress
+                : null;
+
+        var signedValue = unchecked((long)value);
+        if (signedValue >= 0)
+            return NativeImageRange.TryAdd(fieldVa, (ulong)signedValue, out var positiveAddress)
+                ? positiveAddress
+                : null;
+
+        var magnitude = (ulong)(-(signedValue + 1)) + 1;
+        return magnitude <= fieldVa ? fieldVa - magnitude : null;
     }
 
     private static ulong ReadUleb(ReadOnlySpan<byte> data, ref int position)

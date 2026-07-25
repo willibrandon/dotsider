@@ -38,48 +38,84 @@ internal static class ElfImageReader
 
     /// <summary>
     /// Walks the section headers into named sections, or an empty list when the image is not a
-    /// little-endian 64-bit ELF or carries no section headers.
+    /// little-endian 64-bit ELF or its structural tables are absent, malformed, or truncated.
     /// </summary>
     /// <param name="bytes">The raw image bytes.</param>
     internal static IReadOnlyList<ElfSection> ReadSections(ReadOnlySpan<byte> bytes)
     {
-        try
-        {
-            if (!IsElf(bytes) || bytes[5] != 1) return [];
+        if (!IsElf(bytes) || bytes[5] != 1) return [];
 
-            var sectionOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[40..]);
-            var sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(bytes[58..]);
-            var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes[60..]);
-            var stringSectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(bytes[62..]);
-            if (sectionOffset <= 0 || sectionEntrySize < SectionHeaderSize || sectionCount == 0)
-                return [];
-
-            var shStrTableOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(
-                bytes[(int)(sectionOffset + (long)stringSectionIndex * sectionEntrySize + 24)..]);
-
-            var sections = new List<ElfSection>(sectionCount);
-            for (var i = 0; i < sectionCount; i++)
-            {
-                var header = sectionOffset + (long)i * sectionEntrySize;
-                if (header + SectionHeaderSize > bytes.Length) break;
-                var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)header..]);
-                var type = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 4)..]);
-                var flags = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 8)..]);
-                var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 16)..]);
-                var offset = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 24)..]);
-                var size = (int)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(int)(header + 32)..]);
-                var link = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 40)..]);
-                var info = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(int)(header + 44)..]);
-                var name = ReadString(bytes, shStrTableOffset, nameOffset) ?? "";
-                sections.Add(new ElfSection(name, type, address, offset, size, link, info, flags));
-            }
-
-            return sections;
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+        var sectionOffset = BinaryPrimitives.ReadUInt64LittleEndian(bytes[40..]);
+        var sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(bytes[58..]);
+        var sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes[60..]);
+        var stringSectionIndex = BinaryPrimitives.ReadUInt16LittleEndian(bytes[62..]);
+        if (sectionOffset == 0
+            || sectionCount == 0
+            || stringSectionIndex >= sectionCount
+            || !NativeImageRange.TryGetTable(
+                bytes.Length,
+                sectionOffset,
+                sectionCount,
+                sectionEntrySize,
+                SectionHeaderSize,
+                out var tableOffset,
+                out _))
         {
             return [];
         }
+
+        var stringHeader = tableOffset + stringSectionIndex * sectionEntrySize;
+        var stringType = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(stringHeader + 4)..]);
+        var stringOffsetValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(stringHeader + 24)..]);
+        var stringSizeValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(stringHeader + 32)..]);
+        if (stringType == ShtNoBits
+            || !NativeImageRange.TryGet(
+                bytes.Length,
+                stringOffsetValue,
+                stringSizeValue,
+                out var stringOffset,
+                out var stringSize))
+        {
+            return [];
+        }
+
+        var sections = new List<ElfSection>(sectionCount);
+        for (var i = 0; i < sectionCount; i++)
+        {
+            var header = tableOffset + i * sectionEntrySize;
+            var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[header..]);
+            var type = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(header + 4)..]);
+            var flags = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(header + 8)..]);
+            var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(header + 16)..]);
+            var offsetValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(header + 24)..]);
+            var sizeValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(header + 32)..]);
+            var link = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(header + 40)..]);
+            var info = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(header + 44)..]);
+
+            int offset;
+            int size;
+            if (type == ShtNoBits)
+            {
+                if (offsetValue > int.MaxValue || sizeValue > int.MaxValue) return [];
+                offset = (int)offsetValue;
+                size = (int)sizeValue;
+            }
+            else if (!NativeImageRange.TryGet(
+                bytes.Length,
+                offsetValue,
+                sizeValue,
+                out offset,
+                out size))
+            {
+                return [];
+            }
+
+            var name = ReadBoundedString(bytes, stringOffset, stringSize, nameOffset);
+            if (name is null) return [];
+            sections.Add(new ElfSection(name, type, address, offset, size, link, info, flags));
+        }
+
+        return sections;
     }
 
     /// <summary>Finds a section by name.</summary>
@@ -278,12 +314,22 @@ internal static class ElfImageReader
     {
         foreach (var section in sections)
         {
-            if (section.Address != 0 && va >= section.Address && va < section.Address + (ulong)section.Size)
-            {
-                sectionName = section.Name;
-                fileOffset = section.FileOffset + (long)(va - section.Address);
-                return true;
-            }
+            if (section.Type == ShtNoBits
+                || section.Address == 0
+                || section.FileOffset < 0
+                || section.Size <= 0
+                || va < section.Address)
+                continue;
+
+            var delta = va - section.Address;
+            if (delta >= (ulong)section.Size
+                || !NativeImageRange.TryAdd((ulong)section.FileOffset, delta, out var offset)
+                || offset > long.MaxValue)
+                continue;
+
+            sectionName = section.Name;
+            fileOffset = (long)offset;
+            return true;
         }
 
         sectionName = "";
@@ -301,23 +347,48 @@ internal static class ElfImageReader
     {
         buildId = [];
         if (!TryGetSection(bytes, ".note.gnu.build-id", out var section)) return false;
-        if (section.FileOffset < 0 || section.FileOffset + section.Size > bytes.Length) return false;
+        if (!NativeImageRange.TryGet(
+            bytes.Length,
+            section.FileOffset,
+            section.Size,
+            out var sectionOffset,
+            out var sectionSize))
+            return false;
 
-        var data = bytes.Slice(section.FileOffset, section.Size);
+        var data = bytes.Slice(sectionOffset, sectionSize);
         var position = 0;
-        while (position + 12 <= data.Length)
+        while (position <= data.Length - 12)
         {
             var nameSize = BinaryPrimitives.ReadUInt32LittleEndian(data[position..]);
             var descSize = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + 4)..]);
             var type = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + 8)..]);
-            var namePosition = position + 12;
-            var descPosition = namePosition + (int)((nameSize + 3) & ~3u);
-            var next = descPosition + (int)((descSize + 3) & ~3u);
-            if (nameSize > (uint)data.Length || descSize > (uint)data.Length || next > data.Length) return false;
-
-            if (type == 3 && nameSize == 4 && data.Slice(namePosition, 4).SequenceEqual("GNU\0"u8))
+            if (!NativeImageRange.TryAlignUp(nameSize, 4, out var paddedNameSize)
+                || !NativeImageRange.TryAlignUp(descSize, 4, out var paddedDescSize)
+                || !NativeImageRange.TryAdd((ulong)position, 12, out var namePositionValue)
+                || !NativeImageRange.TryAdd(namePositionValue, paddedNameSize, out var descPositionValue)
+                || !NativeImageRange.TryAdd(descPositionValue, paddedDescSize, out var nextValue)
+                || !NativeImageRange.TryGet(
+                    data.Length,
+                    namePositionValue,
+                    nameSize,
+                    out var namePosition,
+                    out var nameLength)
+                || !NativeImageRange.TryGet(
+                    data.Length,
+                    descPositionValue,
+                    descSize,
+                    out var descPosition,
+                    out var descLength)
+                || !NativeImageRange.TryGet(data.Length, 0, nextValue, out _, out var next))
             {
-                buildId = data.Slice(descPosition, (int)descSize).ToArray();
+                return false;
+            }
+
+            if (type == 3
+                && nameLength == 4
+                && data.Slice(namePosition, nameLength).SequenceEqual("GNU\0"u8))
+            {
+                buildId = data.Slice(descPosition, descLength).ToArray();
                 return buildId.Length > 0;
             }
 
@@ -339,31 +410,32 @@ internal static class ElfImageReader
         fileName = "";
         crc = 0;
         if (!TryGetSection(bytes, ".gnu_debuglink", out var section)) return false;
-        if (section.FileOffset < 0 || section.FileOffset + section.Size > bytes.Length) return false;
+        if (!NativeImageRange.TryGet(
+            bytes.Length,
+            section.FileOffset,
+            section.Size,
+            out var sectionOffset,
+            out var sectionSize))
+            return false;
 
-        var data = bytes.Slice(section.FileOffset, section.Size);
+        var data = bytes.Slice(sectionOffset, sectionSize);
         var end = data.IndexOf((byte)0);
         if (end <= 0) return false;
 
-        var crcOffset = (end + 1 + 3) & ~3;
-        if (crcOffset + 4 > data.Length) return false;
+        if (!NativeImageRange.TryAlignUp((ulong)end + 1, 4, out var crcOffsetValue)
+            || !NativeImageRange.TryGet(
+                data.Length,
+                crcOffsetValue,
+                sizeof(uint),
+                out var crcOffset,
+                out _))
+        {
+            return false;
+        }
 
         fileName = Encoding.UTF8.GetString(data[..end]);
         crc = BinaryPrimitives.ReadUInt32LittleEndian(data[crcOffset..]);
         return true;
-    }
-
-    private static string? ReadString(ReadOnlySpan<byte> bytes, long tableOffset, uint offset)
-    {
-        var start = tableOffset + offset;
-        if (start < 0 || start >= bytes.Length) return null;
-
-        var slice = bytes[(int)start..];
-        var end = slice.IndexOf((byte)0);
-        if (end < 0) end = Math.Min(slice.Length, MaxStringLength);
-        if (end > MaxStringLength) return null;
-
-        return Encoding.UTF8.GetString(slice[..end]);
     }
 
     /// <summary>
@@ -406,8 +478,5 @@ internal static class ElfImageReader
     /// <param name="imageLength">The complete image length.</param>
     /// <returns>True when the range is safe to slice.</returns>
     internal static bool TryGetFileRange(int offset, int size, int imageLength) =>
-        offset >= 0
-        && size >= 0
-        && offset <= imageLength
-        && size <= imageLength - offset;
+        NativeImageRange.TryGet(imageLength, offset, size, out _, out _);
 }

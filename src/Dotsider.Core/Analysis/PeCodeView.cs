@@ -10,78 +10,103 @@ namespace Dotsider.Core.Analysis;
 /// </summary>
 internal static class PeCodeView
 {
-    /// <summary>The RSDS identity of a PE image.</summary>
-    /// <param name="Guid">The PDB GUID.</param>
-    /// <param name="Age">The PDB age.</param>
-    /// <param name="PdbPath">The recorded PDB path (its file name is used for same-directory probing).</param>
-    internal readonly record struct CodeViewId(Guid Guid, int Age, string PdbPath);
-
     /// <summary>Reads the RSDS CodeView identity, or null when the image has none.</summary>
     /// <param name="pe">The raw PE image bytes.</param>
     public static CodeViewId? TryRead(ReadOnlySpan<byte> pe)
     {
-        try
-        {
-            if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z') return null;
-            var peHeader = BinaryPrimitives.ReadInt32LittleEndian(pe[0x3C..]);
-            if (peHeader <= 0 || peHeader + 24 > pe.Length) return null;
-            if (BinaryPrimitives.ReadUInt32LittleEndian(pe[peHeader..]) != 0x0000_4550) return null;
-
-            var optional = peHeader + 24;
-            var magic = BinaryPrimitives.ReadUInt16LittleEndian(pe[optional..]);
-            var directoriesStart = optional + (magic == 0x20B ? 112 : 96);
-            const int debugDirectoryIndex = 6;
-            var debugEntry = directoriesStart + debugDirectoryIndex * 8;
-            if (debugEntry + 8 > pe.Length) return null;
-
-            var debugRva = BinaryPrimitives.ReadUInt32LittleEndian(pe[debugEntry..]);
-            var debugSize = BinaryPrimitives.ReadUInt32LittleEndian(pe[(debugEntry + 4)..]);
-            if (debugRva == 0 || debugSize == 0) return null;
-
-            var addressSpace = NativeAddressSpace.Create(pe);
-            if (addressSpace is null
-                || !addressSpace.TryGetFileOffset(ReadImageBase(pe) + debugRva, out var tableOffset, out _))
-            {
-                return null;
-            }
-
-            // Walk the 28-byte IMAGE_DEBUG_DIRECTORY entries for a CodeView (type 2) RSDS record.
-            for (var offset = tableOffset; offset + 28 <= pe.Length && offset < tableOffset + (int)debugSize; offset += 28)
-            {
-                var type = BinaryPrimitives.ReadUInt32LittleEndian(pe[(offset + 12)..]);
-                if (type != 2) continue; // IMAGE_DEBUG_TYPE_CODEVIEW
-                var pointerToRawData = (int)BinaryPrimitives.ReadUInt32LittleEndian(pe[(offset + 24)..]);
-                if (pointerToRawData <= 0 || pointerToRawData + 24 > pe.Length) continue;
-
-                if (BinaryPrimitives.ReadUInt32LittleEndian(pe[pointerToRawData..]) != 0x5344_5352) continue; // "RSDS"
-                var guid = new Guid(pe.Slice(pointerToRawData + 4, 16));
-                var age = BinaryPrimitives.ReadInt32LittleEndian(pe[(pointerToRawData + 20)..]);
-                var path = ReadCString(pe[(pointerToRawData + 24)..]);
-                return new CodeViewId(guid, age, path);
-            }
-
-            return null;
-        }
-        catch (ArgumentOutOfRangeException)
+        if (pe.Length < 0x40 || pe[0] != (byte)'M' || pe[1] != (byte)'Z') return null;
+        var peHeaderValue = BinaryPrimitives.ReadUInt32LittleEndian(pe[0x3C..]);
+        if (!NativeImageRange.TryGet(
+                pe.Length,
+                peHeaderValue,
+                24,
+                out var peHeader,
+                out _)
+            || BinaryPrimitives.ReadUInt32LittleEndian(pe[peHeader..]) != 0x0000_4550)
         {
             return null;
         }
-    }
 
-    private static ulong ReadImageBase(ReadOnlySpan<byte> pe)
-    {
-        var peHeader = BinaryPrimitives.ReadInt32LittleEndian(pe[0x3C..]);
+        var optionalSize = BinaryPrimitives.ReadUInt16LittleEndian(pe[(peHeader + 20)..]);
         var optional = peHeader + 24;
+        if (!NativeImageRange.TryGet(
+            pe.Length,
+            optional,
+            optionalSize,
+            out _,
+            out _)
+            || optionalSize < sizeof(ushort))
+            return null;
+
         var magic = BinaryPrimitives.ReadUInt16LittleEndian(pe[optional..]);
-        return magic == 0x20B
+        var directoriesOffset = magic switch
+        {
+            0x10B => 96,
+            0x20B => 112,
+            _ => 0,
+        };
+        const int debugDirectoryIndex = 6;
+        const int directoryEntrySize = 8;
+        var debugEntryOffset = directoriesOffset + debugDirectoryIndex * directoryEntrySize;
+        if (directoriesOffset == 0
+            || optionalSize < debugEntryOffset + directoryEntrySize)
+            return null;
+
+        var debugEntry = optional + debugEntryOffset;
+        var debugRva = BinaryPrimitives.ReadUInt32LittleEndian(pe[debugEntry..]);
+        var debugSize = BinaryPrimitives.ReadUInt32LittleEndian(pe[(debugEntry + 4)..]);
+        if (debugRva == 0 || debugSize == 0 || debugSize % 28 != 0) return null;
+
+        var imageBase = magic == 0x20B
             ? BinaryPrimitives.ReadUInt64LittleEndian(pe[(optional + 24)..])
             : BinaryPrimitives.ReadUInt32LittleEndian(pe[(optional + 28)..]);
+        var addressSpace = NativeAddressSpace.Create(pe);
+        if (addressSpace is null
+            || !NativeImageRange.TryAdd(imageBase, debugRva, out var debugAddress)
+            || !addressSpace.TryGetFileOffset(
+                debugAddress,
+                out var tableOffset,
+                out var available)
+            || debugSize > (uint)available)
+        {
+            return null;
+        }
+
+        // Walk the 28-byte IMAGE_DEBUG_DIRECTORY entries for a CodeView (type 2) RSDS record.
+        var table = pe.Slice(tableOffset, (int)debugSize);
+        for (var offset = 0; offset < table.Length; offset += 28)
+        {
+            var entry = table[offset..];
+            var type = BinaryPrimitives.ReadUInt32LittleEndian(entry[12..]);
+            if (type != 2) continue; // IMAGE_DEBUG_TYPE_CODEVIEW
+
+            var dataSize = BinaryPrimitives.ReadUInt32LittleEndian(entry[16..]);
+            var dataOffset = BinaryPrimitives.ReadUInt32LittleEndian(entry[24..]);
+            if (dataSize < 24
+                || !NativeImageRange.TryGet(
+                    pe.Length,
+                    dataOffset,
+                    dataSize,
+                    out var codeViewOffset,
+                    out var codeViewSize))
+                continue;
+
+            var codeView = pe.Slice(codeViewOffset, codeViewSize);
+            if (BinaryPrimitives.ReadUInt32LittleEndian(codeView) != 0x5344_5352) continue; // "RSDS"
+            var guid = new Guid(codeView.Slice(4, 16));
+            var age = BinaryPrimitives.ReadInt32LittleEndian(codeView[20..]);
+            var path = ReadCString(codeView[24..]);
+            if (path is null) continue;
+            return new CodeViewId(guid, age, path);
+        }
+
+        return null;
     }
 
-    private static string ReadCString(ReadOnlySpan<byte> span)
+    private static string? ReadCString(ReadOnlySpan<byte> span)
     {
         var end = span.IndexOf((byte)0);
-        if (end < 0) end = span.Length;
+        if (end < 0) return null;
         return Encoding.UTF8.GetString(span[..end]);
     }
 }
