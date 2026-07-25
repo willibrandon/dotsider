@@ -31,10 +31,25 @@ public static class ReadyToRunCorrelationQuery
         if (analyzer.ReadyToRunInfo is not { Status: ReadyToRunStatus.Valid })
             return ReadyToRunQueryResult.Unavailable(
                 $"the ReadyToRun image is {analyzer.ReadyToRunInfo?.Status}; only header diagnostics are available");
-        if (analyzer.ReadyToRunIndex is not { } index)
-            return ReadyToRunQueryResult.Unavailable("the ReadyToRun method map is unavailable");
-
         var query = methodOrAddress.Trim();
+        if (analyzer.ReadyToRunIndex is not { } index)
+        {
+            if (analyzer.ReadyToRunInfo is { IsComponent: true }
+                && analyzer.ReadyToRunCodeImage is null
+                && !query.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                return ResolveByName(
+                    analyzer,
+                    ReadyToRunIndex.Build([]),
+                    query,
+                    methodOrAddress,
+                    cancellationToken);
+            }
+
+            return ReadyToRunQueryResult.Unavailable(
+                analyzer.ReadyToRunMethodMapDiagnostic ?? "the ReadyToRun method map is unavailable");
+        }
+
         return query.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             ? ResolveNumeric(analyzer, index, query, methodOrAddress, cancellationToken)
             : ResolveByName(analyzer, index, query, methodOrAddress, cancellationToken);

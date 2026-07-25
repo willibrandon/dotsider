@@ -378,6 +378,13 @@ public sealed class AssemblyAnalyzer : IDisposable
     /// </summary>
     public IReadOnlyList<ReadyToRunMethodEntry> ReadyToRunMethods => ReadyToRunModel?.Methods ?? [];
 
+    /// <summary>
+    /// The diagnostic reported when the ReadyToRun method-map tables are unavailable, or null when
+    /// the map is usable.
+    /// </summary>
+    internal string? ReadyToRunMethodMapDiagnostic =>
+        ReadyToRunModel is { MapUsable: false } model ? model.Diagnostic : null;
+
     // The resolved composite/component view, built once. Null when this is not a usable R2R image.
     private ReadyToRun.ReadyToRunModel? ReadyToRunModel
     {
@@ -445,8 +452,9 @@ public sealed class AssemblyAnalyzer : IDisposable
     public bool IsReadyToRun => BinaryKind == BinaryKind.ReadyToRun;
 
     /// <summary>
-    /// The queryable index over this image's precompiled methods, or null when it is not a
-    /// ReadyToRun image. Built lazily from <see cref="ReadyToRunMethods"/>.
+    /// The queryable index over this image's precompiled methods, or null when the image is not
+    /// ReadyToRun or its method-map tables are unavailable. Built lazily from
+    /// <see cref="ReadyToRunMethods"/>.
     /// </summary>
     public ReadyToRunIndex? ReadyToRunIndex
     {
@@ -455,9 +463,9 @@ public sealed class AssemblyAnalyzer : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_readyToRunIndexProbed)
             {
-                // Only a Valid image builds a model (and thus a usable index); a corrupt or unsupported
-                // image has no map, so the index is null rather than a misleading empty one.
-                _readyToRunIndex = ReadyToRunModel is not null ? ReadyToRunIndex.Build(ReadyToRunMethods) : null;
+                _readyToRunIndex = ReadyToRunModel is { MapUsable: true } model
+                    ? ReadyToRunIndex.Build(model.Methods)
+                    : null;
                 _readyToRunIndexProbed = true;
             }
 
@@ -624,16 +632,23 @@ public sealed class AssemblyAnalyzer : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_nativeSymbolsProbed)
             {
-                _nativeSymbols = IsReadyToRun
-                    ? ReadyToRun.ReadyToRunSymbolBuilder.Build(
-                        ReadyToRunMethods, ReadyToRunInfo!.Architecture,
-                        mapUsable: ReadyToRunInfo.Status == ReadyToRunStatus.Valid && ReadyToRunMethods.Count > 0,
-                        diagnostic: ReadyToRunInfo.Diagnostic)
-                    : WasmModuleInfo is { } wasm
+                if (IsReadyToRun)
+                {
+                    var model = ReadyToRunModel;
+                    _nativeSymbols = ReadyToRun.ReadyToRunSymbolBuilder.Build(
+                        model?.Methods ?? [],
+                        ReadyToRunInfo!.Architecture,
+                        mapUsable: model is { MapUsable: true },
+                        diagnostic: model?.Diagnostic ?? ReadyToRunInfo.Diagnostic);
+                }
+                else
+                {
+                    _nativeSymbols = WasmModuleInfo is { } wasm
                         ? Wasm.WasmSymbolBuilder.Build(wasm)
-                    : BinaryKind != BinaryKind.Managed
+                        : BinaryKind != BinaryKind.Managed
                         ? NativeSymbolReader.Read(FilePath, _rawBytes, RecoveredTypes)
                         : null;
+                }
                 _nativeSymbolsProbed = true;
             }
 

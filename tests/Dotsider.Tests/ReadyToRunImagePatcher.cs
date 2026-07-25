@@ -204,6 +204,41 @@ internal static class ReadyToRunImagePatcher
     }
 
     /// <summary>
+    /// Replaces an image-wide ReadyToRun table with appended bytes and an independently controlled
+    /// signed section size. An absent target can take over an existing section-directory row.
+    /// </summary>
+    /// <param name="path">The real ReadyToRun image to copy and patch.</param>
+    /// <param name="sectionType">The image-wide table to replace.</param>
+    /// <param name="payload">The bytes appended to the image.</param>
+    /// <param name="declaredSize">The signed byte size written to the ReadyToRun section directory.</param>
+    /// <param name="replacementType">
+    /// An existing section row to rename when <paramref name="sectionType"/> is absent.
+    /// </param>
+    /// <returns>The patched image and the appended payload's file offset.</returns>
+    internal static (byte[] Image, int PayloadOffset) PatchImageWideTable(
+        string path,
+        ReadyToRunSectionType sectionType,
+        byte[] payload,
+        int declaredSize,
+        ReadyToRunSectionType? replacementType = null)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        var original = File.ReadAllBytes(path);
+        using var analyzer = new AssemblyAnalyzer(original, path);
+        var info = RequireValidReadyToRunInfo(analyzer);
+        var appended = AppendPayload(original, payload);
+        PatchReadyToRunSection(
+            appended.Image,
+            info,
+            sectionType,
+            appended.Rva,
+            declaredSize,
+            replacementType);
+        return (appended.Image, appended.Offset);
+    }
+
+    /// <summary>
     /// Replaces one component core header's <c>MethodDefEntryPoints</c> section with appended bytes
     /// while independently setting its declared size.
     /// </summary>
@@ -390,20 +425,36 @@ internal static class ReadyToRunImagePatcher
         ReadyToRunInfo info,
         ReadyToRunSectionType sectionType,
         int rva,
-        int size)
+        int size,
+        ReadyToRunSectionType? replacementType = null)
     {
         var headerOffset = RvaToFileOffset(image, info.HeaderRva);
         var rows = checked(headerOffset + 16);
+        int? replacementRow = null;
         for (var index = 0; index < info.SectionCount; index++)
         {
             var row = checked(rows + index * 12);
-            if (BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(row)) != (int)sectionType)
+            var currentType = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(row));
+            if (replacementType is { } replacement && currentType == (int)replacement)
+            {
+                replacementRow = row;
+            }
+
+            if (currentType != (int)sectionType)
             {
                 continue;
             }
 
             BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(row + 4), rva);
             BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(row + 8), size);
+            return;
+        }
+
+        if (replacementRow is { } substitute)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(substitute), (int)sectionType);
+            BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(substitute + 4), rva);
+            BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(substitute + 8), size);
             return;
         }
 

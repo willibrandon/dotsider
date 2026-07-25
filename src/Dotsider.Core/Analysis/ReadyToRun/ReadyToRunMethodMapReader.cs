@@ -268,8 +268,9 @@ internal static class ReadyToRunMethodMapReader
         }
         while (i < isEntryPoint.Length && !isEntryPoint[i] && i < hotColdMap.FirstColdRuntimeFunction);
 
-        var cold = hotColdMap.ColdIndicesFor(entryId);
-        return cold is not null ? (count + cold.Length, cold.Length) : (count, 0);
+        return hotColdMap.TryGetColdRange(entryId, out _, out var coldCount)
+            ? (count + coldCount, coldCount)
+            : (count, 0);
     }
 
     private static List<ReadyToRunCodeRange> BuildRanges(
@@ -277,7 +278,9 @@ internal static class ReadyToRunMethodMapReader
         ulong imageBase, NativeAddressSpace addressSpace, int entryId, int rfCount, int coldCount)
     {
         var hotCount = rfCount - coldCount;
-        var coldIndices = coldCount > 0 ? hotColdMap.ColdIndicesFor(entryId) : null;
+        var coldStart = coldCount > 0 && hotColdMap.TryGetColdRange(entryId, out var start, out _)
+            ? start
+            : 0;
         var ranges = new List<ReadyToRunCodeRange>(rfCount);
 
         for (var k = 0; k < rfCount; k++)
@@ -291,7 +294,7 @@ internal static class ReadyToRunMethodMapReader
             }
             else
             {
-                rfIndex = coldIndices![k - hotCount];
+                rfIndex = coldStart + k - hotCount;
                 kind = ReadyToRunCodeRangeKind.Cold;
             }
 
@@ -299,7 +302,8 @@ internal static class ReadyToRunMethodMapReader
                 continue;
 
             var startRva = runtimeFunctions.StartRva(rfIndex);
-            var va = imageBase + (uint)startRva;
+            if (!NativeImageRange.TryAdd(imageBase, unchecked((uint)startRva), out var va))
+                continue;
             int? fileOffset = addressSpace.TryGetFileOffset(va, out var off, out _) ? off : null;
             ranges.Add(new ReadyToRunCodeRange(kind, startRva, runtimeFunctions.Size(rfIndex), va, fileOffset));
         }

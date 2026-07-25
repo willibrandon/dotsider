@@ -35,6 +35,8 @@ R2R Sections and AOT Types apply to Native AOT binaries. ILC strips ECMA-335 met
 
 Dotsider treats metadata, signatures, and native container headers as untrusted. When an image is otherwise readable, cyclic or excessively nested type relationships and malformed ECMA-335 or ReadyToRun signatures are contained: affected names use token or unknown fallbacks and navigation remains unresolved. Truncated or overflowing PE, ELF, and Mach-O tables and mappings are treated as malformed, and analysis continues with the affected data omitted.
 
+ReadyToRun runtime-function tables accept up to 1,048,576 complete architecture-sized records. Hot/cold mappings are validated against the accepted runtime-function table before the native method map is built. A malformed image-wide method table keeps the ReadyToRun header, section listing, and managed metadata available while symbols and correlation report the method map's diagnostic.
+
 Metadata names, recovered strings, IL, symbols, and other artifact-controlled text are rendered
 through a shared terminal-safe projection. Control and Unicode formatting characters appear
 visibly in the TUI and human-readable CLI output; JSON retains their exact values.

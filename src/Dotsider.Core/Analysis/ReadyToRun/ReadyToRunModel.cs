@@ -15,6 +15,7 @@ namespace Dotsider.Core.Analysis.ReadyToRun;
 /// <param name="Owned">Sibling analyzers opened for resolution; disposed with the root.</param>
 /// <param name="Components">The component listing (composite only), each with its resolution state.</param>
 /// <param name="OwnerCompositeMissing">Whether this is a component whose owner composite is not on disk.</param>
+/// <param name="MapUsable">Whether the image-wide method-map tables passed validation.</param>
 /// <param name="Diagnostic">A human-readable note when resolution is incomplete, or null.</param>
 internal sealed record ReadyToRunModel(
     IReadOnlyList<ReadyToRunMethodEntry> Methods,
@@ -23,4 +24,5 @@ internal sealed record ReadyToRunModel(
     IReadOnlyList<AssemblyAnalyzer> Owned,
     IReadOnlyList<ReadyToRunComponent> Components,
     bool OwnerCompositeMissing,
+    bool MapUsable,
     string? Diagnostic);
