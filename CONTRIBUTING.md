@@ -15,7 +15,7 @@ dotnet build
 dotnet test
 ```
 
-First test run is slower — the fixture builds all nine sample assemblies and restores their NuGet packages. Subsequent runs use cache.
+First test run is slower — the test setup prepares the 38-project sample matrix and restores its NuGet packages. Platform-specific fixtures are built where supported, and subsequent runs use cache.
 
 ## Project layout
 
@@ -42,7 +42,7 @@ A few rules that aren't in the editorconfig:
 
 ## Testing
 
-Tests use xUnit and run against real assemblies — no mocks, no fakes. The `SampleAssemblyFixture` builds all nine sample projects once and shares them across every test class via `ICollectionFixture<>`.
+Tests use MSTest on Microsoft Testing Platform. They exercise compiler-produced assemblies alongside focused synthetic images for malformed-input and boundary cases. `SampleAssemblyHost` initializes the shared `SampleAssemblyFixture` once for the test assembly.
 
 ```
 dotnet test                                             # everything

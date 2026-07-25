@@ -10,15 +10,8 @@ namespace Dotsider.Core.Analysis.NativePdb;
 /// </summary>
 internal sealed class DbiStream
 {
-    /// <summary>One module's symbol-stream location and substream sizes.</summary>
-    /// <param name="SymbolStream">The module's symbol stream index, or -1 when it has none.</param>
-    /// <param name="SymByteSize">The byte length of the CodeView symbol records (including the leading signature).</param>
-    /// <param name="C11ByteSize">The byte length of the C11 line block that follows the symbols.</param>
-    /// <param name="C13ByteSize">The byte length of the C13 line block that follows C11.</param>
-    internal readonly record struct Module(int SymbolStream, int SymByteSize, int C11ByteSize, int C13ByteSize);
-
     /// <summary>The parsed module descriptors.</summary>
-    public IReadOnlyList<Module> Modules { get; private init; } = [];
+    public IReadOnlyList<DbiModule> Modules { get; private init; } = [];
 
     /// <summary>The section-header dump stream index (optional debug header slot 5), or -1 when absent.</summary>
     public int SectionHeaderStream { get; private init; } = -1;
@@ -35,80 +28,149 @@ internal sealed class DbiStream
     /// <param name="stream">The raw DBI stream bytes.</param>
     public static DbiStream? Parse(byte[] stream)
     {
-        try
-        {
-            var span = stream.AsSpan();
-            if (span.Length < 64) return null;
-            if (BinaryPrimitives.ReadInt32LittleEndian(span) != -1) return null; // VersionSignature
-
-            var publicStream = BinaryPrimitives.ReadUInt16LittleEndian(span[16..]);
-            var symRecordStream = BinaryPrimitives.ReadUInt16LittleEndian(span[20..]);
-            var modInfoSize = BinaryPrimitives.ReadInt32LittleEndian(span[24..]);
-            var sectionContributionSize = BinaryPrimitives.ReadInt32LittleEndian(span[28..]);
-            var sectionMapSize = BinaryPrimitives.ReadInt32LittleEndian(span[32..]);
-            var sourceInfoSize = BinaryPrimitives.ReadInt32LittleEndian(span[36..]);
-            var typeServerMapSize = BinaryPrimitives.ReadInt32LittleEndian(span[40..]);
-            var optionalDbgHeaderSize = BinaryPrimitives.ReadInt32LittleEndian(span[48..]);
-            var ecSubstreamSize = BinaryPrimitives.ReadInt32LittleEndian(span[52..]);
-
-            if (modInfoSize < 0 || (long)64 + modInfoSize > span.Length) return null;
-
-            var modules = ParseModules(span.Slice(64, modInfoSize));
-
-            var sectionHeaderStream = -1;
-            var optionalOffset = 64L + modInfoSize + sectionContributionSize + sectionMapSize
-                + sourceInfoSize + typeServerMapSize + ecSubstreamSize;
-            // Slot 5 of the optional debug header is the section-header dump.
-            if (optionalOffset >= 0 && optionalOffset + 12 <= span.Length && optionalDbgHeaderSize >= 12)
-            {
-                var slot = BinaryPrimitives.ReadUInt16LittleEndian(span[(int)(optionalOffset + 5 * 2)..]);
-                if (slot != 0xFFFF) sectionHeaderStream = slot;
-            }
-
-            return new DbiStream
-            {
-                Modules = modules,
-                SectionHeaderStream = sectionHeaderStream,
-                SymbolRecordStream = symRecordStream == 0xFFFF ? -1 : symRecordStream,
-                PublicStream = publicStream == 0xFFFF ? -1 : publicStream,
-            };
-        }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException)
+        var span = stream.AsSpan();
+        if (span.Length < 64
+            || BinaryPrimitives.ReadInt32LittleEndian(span) != -1)
         {
             return null;
         }
+
+        var publicStream = BinaryPrimitives.ReadUInt16LittleEndian(span[16..]);
+        var symRecordStream = BinaryPrimitives.ReadUInt16LittleEndian(span[20..]);
+        var modInfoSize = BinaryPrimitives.ReadInt32LittleEndian(span[24..]);
+        var sectionContributionSize = BinaryPrimitives.ReadInt32LittleEndian(span[28..]);
+        var sectionMapSize = BinaryPrimitives.ReadInt32LittleEndian(span[32..]);
+        var sourceInfoSize = BinaryPrimitives.ReadInt32LittleEndian(span[36..]);
+        var typeServerMapSize = BinaryPrimitives.ReadInt32LittleEndian(span[40..]);
+        var optionalDbgHeaderSize = BinaryPrimitives.ReadInt32LittleEndian(span[48..]);
+        var ecSubstreamSize = BinaryPrimitives.ReadInt32LittleEndian(span[52..]);
+        if (modInfoSize < 0
+            || sectionContributionSize < 0
+            || sectionMapSize < 0
+            || sourceInfoSize < 0
+            || typeServerMapSize < 0
+            || optionalDbgHeaderSize < 0
+            || ecSubstreamSize < 0)
+        {
+            return null;
+        }
+
+        ulong optionalOffset = 64;
+        if (!TryAdd(ref optionalOffset, (uint)modInfoSize)
+            || !TryAdd(ref optionalOffset, (uint)sectionContributionSize)
+            || !TryAdd(ref optionalOffset, (uint)sectionMapSize)
+            || !TryAdd(ref optionalOffset, (uint)sourceInfoSize)
+            || !TryAdd(ref optionalOffset, (uint)typeServerMapSize)
+            || !TryAdd(ref optionalOffset, (uint)ecSubstreamSize)
+            || !NativeImageRange.TryGet(
+                span.Length,
+                optionalOffset,
+                (uint)optionalDbgHeaderSize,
+                out var optionalHeaderOffset,
+                out _)
+            || !NativeImageRange.TryGet(
+                span.Length,
+                64,
+                (uint)modInfoSize,
+                out var moduleInfoOffset,
+                out var moduleInfoLength))
+        {
+            return null;
+        }
+
+        var modules = ParseModules(span.Slice(moduleInfoOffset, moduleInfoLength));
+        if (modules is null)
+        {
+            return null;
+        }
+
+        var sectionHeaderStream = -1;
+        if (optionalDbgHeaderSize >= 12)
+        {
+            var slot = BinaryPrimitives.ReadUInt16LittleEndian(
+                span[(optionalHeaderOffset + 5 * sizeof(ushort))..]);
+            if (slot != ushort.MaxValue)
+            {
+                sectionHeaderStream = slot;
+            }
+        }
+
+        return new DbiStream
+        {
+            Modules = modules,
+            SectionHeaderStream = sectionHeaderStream,
+            SymbolRecordStream = symRecordStream == ushort.MaxValue ? -1 : symRecordStream,
+            PublicStream = publicStream == ushort.MaxValue ? -1 : publicStream,
+        };
     }
 
-    private static List<Module> ParseModules(ReadOnlySpan<byte> modInfo)
+    private static List<DbiModule>? ParseModules(ReadOnlySpan<byte> moduleInfo)
     {
-        var modules = new List<Module>();
+        var modules = new List<DbiModule>();
         var p = 0;
         // Fixed part per record: Unused(4) + SectionContrib(28) + Flags(2) + SymStream(2) +
         // SymByteSize(4) + C11(4) + C13(4) + SourceFileCount(2) + Pad(2) + Unused2(4) +
         // SourceFileNameIndex(4) + PdbFilePathNameIndex(4) = 64, then two NUL strings, align 4.
-        while (p + 64 <= modInfo.Length)
+        while (p < moduleInfo.Length)
         {
-            var symStream = (short)BinaryPrimitives.ReadUInt16LittleEndian(modInfo[(p + 34)..]);
-            var symByteSize = BinaryPrimitives.ReadInt32LittleEndian(modInfo[(p + 36)..]);
-            var c11 = BinaryPrimitives.ReadInt32LittleEndian(modInfo[(p + 40)..]);
-            var c13 = BinaryPrimitives.ReadInt32LittleEndian(modInfo[(p + 44)..]);
-            modules.Add(new Module(symStream, Math.Max(0, symByteSize), Math.Max(0, c11), Math.Max(0, c13)));
+            if (p > moduleInfo.Length - 64)
+            {
+                return null;
+            }
+
+            var symbolStreamValue = BinaryPrimitives.ReadUInt16LittleEndian(
+                moduleInfo[(p + 34)..]);
+            var symbolStream = symbolStreamValue == ushort.MaxValue ? -1 : symbolStreamValue;
+            var symbolByteSize = BinaryPrimitives.ReadUInt32LittleEndian(moduleInfo[(p + 36)..]);
+            var c11ByteSize = BinaryPrimitives.ReadUInt32LittleEndian(moduleInfo[(p + 40)..]);
+            var c13ByteSize = BinaryPrimitives.ReadUInt32LittleEndian(moduleInfo[(p + 44)..]);
 
             // Skip the two NUL-terminated names, then 4-byte align.
             var q = p + 64;
-            q = SkipCString(modInfo, q);
-            q = SkipCString(modInfo, q);
-            q = (q + 3) & ~3;
-            if (q <= p) break; // no progress → malformed
-            p = q;
+            if (!TrySkipCString(moduleInfo, ref q)
+                || !TrySkipCString(moduleInfo, ref q)
+                || !NativeImageRange.TryAlignUp((ulong)q, 4, out var alignedOffset)
+                || alignedOffset > (ulong)moduleInfo.Length)
+            {
+                return null;
+            }
+
+            modules.Add(new DbiModule(
+                symbolStream,
+                symbolByteSize,
+                c11ByteSize,
+                c13ByteSize));
+            p = (int)alignedOffset;
         }
 
         return modules;
     }
 
-    private static int SkipCString(ReadOnlySpan<byte> span, int p)
+    private static bool TryAdd(ref ulong total, uint value)
     {
-        while (p < span.Length && span[p] != 0) p++;
-        return p + 1;
+        if (!NativeImageRange.TryAdd(total, value, out var sum))
+        {
+            return false;
+        }
+
+        total = sum;
+        return true;
+    }
+
+    private static bool TrySkipCString(ReadOnlySpan<byte> span, ref int offset)
+    {
+        if ((uint)offset > (uint)span.Length)
+        {
+            return false;
+        }
+
+        var terminator = span[offset..].IndexOf((byte)0);
+        if (terminator < 0)
+        {
+            return false;
+        }
+
+        offset += terminator + 1;
+        return true;
     }
 }

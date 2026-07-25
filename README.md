@@ -288,7 +288,7 @@ Add to your MCP client configuration (e.g. `.mcp.json` for Claude Code):
 
 ### What it provides
 
-**50 tools** across assembly analysis, IL disassembly, native disassembly, Native AOT analysis, portable PDB debug info, metadata inspection, dependency graphs, size analysis, size diffing and budget gating, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
+**52 tools** across assembly analysis, IL disassembly, native disassembly, Native AOT analysis, WebAssembly inspection, portable PDB debug info, metadata inspection, dependency graphs, size analysis, size diffing and budget gating, string extraction, diffing, NuGet package analysis, single-file bundle reading, and runtime tracing. Tools work in two modes:
 
 - **Direct mode** — pass an assembly path, get results (no TUI needed)
 - **Session mode** — connect to a running dotsider TUI instance via Unix domain socket for live state, tracing, and navigation
