@@ -111,7 +111,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     }
 
     /// <summary>
-    /// Verifies overflowing NativeFormat section coordinates degrade through <c>SafeBuild</c> as a
+    /// Verifies overflowing NativeFormat section coordinates degrade through <c>TryBuild</c> as a
     /// malformed image rather than escaping as an arithmetic exception.
     /// </summary>
     /// <param name="sectionType">The image-level NativeFormat section whose size is forged.</param>
@@ -200,6 +200,49 @@ public sealed class ReadyToRunProductionBoundaryTests
     }
 
     /// <summary>
+    /// Verifies an image-wide instance bucket count that exceeds the remaining shared method-map
+    /// budget disables every method-map facade while preserving the valid header and metadata.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void InstanceMethodEntryPoints_OverSharedBudget_DisablesMethodMapFacades()
+    {
+        TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
+        var table = BuildEmptyNativeHashtable(shift: 20, entryIndexSize: 2);
+        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+            Samples.ReadyToRunConsoleDll!,
+            ReadyToRunSectionType.InstanceMethodEntryPoints,
+            table,
+            table.Length);
+
+        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+
+        var info = analyzer.ReadyToRunInfo;
+        Assert.IsNotNull(info);
+        Assert.AreEqual(ReadyToRunStatus.Valid, info.Status);
+        Assert.IsTrue(analyzer.HasMetadata);
+        Assert.IsNotEmpty(analyzer.MethodDefs);
+        Assert.Contains(
+            section => section.Type == (int)ReadyToRunSectionType.InstanceMethodEntryPoints,
+            info.Sections);
+        Assert.IsEmpty(analyzer.ReadyToRunMethods);
+        Assert.IsNull(analyzer.ReadyToRunIndex);
+
+        var symbols = analyzer.NativeSymbols;
+        Assert.IsNotNull(symbols);
+        Assert.AreEqual(NativeSymbolStatus.CorruptSymbolFile, symbols.Status);
+        Assert.Contains("InstanceMethodEntryPoints buckets", symbols.Diagnostic!);
+        Assert.Contains("1,048,576", symbols.Diagnostic!);
+
+        var correlation = ReadyToRunCorrelationQuery.Resolve(
+            analyzer,
+            "Greeter.Greet",
+            CancellationToken.None);
+        Assert.AreEqual(ReadyToRunQueryOutcome.Unavailable, correlation.Outcome);
+        Assert.Contains("InstanceMethodEntryPoints buckets", correlation.Message!);
+    }
+
+    /// <summary>
     /// Verifies bucket indexes, ranges, and signed payload deltas cannot escape the declared
     /// <c>InstanceMethodEntryPoints</c> section.
     /// </summary>
@@ -237,7 +280,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     }
 
     /// <summary>
-    /// Verifies <c>ReadyToRunImageReader.SafeBuild</c> degrades to an exact empty method model when
+    /// Verifies <c>ReadyToRunImageReader.TryBuild</c> degrades to an exact empty method model when
     /// its real <c>InstanceMethodEntryPoints</c> table reaches a depth-129 signature.
     /// </summary>
     [TestMethod]
@@ -456,6 +499,37 @@ public sealed class ReadyToRunProductionBoundaryTests
         }
 
         bytes[^1] = 0x80; // special leaf 16: no index in a block is present
+        return bytes;
+    }
+
+    private static byte[] BuildEmptyNativeHashtable(int shift, int entryIndexSize)
+    {
+        var bucketCount = checked(1 << shift);
+        var stride = 1 << entryIndexSize;
+        var boundaryBytes = checked((bucketCount + 1) * stride);
+        var bytes = new byte[checked(1 + boundaryBytes)];
+        bytes[0] = checked((byte)((shift << 2) | entryIndexSize));
+        for (var boundary = 0; boundary <= bucketCount; boundary++)
+        {
+            var offset = 1 + boundary * stride;
+            switch (entryIndexSize)
+            {
+                case 0:
+                    bytes[offset] = checked((byte)boundaryBytes);
+                    break;
+                case 1:
+                    BinaryPrimitives.WriteUInt16LittleEndian(
+                        bytes.AsSpan(offset),
+                        checked((ushort)boundaryBytes));
+                    break;
+                default:
+                    BinaryPrimitives.WriteUInt32LittleEndian(
+                        bytes.AsSpan(offset),
+                        checked((uint)boundaryBytes));
+                    break;
+            }
+        }
+
         return bytes;
     }
 

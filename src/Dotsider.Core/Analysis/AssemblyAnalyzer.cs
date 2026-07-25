@@ -372,9 +372,11 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>
     /// The precompiled methods of a ReadyToRun image joined to their native code ranges, or an
-    /// empty list when this is not a usable ReadyToRun image. Built lazily from the entry-point
-    /// tables. For a non-composite image the code lives in this file; composite resolution is
-    /// layered on in <see cref="ReadyToRun.ReadyToRunImageReader"/>.
+    /// empty list when this is not a usable ReadyToRun image or its method-map tables are malformed
+    /// or exceed their traversal budget. The remaining ReadyToRun header, section, and managed
+    /// metadata remain available. Built lazily from the entry-point tables. For a non-composite
+    /// image the code lives in this file; composite resolution is layered on in
+    /// <see cref="ReadyToRun.ReadyToRunImageReader"/>.
     /// </summary>
     public IReadOnlyList<ReadyToRunMethodEntry> ReadyToRunMethods => ReadyToRunModel?.Methods ?? [];
 
@@ -453,8 +455,8 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     /// <summary>
     /// The queryable index over this image's precompiled methods, or null when the image is not
-    /// ReadyToRun or its method-map tables are unavailable. Built lazily from
-    /// <see cref="ReadyToRunMethods"/>.
+    /// ReadyToRun or its method-map tables are unavailable, malformed, or over budget. Built
+    /// lazily from <see cref="ReadyToRunMethods"/>.
     /// </summary>
     public ReadyToRunIndex? ReadyToRunIndex
     {

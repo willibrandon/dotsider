@@ -57,14 +57,17 @@ internal static class ReadyToRunMethodMapReader
     {
         var isEntryPoint = new bool[runtimeFunctions.Count];
         var pending = new List<PendingEntry>();
+        var traversalBudget = new ReadyToRunTraversalBudget();
 
         // Pass 1: mark the runtime functions every entry point starts — each assembly's ordinary
         // methods and the image's instantiated generics — before counting, so funclet grouping
         // never runs past the map.
         foreach (var source in sources)
-            MarkMethodDefEntryPoints(reader, source, isEntryPoint, pending, targetMvid);
+            MarkMethodDefEntryPoints(
+                reader, source, isEntryPoint, pending, traversalBudget, targetMvid);
         if (globalInstance is { } instance)
-            MarkInstanceMethodEntryPoints(reader, instance, moduleContext, isEntryPoint, pending, targetMvid);
+            MarkInstanceMethodEntryPoints(
+                reader, instance, moduleContext, isEntryPoint, pending, traversalBudget, targetMvid);
 
         // Pass 2/3: count each method's runtime functions, then materialize its code ranges.
         var methodsByToken = new Dictionary<(string, int), MethodDefInfo>();
@@ -89,7 +92,7 @@ internal static class ReadyToRunMethodMapReader
 
     private static void MarkMethodDefEntryPoints(
         R2RNativeReader reader, MethodMapSource source, bool[] isEntryPoint,
-        List<PendingEntry> pending, Guid? targetMvid)
+        List<PendingEntry> pending, ReadyToRunTraversalBudget traversalBudget, Guid? targetMvid)
     {
         var sectionEnd = GetSectionEnd(source.EntryPointsFileOffset, source.EntryPointsSize);
         var sectionReader = reader.Slice(source.EntryPointsFileOffset, source.EntryPointsSize);
@@ -106,6 +109,9 @@ internal static class ReadyToRunMethodMapReader
                 "ReadyToRun MethodDefEntryPoints count exceeds the module's MethodDef table.");
         }
 
+        traversalBudget.Charge(
+            (int)array.Count,
+            "ReadyToRun MethodDefEntryPoints");
         for (uint index = 0; index < array.Count; index++)
         {
             if (!array.TryGetAt(index, out var elementOffset))
@@ -134,7 +140,8 @@ internal static class ReadyToRunMethodMapReader
 
     private static void MarkInstanceMethodEntryPoints(
         R2RNativeReader reader, GlobalInstanceSource instance, ReadyToRunModuleContext? moduleContext,
-        bool[] isEntryPoint, List<PendingEntry> pending, Guid? targetMvid)
+        bool[] isEntryPoint, List<PendingEntry> pending,
+        ReadyToRunTraversalBudget traversalBudget, Guid? targetMvid)
     {
         if (instance.Size <= 0)
         {
@@ -144,10 +151,16 @@ internal static class ReadyToRunMethodMapReader
         var sectionEnd = GetSectionEnd(instance.Offset, instance.Size);
         var sectionReader = reader.Slice(instance.Offset, instance.Size);
         var table = new R2RNativeHashtable(sectionReader, instance.Offset, sectionEnd);
+        traversalBudget.Charge(
+            table.BucketCount,
+            "ReadyToRun InstanceMethodEntryPoints buckets");
         Func<int, MetadataReader?>? resolveMetadata =
             moduleContext is null ? null : moduleContext.ResolveMetadata;
         foreach (var entryOffset in table.AllEntryOffsets())
         {
+            traversalBudget.Charge(
+                1,
+                "ReadyToRun InstanceMethodEntryPoints entries");
             // The payload is a method signature followed by the runtime-function index.
             var metadata = targetMvid is null ? instance.Metadata : null;
             Func<int, MetadataReader?>? metadataResolver =

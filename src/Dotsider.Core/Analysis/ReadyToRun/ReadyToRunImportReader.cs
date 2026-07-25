@@ -101,10 +101,14 @@ internal sealed class ReadyToRunImportMap
             return null;
 
         var rawLength = analyzer.RawBytes.Length;
-        if (sectionOffset < 0 ||
-            sectionOffset > rawLength - ImportSectionRecordSize ||
-            sec.Size > rawLength - sectionOffset ||
-            sec.Size % ImportSectionRecordSize != 0)
+        if (!NativeImageRange.TryGet(
+                rawLength,
+                sectionOffset,
+                sec.Size,
+                out var validatedSectionOffset,
+                out var validatedSectionSize)
+            || validatedSectionSize < ImportSectionRecordSize
+            || validatedSectionSize % ImportSectionRecordSize != 0)
         {
             return null;
         }
@@ -128,14 +132,30 @@ internal sealed class ReadyToRunImportMap
             var reader = new R2RNativeReader(analyzer.RawBytes);
             var metadata = analyzer.GetMetadataReader();
             var methodDefs = analyzer.MethodDefs;
-            var end = sectionOffset + sec.Size;
-            for (var record = sectionOffset; record + ImportSectionRecordSize <= end; record += ImportSectionRecordSize)
+            var traversalBudget = new ReadyToRunTraversalBudget();
+            var recordCount = validatedSectionSize / ImportSectionRecordSize;
+            var record = validatedSectionOffset;
+            for (var recordIndex = 0; recordIndex < recordCount; recordIndex++)
             {
                 try
                 {
-                    ReadRecord(
-                        reader, record, imageBase, addressSpace, pointerSize,
-                        metadata, methodDefs, moduleContext, map);
+                    if (!ReadRecord(
+                            reader,
+                            record,
+                            imageBase,
+                            addressSpace,
+                            pointerSize,
+                            metadata,
+                            methodDefs,
+                            moduleContext,
+                            map,
+                            traversalBudget))
+                    {
+                        ReadyToRunDiagnostics.Write(
+                            $"import-budget-exhausted record=0x{record:X} "
+                            + $"limit={ReadyToRunTraversalBudget.MaximumWork}");
+                        break;
+                    }
                 }
                 catch (Exception exception) when (IsMalformedImportException(exception))
                 {
@@ -143,6 +163,8 @@ internal sealed class ReadyToRunImportMap
                         $"import-record-rejected record=0x{record:X} "
                         + $"exception={exception.GetType().Name} message={exception.Message}");
                 }
+
+                record += ImportSectionRecordSize;
             }
         }
         finally
@@ -157,8 +179,12 @@ internal sealed class ReadyToRunImportMap
         foreach (var s in info.Sections)
             if (s.Type == (int)ReadyToRunSectionType.DelayLoadMethodCallThunks && s.Size > 0)
             {
-                thunkStart = imageBase + (uint)s.Rva;
-                thunkEnd = thunkStart + (uint)s.Size;
+                if (NativeImageRange.TryAdd(imageBase, unchecked((uint)s.Rva), out var start)
+                    && NativeImageRange.TryAdd(start, (uint)s.Size, out var end))
+                {
+                    thunkStart = start;
+                    thunkEnd = end;
+                }
             }
 
         return map.Count > 0 || thunkEnd > thunkStart
@@ -221,10 +247,17 @@ internal sealed class ReadyToRunImportMap
         }
     }
 
-    private static void ReadRecord(
-        R2RNativeReader reader, int record, ulong imageBase, NativeAddressSpace addressSpace,
-        int pointerSize, MetadataReader? metadata, IReadOnlyList<MethodDefInfo> methodDefs,
-        ReadyToRunModuleContext? moduleContext, Dictionary<ulong, string> map)
+    private static bool ReadRecord(
+        R2RNativeReader reader,
+        int record,
+        ulong imageBase,
+        NativeAddressSpace addressSpace,
+        int pointerSize,
+        MetadataReader? metadata,
+        IReadOnlyList<MethodDefInfo> methodDefs,
+        ReadyToRunModuleContext? moduleContext,
+        Dictionary<ulong, string> map,
+        ReadyToRunTraversalBudget traversalBudget)
     {
         var offset = record;
         var slotsRva = reader.ReadInt32(ref offset);
@@ -239,18 +272,17 @@ internal sealed class ReadyToRunImportMap
 
         if (entrySize <= 0 || slotsSize <= 0 || slotsRva == 0 || signaturesRva == 0)
         {
-            return;
+            return true;
         }
 
-        if (!addressSpace.TryGetFileOffset(
-                imageBase + (uint)slotsRva,
-                out _,
-                out var slotBytesAvailable) ||
-            !addressSpace.TryGetFileOffset(
-                imageBase + (uint)signaturesRva,
+        if (!NativeImageRange.TryAdd(imageBase, unchecked((uint)slotsRva), out var slotAddress)
+            || !NativeImageRange.TryAdd(imageBase, unchecked((uint)signaturesRva), out var signaturesAddress)
+            || !addressSpace.TryGetFileOffset(slotAddress, out _, out var slotBytesAvailable)
+            || !addressSpace.TryGetFileOffset(
+                signaturesAddress,
                 out var signaturesOffset,
-                out var signatureBytesAvailable) ||
-            !TryGetSlotCount(
+                out var signatureBytesAvailable)
+            || !TryGetSlotCount(
                 slotsSize,
                 entrySize,
                 slotBytesAvailable,
@@ -261,22 +293,37 @@ internal sealed class ReadyToRunImportMap
                 $"ReadyToRun import record at 0x{record:X} has inconsistent slot extents.");
         }
 
+        if (!traversalBudget.TryCharge(count))
+        {
+            return false;
+        }
+
+        if (count > 0
+            && !NativeImageRange.TryAdd(
+                slotAddress,
+                (ulong)(count - 1) * (uint)entrySize,
+                out _))
+        {
+            throw new BadImageFormatException(
+                $"ReadyToRun import record at 0x{record:X} has an overflowing slot-address range.");
+        }
+
+        var sigArrayEntry = signaturesOffset;
         for (var i = 0; i < count; i++)
         {
             try
             {
-                var sigArrayEntry = signaturesOffset + i * 4;
-                var sigRva = reader.ReadUInt32(ref sigArrayEntry);
-                if (sigRva == 0
-                    || !addressSpace.TryGetFileOffset(imageBase + sigRva, out var sigOffset, out _))
+                var signatureEntryOffset = sigArrayEntry;
+                var sigRva = reader.ReadUInt32(ref signatureEntryOffset);
+                if (sigRva != 0
+                    && NativeImageRange.TryAdd(imageBase, sigRva, out var signatureAddress)
+                    && addressSpace.TryGetFileOffset(signatureAddress, out var sigOffset, out _))
                 {
-                    continue;
-                }
-
-                var name = DecodeFixup(reader, sigOffset, metadata, methodDefs, moduleContext);
-                if (name is not null)
-                {
-                    map[imageBase + (uint)slotsRva + (uint)(entrySize * i)] = name;
+                    var name = DecodeFixup(reader, sigOffset, metadata, methodDefs, moduleContext);
+                    if (name is not null)
+                    {
+                        map[slotAddress] = name;
+                    }
                 }
             }
             catch (Exception exception) when (IsMalformedImportException(exception))
@@ -285,7 +332,17 @@ internal sealed class ReadyToRunImportMap
                     $"import-slot-rejected record=0x{record:X} slot={i} "
                     + $"exception={exception.GetType().Name} message={exception.Message}");
             }
+
+            sigArrayEntry += sizeof(uint);
+            if (i + 1 < count
+                && !NativeImageRange.TryAdd(slotAddress, (uint)entrySize, out slotAddress))
+            {
+                throw new BadImageFormatException(
+                    $"ReadyToRun import record at 0x{record:X} has an overflowing slot address.");
+            }
         }
+
+        return true;
     }
 
     /// <summary>
@@ -324,7 +381,11 @@ internal sealed class ReadyToRunImportMap
     }
 
     private static bool IsMalformedImportException(Exception exception) =>
-        exception is BadImageFormatException or IndexOutOfRangeException or ArgumentOutOfRangeException;
+        exception is
+            BadImageFormatException
+            or IndexOutOfRangeException
+            or ArgumentOutOfRangeException
+            or OverflowException;
 
     private static string? DecodeFixup(
         R2RNativeReader reader, int offset, MetadataReader? metadata, IReadOnlyList<MethodDefInfo> methodDefs,
