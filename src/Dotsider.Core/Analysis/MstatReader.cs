@@ -15,11 +15,13 @@ namespace Dotsider.Core.Analysis;
 /// in a custom <c>.names</c> PE section; those names equal the node labels in the DGML graphs
 /// <c>IlcGenerateDgmlFile</c> emits, which is how sizes join to dependency chains.
 ///
-/// Malformed input never throws: unreadable files return null, and a truncated IL stream
-/// yields the entries parsed before the damage.
+/// Malformed input never throws: unreadable files return null, and damage within an IL stream,
+/// including an impossible nested count, yields the entries parsed before the damage.
 /// </summary>
 public static class MstatReader
 {
+    private const int MinimumDeduplicatedTargetEncodingSize = 6;
+
     /// <summary>
     /// Reads an ILC size report from a file.
     /// </summary>
@@ -376,8 +378,17 @@ public static class MstatReader
         var cursor = new IlCursor(il);
         while (cursor.TryReadToken(out var token) && cursor.TryReadInt(out var count))
         {
+            // Each target is an ldtoken instruction (five bytes) followed by an ldc.i4
+            // instruction (at least one byte). A larger count cannot fit in the remaining
+            // stream and must not influence an allocation or traversal.
+            if (count < 0
+                || count > cursor.RemainingByteCount / MinimumDeduplicatedTargetEncodingSize)
+            {
+                return result;
+            }
+
             var method = resolver.ResolveMethod(token);
-            var targets = new List<string>(count);
+            var targets = new List<string>();
             for (var i = 0; i < count; i++)
             {
                 if (!cursor.TryReadToken(out _) || !cursor.TryReadInt(out var nameOffset))

@@ -1,6 +1,6 @@
 ---
 title: "MstatReader"
-description: "Reads an ILC size report (.mstat), the file IlcGenerateMstatFile emits when publishing a Native AOT project. The report is itself a valid ECMA-335 assembly: its assembly version carries the format version, and its data is encoded as IL instruction streams in global methods named Methods, Types, Blobs, and (in newer formats) RvaFields, FrozenObjects, ManifestResources, and DeduplicatedMethods. Format 2.0+ also stores each entry's dependency-graph node name in a custom .names PE section; those names equal the node labels in the DGML graphs IlcGenerateDgmlFile emits, which is how sizes join to dependency chains. Malformed input never throws: unreadable files return null, and a truncated IL stream yields the entries parsed before the damage."
+description: "Reads an ILC size report (.mstat), the file IlcGenerateMstatFile emits when publishing a Native AOT project. The report is itself a valid ECMA-335 assembly: its assembly version carries the format version, and its data is encoded as IL instruction streams in global methods named Methods, Types, Blobs, and (in newer formats) RvaFields, FrozenObjects, ManifestResources, and DeduplicatedMethods. Format 2.0+ also stores each entry's dependency-graph node name in a custom .names PE section; those names equal the node labels in the DGML graphs IlcGenerateDgmlFile emits, which is how sizes join to dependency chains. Malformed input never throws: unreadable files return null, and damage within an IL stream, including an impossible nested count, yields the entries parsed before the damage."
 slug: api/dotsider.core.analysis.mstatreader
 sidebar:
   order: 0
@@ -19,8 +19,8 @@ formats) `RvaFields`, `FrozenObjects`, `ManifestResources`, and
 in a custom `.names` PE section; those names equal the node labels in the DGML graphs
 `IlcGenerateDgmlFile` emits, which is how sizes join to dependency chains.
 
-Malformed input never throws: unreadable files return null, and a truncated IL stream
-yields the entries parsed before the damage.
+Malformed input never throws: unreadable files return null, and damage within an IL stream,
+including an impossible nested count, yields the entries parsed before the damage.
 
 ```csharp
 public static class MstatReader
