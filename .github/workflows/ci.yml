@@ -7,6 +7,24 @@ on:
     branches: [main]
 
 jobs:
+  secret-scan:
+    name: Secret scan
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Scan for secrets
+        uses: willibrandon/picket@v0.1.10
+        with:
+          cache-mode: secret-hash-only
+          fail-on: findings
+          redact: 100
+          timeout: 300
+
   build-and-test:
     strategy:
       fail-fast: false
