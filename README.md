@@ -16,11 +16,7 @@ dotsider RichLibrary.dll
 dotnet tool install -g dotsider
 ```
 
-The .NET SDK selects the Native AOT package for supported Windows, Linux, and macOS runtime identifiers. Other supported environments use the framework-dependent `any` package.
-Live EventPipe tracing uses the bundled framework-dependent trace host; the SDK already provides
-the required .NET 10-or-later runtime. It accepts existing managed DLLs or platform executables and
-never launches them through a shell. If the host or runtime is unavailable, the Dynamic tab
-explains the missing requirement and disables trace launch.
+On supported platforms, the .NET SDK installs the Native AOT build automatically.
 
 ### Homebrew (macOS / Linux)
 
