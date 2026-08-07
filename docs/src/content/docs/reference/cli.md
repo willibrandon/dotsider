@@ -13,7 +13,7 @@ dotsider diff <left> <right>    # TUI — assembly comparison, or AOT size diff 
 dotsider analyze <file> [opts]  # CLI — headless analysis
 dotsider size-check <target>    # CLI — AOT size regression report and CI budget gate
 dotsider sessions <command>     # CLI — interact with running instances
-dotsider agent <command>        # CLI — MCP server and AI skill generation
+dotsider agent <command>        # CLI — MCP server and agent skill generation
 ```
 
 ## TUI options
@@ -190,17 +190,13 @@ delimiter lets child arguments begin with `-`; the launcher uses
 
 ## `dotsider agent`
 
-MCP server management and AI skill file generation.
+MCP server management and agent skill file generation.
 
 ```
-dotsider agent mcp                                # launch the MCP server
-dotsider agent init --ai claude                   # generate skill file
-dotsider agent init --path ./SKILL.md             # write to explicit path
-dotsider agent init --stdout                      # print to stdout
+dotsider agent mcp                                      # launch the MCP server
+dotsider agent init                                     # write ./SKILL.md
+dotsider agent init --path ./dotsider/SKILL.md              # write to an explicit path
+dotsider agent init --stdout                            # print to stdout
 ```
 
-### Supported `--ai` providers
-
-`claude`, `gemini`, `copilot`, `cursor-agent`, `opencode`, `codex`, `windsurf`, `kilocode`, `amp`, `qwen`
-
-Each resolves to the provider's conventional skill path relative to the current directory.
+By default, `init` writes `SKILL.md` in the current directory. Use `--path` when your agent expects skills in a specific directory.

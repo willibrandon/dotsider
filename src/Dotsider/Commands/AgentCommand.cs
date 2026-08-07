@@ -5,30 +5,16 @@ using System.Diagnostics;
 namespace Dotsider.Commands;
 
 /// <summary>
-/// Agent command group: MCP server launch and AI skill file initialization.
+/// Agent command group: MCP server launch and agent skill file initialization.
 /// </summary>
 internal static class AgentCommand
 {
-    private static readonly Dictionary<string, string> s_providerPaths = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["claude"] = Path.Combine(".claude", "skills", "dotsider", "SKILL.md"),
-        ["gemini"] = Path.Combine(".gemini", "skills", "dotsider", "SKILL.md"),
-        ["copilot"] = Path.Combine(".github", "skills", "dotsider", "SKILL.md"),
-        ["cursor-agent"] = Path.Combine(".cursor", "skills", "dotsider", "SKILL.md"),
-        ["opencode"] = Path.Combine(".opencode", "skill", "dotsider", "SKILL.md"),
-        ["codex"] = Path.Combine(".agents", "skills", "dotsider", "SKILL.md"),
-        ["windsurf"] = Path.Combine(".windsurf", "skills", "dotsider", "SKILL.md"),
-        ["kilocode"] = Path.Combine(".kilocode", "skills", "dotsider", "SKILL.md"),
-        ["amp"] = Path.Combine(".agents", "skills", "dotsider", "SKILL.md"),
-        ["qwen"] = Path.Combine(".qwen", "skills", "dotsider", "SKILL.md"),
-    };
-
     /// <summary>
     /// Creates the "agent" command with "mcp" and "init" subcommands.
     /// </summary>
     public static Command Create(Option<bool> jsonOption)
     {
-        var command = new Command("agent", "MCP server and AI skill file management");
+        var command = new Command("agent", "MCP server and agent skill file management");
 
         command.Subcommands.Add(CreateMcpCommand());
         command.Subcommands.Add(CreateInitCommand(jsonOption));
@@ -104,14 +90,9 @@ internal static class AgentCommand
 
     private static Command CreateInitCommand(Option<bool> jsonOption)
     {
-        var aiOption = new Option<string?>("--ai")
-        {
-            Description = "AI provider — writes to the provider's skill path relative to the current directory (claude, gemini, copilot, cursor-agent, opencode, codex, windsurf, kilocode, amp, qwen)"
-        };
-
         var pathOption = new Option<string?>("--path")
         {
-            Description = "Explicit output file path"
+            Description = "Output file path (default: ./SKILL.md)"
         };
 
         var forceOption = new Option<bool>("--force")
@@ -124,9 +105,8 @@ internal static class AgentCommand
             Description = "Write skill content to stdout instead of a file"
         };
 
-        var command = new Command("init", "Initialize an AI skill file for dotsider")
+        var command = new Command("init", "Initialize an agent skill file for dotsider")
         {
-            aiOption,
             pathOption,
             forceOption,
             stdoutOption
@@ -134,7 +114,6 @@ internal static class AgentCommand
 
         command.SetAction((parseResult, _) =>
         {
-            var ai = parseResult.GetValue(aiOption);
             var path = parseResult.GetValue(pathOption);
             var force = parseResult.GetValue(forceOption);
             var stdout = parseResult.GetValue(stdoutOption);
@@ -150,28 +129,7 @@ internal static class AgentCommand
                 return Task.FromResult(0);
             }
 
-            // Resolve output path
-            string outputPath;
-            if (path is not null)
-            {
-                outputPath = Path.GetFullPath(path);
-            }
-            else if (ai is not null)
-            {
-                if (!s_providerPaths.TryGetValue(ai, out var relativePath))
-                {
-                    OutputFormatter.WriteError($"Error: Unknown provider '{ai}'.");
-                    OutputFormatter.WriteError($"Valid providers: {string.Join(", ", s_providerPaths.Keys.Order())}");
-                    return Task.FromResult(1);
-                }
-
-                outputPath = Path.GetFullPath(relativePath);
-            }
-            else
-            {
-                OutputFormatter.WriteError("Error: Specify --ai <provider>, --path <file>, or --stdout.");
-                return Task.FromResult(1);
-            }
+            var outputPath = Path.GetFullPath(path ?? "SKILL.md");
 
             // Check for existing file
             if (File.Exists(outputPath) && !force)
@@ -189,7 +147,7 @@ internal static class AgentCommand
             if (json)
             {
                 using var formatter = new OutputFormatter { JsonMode = true };
-                formatter.WriteJson(new { Path = outputPath, Provider = ai ?? "custom" });
+                formatter.WriteJson(new { Path = outputPath });
             }
             else
             {
@@ -204,7 +162,7 @@ internal static class AgentCommand
     }
 
     /// <summary>
-    /// Returns the SKILL.md content for AI provider integration.
+    /// Returns the SKILL.md content for agent integration.
     /// </summary>
     internal static string GetSkillContent() => """
         ---

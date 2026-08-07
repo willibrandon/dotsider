@@ -116,10 +116,10 @@ Session sockets are access-controlled. The socket directory and socket file are 
 | Dependency health | Assess dependency risk and freshness |
 | Bundle analysis | Inspect a single-file bundle: structure, entry assembly, and dependency resolution |
 
-## Generating AI skill files
+## Generating agent skill files
 
 ```
-dotsider agent init --ai claude
+dotsider agent init
 ```
 
-This writes a skill file to the provider's conventional location. Supported providers: `claude`, `gemini`, `copilot`, `cursor-agent`, `opencode`, `codex`, `windsurf`, `kilocode`, `amp`, `qwen`.
+This writes `SKILL.md` in the current directory. Use `--path` to write it directly to the location expected by your agent.
