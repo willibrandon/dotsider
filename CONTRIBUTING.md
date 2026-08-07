@@ -25,8 +25,10 @@ The README covers the full structure. The short version:
 - `src/Dotsider/Views/` — one file per tab. Each view builds a widget tree every frame; Hex1b reconciles it against the previous node tree.
 - `src/Dotsider/DotsiderState.cs` — all mutable UI state lives in one place.
 - `src/Dotsider.Mcp/` — standalone MCP server. Shares `Dotsider.Core` with the TUI but runs as its own process.
+- `src/Dotsider.DeployHost/` — self-contained Native AOT helper for dotsider.dev deployment.
 - `tests/Dotsider.Tests/` — integration tests against real assemblies.
 - `tests/Dotsider.Mcp.Tests/` — MCP tool and prompt tests.
+- `tests/Dotsider.Deploy.Tests/` — deployment unit and Debian container tests.
 - `benchmarks/Dotsider.Benchmarks/` — BenchmarkDotNet harness for the core analyzers.
 
 ## Code conventions

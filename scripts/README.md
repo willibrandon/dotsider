@@ -9,6 +9,7 @@ Run a utility with `dotnet run --file`:
 
 ```powershell
 dotnet run --file ./scripts/Run-Tests.cs
+dotnet run --file ./scripts/Deploy-Website.cs -- -Mode Package -DeployHost publish/deploy-host/dotsider-deploy-host
 dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -RuntimeRoot path/to/runtime -- -D -b binary -m riscv:rv64 path/to/blob.bin
 dotnet run --file ./scripts/Verify-NativeAot.cs -- -Mode CI -Rid linux-x64 -Version 0.0.0-ci
 ```
@@ -37,6 +38,7 @@ Current utilities:
 | App | Purpose |
 | --- | --- |
 | `Capture-DisasmOracle.cs` | Capture external native-disassembly oracle output and metadata. |
+| `Deploy-Website.cs` | Package, provision, preflight, or deploy the dotsider.dev website. |
 | `Run-Tests.cs` | Run `dotnet test` once or repeatedly with forwarded test arguments. |
 | `Verify-NativeAot.cs` | Publish, package, and smoke-test Native AOT CI and release payloads. |
 

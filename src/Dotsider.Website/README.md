@@ -33,7 +33,9 @@ authentication.
 
 ## Deployment
 
-Published as a self-contained `linux-x64` binary and deployed to a Hetzner VM behind Caddy. See `deploy/` for the Caddyfile, systemd unit, and setup script.
+Published as a self-contained `linux-x64` binary and deployed to a Hetzner VM
+behind Caddy. See `deploy/` and `src/Dotsider.DeployHost/` for the authoritative
+configuration and deployment helper.
 
 The application accepts one `X-Forwarded-For` hop from an exact address in
 `Demo:TrustedProxies`. Caddy runs on loopback, so the defaults match the supplied

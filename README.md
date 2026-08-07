@@ -343,6 +343,9 @@ src/Dotsider.Website/
 src/Dotsider.DocGenerator/
   Program.cs          DocFX-to-Starlight API reference generator
 
+src/Dotsider.DeployHost/
+  Program.cs          Native AOT host provisioning, validation, and maintenance helper
+
 samples/
   HelloWorld/               Minimal console app
   ComplexApp/               Async pipeline with embedded resources
@@ -380,8 +383,11 @@ tests/Dotsider.Mcp.Tests/
 tests/Dotsider.Website.Tests/
   *Tests.cs                  Demo admission and WebSocket limit tests
 
+tests/Dotsider.Deploy.Tests/
+  *Tests.cs                  Deployment unit and Debian 13 container tests
+
 tests/Shared/                 Shared MSTest settings, assertions, and socket identifiers
-scripts/                      Test runner and native-disassembly oracle tooling
+scripts/                      Test, deployment, and native-disassembly utilities
 benchmarks/Dotsider.Benchmarks/ BenchmarkDotNet performance suite
 docs/                         Starlight documentation site
 deploy/                       Hosted-demo deployment and monitoring configuration

@@ -4,5 +4,5 @@ After=prometheus.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/dotsider-website/caddy-report.sh
+ExecStart=/usr/local/libexec/dotsider-deploy-host report
 User=root

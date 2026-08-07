@@ -4,5 +4,5 @@ After=dotsider-website.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/dotsider-website/integrity-check.sh
+ExecStart=/usr/local/libexec/dotsider-deploy-host integrity
 User=root
