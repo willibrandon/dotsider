@@ -214,7 +214,8 @@ public class SizeBudgetEvaluatorTests
     {
         var diff = DiffV1V2();
         var warning = SizeBudgetParser.Parse("ns=NativeAotConsole.Telemetry:growth=0")
-            with { Severity = SizeBudgetSeverity.Warning };
+            with
+        { Severity = SizeBudgetSeverity.Warning };
 
         var report = SizeBudgetEvaluator.Evaluate(
             [warning], diff, SizeBasis.MstatTotal,

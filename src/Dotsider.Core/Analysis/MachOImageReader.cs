@@ -459,22 +459,22 @@ internal static class MachOImageReader
             switch (cmd)
             {
                 case LcLoadDylib or LcLoadWeakDylib or LcReexportDylib or LcLoadUpwardDylib:
-                {
-                    if (cmdSize < 24) return null;
-                    var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 8)..]);
-                    var name = ReadString(bytes, command, cmdSize, nameOffset);
-                    dylibs.Add(string.IsNullOrEmpty(name) ? "(unknown)" : ShortDylibName(name));
-                    break;
-                }
+                    {
+                        if (cmdSize < 24) return null;
+                        var nameOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(command + 8)..]);
+                        var name = ReadString(bytes, command, cmdSize, nameOffset);
+                        dylibs.Add(string.IsNullOrEmpty(name) ? "(unknown)" : ShortDylibName(name));
+                        break;
+                    }
 
                 case LcSymtab:
-                {
-                    if (cmdSize < 24
-                        || !TryReadSymbolTable(bytes, command, out var symbolTable))
-                        return null;
-                    symbols = symbolTable;
-                    break;
-                }
+                    {
+                        if (cmdSize < 24
+                            || !TryReadSymbolTable(bytes, command, out var symbolTable))
+                            return null;
+                        symbols = symbolTable;
+                        break;
+                    }
             }
         }
 

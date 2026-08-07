@@ -47,4 +47,3 @@ No sidecar was expected or found.
 ```csharp
 Missing = 0
 ```
-

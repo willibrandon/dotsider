@@ -250,4 +250,3 @@ Map of per-type generic info.
 ```csharp
 TypeGenericInfoMap = 123
 ```
-

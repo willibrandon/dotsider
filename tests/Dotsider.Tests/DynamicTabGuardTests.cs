@@ -33,7 +33,9 @@ public sealed class DynamicTabGuardTests : IDisposable
         return _hex1bApp;
     }
 
-    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(string dllPath)
+    private (Hex1bTerminal terminal, Hex1bApp app) CreateDotsiderApp(
+        string dllPath,
+        string? dynamicAnalysisUnavailableReason = null)
     {
         _workload = new Hex1bAppWorkloadAdapter();
         _terminal = Hex1bTerminal.CreateBuilder()
@@ -46,6 +48,12 @@ public sealed class DynamicTabGuardTests : IDisposable
             ctx =>
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
+                if (dynamicAnalysisUnavailableReason is not null)
+                {
+                    _state.DynamicAnalysisUnavailableReason =
+                        dynamicAnalysisUnavailableReason;
+                }
+
                 dotsiderApp ??= new DotsiderApp(_state);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
@@ -268,6 +276,45 @@ public sealed class DynamicTabGuardTests : IDisposable
 
         // Verify tracer was NOT created
         Assert.IsNull(_state!.Tracer);
+
+        cts.Cancel();
+        await runTask;
+    }
+
+    /// <summary>
+    /// Verifies missing trace-host requirements disable process launch.
+    /// The Dynamic tab remains discoverable and shows the concrete remedy.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Tab8_TraceHostUnavailable_ShowsGuardWithoutLaunching()
+    {
+        const string unavailableReason =
+            "Dynamic analysis requires the .NET 10 runtime or later.";
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(
+            CancellationToken.None);
+        var (terminal, app) = CreateDotsiderApp(
+            Samples.HelloWorldDll,
+            unavailableReason);
+        var runTask = app.RunAsync(cts.Token);
+
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
+            .Key(Hex1bKey.D8)
+            .WaitUntil(
+                s => s.ContainsText("Dynamic analysis is unavailable"),
+                TimeSpan.FromSeconds(10))
+            .WaitUntil(
+                s => s.ContainsText(".NET 10 runtime or later"),
+                TimeSpan.FromSeconds(5))
+            .Key(Hex1bKey.Enter)
+            .Build()
+            .ApplyAsync(terminal, cts.Token);
+
+        Assert.IsNull(_state!.Tracer);
+        Assert.AreEqual(
+            unavailableReason,
+            _state.DynamicAnalysisUnavailableReason);
 
         cts.Cancel();
         await runTask;

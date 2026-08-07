@@ -215,3 +215,97 @@ The linker timestamp from the COFF header.
 public int TimeDateStamp { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out Machine, out Characteristics, out int, out PEMagic, out byte, out byte, out int, out int, out ulong, out int, out int, out int, out int, out Subsystem, out DllCharacteristics, out int)
+
+**Parameters:**
+
+- `Machine` ([Machine](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.machine))
+- `Characteristics` ([Characteristics](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.characteristics))
+- `TimeDateStamp` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Magic` ([PEMagic](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.pemagic))
+- `MajorLinkerVersion` ([Byte](https://learn.microsoft.com/dotnet/api/system.byte))
+- `MinorLinkerVersion` ([Byte](https://learn.microsoft.com/dotnet/api/system.byte))
+- `SizeOfCode` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EntryPointRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ImageBase` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `SectionAlignment` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `FileAlignment` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `SizeOfImage` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `SizeOfHeaders` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Subsystem` ([Subsystem](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.subsystem))
+- `DllCharacteristics` ([DllCharacteristics](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.dllcharacteristics))
+- `NumberOfSections` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out Machine Machine, out Characteristics Characteristics, out int TimeDateStamp, out PEMagic Magic, out byte MajorLinkerVersion, out byte MinorLinkerVersion, out int SizeOfCode, out int EntryPointRva, out ulong ImageBase, out int SectionAlignment, out int FileAlignment, out int SizeOfImage, out int SizeOfHeaders, out Subsystem Subsystem, out DllCharacteristics DllCharacteristics, out int NumberOfSections)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(PeHeaders?)
+
+**Parameters:**
+
+- `other` ([PeHeaders](/api/dotsider.core.analysis.models.peheaders/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(PeHeaders? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(PeHeaders?, PeHeaders?)
+
+**Parameters:**
+
+- `left` ([PeHeaders](/api/dotsider.core.analysis.models.peheaders/))
+- `right` ([PeHeaders](/api/dotsider.core.analysis.models.peheaders/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(PeHeaders? left, PeHeaders? right)
+```
+
+### operator ==(PeHeaders?, PeHeaders?)
+
+**Parameters:**
+
+- `left` ([PeHeaders](/api/dotsider.core.analysis.models.peheaders/))
+- `right` ([PeHeaders](/api/dotsider.core.analysis.models.peheaders/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(PeHeaders? left, PeHeaders? right)
+```

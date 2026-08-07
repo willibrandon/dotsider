@@ -129,8 +129,6 @@ public string? PackageVersion { get; }
 
 ### Dispose()
 
-Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
 ```csharp
 public void Dispose()
 ```
@@ -159,4 +157,3 @@ An analyzer for the selected DLL. Dispose it before disposing this package analy
 ```csharp
 public AssemblyAnalyzer OpenDll(NuGetFileEntry entry)
 ```
-

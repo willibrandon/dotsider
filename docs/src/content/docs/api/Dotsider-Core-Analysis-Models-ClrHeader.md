@@ -56,16 +56,16 @@ ten-argument shape for callers written before [ManagedNativeHeader](/api/dotside
 
 **Parameters:**
 
-- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags)): 
-- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags))
+- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
 
 ```csharp
 public ClrHeader(int majorRuntimeVersion, int minorRuntimeVersion, int metadataRva, int metadataSize, CorFlags flags, int entryPointToken, int resourcesRva, int resourcesSize, int strongNameSignatureRva, int strongNameSignatureSize)
@@ -186,6 +186,26 @@ public int StrongNameSignatureSize { get; init; }
 
 ## Methods
 
+### Deconstruct(out int, out int, out int, out int, out CorFlags, out int, out int, out int, out int, out int, out DirectoryEntry)
+
+**Parameters:**
+
+- `MajorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MinorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MetadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MetadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags))
+- `EntryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ResourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ResourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `StrongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `StrongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ManagedNativeHeader` ([DirectoryEntry](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.directoryentry))
+
+```csharp
+public void Deconstruct(out int MajorRuntimeVersion, out int MinorRuntimeVersion, out int MetadataRva, out int MetadataSize, out CorFlags Flags, out int EntryPointToken, out int ResourcesRva, out int ResourcesSize, out int StrongNameSignatureRva, out int StrongNameSignatureSize, out DirectoryEntry ManagedNativeHeader)
+```
+
 ### Deconstruct(out int, out int, out int, out int, out CorFlags, out int, out int, out int, out int, out int)
 
 Deconstructs the original ten fields, preserving the pre-[ManagedNativeHeader](/api/dotsider.core.analysis.models.clrheader.managednativeheader/)
@@ -193,18 +213,85 @@ positional shape for existing deconstruction sites.
 
 **Parameters:**
 
-- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags)): 
-- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
-- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32)): 
+- `majorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `minorRuntimeVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `metadataRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `metadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `flags` ([CorFlags](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.corflags))
+- `entryPointToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `resourcesRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `resourcesSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `strongNameSignatureRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `strongNameSignatureSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
 
 ```csharp
 public void Deconstruct(out int majorRuntimeVersion, out int minorRuntimeVersion, out int metadataRva, out int metadataSize, out CorFlags flags, out int entryPointToken, out int resourcesRva, out int resourcesSize, out int strongNameSignatureRva, out int strongNameSignatureSize)
 ```
 
+### Equals(ClrHeader?)
+
+**Parameters:**
+
+- `other` ([ClrHeader](/api/dotsider.core.analysis.models.clrheader/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ClrHeader? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ClrHeader?, ClrHeader?)
+
+**Parameters:**
+
+- `left` ([ClrHeader](/api/dotsider.core.analysis.models.clrheader/))
+- `right` ([ClrHeader](/api/dotsider.core.analysis.models.clrheader/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ClrHeader? left, ClrHeader? right)
+```
+
+### operator ==(ClrHeader?, ClrHeader?)
+
+**Parameters:**
+
+- `left` ([ClrHeader](/api/dotsider.core.analysis.models.clrheader/))
+- `right` ([ClrHeader](/api/dotsider.core.analysis.models.clrheader/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ClrHeader? left, ClrHeader? right)
+```

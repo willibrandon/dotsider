@@ -301,19 +301,19 @@ public sealed class ReadyToRunNativeContainerTests
     {
         var first = BuildAbsentNativeArray(1);
         var second = BuildAbsentNativeArray(ReadyToRunTraversalBudget.MaximumWork - 1);
-        var context = CreateMethodMapContext(first, second);
+        var (Reader, AddressSpace, RuntimeFunctions, HotColdMap, FirstOffset, SecondOffset) = CreateMethodMapContext(first, second);
         ReadyToRunMethodMapReader.MethodMapSource[] sources =
         [
-            CreateMethodMapSource("First", context.FirstOffset, first.Length),
-            CreateMethodMapSource("Second", context.SecondOffset, second.Length),
+            CreateMethodMapSource("First", FirstOffset, first.Length),
+            CreateMethodMapSource("Second", SecondOffset, second.Length),
         ];
 
         var methods = ReadyToRunMethodMapReader.Build(
-            context.Reader,
-            context.RuntimeFunctions,
-            context.HotColdMap,
+            Reader,
+            RuntimeFunctions,
+            HotColdMap,
             imageBase: 0x140000000,
-            context.AddressSpace,
+            AddressSpace,
             sources,
             globalInstance: null);
 
@@ -330,20 +330,20 @@ public sealed class ReadyToRunNativeContainerTests
     {
         var first = BuildAbsentNativeArray(ReadyToRunTraversalBudget.MaximumWork);
         var second = BuildAbsentNativeArray(1);
-        var context = CreateMethodMapContext(first, second);
+        var (Reader, AddressSpace, RuntimeFunctions, HotColdMap, FirstOffset, SecondOffset) = CreateMethodMapContext(first, second);
         ReadyToRunMethodMapReader.MethodMapSource[] sources =
         [
-            CreateMethodMapSource("First", context.FirstOffset, first.Length),
-            CreateMethodMapSource("Second", context.SecondOffset, second.Length),
+            CreateMethodMapSource("First", FirstOffset, first.Length),
+            CreateMethodMapSource("Second", SecondOffset, second.Length),
         ];
 
         var exception = Assert.ThrowsExactly<BadImageFormatException>(() =>
             ReadyToRunMethodMapReader.Build(
-                context.Reader,
-                context.RuntimeFunctions,
-                context.HotColdMap,
+                Reader,
+                RuntimeFunctions,
+                HotColdMap,
                 imageBase: 0x140000000,
-                context.AddressSpace,
+                AddressSpace,
                 sources,
                 globalInstance: null));
 
@@ -361,21 +361,21 @@ public sealed class ReadyToRunNativeContainerTests
     {
         var methodDefinitions = BuildAbsentNativeArray(ReadyToRunTraversalBudget.MaximumWork - 1);
         var instances = BuildEmptyNativeHashtable(shift: 0, entryIndexSize: 0);
-        var context = CreateMethodMapContext(methodDefinitions, instances);
+        var (Reader, AddressSpace, RuntimeFunctions, HotColdMap, FirstOffset, SecondOffset) = CreateMethodMapContext(methodDefinitions, instances);
         ReadyToRunMethodMapReader.MethodMapSource[] sources =
         [
-            CreateMethodMapSource("Methods", context.FirstOffset, methodDefinitions.Length),
+            CreateMethodMapSource("Methods", FirstOffset, methodDefinitions.Length),
         ];
         var globalInstance = CreateGlobalInstanceSource(
-            context.SecondOffset,
+            SecondOffset,
             instances.Length);
 
         var methods = ReadyToRunMethodMapReader.Build(
-            context.Reader,
-            context.RuntimeFunctions,
-            context.HotColdMap,
+            Reader,
+            RuntimeFunctions,
+            HotColdMap,
             imageBase: 0x140000000,
-            context.AddressSpace,
+            AddressSpace,
             sources,
             globalInstance);
 
@@ -392,22 +392,22 @@ public sealed class ReadyToRunNativeContainerTests
     {
         var methodDefinitions = BuildAbsentNativeArray(ReadyToRunTraversalBudget.MaximumWork - 1);
         var instances = BuildSingleEntryNativeHashtable(entryIndexSize: 0);
-        var context = CreateMethodMapContext(methodDefinitions, instances);
+        var (Reader, AddressSpace, RuntimeFunctions, HotColdMap, FirstOffset, SecondOffset) = CreateMethodMapContext(methodDefinitions, instances);
         ReadyToRunMethodMapReader.MethodMapSource[] sources =
         [
-            CreateMethodMapSource("Methods", context.FirstOffset, methodDefinitions.Length),
+            CreateMethodMapSource("Methods", FirstOffset, methodDefinitions.Length),
         ];
         var globalInstance = CreateGlobalInstanceSource(
-            context.SecondOffset,
+            SecondOffset,
             instances.Length);
 
         var exception = Assert.ThrowsExactly<BadImageFormatException>(() =>
             ReadyToRunMethodMapReader.Build(
-                context.Reader,
-                context.RuntimeFunctions,
-                context.HotColdMap,
+                Reader,
+                RuntimeFunctions,
+                HotColdMap,
                 imageBase: 0x140000000,
-                context.AddressSpace,
+                AddressSpace,
                 sources,
                 globalInstance));
 

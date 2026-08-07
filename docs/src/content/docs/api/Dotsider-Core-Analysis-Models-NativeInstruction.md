@@ -247,3 +247,99 @@ The resolved target's display name (e.g. `Foo`, `Foo+0x12`, `loc_140001234`), or
 public string? TargetName { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ulong, out uint?, out long?, out IReadOnlyList\<byte\>, out int, out string, out IReadOnlyList\<NativeOperand\>, out string, out NativeInstructionCategory, out NativeFlowKind, out ulong?, out NativeTargetKind, out string?, out string?, out int?, out bool, out int?, out NativeLineLayout?)
+
+**Parameters:**
+
+- `Address` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `Rva` ([Nullable\<UInt32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `FileOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Bytes` ([IReadOnlyList\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Length` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Mnemonic` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Operands` ([IReadOnlyList\<NativeOperand\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `OperandText` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Category` ([NativeInstructionCategory](/api/dotsider.core.analysis.models.nativeinstructioncategory/))
+- `Flow` ([NativeFlowKind](/api/dotsider.core.analysis.models.nativeflowkind/))
+- `TargetAddress` ([Nullable\<UInt64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `TargetKind` ([NativeTargetKind](/api/dotsider.core.analysis.models.nativetargetkind/))
+- `TargetName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `SourceFile` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Line` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `IsFallback` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `DisplayLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Layout` ([Nullable\<NativeLineLayout\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out ulong Address, out uint? Rva, out long? FileOffset, out IReadOnlyList<byte> Bytes, out int Length, out string Mnemonic, out IReadOnlyList<NativeOperand> Operands, out string OperandText, out NativeInstructionCategory Category, out NativeFlowKind Flow, out ulong? TargetAddress, out NativeTargetKind TargetKind, out string? TargetName, out string? SourceFile, out int? Line, out bool IsFallback, out int? DisplayLine, out NativeLineLayout? Layout)
+```
+
+### Equals(NativeInstruction?)
+
+**Parameters:**
+
+- `other` ([NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeInstruction? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeInstruction?, NativeInstruction?)
+
+**Parameters:**
+
+- `left` ([NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/))
+- `right` ([NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeInstruction? left, NativeInstruction? right)
+```
+
+### operator ==(NativeInstruction?, NativeInstruction?)
+
+**Parameters:**
+
+- `left` ([NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/))
+- `right` ([NativeInstruction](/api/dotsider.core.analysis.models.nativeinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeInstruction? left, NativeInstruction? right)
+```

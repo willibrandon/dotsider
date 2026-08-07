@@ -114,3 +114,86 @@ null when the bind failed
 public ResolvedAssembly? Resolved { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ResolvedAssembly?, out AssemblyProvenance, out string?, out AppliedPolicy?, out AssemblyRefInfo?)
+
+**Parameters:**
+
+- `Resolved` ([ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/))
+- `Provenance` ([AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/))
+- `CandidateProbePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AppliedPolicy` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+- `LoadedIdentity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+```csharp
+public void Deconstruct(out ResolvedAssembly? Resolved, out AssemblyProvenance Provenance, out string? CandidateProbePath, out AppliedPolicy? AppliedPolicy, out AssemblyRefInfo? LoadedIdentity)
+```
+
+### Equals(AssemblyResolution?)
+
+**Parameters:**
+
+- `other` ([AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyResolution? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(AssemblyResolution?, AssemblyResolution?)
+
+**Parameters:**
+
+- `left` ([AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/))
+- `right` ([AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyResolution? left, AssemblyResolution? right)
+```
+
+### operator ==(AssemblyResolution?, AssemblyResolution?)
+
+**Parameters:**
+
+- `left` ([AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/))
+- `right` ([AssemblyResolution](/api/dotsider.core.analysis.models.assemblyresolution/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyResolution? left, AssemblyResolution? right)
+```

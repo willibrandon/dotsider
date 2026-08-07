@@ -74,3 +74,84 @@ The dependee's node id.
 public int TargetId { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out int, out string?)
+
+**Parameters:**
+
+- `SourceId` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `TargetId` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Reason` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int SourceId, out int TargetId, out string? Reason)
+```
+
+### Equals(DgmlLink?)
+
+**Parameters:**
+
+- `other` ([DgmlLink](/api/dotsider.core.analysis.models.dgmllink/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(DgmlLink? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(DgmlLink?, DgmlLink?)
+
+**Parameters:**
+
+- `left` ([DgmlLink](/api/dotsider.core.analysis.models.dgmllink/))
+- `right` ([DgmlLink](/api/dotsider.core.analysis.models.dgmllink/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(DgmlLink? left, DgmlLink? right)
+```
+
+### operator ==(DgmlLink?, DgmlLink?)
+
+**Parameters:**
+
+- `left` ([DgmlLink](/api/dotsider.core.analysis.models.dgmllink/))
+- `right` ([DgmlLink](/api/dotsider.core.analysis.models.dgmllink/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(DgmlLink? left, DgmlLink? right)
+```

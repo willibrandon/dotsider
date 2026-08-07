@@ -63,58 +63,58 @@ public static class PeMetadataView
 
             // Ensure the first row is focused when arriving at a sub-tab
             state.PeFocusedKey ??= state.PeSubTab switch
-                {
-                    PeSubTabId.Sections when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm =>
-                        GetWasmSectionKey(wasm.Sections[0]),
-                    PeSubTabId.TypeDef when analyzer.WasmModuleInfo is { Types.Count: > 0 } wasm =>
-                        GetWasmTypeKey(wasm.Types[0]),
-                    PeSubTabId.MethodDef when analyzer.WasmModuleInfo is { Functions.Count: > 0 } wasm =>
-                        GetWasmFunctionKey(wasm.Functions[0]),
-                    PeSubTabId.TypeRef when analyzer.WasmModuleInfo is { Tables.Count: > 0 } wasm =>
-                        GetWasmTableKey(wasm.Tables[0]),
-                    PeSubTabId.MemberRef when analyzer.WasmModuleInfo is { Memories.Count: > 0 } wasm =>
-                        GetWasmMemoryKey(wasm.Memories[0]),
-                    PeSubTabId.Attributes when analyzer.WasmModuleInfo is { Globals.Count: > 0 } wasm =>
-                        GetWasmGlobalKey(wasm.Globals[0]),
-                    PeSubTabId.Resources when analyzer.WasmModuleInfo is { DataSegments.Count: > 0 } wasm =>
-                        GetWasmDataSegmentKey(wasm.DataSegments[0]),
-                    PeSubTabId.DebugDirectory when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm
-                        && wasm.Sections.FirstOrDefault(static s => s.Id == 0) is { } custom =>
-                        GetWasmSectionKey(custom),
-                    PeSubTabId.Sections when analyzer.Sections.Count > 0 => analyzer.Sections[0].Name,
-                    PeSubTabId.TypeDef when metadataAnalyzer.TypeDefs.Count > 0 => metadataAnalyzer.TypeDefs[0].Token,
-                    PeSubTabId.MethodDef when metadataAnalyzer.MethodDefs.Count > 0 => metadataAnalyzer.MethodDefs[0].Token,
-                    PeSubTabId.TypeRef when metadataAnalyzer.TypeRefs.Count > 0 => metadataAnalyzer.TypeRefs[0].Token,
-                    PeSubTabId.MemberRef when metadataAnalyzer.MemberRefs.Count > 0 => metadataAnalyzer.MemberRefs[0].Token,
-                    PeSubTabId.Attributes when metadataAnalyzer.CustomAttributes.Count > 0 =>
-                        $"{metadataAnalyzer.CustomAttributes[0].Parent}|{metadataAnalyzer.CustomAttributes[0].Constructor}",
-                    PeSubTabId.Resources when metadataAnalyzer.Resources.Count > 0 => metadataAnalyzer.Resources[0].Name,
-                    PeSubTabId.DebugDirectory when GetDebugDirectoryRows(state).Count > 0 =>
-                        GetDebugDirectoryRowKey(GetDebugDirectoryRows(state)[0]),
-                    PeSubTabId.Imports when analyzer.WasmModuleInfo is { Imports.Count: > 0 } wasm =>
-                        GetWasmImportKey(wasm.Imports[0]),
-                    PeSubTabId.Imports when GetImportRows(analyzer).Count > 0 =>
-                        GetImportRows(analyzer)[0].Key,
-                    PeSubTabId.Exports when analyzer.WasmModuleInfo is { Exports.Count: > 0 } wasm =>
-                        GetWasmExportKey(wasm.Exports[0]),
-                    PeSubTabId.Exports when analyzer.Exports.Count > 0 =>
-                        analyzer.Exports[0].Ordinal,
-                    PeSubTabId.LoadConfig when analyzer.WasmModuleInfo is { Elements.Count: > 0 } wasm =>
-                        GetWasmElementKey(wasm.Elements[0]),
-                    PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
-                        GetLoadConfigRows(analyzer.LoadConfig)[0].Field,
-                    PeSubTabId.RtrSections when analyzer.WasmModuleInfo is { Tags.Count: > 0 } wasm =>
-                        GetWasmTagKey(wasm.Tags[0]),
-                    PeSubTabId.RtrSections when analyzer.ReadyToRunSections.Count > 0 =>
-                        analyzer.ReadyToRunSections[0].SectionId,
-                    PeSubTabId.AotTypes when analyzer.WasmModuleInfo is not null =>
-                        GetWasmModuleInfoKey("version"),
-                    PeSubTabId.AotTypes when analyzer.RecoveredTypes.Count > 0 =>
-                        analyzer.RecoveredTypes[0].FullName,
-                    PeSubTabId.Symbols when GetSymbolRows(analyzer).Count > 0 =>
-                        GetSymbolRows(analyzer)[0].VirtualAddress,
-                    _ => null
-                };
+            {
+                PeSubTabId.Sections when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm =>
+                    GetWasmSectionKey(wasm.Sections[0]),
+                PeSubTabId.TypeDef when analyzer.WasmModuleInfo is { Types.Count: > 0 } wasm =>
+                    GetWasmTypeKey(wasm.Types[0]),
+                PeSubTabId.MethodDef when analyzer.WasmModuleInfo is { Functions.Count: > 0 } wasm =>
+                    GetWasmFunctionKey(wasm.Functions[0]),
+                PeSubTabId.TypeRef when analyzer.WasmModuleInfo is { Tables.Count: > 0 } wasm =>
+                    GetWasmTableKey(wasm.Tables[0]),
+                PeSubTabId.MemberRef when analyzer.WasmModuleInfo is { Memories.Count: > 0 } wasm =>
+                    GetWasmMemoryKey(wasm.Memories[0]),
+                PeSubTabId.Attributes when analyzer.WasmModuleInfo is { Globals.Count: > 0 } wasm =>
+                    GetWasmGlobalKey(wasm.Globals[0]),
+                PeSubTabId.Resources when analyzer.WasmModuleInfo is { DataSegments.Count: > 0 } wasm =>
+                    GetWasmDataSegmentKey(wasm.DataSegments[0]),
+                PeSubTabId.DebugDirectory when analyzer.WasmModuleInfo is { Sections.Count: > 0 } wasm
+                    && wasm.Sections.FirstOrDefault(static s => s.Id == 0) is { } custom =>
+                    GetWasmSectionKey(custom),
+                PeSubTabId.Sections when analyzer.Sections.Count > 0 => analyzer.Sections[0].Name,
+                PeSubTabId.TypeDef when metadataAnalyzer.TypeDefs.Count > 0 => metadataAnalyzer.TypeDefs[0].Token,
+                PeSubTabId.MethodDef when metadataAnalyzer.MethodDefs.Count > 0 => metadataAnalyzer.MethodDefs[0].Token,
+                PeSubTabId.TypeRef when metadataAnalyzer.TypeRefs.Count > 0 => metadataAnalyzer.TypeRefs[0].Token,
+                PeSubTabId.MemberRef when metadataAnalyzer.MemberRefs.Count > 0 => metadataAnalyzer.MemberRefs[0].Token,
+                PeSubTabId.Attributes when metadataAnalyzer.CustomAttributes.Count > 0 =>
+                    $"{metadataAnalyzer.CustomAttributes[0].Parent}|{metadataAnalyzer.CustomAttributes[0].Constructor}",
+                PeSubTabId.Resources when metadataAnalyzer.Resources.Count > 0 => metadataAnalyzer.Resources[0].Name,
+                PeSubTabId.DebugDirectory when GetDebugDirectoryRows(state).Count > 0 =>
+                    GetDebugDirectoryRowKey(GetDebugDirectoryRows(state)[0]),
+                PeSubTabId.Imports when analyzer.WasmModuleInfo is { Imports.Count: > 0 } wasm =>
+                    GetWasmImportKey(wasm.Imports[0]),
+                PeSubTabId.Imports when GetImportRows(analyzer).Count > 0 =>
+                    GetImportRows(analyzer)[0].Key,
+                PeSubTabId.Exports when analyzer.WasmModuleInfo is { Exports.Count: > 0 } wasm =>
+                    GetWasmExportKey(wasm.Exports[0]),
+                PeSubTabId.Exports when analyzer.Exports.Count > 0 =>
+                    analyzer.Exports[0].Ordinal,
+                PeSubTabId.LoadConfig when analyzer.WasmModuleInfo is { Elements.Count: > 0 } wasm =>
+                    GetWasmElementKey(wasm.Elements[0]),
+                PeSubTabId.LoadConfig when analyzer.LoadConfig is not null =>
+                    GetLoadConfigRows(analyzer.LoadConfig)[0].Field,
+                PeSubTabId.RtrSections when analyzer.WasmModuleInfo is { Tags.Count: > 0 } wasm =>
+                    GetWasmTagKey(wasm.Tags[0]),
+                PeSubTabId.RtrSections when analyzer.ReadyToRunSections.Count > 0 =>
+                    analyzer.ReadyToRunSections[0].SectionId,
+                PeSubTabId.AotTypes when analyzer.WasmModuleInfo is not null =>
+                    GetWasmModuleInfoKey("version"),
+                PeSubTabId.AotTypes when analyzer.RecoveredTypes.Count > 0 =>
+                    analyzer.RecoveredTypes[0].FullName,
+                PeSubTabId.Symbols when GetSymbolRows(analyzer).Count > 0 =>
+                    GetSymbolRows(analyzer)[0].VirtualAddress,
+                _ => null
+            };
         }
 
         // Build PE Headers text for read-only editor
@@ -141,7 +141,10 @@ public static class PeMetadataView
         {
             state.PeHeadersEditorText = peText;
             state.PeHeadersEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(peText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(peText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         // Build CLR Header text — the companion's when attached (the native AOT image has none).
@@ -162,7 +165,10 @@ public static class PeMetadataView
         {
             state.ClrHeaderEditorText = clrText;
             state.ClrHeaderEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(clrText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(clrText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         // Build detail popup editor state when content changes
@@ -170,7 +176,10 @@ public static class PeMetadataView
         {
             state.PeDetailEditorText = state.PeDetailContent;
             state.PeDetailEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(state.PeDetailContent))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.PeDetailContent)))
+            {
+                IsReadOnly = true
+            };
         }
 
         // Adjust word boundaries after double-click (consistent with IL Inspector)

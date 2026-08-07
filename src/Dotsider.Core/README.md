@@ -82,7 +82,7 @@ versioned failure response.
 | `DotsiderProtocol` | Protocol-version constant. Bumped on breaking changes; adding optional fields does not bump |
 | `DotsiderRequest` | JSON request with `Method`, plus optional parameters (`AssemblyPath`, `TypeName`, `TabId`, etc.) |
 | `DotsiderResponse` | JSON response with `Success`, optional `Error`, and `Data` payload |
-| `DotsiderJsonOptions` | Shared serialization settings (camelCase, ignore nulls, case-insensitive reads) |
+| `DotsiderJsonContext` | Source-generated protocol metadata with shared camelCase, null-handling, and case-insensitive read settings |
 | `ResolvedAssemblyInfo` | Serialization-safe DTO for an assembly or module resolution result (kind, file or module path, bundle entry name, and bundle path) |
 | `FrameworkAssemblyInfo` | Result of resolving an assembly from a system shared framework — full path plus the runtime pack that provided it |
 

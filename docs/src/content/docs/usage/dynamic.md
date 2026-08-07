@@ -23,7 +23,9 @@ The dynamic tab has four sub-tabs. Press `Left` / `Right` to switch between them
 
 **Counters** — live performance counters in four sections: CPU, Memory, GC Collections, and Threading. Each section is a read-only editor — press `Tab` to cycle through them. Select text and press `y` to yank. `iw`, `yiw`, `V`, and `yy` all work. Counters update every ~1 second while the process is running.
 
-**Output** — stdout and stderr from the traced process. stderr lines show in red. Press `/` to search output.
+**Output** — stdout and stderr from the traced process. stderr lines show in red. Press `/` to
+search output. The latest 5,000 lines are retained. A line longer than 64 KiB is truncated and
+marked so an unbounded write cannot exhaust the trace host.
 
 **Summary** — trace summary stats (total events, duration, jitted methods, GC collections, exceptions, peak memory) in a read-only editor with the same selection and yank support as Counters. Below it, an event distribution chart shows the breakdown by category.
 
@@ -53,4 +55,12 @@ The launcher passes every value through `ProcessStartInfo.ArgumentList`.
 
 ## How it works
 
-dotsider launches the assembly with a reverse-connect diagnostic port, so events are captured from the very first instruction — nothing is missed during startup.
+dotsider launches an existing managed DLL or platform executable with a reverse-connect diagnostic
+port, so events are captured from the very first instruction. Windows direct-launch targets must
+be `.exe` files; Unix targets must be executable. Shell scripts and Windows command files are not
+accepted as Windows trace targets.
+
+EventPipe parsing runs in the bundled framework-dependent `tracehost` helper and requires a .NET
+10-or-later runtime. The helper uses the same absolute `dotnet` host that started it, and Unix
+diagnostic sockets are isolated in a private temporary directory. If the helper or runtime is
+unavailable, the Dynamic tab explains the missing requirement and leaves trace launch disabled.

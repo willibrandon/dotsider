@@ -3,9 +3,10 @@
 
 	<PropertyGroup>
 		<MSTestAnalysisMode>All</MSTestAnalysisMode>
+		<IncludeSharedTestSources Condition="'$(IncludeSharedTestSources)' == ''">true</IncludeSharedTestSources>
 	</PropertyGroup>
 
-	<ItemGroup>
+	<ItemGroup Condition="'$(IncludeSharedTestSources)' == 'true'">
 		<Compile Include="$(MSBuildThisFileDirectory)Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
 	</ItemGroup>
 </Project>

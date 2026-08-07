@@ -13,6 +13,8 @@ description: Model Context Protocol server for AI coding assistants.
 dotnet tool install -g Dotsider.Mcp
 ```
 
+The .NET SDK selects the Native AOT package for supported Windows, Linux, and macOS runtime identifiers. Other supported environments use the framework-dependent `any` package. See [Installation](/getting-started/installation/) for the platform matrix.
+
 ### Homebrew (macOS / Linux)
 
 ```
@@ -33,7 +35,7 @@ scoop install dotsider-mcp
 
 ### Download binary
 
-Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases). Binaries are self-contained — no .NET SDK needed.
+Grab a Native AOT archive from [Releases](https://github.com/willibrandon/dotsider/releases). Release binaries are self-contained, so they do not need the .NET SDK or runtime. Native symbols are published separately.
 
 ## Configure
 

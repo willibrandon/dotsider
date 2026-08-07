@@ -48,13 +48,16 @@ public static class NuGetDepsJsonResolver
         var depsJsonPath = FindDepsJsonFor(referencingAssemblyPath);
         if (depsJsonPath is null) return null;
 
-        string? libraryKey;
         string? runtimeRelative;
         string? packagePath;
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllBytes(depsJsonPath));
-            if (!TryFindRuntimeAsset(doc.RootElement, assemblyName, out libraryKey, out runtimeRelative))
+            if (!TryFindRuntimeAsset(
+                doc.RootElement,
+                assemblyName,
+                out string? libraryKey,
+                out runtimeRelative))
                 return null;
 
             packagePath = libraryKey is null

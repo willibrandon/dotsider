@@ -1,20 +1,16 @@
 using Dotsider.Core.Analysis.Models;
-using Microsoft.Diagnostics.NETCore.Client;
-using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.Parsers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Diagnostics.Tracing;
 using System.Globalization;
-using System.Runtime.InteropServices;
-using TraceEventCategory = Dotsider.Core.Analysis.Models.TraceEventCategory;
-using TraceEventEntry = Dotsider.Core.Analysis.Models.TraceEventEntry;
+using System.Text;
+using System.Text.Json;
 
 namespace Dotsider.Core.Analysis;
 
 /// <summary>
-/// Manages launching a .NET assembly as a child process and collecting
-/// runtime events via EventPipe diagnostics (PID-based connect with retry).
+/// Launches a .NET target and collects its runtime diagnostics.
+/// Uses the bundled trace host to keep TraceEvent outside the Native AOT process.
+/// Exposes events, counters, output, and lifecycle state to dotsider callers.
 /// </summary>
 /// <param name="assemblyPath">The managed DLL or executable apphost to launch.</param>
 /// <param name="arguments">The literal application arguments to pass to the launched process.</param>
@@ -26,91 +22,84 @@ public sealed class RuntimeTracer(
 {
     private const int MaxEvents = 10_000;
     private const int MaxOutputLines = 5_000;
-    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromMilliseconds(200);
+    private const int MinimumTraceHostRuntimeMajor = 10;
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
+    private static readonly string[] RequiredTraceHostFiles =
+    [
+        "dotsider-tracehost.deps.json",
+        "dotsider-tracehost.dll",
+        "dotsider-tracehost.runtimeconfig.json"
+    ];
 
-    private readonly string _assemblyPath = ValidateAssemblyPath(assemblyPath);
+    private readonly string _assemblyPath = TraceTargetPath.Validate(assemblyPath);
     private readonly string[] _arguments = CopyArguments(arguments);
     private readonly Action _invalidate = invalidate
         ?? throw new ArgumentNullException(nameof(invalidate));
-    private readonly bool _requiresDotnetHost =
-        ValidateAssemblyPath(assemblyPath)
-            .EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
 
-    private Process? _process;
-    private DiagnosticsClientConnector? _connector;
-    private EventPipeSession? _session;
-    private EventPipeEventSource? _eventSource;
-    private Task? _processingTask;
+    private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
+    private readonly Lock _eventLock = new();
+    private readonly Dictionary<TraceEventCategory, int> _eventCounts = [];
+    private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
+    private readonly Lock _stateLock = new();
+    private readonly Lock _errorOutputLock = new();
+    private readonly StringBuilder _errorOutput = new();
+
+    private Process? _traceHostProcess;
     private CancellationTokenSource? _cts;
+    private Task? _messageTask;
+    private Task? _errorTask;
     private Stopwatch? _stopwatch;
     private Timer? _invalidateTimer;
-    private string? _diagnosticPort;
-
-    // Ring buffer for events — lock protects both read and write
-    private readonly TraceEventEntry[] _eventRing = new TraceEventEntry[MaxEvents];
+    private CounterSnapshot? _latestCounters;
+    private TraceProcessState _processState = TraceProcessState.Idle;
+    private int? _processId;
+    private int? _exitCode;
+    private string? _errorMessage;
+    private TimeSpan? _finalElapsed;
     private int _eventHead;
     private int _eventCount;
-    private readonly Lock _eventLock = new();
-
-    // Counter snapshot — atomic via Interlocked.Exchange
-    private CounterSnapshot? _latestCounters;
-    
-    // Workaround the analyzer's unsupported preview feature recommendation
-    #pragma warning disable IDE0028
-    private readonly Dictionary<string, double> _counterAccumulators = new(StringComparer.OrdinalIgnoreCase);
-    #pragma warning restore IDE0028
-
-    // Summary accumulators (written under _eventLock for simplicity)
-    private readonly Dictionary<TraceEventCategory, int> _eventCounts = [];
     private int _jittedMethodCount;
     private double _peakWorkingSetMb;
     private double _peakGcHeapMb;
-
-    // Dirty flag for throttled invalidation
     private int _dirty;
     private int _invalidateTimerCallbackActive;
-
-    // Process output
-    private readonly ConcurrentQueue<OutputLine> _outputQueue = new();
-
-    // --- Synchronized public state ---
-    // ProcessState, ExitCode, and ErrorMessage are read from the UI thread
-    // and written from up to 3 threads (Process.Exited handler, EventPipe
-    // background task, Stop/Dispose). A single lock synchronizes both reads
-    // and writes so that observers always see consistent state (e.g. ExitCode
-    // is set before ProcessState transitions to Exited).
-    private readonly Lock _stateLock = new();
-    private TraceProcessState _processState = TraceProcessState.Idle;
-    private int? _exitCode;
-    private string? _errorMessage;
+    private int _disposed;
 
     /// <summary>The current state of the traced process.</summary>
     public TraceProcessState ProcessState
     {
         get { lock (_stateLock) return _processState; }
-        private set { lock (_stateLock) _processState = value; }
     }
 
     /// <summary>The exit code of the traced process, or null if not yet exited.</summary>
     public int? ExitCode
     {
         get { lock (_stateLock) return _exitCode; }
-        private set { lock (_stateLock) _exitCode = value; }
     }
 
     /// <summary>The error message if the trace failed, or null.</summary>
     public string? ErrorMessage
     {
         get { lock (_stateLock) return _errorMessage; }
-        private set { lock (_stateLock) _errorMessage = value; }
     }
 
     /// <summary>The OS process ID of the traced process, or null if not started.</summary>
-    public int? ProcessId => _process?.Id;
+    public int? ProcessId
+    {
+        get { lock (_stateLock) return _processId; }
+    }
 
     /// <summary>The elapsed time since the trace was started.</summary>
-    public TimeSpan Elapsed => _stopwatch?.Elapsed ?? TimeSpan.Zero;
+    public TimeSpan Elapsed
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _finalElapsed ?? _stopwatch?.Elapsed ?? TimeSpan.Zero;
+            }
+        }
+    }
 
     /// <summary>Returns a snapshot of all collected events (copied under lock).</summary>
     public IReadOnlyList<TraceEventEntry> GetEvents()
@@ -120,8 +109,11 @@ public sealed class RuntimeTracer(
             var count = _eventCount;
             var head = _eventHead;
             var result = new TraceEventEntry[count];
-            for (var i = 0; i < count; i++)
-                result[i] = _eventRing[((head - count + i) % MaxEvents + MaxEvents) % MaxEvents];
+            for (var index = 0; index < count; index++)
+            {
+                result[index] = _eventRing[((head - count + index) % MaxEvents + MaxEvents) % MaxEvents];
+            }
+
             return result;
         }
     }
@@ -136,13 +128,11 @@ public sealed class RuntimeTracer(
     public TraceSummary GetSummary()
     {
         Dictionary<TraceEventCategory, int> counts;
-        int totalEvents, jitted;
+        int totalEvents;
+        int jitted;
         lock (_eventLock)
         {
-            // Workaround the analyzer's unsupported preview feature recommendation
-            #pragma warning disable IDE0028
             counts = new Dictionary<TraceEventCategory, int>(_eventCounts);
-            #pragma warning restore IDE0028
             totalEvents = counts.Values.Sum();
             jitted = _jittedMethodCount;
         }
@@ -163,64 +153,482 @@ public sealed class RuntimeTracer(
     /// <summary>Launches the target process and starts collecting events.</summary>
     public void Start()
     {
-        _cts = new CancellationTokenSource();
-        _stopwatch = Stopwatch.StartNew();
-        _diagnosticPort = CreateDiagnosticPort();
-        var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-        connectCts.CancelAfter(ConnectTimeout);
-        var connectorTask = DiagnosticsClientConnector.FromDiagnosticPort(_diagnosticPort, connectCts.Token);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-        // Launch with diagnostic port suspend so we can attach EventPipe
-        // before Main() runs — this captures events even for short-lived processes
-        var psi = CreateStartInfo();
-        psi.Environment["DOTNET_DiagnosticPorts"] = _diagnosticPort;
-        psi.Environment.Remove("DOTNET_DefaultDiagnosticPortSuspend");
-        if (!psi.Environment.ContainsKey("ASPNETCORE_URLS")
-            && !psi.Environment.ContainsKey("DOTNET_URLS"))
+        lock (_stateLock)
         {
-            psi.Environment["ASPNETCORE_URLS"] = "http://127.0.0.1:0";
-        }
-        _process = Process.Start(psi);
-
-        if (_process is null)
-        {
-            lock (_stateLock)
+            if (_processState != TraceProcessState.Idle)
             {
-                _errorMessage = "Failed to start process";
-                _processState = TraceProcessState.Error;
+                throw new InvalidOperationException("The runtime trace has already been started.");
             }
 
-            connectCts.Cancel();
-            connectCts.Dispose();
-            MarkDirty();
+            _processState = TraceProcessState.Starting;
+        }
+
+        _cts = new CancellationTokenSource();
+        _stopwatch = Stopwatch.StartNew();
+        StartInvalidationTimer();
+
+        try
+        {
+            _traceHostProcess = Process.Start(CreateTraceHostStartInfo());
+            if (_traceHostProcess is null)
+            {
+                SetError("Failed to start the bundled runtime trace host.");
+                return;
+            }
+
+            _messageTask = ReadMessagesAsync(
+                _traceHostProcess.StandardOutput,
+                _traceHostProcess,
+                _cts.Token);
+            _errorTask = ReadTraceHostErrorsAsync(
+                _traceHostProcess.StandardError,
+                _cts.Token);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException)
+        {
+            SetError(exception.Message);
+        }
+
+        MarkDirty();
+    }
+
+    /// <summary>Stops the traced process and event collection.</summary>
+    public void Stop()
+    {
+        var process = _traceHostProcess;
+        if (process is not null)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.StandardInput.WriteLine("stop");
+                    process.StandardInput.Flush();
+                    if (!process.WaitForExit((int)StopTimeout.TotalMilliseconds))
+                    {
+                        process.Kill(entireProcessTree: true);
+                        process.WaitForExit((int)StopTimeout.TotalMilliseconds);
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException or InvalidOperationException)
+            {
+            }
+        }
+
+        _cts?.Cancel();
+        var transportTasks = new[] { _messageTask, _errorTask }
+            .OfType<Task>()
+            .ToArray();
+        if (transportTasks.Length > 0)
+        {
+            Task.WaitAll(transportTasks, StopTimeout);
+        }
+
+        StopInvalidationTimer();
+        _stopwatch?.Stop();
+
+        bool changed;
+        lock (_stateLock)
+        {
+            changed = _processState is TraceProcessState.Running or TraceProcessState.Starting;
+            if (changed)
+            {
+                _finalElapsed ??= _stopwatch?.Elapsed;
+                _processState = TraceProcessState.Exited;
+            }
+        }
+
+        if (changed)
+        {
+            _invalidate();
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
             return;
         }
 
-        // Capture stdout/stderr on background threads
-        var startTime = _stopwatch;
-        RunOnDedicatedThread(() => ReadOutput(_process.StandardOutput, false, startTime));
-        RunOnDedicatedThread(() => ReadOutput(_process.StandardError, true, startTime));
+        Stop();
+        _traceHostProcess?.Dispose();
+        _cts?.Dispose();
+    }
 
-        // Handle process exit
-        _process.EnableRaisingEvents = true;
-        _process.Exited += (_, _) =>
+    internal static string? GetUnavailableReason() =>
+        GetUnavailableReason(AppContext.BaseDirectory, ResolveDotNetBasePath());
+
+    internal static string? GetUnavailableReason(
+        string baseDirectory,
+        string? dotNetBasePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseDirectory);
+
+        if (!TryResolveTraceHostPath(baseDirectory, out _))
         {
-            int? exitCode = TryReadExitCode();
-            lock (_stateLock)
-            {
-                _exitCode = exitCode;
-            }
+            return "The bundled runtime trace host is missing or incomplete. Reinstall dotsider to restore it.";
+        }
 
-            _stopwatch?.Stop();
-            _invalidate();
+        if (dotNetBasePath is null
+            || ResolveDotNetHostPath(dotNetBasePath) is null
+            || !HasCompatibleRuntime(dotNetBasePath))
+        {
+            return "Dynamic analysis requires the .NET 10 runtime or later. Install .NET, then restart dotsider.";
+        }
+
+        return null;
+    }
+
+    internal ProcessStartInfo CreateTraceHostStartInfo()
+    {
+        var hostPath = ResolveTraceHostPath(AppContext.BaseDirectory);
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ResolveDotNetHost(),
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false
         };
 
-        lock (_stateLock) _processState = TraceProcessState.Starting;
-        MarkDirty();
+        startInfo.ArgumentList.Add("exec");
+        startInfo.ArgumentList.Add(hostPath);
+        startInfo.ArgumentList.Add(_assemblyPath);
+        foreach (var argument in _arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
 
-        // Invalidation timer (100ms interval). While the process is Running,
-        // always invalidate so the elapsed time display stays current.
-        // Otherwise, only invalidate when the dirty flag is set.
+        return startInfo;
+    }
+
+    private static string ResolveTraceHostPath(string baseDirectory)
+    {
+        if (TryResolveTraceHostPath(baseDirectory, out var traceHostPath))
+        {
+            return traceHostPath;
+        }
+
+        var expectedPath = Path.Combine(
+            baseDirectory,
+            "tracehost",
+            "dotsider-tracehost.dll");
+        throw new InvalidOperationException(
+            $"The bundled runtime trace host was not found at '{expectedPath}'. Reinstall dotsider to restore it.");
+    }
+
+    private static bool TryResolveTraceHostPath(
+        string baseDirectory,
+        out string traceHostPath)
+    {
+        var traceHostDirectory = Path.Combine(baseDirectory, "tracehost");
+        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Combine(traceHostDirectory, file))))
+        {
+            traceHostPath = Path.Combine(traceHostDirectory, "dotsider-tracehost.dll");
+            return true;
+        }
+
+        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Combine(baseDirectory, file))))
+        {
+            traceHostPath = Path.Combine(baseDirectory, "dotsider-tracehost.dll");
+            return true;
+        }
+
+        traceHostPath = "";
+        return false;
+    }
+
+    private static string ResolveDotNetHost()
+    {
+        var configuredHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+        if (!string.IsNullOrWhiteSpace(configuredHost) && File.Exists(configuredHost))
+        {
+            return configuredHost;
+        }
+
+        var basePath = ResolveDotNetBasePath();
+        return basePath is not null
+            ? ResolveDotNetHostPath(basePath) ?? "dotnet"
+            : "dotnet";
+    }
+
+    private static string? ResolveDotNetBasePath()
+    {
+        var configuredHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+        if (!string.IsNullOrWhiteSpace(configuredHost) && File.Exists(configuredHost))
+        {
+            var configuredBasePath = Path.GetDirectoryName(configuredHost);
+            if (configuredBasePath is not null
+                && Directory.Exists(Path.Combine(configuredBasePath, "shared")))
+            {
+                return configuredBasePath;
+            }
+        }
+
+        return DotNetRuntimeLocator.FindDotNetBasePath();
+    }
+
+    private static string? ResolveDotNetHostPath(string dotNetBasePath)
+    {
+        var hostName = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+        var hostPath = Path.Combine(dotNetBasePath, hostName);
+        return File.Exists(hostPath) ? hostPath : null;
+    }
+
+    private static bool HasCompatibleRuntime(string dotNetBasePath)
+    {
+        var frameworkDirectory = Path.Combine(
+            dotNetBasePath,
+            "shared",
+            "Microsoft.NETCore.App");
+        if (!Directory.Exists(frameworkDirectory))
+        {
+            return false;
+        }
+
+        try
+        {
+            foreach (var directory in Directory.EnumerateDirectories(frameworkDirectory))
+            {
+                var directoryName = Path.GetFileName(directory);
+                var suffixIndex = directoryName.IndexOf('-');
+                var versionText = suffixIndex < 0
+                    ? directoryName
+                    : directoryName[..suffixIndex];
+                if (Version.TryParse(versionText, out var version)
+                    && version.Major >= MinimumTraceHostRuntimeMajor)
+                {
+                    return true;
+                }
+            }
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private async Task ReadMessagesAsync(
+        StreamReader reader,
+        Process process,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+            {
+                var message = JsonSerializer.Deserialize(
+                    line,
+                    TraceHostJsonContext.Default.TraceHostMessage);
+                if (message is null)
+                {
+                    SetError("The runtime trace host returned an empty protocol message.");
+                    return;
+                }
+
+                HandleMessage(message);
+            }
+
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            CompleteAfterTraceHostExit(process.ExitCode);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (JsonException exception)
+        {
+            SetError($"The runtime trace host returned invalid data: {exception.Message}");
+        }
+        catch (IOException exception)
+        {
+            SetError($"The runtime trace host connection failed: {exception.Message}");
+        }
+    }
+
+    private async Task ReadTraceHostErrorsAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+            {
+                lock (_errorOutputLock)
+                {
+                    if (_errorOutput.Length > 0)
+                    {
+                        _errorOutput.AppendLine();
+                    }
+
+                    _errorOutput.Append(line);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (IOException)
+        {
+        }
+    }
+
+    private void HandleMessage(TraceHostMessage message)
+    {
+        switch (message.Kind)
+        {
+            case TraceHostMessageKind.Status:
+                ApplyStatus(message);
+                break;
+            case TraceHostMessageKind.Event when message.Event is not null:
+                AddEvent(message.Event);
+                break;
+            case TraceHostMessageKind.Counters when message.Counters is not null:
+                ApplyCounters(message.Counters);
+                break;
+            case TraceHostMessageKind.Output when message.Output is not null:
+                AddOutput(message.Output);
+                break;
+            default:
+                SetError($"The runtime trace host returned an incomplete '{message.Kind}' message.");
+                break;
+        }
+    }
+
+    private void ApplyStatus(TraceHostMessage message)
+    {
+        lock (_stateLock)
+        {
+            if (message.State is not null)
+            {
+                _processState = message.State.Value;
+            }
+
+            _processId = message.ProcessId ?? _processId;
+            _exitCode = message.ExitCode ?? _exitCode;
+            _errorMessage = message.Error;
+            if (_processState is TraceProcessState.Exited or TraceProcessState.Error)
+            {
+                _finalElapsed = message.Elapsed ?? _stopwatch?.Elapsed;
+                _stopwatch?.Stop();
+            }
+        }
+
+        MarkDirty();
+    }
+
+    private void AddEvent(TraceEventEntry entry)
+    {
+        lock (_eventLock)
+        {
+            _eventRing[_eventHead % MaxEvents] = entry;
+            _eventHead++;
+            if (_eventCount < MaxEvents)
+            {
+                _eventCount++;
+            }
+
+            _eventCounts.TryGetValue(entry.Category, out var count);
+            _eventCounts[entry.Category] = count + 1;
+            if (entry.Category == TraceEventCategory.JIT)
+            {
+                _jittedMethodCount++;
+            }
+        }
+
+        MarkDirty();
+    }
+
+    private void ApplyCounters(CounterSnapshot counters)
+    {
+        Interlocked.Exchange(ref _latestCounters, counters);
+        if (counters.WorkingSetMb > _peakWorkingSetMb)
+        {
+            _peakWorkingSetMb = counters.WorkingSetMb;
+        }
+
+        if (counters.GcHeapSizeMb > _peakGcHeapMb)
+        {
+            _peakGcHeapMb = counters.GcHeapSizeMb;
+        }
+
+        MarkDirty();
+    }
+
+    private void AddOutput(OutputLine output)
+    {
+        _outputQueue.Enqueue(output);
+        while (_outputQueue.Count > MaxOutputLines)
+        {
+            _outputQueue.TryDequeue(out _);
+        }
+
+        MarkDirty();
+    }
+
+    private void CompleteAfterTraceHostExit(int traceHostExitCode)
+    {
+        lock (_stateLock)
+        {
+            if (_processState is TraceProcessState.Exited or TraceProcessState.Error)
+            {
+                return;
+            }
+
+            _finalElapsed ??= _stopwatch?.Elapsed;
+            _stopwatch?.Stop();
+
+            if (traceHostExitCode == 0)
+            {
+                _processState = TraceProcessState.Exited;
+                return;
+            }
+
+            string details;
+            lock (_errorOutputLock)
+            {
+                details = _errorOutput.ToString();
+            }
+
+            _errorMessage = string.IsNullOrWhiteSpace(details)
+                ? $"The runtime trace host exited with code {traceHostExitCode.ToString(CultureInfo.InvariantCulture)}."
+                : details;
+            _processState = TraceProcessState.Error;
+        }
+
+        MarkDirty();
+    }
+
+    private void SetError(string message)
+    {
+        lock (_stateLock)
+        {
+            if (_processState == TraceProcessState.Exited)
+            {
+                return;
+            }
+
+            _errorMessage = message;
+            _finalElapsed ??= _stopwatch?.Elapsed;
+            _stopwatch?.Stop();
+            _processState = TraceProcessState.Error;
+        }
+
+        MarkDirty();
+    }
+
+    private void StartInvalidationTimer()
+    {
         _invalidateTimer = new Timer(_ =>
         {
             if (Interlocked.Exchange(ref _invalidateTimerCallbackActive, 1) == 1)
@@ -231,7 +639,7 @@ public sealed class RuntimeTracer(
             try
             {
                 if (Interlocked.Exchange(ref _dirty, 0) == 1
-                    || IsProcessRunning())
+                    || ProcessState == TraceProcessState.Running)
                 {
                     _invalidate();
                 }
@@ -241,150 +649,12 @@ public sealed class RuntimeTracer(
                 Volatile.Write(ref _invalidateTimerCallbackActive, 0);
             }
         }, null, 0, 100);
-
-        // Connection + event processing on background task. The process is
-        // suspended by DOTNET_DiagnosticPorts until we attach EventPipe and
-        // send ResumeRuntime.
-        var providers = BuildProviders();
-        _processingTask = Task.Factory.StartNew(async () =>
-        {
-            try
-            {
-                _connector = await connectorTask.ConfigureAwait(false);
-                var client = _connector.Instance;
-                var session = await TryStartEventPipeSessionAsync(client, providers);
-                if (session is null)
-                {
-                    lock (_stateLock)
-                    {
-                        _errorMessage = $"Timed out starting runtime diagnostics after {ConnectTimeout.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)}s. Is this a valid .NET assembly?";
-                        _processState = TraceProcessState.Error;
-                    }
-
-                    // Kill suspended process so it doesn't hang
-                    try { _process.Kill(); } catch { }
-                    return;
-                }
-
-                _session = session;
-                lock (_stateLock) _processState = TraceProcessState.Running;
-                MarkDirty();
-
-                // Resume the suspended runtime now that EventPipe is attached
-                client.ResumeRuntime();
-
-                // Process events — blocks until session ends
-                ProcessEventsLoop(session);
-                MarkExitedIfStarted();
-            }
-            catch (OperationCanceledException) when (_cts.IsCancellationRequested) { /* user cancelled */ }
-            catch (OperationCanceledException)
-            {
-                lock (_stateLock)
-                {
-                    _errorMessage = $"Timed out connecting to runtime diagnostics after {ConnectTimeout.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)}s. Is this a valid .NET assembly?";
-                    _processState = TraceProcessState.Error;
-                }
-
-                try { _process.Kill(); } catch { }
-            }
-            catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
-            {
-                // Expected: process exited (pipe broke) or user cancelled
-                MarkExitedIfStarted();
-            }
-            catch (Exception ex)
-            {
-                lock (_stateLock)
-                {
-                    _errorMessage = ex.Message;
-                    _processState = TraceProcessState.Error;
-                }
-            }
-            finally
-            {
-                connectCts.Dispose();
-                DisposeDiagnosticConnector();
-                CleanupDiagnosticPort();
-                _stopwatch?.Stop();
-                _invalidate();
-            }
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
     }
 
-    /// <summary>Stops the traced process and event collection.</summary>
-    public void Stop()
+    private void StopInvalidationTimer()
     {
-        _cts?.Cancel();
-        _eventSource?.StopProcessing();
-        try { _session?.Stop(); } catch { }
-
-        if (_process is { HasExited: false } p)
-        {
-            // Process.Kill() sends SIGKILL on Unix, TerminateProcess on Windows.
-            // Both are immediate and forceful. There is no cross-platform
-            // graceful shutdown for arbitrary console processes.
-            try { p.Kill(entireProcessTree: true); } catch { }
-            try { p.WaitForExit(5000); } catch { }
-        }
-
         _invalidateTimer?.Dispose();
         _invalidateTimer = null;
-        DisposeDiagnosticConnector();
-        CleanupDiagnosticPort();
-        _stopwatch?.Stop();
-
-        int? exitCode = TryReadExitCode();
-        bool stopped;
-        lock (_stateLock)
-        {
-            stopped = _processState is TraceProcessState.Running or TraceProcessState.Starting;
-            if (stopped)
-            {
-                _exitCode = exitCode;
-                _processState = TraceProcessState.Exited;
-            }
-        }
-        if (stopped)
-            _invalidate();
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Stop();
-        _process?.Dispose();
-        _cts?.Dispose();
-    }
-
-    // --- Private implementation ---
-
-    /// <summary>
-    /// Creates the shell-free process start information for the configured target.
-    /// </summary>
-    /// <returns>The process start information with literal argument tokens.</returns>
-    internal ProcessStartInfo CreateStartInfo()
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = _requiresDotnetHost ? "dotnet" : _assemblyPath,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false
-        };
-
-        if (_requiresDotnetHost)
-        {
-            startInfo.ArgumentList.Add("exec");
-            startInfo.ArgumentList.Add(_assemblyPath);
-        }
-
-        foreach (var argument in _arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        return startInfo;
     }
 
     private void MarkDirty() => Volatile.Write(ref _dirty, 1);
@@ -405,381 +675,4 @@ public sealed class RuntimeTracer(
         return copy;
     }
 
-    private static string ValidateAssemblyPath(string assemblyPath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
-        return assemblyPath;
-    }
-
-    private static string CreateDiagnosticPort()
-    {
-        var name = $"dotsider-{Environment.ProcessId}-{Guid.NewGuid():N}";
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? name
-            : Path.Combine("/tmp", $"{name}.socket");
-    }
-
-    private void DisposeDiagnosticConnector()
-    {
-        var connector = Interlocked.Exchange(ref _connector, null);
-        if (connector is null)
-            return;
-
-        try { connector.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
-    }
-
-    private void CleanupDiagnosticPort()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return;
-
-        var diagnosticPort = _diagnosticPort;
-        if (string.IsNullOrEmpty(diagnosticPort))
-            return;
-
-        try { File.Delete(diagnosticPort); } catch { }
-    }
-
-    private void MarkExitedIfStarted()
-    {
-        int? exitCode = TryReadExitCode();
-        lock (_stateLock)
-        {
-            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
-            {
-                _exitCode = exitCode;
-                _processState = TraceProcessState.Exited;
-            }
-        }
-    }
-
-    private bool IsProcessRunning()
-    {
-        lock (_stateLock)
-        {
-            return _processState == TraceProcessState.Running;
-        }
-    }
-
-    private int? TryReadExitCode()
-    {
-        var process = _process;
-        if (process is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return process.HasExited ? process.ExitCode : null;
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
-    }
-
-    private async Task<EventPipeSession?> TryStartEventPipeSessionAsync(
-        DiagnosticsClient client,
-        IReadOnlyCollection<EventPipeProvider> providers)
-    {
-        var connectTimer = Stopwatch.StartNew();
-
-        while (connectTimer.Elapsed < ConnectTimeout)
-        {
-            _cts!.Token.ThrowIfCancellationRequested();
-
-            try
-            {
-                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                connectCts.CancelAfter(ConnectTimeout - connectTimer.Elapsed);
-                return await client.StartEventPipeSessionAsync(
-                    providers,
-                    requestRundown: false,
-                    circularBufferMB: 256,
-                    token: connectCts.Token);
-            }
-            catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
-            {
-                return null;
-            }
-            catch (Exception ex) when (IsTransientDiagnosticsConnectException(ex))
-            {
-                var remaining = ConnectTimeout - connectTimer.Elapsed;
-                if (remaining <= TimeSpan.Zero)
-                    return null;
-
-                var delay = remaining < ConnectRetryDelay ? remaining : ConnectRetryDelay;
-                await Task.Delay(delay, _cts.Token);
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IsTransientDiagnosticsConnectException(Exception ex) =>
-        ex is ServerNotAvailableException or EndOfStreamException;
-
-    private static void RunOnDedicatedThread(Action action) =>
-        Task.Factory.StartNew(
-            action,
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
-
-    private static List<EventPipeProvider> BuildProviders() =>
-    [
-        // Verbose level is required for MethodJittingStarted events (which
-        // are classified as Verbose in the CLR provider).  The keyword mask
-        // still limits the event categories, so only GC/JIT/Exception/Loader/
-        // Threading events are delivered — Verbose just unlocks the JIT ones.
-        new("Microsoft-Windows-DotNETRuntime",
-            EventLevel.Verbose,
-            (long)(ClrTraceEventParser.Keywords.GC          // 0x1
-                 | ClrTraceEventParser.Keywords.Jit         // 0x10
-                 | ClrTraceEventParser.Keywords.Exception   // 0x8000
-                 | ClrTraceEventParser.Keywords.Loader      // 0x8
-                 | ClrTraceEventParser.Keywords.Threading)), // 0x10000
-
-        new("System.Runtime",
-            EventLevel.Informational, 0L,
-            new Dictionary<string, string> { ["EventCounterIntervalSec"] = "1" }),
-
-        new("System.Net.Http",
-            EventLevel.Informational, long.MaxValue),
-
-        new("System.Net.Sockets",
-            EventLevel.Informational, long.MaxValue)
-    ];
-
-    private void ProcessEventsLoop(EventPipeSession session)
-    {
-        using var source = new EventPipeEventSource(session.EventStream);
-        _eventSource = source;
-
-        // CLR events
-        source.Clr.GCStart += data =>
-            AddEvent(TraceEventCategory.GC, "GCStart", $"Gen {data.Depth}, Reason: {data.Reason}");
-
-        source.Clr.GCStop += data =>
-            AddEvent(TraceEventCategory.GC, "GCStop", $"Gen {data.Depth}");
-
-        source.Clr.GCHeapStats += data =>
-            AddEvent(TraceEventCategory.GC, "GCHeapStats",
-                $"Gen0: {data.GenerationSize0 / 1024}KB, Gen1: {data.GenerationSize1 / 1024}KB, Gen2: {data.GenerationSize2 / 1024}KB");
-
-        source.Clr.MethodJittingStarted += data =>
-        {
-            lock (_eventLock) _jittedMethodCount++;
-            AddEvent(TraceEventCategory.JIT, "MethodJitting",
-                $"{data.MethodNamespace}.{data.MethodName}",
-                data.MethodToken);
-        };
-
-        source.Clr.ExceptionStart += data =>
-            AddEvent(TraceEventCategory.Exception, "ExceptionThrown", data.ExceptionType);
-
-        source.Clr.LoaderAssemblyLoad += data =>
-            AddEvent(TraceEventCategory.Loader, "AssemblyLoad",
-                TruncateAssemblyName(data.FullyQualifiedAssemblyName));
-
-        source.Clr.ThreadPoolWorkerThreadStart += data =>
-            AddEvent(TraceEventCategory.Threading, "ThreadPoolStart",
-                $"Active: {data.ActiveWorkerThreadCount}");
-
-        // Dynamic events (counters, HTTP, sockets)
-        source.Dynamic.All += HandleDynamicEvent;
-
-        try { source.Process(); }
-        catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
-        {
-            // Expected: process exited, pipe broke
-        }
-        finally
-        {
-            _eventSource = null;
-        }
-    }
-
-    private void HandleDynamicEvent(Microsoft.Diagnostics.Tracing.TraceEvent data)
-    {
-        if (data.ProviderName == "System.Runtime" && data.EventName == "EventCounters")
-        {
-            var snapshot = ParseCounterEvent(data);
-            if (snapshot != null)
-            {
-                Interlocked.Exchange(ref _latestCounters, snapshot);
-                if (snapshot.WorkingSetMb > _peakWorkingSetMb)
-                    _peakWorkingSetMb = snapshot.WorkingSetMb;
-                if (snapshot.GcHeapSizeMb > _peakGcHeapMb)
-                    _peakGcHeapMb = snapshot.GcHeapSizeMb;
-            }
-            return;
-        }
-
-        if (data.ProviderName == "System.Net.Http")
-        {
-            AddEvent(TraceEventCategory.Http, data.EventName, data.ToString());
-            return;
-        }
-
-        if (data.ProviderName == "System.Net.Sockets")
-        {
-            AddEvent(TraceEventCategory.Socket, data.EventName, data.ToString());
-        }
-    }
-
-    // The System.Runtime EventCounters payload structure:
-    //   data.PayloadByName("Payload") → IDictionary<string, object>
-    //   Inside: "Name" (string), "DisplayName" (string),
-    //           "Mean" (double, for gauge counters like cpu-usage)
-    //           "Increment" (double, for rate counters like gen-0-gc-count)
-    //           "CounterType" → "Mean" or "Sum"
-    //
-    // IMPORTANT: Counter names and payload shape vary across .NET versions.
-    // Be defensive: use TryGetValue, default to 0 for missing counters,
-    // don't crash on unexpected names. Known counters:
-    //   cpu-usage, working-set, gc-heap-size, gen-0-gc-count,
-    //   gen-1-gc-count, gen-2-gc-count, threadpool-thread-count,
-    //   threadpool-queue-length, exception-count, active-timer-count
-    // Some of these may not exist on older runtimes.
-    // working-set and gc-heap-size are reported in MB on modern runtimes.
-    private CounterSnapshot? ParseCounterEvent(Microsoft.Diagnostics.Tracing.TraceEvent data)
-    {
-        // EventCounters have a NESTED payload structure:
-        //   PayloadValue(0) → outer IDictionary with a "Payload" key
-        //   outer["Payload"] → inner IDictionary with Name, CounterType, Mean/Increment
-        if (data.PayloadValue(0) is not IDictionary<string, object> outerPayload)
-            return BuildCounterSnapshot();
-
-        if (!outerPayload.TryGetValue("Payload", out var innerObj)
-            || innerObj is not IDictionary<string, object> payload)
-            return BuildCounterSnapshot();
-
-        if (!payload.TryGetValue("Name", out var counterNameRaw) || counterNameRaw is not string counterName)
-            return BuildCounterSnapshot();
-
-        if (!payload.TryGetValue("CounterType", out var counterTypeRaw) || counterTypeRaw is not string counterType)
-            return BuildCounterSnapshot();
-
-        if (counterType.Equals("Mean", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetDouble(payload, "Mean", out var meanValue))
-                _counterAccumulators[counterName] = meanValue;
-        }
-        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetDouble(payload, "Increment", out var incrementValue))
-                _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
-        }
-
-        return BuildCounterSnapshot();
-    }
-
-    private CounterSnapshot BuildCounterSnapshot()
-    {
-        var gen0Collections = ToNonNegativeLong(ReadCounter("gen-0-gc-count"));
-        var gen1Collections = ToNonNegativeLong(ReadCounter("gen-1-gc-count"));
-        var gen2Collections = ToNonNegativeLong(ReadCounter("gen-2-gc-count"));
-        var threadPoolThreadCount = ToNonNegativeInt(ReadCounter("threadpool-thread-count"));
-        var threadPoolQueueLength = ToNonNegativeLong(ReadCounter("threadpool-queue-length"));
-        var exceptionCount = ToNonNegativeLong(ReadCounter("exception-count"));
-        var activeTimerCount = ToNonNegativeLong(ReadCounter("active-timer-count"));
-
-        return new CounterSnapshot(
-            Elapsed,
-            CpuUsagePercent: ReadCounter("cpu-usage"),
-            WorkingSetMb: ReadCounter("working-set"),
-            GcHeapSizeMb: ReadCounter("gc-heap-size"),
-            Gen0Collections: gen0Collections,
-            Gen1Collections: gen1Collections,
-            Gen2Collections: gen2Collections,
-            ThreadPoolThreadCount: threadPoolThreadCount,
-            ThreadPoolQueueLength: threadPoolQueueLength,
-            ExceptionCount: exceptionCount,
-            ActiveTimerCount: activeTimerCount);
-    }
-
-    private double ReadCounter(string name) =>
-        _counterAccumulators.TryGetValue(name, out var value) ? value : 0d;
-
-    private static bool TryGetDouble(IDictionary<string, object> payload, string key, out double value)
-    {
-        value = 0d;
-        if (!payload.TryGetValue(key, out var raw) || raw is null)
-            return false;
-
-        switch (raw)
-        {
-            case double d:
-                value = d;
-                return true;
-            case float f:
-                value = f;
-                return true;
-            case int i:
-                value = i;
-                return true;
-            case long l:
-                value = l;
-                return true;
-            case decimal m:
-                value = (double)m;
-                return true;
-            case string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed):
-                value = parsed;
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    private static long ToNonNegativeLong(double value)
-    {
-        if (value <= 0) return 0;
-        return (long)Math.Round(value, MidpointRounding.AwayFromZero);
-    }
-
-    private static int ToNonNegativeInt(double value)
-    {
-        if (value <= 0) return 0;
-        return (int)Math.Round(value, MidpointRounding.AwayFromZero);
-    }
-
-    private void AddEvent(TraceEventCategory category, string eventName, string detail,
-        int metadataToken = 0)
-    {
-        var entry = new TraceEventEntry(Elapsed, category, eventName, detail, metadataToken);
-        lock (_eventLock)
-        {
-            _eventRing[_eventHead % MaxEvents] = entry;
-            _eventHead++;
-            if (_eventCount < MaxEvents) _eventCount++;
-
-            _eventCounts.TryGetValue(category, out var count);
-            _eventCounts[category] = count + 1;
-        }
-        MarkDirty();
-    }
-
-    private void ReadOutput(StreamReader reader, bool isStdErr, Stopwatch timer)
-    {
-        try
-        {
-            while (reader.ReadLine() is { } line)
-            {
-                _outputQueue.Enqueue(new OutputLine(timer.Elapsed, isStdErr, line));
-                while (_outputQueue.Count > MaxOutputLines)
-                    _outputQueue.TryDequeue(out _);
-                MarkDirty();
-            }
-        }
-        catch (Exception) { /* stream closed */ }
-    }
-
-    private static string TruncateAssemblyName(string name)
-    {
-        var comma = name.IndexOf(',');
-        return comma > 0 ? name[..comma] : name;
-    }
 }

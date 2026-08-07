@@ -63,3 +63,83 @@ The node name.
 public string Label { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string)
+
+**Parameters:**
+
+- `Id` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Label` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int Id, out string Label)
+```
+
+### Equals(DgmlNode?)
+
+**Parameters:**
+
+- `other` ([DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(DgmlNode? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(DgmlNode?, DgmlNode?)
+
+**Parameters:**
+
+- `left` ([DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/))
+- `right` ([DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(DgmlNode? left, DgmlNode? right)
+```
+
+### operator ==(DgmlNode?, DgmlNode?)
+
+**Parameters:**
+
+- `left` ([DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/))
+- `right` ([DgmlNode](/api/dotsider.core.analysis.models.dgmlnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(DgmlNode? left, DgmlNode? right)
+```

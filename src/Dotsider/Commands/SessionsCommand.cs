@@ -104,27 +104,25 @@ internal static class SessionsCommand
             }
 
             var rows = new List<string[]>();
-            var reachable = new List<object>();
+            var reachable = new List<CliDiscoveredSessionPayload>();
 
             foreach (var session in sessions)
             {
                 var info = await DotsiderClient.TryProbeAsync(session.SocketPath, ct);
                 if (info?.Success == true)
                 {
-                    var data = info.Data as JsonElement?;
+                    var data = info.Data;
                     var mode = data?.GetPropertyOrNull("mode")?.GetString() ?? "standard";
                     var fileName = data?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown";
                     var assemblyName = data?.GetPropertyOrNull("assemblyName")?.GetString() ?? "";
 
                     rows.Add([session.Pid.ToString(), mode, fileName, assemblyName]);
-                    reachable.Add(new
-                    {
+                    reachable.Add(new CliDiscoveredSessionPayload(
                         session.Pid,
                         session.SocketPath,
-                        Mode = mode,
-                        FileName = fileName,
-                        AssemblyName = assemblyName
-                    });
+                        mode,
+                        fileName,
+                        assemblyName));
                 }
             }
 
@@ -168,16 +166,13 @@ internal static class SessionsCommand
 
             if (json)
             {
-                formatter.WriteJson(new
-                {
-                    AssemblyInfo = infoResponse.Data,
-                    CurrentView = viewResponse.Data
-                });
+                formatter.WriteJson(new CliSessionInfoPayload(
+                    infoResponse.Data, viewResponse.Data));
             }
             else
             {
-                var info = infoResponse.Data as JsonElement?;
-                var view = viewResponse.Data as JsonElement?;
+                var info = infoResponse.Data;
+                var view = viewResponse.Data;
 
                 formatter.WriteLine($"PID:        {pid}");
                 formatter.WriteLine($"File:       {info?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
@@ -236,7 +231,7 @@ internal static class SessionsCommand
             }
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 formatter.WriteLine($"Tab:           {FormatTabName(data?.GetPropertyOrNull("tab"), data?.GetPropertyOrNull("tabLabel"))}");
                 formatter.WriteLine($"PE Sub-tab:    {data?.GetPropertyOrNull("peSubTab")?.GetDisplayString() ?? ""}");
                 formatter.WriteLine($"Dynamic Sub:   {data?.GetPropertyOrNull("dynamicSubTab")?.GetDisplayString() ?? ""}");
@@ -285,7 +280,7 @@ internal static class SessionsCommand
                 formatter.WriteJson(response.Data);
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
                     ?? $"Navigated to tab {tabId}");
             }
@@ -318,18 +313,17 @@ internal static class SessionsCommand
 
             try
             {
-                var requestJson = JsonSerializer.Serialize(
-                    new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
+                var requestJson = "{\"method\":\"capture\",\"format\":\"text\"}";
 
                 var responseJson = await DotsiderClient.SendRawAsync(hex1bSocket, requestJson, ct);
 
-                var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                var response = JsonSerializer.Deserialize(responseJson, DotsiderAppJsonContext.Application.JsonElement);
                 if (response.TryGetProperty("success", out var success) && success.GetBoolean()
                     && response.TryGetProperty("data", out var data))
                 {
                     var content = data.GetString() ?? "";
                     if (json)
-                        formatter.WriteJson(new { Content = content });
+                        formatter.WriteJson(new CliCapturePayload(content));
                     else
                         formatter.WriteBlock(content);
                 }
@@ -407,7 +401,7 @@ internal static class SessionsCommand
             }
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 if (data?.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var evt in data.Value.EnumerateArray())
@@ -453,7 +447,7 @@ internal static class SessionsCommand
             }
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 if (data?.ValueKind == JsonValueKind.Object)
                 {
                     foreach (var prop in data.Value.EnumerateObject())
@@ -494,7 +488,7 @@ internal static class SessionsCommand
             }
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 if (data?.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var line in data.Value.EnumerateArray())
@@ -547,7 +541,7 @@ internal static class SessionsCommand
                 formatter.WriteJson(response.Data);
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
                     ?? "Trace started");
             }
@@ -579,7 +573,7 @@ internal static class SessionsCommand
                 formatter.WriteJson(response.Data);
             else
             {
-                var data = response.Data as JsonElement?;
+                var data = response.Data;
                 formatter.WriteLine(data?.GetPropertyOrNull("message")?.GetString()
                     ?? "Trace stopped");
             }

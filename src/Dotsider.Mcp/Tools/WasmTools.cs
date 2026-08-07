@@ -1,7 +1,6 @@
 using Dotsider.Core.Protocol;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -75,7 +74,7 @@ public sealed partial class WasmTools(DotsiderSessionManager sessionManager)
     {
         try
         {
-            return JsonSerializer.Serialize(build(), DotsiderJsonOptions.Default);
+            return McpJson.Serialize(build());
         }
         catch (InvalidOperationException ex)
         {

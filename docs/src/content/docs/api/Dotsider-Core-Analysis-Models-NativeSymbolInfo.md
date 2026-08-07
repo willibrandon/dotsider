@@ -141,6 +141,22 @@ public IReadOnlyList<NativeSymbol> Symbols { get; init; }
 
 ## Methods
 
+### Deconstruct(out IReadOnlyList\<NativeSymbol\>, out NativeSymbolSource, out NativeSymbolStatus, out string?, out string?, out NativeArchitecture, out NativeSourceMap?)
+
+**Parameters:**
+
+- `Symbols` ([IReadOnlyList\<NativeSymbol\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Source` ([NativeSymbolSource](/api/dotsider.core.analysis.models.nativesymbolsource/))
+- `Status` ([NativeSymbolStatus](/api/dotsider.core.analysis.models.nativesymbolstatus/))
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Architecture` ([NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/))
+- `SourceMap` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<NativeSymbol> Symbols, out NativeSymbolSource Source, out NativeSymbolStatus Status, out string? Path, out string? Diagnostic, out NativeArchitecture Architecture, out NativeSourceMap? SourceMap)
+```
+
 ### Deconstruct(out IReadOnlyList\<NativeSymbol\>, out NativeSymbolSource, out NativeSymbolStatus, out string?, out string?)
 
 The pre-#178 five-output deconstruction, preserved alongside the generated seven-output one.
@@ -155,6 +171,46 @@ The pre-#178 five-output deconstruction, preserved alongside the generated seven
 
 ```csharp
 public void Deconstruct(out IReadOnlyList<NativeSymbol> symbols, out NativeSymbolSource source, out NativeSymbolStatus status, out string? path, out string? diagnostic)
+```
+
+### Equals(NativeSymbolInfo?)
+
+**Parameters:**
+
+- `other` ([NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeSymbolInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
 ```
 
 ### TryFindByAddress(ulong, out NativeSymbol)
@@ -176,3 +232,30 @@ True when a symbol contains the address; otherwise false.
 public bool TryFindByAddress(ulong virtualAddress, out NativeSymbol symbol)
 ```
 
+## Members
+
+### operator !=(NativeSymbolInfo?, NativeSymbolInfo?)
+
+**Parameters:**
+
+- `left` ([NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/))
+- `right` ([NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeSymbolInfo? left, NativeSymbolInfo? right)
+```
+
+### operator ==(NativeSymbolInfo?, NativeSymbolInfo?)
+
+**Parameters:**
+
+- `left` ([NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/))
+- `right` ([NativeSymbolInfo](/api/dotsider.core.analysis.models.nativesymbolinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeSymbolInfo? left, NativeSymbolInfo? right)
+```

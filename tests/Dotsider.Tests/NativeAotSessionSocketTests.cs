@@ -4,7 +4,6 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
 using System.Collections.Concurrent;
-using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -46,7 +45,7 @@ public class NativeAotSessionSocketTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -76,7 +75,7 @@ public class NativeAotSessionSocketTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-native-aot-info" }, ct);
 
         Assert.IsTrue(response.Success, response.Error);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("nativeAot", data.GetProperty("binaryKind").GetString());
         Assert.IsGreaterThan(0, data.GetProperty("readyToRunSections").GetInt32());
     }
@@ -100,7 +99,7 @@ public class NativeAotSessionSocketTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
         Assert.IsTrue(response.Success, response.Error);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual(3, data.GetProperty("tab").GetInt32());
         Assert.AreEqual("Disassembly", data.GetProperty("tabLabel").GetString());
     }
@@ -124,7 +123,7 @@ public class NativeAotSessionSocketTests : IAsyncDisposable
             }, ct);
 
         Assert.IsTrue(response.Success, response.Error);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsGreaterThan(0, data.GetProperty("contributors").GetArrayLength());
     }
 
@@ -142,7 +141,7 @@ public class NativeAotSessionSocketTests : IAsyncDisposable
             new DotsiderRequest { Method = "list-methods", TypeName = "Program" }, ct);
 
         Assert.IsTrue(response.Success, response.Error);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsGreaterThan(0, data.GetArrayLength());
         TestAssert.All(data.EnumerateArray(), row =>
             Assert.AreEqual("RecoveredNativeAot", row.GetProperty("source").GetString()));

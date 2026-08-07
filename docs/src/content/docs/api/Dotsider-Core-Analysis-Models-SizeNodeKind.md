@@ -130,4 +130,3 @@ Node representing a type within a namespace.
 ```csharp
 Type = 2
 ```
-

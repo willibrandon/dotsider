@@ -93,30 +93,26 @@ static async Task<int> RunTui(string[] args, string filePath)
             {
                 var s = capturedNugetState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "nuget",
+                return DotsiderAppJsonContext.SerializeToElement(new NuGetSessionAssemblyPayload(
+                    "nuget",
                     s.Package.FilePath,
                     s.Package.FileName,
                     s.Package.PackageId,
                     s.Package.PackageVersion,
                     s.Package.Authors,
                     s.Package.Description,
-                    DllCount = s.Package.DllFiles.Count,
-                    SelectedDll = s.SelectedDllState?.Analyzer.FileName,
-                };
+                    s.Package.DllFiles.Count,
+                    s.SelectedDllState?.Analyzer.FileName));
             },
             currentViewProvider: () =>
             {
                 var s = capturedNugetState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "nuget",
+                return DotsiderAppJsonContext.SerializeToElement(new NuGetSessionViewPayload(
+                    "nuget",
                     s.IsBrowsingPackage,
-                    Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
-                    SelectedDll = s.SelectedDllEntry?.Name,
-                };
+                    s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : null,
+                    s.SelectedDllEntry?.Name));
             });
 
         var nugetEscAdapter = new EscapeTimeoutPresentationAdapter(

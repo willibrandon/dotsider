@@ -95,7 +95,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
         await using var listener = StartListener();
         var json = JsonSerializer.Serialize(
             new DotsiderRequest { Method = "assembly-info" },
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
         var payload = new byte[s_utf8NoBom.GetByteCount(json) + 4];
         payload[0] = 0xEF;
         payload[1] = 0xBB;
@@ -122,7 +122,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
         await using var listener = StartListener();
         var json = JsonSerializer.Serialize(
             new DotsiderRequest { Method = "assembly-info" },
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
 
         var response = await SendBytesAsync(
             listener.SocketPath!,
@@ -163,7 +163,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
         await using var listener = StartListener();
         var request = JsonSerializer.Deserialize<DotsiderRequest>(
             CreateExactLimitRequest(),
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
         Assert.IsNotNull(request);
 
         var response = await DotsiderClient.SendAsync(
@@ -205,13 +205,13 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
             Method = "assembly-info",
             Query = ""
         };
-        var baseline = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var baseline = JsonSerializer.Serialize(request, DotsiderJsonContext.Protocol.Options);
         var paddingLength = DotsiderProtocol.MaxRequestBytes
             - Encoding.UTF8.GetByteCount(baseline);
         Assert.IsGreaterThan(0, paddingLength);
 
         request.Query = new string('a', paddingLength);
-        var result = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var result = JsonSerializer.Serialize(request, DotsiderJsonContext.Protocol.Options);
         Assert.AreEqual(
             DotsiderProtocol.MaxRequestBytes,
             Encoding.UTF8.GetByteCount(result));
@@ -222,10 +222,10 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
     {
         var listener = new DotsiderDiagnosticsListener(
             static () => null,
-            assemblyInfoProvider: static () => new
+            assemblyInfoProvider: static () => TestJsonResponse.Element(new
             {
                 FileName = "sample.dll"
-            });
+            }));
         listener.StartListening(TestSocketIds.NextPid());
         return listener;
     }
@@ -257,7 +257,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
         Assert.IsNotNull(line);
         var response = JsonSerializer.Deserialize<DotsiderResponse>(
             line,
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
         Assert.IsNotNull(response);
         return response;
     }

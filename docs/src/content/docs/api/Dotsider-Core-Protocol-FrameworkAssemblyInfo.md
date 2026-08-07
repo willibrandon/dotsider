@@ -63,3 +63,83 @@ The shared framework pack the assembly was found in (e.g. "Microsoft.NETCore.App
 public string RuntimePack { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string)
+
+**Parameters:**
+
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `RuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Path, out string RuntimePack)
+```
+
+### Equals(FrameworkAssemblyInfo?)
+
+**Parameters:**
+
+- `other` ([FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(FrameworkAssemblyInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(FrameworkAssemblyInfo?, FrameworkAssemblyInfo?)
+
+**Parameters:**
+
+- `left` ([FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/))
+- `right` ([FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(FrameworkAssemblyInfo? left, FrameworkAssemblyInfo? right)
+```
+
+### operator ==(FrameworkAssemblyInfo?, FrameworkAssemblyInfo?)
+
+**Parameters:**
+
+- `left` ([FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/))
+- `right` ([FrameworkAssemblyInfo](/api/dotsider.core.protocol.frameworkassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(FrameworkAssemblyInfo? left, FrameworkAssemblyInfo? right)
+```

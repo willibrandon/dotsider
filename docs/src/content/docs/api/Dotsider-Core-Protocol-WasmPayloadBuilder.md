@@ -34,12 +34,12 @@ and symbol-map entries.
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer that opened a raw Wasm module.
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [WasmFunctionsPayload](/api/dotsider.core.protocol.wasmfunctionspayload/)
 
 A JSON-ready function inventory payload.
 
 ```csharp
-public static object BuildFunctions(AssemblyAnalyzer analyzer)
+public static WasmFunctionsPayload BuildFunctions(AssemblyAnalyzer analyzer)
 ```
 
 ### BuildSections(AssemblyAnalyzer)
@@ -52,12 +52,12 @@ the SDK emitted.
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer that opened a raw Wasm module.
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [WasmSectionsPayload](/api/dotsider.core.protocol.wasmsectionspayload/)
 
 A JSON-ready section table payload.
 
 ```csharp
-public static object BuildSections(AssemblyAnalyzer analyzer)
+public static WasmSectionsPayload BuildSections(AssemblyAnalyzer analyzer)
 ```
 
 ### BuildSummary(AssemblyAnalyzer)
@@ -70,11 +70,10 @@ binary-kind summaries.
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer whose raw Wasm summary should be serialized.
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [WasmSummary](/api/dotsider.core.protocol.wasmsummary/)
 
 A JSON-ready summary object, or null when the analyzer is not raw Wasm.
 
 ```csharp
-public static object? BuildSummary(AssemblyAnalyzer analyzer)
+public static WasmSummary? BuildSummary(AssemblyAnalyzer analyzer)
 ```
-

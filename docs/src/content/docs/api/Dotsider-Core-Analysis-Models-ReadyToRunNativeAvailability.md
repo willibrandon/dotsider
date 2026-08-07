@@ -69,4 +69,3 @@ The method has a precompiled native body that can be shown.
 ```csharp
 Precompiled = 0
 ```
-

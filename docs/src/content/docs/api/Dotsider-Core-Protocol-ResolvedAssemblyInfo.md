@@ -87,3 +87,85 @@ Full file path for file- and module-backed results, or null for bundle-backed.
 public string? Path { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string?, out string?, out string?)
+
+**Parameters:**
+
+- `Kind` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `BundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Kind, out string? Path, out string? Name, out string? BundlePath)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ResolvedAssemblyInfo?)
+
+**Parameters:**
+
+- `other` ([ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ResolvedAssemblyInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ResolvedAssemblyInfo?, ResolvedAssemblyInfo?)
+
+**Parameters:**
+
+- `left` ([ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/))
+- `right` ([ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ResolvedAssemblyInfo? left, ResolvedAssemblyInfo? right)
+```
+
+### operator ==(ResolvedAssemblyInfo?, ResolvedAssemblyInfo?)
+
+**Parameters:**
+
+- `left` ([ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/))
+- `right` ([ResolvedAssemblyInfo](/api/dotsider.core.protocol.resolvedassemblyinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ResolvedAssemblyInfo? left, ResolvedAssemblyInfo? right)
+```

@@ -60,4 +60,3 @@ Found beside the binary itself — manual staging with no build provenance.
 ```csharp
 SiblingAssembly = 3
 ```
-

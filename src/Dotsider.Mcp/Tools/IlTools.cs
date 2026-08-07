@@ -3,7 +3,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -46,15 +45,12 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                 return $"Error: Method not found: {typeName}.{methodName}";
 
             var instructions = disassembler.Disassemble(method);
-            return JsonSerializer.Serialize(new
-            {
-                Method = method,
-                Pdb = analyzer.PdbProvenance,
+            return McpJson.Serialize(new IlDisassemblyPayload(
+                method,
+                analyzer.PdbProvenance,
                 analyzer.SourceLink,
-                DebugInfo = includeDebugInfo ? analyzer.GetMethodDebugInfo(method) : null,
-                Instructions = instructions
-            },
-                DotsiderJsonOptions.Default);
+                includeDebugInfo ? analyzer.GetMethodDebugInfo(method) : null,
+                instructions));
         }
 
         if (sessionId is not null)
@@ -97,8 +93,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
             if (method is null)
                 return $"Error: Method not found: {typeName}.{methodName}";
 
-            return JsonSerializer.Serialize(analyzer.GetMethodDebugInfo(method),
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.GetMethodDebugInfo(method));
         }
 
         if (sessionId is not null)
@@ -132,7 +127,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.SourceLink, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.SourceLink);
         }
 
         if (sessionId is not null)
@@ -167,7 +162,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var disassembler = new IlDisassembler(analyzer);
             var max = maxResults ?? 50;
-            var results = new List<object>();
+            var results = new List<IlSearchResultPayload>();
 
             foreach (var method in analyzer.MethodDefs)
             {
@@ -178,7 +173,8 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                     var matches = instructions.Where(i =>
                         i.OpCode.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
                     if (matches.Count > 0)
-                        results.Add(new { Method = $"{method.DeclaringType}.{method.Name}", Matches = matches });
+                        results.Add(new IlSearchResultPayload(
+                            $"{method.DeclaringType}.{method.Name}", matches));
                 }
                 catch (Exception ex)
                 {
@@ -186,7 +182,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                 }
             }
 
-            return JsonSerializer.Serialize(results, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(results);
         }
 
         if (sessionId is not null)

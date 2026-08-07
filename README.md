@@ -16,6 +16,12 @@ dotsider RichLibrary.dll
 dotnet tool install -g dotsider
 ```
 
+The .NET SDK selects the Native AOT package for supported Windows, Linux, and macOS runtime identifiers. Other supported environments use the framework-dependent `any` package.
+Live EventPipe tracing uses the bundled framework-dependent trace host; the SDK already provides
+the required .NET 10-or-later runtime. It accepts existing managed DLLs or platform executables and
+never launches them through a shell. If the host or runtime is unavailable, the Dynamic tab
+explains the missing requirement and disables trace launch.
+
 ### Homebrew (macOS / Linux)
 
 ```
@@ -37,7 +43,7 @@ scoop install dotsider
 
 ### Download binary
 
-Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
+Grab a Native AOT archive from [Releases](https://github.com/willibrandon/dotsider/releases). Static analysis is self-contained; the Dynamic tab requires a .NET 10-or-later runtime for the bundled trace host. Keep the archive's `tracehost` directory beside the executable. Native symbols are published separately.
 
 ## What it does
 
@@ -78,7 +84,7 @@ Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 dotnet build
 ```
 
-The binary lands at `src/Dotsider/bin/Debug/net10.0/dotsider`.
+The binary lands at `src/Dotsider/bin/Debug/net10.0/dotsider`. The build also places the framework-dependent EventPipe helper in `tracehost`; keep that directory with the executable when using the Dynamic tab.
 
 ## Usage
 
@@ -251,6 +257,8 @@ The TUI is built on [Hex1b](https://github.com/mitchdenny/hex1b), a .NET termina
 dotnet tool install -g Dotsider.Mcp
 ```
 
+The .NET SDK selects the Native AOT package for supported Windows, Linux, and macOS runtime identifiers. Other supported environments use the framework-dependent `any` package.
+
 #### Homebrew (macOS / Linux)
 
 ```
@@ -271,7 +279,7 @@ scoop install dotsider-mcp
 
 #### Download binary
 
-Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases).
+Grab a self-contained Native AOT binary from [Releases](https://github.com/willibrandon/dotsider/releases). Native symbols are published separately.
 
 ### Configure
 
@@ -328,6 +336,10 @@ src/Dotsider.Mcp/
   Tools/              MCP tool classes (assembly, IL, metadata, deps, size, etc.)
   Prompts/            Guided analysis prompts (security, API review, breaking changes)
   Program.cs          MCP server entry point (stdio transport)
+
+src/Dotsider.TraceHost/
+  EventPipeRuntimeTracer.cs Framework-dependent EventPipe collection
+  Program.cs          NDJSON transport used by the Native AOT front end
 
 src/Dotsider.Website/
   Program.cs          Hosted interactive demo and WebSocket session endpoint

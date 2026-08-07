@@ -138,3 +138,90 @@ The source start line.
 public int StartLine { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string?, out int, out int, out int, out int, out bool, out string?, out bool)
+
+**Parameters:**
+
+- `Offset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Document` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `StartLine` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `StartColumn` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EndLine` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EndColumn` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `IsHidden` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `SourceLinkUrl` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `HasEmbeddedSource` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out int Offset, out string? Document, out int StartLine, out int StartColumn, out int EndLine, out int EndColumn, out bool IsHidden, out string? SourceLinkUrl, out bool HasEmbeddedSource)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SequencePointInfo?)
+
+**Parameters:**
+
+- `other` ([SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SequencePointInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SequencePointInfo?, SequencePointInfo?)
+
+**Parameters:**
+
+- `left` ([SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/))
+- `right` ([SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SequencePointInfo? left, SequencePointInfo? right)
+```
+
+### operator ==(SequencePointInfo?, SequencePointInfo?)
+
+**Parameters:**
+
+- `left` ([SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/))
+- `right` ([SequencePointInfo](/api/dotsider.core.analysis.models.sequencepointinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SequencePointInfo? left, SequencePointInfo? right)
+```

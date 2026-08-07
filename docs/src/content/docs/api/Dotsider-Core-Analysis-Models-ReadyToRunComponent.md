@@ -109,3 +109,87 @@ The sibling assembly file whose MVID matched, or null when unresolved.
 public string? ResolvedPath { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out Guid, out int, out int, out string?, out bool)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Mvid` ([Guid](https://learn.microsoft.com/dotnet/api/system.guid))
+- `CorHeaderRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `CoreHeaderRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ResolvedPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MetadataAvailable` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out Guid Mvid, out int CorHeaderRva, out int CoreHeaderRva, out string? ResolvedPath, out bool MetadataAvailable)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunComponent?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunComponent? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunComponent?, ReadyToRunComponent?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/))
+- `right` ([ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunComponent? left, ReadyToRunComponent? right)
+```
+
+### operator ==(ReadyToRunComponent?, ReadyToRunComponent?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/))
+- `right` ([ReadyToRunComponent](/api/dotsider.core.analysis.models.readytoruncomponent/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunComponent? left, ReadyToRunComponent? right)
+```

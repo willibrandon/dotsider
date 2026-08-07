@@ -7,6 +7,14 @@ MCP server for .NET assembly analysis. Works in two modes:
 
 Most tools accept either parameter. Session-only tools (navigation, tracing) require a running instance.
 
+## Install
+
+```bash
+dotnet tool install -g Dotsider.Mcp
+```
+
+The .NET SDK selects a self-contained Native AOT package on Windows, Linux, and macOS for x64 and Arm64, including glibc and musl Linux. Other supported environments use the framework-dependent `any` package.
+
 ## Setup
 
 ```json

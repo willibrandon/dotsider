@@ -61,3 +61,83 @@ The URL template.
 public string UrlTemplate { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string)
+
+**Parameters:**
+
+- `DocumentPattern` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `UrlTemplate` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string DocumentPattern, out string UrlTemplate)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SourceLinkMapping?)
+
+**Parameters:**
+
+- `other` ([SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SourceLinkMapping? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SourceLinkMapping?, SourceLinkMapping?)
+
+**Parameters:**
+
+- `left` ([SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/))
+- `right` ([SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SourceLinkMapping? left, SourceLinkMapping? right)
+```
+
+### operator ==(SourceLinkMapping?, SourceLinkMapping?)
+
+**Parameters:**
+
+- `left` ([SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/))
+- `right` ([SourceLinkMapping](/api/dotsider.core.analysis.models.sourcelinkmapping/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SourceLinkMapping? left, SourceLinkMapping? right)
+```

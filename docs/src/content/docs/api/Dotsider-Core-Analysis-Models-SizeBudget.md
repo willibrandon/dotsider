@@ -148,6 +148,56 @@ public int? TopN { get; init; }
 
 ## Methods
 
+### Deconstruct(out SizeBudgetScope, out string?, out long?, out long?, out double?, out SizeBudgetSeverity, out string?, out string?, out int?)
+
+**Parameters:**
+
+- `Scope` ([SizeBudgetScope](/api/dotsider.core.analysis.models.sizebudgetscope/))
+- `Target` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MaxBytes` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `MaxGrowthBytes` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `MaxGrowthPercent` ([Nullable\<Double\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Severity` ([SizeBudgetSeverity](/api/dotsider.core.analysis.models.sizebudgetseverity/))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Description` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TopN` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out SizeBudgetScope Scope, out string? Target, out long? MaxBytes, out long? MaxGrowthBytes, out double? MaxGrowthPercent, out SizeBudgetSeverity Severity, out string? Name, out string? Description, out int? TopN)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeBudget?)
+
+**Parameters:**
+
+- `other` ([SizeBudget](/api/dotsider.core.analysis.models.sizebudget/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeBudget? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
 ### ToString()
 
 Renders the budget back into spec-grammar form, for display when it has no [Name](/api/dotsider.core.analysis.models.sizebudget.name/).
@@ -160,3 +210,30 @@ The spec string.
 public override string ToString()
 ```
 
+## Members
+
+### operator !=(SizeBudget?, SizeBudget?)
+
+**Parameters:**
+
+- `left` ([SizeBudget](/api/dotsider.core.analysis.models.sizebudget/))
+- `right` ([SizeBudget](/api/dotsider.core.analysis.models.sizebudget/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeBudget? left, SizeBudget? right)
+```
+
+### operator ==(SizeBudget?, SizeBudget?)
+
+**Parameters:**
+
+- `left` ([SizeBudget](/api/dotsider.core.analysis.models.sizebudget/))
+- `right` ([SizeBudget](/api/dotsider.core.analysis.models.sizebudget/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeBudget? left, SizeBudget? right)
+```

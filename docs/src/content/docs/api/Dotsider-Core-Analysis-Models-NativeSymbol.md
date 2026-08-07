@@ -179,3 +179,93 @@ The symbol's virtual address (image base + RVA on PE; the symbol VA on ELF/Mach-
 public ulong VirtualAddress { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string?, out ulong, out uint?, out long?, out string?, out long, out NativeSymbolKind, out string?, out int?, out bool, out IReadOnlyList\<string\>)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ManagedName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `VirtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `Rva` ([Nullable\<UInt32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `FileOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Section` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Kind` ([NativeSymbolKind](/api/dotsider.core.analysis.models.nativesymbolkind/))
+- `SourceFile` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Line` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `IsExactMatch` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `Aliases` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string Name, out string? ManagedName, out ulong VirtualAddress, out uint? Rva, out long? FileOffset, out string? Section, out long Size, out NativeSymbolKind Kind, out string? SourceFile, out int? Line, out bool IsExactMatch, out IReadOnlyList<string> Aliases)
+```
+
+### Equals(NativeSymbol?)
+
+**Parameters:**
+
+- `other` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeSymbol? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeSymbol?, NativeSymbol?)
+
+**Parameters:**
+
+- `left` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/))
+- `right` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeSymbol? left, NativeSymbol? right)
+```
+
+### operator ==(NativeSymbol?, NativeSymbol?)
+
+**Parameters:**
+
+- `left` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/))
+- `right` ([NativeSymbol](/api/dotsider.core.analysis.models.nativesymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeSymbol? left, NativeSymbol? right)
+```

@@ -47,7 +47,7 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -130,7 +130,7 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
             var stream = new NetworkStream(socket, ownsSocket: false);
             var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
             var json = JsonSerializer.Serialize(
-                new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonOptions.Default);
+                new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonContext.Protocol.Options);
             await writer.WriteLineAsync(json.AsMemory(), ct);
             heldSockets.Add((socket, writer));
         }
@@ -146,7 +146,7 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
             ct);
         var response = JsonSerializer.Deserialize<DotsiderResponse>(
             responseJson,
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
 
         Assert.IsNotNull(response);
         Assert.IsFalse(response.Success);
@@ -183,7 +183,7 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
             var stream = new NetworkStream(socket, ownsSocket: false);
             var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
             var json = JsonSerializer.Serialize(
-                new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonOptions.Default);
+                new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonContext.Protocol.Options);
             await writer.WriteLineAsync(json.AsMemory(), ct);
             heldSockets.Add((socket, writer));
         }
@@ -254,7 +254,7 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
         await using var stream = new NetworkStream(socket, ownsSocket: false);
         await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
         var json = JsonSerializer.Serialize(
-            new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonOptions.Default);
+            new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonContext.Protocol.Options);
         await writer.WriteLineAsync(json.AsMemory(), ct);
 
         await Task.Delay(200, ct);

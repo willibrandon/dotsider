@@ -41,4 +41,3 @@ The root [SizeNode](/api/dotsider.core.analysis.models.sizenode/) representing t
 ```csharp
 public static SizeNode BuildSizeTree(AssemblyAnalyzer analyzer)
 ```
-

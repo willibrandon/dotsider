@@ -17,7 +17,7 @@
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
     <ProjectReference Include="..\NetFxBindingRedirects.Clr2.SharedDep.V2\NetFxBindingRedirects.Clr2.SharedDep.V2.csproj">
       <Private>false</Private>
     </ProjectReference>

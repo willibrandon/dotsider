@@ -138,7 +138,7 @@ internal static class BoundedCompressionDecoder
             if (useZLibWrapper)
             {
                 uint expectedAdler = BinaryPrimitives.ReadUInt32BigEndian(
-                    source.Span.Slice(offset + compressedLength - sizeof(uint)));
+                    source.Span[(offset + compressedLength - sizeof(uint))..]);
                 uint actualAdler = adlerB << 16 | adlerA;
                 if (actualAdler != expectedAdler)
                     return false;

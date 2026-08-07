@@ -94,3 +94,86 @@ Elapsed time since the trace started.
 public TimeSpan Timestamp { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out TimeSpan, out TraceEventCategory, out string, out string, out int)
+
+**Parameters:**
+
+- `Timestamp` ([TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan))
+- `Category` ([TraceEventCategory](/api/dotsider.core.analysis.models.traceeventcategory/))
+- `EventName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Detail` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MetadataToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out TimeSpan Timestamp, out TraceEventCategory Category, out string EventName, out string Detail, out int MetadataToken)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(TraceEventEntry?)
+
+**Parameters:**
+
+- `other` ([TraceEventEntry](/api/dotsider.core.analysis.models.traceevententry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(TraceEventEntry? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(TraceEventEntry?, TraceEventEntry?)
+
+**Parameters:**
+
+- `left` ([TraceEventEntry](/api/dotsider.core.analysis.models.traceevententry/))
+- `right` ([TraceEventEntry](/api/dotsider.core.analysis.models.traceevententry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(TraceEventEntry? left, TraceEventEntry? right)
+```
+
+### operator ==(TraceEventEntry?, TraceEventEntry?)
+
+**Parameters:**
+
+- `left` ([TraceEventEntry](/api/dotsider.core.analysis.models.traceevententry/))
+- `right` ([TraceEventEntry](/api/dotsider.core.analysis.models.traceevententry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(TraceEventEntry? left, TraceEventEntry? right)
+```

@@ -40,4 +40,3 @@ The resolved assembly info including the winning runtime pack, or `null` if not 
 ```csharp
 public static FrameworkAssemblyInfo? FindAssemblyInSharedFramework(string assemblyName, string? targetFramework, string? preferredRuntimePack = null)
 ```
-

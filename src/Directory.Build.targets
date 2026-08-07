@@ -1,0 +1,46 @@
+<Project>
+  <PropertyGroup Condition="'$(IsAotCompatible)' == 'true'">
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <Target Name="ExpandTraceEventAotWarnings"
+          AfterTargets="PrepareForILLink"
+          Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <ManagedAssemblyToLink Update="@(ManagedAssemblyToLink)"
+                             Condition="'%(Filename)' == 'Microsoft.Diagnostics.Tracing.TraceEvent'">
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+      </ManagedAssemblyToLink>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="RemoveUnusedTraceEventNativeAssetsFromPublish"
+          AfterTargets="Publish"
+          Condition="'$(OutputType)' == 'Exe'">
+    <ItemGroup>
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)Dia2Lib.dll" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)TraceReloggerLib.dll" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)x86\**\*" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)amd64\**\*" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)arm64\**\*" />
+      <_PublishDocumentation Include="$(PublishDir)*.xml" />
+    </ItemGroup>
+    <Delete Files="@(_UnusedTraceEventNativeAsset);@(_PublishDocumentation)" />
+    <RemoveDir Directories="$(PublishDir)x86;$(PublishDir)amd64;$(PublishDir)arm64" />
+  </Target>
+
+  <Target Name="RemoveSymbolsFromToolPackage"
+          BeforeTargets="PackTool"
+          Condition="'$(_IsPacking)' == 'true'">
+    <ItemGroup>
+      <_ToolPackageSymbol Include="$(PublishDir)**\*.pdb" />
+      <_ToolPackageSymbol Include="$(PublishDir)**\*.dbg" />
+      <_ToolPackageSymbol Include="$(PublishDir)**\*.dwarf" />
+    </ItemGroup>
+    <Delete Files="@(_ToolPackageSymbol)" />
+    <RemoveDir Directories="$(PublishDir)$(AssemblyName).dSYM" />
+  </Target>
+</Project>

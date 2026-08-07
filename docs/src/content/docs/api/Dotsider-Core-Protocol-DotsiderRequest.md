@@ -20,6 +20,14 @@ public sealed class DotsiderRequest
 
 [Object](https://learn.microsoft.com/dotnet/api/system.object) → **DotsiderRequest**
 
+## Constructors
+
+### DotsiderRequest()
+
+```csharp
+public DotsiderRequest()
+```
+
 ## Properties
 
 ### Arguments
@@ -372,4 +380,3 @@ Protocol version. Must match [Version](/api/dotsider.core.protocol.dotsiderproto
 [JsonRequired]
 public int V { get; set; }
 ```
-

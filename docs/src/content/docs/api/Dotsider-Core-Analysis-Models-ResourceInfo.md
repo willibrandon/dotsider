@@ -94,3 +94,86 @@ Whether the resource is public or private.
 public string Visibility { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out int, out long, out bool)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Visibility` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Offset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `IsLinked` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out string Name, out string Visibility, out int Offset, out long Size, out bool IsLinked)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ResourceInfo?)
+
+**Parameters:**
+
+- `other` ([ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ResourceInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ResourceInfo?, ResourceInfo?)
+
+**Parameters:**
+
+- `left` ([ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/))
+- `right` ([ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ResourceInfo? left, ResourceInfo? right)
+```
+
+### operator ==(ResourceInfo?, ResourceInfo?)
+
+**Parameters:**
+
+- `left` ([ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/))
+- `right` ([ResourceInfo](/api/dotsider.core.analysis.models.resourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ResourceInfo? left, ResourceInfo? right)
+```

@@ -184,4 +184,3 @@ Unresolved = 8
 ## Remarks
 
 The order of enum members is not significant; callers should compare by member name.
-

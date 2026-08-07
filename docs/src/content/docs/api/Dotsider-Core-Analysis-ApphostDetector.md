@@ -73,4 +73,3 @@ are empty. This detector verifies the file is an apphost by requiring two signal
 the companion DLL name embedded in the binary AND a reference to `hostfxr`
 (the .NET host framework resolver). These signals are platform-invariant — the
 .NET SDK embeds them identically regardless of binary format.
-

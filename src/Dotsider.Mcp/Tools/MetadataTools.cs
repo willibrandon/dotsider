@@ -1,6 +1,5 @@
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -27,7 +26,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.PeHeaders, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.PeHeaders);
         }
 
         if (sessionId is not null)
@@ -56,7 +55,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.ClrHeader, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.ClrHeader);
         }
 
         if (sessionId is not null)
@@ -85,7 +84,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.Sections, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.Sections);
         }
 
         if (sessionId is not null)
@@ -135,7 +134,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
                         a.Constructor.Contains(name, StringComparison.Ordinal)));
             }
 
-            return JsonSerializer.Serialize(attributes.ToList(), DotsiderJsonOptions.Default);
+            return McpJson.Serialize(attributes.ToList());
         }
 
         if (sessionId is not null)
@@ -164,7 +163,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.Resources, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.Resources);
         }
 
         if (sessionId is not null)
@@ -196,8 +195,7 @@ public sealed partial class MetadataTools(DotsiderSessionManager sessionManager)
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var resolved = analyzer.ResolveToken(token);
-            return JsonSerializer.Serialize(new { Token = token, Resolved = resolved },
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(new TokenResolutionPayload(token, resolved));
         }
 
         if (sessionId is not null)

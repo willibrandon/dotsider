@@ -83,3 +83,85 @@ The segment byte size.
 public int Size { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out long, out int)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Mode` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FileOffset` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int Index, out string Mode, out long FileOffset, out int Size)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmDataSegmentInfo?)
+
+**Parameters:**
+
+- `other` ([WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmDataSegmentInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmDataSegmentInfo?, WasmDataSegmentInfo?)
+
+**Parameters:**
+
+- `left` ([WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/))
+- `right` ([WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmDataSegmentInfo? left, WasmDataSegmentInfo? right)
+```
+
+### operator ==(WasmDataSegmentInfo?, WasmDataSegmentInfo?)
+
+**Parameters:**
+
+- `left` ([WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/))
+- `right` ([WasmDataSegmentInfo](/api/dotsider.core.analysis.models.wasmdatasegmentinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmDataSegmentInfo? left, WasmDataSegmentInfo? right)
+```

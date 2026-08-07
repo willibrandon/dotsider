@@ -21,108 +21,108 @@ internal static partial class Arm64OperandFormatter
         switch (format)
         {
             case Arm64Format.ScalarFp3:
-            {
-                var sc = FpSize(type);
-                Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc)); Reg(ops, R.Fp(rm, sc));
-                break;
-            }
+                {
+                    var sc = FpSize(type);
+                    Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc)); Reg(ops, R.Fp(rm, sc));
+                    break;
+                }
 
             case Arm64Format.ScalarFp2:
-            {
-                var sc = FpSize(type);
-                Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc));
-                break;
-            }
+                {
+                    var sc = FpSize(type);
+                    Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc));
+                    break;
+                }
 
             case Arm64Format.FpCompare:
-            {
-                var sc = FpSize(type);
-                Reg(ops, R.Fp(rn, sc));
-                if (((word >> 3) & 1) == 1) Imm(ops, "#0.0", 0);
-                else Reg(ops, R.Fp(rm, sc));
-                break;
-            }
+                {
+                    var sc = FpSize(type);
+                    Reg(ops, R.Fp(rn, sc));
+                    if (((word >> 3) & 1) == 1) Imm(ops, "#0.0", 0);
+                    else Reg(ops, R.Fp(rm, sc));
+                    break;
+                }
 
             case Arm64Format.FpCvt:
-            {
-                var dst = FpSize((int)(word >> 15) & 3);
-                Reg(ops, R.Fp(rd, dst)); Reg(ops, R.Fp(rn, FpSize(type)));
-                break;
-            }
+                {
+                    var dst = FpSize((int)(word >> 15) & 3);
+                    Reg(ops, R.Fp(rd, dst)); Reg(ops, R.Fp(rn, FpSize(type)));
+                    break;
+                }
 
             case Arm64Format.FpToFromInt:
-            {
-                var sf = ((word >> 31) & 1) == 1;
-                var sc = FpSize(type);
-                if (mnem is "scvtf" or "ucvtf") { Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Gpr(rn, sf)); }
-                else if (mnem is "fcvtzs" or "fcvtzu") { Reg(ops, R.Gpr(rd, sf)); Reg(ops, R.Fp(rn, sc)); }
-                else if (((word >> 16) & 7) == 6) { Reg(ops, R.Gpr(rd, sf)); Reg(ops, R.Fp(rn, sc)); } // fmov to GPR
-                else { Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Gpr(rn, sf)); }                              // fmov from GPR
-                break;
-            }
+                {
+                    var sf = ((word >> 31) & 1) == 1;
+                    var sc = FpSize(type);
+                    if (mnem is "scvtf" or "ucvtf") { Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Gpr(rn, sf)); }
+                    else if (mnem is "fcvtzs" or "fcvtzu") { Reg(ops, R.Gpr(rd, sf)); Reg(ops, R.Fp(rn, sc)); }
+                    else if (((word >> 16) & 7) == 6) { Reg(ops, R.Gpr(rd, sf)); Reg(ops, R.Fp(rn, sc)); } // fmov to GPR
+                    else { Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Gpr(rn, sf)); }                              // fmov from GPR
+                    break;
+                }
 
             case Arm64Format.FpCondSelect:
-            {
-                var sc = FpSize(type);
-                Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc)); Reg(ops, R.Fp(rm, sc));
-                Imm(ops, R.Condition((int)((word >> 12) & 0xF)), 0);
-                break;
-            }
+                {
+                    var sc = FpSize(type);
+                    Reg(ops, R.Fp(rd, sc)); Reg(ops, R.Fp(rn, sc)); Reg(ops, R.Fp(rm, sc));
+                    Imm(ops, R.Condition((int)((word >> 12) & 0xF)), 0);
+                    break;
+                }
 
             case Arm64Format.SimdReg3:
-            {
-                var arr = fp ? FpArrangement(word, q) : Arrangement((int)(word >> 22) & 3, q);
-                Vec(ops, rd, arr); Vec(ops, rn, arr); Vec(ops, rm, arr);
-                break;
-            }
+                {
+                    var arr = fp ? FpArrangement(word, q) : Arrangement((int)(word >> 22) & 3, q);
+                    Vec(ops, rd, arr); Vec(ops, rn, arr); Vec(ops, rm, arr);
+                    break;
+                }
 
             case Arm64Format.SimdMisc2:
-            {
-                var arr = fp ? FpArrangement(word, q) : Arrangement((int)(word >> 22) & 3, q);
-                Vec(ops, rd, arr); Vec(ops, rn, arr);
-                break;
-            }
+                {
+                    var arr = fp ? FpArrangement(word, q) : Arrangement((int)(word >> 22) & 3, q);
+                    Vec(ops, rd, arr); Vec(ops, rn, arr);
+                    break;
+                }
 
             case Arm64Format.SimdDup:
-            {
-                var imm5 = (int)(word >> 16) & 0x1F;
-                var (arr, is64) = DupArrangement(imm5, q);
-                Vec(ops, rd, arr); Reg(ops, R.Gpr(rn, is64));
-                break;
-            }
+                {
+                    var imm5 = (int)(word >> 16) & 0x1F;
+                    var (arr, is64) = DupArrangement(imm5, q);
+                    Vec(ops, rd, arr); Reg(ops, R.Gpr(rn, is64));
+                    break;
+                }
 
             case Arm64Format.SimdInsGeneral:
-            {
-                var (sz, index, is64) = Element((int)(word >> 16) & 0x1F);
-                VecElem(ops, rd, sz, index);
-                Reg(ops, R.Gpr(rn, is64)); // Wn for b/h/s elements, Xn for d
-                break;
-            }
+                {
+                    var (sz, index, is64) = Element((int)(word >> 16) & 0x1F);
+                    VecElem(ops, rd, sz, index);
+                    Reg(ops, R.Gpr(rn, is64)); // Wn for b/h/s elements, Xn for d
+                    break;
+                }
 
             case Arm64Format.SimdMovFromElement:
-            {
-                var (sz, index, isD) = Element((int)(word >> 16) & 0x1F);
-                // smov sign-extends into Wd (Q=0) or Xd (Q=1); umov moves into Xd for a d element, else Wd.
-                Reg(ops, R.Gpr(rd, mnem == "smov" ? q : isD));
-                VecElem(ops, rn, sz, index);
-                break;
-            }
+                {
+                    var (sz, index, isD) = Element((int)(word >> 16) & 0x1F);
+                    // smov sign-extends into Wd (Q=0) or Xd (Q=1); umov moves into Xd for a d element, else Wd.
+                    Reg(ops, R.Gpr(rd, mnem == "smov" ? q : isD));
+                    VecElem(ops, rn, sz, index);
+                    break;
+                }
 
             case Arm64Format.SimdModImm:
-            {
-                var imm = (word >> 5) & 0x1F | ((word >> 16) & 7) << 5;
-                Vec(ops, rd, q ? "4s" : "2s");
-                Imm(ops, $"#0x{imm:x}", (long)imm);
-                break;
-            }
+                {
+                    var imm = (word >> 5) & 0x1F | ((word >> 16) & 7) << 5;
+                    Vec(ops, rd, q ? "4s" : "2s");
+                    Imm(ops, $"#0x{imm:x}", (long)imm);
+                    break;
+                }
 
             case Arm64Format.SimdDot:
-            {
-                Vec(ops, rd, q ? "4s" : "2s");
-                Vec(ops, rn, q ? "16b" : "8b");
-                Vec(ops, rm, q ? "16b" : "8b");
-                break;
-            }
+                {
+                    Vec(ops, rd, q ? "4s" : "2s");
+                    Vec(ops, rn, q ? "16b" : "8b");
+                    Vec(ops, rm, q ? "16b" : "8b");
+                    break;
+                }
 
             case Arm64Format.CryptoAes:
                 Vec(ops, rd, "16b"); Vec(ops, rn, "16b");

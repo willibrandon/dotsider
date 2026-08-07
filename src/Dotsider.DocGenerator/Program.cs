@@ -1,11 +1,13 @@
 using Docfx.Dotnet;
 using Dotsider.DocGenerator;
+using System.Text.Json;
 
 var projectRoot = FindProjectRoot();
 var outputDir = Path.Combine(projectRoot, "docs", "src", "content", "docs", "api");
 var docGeneratorDir = Path.Combine(projectRoot, "src", "Dotsider.DocGenerator");
 var yamlOutputDir = Path.Combine(docGeneratorDir, "_metadata");
-var docfxJsonPath = Path.Combine(docGeneratorDir, "docfx.json");
+var generatedConfigDir = Path.Combine(docGeneratorDir, "obj");
+var docfxJsonPath = Path.Combine(generatedConfigDir, "docfx.generated.json");
 
 Console.WriteLine($"Project root: {projectRoot}");
 Console.WriteLine($"Output directory: {outputDir}");
@@ -17,11 +19,26 @@ Directory.CreateDirectory(yamlOutputDir);
 
 Console.WriteLine("Generating API metadata with DocFX...");
 
-if (!File.Exists(docfxJsonPath))
+Directory.CreateDirectory(generatedConfigDir);
+var docfxConfig = new
 {
-    Console.Error.WriteLine($"docfx.json not found at {docfxJsonPath}");
-    Environment.Exit(1);
-}
+    metadata = new[]
+    {
+        new
+        {
+            src = new[]
+            {
+                new
+                {
+                    files = new[] { "Dotsider.Core.dll" },
+                    src = AppContext.BaseDirectory,
+                },
+            },
+            dest = "../_metadata",
+        },
+    },
+};
+await File.WriteAllTextAsync(docfxJsonPath, JsonSerializer.Serialize(docfxConfig));
 
 await DotnetApiCatalog.GenerateManagedReferenceYamlFiles(docfxJsonPath);
 
@@ -53,6 +70,17 @@ if (existingIndex != null)
 
 var converter = new YamlToMarkdownConverter(yamlOutputDir, outputDir);
 await converter.ConvertAllAsync();
+
+string[] astroDataStorePaths =
+[
+    Path.Combine(projectRoot, "docs", ".astro", "data-store.json"),
+    Path.Combine(projectRoot, "docs", "node_modules", ".astro", "data-store.json")
+];
+foreach (var astroDataStorePath in astroDataStorePaths)
+{
+    if (File.Exists(astroDataStorePath))
+        File.Delete(astroDataStorePath);
+}
 
 Console.WriteLine("Done!");
 

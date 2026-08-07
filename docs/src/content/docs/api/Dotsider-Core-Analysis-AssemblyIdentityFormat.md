@@ -48,4 +48,3 @@ public static string Format(string name, string? version, string? culture, strin
 The format is `"{Name}|{Version}|{Culture}|{PublicKeyToken}"`. Null or empty culture
 is normalized to `"neutral"` so two nodes only differ by culture when they truly do.
 The identifier is treated as opaque by consumers; it is never parsed.
-

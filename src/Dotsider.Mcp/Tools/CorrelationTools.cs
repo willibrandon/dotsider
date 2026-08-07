@@ -3,7 +3,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -47,7 +46,7 @@ public sealed partial class CorrelationTools(DotsiderSessionManager sessionManag
             return result.Outcome switch
             {
                 CorrelationQueryOutcome.Resolved =>
-                    JsonSerializer.Serialize(result.Report, DotsiderJsonOptions.Default),
+                    McpJson.Serialize(result.Report),
                 CorrelationQueryOutcome.Ambiguous =>
                     throw new McpException($"{result.Message}: " + string.Join("; ", result.Candidates.Select(c =>
                         $"{c.AssemblyName} {c.DeclaringType}::{c.Name} token 0x{c.Token:X8}"

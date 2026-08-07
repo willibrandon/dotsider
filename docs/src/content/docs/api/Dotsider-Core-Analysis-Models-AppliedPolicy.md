@@ -93,3 +93,85 @@ The policy layer that produced the rewrite.
 public PolicyLayer Source { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out PolicyLayer, out Version, out Version, out string?)
+
+**Parameters:**
+
+- `Source` ([PolicyLayer](/api/dotsider.core.analysis.models.policylayer/))
+- `RequestedVersion` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+- `BoundVersion` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+- `CodeBaseHref` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out PolicyLayer Source, out Version RequestedVersion, out Version BoundVersion, out string? CodeBaseHref)
+```
+
+### Equals(AppliedPolicy?)
+
+**Parameters:**
+
+- `other` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AppliedPolicy? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(AppliedPolicy?, AppliedPolicy?)
+
+**Parameters:**
+
+- `left` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+- `right` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AppliedPolicy? left, AppliedPolicy? right)
+```
+
+### operator ==(AppliedPolicy?, AppliedPolicy?)
+
+**Parameters:**
+
+- `left` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+- `right` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AppliedPolicy? left, AppliedPolicy? right)
+```

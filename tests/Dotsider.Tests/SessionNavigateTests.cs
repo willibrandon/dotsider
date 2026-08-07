@@ -4,7 +4,6 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
 using System.Collections.Concurrent;
-using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -54,7 +53,7 @@ public class SessionNavigateTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -85,7 +84,7 @@ public class SessionNavigateTests : IAsyncDisposable
         var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewBefore.Success);
-        var tabBefore = (viewBefore.Data as JsonElement?)?.GetProperty("tab").GetInt32();
+        var tabBefore = viewBefore.Data?.GetProperty("tab").GetInt32();
         Assert.AreEqual(TabId.General + 1, tabBefore);
 
         // Navigate to Strings tab (user-facing 4) via the socket
@@ -100,7 +99,7 @@ public class SessionNavigateTests : IAsyncDisposable
         var viewAfter = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewAfter.Success);
-        var tabAfter = (viewAfter.Data as JsonElement?)?.GetProperty("tab").GetInt32();
+        var tabAfter = viewAfter.Data?.GetProperty("tab").GetInt32();
         Assert.AreEqual(TabId.Strings + 1, tabAfter);
     }
 
@@ -131,7 +130,7 @@ public class SessionNavigateTests : IAsyncDisposable
         var view = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(view.Success);
-        var activeTab = (view.Data as JsonElement?)?.GetProperty("tab").GetInt32();
+        var activeTab = view.Data?.GetProperty("tab").GetInt32();
         Assert.AreEqual(TabId.General + 1, activeTab);
     }
 

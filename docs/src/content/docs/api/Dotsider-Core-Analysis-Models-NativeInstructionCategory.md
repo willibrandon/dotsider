@@ -88,4 +88,3 @@ Vector / SIMD (SSE–AVX-512, AdvSIMD, SVE).
 ```csharp
 Vector = 2
 ```
-

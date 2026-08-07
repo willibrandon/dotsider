@@ -377,7 +377,7 @@ public sealed class ReadyToRunTableBoundsTests
     [DataRow("NonAmd64DescendingStarts")]
     public void RuntimeFunctions_InvalidRvaOrder_IsRejected(string malformation)
     {
-        (byte[] Records, NativeArchitecture Architecture) testCase = malformation switch
+        (byte[] Records, NativeArchitecture Architecture) = malformation switch
         {
             "DescendingStarts" => (
                 [
@@ -393,13 +393,13 @@ public sealed class ReadyToRunTableBoundsTests
                 NativeArchitecture.Arm64),
             _ => throw new ArgumentOutOfRangeException(nameof(malformation)),
         };
-        var (reader, addressSpace) = CreateImage(testCase.Records);
+        var (reader, addressSpace) = CreateImage(Records);
 
         var valid = ReadyToRunRuntimeFunctionTable.TryRead(
             reader,
             SectionFileOffset,
-            testCase.Records.Length,
-            testCase.Architecture,
+            Records.Length,
+            Architecture,
             0x1400_0000_0,
             addressSpace,
             out var table,

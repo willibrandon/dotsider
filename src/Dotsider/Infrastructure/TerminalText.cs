@@ -144,9 +144,9 @@ internal static class TerminalText
                 builder ??= CreateBuilder(value, index);
                 AppendEscapedRune(builder, rune);
             }
-            else if (builder is not null)
+            else
             {
-                builder.Append(value.AsSpan(index, characterCount));
+                builder?.Append(value.AsSpan(index, characterCount));
             }
 
             index += characterCount;

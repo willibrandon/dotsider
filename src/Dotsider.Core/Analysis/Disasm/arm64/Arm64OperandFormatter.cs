@@ -31,128 +31,128 @@ internal static partial class Arm64OperandFormatter
         switch (entry.Format)
         {
             case Arm64Format.AddSubImm:
-            {
-                var imm = (word >> 10) & 0xFFF;
-                var shift = ((word >> 22) & 1) == 1;
-                Reg(ops, R.GprSp(rd, sf));
-                Reg(ops, R.GprSp(rn, sf));
-                Imm(ops, shift ? $"#0x{imm:x}, lsl #12" : $"#0x{imm:x}", imm);
-                RewriteAddSubImm(ref mnem, ops, rd, rn, imm, shift);
-                break;
-            }
+                {
+                    var imm = (word >> 10) & 0xFFF;
+                    var shift = ((word >> 22) & 1) == 1;
+                    Reg(ops, R.GprSp(rd, sf));
+                    Reg(ops, R.GprSp(rn, sf));
+                    Imm(ops, shift ? $"#0x{imm:x}, lsl #12" : $"#0x{imm:x}", imm);
+                    RewriteAddSubImm(ref mnem, ops, rd, rn, imm, shift);
+                    break;
+                }
 
             case Arm64Format.LogicalImm:
-            {
-                var n = (word >> 22) & 1;
-                var immr = (word >> 16) & 0x3F;
-                var imms = (word >> 10) & 0x3F;
-                var value = DecodeBitMask(sf, n, imms, immr);
-                Reg(ops, R.GprSp(rd, sf));
-                Reg(ops, R.Gpr(rn, sf));
-                Imm(ops, $"#0x{value:x}", (long)value);
-                if (mnem == "ands" && rd == 31) { mnem = "tst"; ops.RemoveAt(0); }
-                else if (mnem == "orr" && rn == 31) { mnem = "mov"; ops.RemoveAt(1); }
-                break;
-            }
+                {
+                    var n = (word >> 22) & 1;
+                    var immr = (word >> 16) & 0x3F;
+                    var imms = (word >> 10) & 0x3F;
+                    var value = DecodeBitMask(sf, n, imms, immr);
+                    Reg(ops, R.GprSp(rd, sf));
+                    Reg(ops, R.Gpr(rn, sf));
+                    Imm(ops, $"#0x{value:x}", (long)value);
+                    if (mnem == "ands" && rd == 31) { mnem = "tst"; ops.RemoveAt(0); }
+                    else if (mnem == "orr" && rn == 31) { mnem = "mov"; ops.RemoveAt(1); }
+                    break;
+                }
 
             case Arm64Format.MoveWide:
-            {
-                var imm16 = (word >> 5) & 0xFFFF;
-                var hw = (int)((word >> 21) & 3);
-                Reg(ops, R.Gpr(rd, sf));
-
-                // movz with no shift is the mov (wide immediate) alias.
-                if (mnem == "movz" && hw == 0)
                 {
-                    mnem = "mov";
-                    Imm(ops, $"#0x{imm16:x}", imm16);
-                }
-                else
-                {
-                    Imm(ops, hw == 0 ? $"#0x{imm16:x}" : $"#0x{imm16:x}, lsl #{hw * 16}", imm16);
-                }
+                    var imm16 = (word >> 5) & 0xFFFF;
+                    var hw = (int)((word >> 21) & 3);
+                    Reg(ops, R.Gpr(rd, sf));
 
-                break;
-            }
+                    // movz with no shift is the mov (wide immediate) alias.
+                    if (mnem == "movz" && hw == 0)
+                    {
+                        mnem = "mov";
+                        Imm(ops, $"#0x{imm16:x}", imm16);
+                    }
+                    else
+                    {
+                        Imm(ops, hw == 0 ? $"#0x{imm16:x}" : $"#0x{imm16:x}, lsl #{hw * 16}", imm16);
+                    }
+
+                    break;
+                }
 
             case Arm64Format.Bitfield:
                 FormatBitfield(ref mnem, ops, word, sf, rd, rn);
                 break;
 
             case Arm64Format.Extract:
-            {
-                var imms = (word >> 10) & 0x3F;
-                Reg(ops, R.Gpr(rd, sf));
-                Reg(ops, R.Gpr(rn, sf));
-                Reg(ops, R.Gpr(rm, sf));
-                Imm(ops, $"#0x{imms:x}", imms);
-                if (rn == rm) { mnem = "ror"; ops.RemoveAt(2); }
-                break;
-            }
+                {
+                    var imms = (word >> 10) & 0x3F;
+                    Reg(ops, R.Gpr(rd, sf));
+                    Reg(ops, R.Gpr(rn, sf));
+                    Reg(ops, R.Gpr(rm, sf));
+                    Imm(ops, $"#0x{imms:x}", imms);
+                    if (rn == rm) { mnem = "ror"; ops.RemoveAt(2); }
+                    break;
+                }
 
             case Arm64Format.Adr:
-            {
-                var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21);
-                target = unchecked(address + (ulong)imm);
-                Reg(ops, R.Gpr(rd, true));
-                Label(ops, target.Value);
-                cat = NativeInstructionCategory.Integer;
-                break;
-            }
+                {
+                    var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21);
+                    target = unchecked(address + (ulong)imm);
+                    Reg(ops, R.Gpr(rd, true));
+                    Label(ops, target.Value);
+                    cat = NativeInstructionCategory.Integer;
+                    break;
+                }
 
             case Arm64Format.Adrp:
-            {
-                var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21) << 12;
-                target = unchecked((address & ~0xFFFUL) + (ulong)imm);
-                Reg(ops, R.Gpr(rd, true));
-                Label(ops, target.Value);
-                break;
-            }
+                {
+                    var imm = SignExtend(((word >> 5) & 0x7FFFF) << 2 | ((word >> 29) & 3), 21) << 12;
+                    target = unchecked((address & ~0xFFFUL) + (ulong)imm);
+                    Reg(ops, R.Gpr(rd, true));
+                    Label(ops, target.Value);
+                    break;
+                }
 
             case Arm64Format.BranchImm26:
-            {
-                var off = SignExtend(word & 0x3FFFFFF, 26) << 2;
-                target = unchecked(address + (ulong)off);
-                Label(ops, target.Value);
-                cat = NativeInstructionCategory.Control;
-                flow = mnem == "bl" ? NativeFlowKind.Call : NativeFlowKind.Jump;
-                break;
-            }
+                {
+                    var off = SignExtend(word & 0x3FFFFFF, 26) << 2;
+                    target = unchecked(address + (ulong)off);
+                    Label(ops, target.Value);
+                    cat = NativeInstructionCategory.Control;
+                    flow = mnem == "bl" ? NativeFlowKind.Call : NativeFlowKind.Jump;
+                    break;
+                }
 
             case Arm64Format.BranchCond:
-            {
-                var off = SignExtend((word >> 5) & 0x7FFFF, 19) << 2;
-                target = unchecked(address + (ulong)off);
-                mnem = "b." + R.Condition((int)(word & 0xF));
-                Label(ops, target.Value);
-                cat = NativeInstructionCategory.Control;
-                flow = NativeFlowKind.ConditionalBranch;
-                break;
-            }
+                {
+                    var off = SignExtend((word >> 5) & 0x7FFFF, 19) << 2;
+                    target = unchecked(address + (ulong)off);
+                    mnem = "b." + R.Condition((int)(word & 0xF));
+                    Label(ops, target.Value);
+                    cat = NativeInstructionCategory.Control;
+                    flow = NativeFlowKind.ConditionalBranch;
+                    break;
+                }
 
             case Arm64Format.CompareBranch:
-            {
-                var off = SignExtend((word >> 5) & 0x7FFFF, 19) << 2;
-                target = unchecked(address + (ulong)off);
-                Reg(ops, R.Gpr(rd, sf));
-                Label(ops, target.Value);
-                cat = NativeInstructionCategory.Control;
-                flow = NativeFlowKind.ConditionalBranch;
-                break;
-            }
+                {
+                    var off = SignExtend((word >> 5) & 0x7FFFF, 19) << 2;
+                    target = unchecked(address + (ulong)off);
+                    Reg(ops, R.Gpr(rd, sf));
+                    Label(ops, target.Value);
+                    cat = NativeInstructionCategory.Control;
+                    flow = NativeFlowKind.ConditionalBranch;
+                    break;
+                }
 
             case Arm64Format.TestBranch:
-            {
-                var bit = (int)(((word >> 31) & 1) << 5 | ((word >> 19) & 0x1F));
-                var off = SignExtend((word >> 5) & 0x3FFF, 14) << 2;
-                target = unchecked(address + (ulong)off);
-                Reg(ops, R.Gpr(rd, bit >= 32));
-                Imm(ops, $"#0x{bit:x}", bit);
-                Label(ops, target.Value);
-                cat = NativeInstructionCategory.Control;
-                flow = NativeFlowKind.ConditionalBranch;
-                break;
-            }
+                {
+                    var bit = (int)(((word >> 31) & 1) << 5 | ((word >> 19) & 0x1F));
+                    var off = SignExtend((word >> 5) & 0x3FFF, 14) << 2;
+                    target = unchecked(address + (ulong)off);
+                    Reg(ops, R.Gpr(rd, bit >= 32));
+                    Imm(ops, $"#0x{bit:x}", bit);
+                    Label(ops, target.Value);
+                    cat = NativeInstructionCategory.Control;
+                    flow = NativeFlowKind.ConditionalBranch;
+                    break;
+                }
 
             case Arm64Format.BranchReg:
                 cat = NativeInstructionCategory.Control;
@@ -211,36 +211,36 @@ internal static partial class Arm64OperandFormatter
                 break;
 
             case Arm64Format.CondSelect:
-            {
-                var cond = R.Condition((int)((word >> 12) & 0xF));
-                Reg(ops, R.Gpr(rd, sf));
-                Reg(ops, R.Gpr(rn, sf));
-                Reg(ops, R.Gpr(rm, sf));
-                Imm(ops, cond, 0);
-
-                // csinc Rd, xzr, xzr, cond → cset Rd, invert(cond).
-                if (mnem == "csinc" && rn == 31 && rm == 31)
                 {
-                    mnem = "cset";
-                    ops.RemoveRange(1, 3);
-                    Imm(ops, R.Condition((int)((word >> 12) & 0xF) ^ 1), 0);
-                }
+                    var cond = R.Condition((int)((word >> 12) & 0xF));
+                    Reg(ops, R.Gpr(rd, sf));
+                    Reg(ops, R.Gpr(rn, sf));
+                    Reg(ops, R.Gpr(rm, sf));
+                    Imm(ops, cond, 0);
 
-                break;
-            }
+                    // csinc Rd, xzr, xzr, cond → cset Rd, invert(cond).
+                    if (mnem == "csinc" && rn == 31 && rm == 31)
+                    {
+                        mnem = "cset";
+                        ops.RemoveRange(1, 3);
+                        Imm(ops, R.Condition((int)((word >> 12) & 0xF) ^ 1), 0);
+                    }
+
+                    break;
+                }
 
             case Arm64Format.CondCompareReg:
             case Arm64Format.CondCompareImm:
-            {
-                var nzcv = word & 0xF;
-                var cond = R.Condition((int)((word >> 12) & 0xF));
-                Reg(ops, R.Gpr(rn, sf));
-                if (entry.Format == Arm64Format.CondCompareImm) Imm(ops, $"#0x{rm:x}", rm);
-                else Reg(ops, R.Gpr(rm, sf));
-                Imm(ops, $"#0x{nzcv:x}", (long)nzcv);
-                Imm(ops, cond, 0);
-                break;
-            }
+                {
+                    var nzcv = word & 0xF;
+                    var cond = R.Condition((int)((word >> 12) & 0xF));
+                    Reg(ops, R.Gpr(rn, sf));
+                    if (entry.Format == Arm64Format.CondCompareImm) Imm(ops, $"#0x{rm:x}", rm);
+                    else Reg(ops, R.Gpr(rm, sf));
+                    Imm(ops, $"#0x{nzcv:x}", (long)nzcv);
+                    Imm(ops, cond, 0);
+                    break;
+                }
 
             case Arm64Format.LdStUImm:
             case Arm64Format.LdStUnscaled:

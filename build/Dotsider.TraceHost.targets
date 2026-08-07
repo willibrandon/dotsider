@@ -1,0 +1,66 @@
+<Project>
+  <PropertyGroup>
+    <_DotsiderTraceHostRoot>$(MSBuildThisFileDirectory)..\</_DotsiderTraceHostRoot>
+    <_DotsiderTraceHostProjectRelativePath>src\Dotsider.TraceHost\Dotsider.TraceHost.csproj</_DotsiderTraceHostProjectRelativePath>
+    <_DotsiderTraceHostProject>$([System.IO.Path]::GetFullPath('$(_DotsiderTraceHostRoot)$(_DotsiderTraceHostProjectRelativePath)'))</_DotsiderTraceHostProject>
+    <_DotsiderTraceHostPublishRelativePath>$(BaseIntermediateOutputPath)tracehost\$(MSBuildProjectName)\$(Configuration)\</_DotsiderTraceHostPublishRelativePath>
+    <_DotsiderTraceHostPublishDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(_DotsiderTraceHostPublishRelativePath)'))</_DotsiderTraceHostPublishDirectory>
+
+    <_DotsiderTraceHostPropertiesToRemove>RuntimeIdentifier;RuntimeIdentifiers;SelfContained</_DotsiderTraceHostPropertiesToRemove>
+    <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);PublishAot;PublishSingleFile;PublishTrimmed</_DotsiderTraceHostPropertiesToRemove>
+    <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);PublishReadyToRun;UseAppHost</_DotsiderTraceHostPropertiesToRemove>
+    <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);_CommandLineDefinedRuntimeIdentifier</_DotsiderTraceHostPropertiesToRemove>
+    <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);_CommandLineDefinedSelfContained</_DotsiderTraceHostPropertiesToRemove>
+    <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);_CommandLineDefinedOutputPath</_DotsiderTraceHostPropertiesToRemove>
+
+    <_DotsiderTraceHostPublishProperties>Configuration=$(Configuration);TargetFramework=net10.0</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);RuntimeIdentifier=;RuntimeIdentifiers=</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishAot=false;SelfContained=false</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishSingleFile=false;PublishTrimmed=false</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishReadyToRun=false;UseAppHost=false</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishDir=$(_DotsiderTraceHostPublishDirectory)</_DotsiderTraceHostPublishProperties>
+
+    <_DotsiderTraceHostExcludedFiles>$(_DotsiderTraceHostPublishDirectory)**\*.pdb</_DotsiderTraceHostExcludedFiles>
+    <_DotsiderTraceHostExcludedFiles>$(_DotsiderTraceHostExcludedFiles);$(_DotsiderTraceHostPublishDirectory)**\*.xml</_DotsiderTraceHostExcludedFiles>
+    <_DotsiderTraceHostExcludedFiles>$(_DotsiderTraceHostExcludedFiles);$(_DotsiderTraceHostPublishDirectory)**\*.dbg</_DotsiderTraceHostExcludedFiles>
+    <_DotsiderTraceHostExcludedFiles>$(_DotsiderTraceHostExcludedFiles);$(_DotsiderTraceHostPublishDirectory)**\*.dwarf</_DotsiderTraceHostExcludedFiles>
+  </PropertyGroup>
+
+  <Target Name="_PublishDotsiderTraceHost"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(_DotsiderTraceHostProject)"
+             Targets="Restore;Publish"
+             BuildInParallel="false"
+             RemoveProperties="$(_DotsiderTraceHostPropertiesToRemove)"
+             Properties="$(_DotsiderTraceHostPublishProperties)" />
+
+  </Target>
+
+  <Target Name="CopyDotsiderTraceHostToOutput"
+          AfterTargets="Build"
+          DependsOnTargets="_PublishDotsiderTraceHost"
+          Condition="'$(IncludeDotsiderTraceHostInOutput)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_DotsiderTraceHostOutputFile Include="$(_DotsiderTraceHostPublishDirectory)**\*"
+                                    Exclude="$(_DotsiderTraceHostExcludedFiles)" />
+    </ItemGroup>
+    <RemoveDir Directories="$(OutDir)tracehost" />
+    <Copy SourceFiles="@(_DotsiderTraceHostOutputFile)"
+          DestinationFolder="$(OutDir)tracehost\%(_DotsiderTraceHostOutputFile.RecursiveDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyDotsiderTraceHostToPublish"
+          AfterTargets="Publish"
+          DependsOnTargets="_PublishDotsiderTraceHost"
+          Condition="'$(IncludeDotsiderTraceHostInPublish)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_DotsiderTraceHostPublishFile Include="$(_DotsiderTraceHostPublishDirectory)**\*"
+                                     Exclude="$(_DotsiderTraceHostExcludedFiles)" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)tracehost" />
+    <Copy SourceFiles="@(_DotsiderTraceHostPublishFile)"
+          DestinationFolder="$(PublishDir)tracehost\%(_DotsiderTraceHostPublishFile.RecursiveDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

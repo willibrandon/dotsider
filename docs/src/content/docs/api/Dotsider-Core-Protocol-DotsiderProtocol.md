@@ -43,4 +43,3 @@ adding optional fields does not.
 ```csharp
 public const int Version = 2
 ```
-

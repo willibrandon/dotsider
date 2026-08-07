@@ -46,4 +46,3 @@ null when the dependency is absent or its manifest path is unsafe.
 ```csharp
 public static ResolvedAssembly? TryResolve(string referencingAssemblyPath, string assemblyName)
 ```
-

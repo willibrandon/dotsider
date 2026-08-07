@@ -58,6 +58,56 @@ public IReadOnlyList<NativeSourceLine> Lines { get; init; }
 
 ## Methods
 
+### Deconstruct(out IReadOnlyList\<NativeSourceLine\>)
+
+**Parameters:**
+
+- `Lines` ([IReadOnlyList\<NativeSourceLine\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<NativeSourceLine> Lines)
+```
+
+### Equals(NativeSourceMap?)
+
+**Parameters:**
+
+- `other` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeSourceMap? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
 ### TryGetLine(ulong, out string, out int)
 
 Resolves a virtual address to its source file and 1-based line, if mapped.
@@ -76,3 +126,30 @@ True when the address falls within a mapped row; otherwise false.
 public bool TryGetLine(ulong virtualAddress, out string file, out int line)
 ```
 
+## Members
+
+### operator !=(NativeSourceMap?, NativeSourceMap?)
+
+**Parameters:**
+
+- `left` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+- `right` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeSourceMap? left, NativeSourceMap? right)
+```
+
+### operator ==(NativeSourceMap?, NativeSourceMap?)
+
+**Parameters:**
+
+- `left` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+- `right` ([NativeSourceMap](/api/dotsider.core.analysis.models.nativesourcemap/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeSourceMap? left, NativeSourceMap? right)
+```

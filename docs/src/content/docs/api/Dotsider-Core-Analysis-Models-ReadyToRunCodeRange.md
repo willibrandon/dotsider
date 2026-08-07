@@ -98,3 +98,86 @@ The range's absolute virtual address (image base + StartRva) in its code image.
 public ulong VirtualAddress { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ReadyToRunCodeRangeKind, out int, out long, out ulong, out int?)
+
+**Parameters:**
+
+- `Kind` ([ReadyToRunCodeRangeKind](/api/dotsider.core.analysis.models.readytoruncoderangekind/))
+- `StartRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `VirtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `FileOffset` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out ReadyToRunCodeRangeKind Kind, out int StartRva, out long Size, out ulong VirtualAddress, out int? FileOffset)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunCodeRange?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunCodeRange? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunCodeRange?, ReadyToRunCodeRange?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/))
+- `right` ([ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunCodeRange? left, ReadyToRunCodeRange? right)
+```
+
+### operator ==(ReadyToRunCodeRange?, ReadyToRunCodeRange?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/))
+- `right` ([ReadyToRunCodeRange](/api/dotsider.core.analysis.models.readytoruncoderange/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunCodeRange? left, ReadyToRunCodeRange? right)
+```

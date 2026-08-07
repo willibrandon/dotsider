@@ -232,3 +232,98 @@ The parse status.
 public ReadyToRunStatus Status { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out uint, out int, out int, out uint, out bool, out bool, out bool, out int, out int, out ReadyToRunStatus, out string?, out NativeArchitecture, out string?, out IReadOnlyList\<ReadyToRunSectionEntry\>, out IReadOnlyList\<ReadyToRunComponent\>, out int, out int)
+
+**Parameters:**
+
+- `Signature` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `MajorVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MinorVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Flags` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `IsComposite` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `IsComponent` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `IsPartialImage` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `HeaderRva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `SectionCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Status` ([ReadyToRunStatus](/api/dotsider.core.analysis.models.readytorunstatus/))
+- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Architecture` ([NativeArchitecture](/api/dotsider.core.analysis.models.nativearchitecture/))
+- `OwnerCompositeExecutable` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Sections` ([IReadOnlyList\<ReadyToRunSectionEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Components` ([IReadOnlyList\<ReadyToRunComponent\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `MethodCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `InstanceMethodCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out uint Signature, out int MajorVersion, out int MinorVersion, out uint Flags, out bool IsComposite, out bool IsComponent, out bool IsPartialImage, out int HeaderRva, out int SectionCount, out ReadyToRunStatus Status, out string? Diagnostic, out NativeArchitecture Architecture, out string? OwnerCompositeExecutable, out IReadOnlyList<ReadyToRunSectionEntry> Sections, out IReadOnlyList<ReadyToRunComponent> Components, out int MethodCount, out int InstanceMethodCount)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunInfo?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunInfo?, ReadyToRunInfo?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/))
+- `right` ([ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunInfo? left, ReadyToRunInfo? right)
+```
+
+### operator ==(ReadyToRunInfo?, ReadyToRunInfo?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/))
+- `right` ([ReadyToRunInfo](/api/dotsider.core.analysis.models.readytoruninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunInfo? left, ReadyToRunInfo? right)
+```

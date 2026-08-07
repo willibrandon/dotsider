@@ -111,4 +111,3 @@ A WebAssembly module's function/code sections, optionally named from
 ```csharp
 WebAssembly = 8
 ```
-

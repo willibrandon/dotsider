@@ -99,4 +99,3 @@ A generic dictionary or an unboxing/other compiler stub.
 ```csharp
 Stub = 3
 ```
-

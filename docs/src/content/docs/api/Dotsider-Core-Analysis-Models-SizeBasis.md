@@ -39,4 +39,3 @@ The sum of the mstat report's attributable entries.
 ```csharp
 MstatTotal = 1
 ```
-

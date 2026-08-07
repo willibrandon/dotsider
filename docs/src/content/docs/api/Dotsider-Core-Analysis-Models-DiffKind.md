@@ -57,4 +57,3 @@ The element is identical in both assemblies.
 ```csharp
 Unchanged = 3
 ```
-

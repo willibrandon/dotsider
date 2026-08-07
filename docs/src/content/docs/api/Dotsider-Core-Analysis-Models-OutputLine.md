@@ -72,3 +72,84 @@ Elapsed time since the trace started.
 public TimeSpan Timestamp { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out TimeSpan, out bool, out string)
+
+**Parameters:**
+
+- `Timestamp` ([TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan))
+- `IsStdErr` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `Text` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out TimeSpan Timestamp, out bool IsStdErr, out string Text)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(OutputLine?)
+
+**Parameters:**
+
+- `other` ([OutputLine](/api/dotsider.core.analysis.models.outputline/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(OutputLine? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(OutputLine?, OutputLine?)
+
+**Parameters:**
+
+- `left` ([OutputLine](/api/dotsider.core.analysis.models.outputline/))
+- `right` ([OutputLine](/api/dotsider.core.analysis.models.outputline/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(OutputLine? left, OutputLine? right)
+```
+
+### operator ==(OutputLine?, OutputLine?)
+
+**Parameters:**
+
+- `left` ([OutputLine](/api/dotsider.core.analysis.models.outputline/))
+- `right` ([OutputLine](/api/dotsider.core.analysis.models.outputline/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(OutputLine? left, OutputLine? right)
+```

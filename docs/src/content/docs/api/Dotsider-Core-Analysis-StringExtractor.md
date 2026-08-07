@@ -32,7 +32,7 @@ and raw printable character sequences from the binary.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
 
 ```csharp
 public StringExtractor(AssemblyAnalyzer analyzer)
@@ -125,4 +125,3 @@ A list of string entries from the user strings heap.
 ```csharp
 public IReadOnlyList<StringEntry> ExtractUserStrings()
 ```
-

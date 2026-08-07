@@ -52,4 +52,3 @@ The resolved assembly or module, or null if not found.
 ```csharp
 public static ResolvedAssembly? Resolve(string referencingAssemblyPath, string assemblyName, string? declaringType = null, string? targetFramework = null, string? preferredRuntimePack = null, string? sourceBundlePath = null, NetFxBindingContext? netFxBindingContext = null, AssemblyAnalyzer? referencingAnalyzer = null)
 ```
-

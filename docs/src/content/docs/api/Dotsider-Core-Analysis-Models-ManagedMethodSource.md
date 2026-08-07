@@ -63,3 +63,83 @@ The assembly's method definitions.
 public IReadOnlyList<MethodDefInfo> Methods { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out IReadOnlyList\<MethodDefInfo\>)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Methods` ([IReadOnlyList\<MethodDefInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out IReadOnlyList<MethodDefInfo> Methods)
+```
+
+### Equals(ManagedMethodSource?)
+
+**Parameters:**
+
+- `other` ([ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ManagedMethodSource? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ManagedMethodSource?, ManagedMethodSource?)
+
+**Parameters:**
+
+- `left` ([ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/))
+- `right` ([ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ManagedMethodSource? left, ManagedMethodSource? right)
+```
+
+### operator ==(ManagedMethodSource?, ManagedMethodSource?)
+
+**Parameters:**
+
+- `left` ([ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/))
+- `right` ([ManagedMethodSource](/api/dotsider.core.analysis.models.managedmethodsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ManagedMethodSource? left, ManagedMethodSource? right)
+```

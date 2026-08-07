@@ -574,13 +574,13 @@ public class IlDisassemblerTests
     {
         byte[] original = File.ReadAllBytes(Samples.HelloWorldDll);
         byte[] patched = (byte[])original.Clone();
-        (int Token, int Rva, int CallOffset) target = FindCallToTruncate(original);
-        TruncateMethodBodyAtCallOperand(patched, target.Rva, target.CallOffset);
+        (int Token, int Rva, int CallOffset) = FindCallToTruncate(original);
+        TruncateMethodBodyAtCallOperand(patched, Rva, CallOffset);
 
         using var intactAnalyzer = new AssemblyAnalyzer(original, "HelloWorld.dll");
         using var malformedAnalyzer = new AssemblyAnalyzer(patched, "HelloWorld-truncated.dll");
         MethodDefInfo malformedMethod = Assert.ContainsSingle(
-            method => method.Token == target.Token,
+            method => method.Token == Token,
             malformedAnalyzer.MethodDefs);
 
         IReadOnlyList<IlInstruction> instructions = new IlDisassembler(malformedAnalyzer)
@@ -595,7 +595,7 @@ public class IlDisassemblerTests
 
         var diff = AssemblyDiffer.Compare(intactAnalyzer, malformedAnalyzer);
         DiffEntry<MethodDefInfo> changed = Assert.ContainsSingle(
-            entry => entry.Left?.Token == target.Token,
+            entry => entry.Left?.Token == Token,
             diff.MethodDiffs);
         Assert.AreEqual(DiffKind.Changed, changed.Kind);
     }

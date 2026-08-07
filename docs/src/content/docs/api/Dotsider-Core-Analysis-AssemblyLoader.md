@@ -45,4 +45,3 @@ or [Direct](/api/dotsider.core.analysis.models.assemblyopenresult.direct/) for r
 ```csharp
 public static AssemblyOpenResult Open(string filePath)
 ```
-

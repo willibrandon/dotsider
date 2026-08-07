@@ -796,7 +796,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
             Assert.IsFalse(File.Exists(tempDll + ".tmp"));
 
             cts.Cancel();
-        await runTask;
+            await runTask;
         }
         finally
         {

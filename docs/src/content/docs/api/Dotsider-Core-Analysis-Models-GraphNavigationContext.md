@@ -181,3 +181,91 @@ the provenance is [IdentityMismatch](/api/dotsider.core.analysis.models.assembly
 public ResolvedAssembly? Resolved { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ResolvedAssembly?, out string?, out string?, out string?, out string?, out AssemblyProvenance, out bool, out string?, out AppliedPolicy?, out AssemblyRefInfo?)
+
+**Parameters:**
+
+- `Resolved` ([ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/))
+- `ReferencingFilePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ReferencingBundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ReferencingTargetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ReferencingPreferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Provenance` ([AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/))
+- `IsFrameworkAssembly` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `CandidateProbePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AppliedPolicy` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+- `LoadedIdentity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+```csharp
+public void Deconstruct(out ResolvedAssembly? Resolved, out string? ReferencingFilePath, out string? ReferencingBundlePath, out string? ReferencingTargetFramework, out string? ReferencingPreferredRuntimePack, out AssemblyProvenance Provenance, out bool IsFrameworkAssembly, out string? CandidateProbePath, out AppliedPolicy? AppliedPolicy, out AssemblyRefInfo? LoadedIdentity)
+```
+
+### Equals(GraphNavigationContext?)
+
+**Parameters:**
+
+- `other` ([GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(GraphNavigationContext? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(GraphNavigationContext?, GraphNavigationContext?)
+
+**Parameters:**
+
+- `left` ([GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/))
+- `right` ([GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(GraphNavigationContext? left, GraphNavigationContext? right)
+```
+
+### operator ==(GraphNavigationContext?, GraphNavigationContext?)
+
+**Parameters:**
+
+- `left` ([GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/))
+- `right` ([GraphNavigationContext](/api/dotsider.core.analysis.models.graphnavigationcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(GraphNavigationContext? left, GraphNavigationContext? right)
+```

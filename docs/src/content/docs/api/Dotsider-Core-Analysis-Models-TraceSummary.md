@@ -127,3 +127,89 @@ Total number of garbage collections across all generations.
 public long TotalGcCollections { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out IReadOnlyDictionary\<TraceEventCategory, int\>, out TimeSpan, out double, out double, out long, out long, out int)
+
+**Parameters:**
+
+- `TotalEvents` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EventsByCategory` ([IReadOnlyDictionary\<TraceEventCategory, Int32\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2))
+- `Duration` ([TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan))
+- `PeakWorkingSetMb` ([Double](https://learn.microsoft.com/dotnet/api/system.double))
+- `PeakGcHeapMb` ([Double](https://learn.microsoft.com/dotnet/api/system.double))
+- `TotalExceptions` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `TotalGcCollections` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `JittedMethodCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int TotalEvents, out IReadOnlyDictionary<TraceEventCategory, int> EventsByCategory, out TimeSpan Duration, out double PeakWorkingSetMb, out double PeakGcHeapMb, out long TotalExceptions, out long TotalGcCollections, out int JittedMethodCount)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(TraceSummary?)
+
+**Parameters:**
+
+- `other` ([TraceSummary](/api/dotsider.core.analysis.models.tracesummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(TraceSummary? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(TraceSummary?, TraceSummary?)
+
+**Parameters:**
+
+- `left` ([TraceSummary](/api/dotsider.core.analysis.models.tracesummary/))
+- `right` ([TraceSummary](/api/dotsider.core.analysis.models.tracesummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(TraceSummary? left, TraceSummary? right)
+```
+
+### operator ==(TraceSummary?, TraceSummary?)
+
+**Parameters:**
+
+- `left` ([TraceSummary](/api/dotsider.core.analysis.models.tracesummary/))
+- `right` ([TraceSummary](/api/dotsider.core.analysis.models.tracesummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(TraceSummary? left, TraceSummary? right)
+```

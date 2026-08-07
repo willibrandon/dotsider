@@ -20,7 +20,7 @@ internal sealed class DotsiderClient
     public static async Task<DotsiderResponse> SendAsync(
         string socketPath, DotsiderRequest request, CancellationToken ct = default)
     {
-        var json = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var json = JsonSerializer.Serialize(request, DotsiderJsonContext.Protocol.DotsiderRequest);
         var requestBytes = Encoding.UTF8.GetByteCount(json);
         if (requestBytes > DotsiderProtocol.MaxRequestBytes)
         {
@@ -34,7 +34,7 @@ internal sealed class DotsiderClient
         DotsiderResponse response;
         try
         {
-            response = JsonSerializer.Deserialize<DotsiderResponse>(responseJson, DotsiderJsonOptions.Default)
+            response = JsonSerializer.Deserialize(responseJson, DotsiderJsonContext.Protocol.DotsiderResponse)
                 ?? new DotsiderResponse { Success = false, Error = "Empty response" };
         }
         catch (JsonException ex)

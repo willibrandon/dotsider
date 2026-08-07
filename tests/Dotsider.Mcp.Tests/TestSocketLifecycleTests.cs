@@ -63,7 +63,7 @@ public sealed class TestSocketLifecycleTests
         await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
         var requestJson = JsonSerializer.Serialize(
             new DotsiderRequest { Method = "fail" },
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
         await writer.WriteLineAsync(requestJson.AsMemory(), TestContext.CancellationToken);
         await handlerEntered.Task.WaitAsync(TestContext.CancellationToken);
 
@@ -104,7 +104,7 @@ public sealed class TestSocketLifecycleTests
         await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
         var request = JsonSerializer.Serialize(
             new DotsiderRequest { Method = "fail" },
-            DotsiderJsonOptions.Default);
+            DotsiderJsonContext.Protocol.Options);
         await writer.WriteLineAsync(request.AsMemory(), TestContext.CancellationToken);
         await handlerEntered.Task.WaitAsync(TestContext.CancellationToken);
 

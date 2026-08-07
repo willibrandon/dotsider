@@ -94,3 +94,86 @@ The metadata token for this field definition.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out FieldAttributes, out string)
+
+**Parameters:**
+
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Attributes` ([FieldAttributes](https://learn.microsoft.com/dotnet/api/system.reflection.fieldattributes))
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int Token, out string DeclaringType, out string Name, out FieldAttributes Attributes, out string Signature)
+```
+
+### Equals(FieldDefInfo?)
+
+**Parameters:**
+
+- `other` ([FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(FieldDefInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(FieldDefInfo?, FieldDefInfo?)
+
+**Parameters:**
+
+- `left` ([FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/))
+- `right` ([FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(FieldDefInfo? left, FieldDefInfo? right)
+```
+
+### operator ==(FieldDefInfo?, FieldDefInfo?)
+
+**Parameters:**
+
+- `left` ([FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/))
+- `right` ([FieldDefInfo](/api/dotsider.core.analysis.models.fielddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(FieldDefInfo? left, FieldDefInfo? right)
+```

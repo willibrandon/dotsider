@@ -80,6 +80,18 @@ public IReadOnlyList<string> MethodNames { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out IReadOnlyList\<string\>, out string?)
+
+**Parameters:**
+
+- `FullName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MethodNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string FullName, out IReadOnlyList<string> MethodNames, out string? AssemblyName)
+```
+
 ### Deconstruct(out string, out IReadOnlyList\<string\>)
 
 Deconstructs into the original two components, preserving call sites written before
@@ -95,3 +107,70 @@ positional parameters, so the two-value form is kept explicitly.
 public void Deconstruct(out string fullName, out IReadOnlyList<string> methodNames)
 ```
 
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(RecoveredType?)
+
+**Parameters:**
+
+- `other` ([RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(RecoveredType? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(RecoveredType?, RecoveredType?)
+
+**Parameters:**
+
+- `left` ([RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/))
+- `right` ([RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(RecoveredType? left, RecoveredType? right)
+```
+
+### operator ==(RecoveredType?, RecoveredType?)
+
+**Parameters:**
+
+- `left` ([RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/))
+- `right` ([RecoveredType](/api/dotsider.core.analysis.models.recoveredtype/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(RecoveredType? left, RecoveredType? right)
+```

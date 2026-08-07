@@ -63,3 +63,83 @@ The dependency-graph node names of the methods folded into the original.
 public IReadOnlyList<string> TargetNames { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out IReadOnlyList\<string\>)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TargetNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string Name, out IReadOnlyList<string> TargetNames)
+```
+
+### Equals(MstatDeduplicatedMethod?)
+
+**Parameters:**
+
+- `other` ([MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatDeduplicatedMethod? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatDeduplicatedMethod?, MstatDeduplicatedMethod?)
+
+**Parameters:**
+
+- `left` ([MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/))
+- `right` ([MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatDeduplicatedMethod? left, MstatDeduplicatedMethod? right)
+```
+
+### operator ==(MstatDeduplicatedMethod?, MstatDeduplicatedMethod?)
+
+**Parameters:**
+
+- `left` ([MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/))
+- `right` ([MstatDeduplicatedMethod](/api/dotsider.core.analysis.models.mstatdeduplicatedmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatDeduplicatedMethod? left, MstatDeduplicatedMethod? right)
+```

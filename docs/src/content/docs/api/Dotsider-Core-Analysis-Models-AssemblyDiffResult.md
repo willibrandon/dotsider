@@ -83,3 +83,85 @@ Diff entries for type definitions.
 public IReadOnlyList<DiffEntry<TypeDefInfo>> TypeDiffs { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out IReadOnlyList\<DiffEntry\<TypeDefInfo\>\>, out IReadOnlyList\<DiffEntry\<MethodDefInfo\>\>, out IReadOnlyList\<DiffEntry\<AssemblyRefInfo\>\>, out DiffSummary)
+
+**Parameters:**
+
+- `TypeDiffs` ([IReadOnlyList\<TypeDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `MethodDiffs` ([IReadOnlyList\<MethodDefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `AssemblyRefDiffs` ([IReadOnlyList\<AssemblyRefInfo\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `MetadataSummary` ([DiffSummary](/api/dotsider.core.analysis.models.diffsummary/))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<DiffEntry<TypeDefInfo>> TypeDiffs, out IReadOnlyList<DiffEntry<MethodDefInfo>> MethodDiffs, out IReadOnlyList<DiffEntry<AssemblyRefInfo>> AssemblyRefDiffs, out DiffSummary MetadataSummary)
+```
+
+### Equals(AssemblyDiffResult?)
+
+**Parameters:**
+
+- `other` ([AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyDiffResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(AssemblyDiffResult?, AssemblyDiffResult?)
+
+**Parameters:**
+
+- `left` ([AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/))
+- `right` ([AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyDiffResult? left, AssemblyDiffResult? right)
+```
+
+### operator ==(AssemblyDiffResult?, AssemblyDiffResult?)
+
+**Parameters:**
+
+- `left` ([AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/))
+- `right` ([AssemblyDiffResult](/api/dotsider.core.analysis.models.assemblydiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyDiffResult? left, AssemblyDiffResult? right)
+```

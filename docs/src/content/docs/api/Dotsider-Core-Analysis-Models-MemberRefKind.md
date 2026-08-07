@@ -37,4 +37,3 @@ The member reference is a method.
 ```csharp
 Method = 0
 ```
-

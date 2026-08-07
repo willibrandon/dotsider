@@ -17,38 +17,36 @@ public static class WasmPayloadBuilder
     /// </summary>
     /// <param name="analyzer">The analyzer whose raw Wasm summary should be serialized.</param>
     /// <returns>A JSON-ready summary object, or null when the analyzer is not raw Wasm.</returns>
-    public static object? BuildSummary(AssemblyAnalyzer analyzer)
+    public static WasmSummary? BuildSummary(AssemblyAnalyzer analyzer)
     {
         if (analyzer.WasmModuleInfo is not { } wasm)
             return null;
 
-        return new
-        {
+        return new WasmSummary(
             wasm.Version,
-            SectionCount = wasm.Sections.Count,
-            TypeCount = wasm.Types.Count,
-            ImportCount = wasm.Imports.Count,
-            ExportCount = wasm.Exports.Count,
-            FunctionCount = wasm.Functions.Count,
+            wasm.Sections.Count,
+            wasm.Types.Count,
+            wasm.Imports.Count,
+            wasm.Exports.Count,
+            wasm.Functions.Count,
             wasm.ImportedFunctionCount,
             wasm.DefinedFunctionCount,
             wasm.CodeSize,
-            TableCount = wasm.Tables.Count,
-            MemoryCount = wasm.Memories.Count,
-            GlobalCount = wasm.Globals.Count,
-            ElementSegmentCount = wasm.Elements.Count,
-            DataSegmentCount = wasm.DataSegments.Count,
+            wasm.Tables.Count,
+            wasm.Memories.Count,
+            wasm.Globals.Count,
+            wasm.Elements.Count,
+            wasm.DataSegments.Count,
             wasm.DataSize,
-            TagCount = wasm.Tags.Count,
+            wasm.Tags.Count,
             wasm.StartFunctionIndex,
             wasm.DataCount,
             wasm.SymbolMapPath,
-            SymbolMapStatus = wasm.SymbolMapStatus.ToString(),
+            wasm.SymbolMapStatus.ToString(),
             wasm.SymbolMapEntryCount,
             wasm.TargetFeatures,
             wasm.ProducerFields,
-            wasm.Diagnostic
-        };
+            wasm.Diagnostic);
     }
 
     /// <summary>
@@ -58,21 +56,17 @@ public static class WasmPayloadBuilder
     /// </summary>
     /// <param name="analyzer">The analyzer that opened a raw Wasm module.</param>
     /// <returns>A JSON-ready section table payload.</returns>
-    public static object BuildSections(AssemblyAnalyzer analyzer)
+    public static WasmSectionsPayload BuildSections(AssemblyAnalyzer analyzer)
     {
         var wasm = RequireWasm(analyzer);
-        return new
-        {
+        return new WasmSectionsPayload(
             analyzer.FilePath,
-            SectionCount = wasm.Sections.Count,
-            Sections = wasm.Sections.Select(static s => new
-            {
+            wasm.Sections.Count,
+            [.. wasm.Sections.Select(static s => new WasmSectionPayload(
                 s.Id,
                 s.Name,
                 s.FileOffset,
-                s.Size
-            }).ToArray()
-        };
+                s.Size))]);
     }
 
     /// <summary>
@@ -82,15 +76,13 @@ public static class WasmPayloadBuilder
     /// </summary>
     /// <param name="analyzer">The analyzer that opened a raw Wasm module.</param>
     /// <returns>A JSON-ready function inventory payload.</returns>
-    public static object BuildFunctions(AssemblyAnalyzer analyzer)
+    public static WasmFunctionsPayload BuildFunctions(AssemblyAnalyzer analyzer)
     {
         var wasm = RequireWasm(analyzer);
-        return new
-        {
+        return new WasmFunctionsPayload(
             analyzer.FilePath,
-            FunctionCount = wasm.Functions.Count,
-            Functions = wasm.Functions.Select(static f => new
-            {
+            wasm.Functions.Count,
+            [.. wasm.Functions.Select(static f => new WasmFunctionPayload(
                 f.Index,
                 f.Name,
                 f.NameSource,
@@ -104,10 +96,8 @@ public static class WasmPayloadBuilder
                 f.BodySize,
                 f.CodeOffset,
                 f.CodeSize,
-                ParamTypes = f.ParamTypes.Select(ValueTypeName).ToArray(),
-                ResultTypes = f.ResultTypes.Select(ValueTypeName).ToArray()
-            }).ToArray()
-        };
+                [.. f.ParamTypes.Select(ValueTypeName)],
+                [.. f.ResultTypes.Select(ValueTypeName)]))]);
     }
 
     private static WasmModuleInfo RequireWasm(AssemblyAnalyzer analyzer)

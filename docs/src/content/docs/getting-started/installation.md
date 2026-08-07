@@ -11,6 +11,17 @@ dotnet tool install -g dotsider
 
 Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later.
 
+On Windows, Linux, and macOS, the .NET SDK selects a self-contained Native AOT tool package for the current operating system and architecture. The install command stays the same on every platform. Other supported environments use the `any` package and require the .NET 10 runtime when dotsider runs.
+
+The Dynamic tab uses the bundled framework-dependent `tracehost` helper to parse EventPipe data. A `dotnet tool` installation already has the required .NET 10-or-later runtime, so no additional setup is needed. If the helper or runtime is unavailable, the tab explains the missing requirement and does not offer to launch a trace.
+
+| Operating system | Architectures | Package runtime identifiers |
+|---|---|---|
+| Windows | x64, Arm64 | `win-x64`, `win-arm64` |
+| Linux (glibc) | x64, Arm64 | `linux-x64`, `linux-arm64` |
+| Linux (musl) | x64, Arm64 | `linux-musl-x64`, `linux-musl-arm64` |
+| macOS | x64, Arm64 | `osx-x64`, `osx-arm64` |
+
 ## Homebrew (macOS / Linux)
 
 ```
@@ -32,4 +43,4 @@ scoop install dotsider
 
 ## Download binary
 
-Grab a standalone binary from [Releases](https://github.com/willibrandon/dotsider/releases). Binaries are self-contained — no .NET SDK needed.
+Grab a Native AOT archive from [Releases](https://github.com/willibrandon/dotsider/releases). Static analysis does not need the .NET SDK or runtime. Live tracing requires a .NET 10-or-later runtime for the included `tracehost` helper; keep the archive's `tracehost` directory beside the executable. Native symbols are available as separate archives for diagnostics.

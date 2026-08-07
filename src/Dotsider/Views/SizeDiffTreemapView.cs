@@ -94,14 +94,20 @@ public static class SizeDiffTreemapView
         {
             state.WhyEditorText = state.WhyContent;
             state.WhyEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(state.WhyContent))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.WhyContent)))
+            {
+                IsReadOnly = true
+            };
         }
 
         if (state.DisasmContent is not null && state.DisasmEditorText != state.DisasmContent)
         {
             state.DisasmEditorText = state.DisasmContent;
             state.DisasmEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(state.DisasmContent))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.DisasmContent)))
+            {
+                IsReadOnly = true
+            };
         }
 
         return ctx.ZStack(z =>
@@ -522,9 +528,13 @@ public static class SizeDiffTreemapView
         if (mode == SizeDiffFilterMode.All) return root;
         return FilterNode(root, mode) ?? root with
         {
-            Children = [], Diff = DiffKind.Unchanged,
-            LeftSize = 0, RightSize = 0, Delta = 0,
-            LeftEntryCount = 0, RightEntryCount = 0,
+            Children = [],
+            Diff = DiffKind.Unchanged,
+            LeftSize = 0,
+            RightSize = 0,
+            Delta = 0,
+            LeftEntryCount = 0,
+            RightEntryCount = 0,
         };
     }
 

@@ -85,3 +85,85 @@ The RVA of the exported symbol, or of the forwarder string.
 public int Rva { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string?, out int, out string?)
+
+**Parameters:**
+
+- `Ordinal` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Rva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ForwardedTo` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int Ordinal, out string? Name, out int Rva, out string? ForwardedTo)
+```
+
+### Equals(ExportedFunctionInfo?)
+
+**Parameters:**
+
+- `other` ([ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ExportedFunctionInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ExportedFunctionInfo?, ExportedFunctionInfo?)
+
+**Parameters:**
+
+- `left` ([ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/))
+- `right` ([ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ExportedFunctionInfo? left, ExportedFunctionInfo? right)
+```
+
+### operator ==(ExportedFunctionInfo?, ExportedFunctionInfo?)
+
+**Parameters:**
+
+- `left` ([ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/))
+- `right` ([ExportedFunctionInfo](/api/dotsider.core.analysis.models.exportedfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ExportedFunctionInfo? left, ExportedFunctionInfo? right)
+```

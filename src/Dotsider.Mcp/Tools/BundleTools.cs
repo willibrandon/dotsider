@@ -2,7 +2,6 @@ using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -26,8 +25,7 @@ public sealed partial class BundleTools
         ToolHelpers.ValidateAssemblyPath(assemblyPath);
 
         if (!SingleFileBundleReader.IsBundle(assemblyPath, out var headerOffset))
-            return Task.FromResult(JsonSerializer.Serialize(
-                new { IsBundle = false }, DotsiderJsonOptions.Default));
+            return Task.FromResult(McpJson.Serialize(new BundleInfoPayload(false)));
 
         BundleManifest manifest;
         try
@@ -36,20 +34,17 @@ public sealed partial class BundleTools
         }
         catch (InvalidDataException)
         {
-            return Task.FromResult(JsonSerializer.Serialize(
-                new { IsBundle = false, Error = "Invalid single-file bundle manifest." },
-                DotsiderJsonOptions.Default));
+            return Task.FromResult(McpJson.Serialize(
+                new BundleInfoPayload(false, Error: "Invalid single-file bundle manifest.")));
         }
 
-        return Task.FromResult(JsonSerializer.Serialize(new
-        {
-            IsBundle = true,
-            manifest.MajorVersion,
-            manifest.MinorVersion,
+        return Task.FromResult(McpJson.Serialize(new BundleInfoPayload(
+            true,
+            (int?)manifest.MajorVersion,
+            (int?)manifest.MinorVersion,
             manifest.FileCount,
             manifest.BundleId,
-            TotalSize = CalculateTotalSize(manifest.Entries)
-        }, DotsiderJsonOptions.Default));
+            CalculateTotalSize(manifest.Entries))));
     }
 
     /// <summary>
@@ -78,14 +73,12 @@ public sealed partial class BundleTools
             return Task.FromResult("Error: Invalid single-file bundle manifest.");
         }
 
-        var entries = manifest.Entries.Select(e => new
-        {
+        var entries = manifest.Entries.Select(e => new BundleEntryPayload(
             e.RelativePath,
-            Type = e.Type.ToString(),
+            e.Type.ToString(),
             e.Size,
-            e.CompressedSize
-        });
-        return Task.FromResult(JsonSerializer.Serialize(entries, DotsiderJsonOptions.Default));
+            e.CompressedSize)).ToList();
+        return Task.FromResult(McpJson.Serialize(entries));
     }
 
     private static long CalculateTotalSize(IEnumerable<BundleEntry> entries)

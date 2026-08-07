@@ -301,3 +301,101 @@ The WebAssembly binary version.
 public int Version { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out IReadOnlyList\<WasmSectionInfo\>, out IReadOnlyList\<WasmTypeInfo\>, out IReadOnlyList\<WasmImportInfo\>, out IReadOnlyList\<WasmExportInfo\>, out IReadOnlyList\<WasmFunctionInfo\>, out IReadOnlyList\<WasmTableInfo\>, out IReadOnlyList\<WasmMemoryInfo\>, out IReadOnlyList\<WasmGlobalInfo\>, out IReadOnlyList\<WasmElementSegmentInfo\>, out IReadOnlyList\<WasmDataSegmentInfo\>, out IReadOnlyList\<WasmTagInfo\>, out int?, out int?, out IReadOnlyList\<string\>, out IReadOnlyList\<string\>, out string?, out WasmSymbolMapStatus, out int, out string?)
+
+**Parameters:**
+
+- `Version` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Sections` ([IReadOnlyList\<WasmSectionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Types` ([IReadOnlyList\<WasmTypeInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Imports` ([IReadOnlyList\<WasmImportInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Exports` ([IReadOnlyList\<WasmExportInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Functions` ([IReadOnlyList\<WasmFunctionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Tables` ([IReadOnlyList\<WasmTableInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Memories` ([IReadOnlyList\<WasmMemoryInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Globals` ([IReadOnlyList\<WasmGlobalInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Elements` ([IReadOnlyList\<WasmElementSegmentInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `DataSegments` ([IReadOnlyList\<WasmDataSegmentInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Tags` ([IReadOnlyList\<WasmTagInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `StartFunctionIndex` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `DataCount` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `TargetFeatures` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `ProducerFields` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `SymbolMapPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `SymbolMapStatus` ([WasmSymbolMapStatus](/api/dotsider.core.analysis.models.wasmsymbolmapstatus/))
+- `SymbolMapEntryCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int Version, out IReadOnlyList<WasmSectionInfo> Sections, out IReadOnlyList<WasmTypeInfo> Types, out IReadOnlyList<WasmImportInfo> Imports, out IReadOnlyList<WasmExportInfo> Exports, out IReadOnlyList<WasmFunctionInfo> Functions, out IReadOnlyList<WasmTableInfo> Tables, out IReadOnlyList<WasmMemoryInfo> Memories, out IReadOnlyList<WasmGlobalInfo> Globals, out IReadOnlyList<WasmElementSegmentInfo> Elements, out IReadOnlyList<WasmDataSegmentInfo> DataSegments, out IReadOnlyList<WasmTagInfo> Tags, out int? StartFunctionIndex, out int? DataCount, out IReadOnlyList<string> TargetFeatures, out IReadOnlyList<string> ProducerFields, out string? SymbolMapPath, out WasmSymbolMapStatus SymbolMapStatus, out int SymbolMapEntryCount, out string? Diagnostic)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmModuleInfo?)
+
+**Parameters:**
+
+- `other` ([WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmModuleInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmModuleInfo?, WasmModuleInfo?)
+
+**Parameters:**
+
+- `left` ([WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/))
+- `right` ([WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmModuleInfo? left, WasmModuleInfo? right)
+```
+
+### operator ==(WasmModuleInfo?, WasmModuleInfo?)
+
+**Parameters:**
+
+- `left` ([WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/))
+- `right` ([WasmModuleInfo](/api/dotsider.core.analysis.models.wasmmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmModuleInfo? left, WasmModuleInfo? right)
+```

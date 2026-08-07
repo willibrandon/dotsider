@@ -221,7 +221,10 @@ public static class GeneralView
         {
             state.GeneralInfoEditorText = infoText;
             state.GeneralInfoEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(infoText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(infoText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         // Adjust word boundaries after double-click (consistent with IL Inspector)

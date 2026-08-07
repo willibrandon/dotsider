@@ -107,4 +107,3 @@ A CodeView entry was present, but it identifies a Windows PDB or another non-por
 ```csharp
 UnsupportedWindowsPdb = 5
 ```
-

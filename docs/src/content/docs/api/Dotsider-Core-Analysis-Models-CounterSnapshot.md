@@ -160,3 +160,92 @@ Process working set in megabytes.
 public double WorkingSetMb { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out TimeSpan, out double, out double, out double, out long, out long, out long, out int, out long, out long, out long)
+
+**Parameters:**
+
+- `Timestamp` ([TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan))
+- `CpuUsagePercent` ([Double](https://learn.microsoft.com/dotnet/api/system.double))
+- `WorkingSetMb` ([Double](https://learn.microsoft.com/dotnet/api/system.double))
+- `GcHeapSizeMb` ([Double](https://learn.microsoft.com/dotnet/api/system.double))
+- `Gen0Collections` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Gen1Collections` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Gen2Collections` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `ThreadPoolThreadCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ThreadPoolQueueLength` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `ExceptionCount` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `ActiveTimerCount` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+
+```csharp
+public void Deconstruct(out TimeSpan Timestamp, out double CpuUsagePercent, out double WorkingSetMb, out double GcHeapSizeMb, out long Gen0Collections, out long Gen1Collections, out long Gen2Collections, out int ThreadPoolThreadCount, out long ThreadPoolQueueLength, out long ExceptionCount, out long ActiveTimerCount)
+```
+
+### Equals(CounterSnapshot?)
+
+**Parameters:**
+
+- `other` ([CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CounterSnapshot? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(CounterSnapshot?, CounterSnapshot?)
+
+**Parameters:**
+
+- `left` ([CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/))
+- `right` ([CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CounterSnapshot? left, CounterSnapshot? right)
+```
+
+### operator ==(CounterSnapshot?, CounterSnapshot?)
+
+**Parameters:**
+
+- `left` ([CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/))
+- `right` ([CounterSnapshot](/api/dotsider.core.analysis.models.countersnapshot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CounterSnapshot? left, CounterSnapshot? right)
+```

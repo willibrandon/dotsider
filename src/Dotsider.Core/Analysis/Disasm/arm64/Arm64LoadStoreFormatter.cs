@@ -197,8 +197,15 @@ internal static partial class Arm64OperandFormatter
         var baseName = R.GprSp(rn, true);
         var name = op switch
         {
-            0 => "ldadd", 1 => "ldclr", 2 => "ldeor", 3 => "ldset",
-            4 => "ldsmax", 5 => "ldsmin", 6 => "ldumax", 7 => "ldumin", _ => "ldadd",
+            0 => "ldadd",
+            1 => "ldclr",
+            2 => "ldeor",
+            3 => "ldset",
+            4 => "ldsmax",
+            5 => "ldsmin",
+            6 => "ldumax",
+            7 => "ldumin",
+            _ => "ldadd",
         };
         var suffix = size switch { 0 => "b", 1 => "h", _ => "" };
 

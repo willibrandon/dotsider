@@ -1,4 +1,3 @@
-using Dotsider.Core.Protocol;
 using System.Text.Json;
 
 namespace Dotsider.Infrastructure;
@@ -49,7 +48,17 @@ internal sealed class OutputFormatter : IDisposable
     /// <summary>Serializes the value as JSON and writes it as a line.</summary>
     public void WriteJson<T>(T value)
     {
-        var json = JsonSerializer.Serialize(value, DotsiderJsonOptions.Default);
+        if (value is null)
+        {
+            _writer.WriteLine("null");
+            return;
+        }
+
+        var jsonTypeInfo = DotsiderAppJsonContext.Application.GetTypeInfo(value.GetType())
+            ?? DotsiderAppJsonContext.Application.GetTypeInfo(typeof(T))
+            ?? throw new InvalidOperationException(
+                $"No source-generated JSON metadata is registered for {value.GetType()}.");
+        var json = JsonSerializer.Serialize(value, jsonTypeInfo);
         _writer.WriteLine(json);
     }
 

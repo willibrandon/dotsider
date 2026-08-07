@@ -144,6 +144,22 @@ public long Size { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out long, out SizeNodeKind, out IReadOnlyList\<SizeNode\>, out string?, out ulong?)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/))
+- `Children` ([IReadOnlyList\<SizeNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `AotNodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `NativeAddress` ([Nullable\<UInt64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out string Name, out string FullPath, out long Size, out SizeNodeKind Kind, out IReadOnlyList<SizeNode> Children, out string? AotNodeName, out ulong? NativeAddress)
+```
+
 ### Deconstruct(out string, out string, out long, out SizeNodeKind, out IReadOnlyList\<SizeNode\>, out string?)
 
 The pre-#178 six-output deconstruction, preserved alongside the generated seven-output one.
@@ -161,3 +177,70 @@ The pre-#178 six-output deconstruction, preserved alongside the generated seven-
 public void Deconstruct(out string name, out string fullPath, out long size, out SizeNodeKind kind, out IReadOnlyList<SizeNode> children, out string? aotNodeName)
 ```
 
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeNode?)
+
+**Parameters:**
+
+- `other` ([SizeNode](/api/dotsider.core.analysis.models.sizenode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeNode? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeNode?, SizeNode?)
+
+**Parameters:**
+
+- `left` ([SizeNode](/api/dotsider.core.analysis.models.sizenode/))
+- `right` ([SizeNode](/api/dotsider.core.analysis.models.sizenode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeNode? left, SizeNode? right)
+```
+
+### operator ==(SizeNode?, SizeNode?)
+
+**Parameters:**
+
+- `left` ([SizeNode](/api/dotsider.core.analysis.models.sizenode/))
+- `right` ([SizeNode](/api/dotsider.core.analysis.models.sizenode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeNode? left, SizeNode? right)
+```

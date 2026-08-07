@@ -2,7 +2,6 @@ using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -32,7 +31,7 @@ public sealed partial class RuntimeTools(DotsiderSessionManager sessionManager)
         var result = DotNetRuntimeLocator.FindAssemblyInSharedFramework(
             assemblyName, targetFramework, preferredRuntimePack);
 
-        return Task.FromResult(JsonSerializer.Serialize(result, DotsiderJsonOptions.Default));
+        return Task.FromResult(McpJson.Serialize(result));
     }
 
     /// <summary>
@@ -74,7 +73,7 @@ public sealed partial class RuntimeTools(DotsiderSessionManager sessionManager)
                     new ResolvedAssemblyInfo("module", module.Path, null, null),
                 _ => null
             };
-            return JsonSerializer.Serialize(info, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(info);
         }
 
         if (sessionId is not null)

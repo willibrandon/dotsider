@@ -118,6 +118,20 @@ public int Size { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out int, out string?, out string)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `NodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Name, out string AssemblyName, out int Size, out string? NodeName, out string Namespace)
+```
+
 ### Deconstruct(out string, out string, out int, out string?)
 
 The pre-namespace four-output deconstruction, preserved alongside the generated five-output one.
@@ -133,3 +147,70 @@ The pre-namespace four-output deconstruction, preserved alongside the generated 
 public void Deconstruct(out string name, out string assemblyName, out int size, out string? nodeName)
 ```
 
+### Equals(MstatRvaField?)
+
+**Parameters:**
+
+- `other` ([MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatRvaField? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatRvaField?, MstatRvaField?)
+
+**Parameters:**
+
+- `left` ([MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/))
+- `right` ([MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatRvaField? left, MstatRvaField? right)
+```
+
+### operator ==(MstatRvaField?, MstatRvaField?)
+
+**Parameters:**
+
+- `left` ([MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/))
+- `right` ([MstatRvaField](/api/dotsider.core.analysis.models.mstatrvafield/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatRvaField? left, MstatRvaField? right)
+```

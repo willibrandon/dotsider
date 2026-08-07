@@ -1,4 +1,3 @@
-using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
@@ -191,7 +190,7 @@ public class SessionDiagnosticsSocketTests
         {
             // Send the same capture request that `dotsider sessions capture <pid>` uses
             var requestJson = JsonSerializer.Serialize(
-                new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
+                new { method = "capture", format = "text" });
 
             var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, CancellationToken.None);
             var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
@@ -221,7 +220,7 @@ public class SessionDiagnosticsSocketTests
         {
             // Exercise the same code path that MCP capture_screen uses
             var requestJson = JsonSerializer.Serialize(
-                new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
+                new { method = "capture", format = "text" });
 
             var responseJson = await DotsiderClient.SendRawAsync(filter.SocketPath, requestJson, CancellationToken.None);
             var response = JsonSerializer.Deserialize<JsonElement>(responseJson);

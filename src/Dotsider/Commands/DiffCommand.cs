@@ -133,37 +133,27 @@ internal static class DiffCommand
             {
                 var s = capturedState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "size-diff",
-                    FileName = $"{s.LeftName} ↔ {s.RightName}",
-                    Left = new
-                    {
+                return DotsiderAppJsonContext.SerializeToElement(new SizeDiffSessionAssemblyPayload(
+                    "size-diff",
+                    $"{s.LeftName} ↔ {s.RightName}",
+                    new SizeDiffSessionSourcePayload(
                         s.LeftSource.MstatPath,
                         s.LeftSource.BinaryPath,
                         s.LeftSource.BinaryFileSize,
-                        MstatTotal = s.Diff.Summary.LeftTotal,
-                    },
-                    Right = new
-                    {
+                        s.Diff.Summary.LeftTotal),
+                    new SizeDiffSessionSourcePayload(
                         s.RightSource.MstatPath,
                         s.RightSource.BinaryPath,
                         s.RightSource.BinaryFileSize,
-                        MstatTotal = s.Diff.Summary.RightTotal,
-                    },
-                    s.Diff.Summary.Delta,
-                };
+                        s.Diff.Summary.RightTotal),
+                    s.Diff.Summary.Delta));
             },
             currentViewProvider: () =>
             {
                 var s = capturedState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "size-diff",
-                    Tab = s.CurrentTab + 1,
-                    s.FilterMode,
-                };
+                return DotsiderAppJsonContext.SerializeToElement(new SizeDiffSessionViewPayload(
+                    "size-diff", s.CurrentTab + 1, s.FilterMode));
             });
 
         var escAdapter = new EscapeTimeoutPresentationAdapter(
@@ -281,40 +271,30 @@ internal static class DiffCommand
             {
                 var s = capturedDiffState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "diff",
-                    FileName = $"{s.Left.FileName} ↔ {s.Right.FileName}",
-                    Left = new
-                    {
+                return DotsiderAppJsonContext.SerializeToElement(new DiffSessionAssemblyPayload(
+                    "diff",
+                    $"{s.Left.FileName} ↔ {s.Right.FileName}",
+                    new DiffSessionSidePayload(
                         s.Left.FilePath,
                         s.Left.FileName,
                         s.Left.FileSize,
                         s.Left.AssemblyName,
                         s.Left.AssemblyVersion,
-                        s.Left.TargetFramework,
-                    },
-                    Right = new
-                    {
+                        s.Left.TargetFramework),
+                    new DiffSessionSidePayload(
                         s.Right.FilePath,
                         s.Right.FileName,
                         s.Right.FileSize,
                         s.Right.AssemblyName,
                         s.Right.AssemblyVersion,
-                        s.Right.TargetFramework,
-                    },
-                };
+                        s.Right.TargetFramework)));
             },
             currentViewProvider: () =>
             {
                 var s = capturedDiffState;
                 if (s is null) return null;
-                return new
-                {
-                    Mode = "diff",
-                    Tab = s.CurrentTab + 1,
-                    s.FilterMode,
-                };
+                return DotsiderAppJsonContext.SerializeToElement(new DiffSessionViewPayload(
+                    "diff", s.CurrentTab + 1, s.FilterMode));
             });
 
         var diffEscAdapter = new EscapeTimeoutPresentationAdapter(

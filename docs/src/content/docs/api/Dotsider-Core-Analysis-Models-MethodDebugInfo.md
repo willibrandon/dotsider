@@ -83,3 +83,85 @@ Decoded sequence points for the method.
 public IReadOnlyList<SequencePointInfo> SequencePoints { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out PdbProvenance, out IReadOnlyList\<SequencePointInfo\>, out IReadOnlyList\<LocalSlotInfo\>)
+
+**Parameters:**
+
+- `MethodToken` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Pdb` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+- `SequencePoints` ([IReadOnlyList\<SequencePointInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Locals` ([IReadOnlyList\<LocalSlotInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out int MethodToken, out PdbProvenance Pdb, out IReadOnlyList<SequencePointInfo> SequencePoints, out IReadOnlyList<LocalSlotInfo> Locals)
+```
+
+### Equals(MethodDebugInfo?)
+
+**Parameters:**
+
+- `other` ([MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MethodDebugInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MethodDebugInfo?, MethodDebugInfo?)
+
+**Parameters:**
+
+- `left` ([MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/))
+- `right` ([MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MethodDebugInfo? left, MethodDebugInfo? right)
+```
+
+### operator ==(MethodDebugInfo?, MethodDebugInfo?)
+
+**Parameters:**
+
+- `left` ([MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/))
+- `right` ([MethodDebugInfo](/api/dotsider.core.analysis.models.methoddebuginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MethodDebugInfo? left, MethodDebugInfo? right)
+```

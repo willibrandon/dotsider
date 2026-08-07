@@ -49,7 +49,7 @@ managed tree does. The parse is signature-aware (it ignores the parameter list) 
 nested types (`+`) and generic arity markers.
 
 ```csharp
-public readonly record struct NativeSymbolName : IEquatable<NativeSymbolName>
+public readonly struct NativeSymbolName : IEquatable<NativeSymbolName>
 ```
 
 ## Delegates
@@ -73,4 +73,3 @@ True when a symbol contains virtualAddress; otherwise false.
 ```csharp
 public delegate bool NativeSymbolResolver(ulong virtualAddress, out NativeSymbolRef symbol)
 ```
-

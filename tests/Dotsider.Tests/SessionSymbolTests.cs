@@ -4,7 +4,6 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
 using System.Collections.Concurrent;
-using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -52,7 +51,7 @@ public class SessionSymbolTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -85,7 +84,7 @@ public class SessionSymbolTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-native-symbols" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsGreaterThan(0, data.GetProperty("symbols").GetArrayLength());
         Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("source").GetString()));
         Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("status").GetString()));
@@ -123,7 +122,7 @@ public class SessionSymbolTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-native-symbols" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("webAssembly", data.GetProperty("source").GetString());
         Assert.AreEqual("wasm32", data.GetProperty("architecture").GetString());
         Assert.IsGreaterThan(0, data.GetProperty("symbols").GetArrayLength());
@@ -153,7 +152,7 @@ public class SessionSymbolTests : IAsyncDisposable
             new DotsiderRequest { Method = "disassemble-native", SymbolName = funcAlias }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("Wasm32", data.GetProperty("architecture").GetString());
         Assert.IsGreaterThan(0, data.GetProperty("instructions").GetArrayLength());
     }
@@ -175,7 +174,7 @@ public class SessionSymbolTests : IAsyncDisposable
             new DotsiderRequest { Method = "assembly-info" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsGreaterThan(0, data.GetProperty("nativeSymbolCount").GetInt32());
         Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("nativeSymbolSource").GetString()));
         Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("nativeSymbolStatus").GetString()));

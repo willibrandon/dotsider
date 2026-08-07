@@ -103,4 +103,3 @@ The number of header lines, or 0 if no IL body.
 ```csharp
 public int GetHeaderLineCount(MethodDefInfo method)
 ```
-

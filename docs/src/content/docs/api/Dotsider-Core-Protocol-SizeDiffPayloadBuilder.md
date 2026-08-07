@@ -37,12 +37,12 @@ builder evaluates what it is given.
 - `budgets` ([IReadOnlyList\<SizeBudget\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)): The budgets to evaluate.
 - `topN` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): Contributors per violated budget, or null for [DefaultTopN](/api/dotsider.core.protocol.sizediffpayloadbuilder.defaulttopn/).
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [SizeBudgetPayload](/api/dotsider.core.protocol.sizebudgetpayload/)
 
 The serializable payload.
 
 ```csharp
-public static object BuildBudgetPayload(MstatSource target, MstatSource? baseline, IReadOnlyList<SizeBudget> budgets, int? topN)
+public static SizeBudgetPayload BuildBudgetPayload(MstatSource target, MstatSource? baseline, IReadOnlyList<SizeBudget> budgets, int? topN)
 ```
 
 ### BuildDiffPayload(MstatSource, MstatSource, int?, bool, int?)
@@ -60,12 +60,12 @@ application is enormous.
 - `includeTree` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): Whether to include the delta tree.
 - `maxNodes` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): The tree node cap, or null for [DefaultMaxNodes](/api/dotsider.core.protocol.sizediffpayloadbuilder.defaultmaxnodes/).
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [SizeDiffPayload](/api/dotsider.core.protocol.sizediffpayload/)
 
 The serializable payload.
 
 ```csharp
-public static object BuildDiffPayload(MstatSource left, MstatSource right, int? topN, bool includeTree, int? maxNodes)
+public static SizeDiffPayload BuildDiffPayload(MstatSource left, MstatSource right, int? topN, bool includeTree, int? maxNodes)
 ```
 
 ## Fields
@@ -89,4 +89,3 @@ The default contributor count when a caller does not pin one.
 ```csharp
 public const int DefaultTopN = 20
 ```
-

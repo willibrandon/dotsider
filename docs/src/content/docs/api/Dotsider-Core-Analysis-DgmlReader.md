@@ -60,4 +60,3 @@ The graph, or null when the file is missing or is not a DGML document.
 ```csharp
 public static DgmlGraph? Read(string filePath)
 ```
-

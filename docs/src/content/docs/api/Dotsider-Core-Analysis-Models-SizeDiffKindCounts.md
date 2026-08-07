@@ -109,3 +109,87 @@ Entries present in both builds at the same size.
 public int Unchanged { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out SizeNodeKind, out int, out int, out int, out int, out int)
+
+**Parameters:**
+
+- `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/))
+- `Added` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Removed` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Grown` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Shrunk` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Unchanged` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out SizeNodeKind Kind, out int Added, out int Removed, out int Grown, out int Shrunk, out int Unchanged)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeDiffKindCounts?)
+
+**Parameters:**
+
+- `other` ([SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeDiffKindCounts? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeDiffKindCounts?, SizeDiffKindCounts?)
+
+**Parameters:**
+
+- `left` ([SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/))
+- `right` ([SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeDiffKindCounts? left, SizeDiffKindCounts? right)
+```
+
+### operator ==(SizeDiffKindCounts?, SizeDiffKindCounts?)
+
+**Parameters:**
+
+- `left` ([SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/))
+- `right` ([SizeDiffKindCounts](/api/dotsider.core.analysis.models.sizediffkindcounts/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeDiffKindCounts? left, SizeDiffKindCounts? right)
+```

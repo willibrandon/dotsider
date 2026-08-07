@@ -38,4 +38,3 @@ A breach is reported without failing the check.
 ```csharp
 Warning = 1
 ```
-

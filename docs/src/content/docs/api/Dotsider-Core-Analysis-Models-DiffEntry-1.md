@@ -83,3 +83,85 @@ The item from the right (updated) assembly, or null if removed.
 public T? Right { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out DiffKind, out T?, out T?, out string?)
+
+**Parameters:**
+
+- `Kind` ([DiffKind](/api/dotsider.core.analysis.models.diffkind/))
+- `Left` (\<T\>)
+- `Right` (\<T\>)
+- `ChangeDescription` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out DiffKind Kind, out T? Left, out T? Right, out string? ChangeDescription)
+```
+
+### Equals(DiffEntry\<T\>?)
+
+**Parameters:**
+
+- `other` ([DiffEntry`1](/api/dotsider.core.analysis.models.diffentry-1/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(DiffEntry<T>? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(DiffEntry\<T\>?, DiffEntry\<T\>?)
+
+**Parameters:**
+
+- `left` ([DiffEntry`1](/api/dotsider.core.analysis.models.diffentry-1/))
+- `right` ([DiffEntry`1](/api/dotsider.core.analysis.models.diffentry-1/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(DiffEntry<T>? left, DiffEntry<T>? right)
+```
+
+### operator ==(DiffEntry\<T\>?, DiffEntry\<T\>?)
+
+**Parameters:**
+
+- `left` ([DiffEntry`1](/api/dotsider.core.analysis.models.diffentry-1/))
+- `right` ([DiffEntry`1](/api/dotsider.core.analysis.models.diffentry-1/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(DiffEntry<T>? left, DiffEntry<T>? right)
+```

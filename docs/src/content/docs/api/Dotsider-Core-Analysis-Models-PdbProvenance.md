@@ -74,15 +74,82 @@ public string? Path { get; init; }
 
 ## Methods
 
+### Deconstruct(out PdbProvenanceKind, out string?, out string?)
+
+**Parameters:**
+
+- `Kind` ([PdbProvenanceKind](/api/dotsider.core.analysis.models.pdbprovenancekind/))
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Details` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out PdbProvenanceKind Kind, out string? Path, out string? Details)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(PdbProvenance?)
+
+**Parameters:**
+
+- `other` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(PdbProvenance? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
 ### ToString()
 
-Returns a string that represents the current object.
-
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
-
-A string that represents the current object.
 
 ```csharp
 public override string ToString()
 ```
 
+## Members
+
+### operator !=(PdbProvenance?, PdbProvenance?)
+
+**Parameters:**
+
+- `left` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+- `right` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(PdbProvenance? left, PdbProvenance? right)
+```
+
+### operator ==(PdbProvenance?, PdbProvenance?)
+
+**Parameters:**
+
+- `left` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+- `right` ([PdbProvenance](/api/dotsider.core.analysis.models.pdbprovenance/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(PdbProvenance? left, PdbProvenance? right)
+```

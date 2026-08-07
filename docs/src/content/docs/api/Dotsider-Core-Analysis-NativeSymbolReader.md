@@ -45,4 +45,3 @@ symbol data that yields no functions degrades to the applicable platform fallbac
 ```csharp
 public static NativeSymbolInfo Read(string imagePath, ReadOnlyMemory<byte> imageBytes, IReadOnlyList<RecoveredType> recoveredTypes)
 ```
-

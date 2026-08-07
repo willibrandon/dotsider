@@ -408,7 +408,8 @@ public class DotsiderStateTests : IDisposable
         state.CurrentTab = TabId.General;
         state.NavigateToTab(TabId.IlInspector);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument("test")) { IsReadOnly = true };
+            new Hex1b.Documents.Hex1bDocument("test"))
+        { IsReadOnly = true };
 
         // Leave IL, go to Strings, return
         state.NavigateToTab(TabId.Strings);

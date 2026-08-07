@@ -57,7 +57,7 @@ public class SessionDiffModeTests
 
         _listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 FileName = $"{_leftAnalyzer.FileName} \u2194 {_rightAnalyzer.FileName}",
@@ -79,13 +79,13 @@ public class SessionDiffModeTests
                     _rightAnalyzer.AssemblyVersion,
                     _rightAnalyzer.TargetFramework,
                 },
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 Tab = _currentTab + 1,
                 FilterMode = _filterMode,
-            });
+            }));
         _diffPid = TestSocketIds.NextPid();
         _listener.StartListening(overridePid: _diffPid);
 
@@ -153,7 +153,7 @@ public class SessionDiffModeTests
         Assert.IsNotNull(response);
         Assert.IsTrue(response.Success);
 
-        var data = response.Data as JsonElement?;
+        var data = response.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
 
@@ -184,7 +184,7 @@ public class SessionDiffModeTests
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = response.Data as JsonElement?;
+        var data = response.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
         Assert.AreEqual(3, data.Value.GetProperty("tab").GetInt32());

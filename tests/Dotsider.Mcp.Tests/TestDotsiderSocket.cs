@@ -59,7 +59,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
             File.Delete(SocketPath);
 
         // Register default handler for assembly-info (required for session discovery)
-        _handlers["assembly-info"] = _ => DotsiderResponse.Ok(new
+        _handlers["assembly-info"] = _ => TestJsonResponse.Ok(new
         {
             FilePath = assemblyPath,
             FileName = Path.GetFileName(assemblyPath),
@@ -149,7 +149,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
             DotsiderResponse response;
             try
             {
-                var request = JsonSerializer.Deserialize<DotsiderRequest>(line, DotsiderJsonOptions.Default);
+                var request = JsonSerializer.Deserialize<DotsiderRequest>(line, DotsiderJsonContext.Protocol.Options);
                 if (request is null)
                 {
                     response = DotsiderResponse.Fail("Empty request");
@@ -178,7 +178,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
 
             if (handlerFailure is null)
             {
-                var responseJson = JsonSerializer.Serialize(response, DotsiderJsonOptions.Default);
+                var responseJson = JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.Options);
                 await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
             }
         }

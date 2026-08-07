@@ -47,4 +47,3 @@ CLR 4 generation — .NET Framework 4.0 through 4.8.x. Binds out of
 ```csharp
 Clr4 = 1
 ```
-

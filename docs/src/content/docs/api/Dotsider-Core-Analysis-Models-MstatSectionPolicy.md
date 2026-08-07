@@ -19,7 +19,7 @@ detail entries or the bucket blob — never both. Sharing this policy between
 and [MstatDiffer](/api/dotsider.core.analysis.mstatdiffer/) is what keeps their totals identical.
 
 ```csharp
-public readonly record struct MstatSectionPolicy : IEquatable<MstatSectionPolicy>
+public readonly struct MstatSectionPolicy : IEquatable<MstatSectionPolicy>
 ```
 
 ## Implements
@@ -82,6 +82,42 @@ public bool UseRvaFields { get; init; }
 
 ## Methods
 
+### Deconstruct(out bool, out bool, out bool)
+
+**Parameters:**
+
+- `UseFrozenObjects` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `UseRvaFields` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `UseManifestResources` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out bool UseFrozenObjects, out bool UseRvaFields, out bool UseManifestResources)
+```
+
+### Equals(MstatSectionPolicy)
+
+**Parameters:**
+
+- `other` ([MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatSectionPolicy other)
+```
+
+### Equals(object)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object obj)
+```
+
 ### ExcludedBlobNames()
 
 The blob names this policy excludes — the buckets whose bytes are read from a detail
@@ -134,3 +170,46 @@ The shared policy for both sides.
 public static MstatSectionPolicy ForPair(MstatData left, MstatData right)
 ```
 
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatSectionPolicy, MstatSectionPolicy)
+
+**Parameters:**
+
+- `left` ([MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/))
+- `right` ([MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatSectionPolicy left, MstatSectionPolicy right)
+```
+
+### operator ==(MstatSectionPolicy, MstatSectionPolicy)
+
+**Parameters:**
+
+- `left` ([MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/))
+- `right` ([MstatSectionPolicy](/api/dotsider.core.analysis.models.mstatsectionpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatSectionPolicy left, MstatSectionPolicy right)
+```

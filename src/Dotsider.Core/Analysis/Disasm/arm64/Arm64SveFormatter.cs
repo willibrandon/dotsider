@@ -36,25 +36,25 @@ internal static partial class Arm64OperandFormatter
                 break;
 
             case Arm64Format.SveWhile:
-            {
-                var is64 = ((word >> 12) & 1) == 1;
-                P(ops, zd & 0xF, elt);
-                Reg(ops, R.Gpr(zn, is64));
-                Reg(ops, R.Gpr(zm, is64));
-                break;
-            }
+                {
+                    var is64 = ((word >> 12) & 1) == 1;
+                    P(ops, zd & 0xF, elt);
+                    Reg(ops, R.Gpr(zn, is64));
+                    Reg(ops, R.Gpr(zm, is64));
+                    break;
+                }
 
             case Arm64Format.SveLoad:
             case Arm64Format.SveStore:
-            {
-                var scale = mnem[^1] switch { 'b' => 0, 'h' => 1, 'w' => 2, _ => 3 };
-                var eltLs = mnem[^1] switch { 'b' => "b", 'h' => "h", 'w' => "s", _ => "d" };
-                ZList(ops, zd, eltLs);
-                Pred(ops, pg, format == Arm64Format.SveLoad ? "z" : null);
-                var lsl = scale == 0 ? "" : $", lsl #{scale}";
-                Mem(ops, $"[{R.GprSp(zn, true)}, {R.Gpr(zm, true)}{lsl}]", R.GprSp(zn, true), 0);
-                break;
-            }
+                {
+                    var scale = mnem[^1] switch { 'b' => 0, 'h' => 1, 'w' => 2, _ => 3 };
+                    var eltLs = mnem[^1] switch { 'b' => "b", 'h' => "h", 'w' => "s", _ => "d" };
+                    ZList(ops, zd, eltLs);
+                    Pred(ops, pg, format == Arm64Format.SveLoad ? "z" : null);
+                    var lsl = scale == 0 ? "" : $", lsl #{scale}";
+                    Mem(ops, $"[{R.GprSp(zn, true)}, {R.Gpr(zm, true)}{lsl}]", R.GprSp(zn, true), 0);
+                    break;
+                }
 
             case Arm64Format.SveCmpVec:
                 P(ops, zd & 0xF, elt); Pred(ops, pg, "z"); Z(ops, zn, elt); Z(ops, zm, elt);
@@ -70,12 +70,12 @@ internal static partial class Arm64OperandFormatter
                 break;
 
             case Arm64Format.SveDupImm:
-            {
-                var imm = SignExtend((word >> 5) & 0xFF, 8);
-                Z(ops, zd, elt);
-                Imm(ops, $"#{imm}", imm);
-                break;
-            }
+                {
+                    var imm = SignExtend((word >> 5) & 0xFF, 8);
+                    Z(ops, zd, elt);
+                    Imm(ops, $"#{imm}", imm);
+                    break;
+                }
 
             case Arm64Format.SveInc:
                 Reg(ops, R.Gpr(zd, true));

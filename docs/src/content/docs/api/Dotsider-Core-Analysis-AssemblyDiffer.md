@@ -39,4 +39,3 @@ A diff result containing type, method, and reference differences.
 ```csharp
 public static AssemblyDiffResult Compare(AssemblyAnalyzer left, AssemblyAnalyzer right)
 ```
-

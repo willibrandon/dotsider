@@ -120,3 +120,88 @@ Totals, unchanged mass, and per-kind direction counts.
 public SizeDiffSummary Summary { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out SizeDiffNode, out SizeDiffSummary, out IReadOnlyList\<SizeDiffContributor\>, out IReadOnlyList\<SizeDiffAggregate\>, out IReadOnlyList\<SizeDiffAggregate\>)
+
+**Parameters:**
+
+- `LeftFormatVersion` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `RightFormatVersion` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Root` ([SizeDiffNode](/api/dotsider.core.analysis.models.sizediffnode/))
+- `Summary` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+- `Contributors` ([IReadOnlyList\<SizeDiffContributor\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `AssemblyDeltas` ([IReadOnlyList\<SizeDiffAggregate\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `NamespaceDeltas` ([IReadOnlyList\<SizeDiffAggregate\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string LeftFormatVersion, out string RightFormatVersion, out SizeDiffNode Root, out SizeDiffSummary Summary, out IReadOnlyList<SizeDiffContributor> Contributors, out IReadOnlyList<SizeDiffAggregate> AssemblyDeltas, out IReadOnlyList<SizeDiffAggregate> NamespaceDeltas)
+```
+
+### Equals(MstatDiffResult?)
+
+**Parameters:**
+
+- `other` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatDiffResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatDiffResult?, MstatDiffResult?)
+
+**Parameters:**
+
+- `left` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+- `right` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatDiffResult? left, MstatDiffResult? right)
+```
+
+### operator ==(MstatDiffResult?, MstatDiffResult?)
+
+**Parameters:**
+
+- `left` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+- `right` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatDiffResult? left, MstatDiffResult? right)
+```

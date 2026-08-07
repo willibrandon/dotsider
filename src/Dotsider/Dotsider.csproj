@@ -11,6 +11,20 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>$(RuntimeIdentifiers);any</ToolPackageRuntimeIdentifiers>
+    <IncludeSymbols>false</IncludeSymbols>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <NativeDebugSymbols>true</NativeDebugSymbols>
+    <StackTraceSupport>true</StackTraceSupport>
+    <IncludeDotsiderTraceHostInOutput>true</IncludeDotsiderTraceHostInOutput>
+    <IncludeDotsiderTraceHostInPublish>true</IncludeDotsiderTraceHostInPublish>
+    <ControlFlowGuard Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-', System.StringComparison.Ordinal))">Guard</ControlFlowGuard>
+    <DsymUtilOptions Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx-', System.StringComparison.Ordinal))">$(DsymUtilOptions) &gt;/dev/null 2&gt;&amp;1</DsymUtilOptions>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -43,8 +57,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hex1b" Version="0.165.0" />
-    <PackageReference Include="System.CommandLine" Version="2.0.9" />
+    <PackageReference Include="Hex1b" IsAotCompatible="true" />
+    <PackageReference Include="System.CommandLine" IsAotCompatible="true" />
   </ItemGroup>
+
+  <Target Name="RemoveUnusedWindowsPtyHostFromPublish" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'any' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-', System.StringComparison.Ordinal))">
+    <ItemGroup>
+      <_UnusedWindowsPtyHost Include="$(PublishDir)hex1bpty.exe" />
+      <_UnusedWindowsPtyHost Include="$(PublishDir)runtimes\win-x64\native\hex1bpty.exe" />
+      <_UnusedWindowsPtyHost Include="$(PublishDir)runtimes\win-arm64\native\hex1bpty.exe" />
+    </ItemGroup>
+    <Delete Files="@(_UnusedWindowsPtyHost)" />
+    <Error Condition="Exists('$(PublishDir)hex1bpty.exe')" Text="The unused Hex1b PTY host must not be included in dotsider publish output." />
+    <Error Condition="Exists('$(PublishDir)runtimes\win-x64\native\hex1bpty.exe') or Exists('$(PublishDir)runtimes\win-arm64\native\hex1bpty.exe')" Text="The unused Hex1b PTY host must not be included in dotsider publish output." />
+  </Target>
+
+  <Import Project="../../build/Dotsider.TraceHost.targets" />
 
 </Project>

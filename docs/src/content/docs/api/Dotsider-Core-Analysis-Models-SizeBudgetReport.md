@@ -131,3 +131,89 @@ What the total figures count: file size when the inputs were binaries, mstat tot
 public SizeBasis TotalBasis { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out bool, out bool, out SizeBasis, out long, out long, out long?, out long?, out IReadOnlyList\<SizeBudgetEvaluation\>)
+
+**Parameters:**
+
+- `Passed` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `HasWarnings` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `TotalBasis` ([SizeBasis](/api/dotsider.core.analysis.models.sizebasis/))
+- `LeftTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `RightTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `LeftMstatTotal` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `RightMstatTotal` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Evaluations` ([IReadOnlyList\<SizeBudgetEvaluation\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out bool Passed, out bool HasWarnings, out SizeBasis TotalBasis, out long LeftTotal, out long RightTotal, out long? LeftMstatTotal, out long? RightMstatTotal, out IReadOnlyList<SizeBudgetEvaluation> Evaluations)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeBudgetReport?)
+
+**Parameters:**
+
+- `other` ([SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeBudgetReport? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeBudgetReport?, SizeBudgetReport?)
+
+**Parameters:**
+
+- `left` ([SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/))
+- `right` ([SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeBudgetReport? left, SizeBudgetReport? right)
+```
+
+### operator ==(SizeBudgetReport?, SizeBudgetReport?)
+
+**Parameters:**
+
+- `left` ([SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/))
+- `right` ([SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeBudgetReport? left, SizeBudgetReport? right)
+```

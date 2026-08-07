@@ -64,3 +64,115 @@ The analyzer for the extracted entry assembly.
 public AssemblyAnalyzer EntryAnalyzer { get; init; }
 ```
 
+### EqualityContract
+
+**Returns:** [Type](https://learn.microsoft.com/dotnet/api/system.type)
+
+```csharp
+protected override Type EqualityContract { get; }
+```
+
+## Methods
+
+### Deconstruct(out AssemblyAnalyzer, out string)
+
+**Parameters:**
+
+- `EntryAnalyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+- `BundlePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out AssemblyAnalyzer EntryAnalyzer, out string BundlePath)
+```
+
+### Equals(AssemblyOpenResult?)
+
+**Parameters:**
+
+- `other` ([AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override sealed bool Equals(AssemblyOpenResult? other)
+```
+
+### Equals(BundleEntry?)
+
+**Parameters:**
+
+- `other` ([BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyOpenResult.BundleEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### PrintMembers(StringBuilder)
+
+**Parameters:**
+
+- `builder` ([StringBuilder](https://learn.microsoft.com/dotnet/api/system.text.stringbuilder))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+protected override bool PrintMembers(StringBuilder builder)
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BundleEntry?, BundleEntry?)
+
+**Parameters:**
+
+- `left` ([BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/))
+- `right` ([BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyOpenResult.BundleEntry? left, AssemblyOpenResult.BundleEntry? right)
+```
+
+### operator ==(BundleEntry?, BundleEntry?)
+
+**Parameters:**
+
+- `left` ([BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/))
+- `right` ([BundleEntry](/api/dotsider.core.analysis.models.assemblyopenresult.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyOpenResult.BundleEntry? left, AssemblyOpenResult.BundleEntry? right)
+```

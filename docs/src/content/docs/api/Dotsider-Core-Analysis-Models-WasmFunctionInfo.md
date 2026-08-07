@@ -215,3 +215,97 @@ The function type index, when known.
 public int? TypeIndex { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out int?, out string, out string, out bool, out string?, out string?, out bool, out IReadOnlyList\<string\>, out long?, out int, out long?, out int, out IReadOnlyList\<WasmLocalInfo\>, out IReadOnlyList\<byte\>, out IReadOnlyList\<byte\>)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `TypeIndex` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `NameSource` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IsImported` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `ImportModule` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ImportName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IsExported` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `ExportNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `BodyOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `BodySize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `CodeOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `CodeSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Locals` ([IReadOnlyList\<WasmLocalInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `ParamTypes` ([IReadOnlyList\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `ResultTypes` ([IReadOnlyList\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out int Index, out int? TypeIndex, out string Name, out string NameSource, out bool IsImported, out string? ImportModule, out string? ImportName, out bool IsExported, out IReadOnlyList<string> ExportNames, out long? BodyOffset, out int BodySize, out long? CodeOffset, out int CodeSize, out IReadOnlyList<WasmLocalInfo> Locals, out IReadOnlyList<byte> ParamTypes, out IReadOnlyList<byte> ResultTypes)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmFunctionInfo?)
+
+**Parameters:**
+
+- `other` ([WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmFunctionInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmFunctionInfo?, WasmFunctionInfo?)
+
+**Parameters:**
+
+- `left` ([WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/))
+- `right` ([WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmFunctionInfo? left, WasmFunctionInfo? right)
+```
+
+### operator ==(WasmFunctionInfo?, WasmFunctionInfo?)
+
+**Parameters:**
+
+- `left` ([WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/))
+- `right` ([WasmFunctionInfo](/api/dotsider.core.analysis.models.wasmfunctioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmFunctionInfo? left, WasmFunctionInfo? right)
+```

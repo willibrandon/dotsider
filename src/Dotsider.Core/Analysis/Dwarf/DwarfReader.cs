@@ -278,16 +278,16 @@ internal static class DwarfReader
             case DwarfForm.String: return new Value(0, reader.ReadCString(), false);
 
             case DwarfForm.Strp:
-            {
-                var offset = (long)reader.ReadSectionOffset(unit.Is64);
-                return new Value(0, new DwarfDataReader(sections.Str).ReadCStringAt(offset), false);
-            }
+                {
+                    var offset = (long)reader.ReadSectionOffset(unit.Is64);
+                    return new Value(0, new DwarfDataReader(sections.Str).ReadCStringAt(offset), false);
+                }
 
             case DwarfForm.LineStrp:
-            {
-                var offset = (long)reader.ReadSectionOffset(unit.Is64);
-                return new Value(0, new DwarfDataReader(sections.LineStr).ReadCStringAt(offset), false);
-            }
+                {
+                    var offset = (long)reader.ReadSectionOffset(unit.Is64);
+                    return new Value(0, new DwarfDataReader(sections.LineStr).ReadCStringAt(offset), false);
+                }
 
             case DwarfForm.Strx: return ResolveStrx(sections, reader.ReadULeb128(), unit);
             case DwarfForm.Strx1: return ResolveStrx(sections, reader.ReadU8(), unit);

@@ -74,3 +74,84 @@ The resource size in bytes.
 public int Size { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out int)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out string Name, out int Size)
+```
+
+### Equals(MstatManifestResource?)
+
+**Parameters:**
+
+- `other` ([MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatManifestResource? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatManifestResource?, MstatManifestResource?)
+
+**Parameters:**
+
+- `left` ([MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/))
+- `right` ([MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatManifestResource? left, MstatManifestResource? right)
+```
+
+### operator ==(MstatManifestResource?, MstatManifestResource?)
+
+**Parameters:**
+
+- `left` ([MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/))
+- `right` ([MstatManifestResource](/api/dotsider.core.analysis.models.mstatmanifestresource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatManifestResource? left, MstatManifestResource? right)
+```

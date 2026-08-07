@@ -1,4 +1,6 @@
 using Dotsider.Mcp;
+using Dotsider.Mcp.Prompts;
+using Dotsider.Mcp.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -37,8 +39,30 @@ builder.Services.AddSingleton<DotsiderSessionManager>();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
-    .WithToolsFromAssembly()
-    .WithPromptsFromAssembly()
+    .WithTools<AssemblyTools>()
+    .WithTools<BundleTools>()
+    .WithTools<CorrelationTools>()
+    .WithTools<DependencyTools>()
+    .WithTools<DiffTools>()
+    .WithTools<FieldTools>()
+    .WithTools<IlTools>()
+    .WithTools<MetadataTools>()
+    .WithTools<NativeAotTools>()
+    .WithTools<NavigationTools>()
+    .WithTools<NuGetTools>()
+    .WithTools<ReadyToRunTools>()
+    .WithTools<RuntimeTools>()
+    .WithTools<SessionTools>()
+    .WithTools<SizeTools>()
+    .WithTools<StringTools>()
+    .WithTools<SymbolTools>()
+    .WithTools<TraceTools>()
+    .WithTools<WasmTools>()
+    .WithPrompts<ApiReviewPrompt>()
+    .WithPrompts<BreakingChangePrompt>()
+    .WithPrompts<BundleAnalysisPrompt>()
+    .WithPrompts<DependencyHealthPrompt>()
+    .WithPrompts<SecurityAuditPrompt>()
     .WithRequestFilters(filters =>
     {
         filters.AddCallToolFilter(next => async (context, cancellationToken) =>

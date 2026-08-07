@@ -76,4 +76,3 @@ Ownership: the set and every analyzer in it are owned by the
 [Root](/api/dotsider.core.analysis.models.preilccompanionset.root/) or [LocalReferences](/api/dotsider.core.analysis.models.preilccompanionset.localreferences/) — they become invalid when the
 owner detaches or is disposed. The type deliberately does not implement
 [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable); teardown is internal to the owning analyzer.
-

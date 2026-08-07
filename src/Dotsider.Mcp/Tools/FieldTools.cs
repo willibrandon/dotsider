@@ -1,6 +1,5 @@
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -45,7 +44,7 @@ public sealed partial class FieldTools(DotsiderSessionManager sessionManager)
             if (maxResults is > 0)
                 fields = fields.Take(maxResults.Value);
 
-            return JsonSerializer.Serialize(fields, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(fields);
         }
 
         if (sessionId is not null)

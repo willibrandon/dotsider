@@ -354,7 +354,7 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
     }
 
     private static IlInstruction CreateMalformedInstruction(int offset, string opCode, string operand) =>
-        new IlInstruction(offset, opCode, operand) { IsMalformed = true };
+        new(offset, opCode, operand) { IsMalformed = true };
 
     private static string FormatBranchTarget(long target) => $"IL_{target:X4}";
     private static string FormatOpCode(ILOpCode opCode) => opCode.ToString().ToLowerInvariant().Replace('_', '.');

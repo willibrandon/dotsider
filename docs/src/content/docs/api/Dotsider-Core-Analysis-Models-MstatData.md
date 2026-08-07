@@ -166,3 +166,91 @@ Every constructed MethodTable with its size.
 public IReadOnlyList<MstatType> Types { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out int, out IReadOnlyList\<AssemblyRefInfo\>, out IReadOnlyList\<MstatMethod\>, out IReadOnlyList\<MstatType\>, out IReadOnlyList\<MstatBlob\>, out IReadOnlyList\<MstatRvaField\>, out IReadOnlyList\<MstatFrozenObject\>, out IReadOnlyList\<MstatManifestResource\>, out IReadOnlyList\<MstatDeduplicatedMethod\>)
+
+**Parameters:**
+
+- `FormatMajorVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `FormatMinorVersion` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Assemblies` ([IReadOnlyList\<AssemblyRefInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Methods` ([IReadOnlyList\<MstatMethod\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Types` ([IReadOnlyList\<MstatType\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Blobs` ([IReadOnlyList\<MstatBlob\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `RvaFields` ([IReadOnlyList\<MstatRvaField\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `FrozenObjects` ([IReadOnlyList\<MstatFrozenObject\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `ManifestResources` ([IReadOnlyList\<MstatManifestResource\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `DeduplicatedMethods` ([IReadOnlyList\<MstatDeduplicatedMethod\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out int FormatMajorVersion, out int FormatMinorVersion, out IReadOnlyList<AssemblyRefInfo> Assemblies, out IReadOnlyList<MstatMethod> Methods, out IReadOnlyList<MstatType> Types, out IReadOnlyList<MstatBlob> Blobs, out IReadOnlyList<MstatRvaField> RvaFields, out IReadOnlyList<MstatFrozenObject> FrozenObjects, out IReadOnlyList<MstatManifestResource> ManifestResources, out IReadOnlyList<MstatDeduplicatedMethod> DeduplicatedMethods)
+```
+
+### Equals(MstatData?)
+
+**Parameters:**
+
+- `other` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatData? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatData?, MstatData?)
+
+**Parameters:**
+
+- `left` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+- `right` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatData? left, MstatData? right)
+```
+
+### operator ==(MstatData?, MstatData?)
+
+**Parameters:**
+
+- `left` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+- `right` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatData? left, MstatData? right)
+```

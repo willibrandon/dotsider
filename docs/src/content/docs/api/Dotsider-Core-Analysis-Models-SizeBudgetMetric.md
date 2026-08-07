@@ -47,4 +47,3 @@ A cap on growth versus the baseline, as a percentage of the baseline.
 ```csharp
 MaxGrowthPercent = 2
 ```
-

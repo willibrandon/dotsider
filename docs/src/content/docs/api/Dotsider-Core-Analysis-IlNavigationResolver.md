@@ -42,4 +42,3 @@ The resolved navigation target.
 ```csharp
 public static IlNavigationTarget Resolve(AssemblyAnalyzer analyzer, int token, MethodDefInfo? contextMethod = null)
 ```
-

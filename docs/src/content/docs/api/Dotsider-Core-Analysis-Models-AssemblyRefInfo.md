@@ -83,3 +83,85 @@ The version of the referenced assembly.
 public string Version { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out string, out string?)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Version` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Culture` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Name, out string Version, out string Culture, out string? PublicKeyToken)
+```
+
+### Equals(AssemblyRefInfo?)
+
+**Parameters:**
+
+- `other` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyRefInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(AssemblyRefInfo?, AssemblyRefInfo?)
+
+**Parameters:**
+
+- `left` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `right` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyRefInfo? left, AssemblyRefInfo? right)
+```
+
+### operator ==(AssemblyRefInfo?, AssemblyRefInfo?)
+
+**Parameters:**
+
+- `left` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `right` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyRefInfo? left, AssemblyRefInfo? right)
+```

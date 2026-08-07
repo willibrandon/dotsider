@@ -200,9 +200,7 @@ public sealed class DotsiderState : IDisposable
     /// <summary>
     /// Expansion state map for IL Inspector tree nodes (keyed by stable namespace/type keys).
     /// </summary>
-#pragma warning disable IDE0028
     public Dictionary<string, bool> IlTreeExpansionState { get; } = new(StringComparer.Ordinal);
-#pragma warning restore IDE0028
 
     /// <summary>The editor state for the IL disassembly pane, or null if no method is selected.</summary>
     public EditorState? IlEditorState { get; set; }
@@ -1212,6 +1210,14 @@ public sealed class DotsiderState : IDisposable
     }
 
     // --- Dynamic Analysis Tab State ---
+
+    /// <summary>
+    /// Explains why runtime tracing is unavailable in this installation.
+    /// A null value means the bundled trace host and runtime are available.
+    /// The Dynamic tab uses this value to disable process launch safely.
+    /// </summary>
+    internal string? DynamicAnalysisUnavailableReason { get; set; } =
+        RuntimeTracer.GetUnavailableReason();
 
     /// <summary>Whether the assembly has a CLR entry point (executable, not library).</summary>
     public bool HasEntryPoint => Analyzer.ClrHeader is { EntryPointToken: > 0 };

@@ -184,15 +184,15 @@ internal static class ClassicReadyToRunDetector
     }
 
     private static NativeArchitecture MapPlainMachine(ushort machine) => machine switch
-        {
-            0x8664 => NativeArchitecture.X64,
-            0xAA64 => NativeArchitecture.Arm64,
-            0x014C => NativeArchitecture.X86,
-            0x01C0 or 0x01C2 or 0x01C4 => NativeArchitecture.Arm32,
-            0x5064 => NativeArchitecture.RiscV64,
-            0x6264 => NativeArchitecture.LoongArch64,
-            _ => NativeArchitecture.Unknown,
-        };
+    {
+        0x8664 => NativeArchitecture.X64,
+        0xAA64 => NativeArchitecture.Arm64,
+        0x014C => NativeArchitecture.X86,
+        0x01C0 or 0x01C2 or 0x01C4 => NativeArchitecture.Arm32,
+        0x5064 => NativeArchitecture.RiscV64,
+        0x6264 => NativeArchitecture.LoongArch64,
+        _ => NativeArchitecture.Unknown,
+    };
 
     private static readonly ushort[] NativeImageMachineOsOverrides =
     [

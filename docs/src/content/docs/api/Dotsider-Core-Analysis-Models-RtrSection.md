@@ -100,3 +100,86 @@ The section's absolute virtual address.
 public ulong VirtualAddress { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out ulong, out long, out int?)
+
+**Parameters:**
+
+- `SectionId` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `VirtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `FileOffset` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out int SectionId, out string Name, out ulong VirtualAddress, out long Size, out int? FileOffset)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(RtrSection?)
+
+**Parameters:**
+
+- `other` ([RtrSection](/api/dotsider.core.analysis.models.rtrsection/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(RtrSection? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(RtrSection?, RtrSection?)
+
+**Parameters:**
+
+- `left` ([RtrSection](/api/dotsider.core.analysis.models.rtrsection/))
+- `right` ([RtrSection](/api/dotsider.core.analysis.models.rtrsection/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(RtrSection? left, RtrSection? right)
+```
+
+### operator ==(RtrSection?, RtrSection?)
+
+**Parameters:**
+
+- `left` ([RtrSection](/api/dotsider.core.analysis.models.rtrsection/))
+- `right` ([RtrSection](/api/dotsider.core.analysis.models.rtrsection/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(RtrSection? left, RtrSection? right)
+```

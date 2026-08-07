@@ -49,7 +49,7 @@ public sealed class RemoteDotsiderTargetVersionTests(TestContext testContext)
             actualByteCount = Encoding.UTF8.GetByteCount(requestJson.GetRawText());
             return JsonSerializer.Serialize(
                 DotsiderResponse.Ok(),
-                DotsiderJsonOptions.Default);
+                DotsiderJsonContext.Protocol.Options);
         });
         testSocket.Start();
         var request = new DotsiderRequest
@@ -57,7 +57,7 @@ public sealed class RemoteDotsiderTargetVersionTests(TestContext testContext)
             Method = "assembly-info",
             Query = ""
         };
-        var baseline = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var baseline = JsonSerializer.Serialize(request, DotsiderJsonContext.Protocol.Options);
         request.Query = new string(
             'a',
             DotsiderProtocol.MaxRequestBytes - Encoding.UTF8.GetByteCount(baseline));

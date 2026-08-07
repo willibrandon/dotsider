@@ -3,7 +3,6 @@ using Dotsider.Core.Analysis.Models;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -80,7 +79,7 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
             result = result with { MethodDiffs = [.. result.MethodDiffs.Take(maxMethodDiffs.Value)] };
         }
 
-        return JsonSerializer.Serialize(result, DotsiderJsonOptions.Default);
+        return McpJson.Serialize(result);
     }
 
     /// <summary>
@@ -124,7 +123,7 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
         var left = ResolveMstatSource(leftPath, "leftPath");
         var right = ResolveMstatSource(rightPath, "rightPath");
         var payload = SizeDiffPayloadBuilder.BuildDiffPayload(left, right, topN, includeTree, maxNodes);
-        return JsonSerializer.Serialize(payload, DotsiderJsonOptions.Default);
+        return McpJson.Serialize(payload);
     }
 
     /// <summary>
@@ -187,7 +186,7 @@ public sealed partial class DiffTools(DotsiderSessionManager sessionManager)
         }
 
         var payload = SizeDiffPayloadBuilder.BuildBudgetPayload(target, baseline, parsed, topN);
-        return JsonSerializer.Serialize(payload, DotsiderJsonOptions.Default);
+        return McpJson.Serialize(payload);
     }
 
     private static List<SizeBudget> ParseBudgets(

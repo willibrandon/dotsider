@@ -17,7 +17,7 @@ managed tree does. The parse is signature-aware (it ignores the parameter list) 
 nested types (`+`) and generic arity markers.
 
 ```csharp
-public readonly record struct NativeSymbolName : IEquatable<NativeSymbolName>
+public readonly struct NativeSymbolName : IEquatable<NativeSymbolName>
 ```
 
 ## Implements
@@ -78,6 +78,50 @@ public string TypeName { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out string)
+
+**Parameters:**
+
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TypeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MemberName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Namespace, out string TypeName, out string MemberName)
+```
+
+### Equals(NativeSymbolName)
+
+**Parameters:**
+
+- `other` ([NativeSymbolName](/api/dotsider.core.analysis.disasm.nativesymbolname/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeSymbolName other)
+```
+
+### Equals(object)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
 ### Parse(string)
 
 Parses a managed name into namespace, type, and member.
@@ -92,3 +136,38 @@ Parses a managed name into namespace, type, and member.
 public static NativeSymbolName Parse(string managedName)
 ```
 
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeSymbolName, NativeSymbolName)
+
+**Parameters:**
+
+- `left` ([NativeSymbolName](/api/dotsider.core.analysis.disasm.nativesymbolname/))
+- `right` ([NativeSymbolName](/api/dotsider.core.analysis.disasm.nativesymbolname/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeSymbolName left, NativeSymbolName right)
+```
+
+### operator ==(NativeSymbolName, NativeSymbolName)
+
+**Parameters:**
+
+- `left` ([NativeSymbolName](/api/dotsider.core.analysis.disasm.nativesymbolname/))
+- `right` ([NativeSymbolName](/api/dotsider.core.analysis.disasm.nativesymbolname/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeSymbolName left, NativeSymbolName right)
+```

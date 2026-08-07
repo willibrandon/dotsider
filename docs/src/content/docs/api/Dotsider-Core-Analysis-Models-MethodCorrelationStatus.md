@@ -61,4 +61,3 @@ had a body (abstract/extern).
 ```csharp
 NotInNativeImage = 3
 ```
-

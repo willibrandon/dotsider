@@ -145,6 +145,22 @@ public string TypeName { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out int, out string?, out string?, out string?, out string?)
+
+**Parameters:**
+
+- `TypeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `NodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `OwningType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `OwningAssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `OwningNamespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string TypeName, out string AssemblyName, out int Size, out string? NodeName, out string? OwningType, out string? OwningAssemblyName, out string? OwningNamespace)
+```
+
 ### Deconstruct(out string, out string, out int, out string?, out string?)
 
 The pre-owner-attribution five-output deconstruction, preserved alongside the generated seven-output one.
@@ -161,3 +177,70 @@ The pre-owner-attribution five-output deconstruction, preserved alongside the ge
 public void Deconstruct(out string typeName, out string assemblyName, out int size, out string? nodeName, out string? owningType)
 ```
 
+### Equals(MstatFrozenObject?)
+
+**Parameters:**
+
+- `other` ([MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatFrozenObject? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatFrozenObject?, MstatFrozenObject?)
+
+**Parameters:**
+
+- `left` ([MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/))
+- `right` ([MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatFrozenObject? left, MstatFrozenObject? right)
+```
+
+### operator ==(MstatFrozenObject?, MstatFrozenObject?)
+
+**Parameters:**
+
+- `left` ([MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/))
+- `right` ([MstatFrozenObject](/api/dotsider.core.analysis.models.mstatfrozenobject/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatFrozenObject? left, MstatFrozenObject? right)
+```

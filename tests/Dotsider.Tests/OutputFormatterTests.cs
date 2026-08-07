@@ -84,10 +84,10 @@ public sealed class OutputFormatterTests
         using var writer = CreateWriter();
         using var formatter = new OutputFormatter(writer) { JsonMode = true };
 
-        formatter.WriteJson(new { Value });
+        formatter.WriteJson(new CliPathPayload(Value));
 
         using var document = JsonDocument.Parse(writer.ToString());
-        Assert.AreEqual(Value, document.RootElement.GetProperty("value").GetString());
+        Assert.AreEqual(Value, document.RootElement.GetProperty("path").GetString());
         Assert.DoesNotContain("\u001B", writer.ToString());
         Assert.DoesNotContain("\u0007", writer.ToString());
         Assert.DoesNotContain("\u009B", writer.ToString());

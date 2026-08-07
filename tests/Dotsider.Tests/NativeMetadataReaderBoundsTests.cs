@@ -30,9 +30,9 @@ public sealed class NativeMetadataReaderBoundsTests
         var childName = builder.AddString("Child");
         var methodName = builder.AddString("Run");
         var method = builder.AddMethod(methodName);
-        var inner = builder.AddType(innerName);
+        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(innerName);
         var outer = builder.AddType(outerName, nestedTypeCount: 2, methodCount: 2);
-        PatchAll(builder, outer.NestedTypeSlots, inner.Offset);
+        PatchAll(builder, outer.NestedTypeSlots, Offset);
         PatchAll(builder, outer.MethodSlots, method);
         var child = builder.AddType(childName, methodCount: 1);
         builder.PatchHandle(child.MethodSlots[0], method);
@@ -76,10 +76,10 @@ public sealed class NativeMetadataReaderBoundsTests
         var typeName = builder.AddString("Type");
         var methodName = builder.AddString("Run");
         var method = builder.AddMethod(methodName);
-        var type = builder.AddType(typeName, methodCount: MethodCount);
-        PatchAll(builder, type.MethodSlots, method);
+        var (Offset, _, MethodSlots) = builder.AddType(typeName, methodCount: MethodCount);
+        PatchAll(builder, MethodSlots, method);
         var rootNamespace = builder.AddNamespace(0, typeCount: TypeReferenceCount);
-        PatchAll(builder, rootNamespace.TypeSlots, type.Offset);
+        PatchAll(builder, rootNamespace.TypeSlots, Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -100,11 +100,11 @@ public sealed class NativeMetadataReaderBoundsTests
         var methodName = builder.AddString("Shared");
         var firstMethod = builder.AddMethod(methodName);
         var secondMethod = builder.AddMethod(methodName);
-        var type = builder.AddType(typeName, methodCount: 2);
-        builder.PatchHandle(type.MethodSlots[0], firstMethod);
-        builder.PatchHandle(type.MethodSlots[1], secondMethod);
+        var (Offset, _, MethodSlots) = builder.AddType(typeName, methodCount: 2);
+        builder.PatchHandle(MethodSlots[0], firstMethod);
+        builder.PatchHandle(MethodSlots[1], secondMethod);
         var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -122,11 +122,11 @@ public sealed class NativeMetadataReaderBoundsTests
         var bName = builder.AddString("B");
         var cName = builder.AddString("C");
         var otherNamespaceName = builder.AddString("Other");
-        var a = builder.AddType(aName, nestedTypeCount: 2);
+        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(aName, nestedTypeCount: 2);
         var b = builder.AddType(bName, nestedTypeCount: 1);
-        builder.PatchHandle(a.NestedTypeSlots[0], a.Offset);
-        builder.PatchHandle(a.NestedTypeSlots[1], b.Offset);
-        builder.PatchHandle(b.NestedTypeSlots[0], a.Offset);
+        builder.PatchHandle(NestedTypeSlots[0], Offset);
+        builder.PatchHandle(NestedTypeSlots[1], b.Offset);
+        builder.PatchHandle(b.NestedTypeSlots[0], Offset);
         var c = builder.AddType(cName);
         var otherNamespace = builder.AddNamespace(
             otherNamespaceName,
@@ -137,7 +137,7 @@ public sealed class NativeMetadataReaderBoundsTests
             0,
             typeCount: 1,
             childNamespaceCount: 2);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], a.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         builder.PatchHandle(rootNamespace.ChildNamespaceSlots[0], rootNamespace.Offset);
         builder.PatchHandle(rootNamespace.ChildNamespaceSlots[1], otherNamespace.Offset);
         builder.PatchHandle(otherNamespace.ChildNamespaceSlots[0], rootNamespace.Offset);
@@ -163,9 +163,9 @@ public sealed class NativeMetadataReaderBoundsTests
         var loopNameOffset = builder.AddString(loopName);
         var safeNamespaceName = builder.AddString("Safe");
         var typeName = builder.AddString("Good");
-        var type = builder.AddType(typeName);
+        var (Offset, _, _) = builder.AddType(typeName);
         var safeNamespace = builder.AddNamespace(safeNamespaceName, typeCount: 1);
-        builder.PatchHandle(safeNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(safeNamespace.TypeSlots[0], Offset);
         var rootNamespace = builder.AddNamespace(
             loopNameOffset,
             childNamespaceCount: 2);
@@ -188,8 +188,8 @@ public sealed class NativeMetadataReaderBoundsTests
         var builder = new SyntheticNativeMetadataBuilder();
         var linkName = builder.AddString("Link");
         var targetName = builder.AddString("Target");
-        var target = builder.AddType(targetName);
-        var deepRoot = target.Offset;
+        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(targetName);
+        var deepRoot = Offset;
         for (var i = 0; i < DocumentedMaxDepth; i++)
         {
             var link = builder.AddType(linkName, nestedTypeCount: 1);
@@ -199,7 +199,7 @@ public sealed class NativeMetadataReaderBoundsTests
 
         var rootNamespace = builder.AddNamespace(0, typeCount: 2);
         builder.PatchHandle(rootNamespace.TypeSlots[0], deepRoot);
-        builder.PatchHandle(rootNamespace.TypeSlots[1], target.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[1], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -219,10 +219,10 @@ public sealed class NativeMetadataReaderBoundsTests
     {
         var builder = new SyntheticNativeMetadataBuilder();
         var typeName = builder.AddString("Type");
-        var type = builder.AddType(typeName);
+        var (Offset, _, _) = builder.AddType(typeName);
         var rootNamespace = builder.AddNamespaceWithRepeatedForwarders(
             0,
-            type.Offset,
+            Offset,
             DocumentedMaxTraversalWork - 3);
         var scope = builder.AddScope(0, rootNamespace);
         builder.SetScope(0, scope);
@@ -240,10 +240,10 @@ public sealed class NativeMetadataReaderBoundsTests
     {
         var builder = new SyntheticNativeMetadataBuilder();
         var typeName = builder.AddString("Type");
-        var type = builder.AddType(typeName);
+        var (Offset, _, _) = builder.AddType(typeName);
         var rootNamespace = builder.AddNamespaceWithRepeatedForwarders(
             0,
-            type.Offset,
+            Offset,
             DocumentedMaxTraversalWork - 2);
         var scope = builder.AddScope(0, rootNamespace);
         builder.SetScope(0, scope);
@@ -267,14 +267,14 @@ public sealed class NativeMetadataReaderBoundsTests
             methods[i] = builder.AddMethod(sharedName);
         }
 
-        var type = builder.AddType(sharedName, methodCount: methods.Length);
+        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(sharedName, methodCount: methods.Length);
         for (var i = 0; i < methods.Length; i++)
         {
-            builder.PatchHandle(type.MethodSlots[i], methods[i]);
+            builder.PatchHandle(MethodSlots[i], methods[i]);
         }
 
         var rootNamespace = builder.AddNamespace(sharedName, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(sharedName, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -307,13 +307,13 @@ public sealed class NativeMetadataReaderBoundsTests
 
         var overName = builder.AddString("x");
         typeOffsets[^1] = builder.AddType(overName).Offset;
-        var rootNamespace = builder.AddNamespace(0, typeCount: typeOffsets.Length);
+        var (Offset, TypeSlots, ForwarderSlots, ChildNamespaceSlots) = builder.AddNamespace(0, typeCount: typeOffsets.Length);
         for (var i = 0; i < typeOffsets.Length; i++)
         {
-            builder.PatchHandle(rootNamespace.TypeSlots[i], typeOffsets[i]);
+            builder.PatchHandle(TypeSlots[i], typeOffsets[i]);
         }
 
-        var scope = builder.AddScope(0, rootNamespace.Offset);
+        var scope = builder.AddScope(0, Offset);
         builder.SetScope(0, scope);
 
         var types = ReadTypes(builder.Build());
@@ -335,9 +335,9 @@ public sealed class NativeMetadataReaderBoundsTests
         var oversizedName = builder.AddString(
             (uint)DocumentedMaxStringLength + 1,
             new byte[DocumentedMaxStringLength + 1]);
-        var type = builder.AddType(oversizedName);
+        var (Offset, _, _) = builder.AddType(oversizedName);
         var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -350,9 +350,9 @@ public sealed class NativeMetadataReaderBoundsTests
     {
         var builder = new SyntheticNativeMetadataBuilder();
         var invalidName = builder.AddString(2, [0xC3, 0x28]);
-        var type = builder.AddType(invalidName);
+        var (Offset, _, _) = builder.AddType(invalidName);
         var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
 
@@ -442,13 +442,13 @@ public sealed class NativeMetadataReaderBoundsTests
         var goodName = builder.AddString("Good");
         var goodMethodName = builder.AddString("Run");
         var goodMethod = builder.AddMethod(goodMethodName);
-        var goodType = builder.AddType(goodName, methodCount: 1);
-        builder.PatchHandle(goodType.MethodSlots[0], goodMethod);
+        var (Offset, _, MethodSlots) = builder.AddType(goodName, methodCount: 1);
+        builder.PatchHandle(MethodSlots[0], goodMethod);
         var badName = builder.AddString("Bad");
         var badType = builder.AddType(badName, methodCount: 1);
         builder.PatchHandle(badType.MethodSlots[0], int.MaxValue);
         var rootNamespace = builder.AddNamespace(0, typeCount: 2);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], goodType.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         builder.PatchHandle(rootNamespace.TypeSlots[1], badType.Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
@@ -481,11 +481,11 @@ public sealed class NativeMetadataReaderBoundsTests
         var typeName = builder.AddString("PatchedType");
         var methodName = builder.AddString("Run");
         var method = builder.AddMethod(methodName);
-        var type = builder.AddType(typeName, nestedTypeCount: 1, methodCount: 2);
-        builder.PatchHandle(type.NestedTypeSlots[0], type.Offset);
-        PatchAll(builder, type.MethodSlots, method);
+        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(typeName, nestedTypeCount: 1, methodCount: 2);
+        builder.PatchHandle(NestedTypeSlots[0], Offset);
+        PatchAll(builder, MethodSlots, method);
         var rootNamespace = builder.AddNamespace(0, typeCount: 2);
-        PatchAll(builder, rootNamespace.TypeSlots, type.Offset);
+        PatchAll(builder, rootNamespace.TypeSlots, Offset);
         var scope = builder.AddScope(assemblyName, rootNamespace.Offset);
         builder.SetScope(0, scope);
         builder.SetScope(1, scope);
@@ -564,9 +564,9 @@ public sealed class NativeMetadataReaderBoundsTests
 
         builder.AppendUnsigned(0);
         builder.AppendUnsigned(100);
-        var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], typeOffset);
-        var scope = builder.AddScope(0, rootNamespace.Offset);
+        var (Offset, TypeSlots, _, _) = builder.AddNamespace(0, typeCount: 1);
+        builder.PatchHandle(TypeSlots[0], typeOffset);
+        var scope = builder.AddScope(0, Offset);
         builder.SetScope(0, scope);
         return builder.Build();
     }
@@ -575,9 +575,9 @@ public sealed class NativeMetadataReaderBoundsTests
     {
         var builder = new SyntheticNativeMetadataBuilder();
         var nameOffset = builder.AddString(uint.MaxValue, []);
-        var type = builder.AddType(nameOffset);
+        var (Offset, _, _) = builder.AddType(nameOffset);
         var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
         return builder.Build();
@@ -595,9 +595,9 @@ public sealed class NativeMetadataReaderBoundsTests
     {
         var builder = new SyntheticNativeMetadataBuilder();
         var nameOffset = builder.AddString(name);
-        var type = builder.AddType(nameOffset);
+        var (Offset, _, _) = builder.AddType(nameOffset);
         var rootNamespace = builder.AddNamespace(0, typeCount: 1);
-        builder.PatchHandle(rootNamespace.TypeSlots[0], type.Offset);
+        builder.PatchHandle(rootNamespace.TypeSlots[0], Offset);
         var scope = builder.AddScope(0, rootNamespace.Offset);
         builder.SetScope(0, scope);
         return builder.Build();

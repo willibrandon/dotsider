@@ -72,3 +72,84 @@ The string content.
 public string Value { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out StringSource)
+
+**Parameters:**
+
+- `Offset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Value` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Source` ([StringSource](/api/dotsider.core.analysis.models.stringsource/))
+
+```csharp
+public void Deconstruct(out int Offset, out string Value, out StringSource Source)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(StringEntry?)
+
+**Parameters:**
+
+- `other` ([StringEntry](/api/dotsider.core.analysis.models.stringentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(StringEntry? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(StringEntry?, StringEntry?)
+
+**Parameters:**
+
+- `left` ([StringEntry](/api/dotsider.core.analysis.models.stringentry/))
+- `right` ([StringEntry](/api/dotsider.core.analysis.models.stringentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(StringEntry? left, StringEntry? right)
+```
+
+### operator ==(StringEntry?, StringEntry?)
+
+**Parameters:**
+
+- `left` ([StringEntry](/api/dotsider.core.analysis.models.stringentry/))
+- `right` ([StringEntry](/api/dotsider.core.analysis.models.stringentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(StringEntry? left, StringEntry? right)
+```

@@ -67,4 +67,3 @@ The trace session is initializing and attaching to the process.
 ```csharp
 Starting = 1
 ```
-

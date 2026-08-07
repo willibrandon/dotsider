@@ -214,3 +214,96 @@ The Source Link URL resolved for the sequence point document, or null.
 public string? SourceLinkUrl { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out int?, out string?, out int?, out int?, out int?, out int?, out bool, out string?, out bool, out int?, out string?, out int?)
+
+**Parameters:**
+
+- `Offset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `OpCode` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Operand` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MetadataToken` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `SequenceDocument` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `SequenceStartLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `SequenceStartColumn` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `SequenceEndLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `SequenceEndColumn` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `SequenceHidden` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `SourceLinkUrl` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `HasEmbeddedSource` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `LocalSlot` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `LocalName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `DisplayLine` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out int Offset, out string OpCode, out string Operand, out int? MetadataToken, out string? SequenceDocument, out int? SequenceStartLine, out int? SequenceStartColumn, out int? SequenceEndLine, out int? SequenceEndColumn, out bool SequenceHidden, out string? SourceLinkUrl, out bool HasEmbeddedSource, out int? LocalSlot, out string? LocalName, out int? DisplayLine)
+```
+
+### Equals(IlInstruction?)
+
+**Parameters:**
+
+- `other` ([IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(IlInstruction? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(IlInstruction?, IlInstruction?)
+
+**Parameters:**
+
+- `left` ([IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/))
+- `right` ([IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(IlInstruction? left, IlInstruction? right)
+```
+
+### operator ==(IlInstruction?, IlInstruction?)
+
+**Parameters:**
+
+- `left` ([IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/))
+- `right` ([IlInstruction](/api/dotsider.core.analysis.models.ilinstruction/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(IlInstruction? left, IlInstruction? right)
+```

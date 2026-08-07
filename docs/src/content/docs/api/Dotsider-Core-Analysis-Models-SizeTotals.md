@@ -76,3 +76,84 @@ The current build's total on [Basis](/api/dotsider.core.analysis.models.sizetota
 public long RightTotal { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out SizeBasis, out long, out long?)
+
+**Parameters:**
+
+- `Basis` ([SizeBasis](/api/dotsider.core.analysis.models.sizebasis/))
+- `RightTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `LeftTotal` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out SizeBasis Basis, out long RightTotal, out long? LeftTotal)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeTotals?)
+
+**Parameters:**
+
+- `other` ([SizeTotals](/api/dotsider.core.analysis.models.sizetotals/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeTotals? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeTotals?, SizeTotals?)
+
+**Parameters:**
+
+- `left` ([SizeTotals](/api/dotsider.core.analysis.models.sizetotals/))
+- `right` ([SizeTotals](/api/dotsider.core.analysis.models.sizetotals/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeTotals? left, SizeTotals? right)
+```
+
+### operator ==(SizeTotals?, SizeTotals?)
+
+**Parameters:**
+
+- `left` ([SizeTotals](/api/dotsider.core.analysis.models.sizetotals/))
+- `right` ([SizeTotals](/api/dotsider.core.analysis.models.sizetotals/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeTotals? left, SizeTotals? right)
+```

@@ -79,12 +79,13 @@ public static int GetProbeCount(NetFxBindingContext ctx)
 ## Remarks
 
 The probe locations and GAC token format switch on [NetFxRuntimeVersion](/api/dotsider.core.analysis.models.netfxruntimeversion/):
+
 [Clr4](/api/dotsider.core.analysis.models.netfxruntimeversion.clr4/) (.NET Framework 4.0 – 4.8.x) — GAC at
     `%WINDIR%\Microsoft.NET\assembly\GAC_*` with `v4.0_&lt;version&gt;__&lt;pkt&gt;`
     tokens; runtime directory `v4.0.30319`. The bare `%WINDIR%\assembly\GAC` is
     consulted as a COM-PIA fallback after the .NET 4 GAC misses.[Clr2](/api/dotsider.core.analysis.models.netfxruntimeversion.clr2/) (.NET Framework 2.0 / 3.0 / 3.5) — GAC at
     `%WINDIR%\assembly\{GAC_MSIL, GAC_&lt;arch&gt;, GAC}` with no-prefix
     `&lt;version&gt;__&lt;pkt&gt;` tokens; runtime directory `v2.0.50727`.
+
 .NET Core / .NET 5+ roots never construct a binding context, so this type is never invoked
 for them and their probe chain is unchanged.
-

@@ -88,4 +88,3 @@ Falls through to the next instruction.
 ```csharp
 Sequential = 0
 ```
-

@@ -1,6 +1,5 @@
 using Dotsider.Core.Analysis.Models;
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -711,7 +710,7 @@ public static class ImplementationAssemblyResolver
             return matchingType.IsNil
                 ? null
                 : new ResolvedModule(
-                    ImmutableArray.CreateRange(moduleBytes),
+                    [.. moduleBytes],
                     modulePath,
                     manifestFullPath,
                     targetFramework,

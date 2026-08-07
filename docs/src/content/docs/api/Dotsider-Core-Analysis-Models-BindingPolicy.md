@@ -190,6 +190,47 @@ The effective identity and the policy layer that produced any rewrite.
 public (AssemblyRefInfo Effective, AppliedPolicy? Applied) Apply(AssemblyRefInfo requested, NetFxArchitecture architecture)
 ```
 
+### Deconstruct(out IReadOnlyList\<BindingRedirect\>, out IReadOnlyList\<BindingRedirect\>, out IReadOnlyList\<BindingRedirect\>, out IReadOnlyList\<BindingRedirect\>, out IReadOnlyList\<CodeBaseEntry\>, out IReadOnlyCollection\<(string Name, string? PublicKeyToken, string Culture)\>, out bool, out IReadOnlyDictionary\<(string Name, string PublicKeyToken), Version\>?)
+
+**Parameters:**
+
+- `AppConfigRedirects` ([IReadOnlyList\<BindingRedirect\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `PublisherPolicyRedirects` ([IReadOnlyList\<BindingRedirect\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `MachineConfigRedirects` ([IReadOnlyList\<BindingRedirect\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `FrameworkUnificationRedirects` ([IReadOnlyList\<BindingRedirect\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `CodeBases` ([IReadOnlyList\<CodeBaseEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `PublisherPolicyDisabledFor` ([IReadOnlyCollection\<String, String, String\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-3))
+- `PublisherPolicyDisabledGlobally` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `FrameworkUnificationTable` ([IReadOnlyDictionary\<String, String\>, Version\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-3))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<BindingRedirect> AppConfigRedirects, out IReadOnlyList<BindingRedirect> PublisherPolicyRedirects, out IReadOnlyList<BindingRedirect> MachineConfigRedirects, out IReadOnlyList<BindingRedirect> FrameworkUnificationRedirects, out IReadOnlyList<CodeBaseEntry> CodeBases, out IReadOnlyCollection<(string Name, string? PublicKeyToken, string Culture)> PublisherPolicyDisabledFor, out bool PublisherPolicyDisabledGlobally, out IReadOnlyDictionary<(string Name, string PublicKeyToken), Version>? FrameworkUnificationTable)
+```
+
+### Equals(BindingPolicy?)
+
+**Parameters:**
+
+- `other` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(BindingPolicy? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
 ### FindCodeBaseFor(AssemblyRefInfo)
 
 Returns the `&lt;codeBase&gt;` entry that anchors the supplied effective identity, or
@@ -205,6 +246,14 @@ A matching [CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/), o
 
 ```csharp
 public CodeBaseEntry? FindCodeBaseFor(AssemblyRefInfo effective)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
 ```
 
 ### LoadFrom(string?, NetFxArchitecture, IReadOnlyList\<string\>, NetFxRuntimeVersion)
@@ -255,3 +304,38 @@ The parsed result; an empty result on missing file or malformed XML.
 public static BindingPolicyParseResult ParseConfigFile(string? path, PolicyLayer source, NetFxRuntimeVersion runtimeVersion = NetFxRuntimeVersion.Clr4)
 ```
 
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BindingPolicy?, BindingPolicy?)
+
+**Parameters:**
+
+- `left` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+- `right` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(BindingPolicy? left, BindingPolicy? right)
+```
+
+### operator ==(BindingPolicy?, BindingPolicy?)
+
+**Parameters:**
+
+- `left` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+- `right` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(BindingPolicy? left, BindingPolicy? right)
+```

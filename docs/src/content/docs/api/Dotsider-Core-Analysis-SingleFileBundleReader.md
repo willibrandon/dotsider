@@ -152,4 +152,3 @@ The parsed bundle manifest.
 ```csharp
 public static BundleManifest ReadManifest(string filePath, long headerOffset)
 ```
-

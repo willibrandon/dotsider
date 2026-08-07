@@ -147,7 +147,7 @@ internal static class AgentCommand
             if (json)
             {
                 using var formatter = new OutputFormatter { JsonMode = true };
-                formatter.WriteJson(new { Path = outputPath });
+                formatter.WriteJson(new CliPathPayload(outputPath));
             }
             else
             {

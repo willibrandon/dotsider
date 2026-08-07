@@ -89,4 +89,3 @@ The binary is managed or otherwise has no native symbols to read.
 ```csharp
 NotApplicable = 6
 ```
-

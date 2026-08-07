@@ -48,4 +48,3 @@ The build's total size.
 ```csharp
 Total = 0
 ```
-

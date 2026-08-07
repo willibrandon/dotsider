@@ -109,6 +109,15 @@ brew install willibrandon/tap/dotsider
 winget install willibrandon.dotsider
 ```
 
+The .NET SDK selects a self-contained Native AOT package on Windows, Linux, and macOS for x64 and Arm64, including glibc and musl Linux. Other supported environments use the framework-dependent `any` package.
+Live EventPipe tracing runs through the bundled `tracehost` helper and requires a .NET 10-or-later
+runtime. It launches existing managed DLLs or platform executables without a shell; Windows
+direct-launch targets must be `.exe` files and Unix targets must be executable. A `dotnet tool`
+installation already has the required host; release archive and package-manager users only need it
+when using the Dynamic tab. If either requirement is missing, the tab remains available but
+explains why tracing is disabled. The latest 5,000 output lines are retained, and individual lines
+are limited to 64 KiB with a visible truncation marker.
+
 ## TUI Options
 
 ```

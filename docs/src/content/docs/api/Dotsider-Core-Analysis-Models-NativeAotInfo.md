@@ -126,3 +126,88 @@ Number of module section entries following the header.
 public int SectionCount { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out ushort, out ushort, out uint, out int, out byte, out string?)
+
+**Parameters:**
+
+- `HeaderOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MajorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `MinorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `Flags` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `SectionCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EntrySize` ([Byte](https://learn.microsoft.com/dotnet/api/system.byte))
+- `RuntimeVersion` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int HeaderOffset, out ushort MajorVersion, out ushort MinorVersion, out uint Flags, out int SectionCount, out byte EntrySize, out string? RuntimeVersion)
+```
+
+### Equals(NativeAotInfo?)
+
+**Parameters:**
+
+- `other` ([NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeAotInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeAotInfo?, NativeAotInfo?)
+
+**Parameters:**
+
+- `left` ([NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/))
+- `right` ([NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeAotInfo? left, NativeAotInfo? right)
+```
+
+### operator ==(NativeAotInfo?, NativeAotInfo?)
+
+**Parameters:**
+
+- `left` ([NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/))
+- `right` ([NativeAotInfo](/api/dotsider.core.analysis.models.nativeaotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeAotInfo? left, NativeAotInfo? right)
+```

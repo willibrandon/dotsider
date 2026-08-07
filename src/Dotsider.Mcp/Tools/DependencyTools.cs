@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -28,7 +27,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.AssemblyRefs, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.AssemblyRefs);
         }
 
         if (sessionId is not null)
@@ -62,8 +61,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var graph = DependencyGraphBuilder.Build(analyzer);
-            return JsonSerializer.Serialize(new { graph.Nodes, graph.Edges },
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(new DependencyGraphPayload(graph.Nodes, graph.Edges));
         }
 
         if (sessionId is not null)
@@ -92,7 +90,7 @@ public sealed partial class DependencyTools(DotsiderSessionManager sessionManage
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(analyzer.TypeRefs, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(analyzer.TypeRefs);
         }
 
         if (sessionId is not null)

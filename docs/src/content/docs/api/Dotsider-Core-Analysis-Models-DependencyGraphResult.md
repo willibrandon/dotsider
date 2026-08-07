@@ -86,3 +86,84 @@ each carrying its computed layout coordinates and depth.
 public IReadOnlyList<GraphNode> Nodes { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out IReadOnlyList\<GraphNode\>, out IReadOnlyList\<GraphEdge\>, out IReadOnlyDictionary\<string, GraphNavigationContext\>)
+
+**Parameters:**
+
+- `Nodes` ([IReadOnlyList\<GraphNode\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Edges` ([IReadOnlyList\<GraphEdge\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `NavigationById` ([IReadOnlyDictionary\<String, GraphNavigationContext\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<GraphNode> Nodes, out IReadOnlyList<GraphEdge> Edges, out IReadOnlyDictionary<string, GraphNavigationContext> NavigationById)
+```
+
+### Equals(DependencyGraphResult?)
+
+**Parameters:**
+
+- `other` ([DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(DependencyGraphResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(DependencyGraphResult?, DependencyGraphResult?)
+
+**Parameters:**
+
+- `left` ([DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/))
+- `right` ([DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(DependencyGraphResult? left, DependencyGraphResult? right)
+```
+
+### operator ==(DependencyGraphResult?, DependencyGraphResult?)
+
+**Parameters:**
+
+- `left` ([DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/))
+- `right` ([DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(DependencyGraphResult? left, DependencyGraphResult? right)
+```

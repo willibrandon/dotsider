@@ -67,4 +67,3 @@ No managed assembly was located, so no PDB question arises.
 ```csharp
 NotApplicable = 0
 ```
-

@@ -94,3 +94,86 @@ The minimum memory page count.
 public ulong MinimumPages { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out ulong, out ulong?, out bool, out bool)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MinimumPages` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `MaximumPages` ([Nullable\<UInt64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `IsShared` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `IsMemory64` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out int Index, out ulong MinimumPages, out ulong? MaximumPages, out bool IsShared, out bool IsMemory64)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmMemoryInfo?)
+
+**Parameters:**
+
+- `other` ([WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmMemoryInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmMemoryInfo?, WasmMemoryInfo?)
+
+**Parameters:**
+
+- `left` ([WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/))
+- `right` ([WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmMemoryInfo? left, WasmMemoryInfo? right)
+```
+
+### operator ==(WasmMemoryInfo?, WasmMemoryInfo?)
+
+**Parameters:**
+
+- `left` ([WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/))
+- `right` ([WasmMemoryInfo](/api/dotsider.core.analysis.models.wasmmemoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmMemoryInfo? left, WasmMemoryInfo? right)
+```
