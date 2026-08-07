@@ -6,7 +6,7 @@ namespace Dotsider.Tests;
 /// CLI integration tests for the agent command.
 /// </summary>
 [TestClass]
-public class AgentCliTests
+public sealed class AgentCliTests
 {
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
@@ -124,10 +124,10 @@ public class AgentCliTests
     }
 
     /// <summary>
-    /// Verifies agent init with ai creates correct path.
+    /// Verifies agent init creates SKILL.md in the current directory by default.
     /// </summary>
     [TestMethod]
-    public async Task Agent_Init_WithAi_CreatesCorrectPath()
+    public async Task Agent_Init_NoOptions_CreatesSkillInCurrentDirectory()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
 
@@ -135,35 +135,20 @@ public class AgentCliTests
         {
             Directory.CreateDirectory(tempDir);
 
-            // --ai claude resolves .claude/skills/dotsider/SKILL.md relative to cwd
             var (exitCode, stdout, _) = await RunDotsiderInDirAsync(
-                tempDir, "agent", "init", "--ai", "claude");
+                tempDir, "agent", "init");
 
             Assert.AreEqual(0, exitCode);
-
-            var expectedPath = Path.Combine(tempDir, ".claude", "skills", "dotsider", "SKILL.md");
+            var expectedPath = Path.Combine(tempDir, "SKILL.md");
             Assert.IsTrue(File.Exists(expectedPath), $"Expected file at {expectedPath}");
+            Assert.Contains($"Created: {expectedPath}", stdout);
+            Assert.Contains("name: dotsider", File.ReadAllText(expectedPath));
         }
         finally
         {
             if (Directory.Exists(tempDir))
                 CleanupTempDir(tempDir);
         }
-    }
-
-    /// <summary>
-    /// Verifies agent init no args shows usage error.
-    /// </summary>
-    [TestMethod]
-    public async Task Agent_Init_NoArgs_ShowsUsageError()
-    {
-        var (exitCode, _, stderr) = await RunDotsiderAsync(
-            "agent", "init");
-
-        Assert.AreNotEqual(0, exitCode);
-        Assert.Contains("--ai", stderr);
-        Assert.Contains("--path", stderr);
-        Assert.Contains("--stdout", stderr);
     }
 
     /// <summary>

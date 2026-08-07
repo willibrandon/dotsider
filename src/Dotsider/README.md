@@ -55,14 +55,14 @@ dotsider sessions trace stop <pid>          # stop tracing
 
 ### agent
 
-MCP server and AI skill file management.
+MCP server and agent skill file management.
 
 ```
 dotsider agent mcp                          # launch MCP server (dotsider-mcp)
+dotsider agent init                         # create ./SKILL.md
 dotsider agent init --stdout                # print skill file to stdout
-dotsider agent init --ai claude             # create .claude/skills/dotsider/SKILL.md
-dotsider agent init --ai claude --force     # overwrite existing
 dotsider agent init --path /tmp/SKILL.md    # write to explicit path
+dotsider agent init --force                 # overwrite existing ./SKILL.md
 ```
 
 ### diff
