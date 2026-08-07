@@ -146,184 +146,46 @@ jobs:
         with:
           dotnet-version: '10.0.302'
 
-      - name: Install Linux Native AOT prerequisites
-        if: startsWith(matrix.rid, 'linux-')
-        shell: bash
-        run: |
-          sudo apt-get -o Acquire::Retries=5 update
-          sudo apt-get -o Acquire::Retries=5 install -y clang zlib1g-dev ${{ startsWith(matrix.rid, 'linux-musl-') && 'musl-tools' || '' }}
-
       - name: Publish, test, and pack Native AOT applications
-        shell: pwsh
-        run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
-          $rid = '${{ matrix.rid }}'
-          $extension = if ($IsWindows) { '.exe' } else { '' }
-          $publishRoot = Join-Path $PWD 'publish'
-          $symbolRoot = Join-Path $PWD 'symbols'
-          $packageRoot = Join-Path $PWD 'nupkg'
-          $workspace = (Get-Location).Path
-          $isMusl = $rid.StartsWith('linux-musl-', [StringComparison]::Ordinal)
-          New-Item -ItemType Directory -Force -Path $publishRoot, $symbolRoot, $packageRoot | Out-Null
-
-          function Invoke-NativeApplication {
-            param(
-              [Parameter(Mandatory=$true)][string]$Executable,
-              [string[]]$ArgumentList = @()
-            )
-
-            if ($isMusl) {
-              $relativeExecutable = [IO.Path]::GetRelativePath($workspace, $Executable).Replace('\', '/')
-              docker run --rm --volume "${workspace}:/work" --workdir /work `
-                mcr.microsoft.com/dotnet/runtime:10.0-alpine "/work/$relativeExecutable" @ArgumentList
-            } else {
-              & $Executable @ArgumentList
-            }
-          }
-
-          function Get-NativeArgumentPath {
-            param([Parameter(Mandatory=$true)][string]$Path)
-
-            if ($isMusl) {
-              $relativePath = [IO.Path]::GetRelativePath($workspace, $Path).Replace('\', '/')
-              return "/work/$relativePath"
-            }
-
-            return $Path
-          }
-
-          dotnet build samples/HelloWorld/HelloWorld.csproj -c Release
-          if ($LASTEXITCODE -ne 0) { throw 'Failed to build the runtime tracing fixture.' }
-
-          $products = @(
-            @{ Name = 'dotsider'; Project = 'src/Dotsider/Dotsider.csproj'; Package = 'Dotsider' },
-            @{ Name = 'dotsider-mcp'; Project = 'src/Dotsider.Mcp/Dotsider.Mcp.csproj'; Package = 'Dotsider.Mcp' }
-          )
-
-          foreach ($product in $products) {
-            $output = Join-Path $publishRoot $product.Name
-            dotnet publish $product.Project -c Release -r $rid -p:Version=$version -p:PackageVersion=$version -o $output
-            if ($LASTEXITCODE -ne 0) { throw "Failed to publish $($product.Name) for $rid." }
-
-            $executable = Join-Path $output "$($product.Name)$extension"
-            if (!(Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Missing executable $executable" }
-            Invoke-NativeApplication -Executable $executable -ArgumentList @('--version')
-            if ($LASTEXITCODE -ne 0) { throw "$($product.Name) --version failed for $rid." }
-
-            $productSymbols = Join-Path $symbolRoot $product.Name
-            New-Item -ItemType Directory -Force -Path $productSymbols | Out-Null
-            Get-ChildItem -LiteralPath $output -Directory -Filter '*.dSYM' | ForEach-Object {
-              Move-Item -LiteralPath $_.FullName -Destination $productSymbols
-            }
-            Get-ChildItem -LiteralPath $output -Recurse -File | Where-Object {
-              $_.Extension -in @('.pdb', '.dbg', '.dwarf')
-            } | ForEach-Object {
-              Move-Item -LiteralPath $_.FullName -Destination (Join-Path $productSymbols $_.Name)
-            }
-            if ((Get-ChildItem -LiteralPath $productSymbols -Recurse -File).Count -eq 0) {
-              throw "No native symbols were produced for $($product.Name) on $rid."
-            }
-
-            Copy-Item -LiteralPath LICENSE -Destination $output
-            $traceHostRoot = [IO.Path]::GetFullPath((Join-Path $output 'tracehost')) + [IO.Path]::DirectorySeparatorChar
-            $unexpected = @(Get-ChildItem -LiteralPath $output -Recurse -File | Where-Object {
-              $fullName = [IO.Path]::GetFullPath($_.FullName)
-              $isTraceHost = $product.Name -eq 'dotsider' -and
-                $fullName.StartsWith($traceHostRoot, [StringComparison]::OrdinalIgnoreCase)
-              $_.Name -notin @("$($product.Name)$extension", 'LICENSE') -and !$isTraceHost
-            })
-            if ($unexpected.Count -ne 0) {
-              throw "Unexpected release files for $($product.Name) on ${rid}: $($unexpected.FullName -join ', ')"
-            }
-            $traceHost = Join-Path $output 'tracehost/dotsider-tracehost.dll'
-            if ($product.Name -eq 'dotsider' -and !(Test-Path -LiteralPath $traceHost -PathType Leaf)) {
-              throw "The dotsider release payload does not contain its runtime trace host."
-            }
-
-            dotnet pack $product.Project -c Release -r $rid -p:Version=$version -p:PackageVersion=$version -o $packageRoot
-            if ($LASTEXITCODE -ne 0) { throw "Failed to pack $($product.Name) for $rid." }
-
-            $package = Join-Path $packageRoot "$($product.Package).$rid.$version.nupkg"
-            if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw "Missing package $package" }
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $archive = [IO.Compression.ZipFile]::OpenRead($package)
-            try {
-              $entryNames = @($archive.Entries.FullName)
-              $forbidden = @($entryNames | Where-Object {
-                $_ -match '(?i)(\.pdb$|\.dbg$|\.dwarf$|\.dSYM/|hex1bpty|Dia2Lib|TraceRelogger|KernelTraceControl|msdia)' -or
-                ($_ -match '(?i)\.xml$' -and
-                  $_ -notmatch '(?i)^(\[Content_Types\]\.xml|tools/.*/DotnetToolSettings\.xml)$')
-              })
-              if ($forbidden.Count -ne 0) {
-                throw "Tool package $package contains forbidden files: $($forbidden -join ', ')"
-              }
-              if (!($entryNames | Where-Object { $_ -match "/$([regex]::Escape($product.Name))$([regex]::Escape($extension))$" })) {
-                throw "Tool package $package does not contain its Native AOT executable."
-              }
-              $containsTraceHost = @($entryNames | Where-Object {
-                $_ -match '(?i)/tracehost/dotsider-tracehost\.dll$'
-              }).Count -ne 0
-              if ($product.Name -eq 'dotsider' -and !$containsTraceHost) {
-                throw "Tool package $package does not contain the runtime trace host."
-              }
-              if ($product.Name -eq 'dotsider-mcp' -and $containsTraceHost) {
-                throw "Tool package $package contains an unused runtime trace host."
-              }
-            }
-            finally {
-              $archive.Dispose()
-            }
-          }
-
-          $smokeOutput = Join-Path $PWD 'native-aot-smoke'
-          dotnet publish tests/Dotsider.NativeAotSmoke/Dotsider.NativeAotSmoke.csproj -c Release -r $rid -o $smokeOutput
-          if ($LASTEXITCODE -ne 0) { throw "Failed to publish the runtime tracing smoke test for $rid." }
-          $smokeExecutable = Join-Path $smokeOutput "Dotsider.NativeAotSmoke$extension"
-          $traceTarget = Join-Path $PWD 'samples/HelloWorld/bin/Release/net10.0/HelloWorld.dll'
-          $traceTargetArgument = Get-NativeArgumentPath -Path $traceTarget
-          Invoke-NativeApplication -Executable $smokeExecutable -ArgumentList @($traceTargetArgument)
-          if ($LASTEXITCODE -ne 0) { throw "Native AOT runtime tracing failed for $rid." }
-
-          $dotsiderExecutable = Join-Path $publishRoot "dotsider/dotsider$extension"
-          $analysisTarget = Get-NativeArgumentPath -Path $dotsiderExecutable
-          $analysis = Invoke-NativeApplication -Executable $dotsiderExecutable `
-            -ArgumentList @('analyze', $analysisTarget, '--json')
-          if ($LASTEXITCODE -ne 0) { throw "Native AOT JSON analysis failed for $rid." }
-          $analysis | ConvertFrom-Json | Out-Null
+        run: >-
+          dotnet run --file ./scripts/Verify-NativeAot.cs --
+          -Mode Release
+          -Rid ${{ matrix.rid }}
+          -Version ${{ github.ref_name }}
 
       - name: Upload dotsider artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ./publish/dotsider/**
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider/**
           if-no-files-found: error
 
       - name: Upload dotsider-mcp artifact
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}
-          path: ./publish/dotsider-mcp/**
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider-mcp/**
           if-no-files-found: error
 
       - name: Upload dotsider symbols
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-${{ matrix.rid }}-symbols
-          path: ./symbols/dotsider/**
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/symbols/dotsider/**
           if-no-files-found: error
 
       - name: Upload dotsider-mcp symbols
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}-symbols
-          path: ./symbols/dotsider-mcp/**
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/symbols/dotsider-mcp/**
           if-no-files-found: error
 
       - name: Upload Native AOT tool packages
         uses: actions/upload-artifact@v7
         with:
           name: tool-packages-${{ matrix.rid }}
-          path: ./nupkg/*.nupkg
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/packages/*.nupkg
           if-no-files-found: error
 
       - name: Extract version from tag
@@ -346,27 +208,29 @@ jobs:
         shell: pwsh
         run: |
           wix build wix\dotsider.wxs `
-            -d SourceDir=..\publish\dotsider `
+            -d SourceDir=..\artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider `
             -d Version=${{ steps.version.outputs.msi_version }} `
             -arch ${{ matrix.arch }} `
-            -out publish\${{ matrix.artifact }}.msi
+            -out artifacts\native-aot-release\${{ matrix.rid }}\publish\${{ matrix.artifact }}.msi
 
       - name: Build dotsider-mcp MSI
         if: startsWith(matrix.rid, 'win-')
         shell: pwsh
         run: |
           wix build wix\dotsider-mcp.wxs `
-            -d SourceDir=..\publish\dotsider-mcp `
+            -d SourceDir=..\artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider-mcp `
             -d Version=${{ steps.version.outputs.msi_version }} `
             -arch ${{ matrix.arch }} `
-            -out publish\dotsider-mcp-${{ matrix.rid }}.msi
+            -out artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider-mcp-${{ matrix.rid }}.msi
 
       - name: Verify dotsider MSI installs correctly
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: |
-          $logFile = "publish\msi-install.log"
-          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\${{ matrix.artifact }}.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+          $releaseRoot = "artifacts\native-aot-release\${{ matrix.rid }}\publish"
+          $logFile = Join-Path $releaseRoot "msi-install.log"
+          $installer = Join-Path $releaseRoot "${{ matrix.artifact }}.msi"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", $installer, "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
 
           if ($proc.ExitCode -ne 0) {
             Write-Error "MSI installation failed with exit code: $($proc.ExitCode)"
@@ -385,14 +249,16 @@ jobs:
           & $exePath --version
           Write-Host "dotsider MSI verification passed"
 
-          Start-Process msiexec.exe -ArgumentList "/x", "publish\${{ matrix.artifact }}.msi", "/qn" -Wait -NoNewWindow
+          Start-Process msiexec.exe -ArgumentList "/x", $installer, "/qn" -Wait -NoNewWindow
 
       - name: Verify dotsider-mcp MSI installs correctly
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: |
-          $logFile = "publish\mcp-msi-install.log"
-          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\dotsider-mcp-win-x64.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+          $releaseRoot = "artifacts\native-aot-release\${{ matrix.rid }}\publish"
+          $logFile = Join-Path $releaseRoot "mcp-msi-install.log"
+          $installer = Join-Path $releaseRoot "dotsider-mcp-win-x64.msi"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", $installer, "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
 
           if ($proc.ExitCode -ne 0) {
             Write-Error "dotsider-mcp MSI installation failed with exit code: $($proc.ExitCode)"
@@ -411,21 +277,21 @@ jobs:
           & $exePath --version
           Write-Host "dotsider-mcp MSI verification passed"
 
-          Start-Process msiexec.exe -ArgumentList "/x", "publish\dotsider-mcp-win-x64.msi", "/qn" -Wait -NoNewWindow
+          Start-Process msiexec.exe -ArgumentList "/x", $installer, "/qn" -Wait -NoNewWindow
 
       - name: Upload dotsider MSI artifact
         if: startsWith(matrix.rid, 'win-')
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}-msi
-          path: ./publish/${{ matrix.artifact }}.msi
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/${{ matrix.artifact }}.msi
 
       - name: Upload dotsider-mcp MSI artifact
         if: startsWith(matrix.rid, 'win-')
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}-msi
-          path: ./publish/dotsider-mcp-${{ matrix.rid }}.msi
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider-mcp-${{ matrix.rid }}.msi
 
   create-release:
     needs: [publish-nuget, build-binaries, build-portable-packages]
