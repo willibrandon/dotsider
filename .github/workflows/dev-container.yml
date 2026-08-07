@@ -51,7 +51,9 @@ jobs:
           imageName: dotsider-devcontainer
           imageTag: ci
           push: never
-          runCmd: dotnet build --no-restore
+          runCmd: |
+            dotnet build --no-restore
+            dotnet test --no-build
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5

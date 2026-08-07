@@ -22,14 +22,13 @@ public sealed class MultiModuleResolutionTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_CompilerBuiltModule_PushesCompleteAnalyzer()
     {
-        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
-            ?? throw new InvalidOperationException("Could not determine the test build configuration.");
-        var outputDirectory = Path.Combine(
+        var projectDirectory = Path.Combine(
             TestHelpers.GetRepoRoot(),
             "samples",
-            "MultiModuleManifest",
-            "bin",
-            configuration,
+            "MultiModuleManifest");
+        var outputDirectory = TestProcessEnvironment.GetProjectOutputDirectory(
+            projectDirectory,
+            TestProcessEnvironment.CurrentBuildConfiguration,
             "net10.0");
         var manifestPath = Path.Combine(outputDirectory, "MultiModuleManifest.dll");
         var modulePath = Path.Combine(outputDirectory, "MultiModulePart.netmodule");
