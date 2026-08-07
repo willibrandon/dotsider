@@ -96,3 +96,86 @@ The first correlated native address, or null when the method is not in the nativ
 public ulong? VirtualAddress { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out string, out int, out ulong?)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `VirtualAddress` ([Nullable\<UInt64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out string DeclaringType, out string Name, out int Token, out ulong? VirtualAddress)
+```
+
+### Equals(CorrelationCandidate?)
+
+**Parameters:**
+
+- `other` ([CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CorrelationCandidate? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(CorrelationCandidate?, CorrelationCandidate?)
+
+**Parameters:**
+
+- `left` ([CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/))
+- `right` ([CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CorrelationCandidate? left, CorrelationCandidate? right)
+```
+
+### operator ==(CorrelationCandidate?, CorrelationCandidate?)
+
+**Parameters:**
+
+- `left` ([CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/))
+- `right` ([CorrelationCandidate](/api/dotsider.core.analysis.models.correlationcandidate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CorrelationCandidate? left, CorrelationCandidate? right)
+```

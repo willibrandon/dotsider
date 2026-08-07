@@ -330,7 +330,7 @@ public static class SingleFileBundleReader
                 continue;
             }
 
-            var candidateHeaderOffset = BinaryPrimitives.ReadInt64LittleEndian(data.Slice(locatorStart));
+            var candidateHeaderOffset = BinaryPrimitives.ReadInt64LittleEndian(data[locatorStart..]);
             if (candidateHeaderOffset > 0 && candidateHeaderOffset < fileLength)
             {
                 headerOffset = candidateHeaderOffset;
@@ -378,7 +378,7 @@ public static class SingleFileBundleReader
             throw CreateMalformedManifestException();
 
         var value = StrictUtf8.GetString(bytes);
-        if (value.Length == 0 || value.IndexOf('\0') >= 0)
+        if (value.Length == 0 || value.Contains('\0'))
             throw CreateMalformedManifestException();
 
         return value;
@@ -456,7 +456,7 @@ public static class SingleFileBundleReader
             || compressedSize < 0
             || type > BundleFileType.Symbols
             || string.IsNullOrEmpty(relativePath)
-            || relativePath.IndexOf('\0') >= 0)
+            || relativePath.Contains('\0'))
         {
             throw CreateMalformedManifestException();
         }

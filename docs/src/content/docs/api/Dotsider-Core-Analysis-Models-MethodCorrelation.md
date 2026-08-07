@@ -120,3 +120,86 @@ How the method relates to the native image.
 public MethodCorrelationStatus Status { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out MethodDefInfo, out MethodCorrelationStatus, out IReadOnlyList\<NativeSymbol\>, out IReadOnlyList\<MstatMethod\>)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Method` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+- `Status` ([MethodCorrelationStatus](/api/dotsider.core.analysis.models.methodcorrelationstatus/))
+- `NativeSymbols` ([IReadOnlyList\<NativeSymbol\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `MstatMethods` ([IReadOnlyList\<MstatMethod\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out MethodDefInfo Method, out MethodCorrelationStatus Status, out IReadOnlyList<NativeSymbol> NativeSymbols, out IReadOnlyList<MstatMethod> MstatMethods)
+```
+
+### Equals(MethodCorrelation?)
+
+**Parameters:**
+
+- `other` ([MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MethodCorrelation? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MethodCorrelation?, MethodCorrelation?)
+
+**Parameters:**
+
+- `left` ([MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/))
+- `right` ([MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MethodCorrelation? left, MethodCorrelation? right)
+```
+
+### operator ==(MethodCorrelation?, MethodCorrelation?)
+
+**Parameters:**
+
+- `left` ([MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/))
+- `right` ([MethodCorrelation](/api/dotsider.core.analysis.models.methodcorrelation/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MethodCorrelation? left, MethodCorrelation? right)
+```

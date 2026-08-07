@@ -120,3 +120,88 @@ The Webcil minor format version.
 public int VersionMinor { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out int, out bool, out long, out int, out int, out int)
+
+**Parameters:**
+
+- `VersionMajor` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `VersionMinor` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `IsWasmWrapped` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `PayloadOffset` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `SectionCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MetadataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `DebugDirectorySize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int VersionMajor, out int VersionMinor, out bool IsWasmWrapped, out long PayloadOffset, out int SectionCount, out int MetadataSize, out int DebugDirectorySize)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WebcilInfo?)
+
+**Parameters:**
+
+- `other` ([WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WebcilInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WebcilInfo?, WebcilInfo?)
+
+**Parameters:**
+
+- `left` ([WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/))
+- `right` ([WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WebcilInfo? left, WebcilInfo? right)
+```
+
+### operator ==(WebcilInfo?, WebcilInfo?)
+
+**Parameters:**
+
+- `left` ([WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/))
+- `right` ([WebcilInfo](/api/dotsider.core.analysis.models.webcilinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WebcilInfo? left, WebcilInfo? right)
+```

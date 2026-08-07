@@ -74,4 +74,3 @@ A redirect declared in a GAC-resident
 ```csharp
 PublisherPolicy = 2
 ```
-

@@ -127,3 +127,89 @@ The debug directory entry type.
 public DebugDirectoryEntryType Type { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out DebugDirectoryEntryType, out uint, out ushort, out ushort, out int, out int, out int, out string)
+
+**Parameters:**
+
+- `Type` ([DebugDirectoryEntryType](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.debugdirectoryentrytype))
+- `Stamp` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `MajorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `MinorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `DataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `AddressOfRawData` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `PointerToRawData` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Payload` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out DebugDirectoryEntryType Type, out uint Stamp, out ushort MajorVersion, out ushort MinorVersion, out int DataSize, out int AddressOfRawData, out int PointerToRawData, out string Payload)
+```
+
+### Equals(DebugDirectoryInfo?)
+
+**Parameters:**
+
+- `other` ([DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(DebugDirectoryInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(DebugDirectoryInfo?, DebugDirectoryInfo?)
+
+**Parameters:**
+
+- `left` ([DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/))
+- `right` ([DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(DebugDirectoryInfo? left, DebugDirectoryInfo? right)
+```
+
+### operator ==(DebugDirectoryInfo?, DebugDirectoryInfo?)
+
+**Parameters:**
+
+- `left` ([DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/))
+- `right` ([DebugDirectoryInfo](/api/dotsider.core.analysis.models.debugdirectoryinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(DebugDirectoryInfo? left, DebugDirectoryInfo? right)
+```

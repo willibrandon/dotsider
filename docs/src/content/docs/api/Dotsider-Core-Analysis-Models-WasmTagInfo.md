@@ -72,3 +72,84 @@ The function type index used by the tag.
 public int TypeIndex { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out uint, out int)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Attribute` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `TypeIndex` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int Index, out uint Attribute, out int TypeIndex)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmTagInfo?)
+
+**Parameters:**
+
+- `other` ([WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmTagInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmTagInfo?, WasmTagInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/))
+- `right` ([WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmTagInfo? left, WasmTagInfo? right)
+```
+
+### operator ==(WasmTagInfo?, WasmTagInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/))
+- `right` ([WasmTagInfo](/api/dotsider.core.analysis.models.wasmtaginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmTagInfo? left, WasmTagInfo? right)
+```

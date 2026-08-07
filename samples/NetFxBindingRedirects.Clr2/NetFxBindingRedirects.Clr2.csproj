@@ -41,7 +41,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <!-- v3.0 framework reference; proves the v3.0 allowlist branch in

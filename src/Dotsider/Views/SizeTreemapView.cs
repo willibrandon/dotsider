@@ -78,7 +78,10 @@ public static class SizeTreemapView
         {
             state.SizeMapWhyEditorText = state.SizeMapWhyContent;
             state.SizeMapWhyEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(state.SizeMapWhyContent))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(state.SizeMapWhyContent)))
+            {
+                IsReadOnly = true,
+            };
         }
 
         return ctx.ZStack(z =>

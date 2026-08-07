@@ -397,8 +397,8 @@ public class DependencyGraphBuilderTests
         var exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
             DependencyGraphBuilder.BuildWithCancellation(
                 analyzer,
-                cancellation.Token,
-                observed.Add));
+                observed.Add,
+                cancellation.Token));
 
         Assert.AreEqual(cancellation.Token, exception.CancellationToken);
         Assert.IsEmpty(observed);
@@ -427,12 +427,12 @@ public class DependencyGraphBuilderTests
             exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
                 DependencyGraphBuilder.BuildWithCancellation(
                     analyzer,
-                    cancellation.Token,
                     checkpoint =>
                     {
                         observed.Add(checkpoint);
                         cancellation.Cancel();
-                    }));
+                    },
+                    cancellation.Token));
         }
 
         scope.Dispose();
@@ -487,7 +487,6 @@ public class DependencyGraphBuilderTests
         var exception = Assert.ThrowsExactly<OperationCanceledException>(() =>
             DependencyGraphBuilder.BuildWithCancellation(
                 analyzer,
-                cancellation.Token,
                 checkpoint =>
                 {
                     if (checkpoint != DependencyGraphBuildCheckpoint.DgmlLinkProcessed)
@@ -495,7 +494,8 @@ public class DependencyGraphBuilderTests
 
                     observed.Add(checkpoint);
                     cancellation.Cancel();
-                }));
+                },
+                cancellation.Token));
 
         Assert.AreEqual(cancellation.Token, exception.CancellationToken);
         Assert.AreSequenceEqual(

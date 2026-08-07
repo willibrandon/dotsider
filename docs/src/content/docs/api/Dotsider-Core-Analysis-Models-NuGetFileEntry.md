@@ -109,3 +109,87 @@ Uncompressed size in bytes.
 public long UncompressedSize { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out string, out long, out long, out bool)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Directory` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `CompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `UncompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `IsDll` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out string Name, out string FullPath, out string Directory, out long CompressedSize, out long UncompressedSize, out bool IsDll)
+```
+
+### Equals(NuGetFileEntry?)
+
+**Parameters:**
+
+- `other` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NuGetFileEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NuGetFileEntry?, NuGetFileEntry?)
+
+**Parameters:**
+
+- `left` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/))
+- `right` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NuGetFileEntry? left, NuGetFileEntry? right)
+```
+
+### operator ==(NuGetFileEntry?, NuGetFileEntry?)
+
+**Parameters:**
+
+- `left` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/))
+- `right` ([NuGetFileEntry](/api/dotsider.core.analysis.models.nugetfileentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NuGetFileEntry? left, NuGetFileEntry? right)
+```

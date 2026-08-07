@@ -42,4 +42,3 @@ The shared-basis totals.
 ```csharp
 public static SizeTotals Resolve(MstatSource target, MstatSource? baseline, MstatDiffResult diff)
 ```
-

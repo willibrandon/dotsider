@@ -57,6 +57,14 @@ The authenticated module bytes.
 public ImmutableArray<byte> Bytes { get; init; }
 ```
 
+### EqualityContract
+
+**Returns:** [Type](https://learn.microsoft.com/dotnet/api/system.type)
+
+```csharp
+protected override Type EqualityContract { get; }
+```
+
 ### ManifestPath
 
 The manifest assembly path that authenticated the module.
@@ -97,3 +105,110 @@ The manifest assembly's target-framework context.
 public string? TargetFramework { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ImmutableArray\<byte\>, out string, out string, out string?, out string?)
+
+**Parameters:**
+
+- `Bytes` ([ImmutableArray\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.immutable.immutablearray-1))
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ManifestPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TargetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PreferredRuntimePack` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out ImmutableArray<byte> Bytes, out string Path, out string ManifestPath, out string? TargetFramework, out string? PreferredRuntimePack)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ResolvedAssembly?)
+
+**Parameters:**
+
+- `other` ([ResolvedAssembly](/api/dotsider.core.analysis.models.resolvedassembly/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override sealed bool Equals(ResolvedAssembly? other)
+```
+
+### Equals(ResolvedModule?)
+
+**Parameters:**
+
+- `other` ([ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ResolvedModule? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### PrintMembers(StringBuilder)
+
+**Parameters:**
+
+- `builder` ([StringBuilder](https://learn.microsoft.com/dotnet/api/system.text.stringbuilder))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+protected override bool PrintMembers(StringBuilder builder)
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ResolvedModule?, ResolvedModule?)
+
+**Parameters:**
+
+- `left` ([ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/))
+- `right` ([ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ResolvedModule? left, ResolvedModule? right)
+```
+
+### operator ==(ResolvedModule?, ResolvedModule?)
+
+**Parameters:**
+
+- `left` ([ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/))
+- `right` ([ResolvedModule](/api/dotsider.core.analysis.models.resolvedmodule/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ResolvedModule? left, ResolvedModule? right)
+```

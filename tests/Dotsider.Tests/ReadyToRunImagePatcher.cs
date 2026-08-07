@@ -30,15 +30,8 @@ internal static class ReadyToRunImagePatcher
         ulong SecondSlotVirtualAddress)
         PatchImportSlotBudget(string path, int firstCount, int secondCount)
     {
-        if (firstCount <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(firstCount));
-        }
-
-        if (secondCount <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(secondCount));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(firstCount);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(secondCount);
 
         var original = File.ReadAllBytes(path);
         using var analyzer = new AssemblyAnalyzer(original, path);
@@ -55,36 +48,36 @@ internal static class ReadyToRunImagePatcher
         payload[helperOffset] = FixupHelper;
         payload[helperOffset + 1] = 0x08;
 
-        var appended = AppendPayload(original, payload);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
         WriteImportRecord(
-            appended.Image,
-            appended.Offset,
-            checked(appended.Rva + firstSlotsOffset),
+            Image,
+            Offset,
+            checked(Rva + firstSlotsOffset),
             firstCount,
-            checked(appended.Rva + firstSignaturesOffset));
+            checked(Rva + firstSignaturesOffset));
         WriteImportRecord(
-            appended.Image,
-            appended.Offset + ImportSectionRecordSize,
-            checked(appended.Rva + secondSlotsOffset),
+            Image,
+            Offset + ImportSectionRecordSize,
+            checked(Rva + secondSlotsOffset),
             secondCount,
-            checked(appended.Rva + secondSignaturesOffset));
+            checked(Rva + secondSignaturesOffset));
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(appended.Offset + firstSignaturesOffset),
-            checked((uint)(appended.Rva + helperOffset)));
+            Image.AsSpan(Offset + firstSignaturesOffset),
+            checked((uint)(Rva + helperOffset)));
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(appended.Offset + secondSignaturesOffset),
-            checked((uint)(appended.Rva + helperOffset)));
+            Image.AsSpan(Offset + secondSignaturesOffset),
+            checked((uint)(Rva + helperOffset)));
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             ReadyToRunSectionType.ImportSections,
-            appended.Rva,
+            Rva,
             ImportSectionRecordSize * 2);
 
         return (
-            appended.Image,
-            checked(imageBase + (uint)(appended.Rva + firstSlotsOffset)),
-            checked(imageBase + (uint)(appended.Rva + secondSlotsOffset)));
+            Image,
+            checked(imageBase + (uint)(Rva + firstSlotsOffset)),
+            checked(imageBase + (uint)(Rva + secondSlotsOffset)));
     }
 
     /// <summary>
@@ -112,34 +105,34 @@ internal static class ReadyToRunImagePatcher
         payload[helperOffset] = FixupHelper;
         payload[helperOffset + 1] = 0x08;
 
-        var appended = AppendPayload(original, payload);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
         WriteImportRecord(
-            appended.Image,
-            appended.Offset,
-            checked(appended.Rva + slotsOffset),
+            Image,
+            Offset,
+            checked(Rva + slotsOffset),
             slotCount: 2,
-            checked(appended.Rva + signaturesOffset));
+            checked(Rva + signaturesOffset));
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(appended.Offset + signaturesOffset),
-            checked((uint)(appended.Rva + helperOffset)));
+            Image.AsSpan(Offset + signaturesOffset),
+            checked((uint)(Rva + helperOffset)));
 
-        var malformedOffset = appended.Image.Length - 2;
-        var malformedRva = checked(appended.Rva + malformedOffset - appended.Offset);
-        appended.Image[malformedOffset] = FixupHelper;
-        appended.Image[malformedOffset + 1] = 0xE0;
+        var malformedOffset = Image.Length - 2;
+        var malformedRva = checked(Rva + malformedOffset - Offset);
+        Image[malformedOffset] = FixupHelper;
+        Image[malformedOffset + 1] = 0xE0;
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(appended.Offset + signaturesOffset + sizeof(uint)),
+            Image.AsSpan(Offset + signaturesOffset + sizeof(uint)),
             checked((uint)malformedRva));
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             ReadyToRunSectionType.ImportSections,
-            appended.Rva,
+            Rva,
             ImportSectionRecordSize);
 
-        var firstSlotAddress = checked(imageBase + (uint)(appended.Rva + slotsOffset));
+        var firstSlotAddress = checked(imageBase + (uint)(Rva + slotsOffset));
         return (
-            appended.Image,
+            Image,
             firstSlotAddress,
             checked(firstSlotAddress + 1));
     }
@@ -173,27 +166,27 @@ internal static class ReadyToRunImagePatcher
         payload[helperOffset] = FixupHelper;
         payload[helperOffset + 1] = 0x08;
 
-        var appended = AppendPayload(original, payload);
-        var slotsRva = checked(appended.Rva + slotsOffset);
-        var signaturesRva = checked(appended.Rva + signaturesOffset);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
+        var slotsRva = checked(Rva + slotsOffset);
+        var signaturesRva = checked(Rva + signaturesOffset);
         WriteImportRecord(
-            appended.Image,
-            appended.Offset,
+            Image,
+            Offset,
             forgeSlotsRva ? forgedRva : slotsRva,
             slotCount: 1,
             forgeSlotsRva ? signaturesRva : forgedRva);
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(appended.Offset + signaturesOffset),
-            checked((uint)(appended.Rva + helperOffset)));
+            Image.AsSpan(Offset + signaturesOffset),
+            checked((uint)(Rva + helperOffset)));
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             ReadyToRunSectionType.ImportSections,
-            appended.Rva,
+            Rva,
             ImportSectionRecordSize);
 
         return (
-            appended.Image,
+            Image,
             checked(imageBase + (uint)slotsRva));
     }
 
@@ -220,14 +213,14 @@ internal static class ReadyToRunImagePatcher
         signature.CopyTo(table, 5);
         table[^1] = 0x00; // runtime-function index zero
 
-        var appended = AppendPayload(original, table);
+        var (Image, Offset, Rva) = AppendPayload(original, table);
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
-            appended.Rva,
+            Rva,
             table.Length);
-        return (appended.Image, appended.Offset, appended.Offset + 5);
+        return (Image, Offset, Offset + 5);
     }
 
     /// <summary>
@@ -251,13 +244,13 @@ internal static class ReadyToRunImagePatcher
         var fixup = new byte[1 + methodSignature.Length];
         fixup[0] = FixupMethodEntry;
         methodSignature.CopyTo(fixup, 1);
-        var patched = PatchImportFixup(path, fixup);
+        var (Image, FixupOffset, SlotVirtualAddress, OriginalName, OriginalCount) = PatchImportFixup(path, fixup);
         return (
-            patched.Image,
-            patched.FixupOffset + 1,
-            patched.SlotVirtualAddress,
-            patched.OriginalName,
-            patched.OriginalCount);
+            Image,
+            FixupOffset + 1,
+            SlotVirtualAddress,
+            OriginalName,
+            OriginalCount);
     }
 
     /// <summary>
@@ -343,12 +336,12 @@ internal static class ReadyToRunImagePatcher
             throw new InvalidOperationException("The ReadyToRun fixture has no named import slot to patch.");
         }
 
-        var appended = AppendPayload(original, fixup);
+        var (Image, Offset, Rva) = AppendPayload(original, fixup);
         BinaryPrimitives.WriteUInt32LittleEndian(
-            appended.Image.AsSpan(rvaFieldOffset),
-            checked((uint)appended.Rva));
+            Image.AsSpan(rvaFieldOffset),
+            checked((uint)Rva));
 
-        return (appended.Image, appended.Offset, selectedSlot, originalName, imports.Count);
+        return (Image, Offset, selectedSlot, originalName, imports.Count);
     }
 
     /// <summary>
@@ -368,22 +361,19 @@ internal static class ReadyToRunImagePatcher
         int declaredSize)
     {
         ArgumentNullException.ThrowIfNull(payload);
-        if (declaredSize < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(declaredSize));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(declaredSize);
 
         var original = File.ReadAllBytes(path);
         using var analyzer = new AssemblyAnalyzer(original, path);
         var info = RequireValidReadyToRunInfo(analyzer);
-        var appended = AppendPayload(original, payload);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             sectionType,
-            appended.Rva,
+            Rva,
             declaredSize);
-        return (appended.Image, appended.Offset);
+        return (Image, Offset);
     }
 
     /// <summary>
@@ -410,15 +400,15 @@ internal static class ReadyToRunImagePatcher
         var original = File.ReadAllBytes(path);
         using var analyzer = new AssemblyAnalyzer(original, path);
         var info = RequireValidReadyToRunInfo(analyzer);
-        var appended = AppendPayload(original, payload);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
         PatchReadyToRunSection(
-            appended.Image,
+            Image,
             info,
             sectionType,
-            appended.Rva,
+            Rva,
             declaredSize,
             replacementType);
-        return (appended.Image, appended.Offset);
+        return (Image, Offset);
     }
 
     /// <summary>
@@ -437,10 +427,7 @@ internal static class ReadyToRunImagePatcher
         int declaredSize)
     {
         ArgumentNullException.ThrowIfNull(payload);
-        if (declaredSize < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(declaredSize));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(declaredSize);
 
         var original = File.ReadAllBytes(path);
         using var analyzer = new AssemblyAnalyzer(original, path);
@@ -461,15 +448,15 @@ internal static class ReadyToRunImagePatcher
                 addressSpace)
             .Single(candidate => candidate.Mvid == componentMvid);
 
-        var appended = AppendPayload(original, payload);
-        var coreHeaderOffset = RvaToFileOffset(appended.Image, component.CoreHeaderRva);
+        var (Image, Offset, Rva) = AppendPayload(original, payload);
+        var coreHeaderOffset = RvaToFileOffset(Image, component.CoreHeaderRva);
         PatchCoreReadyToRunSection(
-            appended.Image,
+            Image,
             coreHeaderOffset,
             ReadyToRunSectionType.MethodDefEntryPoints,
-            appended.Rva,
+            Rva,
             declaredSize);
-        return (appended.Image, appended.Offset);
+        return (Image, Offset);
     }
 
     private static (byte[] Image, int Offset, int Rva) AppendPayload(byte[] original, byte[] payload)

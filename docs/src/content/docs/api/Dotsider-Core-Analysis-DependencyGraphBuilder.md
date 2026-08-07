@@ -37,7 +37,7 @@ Builds the transitive dependency graph rooted at analyzer.
 **Parameters:**
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The root assembly analyzer. The caller retains ownership and disposal
-    responsibility; the builder does not dispose it.
+            responsibility; the builder does not dispose it.
 
 **Returns:** [DependencyGraphResult](/api/dotsider.core.analysis.models.dependencygraphresult/)
 
@@ -46,4 +46,3 @@ The computed nodes, edges, and per-node navigation metadata.
 ```csharp
 public static DependencyGraphResult Build(AssemblyAnalyzer analyzer)
 ```
-

@@ -1,4 +1,3 @@
-using Dotsider.Core.Protocol;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -48,7 +47,7 @@ public sealed class TraceToolsTests : McpServerTestBase
         socket.OnMethod("start-trace", request =>
         {
             receivedArguments = request.Arguments;
-            return DotsiderResponse.Ok(new
+            return TestJsonResponse.Ok(new
             {
                 Message = "Trace start queued"
             });

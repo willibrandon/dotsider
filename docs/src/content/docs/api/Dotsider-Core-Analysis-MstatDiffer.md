@@ -63,4 +63,3 @@ The size difference.
 ```csharp
 public static MstatDiffResult Compare(MstatSizeIndex left, MstatSizeIndex right)
 ```
-

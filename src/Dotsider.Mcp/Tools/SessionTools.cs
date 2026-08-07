@@ -1,7 +1,6 @@
 using Dotsider.Core.Protocol;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -23,7 +22,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
         if (sessions.Count == 0)
             return "No running dotsider instances found.";
 
-        var results = new List<object>();
+        var results = new List<DiscoveredSessionPayload>();
         foreach (var (pid, socketPath) in sessions)
         {
             var target = sessionManager.GetTarget(pid);
@@ -32,7 +31,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
                 var response = await target.SendAsync(
                     new DotsiderRequest { Method = "assembly-info" }, ct);
                 if (response.Success)
-                    results.Add(new { Pid = pid, SocketPath = socketPath, Info = response.Data });
+                    results.Add(new DiscoveredSessionPayload(pid, socketPath, response.Data));
             }
             catch (Exception ex)
             {
@@ -45,7 +44,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
         if (results.Count == 0)
             return "No running dotsider instances found.";
 
-        return JsonSerializer.Serialize(results, DotsiderJsonOptions.Default);
+        return McpJson.Serialize(results);
     }
 
     /// <summary>
@@ -65,8 +64,7 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
         var view = await target.SendAsync(
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
-        return JsonSerializer.Serialize(new { Assembly = info.Data, View = view.Data },
-            DotsiderJsonOptions.Default);
+        return McpJson.Serialize(new SessionInfoPayload(info.Data, view.Data));
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Stale socket for PID {Pid} at {SocketPath} — removing")]

@@ -54,6 +54,14 @@ Full path to the companion managed .dll.
 public string CompanionDllPath { get; init; }
 ```
 
+### EqualityContract
+
+**Returns:** [Type](https://learn.microsoft.com/dotnet/api/system.type)
+
+```csharp
+protected override Type EqualityContract { get; }
+```
+
 ### HostAnalyzer
 
 The analyzer for the native apphost (no metadata).
@@ -64,3 +72,107 @@ The analyzer for the native apphost (no metadata).
 public AssemblyAnalyzer HostAnalyzer { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out AssemblyAnalyzer, out string)
+
+**Parameters:**
+
+- `HostAnalyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+- `CompanionDllPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out AssemblyAnalyzer HostAnalyzer, out string CompanionDllPath)
+```
+
+### Equals(ApphostWithCompanion?)
+
+**Parameters:**
+
+- `other` ([ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyOpenResult.ApphostWithCompanion? other)
+```
+
+### Equals(AssemblyOpenResult?)
+
+**Parameters:**
+
+- `other` ([AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override sealed bool Equals(AssemblyOpenResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### PrintMembers(StringBuilder)
+
+**Parameters:**
+
+- `builder` ([StringBuilder](https://learn.microsoft.com/dotnet/api/system.text.stringbuilder))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+protected override bool PrintMembers(StringBuilder builder)
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ApphostWithCompanion?, ApphostWithCompanion?)
+
+**Parameters:**
+
+- `left` ([ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/))
+- `right` ([ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyOpenResult.ApphostWithCompanion? left, AssemblyOpenResult.ApphostWithCompanion? right)
+```
+
+### operator ==(ApphostWithCompanion?, ApphostWithCompanion?)
+
+**Parameters:**
+
+- `left` ([ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/))
+- `right` ([ApphostWithCompanion](/api/dotsider.core.analysis.models.assemblyopenresult.apphostwithcompanion/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyOpenResult.ApphostWithCompanion? left, AssemblyOpenResult.ApphostWithCompanion? right)
+```

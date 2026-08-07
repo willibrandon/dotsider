@@ -59,4 +59,3 @@ Resolves an import-slot virtual address to its imported name.
 ```csharp
 public bool TryResolve(ulong targetVirtualAddress, out NativeSymbolRef import)
 ```
-

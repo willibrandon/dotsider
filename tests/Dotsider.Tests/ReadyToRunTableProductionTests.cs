@@ -42,13 +42,13 @@ public sealed class ReadyToRunTableProductionTests
                 (ReadyToRunRuntimeFunctionTable.MaxRuntimeFunctionCount + 1) * recordSize),
             _ => throw new ArgumentOutOfRangeException(nameof(malformation)),
         };
-        var patched = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.RuntimeFunctions,
             [0],
             declaredSize);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         AssertMethodMapUnavailable(analyzer, "RuntimeFunctions");
         Assert.Contains(
@@ -65,14 +65,14 @@ public sealed class ReadyToRunTableProductionTests
     public void HotColdMap_MalformedRealTable_DisablesMethodMap()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.HotColdMap,
             new byte[8],
             8,
             ReadyToRunSectionType.CrossModuleInlineInfo);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         AssertMethodMapUnavailable(analyzer, "HotColdMap");
         Assert.Contains(
@@ -123,14 +123,14 @@ public sealed class ReadyToRunTableProductionTests
         var pair = new byte[8];
         BinaryPrimitives.WriteInt32LittleEndian(pair, cold);
         BinaryPrimitives.WriteInt32LittleEndian(pair.AsSpan(4), hot);
-        var patched = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.HotColdMap,
             pair,
             pair.Length,
             ReadyToRunSectionType.CrossModuleInlineInfo);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var method = analyzer.ReadyToRunMethods.First(
             candidate => candidate.EntryPointRuntimeFunctionId == hot);
         var coldRange = Assert.ContainsSingle(

@@ -1229,7 +1229,7 @@ detail entries or the bucket blob — never both. Sharing this policy between
 and [MstatDiffer](/api/dotsider.core.analysis.mstatdiffer/) is what keeps their totals identical.
 
 ```csharp
-public readonly record struct MstatSectionPolicy : IEquatable<MstatSectionPolicy>
+public readonly struct MstatSectionPolicy : IEquatable<MstatSectionPolicy>
 ```
 
 ### [NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/)
@@ -1240,7 +1240,7 @@ TUI decoration providers highlight and hit-test by these spans rather than re-pa
 so the rendered text stays a pure projection of the structured instruction.
 
 ```csharp
-public readonly record struct NativeLineLayout : IEquatable<NativeLineLayout>
+public readonly struct NativeLineLayout : IEquatable<NativeLineLayout>
 ```
 
 ### [NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/)
@@ -1250,7 +1250,7 @@ call or branch landing inside a function displays honestly as `Foo+0x12` rather 
 failing or pretending an exact hit.
 
 ```csharp
-public readonly record struct NativeSymbolRef : IEquatable<NativeSymbolRef>
+public readonly struct NativeSymbolRef : IEquatable<NativeSymbolRef>
 ```
 
 ## Enums
@@ -1600,4 +1600,3 @@ The outcome of probing a WebAssembly module's `dotnet.native.js.symbols` sidecar
 ```csharp
 public enum WasmSymbolMapStatus
 ```
-

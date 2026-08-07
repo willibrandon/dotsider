@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -53,14 +52,12 @@ public sealed partial class StringTools(DotsiderSessionManager sessionManager)
             }
 
             var max = maxResults ?? int.MaxValue;
-            return JsonSerializer.Serialize(new
-            {
-                UserStrings = user.Take(max).ToList(),
-                MetadataStrings = metadata.Take(max).ToList(),
-                RawStrings = raw.Take(max).ToList(),
-                RawUtf16Strings = rawUtf16.Take(max).ToList(),
-                FrozenStrings = frozen.Take(max).ToList()
-            }, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(new StringsPayload(
+                [.. user.Take(max)],
+                [.. metadata.Take(max)],
+                [.. raw.Take(max)],
+                [.. rawUtf16.Take(max)],
+                [.. frozen.Take(max)]));
         }
 
         if (sessionId is not null)

@@ -104,7 +104,8 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
                     continue;
                 }
 
-                var request = JsonSerializer.Deserialize<DotsiderRequest>(line, DotsiderJsonOptions.Default);
+                var request = JsonSerializer.Deserialize(
+                    line, DotsiderJsonContext.Protocol.DotsiderRequest);
                 DotsiderResponse response;
 
                 if (request is null || string.IsNullOrEmpty(request.Method))
@@ -116,7 +117,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
                     try
                     {
                         var data = handler(request);
-                        response = DotsiderResponse.Ok(data);
+                        response = DotsiderResponse.Ok(TestJsonResponse.Element(data));
                     }
                     catch (Exception ex)
                     {
@@ -131,7 +132,8 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
 
                 if (handlerFailure is null)
                 {
-                    var responseJson = JsonSerializer.Serialize(response, DotsiderJsonOptions.Default);
+                    var responseJson = JsonSerializer.Serialize(
+                        response, DotsiderJsonContext.Protocol.DotsiderResponse);
                     await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
                 }
             }

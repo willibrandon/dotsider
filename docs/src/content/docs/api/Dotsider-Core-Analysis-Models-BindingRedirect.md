@@ -131,3 +131,89 @@ Which policy layer this redirect came from.
 public PolicyLayer Source { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out PolicyLayer, out string, out string?, out string, out string?, out Version, out Version, out Version)
+
+**Parameters:**
+
+- `Source` ([PolicyLayer](/api/dotsider.core.analysis.models.policylayer/))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Culture` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ProcessorArchitecture` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `OldMin` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+- `OldMax` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+- `NewVersion` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+
+```csharp
+public void Deconstruct(out PolicyLayer Source, out string Name, out string? PublicKeyToken, out string Culture, out string? ProcessorArchitecture, out Version OldMin, out Version OldMax, out Version NewVersion)
+```
+
+### Equals(BindingRedirect?)
+
+**Parameters:**
+
+- `other` ([BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(BindingRedirect? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BindingRedirect?, BindingRedirect?)
+
+**Parameters:**
+
+- `left` ([BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/))
+- `right` ([BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(BindingRedirect? left, BindingRedirect? right)
+```
+
+### operator ==(BindingRedirect?, BindingRedirect?)
+
+**Parameters:**
+
+- `left` ([BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/))
+- `right` ([BindingRedirect](/api/dotsider.core.analysis.models.bindingredirect/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(BindingRedirect? left, BindingRedirect? right)
+```

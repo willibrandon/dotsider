@@ -10,6 +10,18 @@
     <AssemblyName>dotsider-mcp</AssemblyName>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>$(RuntimeIdentifiers);any</ToolPackageRuntimeIdentifiers>
+    <IncludeSymbols>false</IncludeSymbols>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <NativeDebugSymbols>true</NativeDebugSymbols>
+    <StackTraceSupport>true</StackTraceSupport>
+    <ControlFlowGuard Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-', System.StringComparison.Ordinal))">Guard</ControlFlowGuard>
+    <DsymUtilOptions Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx-', System.StringComparison.Ordinal))">$(DsymUtilOptions) &gt;/dev/null 2&gt;&amp;1</DsymUtilOptions>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -37,8 +49,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ModelContextProtocol" Version="1.4.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="ModelContextProtocol" IsAotCompatible="true" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" IsAotCompatible="true" />
   </ItemGroup>
 
 </Project>

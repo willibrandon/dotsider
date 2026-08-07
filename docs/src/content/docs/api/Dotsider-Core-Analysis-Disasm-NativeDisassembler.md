@@ -124,4 +124,3 @@ an exact managed-name match, then the raw symbol name, then a suffix match.
 ```csharp
 public static IReadOnlyList<NativeSymbol> FindExecutableSymbols(NativeSymbolInfo info, string target)
 ```
-

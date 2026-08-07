@@ -72,4 +72,3 @@ A valid ReadyToRun header whose section tables parsed successfully.
 ```csharp
 Valid = 1
 ```
-

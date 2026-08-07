@@ -67,4 +67,3 @@ The parsed budgets, in document order.
 ```csharp
 public static IReadOnlyList<SizeBudget> Parse(string json)
 ```
-

@@ -78,4 +78,3 @@ A field's RVA data mapped into the image.
 ```csharp
 RvaField = 4
 ```
-

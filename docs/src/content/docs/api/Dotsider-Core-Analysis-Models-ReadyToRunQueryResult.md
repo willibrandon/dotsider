@@ -104,6 +104,51 @@ Creates an ambiguous result listing every matched candidate.
 public static ReadyToRunQueryResult Ambiguous(IReadOnlyList<CorrelationCandidate> candidates, string message)
 ```
 
+### Deconstruct(out ReadyToRunQueryOutcome, out ReadyToRunMethodReport?, out IReadOnlyList\<CorrelationCandidate\>, out string?)
+
+**Parameters:**
+
+- `Outcome` ([ReadyToRunQueryOutcome](/api/dotsider.core.analysis.models.readytorunqueryoutcome/))
+- `Report` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+- `Candidates` ([IReadOnlyList\<CorrelationCandidate\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Message` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out ReadyToRunQueryOutcome Outcome, out ReadyToRunMethodReport? Report, out IReadOnlyList<CorrelationCandidate> Candidates, out string? Message)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunQueryResult?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunQueryResult? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
 ### NotFound(string)
 
 Creates a not-found result explaining the miss.
@@ -132,6 +177,14 @@ Creates a resolved result carrying the report.
 public static ReadyToRunQueryResult Resolved(ReadyToRunMethodReport report)
 ```
 
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
 ### Unavailable(string)
 
 Creates an unavailable result explaining why correlation could not run.
@@ -146,3 +199,30 @@ Creates an unavailable result explaining why correlation could not run.
 public static ReadyToRunQueryResult Unavailable(string message)
 ```
 
+## Members
+
+### operator !=(ReadyToRunQueryResult?, ReadyToRunQueryResult?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/))
+- `right` ([ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunQueryResult? left, ReadyToRunQueryResult? right)
+```
+
+### operator ==(ReadyToRunQueryResult?, ReadyToRunQueryResult?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/))
+- `right` ([ReadyToRunQueryResult](/api/dotsider.core.analysis.models.readytorunqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunQueryResult? left, ReadyToRunQueryResult? right)
+```

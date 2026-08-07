@@ -297,8 +297,9 @@ public sealed class ReadyToRunIndex
 
 ### [RuntimeTracer](/api/dotsider.core.analysis.runtimetracer/)
 
-Manages launching a .NET assembly as a child process and collecting
-runtime events via EventPipe diagnostics (PID-based connect with retry).
+Launches a .NET target and collects its runtime diagnostics.
+Uses the bundled trace host to keep TraceEvent outside the Native AOT process.
+Exposes events, counters, output, and lifecycle state to dotsider callers.
 
 ```csharp
 public sealed class RuntimeTracer : IDisposable
@@ -393,4 +394,3 @@ destination directory.
 ```csharp
 public sealed class UnsafePackageEntryException : IOException, ISerializable
 ```
-

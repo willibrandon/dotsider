@@ -48,4 +48,3 @@ The method's hot entry point — the range its entry runtime function starts.
 ```csharp
 HotEntry = 0
 ```
-

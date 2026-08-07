@@ -104,3 +104,86 @@ All `&lt;bindingRedirect&gt;` entries parsed from the file.
 public IReadOnlyList<BindingRedirect> Redirects { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out IReadOnlyList\<BindingRedirect\>, out IReadOnlyList\<CodeBaseEntry\>, out IReadOnlyCollection\<(string Name, string? PublicKeyToken, string Culture)\>, out IReadOnlyList\<string\>, out bool)
+
+**Parameters:**
+
+- `Redirects` ([IReadOnlyList\<BindingRedirect\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `CodeBases` ([IReadOnlyList\<CodeBaseEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Disabled` ([IReadOnlyCollection\<String, String, String\>\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-3))
+- `PrivatePaths` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `PublisherPolicyDisabledGlobally` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out IReadOnlyList<BindingRedirect> Redirects, out IReadOnlyList<CodeBaseEntry> CodeBases, out IReadOnlyCollection<(string Name, string? PublicKeyToken, string Culture)> Disabled, out IReadOnlyList<string> PrivatePaths, out bool PublisherPolicyDisabledGlobally)
+```
+
+### Equals(BindingPolicyParseResult?)
+
+**Parameters:**
+
+- `other` ([BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(BindingPolicyParseResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BindingPolicyParseResult?, BindingPolicyParseResult?)
+
+**Parameters:**
+
+- `left` ([BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/))
+- `right` ([BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(BindingPolicyParseResult? left, BindingPolicyParseResult? right)
+```
+
+### operator ==(BindingPolicyParseResult?, BindingPolicyParseResult?)
+
+**Parameters:**
+
+- `left` ([BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/))
+- `right` ([BindingPolicyParseResult](/api/dotsider.core.analysis.models.bindingpolicyparseresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(BindingPolicyParseResult? left, BindingPolicyParseResult? right)
+```

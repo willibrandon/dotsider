@@ -166,3 +166,92 @@ The directory timestamp.
 public uint TimeDateStamp { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out uint, out uint, out ushort, out ushort, out ushort, out ulong, out ulong, out ulong, out ulong, out uint, out string)
+
+**Parameters:**
+
+- `Size` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `TimeDateStamp` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `MajorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `MinorVersion` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `DependentLoadFlags` ([UInt16](https://learn.microsoft.com/dotnet/api/system.uint16))
+- `SecurityCookie` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `SehHandlerCount` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `GuardCfCheckFunctionPointer` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `GuardCfFunctionCount` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `GuardFlags` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `GuardFlagsDescription` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out uint Size, out uint TimeDateStamp, out ushort MajorVersion, out ushort MinorVersion, out ushort DependentLoadFlags, out ulong SecurityCookie, out ulong SehHandlerCount, out ulong GuardCfCheckFunctionPointer, out ulong GuardCfFunctionCount, out uint GuardFlags, out string GuardFlagsDescription)
+```
+
+### Equals(LoadConfigInfo?)
+
+**Parameters:**
+
+- `other` ([LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(LoadConfigInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(LoadConfigInfo?, LoadConfigInfo?)
+
+**Parameters:**
+
+- `left` ([LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/))
+- `right` ([LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(LoadConfigInfo? left, LoadConfigInfo? right)
+```
+
+### operator ==(LoadConfigInfo?, LoadConfigInfo?)
+
+**Parameters:**
+
+- `left` ([LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/))
+- `right` ([LoadConfigInfo](/api/dotsider.core.analysis.models.loadconfiginfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(LoadConfigInfo? left, LoadConfigInfo? right)
+```

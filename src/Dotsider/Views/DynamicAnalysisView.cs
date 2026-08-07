@@ -73,6 +73,12 @@ public static class DynamicAnalysisView
                 "Dynamic analysis requires an executable assembly.",
                 "Open an .exe or a console app .dll to enable runtime tracing.");
 
+        if (state.DynamicAnalysisUnavailableReason is { } unavailableReason)
+            return BuildMessageView(ctx,
+                "Dynamic analysis is unavailable.",
+                unavailableReason,
+                "Static analysis remains available without the trace host.");
+
         var tracer = state.Tracer;
 
         // Idle — not yet launched
@@ -482,7 +488,9 @@ public static class DynamicAnalysisView
         var cpuText = $"  CPU Usage: {counters.CpuUsagePercent:F1}%";
         var memoryText = $"  Working Set:  {counters.WorkingSetMb:F1} MB\n  GC Heap Size: {counters.GcHeapSizeMb:F1} MB";
         var gcText = $"  Gen 0: {counters.Gen0Collections}    Gen 1: {counters.Gen1Collections}    Gen 2: {counters.Gen2Collections}";
-        var threadingText = $"  Threads: {counters.ThreadPoolThreadCount}    Queue: {counters.ThreadPoolQueueLength}    Exceptions: {counters.ExceptionCount}    Timers: {counters.ActiveTimerCount}";
+        var threadingText =
+            $"  Threads: {counters.ThreadPoolThreadCount}    Queue: {counters.ThreadPoolQueueLength}" +
+            $"    Exceptions: {counters.ExceptionCount}    Timers: {counters.ActiveTimerCount}";
 
         var firstCreation = UpdateEditorIfNeeded(state.App, tracer, state.DynamicCpuEditorState, state.DynamicCpuEditorText, cpuText,
             out var cpuEs, out var cpuTxt);
@@ -733,7 +741,10 @@ public static class DynamicAnalysisView
         {
             newEditorText = newText;
             newEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(newText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(newText)))
+            {
+                IsReadOnly = true
+            };
         }
         else
         {

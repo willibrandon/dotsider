@@ -186,3 +186,92 @@ The type-level grouping name (declaring type for methods, the type itself for Me
 public string TypeName { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out MstatSectionKind, out string, out string, out string, out string, out string, out string, out string, out long, out int, out IReadOnlyList\<string\>)
+
+**Parameters:**
+
+- `Section` ([MstatSectionKind](/api/dotsider.core.analysis.models.mstatsectionkind/))
+- `Key` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TypeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `LeafName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `DisplayName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `EntryCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `NodeNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out MstatSectionKind Section, out string Key, out string AssemblyName, out string Namespace, out string TypeName, out string LeafName, out string DisplayName, out string FullPath, out long Size, out int EntryCount, out IReadOnlyList<string> NodeNames)
+```
+
+### Equals(MstatSizeEntry?)
+
+**Parameters:**
+
+- `other` ([MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatSizeEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatSizeEntry?, MstatSizeEntry?)
+
+**Parameters:**
+
+- `left` ([MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/))
+- `right` ([MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatSizeEntry? left, MstatSizeEntry? right)
+```
+
+### operator ==(MstatSizeEntry?, MstatSizeEntry?)
+
+**Parameters:**
+
+- `left` ([MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/))
+- `right` ([MstatSizeEntry](/api/dotsider.core.analysis.models.mstatsizeentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatSizeEntry? left, MstatSizeEntry? right)
+```

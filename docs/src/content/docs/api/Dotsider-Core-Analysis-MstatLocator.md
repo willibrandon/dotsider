@@ -42,4 +42,3 @@ The resolved source, or null.
 ```csharp
 public static MstatSource? Resolve(string filePath)
 ```
-

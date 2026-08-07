@@ -27,12 +27,11 @@ internal static class SizeDiffReportWriter
     private const int AggregateRows = 15;
 
     /// <summary>Builds the JSON document for the report.</summary>
-    internal static object BuildDocument(Context ctx)
+    internal static CliSizeReportPayload BuildDocument(Context ctx)
     {
         var contributors = ctx.Diff.Contributors
             .Take(ctx.Top)
-            .Select(c => new
-            {
+            .Select(c => new CliSizeContributorPayload(
                 c.Name,
                 c.FullPath,
                 c.Kind,
@@ -46,27 +45,24 @@ internal static class SizeDiffReportWriter
                 c.RightEntryCount,
                 c.LeftNodeNames,
                 c.RightNodeNames,
-                WhyPath = ctx.WhyPaths?.GetValueOrDefault(c.FullPath),
-            })
+                ctx.WhyPaths?.GetValueOrDefault(c.FullPath)))
             .ToList();
 
-        return new
-        {
-            Target = ctx.TargetPath,
-            Baseline = ctx.BaselinePath,
+        return new CliSizeReportPayload(
+            ctx.TargetPath,
+            ctx.BaselinePath,
             ctx.TotalBasis,
             ctx.LeftTotal,
             ctx.RightTotal,
-            LeftMstatTotal = ctx.TotalBasis == SizeBasis.FileSize ? ctx.Diff.Summary.LeftTotal : (long?)null,
-            RightMstatTotal = ctx.TotalBasis == SizeBasis.FileSize ? ctx.Diff.Summary.RightTotal : (long?)null,
+            ctx.TotalBasis == SizeBasis.FileSize ? ctx.Diff.Summary.LeftTotal : null,
+            ctx.TotalBasis == SizeBasis.FileSize ? ctx.Diff.Summary.RightTotal : null,
             ctx.Diff.LeftFormatVersion,
             ctx.Diff.RightFormatVersion,
             ctx.Diff.Summary,
             ctx.Diff.AssemblyDeltas,
             ctx.Diff.NamespaceDeltas,
-            Contributors = contributors,
-            ctx.Budgets,
-        };
+            contributors,
+            ctx.Budgets);
     }
 
     /// <summary>Writes the human-readable report through the formatter.</summary>

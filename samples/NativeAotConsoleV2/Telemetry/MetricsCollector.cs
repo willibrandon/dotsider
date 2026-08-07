@@ -6,9 +6,9 @@ using System.Runtime.CompilerServices;
 namespace NativeAotConsole.Telemetry;
 
 /// <summary>
-/// A small metrics sink that exists only in the V2 build. Every member is
-/// <see cref="MethodImplOptions.NoInlining"/> and invoked from the top-level code, so ILC
-/// keeps each as a distinct method row in the mstat.
+/// A metrics sink retained as distinct method rows in the V2 Native AOT size fixture.
+/// Produces deterministic methods and strings for size-regression comparisons.
+/// Remains stable so fixture-based budget and namespace tests stay meaningful.
 /// </summary>
 internal sealed class MetricsCollector
 {

@@ -54,4 +54,3 @@ validating each candidate (readable CLR metadata, identity, never the binary its
 and falling through on failure. Recognition is positional segment mapping, so custom
 configuration names, TFMs, RIDs, and artifacts pivots all work without being parsed.
 The probe never throws; failures degrade to a smaller result or null.
-

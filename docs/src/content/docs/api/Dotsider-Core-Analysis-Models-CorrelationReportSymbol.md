@@ -85,3 +85,85 @@ The symbol's virtual address.
 public ulong VirtualAddress { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out ulong, out long?, out long)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `VirtualAddress` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `FileOffset` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+
+```csharp
+public void Deconstruct(out string Name, out ulong VirtualAddress, out long? FileOffset, out long Size)
+```
+
+### Equals(CorrelationReportSymbol?)
+
+**Parameters:**
+
+- `other` ([CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CorrelationReportSymbol? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(CorrelationReportSymbol?, CorrelationReportSymbol?)
+
+**Parameters:**
+
+- `left` ([CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/))
+- `right` ([CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CorrelationReportSymbol? left, CorrelationReportSymbol? right)
+```
+
+### operator ==(CorrelationReportSymbol?, CorrelationReportSymbol?)
+
+**Parameters:**
+
+- `left` ([CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/))
+- `right` ([CorrelationReportSymbol](/api/dotsider.core.analysis.models.correlationreportsymbol/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CorrelationReportSymbol? left, CorrelationReportSymbol? right)
+```

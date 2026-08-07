@@ -103,3 +103,85 @@ is referenced by the AssemblyRef table but no TypeRefs are scoped to it.
 public int TypeRefCount { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out int, out AssemblyRefInfo?)
+
+**Parameters:**
+
+- `SourceId` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TargetId` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TypeRefCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RequestedIdentity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+
+```csharp
+public void Deconstruct(out string SourceId, out string TargetId, out int TypeRefCount, out AssemblyRefInfo? RequestedIdentity)
+```
+
+### Equals(GraphEdge?)
+
+**Parameters:**
+
+- `other` ([GraphEdge](/api/dotsider.core.analysis.models.graphedge/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(GraphEdge? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(GraphEdge?, GraphEdge?)
+
+**Parameters:**
+
+- `left` ([GraphEdge](/api/dotsider.core.analysis.models.graphedge/))
+- `right` ([GraphEdge](/api/dotsider.core.analysis.models.graphedge/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(GraphEdge? left, GraphEdge? right)
+```
+
+### operator ==(GraphEdge?, GraphEdge?)
+
+**Parameters:**
+
+- `left` ([GraphEdge](/api/dotsider.core.analysis.models.graphedge/))
+- `right` ([GraphEdge](/api/dotsider.core.analysis.models.graphedge/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(GraphEdge? left, GraphEdge? right)
+```

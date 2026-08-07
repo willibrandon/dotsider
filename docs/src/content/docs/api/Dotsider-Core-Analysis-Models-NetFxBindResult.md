@@ -135,3 +135,89 @@ Identity exactly as named by the metadata reference.
 public AssemblyRefInfo Requested { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out AssemblyRefInfo, out AssemblyRefInfo, out AssemblyRefInfo?, out string?, out AssemblyProvenance, out AppliedPolicy?, out string?, out string?)
+
+**Parameters:**
+
+- `Requested` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `EffectiveAfterPolicy` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `Loaded` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `LoadedPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Provenance` ([AssemblyProvenance](/api/dotsider.core.analysis.models.assemblyprovenance/))
+- `AppliedPolicy` ([AppliedPolicy](/api/dotsider.core.analysis.models.appliedpolicy/))
+- `FailureReason` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `CandidateProbePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out AssemblyRefInfo Requested, out AssemblyRefInfo EffectiveAfterPolicy, out AssemblyRefInfo? Loaded, out string? LoadedPath, out AssemblyProvenance Provenance, out AppliedPolicy? AppliedPolicy, out string? FailureReason, out string? CandidateProbePath)
+```
+
+### Equals(NetFxBindResult?)
+
+**Parameters:**
+
+- `other` ([NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NetFxBindResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NetFxBindResult?, NetFxBindResult?)
+
+**Parameters:**
+
+- `left` ([NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/))
+- `right` ([NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NetFxBindResult? left, NetFxBindResult? right)
+```
+
+### operator ==(NetFxBindResult?, NetFxBindResult?)
+
+**Parameters:**
+
+- `left` ([NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/))
+- `right` ([NetFxBindResult](/api/dotsider.core.analysis.models.netfxbindresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NetFxBindResult? left, NetFxBindResult? right)
+```

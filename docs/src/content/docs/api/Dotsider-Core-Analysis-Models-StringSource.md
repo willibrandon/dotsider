@@ -69,4 +69,3 @@ The #US (User Strings) metadata heap, containing string literals used in IL code
 ```csharp
 UserStrings = 0
 ```
-

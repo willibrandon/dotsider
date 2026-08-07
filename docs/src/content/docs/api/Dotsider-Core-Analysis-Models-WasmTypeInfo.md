@@ -72,3 +72,84 @@ The raw WebAssembly result value-type bytes.
 public IReadOnlyList<byte> ResultTypes { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out IReadOnlyList\<byte\>, out IReadOnlyList\<byte\>)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ParamTypes` ([IReadOnlyList\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `ResultTypes` ([IReadOnlyList\<Byte\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out int Index, out IReadOnlyList<byte> ParamTypes, out IReadOnlyList<byte> ResultTypes)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmTypeInfo?)
+
+**Parameters:**
+
+- `other` ([WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmTypeInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmTypeInfo?, WasmTypeInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/))
+- `right` ([WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmTypeInfo? left, WasmTypeInfo? right)
+```
+
+### operator ==(WasmTypeInfo?, WasmTypeInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/))
+- `right` ([WasmTypeInfo](/api/dotsider.core.analysis.models.wasmtypeinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmTypeInfo? left, WasmTypeInfo? right)
+```

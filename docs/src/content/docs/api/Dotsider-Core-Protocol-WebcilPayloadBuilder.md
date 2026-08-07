@@ -33,11 +33,10 @@ not open a Webcil assembly, allowing callers to include the property uncondition
 
 - `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): The analyzer whose Webcil provenance should be serialized.
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [WebcilSummary](/api/dotsider.core.protocol.webcilsummary/)
 
 A JSON-ready Webcil summary object, or null when the analyzer is not Webcil.
 
 ```csharp
-public static object? BuildSummary(AssemblyAnalyzer analyzer)
+public static WebcilSummary? BuildSummary(AssemblyAnalyzer analyzer)
 ```
-

@@ -57,3 +57,114 @@ The analyzer for the Native AOT binary (no metadata).
 public AssemblyAnalyzer Analyzer { get; init; }
 ```
 
+### EqualityContract
+
+**Returns:** [Type](https://learn.microsoft.com/dotnet/api/system.type)
+
+```csharp
+protected override Type EqualityContract { get; }
+```
+
+## Methods
+
+### Deconstruct(out AssemblyAnalyzer)
+
+**Parameters:**
+
+- `Analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+
+```csharp
+public void Deconstruct(out AssemblyAnalyzer Analyzer)
+```
+
+### Equals(AssemblyOpenResult?)
+
+**Parameters:**
+
+- `other` ([AssemblyOpenResult](/api/dotsider.core.analysis.models.assemblyopenresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override sealed bool Equals(AssemblyOpenResult? other)
+```
+
+### Equals(NativeAot?)
+
+**Parameters:**
+
+- `other` ([NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(AssemblyOpenResult.NativeAot? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### PrintMembers(StringBuilder)
+
+**Parameters:**
+
+- `builder` ([StringBuilder](https://learn.microsoft.com/dotnet/api/system.text.stringbuilder))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+protected override bool PrintMembers(StringBuilder builder)
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeAot?, NativeAot?)
+
+**Parameters:**
+
+- `left` ([NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/))
+- `right` ([NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(AssemblyOpenResult.NativeAot? left, AssemblyOpenResult.NativeAot? right)
+```
+
+### operator ==(NativeAot?, NativeAot?)
+
+**Parameters:**
+
+- `left` ([NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/))
+- `right` ([NativeAot](/api/dotsider.core.analysis.models.assemblyopenresult.nativeaot/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(AssemblyOpenResult.NativeAot? left, AssemblyOpenResult.NativeAot? right)
+```

@@ -9,7 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  pack-and-publish:
+  build-portable-packages:
+    needs: build-binaries
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -17,15 +18,94 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.302'
 
-      - name: Pack
+      - name: Download Native AOT tool packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tool-packages-*
+          path: ./nupkg
+          merge-multiple: true
+
+      - name: Pack pointer and fallback packages
+        shell: pwsh
         run: |
-          dotnet pack src/Dotsider/Dotsider.csproj -c Release -o ./nupkg
-          dotnet pack src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -o ./nupkg
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          dotnet pack src/Dotsider/Dotsider.csproj -c Release -p:Version=$version -p:PackageVersion=$version -o ./nupkg
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to pack the dotsider pointer package.' }
+          dotnet pack src/Dotsider/Dotsider.csproj -c Release -r any -p:PublishAot=false -p:Version=$version -p:PackageVersion=$version -o ./nupkg
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to pack the dotsider fallback package.' }
+          dotnet pack src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -p:Version=$version -p:PackageVersion=$version -o ./nupkg
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to pack the dotsider-mcp pointer package.' }
+          dotnet pack src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -r any -p:PublishAot=false -p:Version=$version -p:PackageVersion=$version -o ./nupkg
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to pack the dotsider-mcp fallback package.' }
 
-      - name: Push to NuGet
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Verify installation through pointer packages
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $source = (Resolve-Path ./nupkg).Path
+          dotnet tool install Dotsider --tool-path ./tool-smoke/dotsider --version $version --add-source $source --no-cache --ignore-failed-sources
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to install dotsider through its pointer package.' }
+          dotnet tool install Dotsider.Mcp --tool-path ./tool-smoke/dotsider-mcp --version $version --add-source $source --no-cache --ignore-failed-sources
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to install dotsider-mcp through its pointer package.' }
+          & ./tool-smoke/dotsider/dotsider --version
+          if ($LASTEXITCODE -ne 0) { throw 'The installed dotsider tool did not run.' }
+          & ./tool-smoke/dotsider-mcp/dotsider-mcp --version
+          if ($LASTEXITCODE -ne 0) { throw 'The installed dotsider-mcp tool did not run.' }
+
+      - name: Upload portable tool packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: tool-packages-portable
+          path: ./nupkg/*.nupkg
+          if-no-files-found: error
+
+  publish-nuget:
+    needs: [build-binaries, build-portable-packages]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Download tool packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tool-packages-*
+          path: ./nupkg
+          merge-multiple: true
+
+      - name: Push implementation packages before pointer packages
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $source = 'https://api.nuget.org/v3/index.json'
+          $implementationIds = @(
+            'Dotsider.any', 'Dotsider.win-x64', 'Dotsider.win-arm64',
+            'Dotsider.linux-x64', 'Dotsider.linux-arm64',
+            'Dotsider.linux-musl-x64', 'Dotsider.linux-musl-arm64',
+            'Dotsider.osx-x64', 'Dotsider.osx-arm64',
+            'Dotsider.Mcp.any', 'Dotsider.Mcp.win-x64', 'Dotsider.Mcp.win-arm64',
+            'Dotsider.Mcp.linux-x64', 'Dotsider.Mcp.linux-arm64',
+            'Dotsider.Mcp.linux-musl-x64', 'Dotsider.Mcp.linux-musl-arm64',
+            'Dotsider.Mcp.osx-x64', 'Dotsider.Mcp.osx-arm64'
+          )
+          foreach ($id in $implementationIds) {
+            $package = Join-Path ./nupkg "$id.$version.nupkg"
+            if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw "Missing package $package" }
+            dotnet nuget push $package --api-key '${{ secrets.NUGET_API_KEY }}' --source $source --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "Failed to push $package" }
+          }
+          foreach ($id in @('Dotsider', 'Dotsider.Mcp')) {
+            $package = Join-Path ./nupkg "$id.$version.nupkg"
+            if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw "Missing package $package" }
+            dotnet nuget push $package --api-key '${{ secrets.NUGET_API_KEY }}' --source $source --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "Failed to push $package" }
+          }
 
   build-binaries:
     strategy:
@@ -36,15 +116,24 @@ jobs:
             artifact: dotsider-win-x64
             arch: x64
           - rid: win-arm64
-            os: windows-latest
+            os: windows-11-arm
             artifact: dotsider-win-arm64
             arch: arm64
           - rid: linux-x64
             os: ubuntu-latest
             artifact: dotsider-linux-x64
           - rid: linux-arm64
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm
             artifact: dotsider-linux-arm64
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+            artifact: dotsider-linux-musl-x64
+          - rid: linux-musl-arm64
+            os: ubuntu-24.04-arm
+            artifact: dotsider-linux-musl-arm64
+          - rid: osx-x64
+            os: macos-26-intel
+            artifact: dotsider-osx-x64
           - rid: osx-arm64
             os: macos-26
             artifact: dotsider-osx-arm64
@@ -55,25 +144,49 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.302'
 
-      - name: Publish dotsider
-        run: dotnet publish src/Dotsider/Dotsider.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish/dotsider
-
-      - name: Publish dotsider-mcp
-        run: dotnet publish src/Dotsider.Mcp/Dotsider.Mcp.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o ./publish/dotsider-mcp
+      - name: Publish, test, and pack Native AOT applications
+        run: >-
+          dotnet run --file ./scripts/Verify-NativeAot.cs --
+          -Mode Release
+          -Rid ${{ matrix.rid }}
+          -Version ${{ github.ref_name }}
 
       - name: Upload dotsider artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ./publish/dotsider/dotsider*
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider/**
+          if-no-files-found: error
 
       - name: Upload dotsider-mcp artifact
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}
-          path: ./publish/dotsider-mcp/dotsider-mcp*
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider-mcp/**
+          if-no-files-found: error
+
+      - name: Upload dotsider symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotsider-${{ matrix.rid }}-symbols
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/symbols/dotsider/**
+          if-no-files-found: error
+
+      - name: Upload dotsider-mcp symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotsider-mcp-${{ matrix.rid }}-symbols
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/symbols/dotsider-mcp/**
+          if-no-files-found: error
+
+      - name: Upload Native AOT tool packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: tool-packages-${{ matrix.rid }}
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/packages/*.nupkg
+          if-no-files-found: error
 
       - name: Extract version from tag
         if: startsWith(matrix.rid, 'win-')
@@ -95,27 +208,29 @@ jobs:
         shell: pwsh
         run: |
           wix build wix\dotsider.wxs `
-            -d SourceDir=..\publish\dotsider `
+            -d SourceDir=..\artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider `
             -d Version=${{ steps.version.outputs.msi_version }} `
             -arch ${{ matrix.arch }} `
-            -out publish\${{ matrix.artifact }}.msi
+            -out artifacts\native-aot-release\${{ matrix.rid }}\publish\${{ matrix.artifact }}.msi
 
       - name: Build dotsider-mcp MSI
         if: startsWith(matrix.rid, 'win-')
         shell: pwsh
         run: |
           wix build wix\dotsider-mcp.wxs `
-            -d SourceDir=..\publish\dotsider-mcp `
+            -d SourceDir=..\artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider-mcp `
             -d Version=${{ steps.version.outputs.msi_version }} `
             -arch ${{ matrix.arch }} `
-            -out publish\dotsider-mcp-${{ matrix.rid }}.msi
+            -out artifacts\native-aot-release\${{ matrix.rid }}\publish\dotsider-mcp-${{ matrix.rid }}.msi
 
       - name: Verify dotsider MSI installs correctly
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: |
-          $logFile = "publish\msi-install.log"
-          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\${{ matrix.artifact }}.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+          $releaseRoot = "artifacts\native-aot-release\${{ matrix.rid }}\publish"
+          $logFile = Join-Path $releaseRoot "msi-install.log"
+          $installer = Join-Path $releaseRoot "${{ matrix.artifact }}.msi"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", $installer, "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
 
           if ($proc.ExitCode -ne 0) {
             Write-Error "MSI installation failed with exit code: $($proc.ExitCode)"
@@ -134,14 +249,16 @@ jobs:
           & $exePath --version
           Write-Host "dotsider MSI verification passed"
 
-          Start-Process msiexec.exe -ArgumentList "/x", "publish\${{ matrix.artifact }}.msi", "/qn" -Wait -NoNewWindow
+          Start-Process msiexec.exe -ArgumentList "/x", $installer, "/qn" -Wait -NoNewWindow
 
       - name: Verify dotsider-mcp MSI installs correctly
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: |
-          $logFile = "publish\mcp-msi-install.log"
-          $proc = Start-Process msiexec.exe -ArgumentList "/i", "publish\dotsider-mcp-win-x64.msi", "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
+          $releaseRoot = "artifacts\native-aot-release\${{ matrix.rid }}\publish"
+          $logFile = Join-Path $releaseRoot "mcp-msi-install.log"
+          $installer = Join-Path $releaseRoot "dotsider-mcp-win-x64.msi"
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", $installer, "/qn", "/l*v", $logFile -Wait -NoNewWindow -PassThru
 
           if ($proc.ExitCode -ne 0) {
             Write-Error "dotsider-mcp MSI installation failed with exit code: $($proc.ExitCode)"
@@ -160,28 +277,29 @@ jobs:
           & $exePath --version
           Write-Host "dotsider-mcp MSI verification passed"
 
-          Start-Process msiexec.exe -ArgumentList "/x", "publish\dotsider-mcp-win-x64.msi", "/qn" -Wait -NoNewWindow
+          Start-Process msiexec.exe -ArgumentList "/x", $installer, "/qn" -Wait -NoNewWindow
 
       - name: Upload dotsider MSI artifact
         if: startsWith(matrix.rid, 'win-')
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}-msi
-          path: ./publish/${{ matrix.artifact }}.msi
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/${{ matrix.artifact }}.msi
 
       - name: Upload dotsider-mcp MSI artifact
         if: startsWith(matrix.rid, 'win-')
         uses: actions/upload-artifact@v7
         with:
           name: dotsider-mcp-${{ matrix.rid }}-msi
-          path: ./publish/dotsider-mcp-${{ matrix.rid }}.msi
+          path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider-mcp-${{ matrix.rid }}.msi
 
   create-release:
-    needs: [pack-and-publish, build-binaries]
+    needs: [publish-nuget, build-binaries, build-portable-packages]
     runs-on: ubuntu-latest
     outputs:
       sha256_linux_x64: ${{ steps.checksums.outputs.sha256_linux_x64 }}
       sha256_linux_arm64: ${{ steps.checksums.outputs.sha256_linux_arm64 }}
+      sha256_osx_x64: ${{ steps.checksums.outputs.sha256_osx_x64 }}
       sha256_osx_arm64: ${{ steps.checksums.outputs.sha256_osx_arm64 }}
       sha256_win_x64: ${{ steps.checksums.outputs.sha256_win_x64 }}
       sha256_win_arm64: ${{ steps.checksums.outputs.sha256_win_arm64 }}
@@ -189,6 +307,7 @@ jobs:
       sha256_win_arm64_msi: ${{ steps.checksums.outputs.sha256_win_arm64_msi }}
       sha256_mcp_linux_x64: ${{ steps.checksums.outputs.sha256_mcp_linux_x64 }}
       sha256_mcp_linux_arm64: ${{ steps.checksums.outputs.sha256_mcp_linux_arm64 }}
+      sha256_mcp_osx_x64: ${{ steps.checksums.outputs.sha256_mcp_osx_x64 }}
       sha256_mcp_osx_arm64: ${{ steps.checksums.outputs.sha256_mcp_osx_arm64 }}
       sha256_mcp_win_x64: ${{ steps.checksums.outputs.sha256_mcp_win_x64 }}
       sha256_mcp_win_arm64: ${{ steps.checksums.outputs.sha256_mcp_win_arm64 }}
@@ -206,27 +325,24 @@ jobs:
         run: |
           cd artifacts
 
-          # dotsider
-          chmod +x dotsider-linux-x64/dotsider
-          chmod +x dotsider-linux-arm64/dotsider
-          chmod +x dotsider-osx-arm64/dotsider
-          tar -czf dotsider-linux-x64.tar.gz -C dotsider-linux-x64 .
-          tar -czf dotsider-linux-arm64.tar.gz -C dotsider-linux-arm64 .
-          tar -czf dotsider-osx-arm64.tar.gz -C dotsider-osx-arm64 .
-          cd dotsider-win-x64 && zip -r ../dotsider-win-x64.zip . && cd ..
-          cd dotsider-win-arm64 && zip -r ../dotsider-win-arm64.zip . && cd ..
+          for product in dotsider dotsider-mcp; do
+            executable="$product"
+            for rid in win-x64 win-arm64 linux-x64 linux-arm64 linux-musl-x64 linux-musl-arm64 osx-x64 osx-arm64; do
+              payload="$product-$rid"
+              symbols="$product-$rid-symbols"
+              if [[ "$rid" == win-* ]]; then
+                (cd "$payload" && zip -r "../$payload.zip" .)
+                (cd "$symbols" && zip -r "../$symbols.zip" .)
+              else
+                chmod +x "$payload/$executable"
+                tar -czf "$payload.tar.gz" -C "$payload" .
+                tar -czf "$symbols.tar.gz" -C "$symbols" .
+              fi
+            done
+          done
+
           cp dotsider-win-x64-msi/dotsider-win-x64.msi .
           cp dotsider-win-arm64-msi/dotsider-win-arm64.msi .
-
-          # dotsider-mcp
-          chmod +x dotsider-mcp-linux-x64/dotsider-mcp
-          chmod +x dotsider-mcp-linux-arm64/dotsider-mcp
-          chmod +x dotsider-mcp-osx-arm64/dotsider-mcp
-          tar -czf dotsider-mcp-linux-x64.tar.gz -C dotsider-mcp-linux-x64 .
-          tar -czf dotsider-mcp-linux-arm64.tar.gz -C dotsider-mcp-linux-arm64 .
-          tar -czf dotsider-mcp-osx-arm64.tar.gz -C dotsider-mcp-osx-arm64 .
-          cd dotsider-mcp-win-x64 && zip -r ../dotsider-mcp-win-x64.zip . && cd ..
-          cd dotsider-mcp-win-arm64 && zip -r ../dotsider-mcp-win-arm64.zip . && cd ..
           cp dotsider-mcp-win-x64-msi/dotsider-mcp-win-x64.msi .
           cp dotsider-mcp-win-arm64-msi/dotsider-mcp-win-arm64.msi .
 
@@ -235,92 +351,57 @@ jobs:
         run: |
           cd artifacts
 
-          # dotsider checksums
-          sha256sum dotsider-linux-x64.tar.gz > dotsider-linux-x64.tar.gz.sha256
-          sha256sum dotsider-linux-arm64.tar.gz > dotsider-linux-arm64.tar.gz.sha256
-          sha256sum dotsider-osx-arm64.tar.gz > dotsider-osx-arm64.tar.gz.sha256
-          sha256sum dotsider-win-x64.zip > dotsider-win-x64.zip.sha256
-          sha256sum dotsider-win-x64.msi > dotsider-win-x64.msi.sha256
-          sha256sum dotsider-win-arm64.zip > dotsider-win-arm64.zip.sha256
-          sha256sum dotsider-win-arm64.msi > dotsider-win-arm64.msi.sha256
+          shopt -s nullglob
+          for file in ./*.zip ./*.tar.gz ./*.msi; do
+            sha256sum "$file" > "$file.sha256"
+          done
 
-          echo "sha256_linux_x64=$(cut -d' ' -f1 dotsider-linux-x64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_linux_arm64=$(cut -d' ' -f1 dotsider-linux-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_osx_arm64=$(cut -d' ' -f1 dotsider-osx-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_win_x64=$(cut -d' ' -f1 dotsider-win-x64.zip.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_win_arm64=$(cut -d' ' -f1 dotsider-win-arm64.zip.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_win_msi=$(cut -d' ' -f1 dotsider-win-x64.msi.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_win_arm64_msi=$(cut -d' ' -f1 dotsider-win-arm64.msi.sha256)" >> $GITHUB_OUTPUT
+          {
+            echo "sha256_linux_x64=$(cut -d' ' -f1 dotsider-linux-x64.tar.gz.sha256)"
+            echo "sha256_linux_arm64=$(cut -d' ' -f1 dotsider-linux-arm64.tar.gz.sha256)"
+            echo "sha256_osx_x64=$(cut -d' ' -f1 dotsider-osx-x64.tar.gz.sha256)"
+            echo "sha256_osx_arm64=$(cut -d' ' -f1 dotsider-osx-arm64.tar.gz.sha256)"
+            echo "sha256_win_x64=$(cut -d' ' -f1 dotsider-win-x64.zip.sha256)"
+            echo "sha256_win_arm64=$(cut -d' ' -f1 dotsider-win-arm64.zip.sha256)"
+            echo "sha256_win_msi=$(cut -d' ' -f1 dotsider-win-x64.msi.sha256)"
+            echo "sha256_win_arm64_msi=$(cut -d' ' -f1 dotsider-win-arm64.msi.sha256)"
+            echo "sha256_mcp_linux_x64=$(cut -d' ' -f1 dotsider-mcp-linux-x64.tar.gz.sha256)"
+            echo "sha256_mcp_linux_arm64=$(cut -d' ' -f1 dotsider-mcp-linux-arm64.tar.gz.sha256)"
+            echo "sha256_mcp_osx_x64=$(cut -d' ' -f1 dotsider-mcp-osx-x64.tar.gz.sha256)"
+            echo "sha256_mcp_osx_arm64=$(cut -d' ' -f1 dotsider-mcp-osx-arm64.tar.gz.sha256)"
+            echo "sha256_mcp_win_x64=$(cut -d' ' -f1 dotsider-mcp-win-x64.zip.sha256)"
+            echo "sha256_mcp_win_arm64=$(cut -d' ' -f1 dotsider-mcp-win-arm64.zip.sha256)"
+            echo "sha256_mcp_win_msi=$(cut -d' ' -f1 dotsider-mcp-win-x64.msi.sha256)"
+            echo "sha256_mcp_win_arm64_msi=$(cut -d' ' -f1 dotsider-mcp-win-arm64.msi.sha256)"
+          } >> "$GITHUB_OUTPUT"
 
-          # dotsider-mcp checksums
-          sha256sum dotsider-mcp-linux-x64.tar.gz > dotsider-mcp-linux-x64.tar.gz.sha256
-          sha256sum dotsider-mcp-linux-arm64.tar.gz > dotsider-mcp-linux-arm64.tar.gz.sha256
-          sha256sum dotsider-mcp-osx-arm64.tar.gz > dotsider-mcp-osx-arm64.tar.gz.sha256
-          sha256sum dotsider-mcp-win-x64.zip > dotsider-mcp-win-x64.zip.sha256
-          sha256sum dotsider-mcp-win-x64.msi > dotsider-mcp-win-x64.msi.sha256
-          sha256sum dotsider-mcp-win-arm64.zip > dotsider-mcp-win-arm64.zip.sha256
-          sha256sum dotsider-mcp-win-arm64.msi > dotsider-mcp-win-arm64.msi.sha256
-
-          echo "sha256_mcp_linux_x64=$(cut -d' ' -f1 dotsider-mcp-linux-x64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_linux_arm64=$(cut -d' ' -f1 dotsider-mcp-linux-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_osx_arm64=$(cut -d' ' -f1 dotsider-mcp-osx-arm64.tar.gz.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_win_x64=$(cut -d' ' -f1 dotsider-mcp-win-x64.zip.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_win_arm64=$(cut -d' ' -f1 dotsider-mcp-win-arm64.zip.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_win_msi=$(cut -d' ' -f1 dotsider-mcp-win-x64.msi.sha256)" >> $GITHUB_OUTPUT
-          echo "sha256_mcp_win_arm64_msi=$(cut -d' ' -f1 dotsider-mcp-win-arm64.msi.sha256)" >> $GITHUB_OUTPUT
-
-          echo "SHA256 Checksums:"
-          cat *.sha256
+          cat ./*.sha256
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          RELEASE_FLAGS=""
+          RELEASE_FLAGS=()
           if [[ "$TAG" == *-* ]]; then
-            RELEASE_FLAGS="--prerelease"
+            RELEASE_FLAGS=(--prerelease)
             PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
           else
-            RELEASE_FLAGS="--latest"
+            RELEASE_FLAGS=(--latest)
             PREV_TAG=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
           fi
-          NOTES_FLAG="--generate-notes"
+          NOTES_FLAGS=(--generate-notes)
           if [ -n "$PREV_TAG" ]; then
-            NOTES_FLAG="--generate-notes --notes-start-tag $PREV_TAG"
+            NOTES_FLAGS=(--generate-notes --notes-start-tag "$PREV_TAG")
           fi
           gh release create "$TAG" \
             --title "$TAG" \
-            $NOTES_FLAG \
-            $RELEASE_FLAGS \
-            artifacts/dotsider-win-x64.zip \
-            artifacts/dotsider-win-x64.zip.sha256 \
-            artifacts/dotsider-win-x64.msi \
-            artifacts/dotsider-win-x64.msi.sha256 \
-            artifacts/dotsider-win-arm64.zip \
-            artifacts/dotsider-win-arm64.zip.sha256 \
-            artifacts/dotsider-win-arm64.msi \
-            artifacts/dotsider-win-arm64.msi.sha256 \
-            artifacts/dotsider-linux-x64.tar.gz \
-            artifacts/dotsider-linux-x64.tar.gz.sha256 \
-            artifacts/dotsider-linux-arm64.tar.gz \
-            artifacts/dotsider-linux-arm64.tar.gz.sha256 \
-            artifacts/dotsider-osx-arm64.tar.gz \
-            artifacts/dotsider-osx-arm64.tar.gz.sha256 \
-            artifacts/dotsider-mcp-win-x64.zip \
-            artifacts/dotsider-mcp-win-x64.zip.sha256 \
-            artifacts/dotsider-mcp-win-x64.msi \
-            artifacts/dotsider-mcp-win-x64.msi.sha256 \
-            artifacts/dotsider-mcp-win-arm64.zip \
-            artifacts/dotsider-mcp-win-arm64.zip.sha256 \
-            artifacts/dotsider-mcp-win-arm64.msi \
-            artifacts/dotsider-mcp-win-arm64.msi.sha256 \
-            artifacts/dotsider-mcp-linux-x64.tar.gz \
-            artifacts/dotsider-mcp-linux-x64.tar.gz.sha256 \
-            artifacts/dotsider-mcp-linux-arm64.tar.gz \
-            artifacts/dotsider-mcp-linux-arm64.tar.gz.sha256 \
-            artifacts/dotsider-mcp-osx-arm64.tar.gz \
-            artifacts/dotsider-mcp-osx-arm64.tar.gz.sha256
+            "${NOTES_FLAGS[@]}" \
+            "${RELEASE_FLAGS[@]}" \
+            artifacts/*.zip \
+            artifacts/*.tar.gz \
+            artifacts/*.msi \
+            artifacts/*.sha256
 
   update-homebrew:
     needs: create-release
@@ -332,7 +413,7 @@ jobs:
         id: version
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Clone homebrew-tap repository
         run: |
@@ -357,6 +438,7 @@ jobs:
               content = f.read()
 
           shas = {
+              'osx-x64': '${{ needs.create-release.outputs.sha256_osx_x64 }}',
               'osx-arm64': '${{ needs.create-release.outputs.sha256_osx_arm64 }}',
               'linux-arm64': '${{ needs.create-release.outputs.sha256_linux_arm64 }}',
               'linux-x64': '${{ needs.create-release.outputs.sha256_linux_x64 }}',
@@ -374,6 +456,7 @@ jobs:
               content = f.read()
 
           shas_mcp = {
+              'osx-x64': '${{ needs.create-release.outputs.sha256_mcp_osx_x64 }}',
               'osx-arm64': '${{ needs.create-release.outputs.sha256_mcp_osx_arm64 }}',
               'linux-arm64': '${{ needs.create-release.outputs.sha256_mcp_linux_arm64 }}',
               'linux-x64': '${{ needs.create-release.outputs.sha256_mcp_linux_x64 }}',
@@ -415,7 +498,7 @@ jobs:
         id: version
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Clone scoop-bucket repository
         run: |
@@ -427,7 +510,6 @@ jobs:
       - name: Update manifests with new version and checksums
         run: |
           cd scoop-bucket
-          VERSION="${{ steps.version.outputs.version }}"
 
           python3 << 'EOF'
           import json

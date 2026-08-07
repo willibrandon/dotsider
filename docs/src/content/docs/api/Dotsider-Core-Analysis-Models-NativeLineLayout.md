@@ -16,7 +16,7 @@ TUI decoration providers highlight and hit-test by these spans rather than re-pa
 so the rendered text stays a pure projection of the structured instruction.
 
 ```csharp
-public readonly record struct NativeLineLayout : IEquatable<NativeLineLayout>
+public readonly struct NativeLineLayout : IEquatable<NativeLineLayout>
 ```
 
 ## Implements
@@ -107,3 +107,87 @@ The column where the resolved-target comment begins, or -1 when there is none.
 public int TargetStart { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out int, out int, out int, out int, out int)
+
+**Parameters:**
+
+- `MnemonicStart` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `MnemonicLength` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `OperandsStart` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `OperandsLength` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `TargetStart` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `TargetLength` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int MnemonicStart, out int MnemonicLength, out int OperandsStart, out int OperandsLength, out int TargetStart, out int TargetLength)
+```
+
+### Equals(NativeLineLayout)
+
+**Parameters:**
+
+- `other` ([NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeLineLayout other)
+```
+
+### Equals(object)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeLineLayout, NativeLineLayout)
+
+**Parameters:**
+
+- `left` ([NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/))
+- `right` ([NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeLineLayout left, NativeLineLayout right)
+```
+
+### operator ==(NativeLineLayout, NativeLineLayout)
+
+**Parameters:**
+
+- `left` ([NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/))
+- `right` ([NativeLineLayout](/api/dotsider.core.analysis.models.nativelinelayout/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeLineLayout left, NativeLineLayout right)
+```

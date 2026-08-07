@@ -94,3 +94,86 @@ The type of bundled file.
 public BundleFileType Type { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out long, out long, out long, out BundleFileType, out string)
+
+**Parameters:**
+
+- `Offset` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Size` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `CompressedSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Type` ([BundleFileType](/api/dotsider.core.analysis.models.bundlefiletype/))
+- `RelativePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out long Offset, out long Size, out long CompressedSize, out BundleFileType Type, out string RelativePath)
+```
+
+### Equals(BundleEntry?)
+
+**Parameters:**
+
+- `other` ([BundleEntry](/api/dotsider.core.analysis.models.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(BundleEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BundleEntry?, BundleEntry?)
+
+**Parameters:**
+
+- `left` ([BundleEntry](/api/dotsider.core.analysis.models.bundleentry/))
+- `right` ([BundleEntry](/api/dotsider.core.analysis.models.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(BundleEntry? left, BundleEntry? right)
+```
+
+### operator ==(BundleEntry?, BundleEntry?)
+
+**Parameters:**
+
+- `left` ([BundleEntry](/api/dotsider.core.analysis.models.bundleentry/))
+- `right` ([BundleEntry](/api/dotsider.core.analysis.models.bundleentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(BundleEntry? left, BundleEntry? right)
+```

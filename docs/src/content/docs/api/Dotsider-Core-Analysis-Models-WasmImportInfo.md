@@ -94,3 +94,86 @@ The function type index for function imports, or null.
 public int? TypeIndex { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out WasmExternalKind, out int, out int?)
+
+**Parameters:**
+
+- `ModuleName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Kind` ([WasmExternalKind](/api/dotsider.core.analysis.models.wasmexternalkind/))
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `TypeIndex` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out string ModuleName, out string Name, out WasmExternalKind Kind, out int Index, out int? TypeIndex)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmImportInfo?)
+
+**Parameters:**
+
+- `other` ([WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmImportInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmImportInfo?, WasmImportInfo?)
+
+**Parameters:**
+
+- `left` ([WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/))
+- `right` ([WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmImportInfo? left, WasmImportInfo? right)
+```
+
+### operator ==(WasmImportInfo?, WasmImportInfo?)
+
+**Parameters:**
+
+- `left` ([WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/))
+- `right` ([WasmImportInfo](/api/dotsider.core.analysis.models.wasmimportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmImportInfo? left, WasmImportInfo? right)
+```

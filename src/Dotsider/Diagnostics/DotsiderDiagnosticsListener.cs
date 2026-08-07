@@ -14,8 +14,8 @@ namespace Dotsider.Diagnostics;
 /// </summary>
 internal sealed class DotsiderDiagnosticsListener(
     Func<DotsiderState?> getState,
-    Func<object?>? assemblyInfoProvider = null,
-    Func<object?>? currentViewProvider = null) : IAsyncDisposable
+    Func<JsonElement?>? assemblyInfoProvider = null,
+    Func<JsonElement?>? currentViewProvider = null) : IAsyncDisposable
 {
     private const int MaxConnections = 4;
 
@@ -127,7 +127,7 @@ internal sealed class DotsiderDiagnosticsListener(
                 var rejection = DotsiderResponse.Fail(
                     $"Connection rejected: too many concurrent connections (limit: {MaxConnections})");
                 await w.WriteLineAsync(
-                    JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(rejection, DotsiderJsonContext.Protocol.DotsiderResponse));
             }
             catch
             {
@@ -173,7 +173,7 @@ internal sealed class DotsiderDiagnosticsListener(
                 var rejection = DotsiderResponse.Fail(
                     "Connection rejected: peer is not the same user");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(rejection, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(rejection, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
@@ -187,7 +187,7 @@ internal sealed class DotsiderDiagnosticsListener(
                 var errorResponse = DotsiderResponse.Fail(
                     $"Request exceeds the {DotsiderProtocol.MaxRequestBytes}-byte limit");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
@@ -196,7 +196,7 @@ internal sealed class DotsiderDiagnosticsListener(
                 var errorResponse = DotsiderResponse.Fail(
                     "Request is not valid UTF-8");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
@@ -210,13 +210,13 @@ internal sealed class DotsiderDiagnosticsListener(
             DotsiderRequest? request;
             try
             {
-                request = JsonSerializer.Deserialize<DotsiderRequest>(line, DotsiderJsonOptions.Default);
+                request = JsonSerializer.Deserialize(line, DotsiderJsonContext.Protocol.DotsiderRequest);
             }
             catch (JsonException ex)
             {
                 var errorResponse = DotsiderResponse.Fail($"Invalid JSON: {ex.Message}");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
@@ -224,7 +224,7 @@ internal sealed class DotsiderDiagnosticsListener(
             {
                 var errorResponse = DotsiderResponse.Fail("Empty request");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
@@ -234,14 +234,14 @@ internal sealed class DotsiderDiagnosticsListener(
                 var errorResponse = DotsiderResponse.Fail(
                     $"Protocol version mismatch: expected {DotsiderProtocol.Version}, got {request.V}");
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(errorResponse, DotsiderJsonOptions.Default));
+                    JsonSerializer.Serialize(errorResponse, DotsiderJsonContext.Protocol.DotsiderResponse));
                 return;
             }
 
             // 6. Route to handler
             var response = HandleRequest(request);
             await writer.WriteLineAsync(
-                JsonSerializer.Serialize(response, DotsiderJsonOptions.Default));
+                JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.DotsiderResponse));
         }
         catch
         {
@@ -373,41 +373,7 @@ internal sealed class DotsiderDiagnosticsListener(
         }
 
         var a = RequireAnalyzer();
-        return DotsiderResponse.Ok(new
-        {
-            Mode = "standard",
-            a.FilePath,
-            a.FileName,
-            a.FileSize,
-            a.AssemblyName,
-            a.AssemblyVersion,
-            a.TargetFramework,
-            a.Culture,
-            a.PublicKeyToken,
-            a.Architecture,
-            a.HasMetadata,
-            a.BinaryKind,
-            a.NativeAotInfo,
-            a.DisplayName,
-            a.SourceBundlePath,
-            a.IsBundleBacked,
-            a.LaunchPath,
-            a.CanSaveInPlace,
-            a.PreferredRuntimePack,
-            a.PdbProvenance,
-            a.SourceLink,
-            TypeCount = a.TypeDefs.Count,
-            MethodCount = a.MethodDefs.Count,
-            AssemblyRefCount = a.AssemblyRefs.Count,
-            ReadyToRunSectionCount = a.ReadyToRunSections.Count,
-            RecoveredTypeCount = a.RecoveredTypes.Count,
-            FrozenStringCount = a.FrozenStrings.Count,
-            NativeSymbolCount = a.NativeSymbols?.Symbols.Count ?? 0,
-            NativeSymbolSource = a.NativeSymbols?.Source,
-            NativeSymbolStatus = a.NativeSymbols?.Status,
-            Webcil = WebcilPayloadBuilder.BuildSummary(a),
-            Wasm = WasmPayloadBuilder.BuildSummary(a)
-        });
+        return DotsiderResponse.Ok(AssemblyInfoPayloadBuilder.Build(a, "standard"));
     }
 
     private DotsiderResponse HandleListTypes(DotsiderRequest request)
@@ -494,14 +460,12 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail($"Method not found: {request.TypeName}.{request.MethodName}");
 
         var instructions = state.IlDisassembler!.Disassemble(method);
-        return DotsiderResponse.Ok(new
-        {
-            Method = method,
-            Pdb = state.Analyzer.PdbProvenance,
+        return DotsiderResponse.Ok(new IlDisassemblyPayload(
+            method,
+            state.Analyzer.PdbProvenance,
             state.Analyzer.SourceLink,
-            DebugInfo = request.IncludeDebugInfo ? state.Analyzer.GetMethodDebugInfo(method) : null,
-            Instructions = instructions
-        });
+            request.IncludeDebugInfo ? state.Analyzer.GetMethodDebugInfo(method) : null,
+            instructions));
     }
 
     private DotsiderResponse HandleGetMethodDebugInfo(DotsiderRequest request)
@@ -530,7 +494,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var state = RequireState();
         var query = request.Query;
         var max = request.MaxResults ?? 50;
-        var results = new List<object>();
+        var results = new List<IlSearchResultPayload>();
 
         foreach (var method in state.Analyzer.MethodDefs)
         {
@@ -552,11 +516,8 @@ internal sealed class DotsiderDiagnosticsListener(
 
             if (matches.Count > 0)
             {
-                results.Add(new
-                {
-                    Method = $"{method.DeclaringType}.{method.Name}",
-                    Matches = matches
-                });
+                results.Add(new IlSearchResultPayload(
+                    $"{method.DeclaringType}.{method.Name}", matches));
             }
         }
 
@@ -586,7 +547,7 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("Token is required for resolve-token");
 
         var resolved = RequireAnalyzer().ResolveToken(request.Token.Value);
-        return DotsiderResponse.Ok(new { Token = request.Token.Value, Resolved = resolved });
+        return DotsiderResponse.Ok(new TokenResolutionPayload(request.Token.Value, resolved));
     }
 
     private DotsiderResponse HandleReadBytes(DotsiderRequest request)
@@ -602,13 +563,8 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("Offset out of range");
 
         var bytes = raw.Slice(offset, length).ToArray();
-        return DotsiderResponse.Ok(new
-        {
-            Offset = offset,
-            Length = length,
-            Hex = Convert.ToHexString(bytes),
-            Base64 = Convert.ToBase64String(bytes)
-        });
+        return DotsiderResponse.Ok(new ByteRangePayload(
+            offset, length, Convert.ToHexString(bytes), Convert.ToBase64String(bytes)));
     }
 
     // --- Strings Handlers ---
@@ -638,14 +594,12 @@ internal sealed class DotsiderDiagnosticsListener(
         }
 
         var max = request.MaxResults ?? int.MaxValue;
-        return DotsiderResponse.Ok(new
-        {
-            UserStrings = user.Take(max),
-            MetadataStrings = metadata.Take(max),
-            RawStrings = raw.Take(max),
-            RawUtf16Strings = rawUtf16.Take(max),
-            FrozenStrings = frozen.Take(max)
-        });
+        return DotsiderResponse.Ok(new StringsPayload(
+            [.. user.Take(max)],
+            [.. metadata.Take(max)],
+            [.. raw.Take(max)],
+            [.. rawUtf16.Take(max)],
+            [.. frozen.Take(max)]));
     }
 
     // --- Dependency Handlers ---
@@ -657,7 +611,7 @@ internal sealed class DotsiderDiagnosticsListener(
     {
         var analyzer = RequireAnalyzer();
         var graph = DependencyGraphBuilder.Build(analyzer);
-        return DotsiderResponse.Ok(new { graph.Nodes, graph.Edges });
+        return DotsiderResponse.Ok(new DependencyGraphPayload(graph.Nodes, graph.Edges));
     }
 
     private DotsiderResponse HandleGetTypeRefs() =>
@@ -760,7 +714,10 @@ internal sealed class DotsiderDiagnosticsListener(
         var result = Core.Analysis.Disasm.NativeDisassembler.DisassembleSymbol(a, matches[0]);
         return result is null
             ? DotsiderResponse.Fail($"'{matches[0].ManagedName ?? matches[0].Name}' has no disassemblable bytes")
-            : DotsiderResponse.Ok(new { Symbol = matches[0].ManagedName ?? matches[0].Name, a.Architecture, result.Value.Instructions });
+            : DotsiderResponse.Ok(new NativeDisassemblyPayload(
+                matches[0].ManagedName ?? matches[0].Name,
+                a.Architecture,
+                result.Value.Instructions));
     }
 
     private DotsiderResponse HandleListWasmSections()
@@ -805,7 +762,8 @@ internal sealed class DotsiderDiagnosticsListener(
         return report.NativeText is null
             ? DotsiderResponse.Fail($"'{report.Method}' has no precompiled native code"
                 + (report.Diagnostic is { } d ? $" ({d})" : ""))
-            : DotsiderResponse.Ok(new { Symbol = report.Method, a.Architecture, report.NativeInstructions });
+            : DotsiderResponse.Ok(new NativeDisassemblyPayload(
+                report.Method, a.Architecture, report.NativeInstructions ?? []));
     }
 
     private DotsiderResponse HandleCorrelateMethod(DotsiderRequest request)
@@ -929,14 +887,12 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("AssemblyPath is required for analyze-nupkg");
 
         using var package = new NuGetPackageAnalyzer(path);
-        return DotsiderResponse.Ok(new
-        {
+        return DotsiderResponse.Ok(new NuGetPackagePayload(
             package.PackageId,
             package.PackageVersion,
             package.Authors,
             package.Description,
-            package.DllFiles
-        });
+            package.DllFiles));
     }
 
     // --- Trace Handlers (live session) ---
@@ -1020,7 +976,7 @@ internal sealed class DotsiderDiagnosticsListener(
         state.App.Invalidate();
         state.RequestExtraFrame();
 
-        return DotsiderResponse.Ok(new { Message = "Trace start queued" });
+        return DotsiderResponse.Ok(new MessagePayload("Trace start queued"));
     }
 
     private DotsiderResponse HandleStopTrace()
@@ -1033,7 +989,7 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("Trace is not running");
 
         tracer.Stop();
-        return DotsiderResponse.Ok(new { Message = "Trace stopped" });
+        return DotsiderResponse.Ok(new MessagePayload("Trace stopped"));
     }
 
     // --- Navigation Handlers (live session) ---
@@ -1049,20 +1005,18 @@ internal sealed class DotsiderDiagnosticsListener(
         }
 
         var state = RequireState();
-        return DotsiderResponse.Ok(new
-        {
-            Tab = state.CurrentTab + 1,
-            TabLabel = CurrentTabLabel(state),
+        return DotsiderResponse.Ok(new CurrentViewPayload(
+            state.CurrentTab + 1,
+            CurrentTabLabel(state),
             state.PeSubTab,
             state.DynamicSubTab,
-            AssemblyPath = state.Analyzer.FilePath,
-            NavigationDepth = state.NavigationStack.Count,
-            TracerState = state.Tracer?.ProcessState.ToString(),
+            state.Analyzer.FilePath,
+            state.NavigationStack.Count,
+            state.Tracer?.ProcessState.ToString(),
             state.HexIsDirty,
             state.HasEntryPoint,
             state.IsNativeAot,
-            state.IsNetFramework
-        });
+            state.IsNetFramework));
     }
 
     private static string CurrentTabLabel(DotsiderState state) =>
@@ -1101,7 +1055,7 @@ internal sealed class DotsiderDiagnosticsListener(
         state.App.Invalidate();
         state.RequestExtraFrame();
 
-        return DotsiderResponse.Ok(new { Message = $"Navigation to tab {tabId} queued" });
+        return DotsiderResponse.Ok(new MessagePayload($"Navigation to tab {tabId} queued"));
     }
 
     private DotsiderResponse HandleSearch(DotsiderRequest request)
@@ -1127,7 +1081,8 @@ internal sealed class DotsiderDiagnosticsListener(
         state.App.Invalidate();
         state.RequestExtraFrame();
 
-        return DotsiderResponse.Ok(new { Message = $"Search for '{request.Query}' queued on tab {tabId}" });
+        return DotsiderResponse.Ok(new MessagePayload(
+            $"Search for '{request.Query}' queued on tab {tabId}"));
     }
 
     // --- Field Handlers ---
@@ -1161,7 +1116,7 @@ internal sealed class DotsiderDiagnosticsListener(
             return DotsiderResponse.Fail("AssemblyPath is required for is-bundle");
 
         var isBundle = SingleFileBundleReader.IsBundle(request.AssemblyPath, out var headerOffset);
-        return DotsiderResponse.Ok(new { IsBundle = isBundle, HeaderOffset = headerOffset });
+        return DotsiderResponse.Ok(new BundleProbePayload(isBundle, headerOffset));
     }
 
     private static DotsiderResponse HandleGetBundleManifest(DotsiderRequest request)
@@ -1225,7 +1180,7 @@ internal sealed class DotsiderDiagnosticsListener(
         });
         state.App.Invalidate();
         state.RequestExtraFrame();
-        return DotsiderResponse.Ok(new { Status = "queued" });
+        return DotsiderResponse.Ok(new OperationStatusPayload("queued"));
     }
 
     private DotsiderResponse HandleNavigateBack()
@@ -1262,7 +1217,7 @@ internal sealed class DotsiderDiagnosticsListener(
         });
         state.App.Invalidate();
         state.RequestExtraFrame();
-        return DotsiderResponse.Ok(new { Status = "queued" });
+        return DotsiderResponse.Ok(new OperationStatusPayload("queued"));
     }
 
     private DotsiderResponse HandlePushAssembly(DotsiderRequest request)
@@ -1321,7 +1276,7 @@ internal sealed class DotsiderDiagnosticsListener(
 
         state.App.Invalidate();
         state.RequestExtraFrame();
-        return DotsiderResponse.Ok(new { Status = "queued" });
+        return DotsiderResponse.Ok(new OperationStatusPayload("queued"));
     }
 
     // --- Lifecycle ---

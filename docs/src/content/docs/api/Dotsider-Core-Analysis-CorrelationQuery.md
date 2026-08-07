@@ -45,4 +45,3 @@ The resolved report, the ambiguous candidates, or the reason nothing resolved.
 ```csharp
 public static CorrelationQueryResult Resolve(AssemblyAnalyzer analyzer, string methodOrAddress, CancellationToken cancellationToken)
 ```
-

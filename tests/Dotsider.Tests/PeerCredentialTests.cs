@@ -52,7 +52,7 @@ public class PeerCredentialTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -137,9 +137,9 @@ public class PeerCredentialTests : IAsyncDisposable
 
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
-                DotsiderJsonOptions.Default), ct);
+                DotsiderJsonContext.Protocol.Options), ct);
 
-        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonContext.Protocol.Options);
         Assert.IsNotNull(response);
         Assert.IsFalse(response.Success);
         Assert.Contains("peer", response.Error!, StringComparison.OrdinalIgnoreCase);
@@ -159,7 +159,7 @@ public class PeerCredentialTests : IAsyncDisposable
 
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
-                DotsiderJsonOptions.Default), ct);
+                DotsiderJsonContext.Protocol.Options), ct);
 
         var doc = JsonDocument.Parse(rawResponse);
         Assert.AreEqual(DotsiderProtocol.Version, doc.RootElement.GetProperty("v").GetInt32());

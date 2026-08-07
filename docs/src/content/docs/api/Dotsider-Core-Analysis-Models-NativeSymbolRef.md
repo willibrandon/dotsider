@@ -15,7 +15,7 @@ call or branch landing inside a function displays honestly as `Foo+0x12` rather 
 failing or pretending an exact hit.
 
 ```csharp
-public readonly record struct NativeSymbolRef : IEquatable<NativeSymbolRef>
+public readonly struct NativeSymbolRef : IEquatable<NativeSymbolRef>
 ```
 
 ## Implements
@@ -83,3 +83,85 @@ The containing symbol's start virtual address.
 public ulong Start { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ulong, out string, out NativeSymbolKind, out long)
+
+**Parameters:**
+
+- `Start` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Kind` ([NativeSymbolKind](/api/dotsider.core.analysis.models.nativesymbolkind/))
+- `Offset` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+
+```csharp
+public void Deconstruct(out ulong Start, out string Name, out NativeSymbolKind Kind, out long Offset)
+```
+
+### Equals(NativeSymbolRef)
+
+**Parameters:**
+
+- `other` ([NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NativeSymbolRef other)
+```
+
+### Equals(object)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(NativeSymbolRef, NativeSymbolRef)
+
+**Parameters:**
+
+- `left` ([NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/))
+- `right` ([NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NativeSymbolRef left, NativeSymbolRef right)
+```
+
+### operator ==(NativeSymbolRef, NativeSymbolRef)
+
+**Parameters:**
+
+- `left` ([NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/))
+- `right` ([NativeSymbolRef](/api/dotsider.core.analysis.models.nativesymbolref/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NativeSymbolRef left, NativeSymbolRef right)
+```

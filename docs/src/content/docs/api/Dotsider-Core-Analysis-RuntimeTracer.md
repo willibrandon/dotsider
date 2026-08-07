@@ -1,6 +1,6 @@
 ---
 title: "RuntimeTracer"
-description: "Manages launching a .NET assembly as a child process and collecting runtime events via EventPipe diagnostics (PID-based connect with retry)."
+description: "Launches a .NET target and collects its runtime diagnostics. Uses the bundled trace host to keep TraceEvent outside the Native AOT process. Exposes events, counters, output, and lifecycle state to dotsider callers."
 slug: api/dotsider.core.analysis.runtimetracer
 sidebar:
   order: 0
@@ -10,8 +10,9 @@ sidebar:
 
 **Assembly:** Dotsider.Core.dll
 
-Manages launching a .NET assembly as a child process and collecting
-runtime events via EventPipe diagnostics (PID-based connect with retry).
+Launches a .NET target and collects its runtime diagnostics.
+Uses the bundled trace host to keep TraceEvent outside the Native AOT process.
+Exposes events, counters, output, and lifecycle state to dotsider callers.
 
 ```csharp
 public sealed class RuntimeTracer : IDisposable
@@ -29,8 +30,9 @@ public sealed class RuntimeTracer : IDisposable
 
 ### RuntimeTracer(string, IReadOnlyList\<string\>, Action)
 
-Manages launching a .NET assembly as a child process and collecting
-runtime events via EventPipe diagnostics (PID-based connect with retry).
+Launches a .NET target and collects its runtime diagnostics.
+Uses the bundled trace host to keep TraceEvent outside the Native AOT process.
+Exposes events, counters, output, and lifecycle state to dotsider callers.
 
 **Parameters:**
 
@@ -98,8 +100,6 @@ public TraceProcessState ProcessState { get; }
 
 ### Dispose()
 
-Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
 ```csharp
 public void Dispose()
 ```
@@ -159,4 +159,3 @@ Stops the traced process and event collection.
 ```csharp
 public void Stop()
 ```
-

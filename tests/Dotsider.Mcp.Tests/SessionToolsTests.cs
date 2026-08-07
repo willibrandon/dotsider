@@ -1,5 +1,4 @@
 using Dotsider.Core.Analysis;
-using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using System.Text.Json;
 
@@ -57,7 +56,7 @@ public class SessionToolsTests : McpServerTestBase
         await using var socket = new TestDotsiderSocket(999_998, "/tmp/test/HelloWorld.dll");
 
         // Add a get-current-view handler
-        socket.OnMethod("get-current-view", _ => DotsiderResponse.Ok(new
+        socket.OnMethod("get-current-view", _ => TestJsonResponse.Ok(new
         {
             Tab = 0,
             AssemblyPath = "/tmp/test/HelloWorld.dll"
@@ -231,7 +230,7 @@ public class SessionToolsTests : McpServerTestBase
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 FileName = $"{left.FileName} \u2194 {right.FileName}",
@@ -253,13 +252,13 @@ public class SessionToolsTests : McpServerTestBase
                     right.AssemblyVersion,
                     right.TargetFramework,
                 },
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 Tab = 1,
                 FilterMode = DiffFilterMode.All,
-            });
+            }));
         listener.StartListening(overridePid: pid);
 
         return (pid, listener, new AnalyzerPair(left, right));
@@ -273,7 +272,7 @@ public class SessionToolsTests : McpServerTestBase
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 package.FilePath,
@@ -283,14 +282,14 @@ public class SessionToolsTests : McpServerTestBase
                 package.Authors,
                 package.Description,
                 DllCount = package.DllFiles.Count,
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 IsBrowsingPackage = true,
                 Tab = (int?)null,
                 SelectedDll = (string?)null,
-            });
+            }));
         listener.StartListening(overridePid: pid);
 
         return (pid, listener, package);

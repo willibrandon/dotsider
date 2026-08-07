@@ -56,7 +56,7 @@ public class SessionBundleTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -90,7 +90,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "assembly-info" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         var displayName = data.GetProperty("displayName").GetString();
         var fileName = data.GetProperty("fileName").GetString();
         Assert.AreEqual(fileName, displayName);
@@ -115,7 +115,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "assembly-info" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("Microsoft.AspNetCore.App", data.GetProperty("preferredRuntimePack").GetString());
     }
 
@@ -136,7 +136,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("General", data.GetProperty("tabLabel").GetString());
         Assert.IsTrue(data.GetProperty("hasEntryPoint").GetBoolean());
         Assert.IsFalse(data.GetProperty("hexIsDirty").GetBoolean());
@@ -158,7 +158,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsFalse(data.GetProperty("hasEntryPoint").GetBoolean());
     }
 
@@ -190,7 +190,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsTrue(data.GetProperty("hexIsDirty").GetBoolean());
     }
 
@@ -211,7 +211,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "list-fields" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual(JsonValueKind.Array, data.ValueKind);
         Assert.IsGreaterThan(0, data.GetArrayLength(), "Expected at least one field definition");
     }
@@ -230,14 +230,14 @@ public class SessionBundleTests : IAsyncDisposable
         var allResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "list-fields" }, ct);
         Assert.IsTrue(allResponse.Success);
-        var allCount = ((allResponse.Data as JsonElement?)!.Value).GetArrayLength();
+        var allCount = (allResponse.Data!.Value).GetArrayLength();
 
         // Filter by a specific query that should match fewer results
         var filteredResponse = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "list-fields", Query = "_counter" }, ct);
         Assert.IsTrue(filteredResponse.Success);
 
-        var filteredData = (filteredResponse.Data as JsonElement?)!.Value;
+        var filteredData = filteredResponse.Data!.Value;
         Assert.AreEqual(JsonValueKind.Array, filteredData.ValueKind);
         var filteredCount = filteredData.GetArrayLength();
         Assert.IsGreaterThan(0, filteredCount, "Expected at least one field matching '_counter'");
@@ -260,7 +260,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "is-bundle", AssemblyPath = Samples.SelfContainedConsoleExe }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsTrue(data.GetProperty("isBundle").GetBoolean());
     }
 
@@ -278,7 +278,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "is-bundle", AssemblyPath = Samples.RichLibraryDll }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsFalse(data.GetProperty("isBundle").GetBoolean());
     }
 
@@ -297,7 +297,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-bundle-manifest", AssemblyPath = Samples.SelfContainedConsoleExe }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.IsGreaterThan(0, data.GetProperty("fileCount").GetInt32());
     }
 
@@ -343,7 +343,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "resolve-assembly", AssemblyName = "System.Runtime" }, ct);
         Assert.IsTrue(response.Success);
 
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.AreEqual("file", data.GetProperty("kind").GetString());
     }
 
@@ -395,7 +395,7 @@ public class SessionBundleTests : IAsyncDisposable
             }, ct);
         Assert.IsTrue(disasmResponse.Success);
 
-        var disasmData = (disasmResponse.Data as JsonElement?)!.Value;
+        var disasmData = disasmResponse.Data!.Value;
         var instructions = disasmData.GetProperty("instructions");
 
         // Find the call instruction that references LocalTarget
@@ -423,7 +423,7 @@ public class SessionBundleTests : IAsyncDisposable
             new DotsiderRequest { Method = "navigate-to-il-definition", Token = callToken }, ct);
         Assert.IsTrue(navResponse.Success);
 
-        var navData = (navResponse.Data as JsonElement?)!.Value;
+        var navData = navResponse.Data!.Value;
         Assert.AreEqual("queued", navData.GetProperty("status").GetString());
     }
 
@@ -455,7 +455,7 @@ public class SessionBundleTests : IAsyncDisposable
             }, ct);
         Assert.IsTrue(disasmResponse.Success);
 
-        var disasmData = (disasmResponse.Data as JsonElement?)!.Value;
+        var disasmData = disasmResponse.Data!.Value;
         var instructions = disasmData.GetProperty("instructions");
 
         // Find the call instruction to Console.WriteLine
@@ -482,7 +482,7 @@ public class SessionBundleTests : IAsyncDisposable
         var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewBefore.Success);
-        var depthBefore = (viewBefore.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
+        var depthBefore = viewBefore.Data!.Value.GetProperty("navigationDepth").GetInt32();
 
         // Send navigate-to-il-definition with the external token
         var navResponse = await DotsiderClient.SendAsync(socketPath,
@@ -515,7 +515,7 @@ public class SessionBundleTests : IAsyncDisposable
             }, ct);
         Assert.IsTrue(disassembleResponse.Success);
 
-        var instructions = ((disassembleResponse.Data as JsonElement?)!.Value)
+        var instructions = (disassembleResponse.Data!.Value)
             .GetProperty("instructions");
         var methodSpecs = instructions.EnumerateArray()
             .Where(instruction => instruction.TryGetProperty("metadataToken", out var token)
@@ -539,7 +539,7 @@ public class SessionBundleTests : IAsyncDisposable
                 new DotsiderRequest { Method = "resolve-token", Token = methodSpec.Token }, ct);
             Assert.IsTrue(resolveResponse.Success);
 
-            var resolved = (resolveResponse.Data as JsonElement?)!.Value;
+            var resolved = resolveResponse.Data!.Value;
             Assert.AreEqual(methodSpec.Token, resolved.GetProperty("token").GetInt32());
             resolvedNames.Add(resolved.GetProperty("resolved").GetString()!);
         }
@@ -594,7 +594,7 @@ public class SessionBundleTests : IAsyncDisposable
         var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewBefore.Success);
-        var depthBefore = (viewBefore.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
+        var depthBefore = viewBefore.Data!.Value.GetProperty("navigationDepth").GetInt32();
 
         // Push by assembly name
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
@@ -621,7 +621,7 @@ public class SessionBundleTests : IAsyncDisposable
         var viewBefore = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewBefore.Success);
-        var depthBefore = (viewBefore.Data as JsonElement?)!.Value.GetProperty("navigationDepth").GetInt32();
+        var depthBefore = viewBefore.Data!.Value.GetProperty("navigationDepth").GetInt32();
 
         // Push by path
         var pushResponse = await DotsiderClient.SendAsync(socketPath,
@@ -654,7 +654,7 @@ public class SessionBundleTests : IAsyncDisposable
         var info = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
         Assert.IsTrue(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
+        var data = info.Data!.Value;
         Assert.AreEqual("wasm", data.GetProperty("binaryKind").GetString());
         Assert.IsFalse(data.GetProperty("hasMetadata").GetBoolean());
         Assert.IsGreaterThan(0, data.GetProperty("wasm").GetProperty("definedFunctionCount").GetInt32());
@@ -682,7 +682,7 @@ public class SessionBundleTests : IAsyncDisposable
         var info = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
         Assert.IsTrue(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
+        var data = info.Data!.Value;
         Assert.IsTrue(data.GetProperty("hasMetadata").GetBoolean());
     }
 
@@ -709,7 +709,7 @@ public class SessionBundleTests : IAsyncDisposable
         var info = await DotsiderClient.SendAsync(socketPath,
             new DotsiderRequest { Method = "assembly-info" }, ct);
         Assert.IsTrue(info.Success);
-        var data = (info.Data as JsonElement?)!.Value;
+        var data = info.Data!.Value;
         Assert.IsTrue(data.GetProperty("hasMetadata").GetBoolean());
         Assert.AreEqual("SelfContainedConsole", data.GetProperty("assemblyName").GetString());
     }

@@ -188,3 +188,94 @@ The comparison-side bytes, or 0 when removed.
 public long RightSize { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out SizeNodeKind, out DiffKind, out long, out long, out long, out string, out string, out int, out int, out IReadOnlyList\<string\>, out IReadOnlyList\<string\>)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Kind` ([SizeNodeKind](/api/dotsider.core.analysis.models.sizenodekind/))
+- `Diff` ([DiffKind](/api/dotsider.core.analysis.models.diffkind/))
+- `LeftSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `RightSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Delta` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `LeftEntryCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RightEntryCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `LeftNodeNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `RightNodeNames` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string Name, out string FullPath, out SizeNodeKind Kind, out DiffKind Diff, out long LeftSize, out long RightSize, out long Delta, out string AssemblyName, out string Namespace, out int LeftEntryCount, out int RightEntryCount, out IReadOnlyList<string> LeftNodeNames, out IReadOnlyList<string> RightNodeNames)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeDiffContributor?)
+
+**Parameters:**
+
+- `other` ([SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeDiffContributor? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeDiffContributor?, SizeDiffContributor?)
+
+**Parameters:**
+
+- `left` ([SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/))
+- `right` ([SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeDiffContributor? left, SizeDiffContributor? right)
+```
+
+### operator ==(SizeDiffContributor?, SizeDiffContributor?)
+
+**Parameters:**
+
+- `left` ([SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/))
+- `right` ([SizeDiffContributor](/api/dotsider.core.analysis.models.sizediffcontributor/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeDiffContributor? left, SizeDiffContributor? right)
+```

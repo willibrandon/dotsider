@@ -18,7 +18,7 @@ internal struct IlCursor
     }
 
     /// <summary>Gets the number of unread bytes in the IL stream.</summary>
-    internal int RemainingByteCount => _il.Length - _position;
+    internal readonly int RemainingByteCount => _il.Length - _position;
 
     internal bool TryReadInt(out int value)
     {

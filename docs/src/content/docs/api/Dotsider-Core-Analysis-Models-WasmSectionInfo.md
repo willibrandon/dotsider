@@ -83,3 +83,85 @@ The section payload size in bytes.
 public int Size { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out byte, out string, out long, out int)
+
+**Parameters:**
+
+- `Id` ([Byte](https://learn.microsoft.com/dotnet/api/system.byte))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FileOffset` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out byte Id, out string Name, out long FileOffset, out int Size)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmSectionInfo?)
+
+**Parameters:**
+
+- `other` ([WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmSectionInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmSectionInfo?, WasmSectionInfo?)
+
+**Parameters:**
+
+- `left` ([WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/))
+- `right` ([WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmSectionInfo? left, WasmSectionInfo? right)
+```
+
+### operator ==(WasmSectionInfo?, WasmSectionInfo?)
+
+**Parameters:**
+
+- `left` ([WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/))
+- `right` ([WasmSectionInfo](/api/dotsider.core.analysis.models.wasmsectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmSectionInfo? left, WasmSectionInfo? right)
+```

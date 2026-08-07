@@ -13,7 +13,7 @@ sidebar:
 The result of disassembling a method across its ranges.
 
 ```csharp
-public readonly record struct ReadyToRunDisassembler.MethodDisassembly : IEquatable<ReadyToRunDisassembler.MethodDisassembly>
+public readonly struct ReadyToRunDisassembler.MethodDisassembly : IEquatable<ReadyToRunDisassembler.MethodDisassembly>
 ```
 
 ## Implements
@@ -57,3 +57,83 @@ The concatenated, block-separated disassembly text.
 public string Text { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out IReadOnlyList\<NativeInstruction\>)
+
+**Parameters:**
+
+- `Text` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Instructions` ([IReadOnlyList\<NativeInstruction\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string Text, out IReadOnlyList<NativeInstruction> Instructions)
+```
+
+### Equals(MethodDisassembly)
+
+**Parameters:**
+
+- `other` ([MethodDisassembly](/api/dotsider.core.analysis.readytorun.readytorundisassembler.methoddisassembly/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunDisassembler.MethodDisassembly other)
+```
+
+### Equals(object)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MethodDisassembly, MethodDisassembly)
+
+**Parameters:**
+
+- `left` ([MethodDisassembly](/api/dotsider.core.analysis.readytorun.readytorundisassembler.methoddisassembly/))
+- `right` ([MethodDisassembly](/api/dotsider.core.analysis.readytorun.readytorundisassembler.methoddisassembly/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunDisassembler.MethodDisassembly left, ReadyToRunDisassembler.MethodDisassembly right)
+```
+
+### operator ==(MethodDisassembly, MethodDisassembly)
+
+**Parameters:**
+
+- `left` ([MethodDisassembly](/api/dotsider.core.analysis.readytorun.readytorundisassembler.methoddisassembly/))
+- `right` ([MethodDisassembly](/api/dotsider.core.analysis.readytorun.readytorundisassembler.methoddisassembly/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunDisassembler.MethodDisassembly left, ReadyToRunDisassembler.MethodDisassembly right)
+```

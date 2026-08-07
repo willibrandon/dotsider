@@ -40,46 +40,60 @@ public sealed class RuntimeTracerTests : IDisposable
     }
 
     /// <summary>
-    /// Verifies managed DLL launch information uses discrete host and application arguments.
+    /// Verifies trace-host launch information uses discrete arguments.
+    /// The target path and every literal application argument remain separate.
+    /// No command-line string or shell interpretation is involved.
     /// </summary>
     [TestMethod]
-    public void CreateStartInfo_ManagedDll_UsesArgumentList()
+    public void CreateTraceHostStartInfo_ManagedDll_UsesArgumentList()
     {
-        var assemblyPath = Path.Combine("directory with spaces", "sample.DLL");
+        var assemblyPath = Samples.HelloWorldDll;
         using var tracer = new RuntimeTracer(
             assemblyPath,
             ["--fx-version", "value with spaces", "", "a&b"],
             static () => { });
 
-        var startInfo = tracer.CreateStartInfo();
+        var startInfo = tracer.CreateTraceHostStartInfo();
 
-        Assert.AreEqual("dotnet", startInfo.FileName);
+        Assert.IsTrue(Path.IsPathFullyQualified(startInfo.FileName));
+        Assert.IsTrue(File.Exists(startInfo.FileName));
         Assert.AreEqual("", startInfo.Arguments);
         Assert.IsFalse(startInfo.UseShellExecute);
+        Assert.IsTrue(startInfo.RedirectStandardInput);
         Assert.IsTrue(startInfo.RedirectStandardOutput);
         Assert.IsTrue(startInfo.RedirectStandardError);
-        AssertArguments(
-            ["exec", assemblyPath, "--fx-version", "value with spaces", "", "a&b"],
-            startInfo.ArgumentList);
+        Assert.AreEqual("exec", startInfo.ArgumentList[0]);
+        Assert.EndsWith("dotsider-tracehost.dll", startInfo.ArgumentList[1]);
+        AssertArguments([
+            assemblyPath,
+            "--fx-version",
+            "value with spaces",
+            "",
+            "a&b"
+        ], [.. startInfo.ArgumentList.Skip(2)]);
     }
 
     /// <summary>
-    /// Verifies extensionless Unix apphosts are launched directly with literal arguments.
+    /// Verifies executable target paths remain literal trace-host arguments.
+    /// Shell metacharacters and quotes retain their exact token boundaries.
+    /// The Native AOT parent launches only the bundled trace host directly.
     /// </summary>
     [TestMethod]
-    public void CreateStartInfo_ExtensionlessAppHost_LaunchesDirectly()
+    public void CreateTraceHostStartInfo_ExecutableTarget_PreservesLiteralArguments()
     {
-        var appHostPath = Path.Combine("publish", "sample");
+        var appHostPath = CreateExecutableTestFile();
         using var tracer = new RuntimeTracer(
             appHostPath,
             ["$(whoami)", "quote\"slash\\"],
             static () => { });
 
-        var startInfo = tracer.CreateStartInfo();
+        var startInfo = tracer.CreateTraceHostStartInfo();
 
-        Assert.AreEqual(appHostPath, startInfo.FileName);
-        Assert.AreEqual("", startInfo.Arguments);
-        AssertArguments(["$(whoami)", "quote\"slash\\"], startInfo.ArgumentList);
+        AssertArguments(
+            [Path.GetFullPath(appHostPath), "$(whoami)", "quote\"slash\\"],
+            [.. startInfo.ArgumentList.Skip(2)]);
+
+        File.Delete(appHostPath);
     }
 
     /// <summary>
@@ -89,14 +103,14 @@ public sealed class RuntimeTracerTests : IDisposable
     public void Constructor_MutableArguments_DefensivelyCopies()
     {
         var arguments = new List<string> { "original" };
-        using var tracer = new RuntimeTracer("sample.dll", arguments, static () => { });
+        using var tracer = new RuntimeTracer(Samples.HelloWorldDll, arguments, static () => { });
 
         arguments[0] = "changed";
         arguments.Add("extra");
 
         AssertArguments(
-            ["exec", "sample.dll", "original"],
-            tracer.CreateStartInfo().ArgumentList);
+            [Samples.HelloWorldDll, "original"],
+            [.. tracer.CreateTraceHostStartInfo().ArgumentList.Skip(2)]);
     }
 
     /// <summary>
@@ -108,9 +122,136 @@ public sealed class RuntimeTracerTests : IDisposable
         string[] arguments = [null!];
 
         var exception = Assert.ThrowsExactly<ArgumentException>(
-            () => new RuntimeTracer("sample.dll", arguments, static () => { }));
+            () => new RuntimeTracer(Samples.HelloWorldDll, arguments, static () => { }));
 
         Assert.AreEqual("arguments", exception.ParamName);
+    }
+
+    /// <summary>
+    /// Verifies missing targets fail before the trace host is launched.
+    /// This avoids waiting for the diagnostics connection timeout.
+    /// The exception retains the fully resolved missing file path.
+    /// </summary>
+    [TestMethod]
+    public void Constructor_MissingTarget_ThrowsFileNotFoundException()
+    {
+        var missingPath = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-missing-{Guid.NewGuid():N}.dll");
+
+        var exception = Assert.ThrowsExactly<FileNotFoundException>(
+            () => new RuntimeTracer(missingPath, [], static () => { }));
+
+        Assert.AreEqual(Path.GetFullPath(missingPath), exception.FileName);
+    }
+
+    /// <summary>
+    /// Verifies unsupported direct-launch files fail at the API boundary.
+    /// Windows rejects command scripts and Unix rejects non-executable files.
+    /// This prevents ambiguous or shell-dependent process launches.
+    /// </summary>
+    [TestMethod]
+    public void Constructor_UnsupportedDirectLaunchTarget_ThrowsArgumentException()
+    {
+        var extension = OperatingSystem.IsWindows() ? ".cmd" : ".txt";
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-unsupported-{Guid.NewGuid():N}{extension}");
+        File.WriteAllText(path, "test");
+
+        try
+        {
+            Assert.ThrowsExactly<ArgumentException>(
+                () => new RuntimeTracer(path, [], static () => { }));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// Verifies an incomplete deployment is rejected before tracing starts.
+    /// The message directs users to restore the bundled trace host payload.
+    /// </summary>
+    [TestMethod]
+    public void GetUnavailableReason_MissingTraceHost_ExplainsReinstallation()
+    {
+        var baseDirectory = Directory.CreateTempSubdirectory("dotsider-tracehost-missing-");
+        try
+        {
+            var reason = RuntimeTracer.GetUnavailableReason(
+                baseDirectory.FullName,
+                dotNetBasePath: null);
+
+            Assert.IsNotNull(reason);
+            Assert.Contains("missing or incomplete", reason);
+            Assert.Contains("Reinstall dotsider", reason);
+        }
+        finally
+        {
+            baseDirectory.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a complete helper without a compatible runtime is rejected.
+    /// The message names the minimum runtime needed by Dynamic analysis.
+    /// </summary>
+    [TestMethod]
+    public void GetUnavailableReason_MissingRuntime_ExplainsRequirement()
+    {
+        var baseDirectory = CreateTraceHostTestLayout();
+        try
+        {
+            var reason = RuntimeTracer.GetUnavailableReason(
+                baseDirectory.FullName,
+                dotNetBasePath: null);
+
+            Assert.IsNotNull(reason);
+            Assert.Contains(".NET 10 runtime or later", reason);
+        }
+        finally
+        {
+            baseDirectory.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies a complete helper and compatible runtime enable tracing.
+    /// Later major runtimes satisfy the trace host roll-forward policy.
+    /// </summary>
+    [TestMethod]
+    [DataRow("10.0.0")]
+    [DataRow("11.0.1")]
+    public void GetUnavailableReason_CompatibleRuntime_ReturnsNull(string runtimeVersion)
+    {
+        var baseDirectory = CreateTraceHostTestLayout();
+        var dotNetDirectory = Directory.CreateTempSubdirectory("dotsider-dotnet-runtime-");
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(
+                    dotNetDirectory.FullName,
+                    OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"),
+                "test");
+            Directory.CreateDirectory(Path.Combine(
+                dotNetDirectory.FullName,
+                "shared",
+                "Microsoft.NETCore.App",
+                runtimeVersion));
+
+            var reason = RuntimeTracer.GetUnavailableReason(
+                baseDirectory.FullName,
+                dotNetDirectory.FullName);
+
+            Assert.IsNull(reason);
+        }
+        finally
+        {
+            baseDirectory.Delete(recursive: true);
+            dotNetDirectory.Delete(recursive: true);
+        }
     }
 
     /// <summary>
@@ -169,6 +310,24 @@ public sealed class RuntimeTracerTests : IDisposable
         // ExitCode is set by the Process.Exited handler which fires asynchronously —
         // wait for it rather than reading immediately after state transition.
         await TestHelpers.WaitUntilAsync(() => tracer.ExitCode is not null, TimeSpan.FromSeconds(5));
+        Assert.AreEqual(0, tracer.ExitCode);
+    }
+
+    /// <summary>
+    /// Verifies the Exited state never precedes its process exit code.
+    /// EventPipe can finish just before macOS reports process termination.
+    /// The public lifecycle snapshot must still become observable atomically.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task ShortLivedProcess_ExitedState_AlreadyHasExitCode()
+    {
+        var tracer = CreateTracer(Samples.HelloWorldDll);
+
+        tracer.Start();
+        await WaitForExitAsync(tracer, TimeSpan.FromSeconds(15));
+
+        Assert.AreEqual(TraceProcessState.Exited, tracer.ProcessState);
         Assert.AreEqual(0, tracer.ExitCode);
     }
 
@@ -490,7 +649,7 @@ public sealed class RuntimeTracerTests : IDisposable
 
     private static void AssertArguments(
         string[] expected,
-        IReadOnlyList<string> actual)
+        string[] actual)
     {
         Assert.HasCount(expected.Length, actual);
         for (var index = 0; index < expected.Length; index++)
@@ -500,5 +659,39 @@ public sealed class RuntimeTracerTests : IDisposable
                 actual[index],
                 $"Argument {index} differs.");
         }
+    }
+
+    private static DirectoryInfo CreateTraceHostTestLayout()
+    {
+        var baseDirectory = Directory.CreateTempSubdirectory("dotsider-tracehost-layout-");
+        var traceHostDirectory = Directory.CreateDirectory(
+            Path.Combine(baseDirectory.FullName, "tracehost"));
+        File.WriteAllText(
+            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.deps.json"),
+            "{}");
+        File.WriteAllText(
+            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.dll"),
+            "test");
+        File.WriteAllText(
+            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.runtimeconfig.json"),
+            "{}");
+        return baseDirectory;
+    }
+
+    private static string CreateExecutableTestFile()
+    {
+        var extension = OperatingSystem.IsWindows() ? ".exe" : "";
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"dotsider-executable-{Guid.NewGuid():N}{extension}");
+        File.WriteAllText(path, "test");
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        return path;
     }
 }

@@ -238,7 +238,7 @@ public class NavigationToolsTests : McpServerTestBase
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 FileName = $"{leftAnalyzer.FileName} \u2194 {rightAnalyzer.FileName}",
@@ -260,13 +260,13 @@ public class NavigationToolsTests : McpServerTestBase
                     rightAnalyzer.AssemblyVersion,
                     rightAnalyzer.TargetFramework,
                 },
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "diff",
                 Tab = currentTabProvider() + 1,
                 FilterMode = filterModeProvider(),
-            });
+            }));
         listener.StartListening(overridePid: pid);
 
         return new RealListenerHandle(pid, listener, [leftAnalyzer, rightAnalyzer]);
@@ -288,7 +288,7 @@ public class NavigationToolsTests : McpServerTestBase
 
         var listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 packageAnalyzer.FilePath,
@@ -299,14 +299,14 @@ public class NavigationToolsTests : McpServerTestBase
                 packageAnalyzer.Description,
                 DllCount = packageAnalyzer.DllFiles.Count,
                 SelectedDll = selectedDllName,
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 IsBrowsingPackage = isBrowsing,
                 Tab = selectDll ? selectedDllTab + 1 : (int?)null,
                 SelectedDll = selectedDllName,
-            });
+            }));
         listener.StartListening(overridePid: pid);
 
         return new RealListenerHandle(pid, listener, [packageAnalyzer]);
@@ -349,7 +349,7 @@ public class NavigationToolsTests : McpServerTestBase
             {
                 var s = CapturedState();
                 if (s is null) return null;
-                return new
+                return TestJsonResponse.Element(new
                 {
                     Mode = "nuget",
                     s.Package.FilePath,
@@ -360,19 +360,19 @@ public class NavigationToolsTests : McpServerTestBase
                     s.Package.Description,
                     DllCount = s.Package.DllFiles.Count,
                     SelectedDll = s.SelectedDllState?.Analyzer.FileName,
-                };
+                });
             },
             currentViewProvider: () =>
             {
                 var s = CapturedState();
                 if (s is null) return null;
-                return new
+                return TestJsonResponse.Element(new
                 {
                     Mode = "nuget",
                     s.IsBrowsingPackage,
                     Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
-                };
+                });
             });
         listener.StartListening(overridePid: pid);
 
@@ -410,7 +410,7 @@ public class NavigationToolsTests : McpServerTestBase
 
         public async ValueTask DisposeAsync()
         {
-        GC.SuppressFinalize(this);
+            GC.SuppressFinalize(this);
             await listener.DisposeAsync();
             foreach (var d in owned)
                 d.Dispose();

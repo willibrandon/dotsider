@@ -116,4 +116,3 @@ anywhere inside any of its ranges — or null for uncorrelated (helper/stub) cod
 ```csharp
 public ReadyToRunMethodEntry? FindByAddress(ulong virtualAddress)
 ```
-

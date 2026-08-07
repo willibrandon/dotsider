@@ -4,7 +4,6 @@ using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
 using System.Collections.Concurrent;
-using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -49,7 +48,7 @@ public class PreIlcSessionSocketTests : IAsyncDisposable
             {
                 WorkloadAdapter = _workload,
                 EnableInputCoalescing = false
-        });
+            });
 
         _listener = new DotsiderDiagnosticsListener(() => _state);
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
@@ -81,7 +80,7 @@ public class PreIlcSessionSocketTests : IAsyncDisposable
             new DotsiderRequest { Method = "correlate-method", MethodOrAddress = "Greeter.Describe" }, ct);
 
         Assert.IsTrue(response.Success, response.Error);
-        var data = (response.Data as JsonElement?)!.Value;
+        var data = response.Data!.Value;
         Assert.Contains("Greeter::Describe", data.GetProperty("method").GetString()!);
         Assert.IsFalse(string.IsNullOrEmpty(data.GetProperty("il").GetString()));
     }

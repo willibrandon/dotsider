@@ -200,3 +200,94 @@ Reference paths that do not exist locally (copied build trees, foreign machines)
 public IReadOnlyList<string> UnresolvedReferencePaths { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string?, out PreIlcAssemblyOrigin, out string?, out PreIlcPdbStatus, out string?, out string?, out string?, out string?, out IReadOnlyList\<string\>, out int, out int, out IReadOnlyList\<string\>, out string?)
+
+**Parameters:**
+
+- `ManagedAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Origin` ([PreIlcAssemblyOrigin](/api/dotsider.core.analysis.models.preilcassemblyorigin/))
+- `ManagedPdbPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PdbStatus` ([PreIlcPdbStatus](/api/dotsider.core.analysis.models.preilcpdbstatus/))
+- `MstatPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `CodegenDgmlPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ScanDgmlPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IlcResponseFilePath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `LocalReferencePaths` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `PackageReferenceCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `OtherReferenceCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `UnresolvedReferencePaths` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Details` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string? ManagedAssemblyPath, out PreIlcAssemblyOrigin Origin, out string? ManagedPdbPath, out PreIlcPdbStatus PdbStatus, out string? MstatPath, out string? CodegenDgmlPath, out string? ScanDgmlPath, out string? IlcResponseFilePath, out IReadOnlyList<string> LocalReferencePaths, out int PackageReferenceCount, out int OtherReferenceCount, out IReadOnlyList<string> UnresolvedReferencePaths, out string? Details)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(PreIlcSidecars?)
+
+**Parameters:**
+
+- `other` ([PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(PreIlcSidecars? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(PreIlcSidecars?, PreIlcSidecars?)
+
+**Parameters:**
+
+- `left` ([PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/))
+- `right` ([PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(PreIlcSidecars? left, PreIlcSidecars? right)
+```
+
+### operator ==(PreIlcSidecars?, PreIlcSidecars?)
+
+**Parameters:**
+
+- `left` ([PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/))
+- `right` ([PreIlcSidecars](/api/dotsider.core.analysis.models.preilcsidecars/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(PreIlcSidecars? left, PreIlcSidecars? right)
+```

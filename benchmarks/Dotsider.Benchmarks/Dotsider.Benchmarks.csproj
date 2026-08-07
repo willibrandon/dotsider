@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -11,8 +11,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="BenchmarkDotNet" Version="0.15.*" />
-		<PackageReference Include="ModelContextProtocol" Version="1.4.1" />
+		<PackageReference Include="BenchmarkDotNet" />
+		<PackageReference Include="ModelContextProtocol" />
 	</ItemGroup>
 
 	<ItemGroup>

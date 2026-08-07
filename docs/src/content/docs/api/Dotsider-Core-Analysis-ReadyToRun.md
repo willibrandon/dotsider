@@ -27,6 +27,5 @@ public static class ReadyToRunDisassembler
 The result of disassembling a method across its ranges.
 
 ```csharp
-public readonly record struct ReadyToRunDisassembler.MethodDisassembly : IEquatable<ReadyToRunDisassembler.MethodDisassembly>
+public readonly struct ReadyToRunDisassembler.MethodDisassembly : IEquatable<ReadyToRunDisassembler.MethodDisassembly>
 ```
-

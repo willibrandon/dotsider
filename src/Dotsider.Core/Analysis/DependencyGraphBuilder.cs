@@ -36,7 +36,7 @@ public static class DependencyGraphBuilder
     internal static DependencyGraphResult BuildWithCancellation(
         AssemblyAnalyzer analyzer,
         CancellationToken cancellationToken) =>
-        BuildWithCancellation(analyzer, cancellationToken, progressObserver: null);
+        BuildWithCancellation(analyzer, progressObserver: null, cancellationToken);
 
     /// <summary>
     /// Builds the transitive dependency graph, cooperatively stops when cancellation is requested,
@@ -52,12 +52,12 @@ public static class DependencyGraphBuilder
     /// <returns>The computed nodes, edges, and per-node navigation metadata.</returns>
     internal static DependencyGraphResult BuildWithCancellation(
         AssemblyAnalyzer analyzer,
-        CancellationToken cancellationToken,
-        Action<DependencyGraphBuildCheckpoint>? progressObserver)
+        Action<DependencyGraphBuildCheckpoint>? progressObserver,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (analyzer.BinaryKind == BinaryKind.NativeAot)
-            return BuildForNativeAot(analyzer, cancellationToken, progressObserver);
+            return BuildForNativeAot(analyzer, progressObserver, cancellationToken);
 
         var byId = new Dictionary<string, GraphNode>(StringComparer.Ordinal);
         var edges = new List<GraphEdge>();
@@ -207,8 +207,8 @@ public static class DependencyGraphBuilder
     /// </summary>
     private static DependencyGraphResult BuildForNativeAot(
         AssemblyAnalyzer analyzer,
-        CancellationToken cancellationToken,
-        Action<DependencyGraphBuildCheckpoint>? progressObserver)
+        Action<DependencyGraphBuildCheckpoint>? progressObserver,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var nodes = new List<GraphNode>();
@@ -289,8 +289,8 @@ public static class DependencyGraphBuilder
                 rootId,
                 nodes,
                 edges,
-                cancellationToken,
-                progressObserver);
+                progressObserver,
+                cancellationToken);
         }
 
         // Native import modules: the exe's own dependency facts, present with or without
@@ -341,8 +341,8 @@ public static class DependencyGraphBuilder
         string rootId,
         List<GraphNode> nodes,
         List<GraphEdge> edges,
-        CancellationToken cancellationToken,
-        Action<DependencyGraphBuildCheckpoint>? progressObserver)
+        Action<DependencyGraphBuildCheckpoint>? progressObserver,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dgml = analyzer.Dgml;

@@ -38,7 +38,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.302'
 
       - name: Install wasm-tools workload
         run: dotnet workload install wasm-tools --skip-manifest-update
@@ -48,6 +48,9 @@ jobs:
 
       - name: Build
         run: dotnet build --no-restore
+
+      - name: Build benchmarks
+        run: dotnet build benchmarks/Dotsider.Benchmarks/Dotsider.Benchmarks.csproj --configuration Release --no-restore
 
       - name: Test
         timeout-minutes: 30
@@ -95,6 +98,46 @@ jobs:
             TestResults/**/*.cobertura.xml
             TestResults/**/*.diag
             TestResults/**/*.log
+
+  native-aot:
+    name: Native AOT (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+          - rid: linux-musl-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-x64
+            os: macos-26-intel
+          - rid: osx-arm64
+            os: macos-26
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Publish and verify Native AOT applications
+        run: >-
+          dotnet run --file ./scripts/Verify-NativeAot.cs --
+          -Mode CI
+          -Rid ${{ matrix.rid }}
+          -Version 0.0.0-ci
 
   deploy-tests:
     runs-on: ubuntu-latest

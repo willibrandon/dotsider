@@ -89,3 +89,85 @@ The comparison-side bytes, or 0 when the scope disappeared.
 public long RightSize { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out long, out long, out long)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `LeftSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `RightSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Delta` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+
+```csharp
+public void Deconstruct(out string Name, out long LeftSize, out long RightSize, out long Delta)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeDiffAggregate?)
+
+**Parameters:**
+
+- `other` ([SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeDiffAggregate? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeDiffAggregate?, SizeDiffAggregate?)
+
+**Parameters:**
+
+- `left` ([SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/))
+- `right` ([SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeDiffAggregate? left, SizeDiffAggregate? right)
+```
+
+### operator ==(SizeDiffAggregate?, SizeDiffAggregate?)
+
+**Parameters:**
+
+- `left` ([SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/))
+- `right` ([SizeDiffAggregate](/api/dotsider.core.analysis.models.sizediffaggregate/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeDiffAggregate? left, SizeDiffAggregate? right)
+```

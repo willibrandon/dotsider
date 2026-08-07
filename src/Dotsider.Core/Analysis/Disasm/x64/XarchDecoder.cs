@@ -329,13 +329,13 @@ internal static class XarchDecoder
 
                 break;
             case OperandKind.Lx:
-            {
-                // is4: the high nibble of a trailing imm8 selects a vector register.
-                var is4 = r.ReadU8();
-                var l = XarchRegisters.Vector((is4 >> 4) & (ctx.Prefixes.HasEvex ? 31 : 15), ctx.Prefixes.VectorLen);
-                operands.Add(new NativeOperand(NativeOperandKind.Register, l, Register: l));
-                break;
-            }
+                {
+                    // is4: the high nibble of a trailing imm8 selects a vector register.
+                    var is4 = r.ReadU8();
+                    var l = XarchRegisters.Vector((is4 >> 4) & (ctx.Prefixes.HasEvex ? 31 : 15), ctx.Prefixes.VectorLen);
+                    operands.Add(new NativeOperand(NativeOperandKind.Register, l, Register: l));
+                    break;
+                }
             case OperandKind.Kr: { var k = XarchRegisters.Mask(((modrm >> 3) & 7)); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }
             case OperandKind.Km: { var k = XarchRegisters.Mask(modrm & 7); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }
             case OperandKind.Kv: { var k = XarchRegisters.Mask(ctx.Prefixes.Vvvv & 7); operands.Add(new NativeOperand(NativeOperandKind.Register, k, Register: k)); break; }

@@ -249,12 +249,12 @@ internal sealed class DwarfLineProgram
                             break;
 
                         case LneDefineFile:
-                        {
-                            var name = reader.ReadCString();
-                            var dirIndex = (int)reader.ReadULeb128();
-                            files.Add(Join(directories, dirIndex, name));
-                            break;
-                        }
+                            {
+                                var name = reader.ReadCString();
+                                var dirIndex = (int)reader.ReadULeb128();
+                                files.Add(Join(directories, dirIndex, name));
+                                break;
+                            }
                     }
 
                     if (next < reader.Position || next > end) break;
@@ -369,16 +369,16 @@ internal sealed class DwarfLineProgram
         {
             case DwarfForm.String: return (0, reader.ReadCString());
             case DwarfForm.Strp:
-            {
-                var offset = (long)reader.ReadSectionOffset(is64);
-                return (0, new DwarfDataReader(sections.Str).ReadCStringAt(offset));
-            }
+                {
+                    var offset = (long)reader.ReadSectionOffset(is64);
+                    return (0, new DwarfDataReader(sections.Str).ReadCStringAt(offset));
+                }
 
             case DwarfForm.LineStrp:
-            {
-                var offset = (long)reader.ReadSectionOffset(is64);
-                return (0, new DwarfDataReader(sections.LineStr).ReadCStringAt(offset));
-            }
+                {
+                    var offset = (long)reader.ReadSectionOffset(is64);
+                    return (0, new DwarfDataReader(sections.LineStr).ReadCStringAt(offset));
+                }
 
             case DwarfForm.Udata: return (reader.ReadULeb128(), null);
             case DwarfForm.Data1: return (reader.ReadU8(), null);

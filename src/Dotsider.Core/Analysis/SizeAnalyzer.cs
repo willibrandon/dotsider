@@ -485,19 +485,19 @@ public static class SizeAnalyzer
                     when symbol.ManagedName is not null
                         && TrySplitManagedName(symbol.ManagedName, assemblyByType,
                             out var assembly, out var ns, out var type, out var method):
-                {
-                    var namespaces = assemblies.TryGetValue(assembly, out var a)
-                        ? a
-                        : assemblies[assembly] = new Dictionary<string, Dictionary<string, List<SizeNode>>>(StringComparer.Ordinal);
-                    var types = namespaces.TryGetValue(ns, out var n)
-                        ? n
-                        : namespaces[ns] = new Dictionary<string, List<SizeNode>>(StringComparer.Ordinal);
-                    (types.TryGetValue(type, out var methods) ? methods : types[type] = [])
-                        .Add(new SizeNode(
-                            method, $"{assembly}/{type}::{method}@0x{symbol.VirtualAddress:x}",
-                            symbol.Size, SizeNodeKind.Function, []));
-                    break;
-                }
+                    {
+                        var namespaces = assemblies.TryGetValue(assembly, out var a)
+                            ? a
+                            : assemblies[assembly] = new Dictionary<string, Dictionary<string, List<SizeNode>>>(StringComparer.Ordinal);
+                        var types = namespaces.TryGetValue(ns, out var n)
+                            ? n
+                            : namespaces[ns] = new Dictionary<string, List<SizeNode>>(StringComparer.Ordinal);
+                        (types.TryGetValue(type, out var methods) ? methods : types[type] = [])
+                            .Add(new SizeNode(
+                                method, $"{assembly}/{type}::{method}@0x{symbol.VirtualAddress:x}",
+                                symbol.Size, SizeNodeKind.Function, []));
+                        break;
+                    }
 
                 case NativeSymbolKind.Function:
                     Categorize("Runtime", symbol, SizeNodeKind.Function);

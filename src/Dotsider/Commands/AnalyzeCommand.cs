@@ -226,7 +226,7 @@ internal static class AnalyzeCommand
                         OutputFormatter.WriteError("Error: --il requires a .NET assembly with metadata");
                         return Task.FromResult(1);
                     }
-                    
+
                     return Task.FromResult(PrintIl(analyzer, disassembler, ilTarget, formatter));
                 }
 
@@ -283,25 +283,40 @@ internal static class AnalyzeCommand
     {
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                a.FilePath, a.FileName, a.FileSize, a.AssemblyName, a.AssemblyVersion,
-                a.TargetFramework, a.Architecture, a.HasMetadata, a.BinaryKind, a.NativeAotInfo,
-                a.DisplayName, a.IsBundleBacked, a.SourceBundlePath, a.LaunchPath, a.CanSaveInPlace, a.PreferredRuntimePack,
-                a.PdbProvenance, a.SourceLink, a.DebugDirectory,
+            fmt.WriteJson(new CliAssemblyInfoPayload(
+                a.FilePath,
+                a.FileName,
+                a.FileSize,
+                a.AssemblyName,
+                a.AssemblyVersion,
+                a.TargetFramework,
+                a.Architecture,
+                a.HasMetadata,
+                a.BinaryKind,
+                a.NativeAotInfo,
+                a.DisplayName,
+                a.IsBundleBacked,
+                a.SourceBundlePath,
+                a.LaunchPath,
+                a.CanSaveInPlace,
+                a.PreferredRuntimePack,
+                a.PdbProvenance,
+                a.SourceLink,
+                a.DebugDirectory,
                 a.ReadyToRunSections,
-                RecoveredTypeCount = a.RecoveredTypes.Count,
-                FrozenStringCount = a.FrozenStrings.Count,
-                NativeSymbolCount = a.NativeSymbols?.Symbols.Count ?? 0,
-                NativeSymbolSource = a.NativeSymbols?.Source,
-                NativeSymbolStatus = a.NativeSymbols?.Status,
+                a.RecoveredTypes.Count,
+                a.FrozenStrings.Count,
+                a.NativeSymbols?.Symbols.Count ?? 0,
+                a.NativeSymbols?.Source,
+                a.NativeSymbols?.Status,
                 a.NativeSymbolsPath,
-                PreIlc = BuildPreIlcProbeJson(a),
-                ReadyToRun = BuildReadyToRunJson(a),
-                Webcil = WebcilPayloadBuilder.BuildSummary(a),
-                Wasm = WasmPayloadBuilder.BuildSummary(a),
-                Types = a.TypeDefs, Methods = a.MethodDefs, References = a.AssemblyRefs
-            });
+                BuildPreIlcProbeJson(a),
+                BuildReadyToRunJson(a),
+                WebcilPayloadBuilder.BuildSummary(a),
+                WasmPayloadBuilder.BuildSummary(a),
+                a.TypeDefs,
+                a.MethodDefs,
+                a.AssemblyRefs));
         }
         else
         {
@@ -488,14 +503,12 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                Method = method,
-                Pdb = a.PdbProvenance,
+            fmt.WriteJson(new IlDisassemblyPayload(
+                method,
+                a.PdbProvenance,
                 a.SourceLink,
-                DebugInfo = a.GetMethodDebugInfo(method),
-                Instructions = instructions
-            });
+                a.GetMethodDebugInfo(method),
+                instructions));
             return 0;
         }
 
@@ -546,7 +559,8 @@ internal static class AnalyzeCommand
         var (text, instructions, _) = result.Value;
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new { Symbol = symbol.ManagedName ?? symbol.Name, a.Architecture, Instructions = instructions });
+            fmt.WriteJson(new NativeDisassemblyPayload(
+                symbol.ManagedName ?? symbol.Name, a.Architecture, instructions));
             return 0;
         }
 
@@ -583,7 +597,8 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new { Symbol = report.Method, a.Architecture, Instructions = report.NativeInstructions });
+            fmt.WriteJson(new NativeDisassemblyPayload(
+                report.Method, a.Architecture, report.NativeInstructions ?? []));
             return 0;
         }
 
@@ -657,7 +672,8 @@ internal static class AnalyzeCommand
         if (fmt.JsonMode)
         {
             var graph = DependencyGraphBuilder.Build(a);
-            fmt.WriteJson(new { a.AssemblyRefs, Graph = new { graph.Nodes, graph.Edges } });
+            fmt.WriteJson(new CliDependenciesPayload(
+                a.AssemblyRefs, new DependencyGraphPayload(graph.Nodes, graph.Edges)));
             return 0;
         }
 
@@ -689,11 +705,7 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                UserStrings = user, MetadataStrings = metadata,
-                RawStrings = raw, RawUtf16Strings = rawUtf16, FrozenStrings = frozen
-            });
+            fmt.WriteJson(new StringsPayload(user, metadata, raw, rawUtf16, frozen));
             return 0;
         }
 
@@ -748,12 +760,13 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                info.Source, info.Status, info.Path, info.Diagnostic,
+            fmt.WriteJson(new CliNativeSymbolsPayload(
+                info.Source,
+                info.Status,
+                info.Path,
+                info.Diagnostic,
                 info.Symbols.Count,
-                info.Symbols
-            });
+                info.Symbols));
             return 0;
         }
 
@@ -864,7 +877,7 @@ internal static class AnalyzeCommand
 
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new { Target = display, NodeName = nodeName, Chain = chain });
+            fmt.WriteJson(new CliWhyPayload(display, nodeName, chain));
             return 0;
         }
 
@@ -911,17 +924,16 @@ internal static class AnalyzeCommand
     /// Builds the JSON <c>preIlc</c> probe object: origin, sidecar paths, local reference
     /// paths, and package/other reference counts. Returns null when no sidecars were found.
     /// </summary>
-    private static object? BuildPreIlcProbeJson(AssemblyAnalyzer a)
+    private static CliPreIlcPayload? BuildPreIlcProbeJson(AssemblyAnalyzer a)
     {
         if (a.PreIlcSidecars is not { } s)
             return null;
 
-        return new
-        {
+        return new CliPreIlcPayload(
             s.ManagedAssemblyPath,
-            Origin = s.Origin.ToString(),
+            s.Origin.ToString(),
             s.ManagedPdbPath,
-            PdbStatus = s.PdbStatus.ToString(),
+            s.PdbStatus.ToString(),
             s.MstatPath,
             s.CodegenDgmlPath,
             s.ScanDgmlPath,
@@ -931,34 +943,31 @@ internal static class AnalyzeCommand
             s.OtherReferenceCount,
             s.UnresolvedReferencePaths,
             s.HasAttachableCompanion,
-            s.Details
-        };
+            s.Details);
     }
 
     /// <summary>
     /// Builds the JSON <c>readyToRun</c> summary: status, version, composite/component flags,
     /// architecture, and precompiled-method counts. Returns null when the image is not ReadyToRun.
     /// </summary>
-    private static object? BuildReadyToRunJson(AssemblyAnalyzer a)
+    private static CliReadyToRunPayload? BuildReadyToRunJson(AssemblyAnalyzer a)
     {
         if (a.ReadyToRunInfo is not { } info)
             return null;
 
-        return new
-        {
-            Status = info.Status.ToString(),
+        return new CliReadyToRunPayload(
+            info.Status.ToString(),
             info.MajorVersion,
             info.MinorVersion,
             info.IsComposite,
             info.IsComponent,
             info.IsPartialImage,
-            Architecture = info.Architecture.ToString(),
+            info.Architecture.ToString(),
             info.OwnerCompositeExecutable,
-            PrecompiledMethods = a.ReadyToRunIndex?.Methods.Count ?? 0,
-            InstantiationCount = a.ReadyToRunIndex?.InstantiationCount ?? 0,
-            TotalCodeSize = a.ReadyToRunIndex?.TotalCodeSize ?? 0,
-            info.Diagnostic
-        };
+            a.ReadyToRunIndex?.Methods.Count ?? 0,
+            a.ReadyToRunIndex?.InstantiationCount ?? 0,
+            a.ReadyToRunIndex?.TotalCodeSize ?? 0,
+            info.Diagnostic);
     }
 
     /// <summary>
@@ -1002,17 +1011,15 @@ internal static class AnalyzeCommand
     {
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                RootAssembly = companions.Root.AssemblyName,
-                LocalReferenceCount = companions.LocalReferences.Count,
+            fmt.WriteJson(new CliCorrelationSummaryPayload(
+                companions.Root.AssemblyName,
+                companions.LocalReferences.Count,
                 index.ExactCount,
                 index.AmbiguousCount,
                 index.MstatOnlyCount,
                 index.NotInImageCount,
-                TotalMethods = index.Methods.Count,
-                index.TotalCorrelatedSize
-            });
+                index.Methods.Count,
+                index.TotalCorrelatedSize));
             return 0;
         }
 
@@ -1043,7 +1050,7 @@ internal static class AnalyzeCommand
             case CorrelationQueryOutcome.Ambiguous:
                 if (fmt.JsonMode)
                 {
-                    fmt.WriteJson(new { Ambiguous = true, result.Message, result.Candidates });
+                    fmt.WriteJson(new CliAmbiguityPayload(true, result.Message, result.Candidates));
                 }
                 else
                 {
@@ -1133,20 +1140,18 @@ internal static class AnalyzeCommand
         var index = a.ReadyToRunIndex;
         if (fmt.JsonMode)
         {
-            fmt.WriteJson(new
-            {
-                Status = info.Status.ToString(),
+            fmt.WriteJson(new CliReadyToRunPayload(
+                info.Status.ToString(),
                 info.MajorVersion,
                 info.MinorVersion,
                 info.IsComposite,
                 info.IsComponent,
                 info.IsPartialImage,
-                Architecture = info.Architecture.ToString(),
+                info.Architecture.ToString(),
                 info.OwnerCompositeExecutable,
-                PrecompiledMethods = index?.Methods.Count ?? 0,
-                InstantiationCount = index?.InstantiationCount ?? 0,
-                TotalCodeSize = index?.TotalCodeSize ?? 0
-            });
+                index?.Methods.Count ?? 0,
+                index?.InstantiationCount ?? 0,
+                index?.TotalCodeSize ?? 0));
             return 0;
         }
 
@@ -1179,7 +1184,7 @@ internal static class AnalyzeCommand
             case ReadyToRunQueryOutcome.Ambiguous:
                 if (fmt.JsonMode)
                 {
-                    fmt.WriteJson(new { Ambiguous = true, result.Message, result.Candidates });
+                    fmt.WriteJson(new CliAmbiguityPayload(true, result.Message, result.Candidates));
                 }
                 else
                 {

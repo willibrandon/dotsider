@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -29,7 +28,7 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager)
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             var tree = SizeAnalyzer.BuildSizeTree(analyzer);
-            return JsonSerializer.Serialize(tree, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(tree);
         }
 
         if (sessionId is not null)
@@ -60,9 +59,8 @@ public sealed partial class SizeTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(
-                NativeAotPayloadBuilder.BuildLargestMethods(analyzer, maxResults),
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(
+                NativeAotPayloadBuilder.BuildLargestMethods(analyzer, maxResults));
         }
 
         if (sessionId is not null)

@@ -2618,39 +2618,39 @@ public sealed class AssemblyAnalyzer : IDisposable
             switch (specification.Method.Kind)
             {
                 case HandleKind.MethodDefinition:
-                {
-                    var methodHandle = (MethodDefinitionHandle)specification.Method;
-                    var method = _metadataReader.GetMethodDefinition(methodHandle);
-                    declaringType = provider.GetTypeFromDefinition(
-                        _metadataReader, method.GetDeclaringType(), rawTypeKind: 0);
-                    methodName = _metadataReader.GetString(method.Name);
-                    methodSignature = SafeSignatureDecoder.DecodeMethodSignature(
-                        _metadataReader, methodHandle, provider, genericContext: default);
-                    break;
-                }
-                case HandleKind.MemberReference:
-                {
-                    var memberHandle = (MemberReferenceHandle)specification.Method;
-                    var member = _metadataReader.GetMemberReference(memberHandle);
-                    declaringType = member.Parent.Kind switch
                     {
-                        HandleKind.TypeDefinition => provider.GetTypeFromDefinition(
-                            _metadataReader, (TypeDefinitionHandle)member.Parent, rawTypeKind: 0),
-                        HandleKind.TypeReference => provider.GetTypeFromReference(
-                            _metadataReader, (TypeReferenceHandle)member.Parent, rawTypeKind: 0),
-                        HandleKind.TypeSpecification => SafeSignatureDecoder.DecodeType(
-                            _metadataReader,
-                            (TypeSpecificationHandle)member.Parent,
-                            provider,
-                            genericContext: default),
-                        _ => throw new BadImageFormatException(
-                            $"MethodSpec 0x{token:X8} has an unsupported MemberRef parent."),
-                    };
-                    methodName = _metadataReader.GetString(member.Name);
-                    methodSignature = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
-                        _metadataReader, memberHandle, provider, genericContext: default);
-                    break;
-                }
+                        var methodHandle = (MethodDefinitionHandle)specification.Method;
+                        var method = _metadataReader.GetMethodDefinition(methodHandle);
+                        declaringType = provider.GetTypeFromDefinition(
+                            _metadataReader, method.GetDeclaringType(), rawTypeKind: 0);
+                        methodName = _metadataReader.GetString(method.Name);
+                        methodSignature = SafeSignatureDecoder.DecodeMethodSignature(
+                            _metadataReader, methodHandle, provider, genericContext: default);
+                        break;
+                    }
+                case HandleKind.MemberReference:
+                    {
+                        var memberHandle = (MemberReferenceHandle)specification.Method;
+                        var member = _metadataReader.GetMemberReference(memberHandle);
+                        declaringType = member.Parent.Kind switch
+                        {
+                            HandleKind.TypeDefinition => provider.GetTypeFromDefinition(
+                                _metadataReader, (TypeDefinitionHandle)member.Parent, rawTypeKind: 0),
+                            HandleKind.TypeReference => provider.GetTypeFromReference(
+                                _metadataReader, (TypeReferenceHandle)member.Parent, rawTypeKind: 0),
+                            HandleKind.TypeSpecification => SafeSignatureDecoder.DecodeType(
+                                _metadataReader,
+                                (TypeSpecificationHandle)member.Parent,
+                                provider,
+                                genericContext: default),
+                            _ => throw new BadImageFormatException(
+                                $"MethodSpec 0x{token:X8} has an unsupported MemberRef parent."),
+                        };
+                        methodName = _metadataReader.GetString(member.Name);
+                        methodSignature = SafeSignatureDecoder.DecodeMemberReferenceMethodSignature(
+                            _metadataReader, memberHandle, provider, genericContext: default);
+                        break;
+                    }
                 default:
                     throw new BadImageFormatException(
                         $"MethodSpec 0x{token:X8} does not reference a method definition or member reference.");

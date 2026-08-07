@@ -135,20 +135,20 @@ public sealed class ReadyToRunImportMapTests
     public void Build_ImportSlotsAtCumulativeBudget_ReadsLaterRecord()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImportSlotBudget(
+        var (Image, FirstSlotVirtualAddress, SecondSlotVirtualAddress) = ReadyToRunImagePatcher.PatchImportSlotBudget(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunTraversalBudget.MaximumWork - 1,
             secondCount: 1);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var map = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotEmpty(analyzer.ReadyToRunMethods);
         Assert.IsNotNull(analyzer.ReadyToRunIndex);
         Assert.IsNotNull(map);
-        Assert.IsTrue(map.TryResolve(patched.FirstSlotVirtualAddress, out var first));
+        Assert.IsTrue(map.TryResolve(FirstSlotVirtualAddress, out var first));
         Assert.AreEqual("DelayLoad_MethodCall", first.Name);
-        Assert.IsTrue(map.TryResolve(patched.SecondSlotVirtualAddress, out var resolved));
+        Assert.IsTrue(map.TryResolve(SecondSlotVirtualAddress, out var resolved));
         Assert.AreEqual("DelayLoad_MethodCall", resolved.Name);
     }
 
@@ -161,20 +161,20 @@ public sealed class ReadyToRunImportMapTests
     public void Build_ImportSlotsOneOverCumulativeBudget_SkipsLaterRecord()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImportSlotBudget(
+        var (Image, FirstSlotVirtualAddress, SecondSlotVirtualAddress) = ReadyToRunImagePatcher.PatchImportSlotBudget(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunTraversalBudget.MaximumWork,
             secondCount: 1);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var map = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotEmpty(analyzer.ReadyToRunMethods);
         Assert.IsNotNull(analyzer.ReadyToRunIndex);
         Assert.IsNotNull(map);
-        Assert.IsTrue(map.TryResolve(patched.FirstSlotVirtualAddress, out var prefix));
+        Assert.IsTrue(map.TryResolve(FirstSlotVirtualAddress, out var prefix));
         Assert.AreEqual("DelayLoad_MethodCall", prefix.Name);
-        Assert.IsFalse(map.TryResolve(patched.SecondSlotVirtualAddress, out _));
+        Assert.IsFalse(map.TryResolve(SecondSlotVirtualAddress, out _));
     }
 
     /// <summary>Preserves a valid import slot immediately before a malformed slot.</summary>
@@ -183,16 +183,16 @@ public sealed class ReadyToRunImportMapTests
     public void Build_MalformedSlot_PreservesValidPrefix()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImportValidThenMalformedSlots(
+        var (Image, ValidSlotVirtualAddress, MalformedSlotVirtualAddress) = ReadyToRunImagePatcher.PatchImportValidThenMalformedSlots(
             Samples.ReadyToRunConsoleDll!);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var map = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotNull(map);
-        Assert.IsTrue(map.TryResolve(patched.ValidSlotVirtualAddress, out var resolved));
+        Assert.IsTrue(map.TryResolve(ValidSlotVirtualAddress, out var resolved));
         Assert.AreEqual("DelayLoad_MethodCall", resolved.Name);
-        Assert.IsFalse(map.TryResolve(patched.MalformedSlotVirtualAddress, out _));
+        Assert.IsFalse(map.TryResolve(MalformedSlotVirtualAddress, out _));
     }
 
     /// <summary>
@@ -214,18 +214,18 @@ public sealed class ReadyToRunImportMapTests
         int forgedRva)
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImportRvaBoundary(
+        var (Image, ValidSlotVirtualAddress) = ReadyToRunImagePatcher.PatchImportRvaBoundary(
             Samples.ReadyToRunConsoleDll!,
             forgeSlotsRva,
             forgedRva);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var map = ReadyToRunImportMap.Build(analyzer);
 
         Assert.AreEqual(ReadyToRunStatus.Valid, analyzer.ReadyToRunInfo!.Status);
         Assert.IsNotEmpty(analyzer.ReadyToRunMethods);
         Assert.IsNotNull(map);
-        Assert.IsFalse(map.TryResolve(patched.ValidSlotVirtualAddress, out _));
+        Assert.IsFalse(map.TryResolve(ValidSlotVirtualAddress, out _));
     }
 
     /// <summary>Rejects overflowing and negative import-section ranges before record traversal.</summary>
@@ -237,13 +237,13 @@ public sealed class ReadyToRunImportMapTests
     public void Build_InvalidImportSectionRange_ReturnsNull(int declaredSize)
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, _) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.ImportSections,
             [0],
             declaredSize);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var map = ReadyToRunImportMap.Build(analyzer);
 
         Assert.AreEqual(ReadyToRunStatus.Valid, analyzer.ReadyToRunInfo!.Status);

@@ -41,7 +41,10 @@ public static class DiffSummaryView
         {
             state.LeftInfoEditorText = leftText;
             state.LeftInfoEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(leftText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(leftText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         var rightText = string.Join("\n",
@@ -56,7 +59,10 @@ public static class DiffSummaryView
         {
             state.RightInfoEditorText = rightText;
             state.RightInfoEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(rightText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(rightText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         // Build change stats text for read-only editor (fixed-width columns for alignment)
@@ -83,7 +89,10 @@ public static class DiffSummaryView
         {
             state.ChangeStatsEditorText = statsText;
             state.ChangeStatsEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(statsText))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(statsText)))
+            {
+                IsReadOnly = true
+            };
         }
 
         var leftSearchProvider = new DiffSearchDecorationProvider { Query = query };

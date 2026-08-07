@@ -57,11 +57,10 @@ public sealed partial class NavigationTools(DotsiderSessionManager sessionManage
         if (!File.Exists(hex1bSocket))
             return $"Error: No hex1b socket found for PID {sessionId}";
 
-        var requestJson = JsonSerializer.Serialize(
-            new { method = "capture", format = "text" }, DotsiderJsonOptions.Default);
+        const string requestJson = "{\"method\":\"capture\",\"format\":\"text\"}";
 
         var responseJson = await RemoteDotsiderTarget.SendRawAsync(hex1bSocket, requestJson, ct);
-        var response = JsonSerializer.Deserialize<JsonElement>(responseJson);
+        var response = JsonSerializer.Deserialize(responseJson, McpJsonContext.Application.JsonElement);
 
         if (response.TryGetProperty("success", out var success) && success.GetBoolean()
             && response.TryGetProperty("data", out var data))

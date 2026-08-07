@@ -163,4 +163,3 @@ several symbols meaning generic instantiations); a multi-method group is shared
 ([CorrelatedAmbiguous](/api/dotsider.core.analysis.models.methodcorrelationstatus.correlatedambiguous/)), reported on every sibling
 but counted once in [TotalCorrelatedSize](/api/dotsider.core.analysis.managednativeindex.totalcorrelatedsize/). Overload-suffix assignment
 (`_0`/`_1`) is never guessed — the same policy the demangler applies.
-

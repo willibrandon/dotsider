@@ -71,4 +71,3 @@ A WebAssembly module, most commonly the `dotnet.native.wasm` runtime module from
 ```csharp
 Wasm = 2
 ```
-

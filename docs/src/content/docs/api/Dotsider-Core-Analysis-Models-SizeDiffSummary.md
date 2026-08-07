@@ -120,3 +120,88 @@ self-diff has [UnchangedTotal](/api/dotsider.core.analysis.models.sizediffsummar
 public long UnchangedTotal { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out long, out long, out long, out long, out IReadOnlyList\<SizeDiffKindCounts\>, out int, out int)
+
+**Parameters:**
+
+- `LeftTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `RightTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Delta` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `UnchangedTotal` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Counts` ([IReadOnlyList\<SizeDiffKindCounts\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `LeftDeduplicatedMethods` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RightDeduplicatedMethods` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out long LeftTotal, out long RightTotal, out long Delta, out long UnchangedTotal, out IReadOnlyList<SizeDiffKindCounts> Counts, out int LeftDeduplicatedMethods, out int RightDeduplicatedMethods)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SizeDiffSummary?)
+
+**Parameters:**
+
+- `other` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SizeDiffSummary? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SizeDiffSummary?, SizeDiffSummary?)
+
+**Parameters:**
+
+- `left` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+- `right` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SizeDiffSummary? left, SizeDiffSummary? right)
+```
+
+### operator ==(SizeDiffSummary?, SizeDiffSummary?)
+
+**Parameters:**
+
+- `left` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+- `right` ([SizeDiffSummary](/api/dotsider.core.analysis.models.sizediffsummary/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SizeDiffSummary? left, SizeDiffSummary? right)
+```

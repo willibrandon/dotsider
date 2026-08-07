@@ -29,12 +29,12 @@ Builds a Native AOT identity and sidecar summary for an analyzer.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [NativeAotInfoPayload](/api/dotsider.core.protocol.nativeaotinfopayload/)
 
 ```csharp
-public static object BuildInfo(AssemblyAnalyzer analyzer)
+public static NativeAotInfoPayload BuildInfo(AssemblyAnalyzer analyzer)
 ```
 
 ### BuildLargestMethods(AssemblyAnalyzer, int?)
@@ -43,13 +43,13 @@ Builds largest-method rows, using native mstat data for Native AOT.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
-- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [JsonElement](https://learn.microsoft.com/dotnet/api/system.text.json.jsonelement)
 
 ```csharp
-public static object BuildLargestMethods(AssemblyAnalyzer analyzer, int? maxResults)
+public static JsonElement BuildLargestMethods(AssemblyAnalyzer analyzer, int? maxResults)
 ```
 
 ### BuildMemberSearch(AssemblyAnalyzer, string, int?, bool)
@@ -58,15 +58,15 @@ Builds member-search results, falling back to recovered Native AOT metadata.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
-- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
-- `includeCompilerGenerated` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `includeCompilerGenerated` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [JsonElement](https://learn.microsoft.com/dotnet/api/system.text.json.jsonelement)
 
 ```csharp
-public static object BuildMemberSearch(AssemblyAnalyzer analyzer, string query, int? maxResults, bool includeCompilerGenerated)
+public static JsonElement BuildMemberSearch(AssemblyAnalyzer analyzer, string query, int? maxResults, bool includeCompilerGenerated)
 ```
 
 ### BuildMethodInventory(AssemblyAnalyzer, string?, string?, int?)
@@ -75,15 +75,15 @@ Builds method-inventory rows, falling back to recovered Native AOT methods.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
-- `typeName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
+- `typeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `maxResults` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [JsonElement](https://learn.microsoft.com/dotnet/api/system.text.json.jsonelement)
 
 ```csharp
-public static object BuildMethodInventory(AssemblyAnalyzer analyzer, string? typeName, string? query, int? maxResults)
+public static JsonElement BuildMethodInventory(AssemblyAnalyzer analyzer, string? typeName, string? query, int? maxResults)
 ```
 
 ### BuildSections(AssemblyAnalyzer)
@@ -92,12 +92,12 @@ Builds the Native AOT ReadyToRun module-section table payload.
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [NativeAotSectionsPayload](/api/dotsider.core.protocol.nativeaotsectionspayload/)
 
 ```csharp
-public static object BuildSections(AssemblyAnalyzer analyzer)
+public static NativeAotSectionsPayload BuildSections(AssemblyAnalyzer analyzer)
 ```
 
 ### BuildSizeContributors(MstatSource, string?, string?, string?, string?, int?, bool, int?)
@@ -106,19 +106,19 @@ Builds top Native AOT size contributors from an mstat-backed input.
 
 **Parameters:**
 
-- `source` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/)): 
-- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `section` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `namespaceName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `topN` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
-- `includeWhy` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)): 
-- `maxWhyChains` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
+- `source` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+- `query` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `section` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `namespaceName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `topN` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `includeWhy` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `maxWhyChains` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [MstatContributorsPayload](/api/dotsider.core.protocol.mstatcontributorspayload/)
 
 ```csharp
-public static object BuildSizeContributors(MstatSource source, string? query, string? section, string? assemblyName, string? namespaceName, int? topN, bool includeWhy, int? maxWhyChains)
+public static MstatContributorsPayload BuildSizeContributors(MstatSource source, string? query, string? section, string? assemblyName, string? namespaceName, int? topN, bool includeWhy, int? maxWhyChains)
 ```
 
 ### BuildWhy(MstatSource, string, int?, int?)
@@ -127,15 +127,15 @@ Builds a Native AOT DGML explanation for one mstat contributor target.
 
 **Parameters:**
 
-- `source` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/)): 
-- `target` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `maxCandidates` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
-- `maxWhyChains` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)): 
+- `source` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+- `target` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `maxCandidates` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `maxWhyChains` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [MstatWhyPayload](/api/dotsider.core.protocol.mstatwhypayload/)
 
 ```csharp
-public static object BuildWhy(MstatSource source, string target, int? maxCandidates, int? maxWhyChains)
+public static MstatWhyPayload BuildWhy(MstatSource source, string target, int? maxCandidates, int? maxWhyChains)
 ```
 
 ### ResolveMstatSource(AssemblyAnalyzer)
@@ -144,7 +144,7 @@ Resolves a Native AOT analyzer's mstat source, or null when no size report exist
 
 **Parameters:**
 
-- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/)): 
+- `analyzer` ([AssemblyAnalyzer](/api/dotsider.core.analysis.assemblyanalyzer/))
 
 **Returns:** [MstatSource](/api/dotsider.core.analysis.models.mstatsource/)
 
@@ -183,4 +183,3 @@ The default number of size contributors returned by Native AOT size tools.
 ```csharp
 public const int DefaultTopN = 20
 ```
-

@@ -243,17 +243,12 @@ public class McpToolBenchmarks
             var line = await reader.ReadLineAsync();
             if (string.IsNullOrWhiteSpace(line)) return;
 
-            var response = DotsiderResponse.Ok(new
-            {
-                AssemblyName = "BenchmarkAssembly",
-                AssemblyVersion = "1.0.0.0",
-                HasMetadata = true,
-                TypeCount = 42,
-                MethodCount = 100,
-            });
+            using var payload = JsonDocument.Parse(
+                """{"assemblyName":"BenchmarkAssembly","assemblyVersion":"1.0.0.0","hasMetadata":true,"typeCount":42,"methodCount":100}""");
+            var response = DotsiderResponse.Ok(payload.RootElement);
 
             await writer.WriteLineAsync(
-                JsonSerializer.Serialize(response, DotsiderJsonOptions.Default));
+                JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.DotsiderResponse));
         }
         catch { }
     }

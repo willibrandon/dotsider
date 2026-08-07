@@ -1,5 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Analysis.Models;
+using System.Text.Json;
 
 namespace Dotsider.Core.Protocol;
 
@@ -19,87 +20,76 @@ public static class NativeAotPayloadBuilder
     public const int DefaultMaxWhyChains = 3;
 
     /// <summary>Builds a Native AOT identity and sidecar summary for an analyzer.</summary>
-    public static object BuildInfo(AssemblyAnalyzer analyzer)
+    public static NativeAotInfoPayload BuildInfo(AssemblyAnalyzer analyzer)
     {
         RequireNativeAot(analyzer);
 
         var mstat = analyzer.Mstat;
         var dgmlPath = analyzer.DgmlPath;
-        return new
-        {
+        return new NativeAotInfoPayload(
             analyzer.FilePath,
             analyzer.FileName,
             analyzer.FileSize,
             analyzer.Architecture,
             analyzer.BinaryKind,
             analyzer.NativeAotInfo,
-            ReadyToRunSections = analyzer.ReadyToRunSections.Count,
-            RecoveredTypes = analyzer.RecoveredTypes.Count,
-            RecoveredMethods = analyzer.RecoveredTypes.Sum(t => t.MethodNames.Count),
-            FrozenStrings = analyzer.FrozenStrings.Count,
-            NativeSymbolCount = analyzer.NativeSymbols?.Symbols.Count ?? 0,
-            NativeSymbolSource = analyzer.NativeSymbols?.Source,
-            NativeSymbolStatus = analyzer.NativeSymbols?.Status,
+            analyzer.ReadyToRunSections.Count,
+            analyzer.RecoveredTypes.Count,
+            analyzer.RecoveredTypes.Sum(t => t.MethodNames.Count),
+            analyzer.FrozenStrings.Count,
+            analyzer.NativeSymbols?.Symbols.Count ?? 0,
+            analyzer.NativeSymbols?.Source,
+            analyzer.NativeSymbols?.Status,
             analyzer.MstatPath,
-            HasMstat = mstat is not null,
-            MstatFormat = mstat is null ? null : $"{mstat.FormatMajorVersion}.{mstat.FormatMinorVersion}",
-            DgmlPath = dgmlPath,
-            HasDgml = dgmlPath is not null,
-            PreIlc = BuildPreIlcSummary(analyzer.PreIlcSidecars)
-        };
+            mstat is not null,
+            mstat is null ? null : $"{mstat.FormatMajorVersion}.{mstat.FormatMinorVersion}",
+            dgmlPath,
+            dgmlPath is not null,
+            BuildPreIlcSummary(analyzer.PreIlcSidecars));
     }
 
     /// <summary>Builds the Native AOT ReadyToRun module-section table payload.</summary>
-    public static object BuildSections(AssemblyAnalyzer analyzer)
+    public static NativeAotSectionsPayload BuildSections(AssemblyAnalyzer analyzer)
     {
         RequireNativeAot(analyzer);
 
-        var sections = analyzer.ReadyToRunSections.Select(s => new
-        {
+        var sections = analyzer.ReadyToRunSections.Select(s => new NativeAotSectionPayload(
             s.SectionId,
             s.Name,
-            Address = $"0x{s.VirtualAddress:X}",
+            $"0x{s.VirtualAddress:X}",
             s.VirtualAddress,
             s.Size,
             s.FileOffset,
-            IsMapped = s.FileOffset is not null
-        }).ToList();
+            s.FileOffset is not null)).ToList();
 
-        return new
-        {
-            analyzer.FilePath,
-            SectionCount = sections.Count,
-            Sections = sections
-        };
+        return new NativeAotSectionsPayload(analyzer.FilePath, sections.Count, sections);
     }
 
     /// <summary>Builds method-inventory rows, falling back to recovered Native AOT methods.</summary>
-    public static object BuildMethodInventory(
+    public static JsonElement BuildMethodInventory(
         AssemblyAnalyzer analyzer, string? typeName, string? query, int? maxResults)
     {
         if (analyzer.HasMetadata || analyzer.RecoveredTypes.Count == 0)
-            return analyzer.MethodDefs
+            return JsonSerializer.SerializeToElement([.. analyzer.MethodDefs
                 .Where(m => Matches(m.DeclaringType, typeName) && Matches(m.Name, query))
-                .Take(PositiveOrMax(maxResults))
-                .ToList();
+                .Take(PositiveOrMax(maxResults))], DotsiderJsonContext.Protocol.ListMethodDefInfo);
 
-        return analyzer.RecoveredTypes
+        var recovered = analyzer.RecoveredTypes
             .Where(t => Matches(t.FullName, typeName))
-            .SelectMany(t => t.MethodNames.Select((method, index) => new
-            {
-                Source = "RecoveredNativeAot",
+            .SelectMany(t => t.MethodNames.Select((method, index) => new RecoveredMethodPayload(
+                "RecoveredNativeAot",
                 t.AssemblyName,
-                DeclaringType = t.FullName,
-                Name = method,
-                MethodIndex = index
-            }))
+                t.FullName,
+                method,
+                index)))
             .Where(m => Matches(m.Name, query))
             .Take(PositiveOrMax(maxResults))
             .ToList();
+        return JsonSerializer.SerializeToElement(recovered, DotsiderJsonContext.Protocol.ListRecoveredMethodPayload);
     }
 
     /// <summary>Builds member-search results, falling back to recovered Native AOT metadata.</summary>
-    public static object BuildMemberSearch(
+    public static JsonElement BuildMemberSearch(
         AssemblyAnalyzer analyzer, string query, int? maxResults, bool includeCompilerGenerated)
     {
         var max = PositiveOr(maxResults, 100);
@@ -118,15 +108,13 @@ public static class NativeAotPayloadBuilder
                 methods = methods.Where(m => !m.DeclaringType.StartsWith("<>", StringComparison.Ordinal));
             }
 
-            return new
-            {
-                Types = types.Take(max).ToList(),
-                Methods = methods.Take(max).ToList(),
-                MemberRefs = analyzer.MemberRefs
+            var payload = new MetadataMemberSearchPayload(
+                [.. types.Take(max)],
+                [.. methods.Take(max)],
+                [.. analyzer.MemberRefs
                     .Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    .Take(max)
-                    .ToList()
-            };
+                    .Take(max)]);
+            return JsonSerializer.SerializeToElement(payload, DotsiderJsonContext.Protocol.MetadataMemberSearchPayload);
         }
 
         var recoveredTypes = analyzer.RecoveredTypes
@@ -134,39 +122,32 @@ public static class NativeAotPayloadBuilder
         if (!includeCompilerGenerated)
             recoveredTypes = recoveredTypes.Where(t => !IsCompilerGenerated(t.FullName));
 
-        var typeRows = recoveredTypes.Take(max).Select(t => new
-        {
-            Source = "RecoveredNativeAot",
+        var typeRows = recoveredTypes.Take(max).Select(t => new RecoveredTypePayload(
+            "RecoveredNativeAot",
             t.AssemblyName,
             t.FullName,
-            MethodCount = t.MethodNames.Count
-        }).ToList();
+            t.MethodNames.Count)).ToList();
 
         var methodRows = analyzer.RecoveredTypes
             .Where(t => includeCompilerGenerated || !IsCompilerGenerated(t.FullName))
-            .SelectMany(t => t.MethodNames.Select((method, index) => new
-            {
-                Source = "RecoveredNativeAot",
+            .SelectMany(t => t.MethodNames.Select((method, index) => new RecoveredMethodPayload(
+                "RecoveredNativeAot",
                 t.AssemblyName,
-                DeclaringType = t.FullName,
-                Name = method,
-                MethodIndex = index
-            }))
+                t.FullName,
+                method,
+                index)))
             .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || m.DeclaringType.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(max)
             .ToList();
 
-        return new
-        {
-            Types = typeRows,
-            Methods = methodRows,
-            MemberRefs = Array.Empty<object>()
-        };
+        var recoveredPayload = new RecoveredMemberSearchPayload(typeRows, methodRows, []);
+        return JsonSerializer.SerializeToElement(
+            recoveredPayload, DotsiderJsonContext.Protocol.RecoveredMemberSearchPayload);
     }
 
     /// <summary>Builds largest-method rows, using native mstat data for Native AOT.</summary>
-    public static object BuildLargestMethods(AssemblyAnalyzer analyzer, int? maxResults)
+    public static JsonElement BuildLargestMethods(AssemblyAnalyzer analyzer, int? maxResults)
     {
         var max = PositiveOr(maxResults, 20);
         if (analyzer.BinaryKind == BinaryKind.NativeAot)
@@ -174,59 +155,53 @@ public static class NativeAotPayloadBuilder
             if (analyzer.Mstat is { } mstat)
             {
                 var index = MstatSizeIndex.Create(mstat);
-                return index.Entries
+                var rows = index.Entries
                     .Where(e => e.Section == MstatSectionKind.Method)
                     .OrderByDescending(e => e.Size)
                     .Take(max)
-                    .Select(e => new
-                    {
-                        Source = "Mstat",
-                        Method = new
-                        {
+                    .Select(e => new MstatLargestMethodPayload(
+                        "Mstat",
+                        new MstatMethodPayload(
                             e.AssemblyName,
                             e.Namespace,
-                            DeclaringType = e.TypeName,
-                            Name = e.DisplayName,
-                            Signature = e.LeafName == e.DisplayName ? null : e.LeafName
-                        },
+                            e.TypeName,
+                            e.DisplayName,
+                            e.LeafName == e.DisplayName ? null : e.LeafName),
                         e.Size,
                         e.FullPath,
-                        e.NodeNames
-                    })
+                        e.NodeNames))
                     .ToList();
+                return JsonSerializer.SerializeToElement(rows, DotsiderJsonContext.Protocol.ListMstatLargestMethodPayload);
             }
 
             if (analyzer.NativeSymbols is { Symbols.Count: > 0 } symbols)
             {
-                return symbols.Symbols
+                var rows = symbols.Symbols
                     .Where(s => s.Kind is NativeSymbolKind.Function or NativeSymbolKind.Stub)
                     .OrderByDescending(s => s.Size)
                     .Take(max)
-                    .Select(s => new
-                    {
-                        Source = "NativeSymbols",
-                        Method = new
-                        {
-                            Name = s.ManagedName ?? s.Name,
-                            Address = $"0x{s.VirtualAddress:X}"
-                        },
+                    .Select(s => new NativeSymbolLargestMethodPayload(
+                        "NativeSymbols",
+                        new NativeSymbolMethodPayload(s.ManagedName ?? s.Name, $"0x{s.VirtualAddress:X}"),
                         s.Size,
                         s.FileOffset,
-                        s.VirtualAddress
-                    })
+                        s.VirtualAddress))
                     .ToList();
+                return JsonSerializer.SerializeToElement(
+                    rows, DotsiderJsonContext.Protocol.ListNativeSymbolLargestMethodPayload);
             }
         }
 
-        return analyzer.MethodDefs
-            .Select(m => new { Method = m, Size = GetIlSize(analyzer, m) })
+        var ilRows = analyzer.MethodDefs
+            .Select(m => new IlLargestMethodPayload(m, GetIlSize(analyzer, m)))
             .OrderByDescending(x => x.Size)
             .Take(max)
             .ToList();
+        return JsonSerializer.SerializeToElement(ilRows, DotsiderJsonContext.Protocol.ListIlLargestMethodPayload);
     }
 
     /// <summary>Builds top Native AOT size contributors from an mstat-backed input.</summary>
-    public static object BuildSizeContributors(
+    public static MstatContributorsPayload BuildSizeContributors(
         MstatSource source,
         string? query,
         string? section,
@@ -257,23 +232,21 @@ public static class NativeAotPayloadBuilder
         var dgml = includeWhy && source.DgmlPath is not null ? DgmlReader.Read(source.DgmlPath) : null;
         var whyLimit = PositiveOr(maxWhyChains, DefaultMaxWhyChains);
 
-        return new
-        {
-            Source = BuildMstatSourceSummary(source, index),
-            Filters = new { Query = query, Section = section, AssemblyName = assemblyName, Namespace = namespaceName },
-            TotalMatches = filtered.Count,
-            Returned = Math.Min(top, filtered.Count),
-            Truncated = filtered.Count > top,
-            WhyAvailable = includeWhy ? dgml is not null : (bool?)null,
-            WhyUnavailableReason = includeWhy && dgml is null
+        return new MstatContributorsPayload(
+            BuildMstatSourceSummary(source, index),
+            new MstatFiltersPayload(query, section, assemblyName, namespaceName),
+            filtered.Count,
+            Math.Min(top, filtered.Count),
+            filtered.Count > top,
+            includeWhy ? dgml is not null : null,
+            includeWhy && dgml is null
                 ? "DGML sidecar not found; publish with IlcGenerateDgmlFile to explain dependency roots."
                 : null,
-            Contributors = filtered.Take(top).Select(e => BuildContributor(e, dgml, whyLimit)).ToList()
-        };
+            [.. filtered.Take(top).Select(e => BuildContributor(e, dgml, whyLimit))]);
     }
 
     /// <summary>Builds a Native AOT DGML explanation for one mstat contributor target.</summary>
-    public static object BuildWhy(MstatSource source, string target, int? maxCandidates, int? maxWhyChains)
+    public static MstatWhyPayload BuildWhy(MstatSource source, string target, int? maxCandidates, int? maxWhyChains)
     {
         if (source.DgmlPath is null)
             throw new InvalidOperationException(
@@ -286,37 +259,31 @@ public static class NativeAotPayloadBuilder
         var matches = ResolveContributorCandidates(index.Entries, target).ToList();
         if (matches.Count == 0)
         {
-            return new
-            {
-                Target = target,
-                Source = BuildMstatSourceSummary(source, index),
-                Outcome = "not_found",
-                Message = $"No Native AOT size contributor matches '{target}'."
-            };
+            return new MstatWhyPayload(
+                target,
+                BuildMstatSourceSummary(source, index),
+                "not_found",
+                Message: $"No Native AOT size contributor matches '{target}'.");
         }
 
         var max = PositiveOr(maxCandidates, DefaultMaxCandidates);
         if (matches.Count > 1)
         {
-            return new
-            {
-                Target = target,
-                Source = BuildMstatSourceSummary(source, index),
-                Outcome = "ambiguous",
-                CandidateCount = matches.Count,
-                Candidates = matches.Take(max).Select(BuildCandidate).ToList(),
-                Truncated = matches.Count > max
-            };
+            return new MstatWhyPayload(
+                target,
+                BuildMstatSourceSummary(source, index),
+                "ambiguous",
+                CandidateCount: matches.Count,
+                Candidates: [.. matches.Take(max).Select(BuildCandidate)],
+                Truncated: matches.Count > max);
         }
 
         var entry = matches[0];
-        return new
-        {
-            Target = target,
-            Source = BuildMstatSourceSummary(source, index),
-            Outcome = "resolved",
-            Contributor = BuildContributor(entry, dgml, PositiveOr(maxWhyChains, DefaultMaxWhyChains))
-        };
+        return new MstatWhyPayload(
+            target,
+            BuildMstatSourceSummary(source, index),
+            "resolved",
+            Contributor: BuildContributor(entry, dgml, PositiveOr(maxWhyChains, DefaultMaxWhyChains)));
     }
 
     /// <summary>Resolves a Native AOT analyzer's mstat source, or null when no size report exists.</summary>
@@ -334,36 +301,31 @@ public static class NativeAotPayloadBuilder
             throw new InvalidOperationException("Native AOT analysis requires a Native AOT binary.");
     }
 
-    private static object? BuildPreIlcSummary(PreIlcSidecars? s) => s is null
+    private static PreIlcSummary? BuildPreIlcSummary(PreIlcSidecars? s) => s is null
         ? null
-        : new
-        {
+        : new PreIlcSummary(
             s.HasAttachableCompanion,
-            RootAssembly = s.ManagedAssemblyPath is { } p ? Path.GetFileName(p) : null,
-            Origin = s.Origin.ToString(),
-            PdbStatus = s.PdbStatus.ToString(),
-            HasMstat = s.MstatPath is not null,
-            HasDgml = (s.CodegenDgmlPath ?? s.ScanDgmlPath) is not null,
-            LocalReferenceCount = s.LocalReferencePaths.Count,
+            s.ManagedAssemblyPath is { } p ? Path.GetFileName(p) : null,
+            s.Origin.ToString(),
+            s.PdbStatus.ToString(),
+            s.MstatPath is not null,
+            (s.CodegenDgmlPath ?? s.ScanDgmlPath) is not null,
+            s.LocalReferencePaths.Count,
             s.PackageReferenceCount,
-            s.OtherReferenceCount
-        };
+            s.OtherReferenceCount);
 
-    private static object BuildMstatSourceSummary(MstatSource source, MstatSizeIndex index) => new
-    {
-        Target = source.BinaryPath ?? source.MstatPath,
+    private static MstatSourceSummaryPayload BuildMstatSourceSummary(MstatSource source, MstatSizeIndex index) => new(
+        source.BinaryPath ?? source.MstatPath,
         source.BinaryPath,
         source.BinaryFileSize,
         source.MstatPath,
         source.DgmlPath,
-        Format = $"{source.Data.FormatMajorVersion}.{source.Data.FormatMinorVersion}",
-        MstatTotal = index.Total,
-        FileSize = source.BinaryFileSize,
-        EntryCount = index.Entries.Count
-    };
+        $"{source.Data.FormatMajorVersion}.{source.Data.FormatMinorVersion}",
+        index.Total,
+        source.BinaryFileSize,
+        index.Entries.Count);
 
-    private static object BuildContributor(MstatSizeEntry entry, DgmlGraph? dgml, int maxWhyChains) => new
-    {
+    private static MstatContributorPayload BuildContributor(MstatSizeEntry entry, DgmlGraph? dgml, int maxWhyChains) => new(
         entry.Section,
         entry.Key,
         entry.AssemblyName,
@@ -375,34 +337,26 @@ public static class NativeAotPayloadBuilder
         entry.Size,
         entry.EntryCount,
         entry.NodeNames,
-        WhyChains = dgml is null ? null : BuildWhyChains(entry, dgml, maxWhyChains)
-    };
+        dgml is null ? null : BuildWhyChains(entry, dgml, maxWhyChains));
 
-    private static object BuildCandidate(MstatSizeEntry entry) => new
-    {
+    private static MstatCandidatePayload BuildCandidate(MstatSizeEntry entry) => new(
         entry.Section,
         entry.Key,
         entry.FullPath,
         entry.DisplayName,
         entry.Size,
         entry.EntryCount,
-        entry.NodeNames
-    };
+        entry.NodeNames);
 
-    private static List<object> BuildWhyChains(MstatSizeEntry entry, DgmlGraph dgml, int maxWhyChains)
+    private static List<MstatWhyChainPayload> BuildWhyChains(MstatSizeEntry entry, DgmlGraph dgml, int maxWhyChains)
     {
         var shown = Math.Min(maxWhyChains, entry.NodeNames.Count);
-        var chains = new List<object>(shown);
+        var chains = new List<MstatWhyChainPayload>(shown);
         for (var i = 0; i < shown; i++)
         {
             var nodeName = entry.NodeNames[i];
             var steps = dgml.PathToRoot(nodeName);
-            chains.Add(new
-            {
-                NodeName = nodeName,
-                Found = steps.Count > 0,
-                Steps = steps
-            });
+            chains.Add(new MstatWhyChainPayload(nodeName, steps.Count > 0, steps));
         }
 
         return chains;

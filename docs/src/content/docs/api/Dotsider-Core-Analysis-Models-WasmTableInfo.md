@@ -83,3 +83,85 @@ The table reference type.
 public string RefType { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out ulong, out ulong?)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RefType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Minimum` ([UInt64](https://learn.microsoft.com/dotnet/api/system.uint64))
+- `Maximum` ([Nullable\<UInt64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out int Index, out string RefType, out ulong Minimum, out ulong? Maximum)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmTableInfo?)
+
+**Parameters:**
+
+- `other` ([WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmTableInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmTableInfo?, WasmTableInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/))
+- `right` ([WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmTableInfo? left, WasmTableInfo? right)
+```
+
+### operator ==(WasmTableInfo?, WasmTableInfo?)
+
+**Parameters:**
+
+- `left` ([WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/))
+- `right` ([WasmTableInfo](/api/dotsider.core.analysis.models.wasmtableinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmTableInfo? left, WasmTableInfo? right)
+```

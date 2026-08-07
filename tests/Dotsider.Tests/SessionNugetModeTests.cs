@@ -57,7 +57,7 @@ public class SessionNugetModeTests
 
         _listener = new DotsiderDiagnosticsListener(
             () => null,
-            assemblyInfoProvider: () => new
+            assemblyInfoProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 _packageAnalyzer.FilePath,
@@ -68,14 +68,14 @@ public class SessionNugetModeTests
                 _packageAnalyzer.Description,
                 DllCount = _packageAnalyzer.DllFiles.Count,
                 SelectedDll = _selectedDllName,
-            },
-            currentViewProvider: () => new
+            }),
+            currentViewProvider: () => TestJsonResponse.Element(new
             {
                 Mode = "nuget",
                 IsBrowsingPackage = _isBrowsingPackage,
                 Tab = _selectedDllTab is { } t ? t + 1 : (int?)null,
                 SelectedDll = _selectedDllName,
-            });
+            }));
         _nugetPid = TestSocketIds.NextPid();
         _listener.StartListening(overridePid: _nugetPid);
 
@@ -142,7 +142,7 @@ public class SessionNugetModeTests
         Assert.IsNotNull(response);
         Assert.IsTrue(response.Success);
 
-        var data = response.Data as JsonElement?;
+        var data = response.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
 
@@ -165,7 +165,7 @@ public class SessionNugetModeTests
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = response.Data as JsonElement?;
+        var data = response.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
         Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
@@ -191,7 +191,7 @@ public class SessionNugetModeTests
             new DotsiderRequest { Method = "get-current-view" }, ct);
 
         Assert.IsTrue(response.Success);
-        var data = response.Data as JsonElement?;
+        var data = response.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
         Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());

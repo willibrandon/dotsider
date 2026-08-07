@@ -94,3 +94,86 @@ Bundle format minor version.
 public uint MinorVersion { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out uint, out uint, out int, out string, out IReadOnlyList\<BundleEntry\>)
+
+**Parameters:**
+
+- `MajorVersion` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `MinorVersion` ([UInt32](https://learn.microsoft.com/dotnet/api/system.uint32))
+- `FileCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `BundleId` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Entries` ([IReadOnlyList\<BundleEntry\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out uint MajorVersion, out uint MinorVersion, out int FileCount, out string BundleId, out IReadOnlyList<BundleEntry> Entries)
+```
+
+### Equals(BundleManifest?)
+
+**Parameters:**
+
+- `other` ([BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(BundleManifest? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(BundleManifest?, BundleManifest?)
+
+**Parameters:**
+
+- `left` ([BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/))
+- `right` ([BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(BundleManifest? left, BundleManifest? right)
+```
+
+### operator ==(BundleManifest?, BundleManifest?)
+
+**Parameters:**
+
+- `left` ([BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/))
+- `right` ([BundleManifest](/api/dotsider.core.analysis.models.bundlemanifest/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(BundleManifest? left, BundleManifest? right)
+```

@@ -94,3 +94,86 @@ The metadata token for this member reference.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out string, out MemberRefKind)
+
+**Parameters:**
+
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Kind` ([MemberRefKind](/api/dotsider.core.analysis.models.memberrefkind/))
+
+```csharp
+public void Deconstruct(out int Token, out string DeclaringType, out string Name, out string Signature, out MemberRefKind Kind)
+```
+
+### Equals(MemberRefInfo?)
+
+**Parameters:**
+
+- `other` ([MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MemberRefInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MemberRefInfo?, MemberRefInfo?)
+
+**Parameters:**
+
+- `left` ([MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/))
+- `right` ([MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MemberRefInfo? left, MemberRefInfo? right)
+```
+
+### operator ==(MemberRefInfo?, MemberRefInfo?)
+
+**Parameters:**
+
+- `left` ([MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/))
+- `right` ([MemberRefInfo](/api/dotsider.core.analysis.models.memberrefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MemberRefInfo? left, MemberRefInfo? right)
+```

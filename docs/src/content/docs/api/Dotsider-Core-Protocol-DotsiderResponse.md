@@ -20,16 +20,24 @@ public sealed class DotsiderResponse
 
 [Object](https://learn.microsoft.com/dotnet/api/system.object) → **DotsiderResponse**
 
+## Constructors
+
+### DotsiderResponse()
+
+```csharp
+public DotsiderResponse()
+```
+
 ## Properties
 
 ### Data
 
-Response payload, serialized as the appropriate type.
+Response payload.
 
-**Returns:** [Object](https://learn.microsoft.com/dotnet/api/system.object)
+**Returns:** [Nullable\<JsonElement\>](https://learn.microsoft.com/dotnet/api/system.nullable-1)
 
 ```csharp
-public object? Data { get; set; }
+public JsonElement? Data { get; set; }
 ```
 
 ### Error
@@ -71,7 +79,7 @@ Creates an error response with the given message.
 
 **Parameters:**
 
-- `error` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+- `error` ([String](https://learn.microsoft.com/dotnet/api/system.string))
 
 **Returns:** [DotsiderResponse](/api/dotsider.core.protocol.dotsiderresponse/)
 
@@ -79,17 +87,55 @@ Creates an error response with the given message.
 public static DotsiderResponse Fail(string error)
 ```
 
-### Ok(object?)
+### Ok()
 
-Creates a successful response with the given data.
-
-**Parameters:**
-
-- `data` ([Object](https://learn.microsoft.com/dotnet/api/system.object)): 
+Creates a successful response without a payload.
 
 **Returns:** [DotsiderResponse](/api/dotsider.core.protocol.dotsiderresponse/)
 
 ```csharp
-public static DotsiderResponse Ok(object? data = null)
+public static DotsiderResponse Ok()
 ```
 
+### Ok(JsonElement?)
+
+Creates a successful response from an existing JSON payload.
+
+**Parameters:**
+
+- `data` ([Nullable\<JsonElement\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+**Returns:** [DotsiderResponse](/api/dotsider.core.protocol.dotsiderresponse/)
+
+```csharp
+public static DotsiderResponse Ok(JsonElement? data)
+```
+
+### Ok\<T\>(T, JsonTypeInfo\<T\>)
+
+Creates a successful response using source-generated JSON metadata.
+
+**Parameters:**
+
+- `data` (\<T\>)
+- `jsonTypeInfo` ([JsonTypeInfo\<\<T\>\>](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1))
+
+**Returns:** [DotsiderResponse](/api/dotsider.core.protocol.dotsiderresponse/)
+
+```csharp
+public static DotsiderResponse Ok<T>(T data, JsonTypeInfo<T> jsonTypeInfo)
+```
+
+### Ok\<T\>(T)
+
+Creates a successful response using the protocol's source-generated metadata.
+
+**Parameters:**
+
+- `data` (\<T\>)
+
+**Returns:** [DotsiderResponse](/api/dotsider.core.protocol.dotsiderresponse/)
+
+```csharp
+public static DotsiderResponse Ok<T>(T data)
+```

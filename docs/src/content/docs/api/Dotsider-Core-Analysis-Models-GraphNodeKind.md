@@ -38,4 +38,3 @@ A native module the binary imports (for example `kernel32.dll`).
 ```csharp
 NativeImport = 1
 ```
-

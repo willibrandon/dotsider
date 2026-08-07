@@ -155,7 +155,7 @@ public sealed class ProtocolVersionTests : IAsyncDisposable
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             """{"method":"assembly-info"}""", ct);
 
-        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonContext.Protocol.Options);
         Assert.IsNotNull(response);
         Assert.IsFalse(response.Success);
         Assert.Contains("JSON", response.Error!, StringComparison.OrdinalIgnoreCase);
@@ -174,7 +174,7 @@ public sealed class ProtocolVersionTests : IAsyncDisposable
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             """{"v":1,"method":"assembly-info"}""", ct);
 
-        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonOptions.Default);
+        var response = JsonSerializer.Deserialize<DotsiderResponse>(rawResponse, DotsiderJsonContext.Protocol.Options);
         Assert.IsNotNull(response);
         Assert.IsFalse(response.Success);
         Assert.Contains("version mismatch", response.Error!, StringComparison.OrdinalIgnoreCase);
@@ -192,7 +192,7 @@ public sealed class ProtocolVersionTests : IAsyncDisposable
 
         var rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
-                DotsiderJsonOptions.Default), ct);
+                DotsiderJsonContext.Protocol.Options), ct);
 
         var doc = JsonDocument.Parse(rawResponse);
         Assert.IsTrue(doc.RootElement.TryGetProperty("v", out var v));
@@ -221,7 +221,7 @@ public sealed class ProtocolVersionTests : IAsyncDisposable
         _listener!.ForceRejectPeers = true;
         rawResponse = await DotsiderClient.SendRawAsync(socketPath,
             JsonSerializer.Serialize(new DotsiderRequest { Method = "assembly-info" },
-                DotsiderJsonOptions.Default), ct);
+                DotsiderJsonContext.Protocol.Options), ct);
         doc = JsonDocument.Parse(rawResponse);
         Assert.AreEqual(
             DotsiderProtocol.Version,

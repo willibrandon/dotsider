@@ -119,3 +119,87 @@ The metadata token for this type reference.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out string, out string, out string)
+
+**Parameters:**
+
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ResolutionScope` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ResolutionScopeId` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out int Token, out string Namespace, out string Name, out string FullName, out string ResolutionScope, out string ResolutionScopeId)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(TypeRefInfo?)
+
+**Parameters:**
+
+- `other` ([TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(TypeRefInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(TypeRefInfo?, TypeRefInfo?)
+
+**Parameters:**
+
+- `left` ([TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/))
+- `right` ([TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(TypeRefInfo? left, TypeRefInfo? right)
+```
+
+### operator ==(TypeRefInfo?, TypeRefInfo?)
+
+**Parameters:**
+
+- `left` ([TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/))
+- `right` ([TypeRefInfo](/api/dotsider.core.analysis.models.typerefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(TypeRefInfo? left, TypeRefInfo? right)
+```

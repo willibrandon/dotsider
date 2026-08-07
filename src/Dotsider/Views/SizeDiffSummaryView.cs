@@ -35,7 +35,10 @@ public static class SizeDiffSummaryView
         {
             state.SummaryEditorText = text;
             state.SummaryEditorState = new EditorState(
-                new Hex1bDocument(TerminalText.EscapeMultiline(text))) { IsReadOnly = true };
+                new Hex1bDocument(TerminalText.EscapeMultiline(text)))
+            {
+                IsReadOnly = true
+            };
         }
 
         var searchProvider = new DiffSearchDecorationProvider { Query = search.Query };

@@ -181,6 +181,49 @@ public string? TargetFramework { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out string?, out string?, out NetFxArchitecture, out BindingPolicy, out IReadOnlyList\<string\>, out IReadOnlyList\<string\>, out NetFxRuntimeVersion, out bool)
+
+**Parameters:**
+
+- `EntryAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AppBaseDirectory` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `ConfigPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TargetFramework` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `EffectiveArchitecture` ([NetFxArchitecture](/api/dotsider.core.analysis.models.netfxarchitecture/))
+- `Policy` ([BindingPolicy](/api/dotsider.core.analysis.models.bindingpolicy/))
+- `PrivatePaths` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `GacRoots` ([IReadOnlyList\<String\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `RuntimeVersion` ([NetFxRuntimeVersion](/api/dotsider.core.analysis.models.netfxruntimeversion/))
+- `IsRuntimeVersionInferred` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out string EntryAssemblyPath, out string AppBaseDirectory, out string? ConfigPath, out string? TargetFramework, out NetFxArchitecture EffectiveArchitecture, out BindingPolicy Policy, out IReadOnlyList<string> PrivatePaths, out IReadOnlyList<string> GacRoots, out NetFxRuntimeVersion RuntimeVersion, out bool IsRuntimeVersionInferred)
+```
+
+### Equals(NetFxBindingContext?)
+
+**Parameters:**
+
+- `other` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(NetFxBindingContext? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
 ### FrameworkRuntimeDirectory()
 
 Returns the architecture-correct .NET Framework runtime directory. For
@@ -200,6 +243,7 @@ public string? FrameworkRuntimeDirectory()
 
 Returns the GAC sub-directories in the architecture-prioritized scan list. The shape
 differs by CLR:
+
 [Clr4](/api/dotsider.core.analysis.models.netfxruntimeversion.clr4/): `GAC_MSIL` + `GAC_64` for Amd64,
     `GAC_MSIL` + `GAC_32` for X86. The bare `GAC` bucket is reached via
     [LegacyGacScanList](/api/dotsider.core.analysis.models.netfxbindingcontext.legacygacscanlist/) for the COM-PIA fallback.[Clr2](/api/dotsider.core.analysis.models.netfxruntimeversion.clr2/): `GAC_MSIL` + arch + bare `GAC`
@@ -212,6 +256,14 @@ Absolute paths to the GAC sub-directories the binder should scan, in order.
 
 ```csharp
 public IReadOnlyList<string> GacScanList()
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
 ```
 
 ### LegacyGacScanList()
@@ -228,6 +280,14 @@ Absolute paths to scan, in order; empty when not on Windows or for Clr2.
 
 ```csharp
 public IReadOnlyList<string> LegacyGacScanList()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
 ```
 
 ### TryBuild(AssemblyAnalyzer)
@@ -248,3 +308,30 @@ A populated context, or null for non-.NET-Framework roots.
 public static NetFxBindingContext? TryBuild(AssemblyAnalyzer rootAnalyzer)
 ```
 
+## Members
+
+### operator !=(NetFxBindingContext?, NetFxBindingContext?)
+
+**Parameters:**
+
+- `left` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/))
+- `right` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(NetFxBindingContext? left, NetFxBindingContext? right)
+```
+
+### operator ==(NetFxBindingContext?, NetFxBindingContext?)
+
+**Parameters:**
+
+- `left` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/))
+- `right` ([NetFxBindingContext](/api/dotsider.core.analysis.models.netfxbindingcontext/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(NetFxBindingContext? left, NetFxBindingContext? right)
+```

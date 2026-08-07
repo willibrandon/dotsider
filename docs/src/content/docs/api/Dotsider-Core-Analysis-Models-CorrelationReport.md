@@ -155,3 +155,91 @@ The method's metadata token.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out string, out int, out IReadOnlyList\<CorrelationReportSymbol\>, out long, out long, out long, out string?, out string?)
+
+**Parameters:**
+
+- `Status` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Assembly` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Method` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Symbols` ([IReadOnlyList\<CorrelationReportSymbol\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `NativeSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `SharedCandidateSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `MstatSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Il` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `NativeDisassembly` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Status, out string Assembly, out string Method, out int Token, out IReadOnlyList<CorrelationReportSymbol> Symbols, out long NativeSize, out long SharedCandidateSize, out long MstatSize, out string? Il, out string? NativeDisassembly)
+```
+
+### Equals(CorrelationReport?)
+
+**Parameters:**
+
+- `other` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CorrelationReport? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(CorrelationReport?, CorrelationReport?)
+
+**Parameters:**
+
+- `left` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+- `right` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CorrelationReport? left, CorrelationReport? right)
+```
+
+### operator ==(CorrelationReport?, CorrelationReport?)
+
+**Parameters:**
+
+- `left` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+- `right` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CorrelationReport? left, CorrelationReport? right)
+```

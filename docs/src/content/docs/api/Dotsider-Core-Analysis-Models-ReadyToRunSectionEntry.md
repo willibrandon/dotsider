@@ -98,3 +98,86 @@ The raw `ReadyToRunSectionType` id.
 public int Type { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out int, out int, out int?)
+
+**Parameters:**
+
+- `Type` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Rva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `FileOffset` ([Nullable\<Int32\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+
+```csharp
+public void Deconstruct(out int Type, out string Name, out int Rva, out int Size, out int? FileOffset)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunSectionEntry?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunSectionEntry? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunSectionEntry?, ReadyToRunSectionEntry?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/))
+- `right` ([ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunSectionEntry? left, ReadyToRunSectionEntry? right)
+```
+
+### operator ==(ReadyToRunSectionEntry?, ReadyToRunSectionEntry?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/))
+- `right` ([ReadyToRunSectionEntry](/api/dotsider.core.analysis.models.readytorunsectionentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunSectionEntry? left, ReadyToRunSectionEntry? right)
+```

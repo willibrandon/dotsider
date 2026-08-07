@@ -116,3 +116,88 @@ The metadata token for this method definition.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out string, out MethodAttributes, out MethodImplAttributes, out int)
+
+**Parameters:**
+
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Attributes` ([MethodAttributes](https://learn.microsoft.com/dotnet/api/system.reflection.methodattributes))
+- `ImplAttributes` ([MethodImplAttributes](https://learn.microsoft.com/dotnet/api/system.reflection.methodimplattributes))
+- `Rva` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int Token, out string DeclaringType, out string Name, out string Signature, out MethodAttributes Attributes, out MethodImplAttributes ImplAttributes, out int Rva)
+```
+
+### Equals(MethodDefInfo?)
+
+**Parameters:**
+
+- `other` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MethodDefInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MethodDefInfo?, MethodDefInfo?)
+
+**Parameters:**
+
+- `left` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+- `right` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MethodDefInfo? left, MethodDefInfo? right)
+```
+
+### operator ==(MethodDefInfo?, MethodDefInfo?)
+
+**Parameters:**
+
+- `left` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+- `right` ([MethodDefInfo](/api/dotsider.core.analysis.models.methoddefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MethodDefInfo? left, MethodDefInfo? right)
+```

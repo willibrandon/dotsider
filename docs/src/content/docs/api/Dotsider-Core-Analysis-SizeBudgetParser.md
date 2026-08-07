@@ -47,4 +47,3 @@ The parsed budget, at error severity.
 ```csharp
 public static SizeBudget Parse(string spec)
 ```
-

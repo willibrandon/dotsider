@@ -127,3 +127,89 @@ The metadata token for this type definition.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out string, out string, out TypeAttributes, out string?, out int, out int)
+
+**Parameters:**
+
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `FullName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Attributes` ([TypeAttributes](https://learn.microsoft.com/dotnet/api/system.reflection.typeattributes))
+- `BaseType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `MethodCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `FieldCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out int Token, out string Namespace, out string Name, out string FullName, out TypeAttributes Attributes, out string? BaseType, out int MethodCount, out int FieldCount)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(TypeDefInfo?)
+
+**Parameters:**
+
+- `other` ([TypeDefInfo](/api/dotsider.core.analysis.models.typedefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(TypeDefInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(TypeDefInfo?, TypeDefInfo?)
+
+**Parameters:**
+
+- `left` ([TypeDefInfo](/api/dotsider.core.analysis.models.typedefinfo/))
+- `right` ([TypeDefInfo](/api/dotsider.core.analysis.models.typedefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(TypeDefInfo? left, TypeDefInfo? right)
+```
+
+### operator ==(TypeDefInfo?, TypeDefInfo?)
+
+**Parameters:**
+
+- `left` ([TypeDefInfo](/api/dotsider.core.analysis.models.typedefinfo/))
+- `right` ([TypeDefInfo](/api/dotsider.core.analysis.models.typedefinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(TypeDefInfo? left, TypeDefInfo? right)
+```

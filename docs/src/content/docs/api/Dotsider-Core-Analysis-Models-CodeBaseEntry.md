@@ -111,3 +111,87 @@ The version this codeBase is anchored to.
 public Version Version { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out PolicyLayer, out string, out string?, out string, out Version, out string)
+
+**Parameters:**
+
+- `Source` ([PolicyLayer](/api/dotsider.core.analysis.models.policylayer/))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Culture` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Version` ([Version](https://learn.microsoft.com/dotnet/api/system.version))
+- `Href` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out PolicyLayer Source, out string Name, out string? PublicKeyToken, out string Culture, out Version Version, out string Href)
+```
+
+### Equals(CodeBaseEntry?)
+
+**Parameters:**
+
+- `other` ([CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CodeBaseEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(CodeBaseEntry?, CodeBaseEntry?)
+
+**Parameters:**
+
+- `left` ([CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/))
+- `right` ([CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CodeBaseEntry? left, CodeBaseEntry? right)
+```
+
+### operator ==(CodeBaseEntry?, CodeBaseEntry?)
+
+**Parameters:**
+
+- `left` ([CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/))
+- `right` ([CodeBaseEntry](/api/dotsider.core.analysis.models.codebaseentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CodeBaseEntry? left, CodeBaseEntry? right)
+```

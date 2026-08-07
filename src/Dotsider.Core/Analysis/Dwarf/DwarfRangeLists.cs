@@ -119,46 +119,46 @@ internal static class DwarfRangeLists
                     break;
 
                 case RleStartxEndx:
-                {
-                    if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var s)) return false;
-                    if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var e)) return false;
-                    Accumulate(s, e, ref lowest, ref sum);
-                    break;
-                }
+                    {
+                        if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var s)) return false;
+                        if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var e)) return false;
+                        Accumulate(s, e, ref lowest, ref sum);
+                        break;
+                    }
 
                 case RleStartxLength:
-                {
-                    if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var s)) return false;
-                    Accumulate(s, s + reader.ReadULeb128(), ref lowest, ref sum);
-                    break;
-                }
+                    {
+                        if (!TryReadAddr(sections, reader.ReadULeb128(), unit, out var s)) return false;
+                        Accumulate(s, s + reader.ReadULeb128(), ref lowest, ref sum);
+                        break;
+                    }
 
                 case RleOffsetPair:
-                {
-                    var s = baseAddress + reader.ReadULeb128();
-                    var e = baseAddress + reader.ReadULeb128();
-                    Accumulate(s, e, ref lowest, ref sum);
-                    break;
-                }
+                    {
+                        var s = baseAddress + reader.ReadULeb128();
+                        var e = baseAddress + reader.ReadULeb128();
+                        Accumulate(s, e, ref lowest, ref sum);
+                        break;
+                    }
 
                 case RleBaseAddress:
                     baseAddress = reader.ReadAddress(unit.AddressSize);
                     break;
 
                 case RleStartEnd:
-                {
-                    var s = reader.ReadAddress(unit.AddressSize);
-                    var e = reader.ReadAddress(unit.AddressSize);
-                    Accumulate(s, e, ref lowest, ref sum);
-                    break;
-                }
+                    {
+                        var s = reader.ReadAddress(unit.AddressSize);
+                        var e = reader.ReadAddress(unit.AddressSize);
+                        Accumulate(s, e, ref lowest, ref sum);
+                        break;
+                    }
 
                 case RleStartLength:
-                {
-                    var s = reader.ReadAddress(unit.AddressSize);
-                    Accumulate(s, s + reader.ReadULeb128(), ref lowest, ref sum);
-                    break;
-                }
+                    {
+                        var s = reader.ReadAddress(unit.AddressSize);
+                        Accumulate(s, s + reader.ReadULeb128(), ref lowest, ref sum);
+                        break;
+                    }
 
                 default:
                     return false; // unknown opcode: operand size unknowable

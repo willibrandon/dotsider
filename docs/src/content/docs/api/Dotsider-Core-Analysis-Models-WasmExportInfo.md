@@ -72,3 +72,84 @@ The exported name.
 public string Name { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out WasmExternalKind, out int)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Kind` ([WasmExternalKind](/api/dotsider.core.analysis.models.wasmexternalkind/))
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+
+```csharp
+public void Deconstruct(out string Name, out WasmExternalKind Kind, out int Index)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmExportInfo?)
+
+**Parameters:**
+
+- `other` ([WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmExportInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmExportInfo?, WasmExportInfo?)
+
+**Parameters:**
+
+- `left` ([WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/))
+- `right` ([WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmExportInfo? left, WasmExportInfo? right)
+```
+
+### operator ==(WasmExportInfo?, WasmExportInfo?)
+
+**Parameters:**
+
+- `left` ([WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/))
+- `right` ([WasmExportInfo](/api/dotsider.core.analysis.models.wasmexportinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmExportInfo? left, WasmExportInfo? right)
+```

@@ -72,3 +72,84 @@ The decoded source text.
 public string Text { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out byte[])
+
+**Parameters:**
+
+- `Document` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Text` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Bytes` ([Byte[]](https://learn.microsoft.com/dotnet/api/system.byte[]))
+
+```csharp
+public void Deconstruct(out string Document, out string Text, out byte[] Bytes)
+```
+
+### Equals(EmbeddedSourceInfo?)
+
+**Parameters:**
+
+- `other` ([EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(EmbeddedSourceInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(EmbeddedSourceInfo?, EmbeddedSourceInfo?)
+
+**Parameters:**
+
+- `left` ([EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/))
+- `right` ([EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(EmbeddedSourceInfo? left, EmbeddedSourceInfo? right)
+```
+
+### operator ==(EmbeddedSourceInfo?, EmbeddedSourceInfo?)
+
+**Parameters:**
+
+- `left` ([EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/))
+- `right` ([EmbeddedSourceInfo](/api/dotsider.core.analysis.models.embeddedsourceinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(EmbeddedSourceInfo? left, EmbeddedSourceInfo? right)
+```

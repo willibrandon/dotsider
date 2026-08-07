@@ -65,3 +65,83 @@ The module name, such as `KERNEL32.dll`, `libc.so.6`, or
 public string ModuleName { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out IReadOnlyList\<ImportedFunctionInfo\>)
+
+**Parameters:**
+
+- `ModuleName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Functions` ([IReadOnlyList\<ImportedFunctionInfo\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+
+```csharp
+public void Deconstruct(out string ModuleName, out IReadOnlyList<ImportedFunctionInfo> Functions)
+```
+
+### Equals(ImportedModuleInfo?)
+
+**Parameters:**
+
+- `other` ([ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ImportedModuleInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ImportedModuleInfo?, ImportedModuleInfo?)
+
+**Parameters:**
+
+- `left` ([ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/))
+- `right` ([ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ImportedModuleInfo? left, ImportedModuleInfo? right)
+```
+
+### operator ==(ImportedModuleInfo?, ImportedModuleInfo?)
+
+**Parameters:**
+
+- `left` ([ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/))
+- `right` ([ImportedModuleInfo](/api/dotsider.core.analysis.models.importedmoduleinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ImportedModuleInfo? left, ImportedModuleInfo? right)
+```

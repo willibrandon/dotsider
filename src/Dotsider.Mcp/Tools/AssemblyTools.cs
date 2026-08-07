@@ -1,6 +1,5 @@
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -27,36 +26,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(new
-            {
-                analyzer.FilePath, analyzer.FileName, analyzer.FileSize,
-                analyzer.AssemblyName, analyzer.AssemblyVersion, analyzer.TargetFramework,
-                analyzer.Culture, analyzer.PublicKeyToken, analyzer.Architecture,
-                analyzer.HasMetadata,
-                analyzer.BinaryKind,
-                analyzer.NativeAotInfo,
-                analyzer.DisplayName,
-                analyzer.SourceBundlePath,
-                analyzer.IsBundleBacked,
-                analyzer.PreferredRuntimePack,
-                analyzer.LaunchPath,
-                analyzer.CanSaveInPlace,
-                analyzer.PdbProvenance,
-                analyzer.SourceLink,
-                TypeCount = analyzer.TypeDefs.Count,
-                MethodCount = analyzer.MethodDefs.Count,
-                AssemblyRefCount = analyzer.AssemblyRefs.Count,
-                ReadyToRunSectionCount = analyzer.ReadyToRunSections.Count,
-                RecoveredTypeCount = analyzer.RecoveredTypes.Count,
-                FrozenStringCount = analyzer.FrozenStrings.Count,
-                NativeSymbolCount = analyzer.NativeSymbols?.Symbols.Count ?? 0,
-                NativeSymbolSource = analyzer.NativeSymbols?.Source,
-                NativeSymbolStatus = analyzer.NativeSymbols?.Status,
-                PreIlc = BuildPreIlcSummary(analyzer),
-                ReadyToRun = BuildReadyToRunSummary(analyzer),
-                Webcil = WebcilPayloadBuilder.BuildSummary(analyzer),
-                Wasm = WasmPayloadBuilder.BuildSummary(analyzer)
-            }, DotsiderJsonOptions.Default);
+            return McpJson.Serialize(AssemblyInfoPayloadBuilder.Build(analyzer));
         }
 
         if (sessionId is not null)
@@ -66,55 +36,6 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         }
 
         return "Error: Either assemblyPath or sessionId is required.";
-    }
-
-    /// <summary>
-    /// Builds the cheap pre-ILC probe summary for a Native AOT binary — origin, sidecar
-    /// availability, and reference counts. Never attaches; package and other references are
-    /// counts, not dumps. Returns null when no sidecars were found.
-    /// </summary>
-    private static object? BuildPreIlcSummary(Core.Analysis.AssemblyAnalyzer analyzer)
-    {
-        if (analyzer.PreIlcSidecars is not { } s)
-            return null;
-
-        return new
-        {
-            s.HasAttachableCompanion,
-            RootAssembly = s.ManagedAssemblyPath is { } p ? Path.GetFileName(p) : null,
-            Origin = s.Origin.ToString(),
-            PdbStatus = s.PdbStatus.ToString(),
-            HasMstat = s.MstatPath is not null,
-            HasDgml = (s.CodegenDgmlPath ?? s.ScanDgmlPath) is not null,
-            LocalReferenceCount = s.LocalReferencePaths.Count,
-            s.PackageReferenceCount,
-            s.OtherReferenceCount
-        };
-    }
-
-    /// <summary>
-    /// Builds the ReadyToRun summary for a crossgen2 image — status, version, composite flags,
-    /// architecture, and precompiled-method counts. Returns null when the image is not ReadyToRun.
-    /// </summary>
-    private static object? BuildReadyToRunSummary(Core.Analysis.AssemblyAnalyzer analyzer)
-    {
-        if (analyzer.ReadyToRunInfo is not { } info)
-            return null;
-
-        return new
-        {
-            Status = info.Status.ToString(),
-            info.MajorVersion,
-            info.MinorVersion,
-            info.IsComposite,
-            info.IsComponent,
-            info.IsPartialImage,
-            Architecture = info.Architecture.ToString(),
-            info.OwnerCompositeExecutable,
-            PrecompiledMethods = analyzer.ReadyToRunIndex?.Methods.Count ?? 0,
-            InstantiationCount = analyzer.ReadyToRunIndex?.InstantiationCount ?? 0,
-            TotalCodeSize = analyzer.ReadyToRunIndex?.TotalCodeSize ?? 0
-        };
     }
 
     /// <summary>
@@ -148,7 +69,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                     recovered = recovered.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
                 if (maxResults is > 0)
                     recovered = recovered.Take(maxResults.Value);
-                return JsonSerializer.Serialize(recovered.ToList(), DotsiderJsonOptions.Default);
+                return McpJson.Serialize(recovered.ToList());
             }
 
             var types = analyzer.TypeDefs.AsEnumerable();
@@ -156,7 +77,7 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
                 types = types.Where(t => t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
             if (maxResults is > 0)
                 types = types.Take(maxResults.Value);
-            return JsonSerializer.Serialize(types.ToList(), DotsiderJsonOptions.Default);
+            return McpJson.Serialize(types.ToList());
         }
 
         if (sessionId is not null)
@@ -191,9 +112,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(
-                NativeAotPayloadBuilder.BuildMethodInventory(analyzer, typeName, query, maxResults),
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(
+                NativeAotPayloadBuilder.BuildMethodInventory(analyzer, typeName, query, maxResults));
         }
 
         if (sessionId is not null)
@@ -228,9 +148,8 @@ public sealed partial class AssemblyTools(DotsiderSessionManager sessionManager)
         {
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
-            return JsonSerializer.Serialize(
-                NativeAotPayloadBuilder.BuildMemberSearch(analyzer, query, maxResults, includeCompilerGenerated),
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(
+                NativeAotPayloadBuilder.BuildMemberSearch(analyzer, query, maxResults, includeCompilerGenerated));
         }
 
         if (sessionId is not null)

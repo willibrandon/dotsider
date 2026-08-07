@@ -103,4 +103,3 @@ The decoded report, or null when the file is missing or is not an mstat.
 ```csharp
 public static MstatData? Read(string filePath)
 ```
-

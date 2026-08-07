@@ -98,3 +98,86 @@ The path of the `.mstat` file the report was read from.
 public string MstatPath { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out MstatData, out string, out string?, out long?, out string?)
+
+**Parameters:**
+
+- `Data` ([MstatData](/api/dotsider.core.analysis.models.mstatdata/))
+- `MstatPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `BinaryPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `BinaryFileSize` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `DgmlPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out MstatData Data, out string MstatPath, out string? BinaryPath, out long? BinaryFileSize, out string? DgmlPath)
+```
+
+### Equals(MstatSource?)
+
+**Parameters:**
+
+- `other` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatSource? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatSource?, MstatSource?)
+
+**Parameters:**
+
+- `left` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+- `right` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatSource? left, MstatSource? right)
+```
+
+### operator ==(MstatSource?, MstatSource?)
+
+**Parameters:**
+
+- `left` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+- `right` ([MstatSource](/api/dotsider.core.analysis.models.mstatsource/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatSource? left, MstatSource? right)
+```

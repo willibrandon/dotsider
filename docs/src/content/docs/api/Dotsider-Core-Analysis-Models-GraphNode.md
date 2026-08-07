@@ -161,3 +161,90 @@ Assembly version string, or null when unavailable.
 public string? Version { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out string, out string?, out string, out string?, out bool, out int, out bool, out GraphNodeKind)
+
+**Parameters:**
+
+- `Id` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Version` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Culture` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `PublicKeyToken` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IsRoot` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `Depth` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Unresolved` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `Kind` ([GraphNodeKind](/api/dotsider.core.analysis.models.graphnodekind/))
+
+```csharp
+public void Deconstruct(out string Id, out string Name, out string? Version, out string Culture, out string? PublicKeyToken, out bool IsRoot, out int Depth, out bool Unresolved, out GraphNodeKind Kind)
+```
+
+### Equals(GraphNode?)
+
+**Parameters:**
+
+- `other` ([GraphNode](/api/dotsider.core.analysis.models.graphnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(GraphNode? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(GraphNode?, GraphNode?)
+
+**Parameters:**
+
+- `left` ([GraphNode](/api/dotsider.core.analysis.models.graphnode/))
+- `right` ([GraphNode](/api/dotsider.core.analysis.models.graphnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(GraphNode? left, GraphNode? right)
+```
+
+### operator ==(GraphNode?, GraphNode?)
+
+**Parameters:**
+
+- `left` ([GraphNode](/api/dotsider.core.analysis.models.graphnode/))
+- `right` ([GraphNode](/api/dotsider.core.analysis.models.graphnode/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(GraphNode? left, GraphNode? right)
+```

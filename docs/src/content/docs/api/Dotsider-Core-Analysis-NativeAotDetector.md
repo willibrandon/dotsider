@@ -44,4 +44,3 @@ R2R assembly also embeds this header, so probe only metadata-less files.
 ```csharp
 public static NativeAotInfo? Detect(ReadOnlySpan<byte> bytes)
 ```
-

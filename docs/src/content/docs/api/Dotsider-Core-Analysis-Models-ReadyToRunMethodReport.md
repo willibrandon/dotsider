@@ -221,3 +221,97 @@ The method's metadata token.
 public int Token { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out ReadyToRunNativeAvailability, out string, out Guid, out string, out int, out bool, out string?, out bool, out string?, out IReadOnlyList\<CorrelationReportSymbol\>, out long, out string?, out IReadOnlyList\<IlInstruction\>?, out string?, out IReadOnlyList\<NativeInstruction\>?, out string?)
+
+**Parameters:**
+
+- `Availability` ([ReadyToRunNativeAvailability](/api/dotsider.core.analysis.models.readytorunnativeavailability/))
+- `Assembly` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Mvid` ([Guid](https://learn.microsoft.com/dotnet/api/system.guid))
+- `Method` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `IsComposite` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `OwnerComponent` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IsGenericInstantiation` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `InstantiationDisplay` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Ranges` ([IReadOnlyList\<CorrelationReportSymbol\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `NativeSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `Il` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IlInstructions` ([IReadOnlyList\<IlInstruction\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `NativeText` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `NativeInstructions` ([IReadOnlyList\<NativeInstruction\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Diagnostic` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out ReadyToRunNativeAvailability Availability, out string Assembly, out Guid Mvid, out string Method, out int Token, out bool IsComposite, out string? OwnerComponent, out bool IsGenericInstantiation, out string? InstantiationDisplay, out IReadOnlyList<CorrelationReportSymbol> Ranges, out long NativeSize, out string? Il, out IReadOnlyList<IlInstruction>? IlInstructions, out string? NativeText, out IReadOnlyList<NativeInstruction>? NativeInstructions, out string? Diagnostic)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunMethodReport?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunMethodReport? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunMethodReport?, ReadyToRunMethodReport?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+- `right` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunMethodReport? left, ReadyToRunMethodReport? right)
+```
+
+### operator ==(ReadyToRunMethodReport?, ReadyToRunMethodReport?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+- `right` ([ReadyToRunMethodReport](/api/dotsider.core.analysis.models.readytorunmethodreport/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunMethodReport? left, ReadyToRunMethodReport? right)
+```

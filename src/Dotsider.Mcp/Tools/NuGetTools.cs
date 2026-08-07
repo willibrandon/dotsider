@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -33,10 +32,11 @@ public sealed partial class NuGetTools(DotsiderSessionManager sessionManager)
         // Direct mode
         ToolHelpers.ValidateFilePath(nupkgPath, "nupkgPath");
         using var package = new NuGetPackageAnalyzer(nupkgPath);
-        return JsonSerializer.Serialize(new
-        {
-            package.PackageId, package.PackageVersion,
-            package.Authors, package.Description, package.DllFiles
-        }, DotsiderJsonOptions.Default);
+        return McpJson.Serialize(new NuGetPackagePayload(
+            package.PackageId,
+            package.PackageVersion,
+            package.Authors,
+            package.Description,
+            package.DllFiles));
     }
 }

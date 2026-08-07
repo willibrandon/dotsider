@@ -105,3 +105,87 @@ The size of the section in memory.
 public int VirtualSize { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out int, out int, out int, out int, out SectionCharacteristics)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `VirtualAddress` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `VirtualSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RawDataOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RawDataSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Characteristics` ([SectionCharacteristics](https://learn.microsoft.com/dotnet/api/system.reflection.portableexecutable.sectioncharacteristics))
+
+```csharp
+public void Deconstruct(out string Name, out int VirtualAddress, out int VirtualSize, out int RawDataOffset, out int RawDataSize, out SectionCharacteristics Characteristics)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(SectionInfo?)
+
+**Parameters:**
+
+- `other` ([SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(SectionInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(SectionInfo?, SectionInfo?)
+
+**Parameters:**
+
+- `left` ([SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/))
+- `right` ([SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(SectionInfo? left, SectionInfo? right)
+```
+
+### operator ==(SectionInfo?, SectionInfo?)
+
+**Parameters:**
+
+- `left` ([SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/))
+- `right` ([SectionInfo](/api/dotsider.core.analysis.models.sectioninfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(SectionInfo? left, SectionInfo? right)
+```

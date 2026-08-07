@@ -42,4 +42,3 @@ bytes, so callers can distinguish that state from "not precompiled".
 ```csharp
 public static ReadyToRunDisassembler.MethodDisassembly? DisassembleMethod(AssemblyAnalyzer codeImage, ReadyToRunMethodEntry entry, Func<ulong, string?>? managedNameResolver)
 ```
-

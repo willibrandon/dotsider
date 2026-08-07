@@ -814,8 +814,6 @@ public void DetachPreIlcCompanions()
 
 ### Dispose()
 
-Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
 ```csharp
 public void Dispose()
 ```
@@ -1015,8 +1013,8 @@ Returns `null` for bundle-backed results.
 
 **Parameters:**
 
-- `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
-- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string)): 
+- `referencingAssemblyPath` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `assemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
 
 **Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -1056,4 +1054,3 @@ arguments; malformed or unsupported metadata is returned as the original hexadec
 ```csharp
 public string ResolveToken(int token)
 ```
-

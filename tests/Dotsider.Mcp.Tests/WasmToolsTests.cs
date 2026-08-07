@@ -1,4 +1,3 @@
-using Dotsider.Core.Protocol;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -70,7 +69,7 @@ public sealed class WasmToolsTests : McpServerTestBase
     public async Task ListWasmFunctions_Session_ForwardsRequest()
     {
         await using var socket = new TestDotsiderSocket(999_997, "dotnet.native.wasm");
-        socket.OnMethod("list-wasm-functions", _ => DotsiderResponse.Ok(new
+        socket.OnMethod("list-wasm-functions", _ => TestJsonResponse.Ok(new
         {
             FunctionCount = 1,
             Functions = new[] { new { Index = 0, Name = "func_0" } }

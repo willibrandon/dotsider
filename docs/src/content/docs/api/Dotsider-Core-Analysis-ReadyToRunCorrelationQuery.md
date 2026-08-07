@@ -41,4 +41,3 @@ Resolves methodOrAddress against analyzer.
 ```csharp
 public static ReadyToRunQueryResult Resolve(AssemblyAnalyzer analyzer, string methodOrAddress, CancellationToken cancellationToken)
 ```
-

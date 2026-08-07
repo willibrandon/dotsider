@@ -21,8 +21,8 @@ internal sealed class DependencyGraphSnapshot
         IEnumerable<GraphEdge> edges,
         IEnumerable<KeyValuePair<string, GraphNavigationContext>>? navigationById)
     {
-        Nodes = ImmutableArray.CreateRange(nodes);
-        Edges = ImmutableArray.CreateRange(edges);
+        Nodes = [.. nodes];
+        Edges = [.. edges];
         NavigationById = navigationById?.ToFrozenDictionary(
             static pair => pair.Key,
             static pair => pair.Value,

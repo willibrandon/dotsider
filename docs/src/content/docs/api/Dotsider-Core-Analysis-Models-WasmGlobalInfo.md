@@ -83,3 +83,85 @@ The display name for the value type.
 public string ValueTypeName { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out byte, out string, out bool)
+
+**Parameters:**
+
+- `Index` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `ValueType` ([Byte](https://learn.microsoft.com/dotnet/api/system.byte))
+- `ValueTypeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `IsMutable` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out int Index, out byte ValueType, out string ValueTypeName, out bool IsMutable)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(WasmGlobalInfo?)
+
+**Parameters:**
+
+- `other` ([WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(WasmGlobalInfo? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(WasmGlobalInfo?, WasmGlobalInfo?)
+
+**Parameters:**
+
+- `left` ([WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/))
+- `right` ([WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(WasmGlobalInfo? left, WasmGlobalInfo? right)
+```
+
+### operator ==(WasmGlobalInfo?, WasmGlobalInfo?)
+
+**Parameters:**
+
+- `left` ([WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/))
+- `right` ([WasmGlobalInfo](/api/dotsider.core.analysis.models.wasmglobalinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(WasmGlobalInfo? left, WasmGlobalInfo? right)
+```

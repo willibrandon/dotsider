@@ -19,7 +19,7 @@ public sealed class RemoteDotsiderTarget(string socketPath)
     public async Task<DotsiderResponse> SendAsync(
         DotsiderRequest request, CancellationToken ct = default)
     {
-        var requestJson = JsonSerializer.Serialize(request, DotsiderJsonOptions.Default);
+        var requestJson = JsonSerializer.Serialize(request, DotsiderJsonContext.Protocol.DotsiderRequest);
         var requestBytes = Encoding.UTF8.GetByteCount(requestJson);
         if (requestBytes > DotsiderProtocol.MaxRequestBytes)
         {
@@ -57,7 +57,7 @@ public sealed class RemoteDotsiderTarget(string socketPath)
         DotsiderResponse response;
         try
         {
-            response = JsonSerializer.Deserialize<DotsiderResponse>(responseLine, DotsiderJsonOptions.Default)
+            response = JsonSerializer.Deserialize(responseLine, DotsiderJsonContext.Protocol.DotsiderResponse)
                 ?? DotsiderResponse.Fail("Invalid response");
         }
         catch (JsonException ex)
@@ -83,7 +83,7 @@ public sealed class RemoteDotsiderTarget(string socketPath)
         var response = await SendAsync(request, ct);
         if (!response.Success)
             return $"Error: {response.Error ?? "Unknown error"}";
-        return JsonSerializer.Serialize(response.Data, DotsiderJsonOptions.Default);
+        return response.Data?.GetRawText() ?? "null";
     }
 
     /// <summary>

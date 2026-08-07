@@ -90,4 +90,3 @@ queried node. Empty when the label is unknown.
 ```csharp
 public IReadOnlyList<DgmlPathStep> PathToRoot(string label)
 ```
-

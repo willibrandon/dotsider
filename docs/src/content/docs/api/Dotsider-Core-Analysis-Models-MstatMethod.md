@@ -176,6 +176,24 @@ public int Size { get; init; }
 
 ## Methods
 
+### Deconstruct(out string, out string, out string, out string, out int, out int, out int, out string?, out string)
+
+**Parameters:**
+
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Namespace` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Size` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `GcInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EhInfoSize` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `NodeName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out string Name, out string DeclaringType, out string Namespace, out string AssemblyName, out int Size, out int GcInfoSize, out int EhInfoSize, out string? NodeName, out string Signature)
+```
+
 ### Deconstruct(out string, out string, out string, out string, out int, out int, out int, out string?)
 
 The pre-signature eight-output deconstruction, preserved alongside the generated nine-output one.
@@ -195,3 +213,70 @@ The pre-signature eight-output deconstruction, preserved alongside the generated
 public void Deconstruct(out string name, out string declaringType, out string @namespace, out string assemblyName, out int size, out int gcInfoSize, out int ehInfoSize, out string? nodeName)
 ```
 
+### Equals(MstatMethod?)
+
+**Parameters:**
+
+- `other` ([MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(MstatMethod? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(MstatMethod?, MstatMethod?)
+
+**Parameters:**
+
+- `left` ([MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/))
+- `right` ([MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(MstatMethod? left, MstatMethod? right)
+```
+
+### operator ==(MstatMethod?, MstatMethod?)
+
+**Parameters:**
+
+- `left` ([MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/))
+- `right` ([MstatMethod](/api/dotsider.core.analysis.models.mstatmethod/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(MstatMethod? left, MstatMethod? right)
+```

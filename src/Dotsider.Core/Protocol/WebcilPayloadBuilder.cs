@@ -15,20 +15,18 @@ public static class WebcilPayloadBuilder
     /// </summary>
     /// <param name="analyzer">The analyzer whose Webcil provenance should be serialized.</param>
     /// <returns>A JSON-ready Webcil summary object, or null when the analyzer is not Webcil.</returns>
-    public static object? BuildSummary(AssemblyAnalyzer analyzer)
+    public static WebcilSummary? BuildSummary(AssemblyAnalyzer analyzer)
     {
         if (analyzer.WebcilInfo is not { } webcil)
             return null;
 
-        return new
-        {
+        return new WebcilSummary(
             webcil.VersionMajor,
             webcil.VersionMinor,
             webcil.IsWasmWrapped,
             webcil.PayloadOffset,
             webcil.SectionCount,
             webcil.MetadataSize,
-            webcil.DebugDirectorySize
-        };
+            webcil.DebugDirectorySize);
     }
 }

@@ -357,7 +357,11 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
                         foreach (var param in child.Parameters)
                         {
                             var typeLink = !string.IsNullOrEmpty(param.Type) ? FormatTypeLink(param.Type) : "";
-                            sb.AppendLine($"- `{param.Id}` ({typeLink}): {ConvertXmlToMarkdown(param.Description ?? "")}");
+                            var description = ConvertXmlToMarkdown(param.Description ?? "");
+                            sb.Append($"- `{param.Id}` ({typeLink})");
+                            if (!string.IsNullOrWhiteSpace(description))
+                                sb.Append($": {description}");
+                            sb.AppendLine();
                         }
                         sb.AppendLine();
                     }
@@ -381,7 +385,10 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
                         {
                             var typeLink = FormatTypeLink(exception.Type!);
                             var description = ConvertXmlToMarkdown(exception.Description ?? "");
-                            sb.AppendLine($"- {typeLink}: {description}");
+                            sb.Append($"- {typeLink}");
+                            if (!string.IsNullOrWhiteSpace(description))
+                                sb.Append($": {description}");
+                            sb.AppendLine();
                         }
                         sb.AppendLine();
                     }
@@ -413,7 +420,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
             sb.AppendLine();
         }
 
-        return sb.ToString();
+        return sb.ToString().TrimEnd() + Environment.NewLine;
     }
 
     private static string EscapeYaml(string value) =>

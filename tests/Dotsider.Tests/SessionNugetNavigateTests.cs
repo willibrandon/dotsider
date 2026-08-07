@@ -3,7 +3,6 @@ using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Widgets;
-using System.Text.Json;
 
 namespace Dotsider.Tests;
 
@@ -62,7 +61,7 @@ public class SessionNugetNavigateTests : IAsyncDisposable
             {
                 var s = CapturedNugetState();
                 if (s is null) return null;
-                return new
+                return TestJsonResponse.Element(new
                 {
                     Mode = "nuget",
                     s.Package.FilePath,
@@ -73,20 +72,20 @@ public class SessionNugetNavigateTests : IAsyncDisposable
                     s.Package.Description,
                     DllCount = s.Package.DllFiles.Count,
                     SelectedDll = s.SelectedDllState?.Analyzer.FileName,
-                };
+                });
             },
             currentViewProvider: () =>
             {
                 var s = CapturedNugetState();
                 if (s is null) return null;
-                return new
+                return TestJsonResponse.Element(new
                 {
                     Mode = "nuget",
                     s.IsBrowsingPackage,
                     Tab = s.SelectedDllState is { } dll ? dll.CurrentTab + 1 : (int?)null,
                     SelectedDll = s.SelectedDllEntry?.Name,
-                };
-        });
+                });
+            });
         _listener.StartListening(overridePid: TestSocketIds.NextPid());
 
         _appCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -169,7 +168,7 @@ public class SessionNugetNavigateTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewResponse.Success);
 
-        var data = viewResponse.Data as JsonElement?;
+        var data = viewResponse.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
         Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
@@ -194,7 +193,7 @@ public class SessionNugetNavigateTests : IAsyncDisposable
             new DotsiderRequest { Method = "get-current-view" }, ct);
         Assert.IsTrue(viewResponse.Success);
 
-        var data = viewResponse.Data as JsonElement?;
+        var data = viewResponse.Data;
         Assert.IsNotNull(data);
         Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
         Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());

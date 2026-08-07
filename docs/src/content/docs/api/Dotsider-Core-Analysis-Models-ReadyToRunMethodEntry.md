@@ -175,3 +175,93 @@ The total native code size in bytes, summed across CodeRanges.
 public long TotalSize { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out string, out Guid, out int, out string?, out string?, out string?, out IReadOnlyList\<ReadyToRunCodeRange\>, out int, out int, out bool, out string?, out long)
+
+**Parameters:**
+
+- `AssemblyName` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Mvid` ([Guid](https://learn.microsoft.com/dotnet/api/system.guid))
+- `Token` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `DeclaringType` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `Signature` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `CodeRanges` ([IReadOnlyList\<ReadyToRunCodeRange\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `EntryPointRuntimeFunctionId` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `RuntimeFunctionCount` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `IsGenericInstantiation` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+- `InstantiationDisplay` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `TotalSize` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+
+```csharp
+public void Deconstruct(out string AssemblyName, out Guid Mvid, out int Token, out string? DeclaringType, out string? Name, out string? Signature, out IReadOnlyList<ReadyToRunCodeRange> CodeRanges, out int EntryPointRuntimeFunctionId, out int RuntimeFunctionCount, out bool IsGenericInstantiation, out string? InstantiationDisplay, out long TotalSize)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### Equals(ReadyToRunMethodEntry?)
+
+**Parameters:**
+
+- `other` ([ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(ReadyToRunMethodEntry? other)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(ReadyToRunMethodEntry?, ReadyToRunMethodEntry?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/))
+- `right` ([ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(ReadyToRunMethodEntry? left, ReadyToRunMethodEntry? right)
+```
+
+### operator ==(ReadyToRunMethodEntry?, ReadyToRunMethodEntry?)
+
+**Parameters:**
+
+- `left` ([ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/))
+- `right` ([ReadyToRunMethodEntry](/api/dotsider.core.analysis.models.readytorunmethodentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(ReadyToRunMethodEntry? left, ReadyToRunMethodEntry? right)
+```

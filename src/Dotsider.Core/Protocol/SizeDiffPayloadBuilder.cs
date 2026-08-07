@@ -28,7 +28,7 @@ public static class SizeDiffPayloadBuilder
     /// <param name="includeTree">Whether to include the delta tree.</param>
     /// <param name="maxNodes">The tree node cap, or null for <see cref="DefaultMaxNodes"/>.</param>
     /// <returns>The serializable payload.</returns>
-    public static object BuildDiffPayload(
+    public static SizeDiffPayload BuildDiffPayload(
         MstatSource left, MstatSource right, int? topN, bool includeTree, int? maxNodes)
     {
         var diff = MstatDiffer.Compare(left.Data, right.Data);
@@ -46,11 +46,10 @@ public static class SizeDiffPayloadBuilder
             includedNodes = totalNodes <= cap ? totalNodes : CountNodes(root!);
         }
 
-        return new
-        {
-            Left = left.BinaryPath ?? left.MstatPath,
-            Right = right.BinaryPath ?? right.MstatPath,
-            TotalBasis = totals.Basis,
+        return new SizeDiffPayload(
+            left.BinaryPath ?? left.MstatPath,
+            right.BinaryPath ?? right.MstatPath,
+            totals.Basis,
             totals.LeftTotal,
             totals.RightTotal,
             diff.LeftFormatVersion,
@@ -58,12 +57,11 @@ public static class SizeDiffPayloadBuilder
             diff.Summary,
             diff.AssemblyDeltas,
             diff.NamespaceDeltas,
-            Contributors = diff.Contributors.Take(top).ToList(),
-            Root = root,
-            TreeTruncated = includeTree ? includedNodes < totalNodes : (bool?)null,
-            TreeTotalNodes = includeTree ? totalNodes : (int?)null,
-            TreeIncludedNodes = includeTree ? includedNodes : (int?)null,
-        };
+            [.. diff.Contributors.Take(top)],
+            root,
+            includeTree ? includedNodes < totalNodes : null,
+            includeTree ? totalNodes : null,
+            includeTree ? includedNodes : null);
     }
 
     /// <summary>
@@ -76,7 +74,7 @@ public static class SizeDiffPayloadBuilder
     /// <param name="budgets">The budgets to evaluate.</param>
     /// <param name="topN">Contributors per violated budget, or null for <see cref="DefaultTopN"/>.</param>
     /// <returns>The serializable payload.</returns>
-    public static object BuildBudgetPayload(
+    public static SizeBudgetPayload BuildBudgetPayload(
         MstatSource target, MstatSource? baseline, IReadOnlyList<SizeBudget> budgets, int? topN)
     {
         var diff = MstatDiffer.Compare(baseline?.Data ?? MstatData.Empty, target.Data);
@@ -85,10 +83,9 @@ public static class SizeDiffPayloadBuilder
             budgets, diff, totals.Basis, totals.RightTotal, totals.LeftTotal,
             defaultTopN: Math.Max(0, topN ?? DefaultTopN));
 
-        return new
-        {
-            Target = target.BinaryPath ?? target.MstatPath,
-            Baseline = baseline is null ? null : baseline.BinaryPath ?? baseline.MstatPath,
+        return new SizeBudgetPayload(
+            target.BinaryPath ?? target.MstatPath,
+            baseline is null ? null : baseline.BinaryPath ?? baseline.MstatPath,
             report.Passed,
             report.HasWarnings,
             report.TotalBasis,
@@ -96,8 +93,7 @@ public static class SizeDiffPayloadBuilder
             report.RightTotal,
             report.LeftMstatTotal,
             report.RightMstatTotal,
-            report.Evaluations,
-        };
+            report.Evaluations);
     }
 
     private static int CountNodes(SizeDiffNode node) => 1 + node.Children.Sum(CountNodes);

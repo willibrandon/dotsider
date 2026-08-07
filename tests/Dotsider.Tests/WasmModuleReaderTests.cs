@@ -293,7 +293,7 @@ public sealed class WasmModuleReaderTests
         Assert.Contains("function-section", wasm.Diagnostic);
 
         string json = JsonSerializer.Serialize(
-            WasmPayloadBuilder.BuildSummary(analyzer), DotsiderJsonOptions.Default);
+            WasmPayloadBuilder.BuildSummary(analyzer), DotsiderJsonContext.Protocol.Options);
         JsonElement summary = JsonSerializer.Deserialize<JsonElement>(json);
         string? diagnostic = summary.GetProperty("diagnostic").GetString();
         Assert.IsNotNull(diagnostic);

@@ -1,7 +1,6 @@
 using Dotsider.Core.Analysis.Disasm;
 using Dotsider.Core.Protocol;
 using ModelContextProtocol.Server;
-using System.Text.Json;
 
 namespace Dotsider.Mcp.Tools;
 
@@ -31,7 +30,7 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
             ToolHelpers.ValidateAssemblyPath(assemblyPath);
             using var analyzer = ToolHelpers.OpenAnalyzer(assemblyPath);
             return analyzer.NativeSymbols is { } info
-                ? JsonSerializer.Serialize(info, DotsiderJsonOptions.Default)
+                ? McpJson.Serialize(info)
                 : "Error: managed assembly; no native symbols to read.";
         }
 
@@ -89,18 +88,21 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
             if (matches.Count > 1)
             {
                 var candidates = matches.OrderBy(m => m.VirtualAddress)
-                    .Select(m => new { Address = $"0x{m.VirtualAddress:x}", Name = m.ManagedName ?? m.Name });
-                return JsonSerializer.Serialize(new { Error = "ambiguous", Target = target, Candidates = candidates },
-                    DotsiderJsonOptions.Default);
+                    .Select(m => new NativeSymbolCandidatePayload(
+                        $"0x{m.VirtualAddress:x}", m.ManagedName ?? m.Name))
+                    .ToList();
+                return McpJson.Serialize(
+                    new NativeSymbolAmbiguityPayload("ambiguous", target, candidates));
             }
 
             var result = NativeDisassembler.DisassembleSymbol(analyzer, matches[0]);
             if (result is null)
                 return $"Error: '{matches[0].ManagedName ?? matches[0].Name}' has no disassemblable bytes.";
 
-            return JsonSerializer.Serialize(
-                new { Symbol = matches[0].ManagedName ?? matches[0].Name, analyzer.Architecture, result.Value.Instructions },
-                DotsiderJsonOptions.Default);
+            return McpJson.Serialize(new NativeDisassemblyPayload(
+                matches[0].ManagedName ?? matches[0].Name,
+                analyzer.Architecture,
+                result.Value.Instructions));
         }
 
         if (sessionId is not null)
@@ -119,8 +121,8 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
         switch (result.Outcome)
         {
             case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.Ambiguous:
-                return JsonSerializer.Serialize(
-                    new { Error = "ambiguous", Target = target, result.Candidates }, DotsiderJsonOptions.Default);
+                return McpJson.Serialize(new ReadyToRunAmbiguityPayload(
+                    "ambiguous", target, result.Candidates));
             case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.NotFound:
             case Dotsider.Core.Analysis.Models.ReadyToRunQueryOutcome.Unavailable:
                 return $"Error: {result.Message}";
@@ -131,8 +133,7 @@ public sealed partial class SymbolTools(DotsiderSessionManager sessionManager)
             return $"Error: '{report.Method}' has no precompiled native code"
                 + (report.Diagnostic is { } d ? $" ({d})" : "") + ".";
 
-        return JsonSerializer.Serialize(
-            new { Symbol = report.Method, analyzer.Architecture, Instructions = report.NativeInstructions },
-            DotsiderJsonOptions.Default);
+        return McpJson.Serialize(new NativeDisassemblyPayload(
+            report.Method, analyzer.Architecture, report.NativeInstructions ?? []));
     }
 }

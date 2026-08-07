@@ -188,7 +188,13 @@ internal static class RiscV64Decoder
     {
         var mnemonic = funct3 switch
         {
-            0 => "beq", 1 => "bne", 4 => "blt", 5 => "bge", 6 => "bltu", 7 => "bgeu", _ => null
+            0 => "beq",
+            1 => "bne",
+            4 => "blt",
+            5 => "bge",
+            6 => "bltu",
+            7 => "bgeu",
+            _ => null
         };
         if (mnemonic is null)
             return NativeDecoderSupport.Fallback(address, bytes, ".word", $"0x{BinaryPrimitives.ReadUInt32LittleEndian(bytes):x8}");
@@ -218,7 +224,12 @@ internal static class RiscV64Decoder
         var unary = funct3 == 1 ? ZbbUnaryImm(bytes) : null;
         var mnemonic = funct3 switch
         {
-            0 => "addi", 2 => "slti", 3 => "sltiu", 4 => "xori", 6 => "ori", 7 => "andi",
+            0 => "addi",
+            2 => "slti",
+            3 => "sltiu",
+            4 => "xori",
+            6 => "ori",
+            7 => "andi",
             1 => unary ?? "slli",
             5 => funct7 == 0x20 ? "srai" : funct7 == 0x30 ? "rori" : "srli",
             _ => null
@@ -249,14 +260,34 @@ internal static class RiscV64Decoder
     {
         var mnemonic = (funct7, funct3) switch
         {
-            (0x00, 0) => "add", (0x20, 0) => "sub", (0x00, 1) => "sll", (0x00, 2) => "slt",
-            (0x00, 3) => "sltu", (0x00, 4) => "xor", (0x00, 5) => "srl", (0x20, 5) => "sra",
-            (0x00, 6) => "or", (0x00, 7) => "and", (0x01, 0) => "mul", (0x01, 4) => "div",
-            (0x01, 5) => "divu", (0x01, 6) => "rem", (0x01, 7) => "remu",
-            (0x20, 4) => "xnor", (0x20, 6) => "orn", (0x20, 7) => "andn",
-            (0x05, 1) => "clmul", (0x05, 2) => "clmulr", (0x05, 3) => "clmulh",
-            (0x05, 4) => "min", (0x05, 5) => "minu", (0x05, 6) => "max", (0x05, 7) => "maxu",
-            (0x10, 2) => "sh1add", (0x10, 4) => "sh2add", (0x10, 6) => "sh3add",
+            (0x00, 0) => "add",
+            (0x20, 0) => "sub",
+            (0x00, 1) => "sll",
+            (0x00, 2) => "slt",
+            (0x00, 3) => "sltu",
+            (0x00, 4) => "xor",
+            (0x00, 5) => "srl",
+            (0x20, 5) => "sra",
+            (0x00, 6) => "or",
+            (0x00, 7) => "and",
+            (0x01, 0) => "mul",
+            (0x01, 4) => "div",
+            (0x01, 5) => "divu",
+            (0x01, 6) => "rem",
+            (0x01, 7) => "remu",
+            (0x20, 4) => "xnor",
+            (0x20, 6) => "orn",
+            (0x20, 7) => "andn",
+            (0x05, 1) => "clmul",
+            (0x05, 2) => "clmulr",
+            (0x05, 3) => "clmulh",
+            (0x05, 4) => "min",
+            (0x05, 5) => "minu",
+            (0x05, 6) => "max",
+            (0x05, 7) => "maxu",
+            (0x10, 2) => "sh1add",
+            (0x10, 4) => "sh2add",
+            (0x10, 6) => "sh3add",
             _ => null
         };
         return mnemonic is null
@@ -268,10 +299,19 @@ internal static class RiscV64Decoder
     {
         var mnemonic = (funct7, funct3) switch
         {
-            (0x00, 0) => "addw", (0x20, 0) => "subw", (0x00, 1) => "sllw",
-            (0x00, 5) => "srlw", (0x20, 5) => "sraw", (0x01, 0) => "mulw",
-            (0x01, 4) => "divw", (0x01, 5) => "divuw", (0x01, 6) => "remw", (0x01, 7) => "remuw",
-            (0x10, 2) => "sh1add.uw", (0x10, 4) => "sh2add.uw", (0x10, 6) => "sh3add.uw",
+            (0x00, 0) => "addw",
+            (0x20, 0) => "subw",
+            (0x00, 1) => "sllw",
+            (0x00, 5) => "srlw",
+            (0x20, 5) => "sraw",
+            (0x01, 0) => "mulw",
+            (0x01, 4) => "divw",
+            (0x01, 5) => "divuw",
+            (0x01, 6) => "remw",
+            (0x01, 7) => "remuw",
+            (0x10, 2) => "sh1add.uw",
+            (0x10, 4) => "sh2add.uw",
+            (0x10, 6) => "sh3add.uw",
             _ => null
         };
         return mnemonic is null
@@ -369,9 +409,17 @@ internal static class RiscV64Decoder
         var funct7 = (word >> 25) & 0x7F;
         var mnemonic = funct7 switch
         {
-            0x00 => "fadd.s", 0x01 => "fadd.d", 0x04 => "fsub.s", 0x05 => "fsub.d",
-            0x08 => "fmul.s", 0x09 => "fmul.d", 0x0C => "fdiv.s", 0x0D => "fdiv.d",
-            0x2C => "fsqrt.s", 0x2D => "fsqrt.d", _ => null
+            0x00 => "fadd.s",
+            0x01 => "fadd.d",
+            0x04 => "fsub.s",
+            0x05 => "fsub.d",
+            0x08 => "fmul.s",
+            0x09 => "fmul.d",
+            0x0C => "fdiv.s",
+            0x0D => "fdiv.d",
+            0x2C => "fsqrt.s",
+            0x2D => "fsqrt.d",
+            _ => null
         };
         return mnemonic is null
             ? NativeDecoderSupport.Fallback(address, bytes, ".word", $"0x{word:x8}")

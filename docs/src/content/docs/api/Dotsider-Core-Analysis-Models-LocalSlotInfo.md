@@ -94,3 +94,86 @@ The first IL offset where the name is active.
 public int StartOffset { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out int, out string, out int, out int, out bool)
+
+**Parameters:**
+
+- `Slot` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `Name` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+- `StartOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `EndOffset` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `IsDebuggerHidden` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+```csharp
+public void Deconstruct(out int Slot, out string Name, out int StartOffset, out int EndOffset, out bool IsDebuggerHidden)
+```
+
+### Equals(LocalSlotInfo?)
+
+**Parameters:**
+
+- `other` ([LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(LocalSlotInfo? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(LocalSlotInfo?, LocalSlotInfo?)
+
+**Parameters:**
+
+- `left` ([LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/))
+- `right` ([LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(LocalSlotInfo? left, LocalSlotInfo? right)
+```
+
+### operator ==(LocalSlotInfo?, LocalSlotInfo?)
+
+**Parameters:**
+
+- `left` ([LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/))
+- `right` ([LocalSlotInfo](/api/dotsider.core.analysis.models.localslotinfo/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(LocalSlotInfo? left, LocalSlotInfo? right)
+```

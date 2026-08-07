@@ -42,6 +42,7 @@ public sealed partial class ScriptConventionTests : IDisposable
 
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Run-Tests.cs", readme);
+        Assert.Contains("dotnet run --file ./scripts/Verify-NativeAot.cs", readme);
         Assert.Contains("FullyQualifiedName~", runTestsScript);
         Assert.DoesNotContain("dotnet-suggest", runTestsScript);
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
@@ -237,6 +238,76 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     /// <summary>
+    /// Verifies the Native AOT CI app builds and exposes its required inputs.
+    /// Help must remain safe to invoke without publishing native applications.
+    /// The test catches file-based app compilation errors before matrix jobs run.
+    /// </summary>
+    [TestMethod]
+    public void VerifyNativeAot_BuildsAndPrintsHelp()
+    {
+        string root = FindRepositoryRoot();
+        string scriptPath = Path.Combine(root, "scripts", "Verify-NativeAot.cs");
+
+        var (exitCode, stdout, _) = RunFileApp(root, scriptPath, "-Help");
+
+        Assert.AreEqual(0, exitCode);
+        Assert.Contains("-Mode", stdout);
+        Assert.Contains("-Rid", stdout);
+        Assert.Contains("-Version", stdout);
+        Assert.Contains("Native AOT", stdout);
+    }
+
+    /// <summary>
+    /// Verifies the Native AOT workflows delegate their orchestration to the file-based app.
+    /// Musl builds stay in the pinned Alpine SDK instead of linking on a glibc host.
+    /// Installed Windows tools are checked through the command shim created by dotnet tool.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void NativeAotWorkflows_UseFileBasedAppAndCorrectBuildEnvironments()
+    {
+        string root = FindRepositoryRoot();
+        string ciWorkflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        string releaseWorkflow = File.ReadAllText(
+            Path.Combine(root, ".github", "workflows", "release.yml"));
+        string script = File.ReadAllText(Path.Combine(root, "scripts", "Verify-NativeAot.cs"));
+        int jobStart = ciWorkflow.IndexOf("  native-aot:", StringComparison.Ordinal);
+        int jobEnd = ciWorkflow.IndexOf("  deploy-tests:", jobStart, StringComparison.Ordinal);
+
+        Assert.IsGreaterThanOrEqualTo(0, jobStart);
+        Assert.IsGreaterThan(jobStart, jobEnd);
+        string job = ciWorkflow[jobStart..jobEnd];
+        Assert.Contains("dotnet run --file ./scripts/Verify-NativeAot.cs", job);
+        Assert.Contains("-Mode CI", job);
+        Assert.DoesNotContain("shell: pwsh", job);
+        Assert.DoesNotContain("shell: bash", job);
+        Assert.DoesNotContain("musl-tools", job);
+
+        int releaseStepStart = releaseWorkflow.IndexOf(
+            "      - name: Publish, test, and pack Native AOT applications",
+            StringComparison.Ordinal);
+        int releaseStepEnd = releaseWorkflow.IndexOf(
+            "      - name: Upload dotsider artifact",
+            releaseStepStart,
+            StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, releaseStepStart);
+        Assert.IsGreaterThan(releaseStepStart, releaseStepEnd);
+        string releaseStep = releaseWorkflow[releaseStepStart..releaseStepEnd];
+        Assert.Contains("dotnet run --file ./scripts/Verify-NativeAot.cs", releaseStep);
+        Assert.Contains("-Mode Release", releaseStep);
+        Assert.DoesNotContain("shell: pwsh", releaseStep);
+        Assert.DoesNotContain("shell: bash", releaseStep);
+        Assert.DoesNotContain("musl-tools", releaseStep);
+        Assert.Contains("artifacts/native-aot-release/${{ matrix.rid }}/publish", releaseWorkflow);
+        Assert.Contains("artifacts/native-aot-release/${{ matrix.rid }}/symbols", releaseWorkflow);
+        Assert.Contains("artifacts/native-aot-release/${{ matrix.rid }}/packages", releaseWorkflow);
+        Assert.DoesNotContain("path: ./symbols/", releaseWorkflow);
+
+        Assert.Contains("mcr.microsoft.com/dotnet/sdk:10.0.302-alpine3.23", script);
+        Assert.Contains("OperatingSystem.IsWindows() ? \".cmd\" : \"\"", script);
+    }
+
+    /// <summary>
     /// Verifies new top-level utility and decoder test types have three-line summaries.
     /// This keeps internal helper types documented enough for editor hovers.
     /// The file list is intentionally scoped to the new file-based app and architecture work.
@@ -251,6 +322,7 @@ public sealed partial class ScriptConventionTests : IDisposable
             "scripts/Capture-DisasmOracle.cs",
             "scripts/Run-Tests.cs",
             "scripts/ScriptSupport.cs",
+            "scripts/Verify-NativeAot.cs",
             "src/Dotsider.Core/Analysis/Disasm/NativeDecoderRegistry.cs",
             "src/Dotsider.Core/Analysis/Disasm/NativeDecoderSupport.cs",
             "src/Dotsider.Core/Analysis/Disasm/x86/X86Decoder.cs",

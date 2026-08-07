@@ -67,3 +67,83 @@ The on-disk file path the CLR would load for this identity.
 public string Path { get; init; }
 ```
 
+## Methods
+
+### Deconstruct(out AssemblyRefInfo, out string)
+
+**Parameters:**
+
+- `Identity` ([AssemblyRefInfo](/api/dotsider.core.analysis.models.assemblyrefinfo/))
+- `Path` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out AssemblyRefInfo Identity, out string Path)
+```
+
+### Equals(LoadedAssemblyEntry?)
+
+**Parameters:**
+
+- `other` ([LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(LoadedAssemblyEntry? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
+## Members
+
+### operator !=(LoadedAssemblyEntry?, LoadedAssemblyEntry?)
+
+**Parameters:**
+
+- `left` ([LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/))
+- `right` ([LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(LoadedAssemblyEntry? left, LoadedAssemblyEntry? right)
+```
+
+### operator ==(LoadedAssemblyEntry?, LoadedAssemblyEntry?)
+
+**Parameters:**
+
+- `left` ([LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/))
+- `right` ([LoadedAssemblyEntry](/api/dotsider.core.analysis.models.loadedassemblyentry/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(LoadedAssemblyEntry? left, LoadedAssemblyEntry? right)
+```

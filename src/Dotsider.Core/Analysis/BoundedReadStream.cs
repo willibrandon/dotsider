@@ -22,8 +22,7 @@ internal sealed class BoundedReadStream : Stream
         ArgumentNullException.ThrowIfNull(source);
         if (!source.CanRead)
             throw new ArgumentException("The source stream must be readable.", nameof(source));
-        if (length < 0)
-            throw new ArgumentOutOfRangeException(nameof(length));
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
 
         this.source = source;
         this.length = length;
@@ -208,7 +207,9 @@ internal sealed class BoundedReadStream : Stream
 
     private async Task<int> ReadAsyncCore(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        var bytesRead = await source.ReadAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+        var bytesRead = await source.ReadAsync(
+            buffer.AsMemory(offset, count),
+            cancellationToken).ConfigureAwait(false);
         remaining -= bytesRead;
         return bytesRead;
     }

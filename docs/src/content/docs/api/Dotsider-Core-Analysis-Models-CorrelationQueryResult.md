@@ -104,6 +104,51 @@ Creates an ambiguous result listing every matched candidate.
 public static CorrelationQueryResult Ambiguous(IReadOnlyList<CorrelationCandidate> candidates, string message)
 ```
 
+### Deconstruct(out CorrelationQueryOutcome, out CorrelationReport?, out IReadOnlyList\<CorrelationCandidate\>, out string?)
+
+**Parameters:**
+
+- `Outcome` ([CorrelationQueryOutcome](/api/dotsider.core.analysis.models.correlationqueryoutcome/))
+- `Report` ([CorrelationReport](/api/dotsider.core.analysis.models.correlationreport/))
+- `Candidates` ([IReadOnlyList\<CorrelationCandidate\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `Message` ([String](https://learn.microsoft.com/dotnet/api/system.string))
+
+```csharp
+public void Deconstruct(out CorrelationQueryOutcome Outcome, out CorrelationReport? Report, out IReadOnlyList<CorrelationCandidate> Candidates, out string? Message)
+```
+
+### Equals(CorrelationQueryResult?)
+
+**Parameters:**
+
+- `other` ([CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool Equals(CorrelationQueryResult? other)
+```
+
+### Equals(object?)
+
+**Parameters:**
+
+- `obj` ([Object](https://learn.microsoft.com/dotnet/api/system.object))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public override bool Equals(object? obj)
+```
+
+### GetHashCode()
+
+**Returns:** [Int32](https://learn.microsoft.com/dotnet/api/system.int32)
+
+```csharp
+public override int GetHashCode()
+```
+
 ### NotFound(string)
 
 Creates a not-found result explaining the miss.
@@ -132,6 +177,14 @@ Creates a resolved result carrying the correlation report.
 public static CorrelationQueryResult Resolved(CorrelationReport report)
 ```
 
+### ToString()
+
+**Returns:** [String](https://learn.microsoft.com/dotnet/api/system.string)
+
+```csharp
+public override string ToString()
+```
+
 ### Unavailable(string)
 
 Creates an unavailable result explaining why correlation could not run.
@@ -146,3 +199,30 @@ Creates an unavailable result explaining why correlation could not run.
 public static CorrelationQueryResult Unavailable(string message)
 ```
 
+## Members
+
+### operator !=(CorrelationQueryResult?, CorrelationQueryResult?)
+
+**Parameters:**
+
+- `left` ([CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/))
+- `right` ([CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator !=(CorrelationQueryResult? left, CorrelationQueryResult? right)
+```
+
+### operator ==(CorrelationQueryResult?, CorrelationQueryResult?)
+
+**Parameters:**
+
+- `left` ([CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/))
+- `right` ([CorrelationQueryResult](/api/dotsider.core.analysis.models.correlationqueryresult/))
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public static bool operator ==(CorrelationQueryResult? left, CorrelationQueryResult? right)
+```

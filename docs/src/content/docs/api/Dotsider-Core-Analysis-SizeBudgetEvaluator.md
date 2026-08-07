@@ -50,4 +50,3 @@ The report, failing only on error-severity breaches.
 ```csharp
 public static SizeBudgetReport Evaluate(IReadOnlyList<SizeBudget> budgets, MstatDiffResult diff, SizeBasis totalBasis, long currentTotalBytes, long? baselineTotalBytes, int defaultTopN = 10)
 ```
-

@@ -124,11 +124,11 @@ internal static class EhFrameReader
                     position++; // LSDA encoding
                     break;
                 case 'P':
-                {
-                    var personalityEncoding = data[position++];
-                    DecodePointer(data, ref position, personalityEncoding, fieldVa: 0); // skip the pointer
-                    break;
-                }
+                    {
+                        var personalityEncoding = data[position++];
+                        DecodePointer(data, ref position, personalityEncoding, fieldVa: 0); // skip the pointer
+                        break;
+                    }
 
                 case 'R':
                     return data[position];

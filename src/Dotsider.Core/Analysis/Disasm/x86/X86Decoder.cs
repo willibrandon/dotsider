@@ -163,7 +163,13 @@ internal static class X86Decoder
         var imm = (sbyte)ReadU8(code, ref pos);
         var mnemonic = group switch
         {
-            0 => "add", 1 => "or", 4 => "and", 5 => "sub", 6 => "xor", 7 => "cmp", _ => null
+            0 => "add",
+            1 => "or",
+            4 => "and",
+            5 => "sub",
+            6 => "xor",
+            7 => "cmp",
+            _ => null
         };
         if (mnemonic is null)
             return NativeDecoderSupport.FallbackByte(code, start, address);

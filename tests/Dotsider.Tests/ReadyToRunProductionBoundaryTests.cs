@@ -26,13 +26,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void MethodDefEntryPoints_ExactSectionBoundary_ResolvesMethod()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             [0x08, 0x01, 0x00, 0x00],
             declaredSize: 4);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         var method = Assert.ContainsSingle(
             entry => !entry.IsGenericInstantiation && entry.Token == 0x0600_0001,
@@ -59,13 +59,13 @@ public sealed class ReadyToRunProductionBoundaryTests
         }
 
         var table = BuildAbsentNativeArray(forgedCount);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             table,
             table.Length);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -79,13 +79,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void MethodDefEntryPoints_TreeRootBeyondSection_ProducesEmptyMethodModel()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             [0x08, 0x02, 0xCC, 0x00, 0x00],
             declaredSize: 2);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -99,13 +99,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void MethodDefEntryPoints_ElementEncodingBeyondSection_ProducesEmptyMethodModel()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             [0x08, 0x01, 0x00, 0x01, 0x00],
             declaredSize: 4);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -123,13 +123,13 @@ public sealed class ReadyToRunProductionBoundaryTests
         ReadyToRunSectionType sectionType)
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             sectionType,
             [0x00],
             int.MaxValue);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -143,13 +143,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void CompositeMethodDefEntryPoints_ExactSectionBoundary_ResolvesComponentMethod()
     {
         TestSkip.When(Samples.ReadyToRunCompositeImage is null, CompositeSkipReason);
-        var patched = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
             Samples.ReadyToRunCompositeImage!,
             Samples.ReadyToRunComponentLibMvid,
             [0x08, 0x01, 0x00, 0x00],
             declaredSize: 4);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunCompositeImage!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunCompositeImage!);
 
         _ = Assert.ContainsSingle(
             entry => !entry.IsGenericInstantiation
@@ -167,13 +167,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void CompositeMethodDefEntryPoints_TreeRootBeyondSection_ProducesEmptyMethodModel()
     {
         TestSkip.When(Samples.ReadyToRunCompositeImage is null, CompositeSkipReason);
-        var patched = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
+        var (Image, _) = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
             Samples.ReadyToRunCompositeImage!,
             Samples.ReadyToRunComponentLibMvid,
             [0x08, 0x02, 0xCC, 0x00, 0x00],
             declaredSize: 2);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunCompositeImage!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunCompositeImage!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -187,13 +187,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void InstanceMethodEntryPoints_ExactEmptyBoundary_RetainsOrdinaryMethods()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
             [0x00, 0x02, 0x02],
             declaredSize: 3);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsNotEmpty(analyzer.ReadyToRunMethods);
         Assert.DoesNotContain(entry => entry.IsGenericInstantiation, analyzer.ReadyToRunMethods);
@@ -209,13 +209,13 @@ public sealed class ReadyToRunProductionBoundaryTests
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var table = BuildEmptyNativeHashtable(shift: 20, entryIndexSize: 2);
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
             table,
             table.Length);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         var info = analyzer.ReadyToRunInfo;
         Assert.IsNotNull(info);
@@ -268,13 +268,13 @@ public sealed class ReadyToRunProductionBoundaryTests
             _ => throw new ArgumentOutOfRangeException(nameof(malformation)),
         };
         var (table, declaredSize) = container;
-        var patched = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
             table,
             declaredSize);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
     }
@@ -293,24 +293,24 @@ public sealed class ReadyToRunProductionBoundaryTests
             Assert.IsNotEmpty(baseline.ReadyToRunMethods);
         }
 
-        var patched = ReadyToRunImagePatcher.PatchInstanceMethodEntryPoints(
+        var (Image, TableOffset, SignatureOffset) = ReadyToRunImagePatcher.PatchInstanceMethodEntryPoints(
             Samples.ReadyToRunConsoleDll!);
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
 
         var readyToRunInfo = analyzer.ReadyToRunInfo;
         Assert.IsNotNull(readyToRunInfo);
         Assert.AreEqual(ReadyToRunStatus.Valid, readyToRunInfo.Status);
         var instanceSection = readyToRunInfo.Sections.Single(
             static section => section.Type == (int)ReadyToRunSectionType.InstanceMethodEntryPoints);
-        Assert.AreEqual(patched.TableOffset, instanceSection.FileOffset);
+        Assert.AreEqual(TableOffset, instanceSection.FileOffset);
         var entryOffsets = new R2RNativeHashtable(
-            new R2RNativeReader(patched.Image),
-            patched.TableOffset,
-            patched.TableOffset + instanceSection.Size).AllEntryOffsets().ToArray();
-        Assert.AreSequenceEqual([patched.SignatureOffset], entryOffsets);
+            new R2RNativeReader(Image),
+            TableOffset,
+            TableOffset + instanceSection.Size).AllEntryOffsets().ToArray();
+        Assert.AreSequenceEqual([SignatureOffset], entryOffsets);
 
         Assert.IsEmpty(analyzer.ReadyToRunMethods);
-        AssertDepthGuardReached(patched.Image, patched.SignatureOffset, analyzer.GetMetadataReader());
+        AssertDepthGuardReached(Image, SignatureOffset, analyzer.GetMetadataReader());
     }
 
     /// <summary>
@@ -322,27 +322,27 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void ImportFixup_Depth129_DropsOnlyAffectedSlot()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var patched = ReadyToRunImagePatcher.PatchImportMethodEntry(Samples.ReadyToRunConsoleDll!);
+        var (Image, SignatureOffset, SlotVirtualAddress, OriginalName, OriginalCount) = ReadyToRunImagePatcher.PatchImportMethodEntry(Samples.ReadyToRunConsoleDll!);
 
         using (var baseline = new AssemblyAnalyzer(Samples.ReadyToRunConsoleDll!))
         {
             var baselineMap = ReadyToRunImportMap.Build(baseline);
             Assert.IsNotNull(baselineMap);
-            Assert.IsTrue(baselineMap.TryResolve(patched.SlotVirtualAddress, out var original));
-            Assert.AreEqual(patched.OriginalName, original.Name);
-            Assert.AreEqual(patched.OriginalCount, baselineMap.Count);
+            Assert.IsTrue(baselineMap.TryResolve(SlotVirtualAddress, out var original));
+            Assert.AreEqual(OriginalName, original.Name);
+            Assert.AreEqual(OriginalCount, baselineMap.Count);
         }
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var readyToRunInfo = analyzer.ReadyToRunInfo;
         Assert.IsNotNull(readyToRunInfo);
         Assert.AreEqual(ReadyToRunStatus.Valid, readyToRunInfo.Status);
         var importMap = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotNull(importMap);
-        Assert.AreEqual(patched.OriginalCount - 1, importMap.Count);
-        Assert.IsFalse(importMap.TryResolve(patched.SlotVirtualAddress, out _));
-        AssertDepthGuardReached(patched.Image, patched.SignatureOffset, analyzer.GetMetadataReader());
+        Assert.AreEqual(OriginalCount - 1, importMap.Count);
+        Assert.IsFalse(importMap.TryResolve(SlotVirtualAddress, out _));
+        AssertDepthGuardReached(Image, SignatureOffset, analyzer.GetMetadataReader());
     }
 
     /// <summary>
@@ -378,16 +378,16 @@ public sealed class ReadyToRunProductionBoundaryTests
             _ => throw new ArgumentOutOfRangeException(nameof(invalidRow)),
         };
         var fixupKind = memberReference ? (byte)0x15 : (byte)0x14;
-        var patched = ReadyToRunImagePatcher.PatchImportFixup(
+        var (Image, FixupOffset, SlotVirtualAddress, OriginalName, OriginalCount) = ReadyToRunImagePatcher.PatchImportFixup(
             Samples.ReadyToRunConsoleDll!,
             [fixupKind, .. EncodeCompressedUInt(row)]);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var importMap = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotNull(importMap);
-        Assert.AreEqual(patched.OriginalCount - 1, importMap.Count);
-        Assert.IsFalse(importMap.TryResolve(patched.SlotVirtualAddress, out _));
+        Assert.AreEqual(OriginalCount - 1, importMap.Count);
+        Assert.IsFalse(importMap.TryResolve(SlotVirtualAddress, out _));
     }
 
     /// <summary>Verifies direct MethodDef and MemberRef fixups accept existing row one.</summary>
@@ -400,16 +400,16 @@ public sealed class ReadyToRunProductionBoundaryTests
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var fixupKind = memberReference ? (byte)0x15 : (byte)0x14;
-        var patched = ReadyToRunImagePatcher.PatchImportFixup(
+        var (Image, _, SlotVirtualAddress, _, OriginalCount) = ReadyToRunImagePatcher.PatchImportFixup(
             Samples.ReadyToRunConsoleDll!,
             [fixupKind, 0x01]);
 
-        using var analyzer = new AssemblyAnalyzer(patched.Image, Samples.ReadyToRunConsoleDll!);
+        using var analyzer = new AssemblyAnalyzer(Image, Samples.ReadyToRunConsoleDll!);
         var importMap = ReadyToRunImportMap.Build(analyzer);
 
         Assert.IsNotNull(importMap);
-        Assert.AreEqual(patched.OriginalCount, importMap.Count);
-        Assert.IsTrue(importMap.TryResolve(patched.SlotVirtualAddress, out var resolved));
+        Assert.AreEqual(OriginalCount, importMap.Count);
+        Assert.IsTrue(importMap.TryResolve(SlotVirtualAddress, out var resolved));
         Assert.IsNotEmpty(resolved.Name);
     }
 
