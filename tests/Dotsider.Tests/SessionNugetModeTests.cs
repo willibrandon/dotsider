@@ -20,7 +20,7 @@ public class SessionNugetModeTests
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
-    private static readonly string s_buildConfig = DetectBuildConfig();
+    private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
 
     private readonly SampleAssemblyFixture _samples = Samples;
     private int _nugetPid;
@@ -32,20 +32,6 @@ public class SessionNugetModeTests
 
     private NuGetPackageAnalyzer _packageAnalyzer = null!;
     private DotsiderDiagnosticsListener _listener = null!;
-
-    private static string DetectBuildConfig()
-    {
-        var parts = AppContext.BaseDirectory.Split(
-            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        for (var i = 0; i < parts.Length - 1; i++)
-        {
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        }
-
-        return "Debug";
-    }
 
     /// <summary>
     /// Prepares the fixture state before tests execute.

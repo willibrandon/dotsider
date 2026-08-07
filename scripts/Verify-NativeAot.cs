@@ -179,16 +179,25 @@ internal static class NativeAotVerificationApp
         string symbolRoot = Path.Combine(outputRoot, "symbols");
         string packageRoot = Path.Combine(outputRoot, "packages");
         string smokeOutput = Path.Combine(outputRoot, "runtime-tracing");
+        string traceTargetOutput = Path.Combine(outputRoot, "runtime-tracing-target");
 
         RecreateDirectory(repositoryRoot, outputRoot);
         Directory.CreateDirectory(nativeRoot);
         Directory.CreateDirectory(symbolRoot);
         Directory.CreateDirectory(packageRoot);
         Directory.CreateDirectory(smokeOutput);
+        Directory.CreateDirectory(traceTargetOutput);
 
         RunDotnetChecked(
             repositoryRoot,
-            ["build", "samples/HelloWorld/HelloWorld.csproj", "--configuration", "Release"]);
+            [
+                "build",
+                "samples/HelloWorld/HelloWorld.csproj",
+                "--configuration",
+                "Release",
+                "--output",
+                traceTargetOutput,
+            ]);
 
         foreach ((string name, string project, string packageId) in s_products)
         {
@@ -271,14 +280,7 @@ internal static class NativeAotVerificationApp
                 smokeOutput,
             ]);
 
-        string traceTarget = Path.Combine(
-            repositoryRoot,
-            "samples",
-            "HelloWorld",
-            "bin",
-            "Release",
-            "net10.0",
-            "HelloWorld.dll");
+        string traceTarget = Path.Combine(traceTargetOutput, "HelloWorld.dll");
         string smokeExecutable = Path.Combine(
             smokeOutput,
             "Dotsider.NativeAotSmoke" + executableExtension);

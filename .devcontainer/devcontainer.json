@@ -1,0 +1,63 @@
+{
+  "name": "dotsider",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0.302",
+      "workloads": "wasm-tools"
+    },
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "22",
+      "pnpmVersion": "10.28.0"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+      "dockerDashComposeVersion": "none"
+    }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "64gb"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "astro-build.astro-vscode",
+        "github.vscode-github-actions",
+        "ms-dotnettools.csdevkit"
+      ],
+      "settings": {
+        "dotnet.defaultSolution": "Dotsider.slnx",
+        "dotnet.preferVisualStudioCodeFileSystemWatcher": true
+      }
+    }
+  },
+  "forwardPorts": [
+    4321,
+    5174
+  ],
+  "portsAttributes": {
+    "4321": {
+      "label": "Documentation"
+    },
+    "5174": {
+      "label": "Website"
+    }
+  },
+  "remoteEnv": {
+    "Demo__SampleAssembly": "${containerWorkspaceFolder}/samples/RichLibrary/bin/devcontainer/Debug/net10.0/RichLibrary.dll",
+    "DOTSIDER_DEV_CONTAINER": "1",
+    "PATH": "${containerWorkspaceFolder}/src/Dotsider/bin/devcontainer/Debug/net10.0:/home/vscode/.dotnet/tools:${containerEnv:PATH}"
+  },
+  "postCreateCommand": [
+    "dotnet",
+    "run",
+    "--file",
+    "./scripts/Initialize-DevContainer.cs"
+  ],
+  "waitFor": "postCreateCommand",
+  "remoteUser": "vscode"
+}

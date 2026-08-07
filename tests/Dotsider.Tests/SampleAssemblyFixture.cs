@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -384,7 +385,8 @@ internal class SampleAssemblyFixture
         await Task.WhenAll(builds);
         await PublishWasmProject("samples/WasmConsole", runAotCompilation: true);
 
-        var config = "Debug";
+        var config = TestProcessEnvironment.DebugBuildConfiguration;
+        var releaseConfig = TestProcessEnvironment.ReleaseBuildConfiguration;
         var tfm = "net10.0";
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
 
@@ -438,7 +440,7 @@ internal class SampleAssemblyFixture
 
         var rid = RuntimeInformation.RuntimeIdentifier;
         NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
-            "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
+            "bin", releaseConfig, tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
         // ILC sidecars copied next to the exe by the sample's publish target. Null when the
         // toolchain did not produce them, so sidecar tests skip rather than fail.
@@ -460,7 +462,7 @@ internal class SampleAssemblyFixture
 
         // The pre-ILC inputs stay in the intermediate tree — the sidecar probe's territory.
         var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
-            "obj", "Release", tfm, rid);
+            "obj", releaseConfig, tfm, rid);
         NativeAotConsoleManagedDll = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.dll"));
         NativeAotConsoleManagedPdb = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.pdb"));
         NativeAotConsoleIlcRsp = ExistingPathOrNull(
@@ -469,7 +471,7 @@ internal class SampleAssemblyFixture
         // V2 of the AOT sample: same AssemblyName, so the publish output is also named
         // NativeAotConsole — the project folder is what tells the two builds apart.
         var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
-            "bin", "Release", tfm, rid, "publish");
+            "bin", releaseConfig, tfm, rid, "publish");
         NativeAotConsoleV2Exe = ExistingPathOrNull(
             Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}"));
         NativeAotConsoleV2Mstat = ExistingPathOrNull(
@@ -483,45 +485,55 @@ internal class SampleAssemblyFixture
             "NativeAotArtifactsConsole", $"NativeAotArtifactsConsole{apphostExt}");
 
         var libPublishDir = Path.Combine(_repoRoot, "samples", "NativeAotLibrary",
-            "bin", "Release", tfm, rid, "publish");
+            "bin", releaseConfig, tfm, rid, "publish");
         NativeAotLibraryBinary =
             ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dll"))
             ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.so"))
             ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dylib"));
 
         HardwareIntrinsicsExe = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "HardwareIntrinsics",
-            "bin", "Release", tfm, rid, "publish", $"HardwareIntrinsics{apphostExt}"));
+            "bin", releaseConfig, tfm, rid, "publish", $"HardwareIntrinsics{apphostExt}"));
 
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
-            "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
+            "bin", releaseConfig, tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
         // ReadyToRun publish outputs. Null when crossgen2 did not run for this RID, so R2R tests skip.
         var r2rConsoleDir = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, rid, "publish");
-        ReadyToRunConsoleDll = ExistingPathOrNull(Path.Combine(r2rConsoleDir, "ReadyToRunConsole.dll"));
+            "bin", releaseConfig, tfm, rid, "publish");
+        ReadyToRunConsoleDll = ExistingReadyToRunPathOrNull(
+            Path.Combine(r2rConsoleDir, "ReadyToRunConsole.dll"));
         ReadyToRunConsoleExe = ExistingPathOrNull(Path.Combine(r2rConsoleDir, $"ReadyToRunConsole{apphostExt}"));
-        ReadyToRunConsoleX86Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "win-x86", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleArm32Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "linux-arm", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleRiscV64Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "linux-riscv64", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleLoongArch64Dll = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "linux-loongarch64", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleX86Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+            _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
+            tfm, "win-x86", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleArm32Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+            _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
+            tfm, "linux-arm", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleRiscV64Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+            _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
+            tfm, "linux-riscv64", "publish", "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleLoongArch64Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+            _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
+            tfm, "linux-loongarch64", "publish", "ReadyToRunConsole.dll"));
         ReadyToRunConsoleWasmNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
+            "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
         WasmConsoleNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
-            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
+            "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
         WasmConsoleAotNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
-            "bin", "Release", tfm, "browser-wasm-aot", "publish", "dotnet.native.wasm"));
+            "bin", releaseConfig, tfm, "browser-wasm-aot", "publish", "dotnet.native.wasm"));
         WasmConsoleWebcilWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
-            "bin", "Release", tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm"));
+            "bin", releaseConfig, tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm"));
 
         var r2rCompositeDir = Path.Combine(_repoRoot, "samples", "ReadyToRunComposite",
-            "bin", "Release", tfm, rid, "publish");
-        ReadyToRunCompositeImage = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.r2r.dll"));
-        ReadyToRunCompositeComponent = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.dll"));
-        ReadyToRunComponentLibDll = ExistingPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComponentLib.dll"));
+            "bin", releaseConfig, tfm, rid, "publish");
+        ReadyToRunCompositeImage = ExistingReadyToRunPathOrNull(
+            Path.Combine(r2rCompositeDir, "ReadyToRunComposite.r2r.dll"));
+        ReadyToRunCompositeComponent = ReadyToRunCompositeImage is null
+            ? null
+            : ExistingReadyToRunPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.dll"));
+        ReadyToRunComponentLibDll = ReadyToRunCompositeImage is null
+            ? null
+            : ExistingReadyToRunPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComponentLib.dll"));
         if (ReadyToRunCompositeComponent is not null)
             ReadyToRunCompositeComponentMvid = ReadModuleMvid(ReadyToRunCompositeComponent);
         if (ReadyToRunComponentLibDll is not null)
@@ -614,8 +626,11 @@ internal class SampleAssemblyFixture
 
     private string? FindArtifactsPublishOutput(string project, string fileName)
     {
+        var artifactsDirectory = TestProcessEnvironment.IsDevelopmentContainer
+            ? Path.Combine("artifacts", "devcontainer")
+            : "artifacts";
         var publishRoot = Path.Combine(
-            _repoRoot, "samples", project, "artifacts", "publish", project);
+            _repoRoot, "samples", project, artifactsDirectory, "publish", project);
         if (!Directory.Exists(publishRoot)) return null;
 
         foreach (var pivotDir in Directory.GetDirectories(publishRoot))
@@ -632,6 +647,31 @@ internal class SampleAssemblyFixture
 
     private static string? ExistingPathOrNull(string path)
         => File.Exists(path) ? path : null;
+
+    /// <summary>
+    /// Returns an existing readable PE path and rejects partial publish outputs.
+    /// </summary>
+    internal static string? ExistingReadyToRunPathOrNull(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            using var stream = File.OpenRead(path);
+            using var reader = new PEReader(stream);
+            _ = reader.HasMetadata;
+            return path;
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
 
     private static string? ExistingDirOrNull(string path)
         => Directory.Exists(path) ? path : null;
@@ -661,7 +701,8 @@ internal class SampleAssemblyFixture
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} -v q",
+                Arguments = $"publish -c {TestProcessEnvironment.ReleaseBuildConfiguration} "
+                    + $"-r {RuntimeInformation.RuntimeIdentifier} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -673,7 +714,14 @@ internal class SampleAssemblyFixture
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            if (relativePath.EndsWith("NativeAotArtifactsConsole", StringComparison.Ordinal))
+            {
+                TestProcessEnvironment.ConfigureArtifactsBuild(psi);
+            }
+            else
+            {
+                TestProcessEnvironment.ConfigureBuild(psi);
+            }
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -719,22 +767,39 @@ internal class SampleAssemblyFixture
         try
         {
             var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectName = Path.GetFileName(projectDir);
+            var imageName = projectName.Equals("ReadyToRunComposite", StringComparison.Ordinal)
+                ? $"{projectName}.r2r.dll"
+                : $"{projectName}.dll";
+            var imagePath = Path.Combine(
+                projectDir,
+                "bin",
+                TestProcessEnvironment.ReleaseBuildConfiguration,
+                "net10.0",
+                rid,
+                "publish",
+                imageName);
+            if (File.Exists(imagePath) && ExistingReadyToRunPathOrNull(imagePath) is null)
+                File.Delete(imagePath);
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {rid} "
+                Arguments = $"publish -c {TestProcessEnvironment.ReleaseBuildConfiguration} -r {rid} "
                     + $"--self-contained {(selfContained ? "true" : "false")} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
+            if (File.Exists(imagePath) && ExistingReadyToRunPathOrNull(imagePath) is null)
+                File.Delete(imagePath);
             // A non-zero exit means crossgen2 is unavailable for this RID; leave the outputs absent.
         }
         finally
@@ -751,8 +816,9 @@ internal class SampleAssemblyFixture
     private async Task PublishWasmProject(string relativePath, bool runAotCompilation = false)
     {
         var wasmRid = runAotCompilation ? "browser-wasm-aot" : "browser-wasm";
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", wasmRid, "publish", "dotnet.native.wasm");
+            "bin", configuration, "net10.0", wasmRid, "publish", "dotnet.native.wasm");
         if (File.Exists(expectedOutput))
             return;
 
@@ -776,13 +842,13 @@ internal class SampleAssemblyFixture
         try
         {
             var projectDir = Path.Combine(_repoRoot, relativePath);
-            var arguments = "publish -c Release -r browser-wasm --self-contained true "
+            var arguments = $"publish -c {configuration} -r browser-wasm --self-contained true "
                 + "-p:PublishReadyToRun=false -p:WasmEmitSymbolMap=true ";
             if (runAotCompilation)
             {
                 arguments += "-p:RunAOTCompilation=true "
-                    + "-p:WasmAppDir=bin\\Release\\net10.0\\browser-wasm-aot\\AppBundle "
-                    + "-p:PublishDir=bin\\Release\\net10.0\\browser-wasm-aot\\publish\\ ";
+                    + $"-p:WasmAppDir=bin\\{configuration}\\net10.0\\browser-wasm-aot\\AppBundle "
+                    + $"-p:PublishDir=bin\\{configuration}\\net10.0\\browser-wasm-aot\\publish\\ ";
             }
 
             var psi = new ProcessStartInfo
@@ -794,7 +860,7 @@ internal class SampleAssemblyFixture
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
@@ -840,13 +906,15 @@ internal class SampleAssemblyFixture
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {RuntimeInformation.RuntimeIdentifier} --self-contained -p:PublishSingleFile=true -v q",
+                Arguments = $"publish -c {TestProcessEnvironment.ReleaseBuildConfiguration} "
+                    + $"-r {RuntimeInformation.RuntimeIdentifier} --self-contained "
+                    + "-p:PublishSingleFile=true -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -891,13 +959,13 @@ internal class SampleAssemblyFixture
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "build --no-restore -c Debug -v q",
+                Arguments = $"build --no-restore -c {TestProcessEnvironment.DebugBuildConfiguration} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();

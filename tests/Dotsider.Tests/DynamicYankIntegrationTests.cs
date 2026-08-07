@@ -469,43 +469,83 @@ public class DynamicYankIntegrationTests : IDisposable
     {
         var (terminal, app, ct) = Launch(Samples.MinimalApiDll);
         var runTask = app.RunAsync(ct);
+        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(15));
 
-        // Launch trace, wait for running, switch to Summary (via Counters)
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
-            .WaitUntil(s => s.ContainsText("Assembly Name"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.D8)
-            .WaitUntil(s => s.ContainsText("EventPipe") || s.ContainsText("Launch"), TimeSpan.FromSeconds(10))
-            .Key(Hex1bKey.Enter)
-            .WaitUntil(_ => _state!.Tracer?.ProcessState == TraceProcessState.Running, TimeSpan.FromSeconds(30))
-            .Key(Hex1bKey.RightArrow)
-            .WaitUntil(_ => _state!.DynamicSubTab == DynamicSubTabId.Counters, TimeSpan.FromSeconds(5))
-            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        await auto.WaitUntilAlternateScreenAsync(TimeSpan.FromSeconds(10));
+        await auto.WaitUntilTextAsync("Assembly Name", TimeSpan.FromSeconds(10));
+        await auto.KeyAsync(Hex1bKey.D8, ct);
+        await auto.WaitUntilAsync(
+            s => s.ContainsText("EventPipe") || s.ContainsText("Launch"),
+            TimeSpan.FromSeconds(10),
+            "dynamic trace controls to appear");
+        await auto.EnterAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.Tracer?.ProcessState == TraceProcessState.Running,
+            TimeSpan.FromSeconds(30),
+            "trace process to start");
+        await auto.RightAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.DynamicSubTab == DynamicSubTabId.Counters,
+            TimeSpan.FromSeconds(5),
+            "Counters sub-tab to become active");
+        await auto.WaitUntilAsync(
+            _ => IsFocusedOnEditor(_state!.DynamicCpuEditorState),
+            TimeSpan.FromSeconds(5),
+            "CPU editor to receive focus");
 
-        await TabOutOfCountersEditorsAsync(terminal, ct);
+        await auto.TabAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => IsFocusedOnEditor(_state!.DynamicMemoryEditorState),
+            TimeSpan.FromSeconds(5),
+            "memory editor to receive focus");
+        await auto.TabAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => IsFocusedOnEditor(_state!.DynamicGcEditorState),
+            TimeSpan.FromSeconds(5),
+            "GC editor to receive focus");
+        await auto.TabAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => IsFocusedOnEditor(_state!.DynamicThreadingEditorState),
+            TimeSpan.FromSeconds(5),
+            "threading editor to receive focus");
+        await auto.TabAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => !IsFocusedOnEditor(),
+            TimeSpan.FromSeconds(5),
+            "Counters editors to release focus");
 
-        await NavigateFromCountersToSummary()
-            .Build()
-            .ApplyAsync(terminal, ct);
-
-        Assert.IsTrue(IsFocusedOnEditor());
+        await auto.RightAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.DynamicSubTab == DynamicSubTabId.Output,
+            TimeSpan.FromSeconds(5),
+            "Output sub-tab to become active");
+        await auto.RightAsync(ct);
+        await auto.WaitUntilAsync(
+            _ => _state!.DynamicSubTab == DynamicSubTabId.Summary,
+            TimeSpan.FromSeconds(5),
+            "Summary sub-tab to become active");
+        await auto.WaitUntilAsync(
+            _ => IsFocusedOnEditor(_state!.DynamicSummaryEditorState),
+            TimeSpan.FromSeconds(5),
+            "summary editor to receive focus");
 
         // Capture the frozen EditorState reference while the process is running.
         // The freeze mechanism keeps this exact instance alive while focused+running.
         var frozenState = _state!.DynamicSummaryEditorState;
+        Assert.IsNotNull(frozenState);
 
         // Wait for the tracer to accumulate some data so Duration differs from the frozen snapshot
-        await new Hex1bTerminalInputSequenceBuilder()
-            .WaitUntil(_ => true, TimeSpan.FromSeconds(3))
-            .Build()
-            .ApplyAsync(terminal, ct);
+        await auto.WaitAsync(TimeSpan.FromSeconds(3), ct);
+        await auto.WaitUntilAsync(
+            _ => _state.Tracer?.ProcessState == TraceProcessState.Running
+                && IsFocusedOnEditor(frozenState)
+                && ReferenceEquals(_state.DynamicSummaryEditorState, frozenState),
+            TimeSpan.FromSeconds(5),
+            "summary editor to remain frozen while focused");
 
         // Stop the tracer via Ctrl+K (through the UI, which naturally triggers a
         // render) rather than calling Stop() directly. Direct Stop() can race with
         // the render loop's snapshot polling.
-        var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(15));
         await auto.Ctrl().KeyAsync(Hex1bKey.K, ct);
         await auto.WaitUntilTextAsync("Exited");
         await auto.WaitUntilAsync(_ => _state.DynamicSummaryEditorState != frozenState,

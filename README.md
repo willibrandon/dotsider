@@ -388,6 +388,7 @@ tests/Dotsider.Deploy.Tests/
 
 tests/Shared/                 Shared MSTest settings, assertions, and socket identifiers
 scripts/                      Test, deployment, and native-disassembly utilities
+.devcontainer/                Reproducible Linux contributor environment
 benchmarks/Dotsider.Benchmarks/ BenchmarkDotNet performance suite
 docs/                         Starlight documentation site
 deploy/                       Hosted-demo deployment and monitoring configuration

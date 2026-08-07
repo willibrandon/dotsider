@@ -7,6 +7,32 @@ namespace Dotsider.Tests;
 public class ReleaseWorkflowTests
 {
     /// <summary>
+    /// Verifies trace-host publish settings do not flow into the Core project reference.
+    /// Multiple bundled trace-host publishes must share one Core project build.
+    /// This prevents concurrent builds from writing the same Core output file.
+    /// </summary>
+    [TestMethod]
+    public void TraceHostProjectReference_RemovesPublishGlobalProperties()
+    {
+        string project = File.ReadAllText(Path.Combine(
+            TestHelpers.GetRepoRoot(),
+            "src",
+            "Dotsider.TraceHost",
+            "Dotsider.TraceHost.csproj"));
+
+        Assert.Contains("GlobalPropertiesToRemove=", project);
+        Assert.Contains("PublishAot", project);
+        Assert.Contains("PublishDir", project);
+        Assert.Contains("PublishReadyToRun", project);
+        Assert.Contains("PublishSingleFile", project);
+        Assert.Contains("PublishTrimmed", project);
+        Assert.Contains("RuntimeIdentifier", project);
+        Assert.Contains("RuntimeIdentifiers", project);
+        Assert.Contains("SelfContained", project);
+        Assert.Contains("UseAppHost", project);
+    }
+
+    /// <summary>
     /// Verifies generated winget branch commits suppress fork-side push workflows without
     /// leaking the marker into user-facing winget pull request titles.
     /// </summary>

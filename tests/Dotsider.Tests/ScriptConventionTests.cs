@@ -14,6 +14,7 @@ namespace Dotsider.Tests;
 public sealed partial class ScriptConventionTests : IDisposable
 {
     private static readonly ConcurrentDictionary<string, Lazy<bool>> s_builtFileApps = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Lock s_fileAppExecutionLock = new();
 
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "dotsider-script-tests", Guid.NewGuid().ToString("N"));
 
@@ -41,6 +42,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         string attributes = File.ReadAllText(Path.Combine(root, ".gitattributes"));
 
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
+        Assert.Contains("dotnet run --file ./scripts/Initialize-DevContainer.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Run-Tests.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Verify-NativeAot.cs", readme);
         Assert.Contains("FullyQualifiedName~", runTestsScript);
@@ -48,8 +50,102 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("#!/usr/bin/env -S dotnet --", readme);
         Assert.Contains("Current utilities", readme);
         Assert.Contains("-RuntimeRoot path/to/runtime", readme);
+        Assert.Contains("* text=auto", attributes);
         Assert.Contains("scripts/*.cs text eol=lf", attributes);
         Assert.Contains("scripts/**/*.cs text eol=lf", attributes);
+        Assert.Contains("#:package System.CommandLine", runTestsScript);
+        Assert.DoesNotContain("#:package System.CommandLine@", runTestsScript);
+    }
+
+    /// <summary>
+    /// Verifies the development container pins the repository toolchain and uses the initializer app.
+    /// Native tools, documentation dependencies, Docker isolation, and the Hex1b CLI stay reproducible.
+    /// The validation workflow catches upstream image or feature changes before contributors do.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void DevContainerConfiguration_ProvidesCompleteLinuxEnvironment()
+    {
+        string root = FindRepositoryRoot();
+        string configuration = File.ReadAllText(Path.Combine(root, ".devcontainer", "devcontainer.json"));
+        string dockerfile = File.ReadAllText(Path.Combine(root, ".devcontainer", "Dockerfile"));
+        string picketIgnore = File.ReadAllText(Path.Combine(root, ".devcontainer", "picket-image.ignore"));
+        string initializer = File.ReadAllText(Path.Combine(root, "scripts", "Initialize-DevContainer.cs"));
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "dev-container.yml"));
+
+        Assert.Contains("mcr.microsoft.com/devcontainers/base:noble", dockerfile);
+        Assert.Contains("clang", dockerfile);
+        Assert.Contains("llvm", dockerfile);
+        Assert.Contains("zlib1g-dev", dockerfile);
+        Assert.Contains("\"version\": \"10.0.302\"", configuration);
+        Assert.Contains("\"workloads\": \"wasm-tools\"", configuration);
+        Assert.Contains("\"version\": \"22\"", configuration);
+        Assert.Contains("\"pnpmVersion\": \"10.28.0\"", configuration);
+        Assert.Contains("docker-in-docker:4", configuration);
+        Assert.DoesNotContain("docker-outside-of-docker", configuration);
+        Assert.Contains("Demo__SampleAssembly", configuration);
+        Assert.Contains("\"DOTSIDER_DEV_CONTAINER\": \"1\"", configuration);
+        string buildProperties = File.ReadAllText(Path.Combine(root, "Directory.Build.props"));
+        Assert.Contains("<BaseOutputPath>bin/devcontainer/</BaseOutputPath>", buildProperties);
+        Assert.Contains("<BaseIntermediateOutputPath>obj/devcontainer/</BaseIntermediateOutputPath>", buildProperties);
+        Assert.Contains(
+            "$(MSBuildProjectDirectory)/artifacts/devcontainer",
+            buildProperties);
+        Assert.Contains(
+            "<DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;artifacts/**</DefaultItemExcludes>",
+            buildProperties);
+        Assert.Contains("'$(DOTSIDER_FIXTURE_BUILD)' != '1'", buildProperties);
+        Assert.Contains("'$(FileBasedProgram)' != 'true'", buildProperties);
+        Assert.Contains("'$(Configuration)' == 'DevContainerDebug'", buildProperties);
+        Assert.Contains("'$(Configuration)' == 'DevContainerRelease'", buildProperties);
+        Assert.Contains("<DefineConstants>$(DefineConstants);DEBUG</DefineConstants>", buildProperties);
+        Assert.Contains("<Optimize>false</Optimize>", buildProperties);
+        Assert.Contains("<Optimize>true</Optimize>", buildProperties);
+        Assert.Contains("Initialize-DevContainer.cs", configuration);
+        Assert.Contains("\"waitFor\": \"postCreateCommand\"", configuration);
+        Assert.Contains("\"dotnet.preferVisualStudioCodeFileSystemWatcher\": true", configuration);
+        Assert.Contains("Directory.Packages.props", initializer);
+        Assert.Contains("RestoreFileApps(repositoryRoot)", initializer);
+        Assert.Contains("[\"restore\", fileApp, \"--nologo\", \"--verbosity\", \"quiet\"]", initializer);
+        Assert.DoesNotContain("[\"build\", fileApp", initializer);
+        Assert.Contains("Capture-DisasmOracle.cs", initializer);
+        Assert.Contains("Deploy-Website.cs", initializer);
+        Assert.Contains("Hex1b.Tool", initializer);
+        Assert.DoesNotContain("Hex1b.McpServer", initializer);
+        Assert.Contains("Run-Tests.cs", initializer);
+        Assert.Contains("Verify-NativeAot.cs", initializer);
+        Assert.Contains("safe.directory", initializer);
+        Assert.Contains("[\"CI\"] = \"true\"", initializer);
+        Assert.Contains("devcontainers/ci@v0.3", workflow);
+        Assert.Contains("dotnet build --no-restore", workflow);
+        Assert.Contains("imageName: dotsider-devcontainer", workflow);
+        Assert.Contains("imageTag: ci", workflow);
+        Assert.Contains("Picket --version 0.2.9", workflow);
+        Assert.Contains("--docker-archive ${{ runner.temp }}/dotsider-devcontainer.tar", workflow);
+        Assert.Contains("--ignore-path .devcontainer/picket-image.ignore", workflow);
+        Assert.Contains("--redact 100", workflow);
+        Assert.Contains("--exit-code 1", workflow);
+        Assert.Contains("actions/upload-artifact@v7", workflow);
+        Assert.Contains("sha256:03aebbff795f9aedefa7c850889fa674e55d5a43b8b1bb8fc711e1cdd6bb3582", picketIgnore);
+    }
+
+    /// <summary>
+    /// Verifies the development container initializer builds and exposes safe usage text.
+    /// Help must not restore dependencies or change the developer's global tool installation.
+    /// The real initialization path is exercised when CI creates the development container.
+    /// </summary>
+    [TestMethod]
+    public void InitializeDevContainer_BuildsAndPrintsHelp()
+    {
+        string root = FindRepositoryRoot();
+        string scriptPath = Path.Combine(root, "scripts", "Initialize-DevContainer.cs");
+
+        var (exitCode, stdout, _) = RunFileApp(root, scriptPath, "--help");
+
+        Assert.AreEqual(0, exitCode);
+        Assert.Contains("development container", stdout);
+        Assert.Contains("Hex1b.Tool", stdout);
+        Assert.DoesNotContain("Hex1b.McpServer", stdout);
     }
 
     /// <summary>
@@ -229,7 +325,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void RunTests_BuildsAndPrintsHelp()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = CopyRunTestsApp(root);
+        string scriptPath = Path.Combine(root, "scripts", "Run-Tests.cs");
 
         var (runExitCode, stdout, _) = RunFileApp(root, scriptPath, "-Help");
         Assert.AreEqual(0, runExitCode);
@@ -305,6 +401,8 @@ public sealed partial class ScriptConventionTests : IDisposable
 
         Assert.Contains("mcr.microsoft.com/dotnet/sdk:10.0.302-alpine3.23", script);
         Assert.Contains("OperatingSystem.IsWindows() ? \".cmd\" : \"\"", script);
+        Assert.Contains("runtime-tracing-target", script);
+        Assert.Contains("\"--output\"", script);
     }
 
     /// <summary>
@@ -373,7 +471,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         {
             startInfo.ArgumentList.Add(argument);
         }
-        TestProcessEnvironment.RemoveCodeCoverageVariables(startInfo);
+        TestProcessEnvironment.ConfigureFileApp(startInfo);
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
         string stdout = process.StandardOutput.ReadToEnd();
@@ -387,33 +485,23 @@ public sealed partial class ScriptConventionTests : IDisposable
         return (process.ExitCode, stdout, stderr);
     }
 
-    private string CopyRunTestsApp(string root)
-    {
-        string scriptsRoot = Path.Combine(_tempRoot, "run-tests-app", "scripts");
-        Directory.CreateDirectory(scriptsRoot);
-
-        File.Copy(
-            Path.Combine(root, "scripts", "ScriptSupport.cs"),
-            Path.Combine(scriptsRoot, "ScriptSupport.cs"));
-        string scriptPath = Path.Combine(scriptsRoot, "Run-Tests.cs");
-        File.Copy(Path.Combine(root, "scripts", "Run-Tests.cs"), scriptPath);
-        return scriptPath;
-    }
-
     private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, params string[] arguments)
     {
-        EnsureFileAppBuilt(workingDirectory, scriptPath);
-
-        var dotnetArguments = new List<string>
+        lock (s_fileAppExecutionLock)
         {
-            "run",
-            "--file",
-            scriptPath,
-            "--no-build",
-            "--",
-        };
-        dotnetArguments.AddRange(arguments);
-        return RunDotnet(workingDirectory, [.. dotnetArguments]);
+            EnsureFileAppBuilt(workingDirectory, scriptPath);
+
+            var dotnetArguments = new List<string>
+            {
+                "run",
+                "--file",
+                scriptPath,
+                "--no-build",
+                "--",
+            };
+            dotnetArguments.AddRange(arguments);
+            return RunDotnet(workingDirectory, [.. dotnetArguments]);
+        }
     }
 
     private static void EnsureFileAppBuilt(string workingDirectory, string scriptPath)
@@ -423,7 +511,14 @@ public sealed partial class ScriptConventionTests : IDisposable
             fullPath,
             path => new Lazy<bool>(() =>
             {
-                var (exitCode, _, _) = RunDotnet(workingDirectory, "build", path, "--nologo", "--verbosity", "quiet");
+                var (exitCode, _, _) = RunDotnet(
+                    workingDirectory,
+                    "build",
+                    path,
+                    "--no-incremental",
+                    "--nologo",
+                    "--verbosity",
+                    "quiet");
                 Assert.AreEqual(0, exitCode);
                 return true;
             }));

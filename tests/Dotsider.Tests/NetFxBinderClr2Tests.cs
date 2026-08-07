@@ -356,10 +356,11 @@ public sealed class NetFxBinderClr2Tests
     private static string SignedSampleDll()
     {
         // Use the CodeBaseLib.dll the fixture builds — it's strong-named with a known PKT
-        // and lives under samples/NetFxBindingRedirects.Clr2.CodeBaseLib/bin/Debug/net35.
+        // and lives under the fixture's isolated Debug-equivalent output directory.
         var repoRoot = TestHelpers.GetRepoRoot();
         var dll = Path.Combine(repoRoot, "samples", "NetFxBindingRedirects.Clr2.CodeBaseLib",
-            "bin", "Debug", "net35", "NetFxBindingRedirects.Clr2.CodeBaseLib.dll");
+            "bin", TestProcessEnvironment.DebugBuildConfiguration, "net35",
+            "NetFxBindingRedirects.Clr2.CodeBaseLib.dll");
         Assert.IsTrue(File.Exists(dll), $"Signed sample DLL not built at {dll}");
         return dll;
     }

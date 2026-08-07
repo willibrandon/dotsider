@@ -28,6 +28,67 @@ internal static class TestProcessEnvironment
     };
 
     /// <summary>
+    /// Gets the isolated configuration used for fixture Debug builds in the development container.
+    /// </summary>
+    internal static string DebugBuildConfiguration => IsDevelopmentContainer ? "DevContainerDebug" : "Debug";
+
+    /// <summary>
+    /// Gets the isolated configuration used for fixture Release builds in the development container.
+    /// </summary>
+    internal static string ReleaseBuildConfiguration => IsDevelopmentContainer ? "DevContainerRelease" : "Release";
+
+    /// <summary>
+    /// Gets the configuration containing the currently executing test assembly.
+    /// </summary>
+    internal static string CurrentBuildConfiguration
+        => GetBuildConfiguration(AppContext.BaseDirectory);
+
+    /// <summary>
+    /// Extracts the configuration from a conventional or development-container output path.
+    /// </summary>
+    /// <param name="baseDirectory">The application base directory.</param>
+    /// <returns>The detected configuration, or Debug when no output segment is present.</returns>
+    internal static string GetBuildConfiguration(string baseDirectory)
+    {
+        string[] parts = baseDirectory.Split(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
+        for (var index = 0; index < parts.Length - 1; index++)
+        {
+            if (!parts[index].Equals("bin", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            return parts[index + 1].Equals("devcontainer", StringComparison.OrdinalIgnoreCase)
+                && index + 2 < parts.Length
+                ? parts[index + 2]
+                : parts[index + 1];
+        }
+
+        return "Debug";
+    }
+
+    /// <summary>
+    /// Gets whether the current test process is running inside the dotsider development container.
+    /// </summary>
+    internal static bool IsDevelopmentContainer =>
+        string.Equals(Environment.GetEnvironmentVariable("DOTSIDER_DEV_CONTAINER"), "1", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Resolves a project's build output directory for the active host or development container.
+    /// </summary>
+    /// <param name="projectDirectory">The project directory.</param>
+    /// <param name="configuration">The build configuration.</param>
+    /// <param name="targetFramework">The target framework directory.</param>
+    /// <returns>The absolute project output directory.</returns>
+    internal static string GetProjectOutputDirectory(
+        string projectDirectory,
+        string configuration,
+        string targetFramework) =>
+        IsDevelopmentContainer
+            ? Path.Combine(projectDirectory, "bin", "devcontainer", configuration, targetFramework)
+            : Path.Combine(projectDirectory, "bin", configuration, targetFramework);
+
+    /// <summary>
     /// Removes inherited code-coverage profiler variables from <paramref name="startInfo"/>.
     /// </summary>
     /// <param name="startInfo">The child process start info to sanitize.</param>
@@ -35,6 +96,52 @@ internal static class TestProcessEnvironment
     {
         foreach (var variable in CodeCoverageEnvironmentVariables)
             startInfo.Environment.Remove(variable);
+    }
+
+    /// <summary>
+    /// Removes profiler variables and gives fixture builds an isolated, conventional intermediate layout.
+    /// </summary>
+    /// <param name="startInfo">The child build process start info to configure.</param>
+    internal static void ConfigureBuild(ProcessStartInfo startInfo)
+    {
+        RemoveCodeCoverageVariables(startInfo);
+        if (!IsDevelopmentContainer)
+            return;
+
+        startInfo.Environment["BaseIntermediateOutputPath"] = "obj/";
+        startInfo.Environment["MSBuildProjectExtensionsPath"] = "obj/devcontainer/";
+        startInfo.Environment["DOTSIDER_FIXTURE_BUILD"] = "1";
+        startInfo.Environment.Remove("DefaultItemExcludes");
+    }
+
+    /// <summary>
+    /// Removes repository build overrides so file-based apps retain their SDK-managed cache layout.
+    /// </summary>
+    /// <param name="startInfo">The file-based app process start info to configure.</param>
+    internal static void ConfigureFileApp(ProcessStartInfo startInfo)
+    {
+        RemoveCodeCoverageVariables(startInfo);
+        if (!IsDevelopmentContainer)
+            return;
+
+        startInfo.Environment.Remove("BaseIntermediateOutputPath");
+        startInfo.Environment.Remove("DefaultItemExcludes");
+        startInfo.Environment.Remove("MSBuildProjectExtensionsPath");
+    }
+
+    /// <summary>
+    /// Removes repository overrides so UseArtifactsOutput can own the fixture's isolated layout.
+    /// </summary>
+    /// <param name="startInfo">The artifacts-layout build process start info to configure.</param>
+    internal static void ConfigureArtifactsBuild(ProcessStartInfo startInfo)
+    {
+        ConfigureFileApp(startInfo);
+        if (IsDevelopmentContainer)
+        {
+            startInfo.Environment["ArtifactsPath"] = "artifacts/devcontainer/";
+            startInfo.Environment["DefaultItemExcludes"] = "obj/**;bin/**;artifacts/**";
+            startInfo.Environment["DOTSIDER_FIXTURE_BUILD"] = "1";
+        }
     }
 
     /// <summary>

@@ -15,7 +15,7 @@ public partial class McpCliTests
     private static readonly string s_projectPath = Path.Combine(
         FindRepoRoot(), "src", "Dotsider.Mcp");
 
-    private static readonly string s_buildConfig = DetectBuildConfig();
+    private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
 
     /// <summary>
     /// --help prints usage text identifying the binary and exits with success.
@@ -53,7 +53,11 @@ public partial class McpCliTests
         // Launch the built DLL directly instead of going through `dotnet run`
         // which has project resolution overhead that can exceed the timeout.
         var dllPath = Path.Combine(
-            FindRepoRoot(), "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0", "dotsider-mcp.dll");
+            TestProcessEnvironment.GetProjectOutputDirectory(
+                s_projectPath,
+                s_buildConfig,
+                "net10.0"),
+            "dotsider-mcp.dll");
         Assert.IsTrue(File.Exists(dllPath), $"dotsider-mcp.dll not found: {dllPath}");
 
         await using var client = await McpClient.CreateAsync(
@@ -105,9 +109,15 @@ public partial class McpCliTests
     {
         var repoRoot = FindRepoRoot();
         var dotsiderExe = Path.Combine(
-            repoRoot, "src", "Dotsider", "bin", s_buildConfig, "net10.0", "dotsider");
-        var mcpDir = Path.Combine(
-            repoRoot, "src", "Dotsider.Mcp", "bin", s_buildConfig, "net10.0");
+            TestProcessEnvironment.GetProjectOutputDirectory(
+                Path.Combine(repoRoot, "src", "Dotsider"),
+                s_buildConfig,
+                "net10.0"),
+            "dotsider");
+        var mcpDir = TestProcessEnvironment.GetProjectOutputDirectory(
+            Path.Combine(repoRoot, "src", "Dotsider.Mcp"),
+            s_buildConfig,
+            "net10.0");
 
         Assert.IsTrue(File.Exists(dotsiderExe), $"dotsider not found: {dotsiderExe}");
         Assert.IsTrue(File.Exists(Path.Combine(mcpDir, "dotsider-mcp")),
@@ -197,19 +207,6 @@ public partial class McpCliTests
         while (dir is not null && !Directory.Exists(Path.Combine(dir, ".git")))
             dir = Path.GetDirectoryName(dir);
         return dir ?? throw new InvalidOperationException("Could not find repo root");
-    }
-
-    private static string DetectBuildConfig()
-    {
-        // BaseDirectory is e.g. .../bin/MyConfig/net10.0/ — extract the config segment
-        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        for (var i = 0; i < parts.Length - 1; i++)
-        {
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        }
-
-        return "Debug";
     }
 
     [GeneratedRegex(@"\e\[[^@-~]*[@-~]")]

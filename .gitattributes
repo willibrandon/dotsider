@@ -1,5 +1,8 @@
+* text=auto
+
 scripts/*.cs text eol=lf
 scripts/**/*.cs text eol=lf
+.devcontainer/* text eol=lf
 deploy/Caddyfile text eol=lf
 deploy/*.json text eol=lf
 deploy/*.service text eol=lf
