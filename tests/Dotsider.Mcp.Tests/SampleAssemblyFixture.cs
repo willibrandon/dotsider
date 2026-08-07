@@ -147,7 +147,8 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         await PublishWasmProject("samples/ReadyToRunConsole");
         await PublishWasmProject("samples/WasmConsole");
 
-        const string config = "Debug";
+        string config = TestProcessEnvironment.DebugBuildConfiguration;
+        string releaseConfig = TestProcessEnvironment.ReleaseBuildConfiguration;
         const string tfm = "net10.0";
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
 
@@ -169,22 +170,22 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
         var rid = RuntimeInformation.RuntimeIdentifier;
         SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
-            "bin", "Release", tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
+            "bin", releaseConfig, tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
         NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
-            "bin", "Release", tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
+            "bin", releaseConfig, tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
         var r2rConsoleDll = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, rid, "publish", "ReadyToRunConsole.dll");
+            "bin", releaseConfig, tfm, rid, "publish", "ReadyToRunConsole.dll");
         ReadyToRunConsoleDll = File.Exists(r2rConsoleDll) ? r2rConsoleDll : null;
         var wasmNative = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
-            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm");
+            "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm");
         ReadyToRunConsoleWasmNativeWasm = File.Exists(wasmNative) ? wasmNative : null;
         var wasmConsoleNative = Path.Combine(_repoRoot, "samples", "WasmConsole",
-            "bin", "Release", tfm, "browser-wasm", "publish", "dotnet.native.wasm");
+            "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm");
         WasmConsoleNativeWasm = File.Exists(wasmConsoleNative) ? wasmConsoleNative : null;
         var wasmConsoleWebcil = Path.Combine(_repoRoot, "samples", "WasmConsole",
-            "bin", "Release", tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm");
+            "bin", releaseConfig, tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm");
         WasmConsoleWebcilWasm = File.Exists(wasmConsoleWebcil) ? wasmConsoleWebcil : null;
 
         Assert.IsTrue(File.Exists(HelloWorldDll), $"HelloWorld.dll not found at {HelloWorldDll}");
@@ -212,7 +213,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 : null;
 
             var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
-                "obj", "Release", tfm, rid);
+                "obj", releaseConfig, tfm, rid);
             var managedDll = Path.Combine(aotObjDir, "NativeAotConsole.dll");
             NativeAotConsoleManagedDll = File.Exists(managedDll) ? managedDll : null;
         }
@@ -220,7 +221,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         // V2 of the AOT sample: same AssemblyName, so the publish output is also named
         // NativeAotConsole — the project folder is what tells the two builds apart.
         var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
-            "bin", "Release", tfm, rid, "publish");
+            "bin", releaseConfig, tfm, rid, "publish");
         var v2Exe = Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}");
         NativeAotConsoleV2Exe = File.Exists(v2Exe) ? v2Exe : null;
         var v2Mstat = Path.Combine(aotV2PublishDir, "NativeAotConsole.mstat");
@@ -248,8 +249,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     {
         // Skip if Dotsider.Tests already built this sample
         var projectName = Path.GetFileName(relativePath);
+        var configuration = TestProcessEnvironment.DebugBuildConfiguration;
         var expectedDll = Path.Combine(_repoRoot, relativePath,
-            "bin", "Debug", "net10.0", $"{projectName}.dll");
+            "bin", configuration, "net10.0", $"{projectName}.dll");
         if (File.Exists(expectedDll))
             return;
 
@@ -283,13 +285,13 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "build --no-restore -c Debug -v q",
+                Arguments = $"build --no-restore -c {configuration} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -309,9 +311,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     private async Task PublishSelfContainedProject(string relativePath)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", rid, "publish",
+            "bin", configuration, "net10.0", rid, "publish",
             $"{Path.GetFileName(relativePath)}{apphostExt}");
 
         // Skip if Dotsider.Tests already published
@@ -348,11 +351,12 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {rid} --self-contained -p:PublishSingleFile=true -v q",
+                Arguments = $"publish -c {configuration} -r {rid} --self-contained "
+                    + "-p:PublishSingleFile=true -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();
@@ -370,8 +374,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     private async Task PublishReadyToRunProject(string relativePath)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", rid, "publish", $"{Path.GetFileName(relativePath)}.dll");
+            "bin", configuration, "net10.0", rid, "publish", $"{Path.GetFileName(relativePath)}.dll");
 
         // Reuse the Dotsider.Tests publish when it already ran (framework-dependent crossgen).
         if (File.Exists(expectedOutput))
@@ -399,13 +404,13 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {rid} --self-contained false -v q",
+                Arguments = $"publish -c {configuration} -r {rid} --self-contained false -v q",
                 WorkingDirectory = Path.Combine(_repoRoot, relativePath),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -420,8 +425,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
     private async Task PublishWasmProject(string relativePath)
     {
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", "browser-wasm", "publish", "dotnet.native.wasm");
+            "bin", configuration, "net10.0", "browser-wasm", "publish", "dotnet.native.wasm");
 
         if (File.Exists(expectedOutput))
             return;
@@ -454,14 +460,14 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "publish -c Release -r browser-wasm --self-contained true "
+                Arguments = $"publish -c {configuration} -r browser-wasm --self-contained true "
                     + "-p:PublishReadyToRun=false -v q",
                 WorkingDirectory = Path.Combine(_repoRoot, relativePath),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
             var process = Process.Start(psi)!;
             _ = await process.StandardOutput.ReadToEndAsync();
             _ = await process.StandardError.ReadToEndAsync();
@@ -477,9 +483,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     private async Task PublishNativeAotProject(string relativePath)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
         var publishDir = Path.Combine(_repoRoot, relativePath,
-            "bin", "Release", "net10.0", rid, "publish");
+            "bin", configuration, "net10.0", rid, "publish");
         var expectedOutput = Path.Combine(publishDir,
             $"{Path.GetFileName(relativePath)}{apphostExt}");
         // The mstat sidecar joins the up-to-date check so a publish that predates sidecar
@@ -520,7 +527,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish -c Release -r {rid} -v q",
+                Arguments = $"publish -c {configuration} -r {rid} -v q",
                 WorkingDirectory = projectDir,
                 UseShellExecute = false,
             };
@@ -530,7 +537,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             // is not resolved from the current directory inside FOR /F).
             // Clear it for this process only.
             psi.Environment.Remove("NoDefaultCurrentDirectoryInExePath");
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();

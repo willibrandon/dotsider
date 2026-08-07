@@ -53,9 +53,9 @@
     <MakeDir Directories="$(OutDir)external" />
     <MakeDir Directories="$(OutDir)fr" />
 
-    <Copy SourceFiles="..\NetFxBindingRedirects.PrivatePathLib\bin\$(Configuration)\net48\NetFxBindingRedirects.PrivatePathLib.dll" DestinationFolder="$(OutDir)lib" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CodeBaseLib\bin\$(Configuration)\net48\NetFxBindingRedirects.CodeBaseLib.dll" DestinationFolder="$(OutDir)external" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\CulturedLib.dll" DestinationFolder="$(OutDir)" />
-    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\bin\$(Configuration)\net48\fr\CulturedLib.resources.dll" DestinationFolder="$(OutDir)fr" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.PrivatePathLib\$(BaseOutputPath)$(Configuration)\net48\NetFxBindingRedirects.PrivatePathLib.dll" DestinationFolder="$(OutDir)lib" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CodeBaseLib\$(BaseOutputPath)$(Configuration)\net48\NetFxBindingRedirects.CodeBaseLib.dll" DestinationFolder="$(OutDir)external" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\$(BaseOutputPath)$(Configuration)\net48\CulturedLib.dll" DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="..\NetFxBindingRedirects.CulturedLib\$(BaseOutputPath)$(Configuration)\net48\fr\CulturedLib.resources.dll" DestinationFolder="$(OutDir)fr" />
   </Target>
 </Project>

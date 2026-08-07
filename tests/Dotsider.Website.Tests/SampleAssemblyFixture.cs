@@ -60,10 +60,14 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     private async Task PublishWebsite()
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+        var publishDirectoryName = TestProcessEnvironment.IsDevelopmentContainer
+            ? "website-publish-devcontainer"
+            : "website-publish";
 
         WebsitePublishedDir = Path.Combine(_repoRoot, "tests", "Dotsider.Website.Tests",
-            "bin", "website-publish");
+            "bin", publishDirectoryName);
         WebsitePublishedExe = Path.Combine(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
 
         var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-website-publish.lock");
@@ -83,11 +87,13 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish src/Dotsider.Website/Dotsider.Website.csproj -c Release -r {rid} --self-contained -p:PublishSingleFile=true -o {WebsitePublishedDir} -v q",
+                Arguments = $"publish src/Dotsider.Website/Dotsider.Website.csproj -c {configuration} "
+                    + $"-r {rid} --self-contained -p:PublishSingleFile=true "
+                    + $"-o {WebsitePublishedDir} -v q",
                 WorkingDirectory = _repoRoot,
                 UseShellExecute = false,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             await process.WaitForExitAsync();
@@ -110,6 +116,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         // a unit. Place it under the website publish dir at sample/ to match the
         // deploy layout exactly; tests then exercise the same shape production runs.
         var rid = RuntimeInformation.RuntimeIdentifier;
+        var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         SamplePublishedDir = Path.Combine(WebsitePublishedDir, "sample");
         RichLibraryDll = Path.Combine(SamplePublishedDir, "RichLibrary.dll");
 
@@ -138,13 +145,14 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"publish samples/RichLibrary/RichLibrary.csproj -c Release -r {rid} -o {SamplePublishedDir} -v q",
+                Arguments = $"publish samples/RichLibrary/RichLibrary.csproj -c {configuration} "
+                    + $"-r {rid} -o {SamplePublishedDir} -v q",
                 WorkingDirectory = _repoRoot,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            TestProcessEnvironment.RemoveCodeCoverageVariables(psi);
+            TestProcessEnvironment.ConfigureBuild(psi);
 
             var process = Process.Start(psi)!;
             var stdout = await process.StandardOutput.ReadToEndAsync();

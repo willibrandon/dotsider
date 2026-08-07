@@ -1,0 +1,98 @@
+name: Dev container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/dev-container.yml'
+      - '.gitattributes'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'docs/package.json'
+      - 'docs/pnpm-lock.yaml'
+      - 'scripts/Directory.Build.props'
+      - 'scripts/Initialize-DevContainer.cs'
+      - 'scripts/ScriptSupport.cs'
+      - 'tests/Dotsider.Deploy.Tests/**'
+      - 'tests/deploy/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/dev-container.yml'
+      - '.gitattributes'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'docs/package.json'
+      - 'docs/pnpm-lock.yaml'
+      - 'scripts/Directory.Build.props'
+      - 'scripts/Initialize-DevContainer.cs'
+      - 'scripts/ScriptSupport.cs'
+      - 'tests/Dotsider.Deploy.Tests/**'
+      - 'tests/deploy/**'
+  schedule:
+    - cron: '23 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the development container
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: dotsider-devcontainer
+          imageTag: ci
+          push: never
+          runCmd: |
+            dotnet clean
+            dotnet build --no-restore
+            dotnet test --no-build
+            DOTSIDER_RUN_DEPLOY_INTEGRATION=1 dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj --no-build
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Install Picket
+        run: dotnet tool install --global Picket --version 0.2.9
+
+      - name: Save the development container image
+        run: docker save dotsider-devcontainer:ci --output ${{ runner.temp }}/dotsider-devcontainer.tar
+
+      - name: Scan the development container for secrets
+        run: >-
+          picket scan
+          --docker-archive ${{ runner.temp }}/dotsider-devcontainer.tar
+          --ignore-path .devcontainer/picket-image.ignore
+          --report-format sarif
+          --report-path ${{ runner.temp }}/dotsider-devcontainer.picket.sarif
+          --redact 100
+          --max-target-megabytes 64
+          --max-archive-depth 2
+          --max-archive-entries 100000
+          --max-archive-megabytes 8192
+          --max-archive-ratio 1000
+          --timeout 900
+          --exit-code 1
+          --no-banner
+
+      - name: Upload Picket report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: dev-container-picket
+          path: ${{ runner.temp }}/dotsider-devcontainer.picket.sarif
+          if-no-files-found: warn

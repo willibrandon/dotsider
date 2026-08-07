@@ -59,19 +59,7 @@ internal static class TestHelpers
         throw new InvalidOperationException("Could not find repo root (Dotsider.slnx)");
     }
 
-    private static readonly string s_dotsiderBuildConfig = DetectBuildConfig();
-
-    private static string DetectBuildConfig()
-    {
-        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        for (var i = 0; i < parts.Length - 1; i++)
-        {
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        }
-
-        return "Debug";
-    }
+    private static readonly string s_dotsiderBuildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
 
     /// <summary>
     /// Runs the real dotsider CLI as a subprocess (via <c>dotnet run --no-build</c>) and

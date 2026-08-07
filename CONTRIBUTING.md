@@ -17,6 +17,14 @@ dotnet test
 
 First test run is slower — the test setup prepares the 38-project sample matrix and restores its NuGet packages. Platform-specific fixtures are built where supported, and subsequent runs use cache.
 
+### Development container
+
+The checked-in development container provides the complete Linux toolchain,
+including Native AOT prerequisites, documentation tools, Docker, and the Hex1b
+CLI. Open the repository in Visual Studio Code and run **Dev Containers: Reopen
+in Container**. See [`.devcontainer/README.md`](.devcontainer/README.md) for the
+included tools and Docker security model.
+
 ## Project layout
 
 The README covers the full structure. The short version:
@@ -30,6 +38,7 @@ The README covers the full structure. The short version:
 - `tests/Dotsider.Mcp.Tests/` — MCP tool and prompt tests.
 - `tests/Dotsider.Deploy.Tests/` — deployment unit and Debian container tests.
 - `benchmarks/Dotsider.Benchmarks/` — BenchmarkDotNet harness for the core analyzers.
+- `.devcontainer/` — reproducible Linux contributor environment.
 
 ## Code conventions
 

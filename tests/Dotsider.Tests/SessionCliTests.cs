@@ -13,24 +13,12 @@ public sealed class SessionCliTests
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
-    private static readonly string s_buildConfig = DetectBuildConfig();
+    private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
 
     private int _testPid;
     private TestDotsiderSocket _dotsiderSocket = null!;
     private TestRawJsonSocket _hex1bSocket = null!;
     private string[]? _lastTraceArguments;
-
-    private static string DetectBuildConfig()
-    {
-        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        for (var i = 0; i < parts.Length - 1; i++)
-        {
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        }
-
-        return "Debug";
-    }
 
     /// <summary>
     /// Prepares the fixture state before tests execute.

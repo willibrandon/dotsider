@@ -5,4 +5,33 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <_DotsiderDevelopmentContainerBuild
+      Condition="'$(DOTSIDER_DEV_CONTAINER)' == '1' and '$(DOTSIDER_FIXTURE_BUILD)' != '1' and '$(FileBasedProgram)' != 'true'">true</_DotsiderDevelopmentContainerBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_DotsiderDevelopmentContainerBuild)' == 'true' and '$(MSBuildProjectName)' != 'NativeAotArtifactsConsole'">
+    <BaseOutputPath>bin/devcontainer/</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj/devcontainer/</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;artifacts/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_DotsiderDevelopmentContainerBuild)' == 'true' and '$(MSBuildProjectName)' == 'NativeAotArtifactsConsole'">
+    <ArtifactsPath>$(MSBuildProjectDirectory)/artifacts/devcontainer</ArtifactsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;artifacts/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'DevContainerDebug'">
+    <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'DevContainerRelease'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
 </Project>

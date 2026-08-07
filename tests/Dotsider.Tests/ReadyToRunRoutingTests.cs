@@ -18,7 +18,7 @@ public class ReadyToRunRoutingTests
     private static readonly string s_projectPath = Path.Combine(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
-    private static readonly string s_buildConfig = DetectBuildConfig();
+    private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
 
     /// <summary>Bare <c>--r2r-correlate</c> prints the ReadyToRun stats over the image.</summary>
     [TestMethod]
@@ -83,15 +83,6 @@ public class ReadyToRunRoutingTests
         Assert.AreEqual(0, exit);
         // The import resolver names the indirect call; the multi-range body shows a funclet/cold block.
         Assert.Contains("Console.WriteLine", stdout);
-    }
-
-    private static string DetectBuildConfig()
-    {
-        var parts = AppContext.BaseDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        for (var i = 0; i < parts.Length - 1; i++)
-            if (parts[i].Equals("bin", StringComparison.OrdinalIgnoreCase))
-                return parts[i + 1];
-        return "Debug";
     }
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(

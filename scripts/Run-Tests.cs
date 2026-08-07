@@ -1,7 +1,7 @@
 #!/usr/bin/env -S dotnet --
 #:property TargetFramework=net10.0
 #:property PackAsTool=false
-#:package System.CommandLine@2.0.9
+#:package System.CommandLine
 #:include ScriptSupport.cs
 
 using System.CommandLine;

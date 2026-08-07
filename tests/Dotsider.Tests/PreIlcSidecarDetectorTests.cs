@@ -523,7 +523,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
         Assert.IsEmpty(result.UnresolvedReferencePaths);
     }
 
-    /// <summary>Verifies the real artifacts-layout publish maps publish→obj with obj-only sidecars.</summary>
+    /// <summary>
+    /// Verifies the real artifacts-layout publish maps publish to obj with obj-only sidecars.
+    /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Find_ArtifactsFixture_FindsObjSidecarsWithNoSiblings()
@@ -534,7 +536,10 @@ public class PreIlcSidecarDetectorTests : IDisposable
 
         Assert.IsNotNull(result);
         Assert.IsTrue(result!.HasAttachableCompanion);
-        Assert.Contains(Path.Combine("artifacts", "obj"), result.ManagedAssemblyPath!, StringComparison.OrdinalIgnoreCase);
+        var artifactsObj = TestProcessEnvironment.IsDevelopmentContainer
+            ? Path.Combine("artifacts", "devcontainer", "obj")
+            : Path.Combine("artifacts", "obj");
+        Assert.Contains(artifactsObj, result.ManagedAssemblyPath!, StringComparison.OrdinalIgnoreCase);
         Assert.IsNotNull(result.MstatPath);
         Assert.IsNotNull(result.CodegenDgmlPath);
 

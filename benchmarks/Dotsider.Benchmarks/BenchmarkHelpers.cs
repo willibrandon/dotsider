@@ -12,6 +12,13 @@ namespace Dotsider.Benchmarks;
 internal static class BenchmarkHelpers
 {
     private static readonly ConcurrentDictionary<string, string> BuildCache = new();
+    private static readonly string s_buildOutputRoot =
+        string.Equals(
+            Environment.GetEnvironmentVariable("DOTSIDER_DEV_CONTAINER"),
+            "1",
+            StringComparison.Ordinal)
+            ? Path.Combine("bin", "devcontainer")
+            : "bin";
     private static string? _repoRoot;
 
     /// <summary>
@@ -100,7 +107,7 @@ internal static class BenchmarkHelpers
     internal static string GetPublishPath(string relativePath, string assemblyName)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
-        return Path.Combine(GetRepoRoot(), relativePath, "bin", "Release", "net10.0", rid, "publish",
+        return Path.Combine(GetRepoRoot(), relativePath, s_buildOutputRoot, "Release", "net10.0", rid, "publish",
             assemblyName + ApphostExtension);
     }
 
@@ -108,7 +115,7 @@ internal static class BenchmarkHelpers
     /// Computes the Debug build output path for a sample.
     /// </summary>
     internal static string GetBuildPath(string relativePath, string fileName)
-        => Path.Combine(GetRepoRoot(), relativePath, "bin", "Debug", "net10.0", fileName);
+        => Path.Combine(GetRepoRoot(), relativePath, s_buildOutputRoot, "Debug", "net10.0", fileName);
 
     private static void RunDotNet(string workingDirectory, string arguments)
     {

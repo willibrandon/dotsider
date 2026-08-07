@@ -3,8 +3,11 @@
     <_DotsiderTraceHostRoot>$(MSBuildThisFileDirectory)..\</_DotsiderTraceHostRoot>
     <_DotsiderTraceHostProjectRelativePath>src\Dotsider.TraceHost\Dotsider.TraceHost.csproj</_DotsiderTraceHostProjectRelativePath>
     <_DotsiderTraceHostProject>$([System.IO.Path]::GetFullPath('$(_DotsiderTraceHostRoot)$(_DotsiderTraceHostProjectRelativePath)'))</_DotsiderTraceHostProject>
-    <_DotsiderTraceHostPublishRelativePath>$(BaseIntermediateOutputPath)tracehost\$(MSBuildProjectName)\$(Configuration)\</_DotsiderTraceHostPublishRelativePath>
-    <_DotsiderTraceHostPublishDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(_DotsiderTraceHostPublishRelativePath)'))</_DotsiderTraceHostPublishDirectory>
+    <_DotsiderTraceHostBuildRelativePath>$(BaseIntermediateOutputPath)tracehost\$(MSBuildProjectName)\$(Configuration)\</_DotsiderTraceHostBuildRelativePath>
+    <_DotsiderTraceHostBuildDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(_DotsiderTraceHostBuildRelativePath)'))</_DotsiderTraceHostBuildDirectory>
+    <_DotsiderTraceHostOutputDirectory>$(_DotsiderTraceHostBuildDirectory)bin\</_DotsiderTraceHostOutputDirectory>
+    <_DotsiderTraceHostIntermediateDirectory>$(_DotsiderTraceHostBuildDirectory)obj\</_DotsiderTraceHostIntermediateDirectory>
+    <_DotsiderTraceHostPublishDirectory>$(_DotsiderTraceHostBuildDirectory)publish\</_DotsiderTraceHostPublishDirectory>
 
     <_DotsiderTraceHostPropertiesToRemove>RuntimeIdentifier;RuntimeIdentifiers;SelfContained</_DotsiderTraceHostPropertiesToRemove>
     <_DotsiderTraceHostPropertiesToRemove>$(_DotsiderTraceHostPropertiesToRemove);PublishAot;PublishSingleFile;PublishTrimmed</_DotsiderTraceHostPropertiesToRemove>
@@ -18,6 +21,8 @@
     <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishAot=false;SelfContained=false</_DotsiderTraceHostPublishProperties>
     <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishSingleFile=false;PublishTrimmed=false</_DotsiderTraceHostPublishProperties>
     <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishReadyToRun=false;UseAppHost=false</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);OutputPath=$(_DotsiderTraceHostOutputDirectory)</_DotsiderTraceHostPublishProperties>
+    <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);IntermediateOutputPath=$(_DotsiderTraceHostIntermediateDirectory)</_DotsiderTraceHostPublishProperties>
     <_DotsiderTraceHostPublishProperties>$(_DotsiderTraceHostPublishProperties);PublishDir=$(_DotsiderTraceHostPublishDirectory)</_DotsiderTraceHostPublishProperties>
 
     <_DotsiderTraceHostExcludedFiles>$(_DotsiderTraceHostPublishDirectory)**\*.pdb</_DotsiderTraceHostExcludedFiles>
@@ -34,6 +39,11 @@
              RemoveProperties="$(_DotsiderTraceHostPropertiesToRemove)"
              Properties="$(_DotsiderTraceHostPublishProperties)" />
 
+  </Target>
+
+  <Target Name="CleanDotsiderTraceHostBuild"
+          BeforeTargets="Clean">
+    <RemoveDir Directories="$(_DotsiderTraceHostBuildDirectory)" />
   </Target>
 
   <Target Name="CopyDotsiderTraceHostToOutput"
