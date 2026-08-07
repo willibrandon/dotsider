@@ -21,6 +21,8 @@ public class ReleaseWorkflowTests
             "Dotsider.TraceHost.csproj"));
 
         Assert.Contains("GlobalPropertiesToRemove=", project);
+        Assert.Contains("IntermediateOutputPath", project);
+        Assert.Contains("OutputPath", project);
         Assert.Contains("PublishAot", project);
         Assert.Contains("PublishDir", project);
         Assert.Contains("PublishReadyToRun", project);
@@ -30,6 +32,31 @@ public class ReleaseWorkflowTests
         Assert.Contains("RuntimeIdentifiers", project);
         Assert.Contains("SelfContained", project);
         Assert.Contains("UseAppHost", project);
+    }
+
+    /// <summary>
+    /// Verifies each bundled trace-host publish uses consumer-specific build directories.
+    /// Parallel solution builds must not share TraceHost intermediate or output files.
+    /// This prevents concurrent GenerateDepsFile tasks from writing the same dependency file.
+    /// </summary>
+    [TestMethod]
+    public void TraceHostPublish_UsesConsumerSpecificBuildDirectories()
+    {
+        string targets = File.ReadAllText(Path.Combine(
+            TestHelpers.GetRepoRoot(),
+            "build",
+            "Dotsider.TraceHost.targets"));
+
+        Assert.Contains(
+            "$(BaseIntermediateOutputPath)tracehost\\$(MSBuildProjectName)\\$(Configuration)\\",
+            targets);
+        Assert.Contains(
+            "IntermediateOutputPath=$(_DotsiderTraceHostIntermediateDirectory)",
+            targets);
+        Assert.Contains("OutputPath=$(_DotsiderTraceHostOutputDirectory)", targets);
+        Assert.Contains(
+            "<_DotsiderTraceHostPublishDirectory>$(_DotsiderTraceHostBuildDirectory)publish\\",
+            targets);
     }
 
     /// <summary>

@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Dotsider.Core/Dotsider.Core.csproj"
-                      GlobalPropertiesToRemove="PublishAot;PublishDir;PublishReadyToRun;PublishSingleFile;PublishTrimmed;RuntimeIdentifier;RuntimeIdentifiers;SelfContained;UseAppHost" />
+                      GlobalPropertiesToRemove="IntermediateOutputPath;OutputPath;PublishAot;PublishDir;PublishReadyToRun;PublishSingleFile;PublishTrimmed;RuntimeIdentifier;RuntimeIdentifiers;SelfContained;UseAppHost" />
   </ItemGroup>
 
   <ItemGroup>
