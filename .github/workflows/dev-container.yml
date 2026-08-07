@@ -15,6 +15,8 @@ on:
       - 'scripts/Directory.Build.props'
       - 'scripts/Initialize-DevContainer.cs'
       - 'scripts/ScriptSupport.cs'
+      - 'tests/Dotsider.Deploy.Tests/**'
+      - 'tests/deploy/**'
   pull_request:
     branches: [main]
     paths:
@@ -29,6 +31,8 @@ on:
       - 'scripts/Directory.Build.props'
       - 'scripts/Initialize-DevContainer.cs'
       - 'scripts/ScriptSupport.cs'
+      - 'tests/Dotsider.Deploy.Tests/**'
+      - 'tests/deploy/**'
   schedule:
     - cron: '23 9 * * 1'
   workflow_dispatch:
@@ -55,6 +59,7 @@ jobs:
             dotnet clean
             dotnet build --no-restore
             dotnet test --no-build
+            DOTSIDER_RUN_DEPLOY_INTEGRATION=1 dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj --no-build
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5

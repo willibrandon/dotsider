@@ -120,6 +120,9 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("dotnet clean", workflow);
         Assert.Contains("dotnet build --no-restore", workflow);
         Assert.Contains("dotnet test --no-build", workflow);
+        Assert.Contains(
+            "DOTSIDER_RUN_DEPLOY_INTEGRATION=1 dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj --no-build",
+            workflow);
         Assert.Contains("imageName: dotsider-devcontainer", workflow);
         Assert.Contains("imageTag: ci", workflow);
         Assert.Contains("Picket --version 0.2.9", workflow);

@@ -12,8 +12,10 @@ internal sealed class DockerDeployFixture : IDisposable
     private const int OutputLimit = 512 * 1024;
     private readonly string _repositoryRoot;
     private readonly string _dockerConfig;
+    private readonly string _builderName = "dotsider-deploy-builder-" + Guid.NewGuid().ToString("N");
     private readonly string _imageName = "dotsider-deploy-tests:" + Guid.NewGuid().ToString("N");
     private readonly string _containerName = "dotsider-deploy-tests-" + Guid.NewGuid().ToString("N");
+    private bool _builderCreated;
     private bool _containerCreated;
 
     /// <summary>
@@ -32,7 +34,7 @@ internal sealed class DockerDeployFixture : IDisposable
 
     /// <summary>
     /// Publishes Linux artifacts, starts Debian with systemd, and provisions the host.
-    /// The real website and sample are installed before activation and health verification.
+    /// A dedicated BuildKit builder isolates the image build from the default builder cache.
     /// Completion leaves the full deployment ready for independent assertions.
     /// </summary>
     internal void Initialize()
@@ -91,7 +93,32 @@ internal sealed class DockerDeployFixture : IDisposable
             ]);
         RunRequired(
             "docker",
-            ["build", "--pull", "--no-cache", "-t", _imageName, "-f", "tests/deploy/Dockerfile", "."]);
+            ["buildx", "create", "--name", _builderName, "--driver", "docker-container"]);
+        _builderCreated = true;
+        try
+        {
+            RunRequired(
+                "docker",
+                [
+                    "buildx",
+                    "build",
+                    "--builder",
+                    _builderName,
+                    "--load",
+                    "--pull",
+                    "--no-cache",
+                    "-t",
+                    _imageName,
+                    "-f",
+                    "tests/deploy/Dockerfile",
+                    ".",
+                ]);
+        }
+        finally
+        {
+            RemoveBuilder();
+        }
+
         RunRequired(
             "docker",
             ["run", "-d", "--privileged", "--name", _containerName, _imageName]);
@@ -133,7 +160,7 @@ internal sealed class DockerDeployFixture : IDisposable
     }
 
     /// <summary>
-    /// Stops and removes the container, image, and isolated Docker configuration.
+    /// Stops and removes the builder, container, image, and isolated Docker configuration.
     /// Cleanup accepts already-removed resources and never mutates the user's Docker files.
     /// Repository artifacts are retained for test diagnostics.
     /// </summary>
@@ -145,6 +172,7 @@ internal sealed class DockerDeployFixture : IDisposable
         }
 
         _ = Run("docker", ["image", "rm", "-f", _imageName]);
+        RemoveBuilder();
         if (Directory.Exists(_dockerConfig))
         {
             Directory.Delete(_dockerConfig, recursive: true);
@@ -176,6 +204,17 @@ internal sealed class DockerDeployFixture : IDisposable
             throw new InvalidOperationException(
                 $"Container command '{arguments[0]}' failed with exit code {result.ExitCode}: {result.StandardError.Trim()}");
         }
+    }
+
+    private void RemoveBuilder()
+    {
+        if (!_builderCreated)
+        {
+            return;
+        }
+
+        DockerResult result = Run("docker", ["buildx", "rm", "--force", _builderName]);
+        _builderCreated = result.ExitCode != 0;
     }
 
     private void RunRequired(string fileName, IReadOnlyList<string> arguments)
