@@ -141,8 +141,16 @@ jobs:
 
   deploy-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
       - name: Run deploy tests
-        run: bash tests/deploy/run.sh
+        env:
+          DOTSIDER_RUN_DEPLOY_INTEGRATION: '1'
+        run: dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj

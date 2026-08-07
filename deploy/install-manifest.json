@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "resource": "Dotsider.DeployHost.Assets.Caddyfile",
+      "destination": "/etc/caddy/Caddyfile",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.prometheus.yml",
+      "destination": "/etc/prometheus/prometheus.yml",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.dotsider-website.service",
+      "destination": "/etc/systemd/system/dotsider-website.service",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.caddy-report.service",
+      "destination": "/etc/systemd/system/caddy-report.service",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.caddy-report.timer",
+      "destination": "/etc/systemd/system/caddy-report.timer",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.integrity-check.service",
+      "destination": "/etc/systemd/system/integrity-check.service",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.integrity-check.timer",
+      "destination": "/etc/systemd/system/integrity-check.timer",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    },
+    {
+      "resource": "Dotsider.DeployHost.Assets.caddy-metrics-logrotate",
+      "destination": "/etc/logrotate.d/caddy-metrics",
+      "mode": "0644",
+      "owner": "root",
+      "group": "root"
+    }
+  ]
+}

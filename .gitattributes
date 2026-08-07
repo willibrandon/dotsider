@@ -1,7 +1,9 @@
-# Force LF line endings for shell scripts, bats tests, and bash helpers
-# so they work correctly when checked out on Windows and copied into Docker
-*.sh    text eol=lf
-*.bats  text eol=lf
-*.bash  text eol=lf
 scripts/*.cs text eol=lf
 scripts/**/*.cs text eol=lf
+deploy/Caddyfile text eol=lf
+deploy/*.json text eol=lf
+deploy/*.service text eol=lf
+deploy/*.timer text eol=lf
+deploy/*.yml text eol=lf
+deploy/caddy-metrics-logrotate text eol=lf
+tests/deploy/Dockerfile text eol=lf

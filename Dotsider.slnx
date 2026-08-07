@@ -14,6 +14,7 @@
 <Folder Name="/src/">
   <Project Path="src/Dotsider.Core/Dotsider.Core.csproj" />
   <Project Path="src/Dotsider.DocGenerator/Dotsider.DocGenerator.csproj" />
+  <Project Path="src/Dotsider.DeployHost/Dotsider.DeployHost.csproj" />
   <Project Path="src/Dotsider.Mcp/Dotsider.Mcp.csproj" />
   <Project Path="src/Dotsider.TraceHost/Dotsider.TraceHost.csproj" />
   <Project Path="src/Dotsider.Website/Dotsider.Website.csproj" />
@@ -66,6 +67,7 @@
     <File Path="tests/Shared/TestSocketIds.cs" />
     <File Path="tests/Directory.Build.props" />
     <Project Path="tests/Dotsider.Mcp.Tests/Dotsider.Mcp.Tests.csproj" />
+    <Project Path="tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj" />
     <Project Path="tests/Dotsider.NativeAotSmoke/Dotsider.NativeAotSmoke.csproj" />
     <Project Path="tests/Dotsider.Tests/Dotsider.Tests.csproj" />
     <Project Path="tests/Dotsider.Website.Tests/Dotsider.Website.Tests.csproj" />
@@ -73,6 +75,13 @@
 
   <Folder Name="/scripts/">
     <File Path="scripts/Capture-DisasmOracle.cs" />
+    <File Path="scripts/Deploy-Website.cs" />
+    <File Path="scripts/Deploy/DeploymentApp.cs" />
+    <File Path="scripts/Deploy/DeploymentOptions.cs" />
+    <File Path="scripts/Deploy/DeploymentProcessResult.cs" />
+    <File Path="scripts/Deploy/IDeploymentProcessRunner.cs" />
+    <File Path="scripts/Deploy/DeploymentProcessRunner.cs" />
+    <File Path="scripts/Deploy/SshContext.cs" />
     <File Path="scripts/Directory.Build.props" />
     <File Path="scripts/README.md" />
     <File Path="scripts/Run-Tests.cs" />

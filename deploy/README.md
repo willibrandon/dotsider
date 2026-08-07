@@ -1,59 +1,43 @@
-# deploy
+# Deployment
 
-Infrastructure for deploying dotsider.dev to a Hetzner VM running Debian behind Caddy.
+The dotsider.dev deployment uses a .NET file-based app on the runner and a
+self-contained Native AOT helper on Debian. The server does not need a .NET
+runtime.
 
-## Files
+`install-manifest.json` is the authoritative map from the checked-in Caddy,
+Prometheus, systemd, timer, and logrotate files to their installed paths. The
+helper embeds those files, validates them before installation, and installs
+them as `root:root` with mode `0644`.
 
-| File | Description |
-|------|-------------|
-| `setup.sh` | One-time VM bootstrap — installs .NET, Caddy, Prometheus, creates user, configures firewall, deploys all systemd units |
-| `preflight.sh` | Pre-deploy validation — checks system, runtime, services, directories, firewall, metrics, disk/memory |
-| `Caddyfile` | Reverse proxy config — routes `/ws` and `/health` to the WebSocket server, serves static docs, cache headers, metrics |
-| `dotsider-website.service` | systemd unit for the WebSocket server (port 5100, auto-restart) |
-| `prometheus.yml` | Scrape config — Caddy metrics (`:2019`) and Prometheus self-monitoring (`:9090`) at 15s intervals |
-| `caddy-report.sh` | Queries Prometheus for 5 key Caddy metrics (req/s, err/s, p95 latency, in-flight, upstream health) and appends to a log |
-| `caddy-report.service` | systemd oneshot unit for the metrics report |
-| `caddy-report.timer` | Runs `caddy-report.service` every 5 minutes |
-| `caddy-metrics-logrotate` | Weekly log rotation for `/var/log/caddy-metrics.log` (4 compressed archives) |
-| `integrity-check.sh` | SHA256-checks every file under `sample/` against a deploy-time manifest; if any file is missing or altered, restores the whole directory from `sample.bak/` and restarts the service |
-| `integrity-check.service` | systemd oneshot unit for the integrity check |
-| `integrity-check.timer` | Runs `integrity-check.service` every minute |
+Package the Linux helper with:
 
-## First-Time Setup
-
-```bash
-ssh root@host 'bash -s' < deploy/setup.sh
+```console
+dotnet run --file scripts/Deploy-Website.cs -- -Mode Package -DeployHost publish/deploy-host/dotsider-deploy-host
 ```
 
-Installs everything: .NET 10, Caddy, Prometheus, `brandon` user with sudo, firewall (ports 22/80/443), systemd units, metrics timer, and log rotation.
+For first-time provisioning, set `DEPLOY_HOST` and `DEPLOY_SSH_KEY`, then run:
 
-## Preflight Check
-
-```bash
-ssh brandon@host 'bash -s' < deploy/preflight.sh
+```console
+dotnet run --file scripts/Deploy-Website.cs -- -Mode Provision -DeployHost publish/deploy-host/dotsider-deploy-host
 ```
 
-Runs automatically before each deploy in CI. Validates ~27 checks across system, .NET, Caddy, Prometheus, directories, firewall, and resources.
+Provisioning installs Caddy, Prometheus, rsync, UFW, and the `brandon` account;
+creates the existing deployment directories; installs the helper and
+configuration; enables services and timers; and allows ports 22, 80, and 443.
 
-## Deploy Flow
+The GitHub workflow runs `Preflight` before `Deploy`. Deployment retains the
+existing rsync paths, deletion rules, and exclusions; refreshes the complete
+sample backup and SHA-256 manifest; restarts the website; and verifies
+`/health`. If deployment fails, an integrity timer that was active beforehand
+is started again.
 
-Handled by `.github/workflows/deploy.yml`:
+The installed layout remains:
 
-1. **Build** — Astro docs site + self-contained `linux-x64` website binary
-2. **Preflight** — runs `preflight.sh` on the VM
-3. **Deploy** — rsync docs to `/var/www/dotsider-docs/`, binary to `/opt/dotsider-website/`
-4. **Restart** — `systemctl restart dotsider-website` + health check
-
-## Architecture
-
-```
+```text
 Internet → Caddy (:443) → /ws, /health → Dotsider.Website (:5100)
                         → /*           → /var/www/dotsider-docs/ (static)
                         → :2019        → Prometheus scrape (internal only)
 ```
 
 Caddy replaces `X-Forwarded-For` with the direct client's address. The website
-trusts one forwarded hop from the local loopback proxy, which keeps per-client
-WebSocket limits meaningful without accepting spoofed forwarding headers.
-Deployments that move the proxy off-host must configure a specific trusted
-proxy or network instead of broadening trust to all peers.
+trusts one forwarded hop from the local loopback proxy.

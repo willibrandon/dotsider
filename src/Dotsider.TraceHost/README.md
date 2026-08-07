@@ -4,7 +4,7 @@ Dotsider Trace Host is the framework-dependent EventPipe worker used by the Dyna
 keeps `Microsoft.Diagnostics.Tracing.TraceEvent` outside the Native AOT-compiled dotsider process
 while preserving runtime tracing.
 
-It is an implementation detail and is not intended to be run directly. `DynamicAnalysisView` creates a `RuntimeTracer`, and `RuntimeTracer.Start()` launches:
+`DynamicAnalysisView` creates a `RuntimeTracer`, and `RuntimeTracer.Start()` launches:
 
 ```
 dotnet exec tracehost/dotsider-tracehost.dll <assembly-path> [arguments]
