@@ -117,6 +117,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("safe.directory", initializer);
         Assert.Contains("[\"CI\"] = \"true\"", initializer);
         Assert.Contains("devcontainers/ci@v0.3", workflow);
+        Assert.Contains("dotnet clean", workflow);
         Assert.Contains("dotnet build --no-restore", workflow);
         Assert.Contains("dotnet test --no-build", workflow);
         Assert.Contains("imageName: dotsider-devcontainer", workflow);

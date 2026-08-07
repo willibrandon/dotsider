@@ -52,6 +52,7 @@ jobs:
           imageTag: ci
           push: never
           runCmd: |
+            dotnet clean
             dotnet build --no-restore
             dotnet test --no-build
 

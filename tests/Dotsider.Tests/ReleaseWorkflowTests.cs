@@ -57,6 +57,26 @@ public class ReleaseWorkflowTests
         Assert.Contains(
             "<_DotsiderTraceHostPublishDirectory>$(_DotsiderTraceHostBuildDirectory)publish\\",
             targets);
+        Assert.Contains(
+            "<Target Name=\"CleanDotsiderTraceHostBuild\"",
+            targets);
+        Assert.Contains(
+            "<RemoveDir Directories=\"$(_DotsiderTraceHostBuildDirectory)\" />",
+            targets);
+
+        string testProject = File.ReadAllText(Path.Combine(
+            TestHelpers.GetRepoRoot(),
+            "tests",
+            "Dotsider.Tests",
+            "Dotsider.Tests.csproj"));
+
+        Assert.Contains(
+            "<IncludeDotsiderTraceHostInOutput>true</IncludeDotsiderTraceHostInOutput>",
+            testProject);
+        Assert.Contains(
+            "<Import Project=\"../../build/Dotsider.TraceHost.targets\" />",
+            testProject);
+        Assert.DoesNotContain("CopyDotsiderTraceHostToTestOutput", testProject);
     }
 
     /// <summary>

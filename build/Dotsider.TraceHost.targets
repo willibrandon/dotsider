@@ -41,6 +41,11 @@
 
   </Target>
 
+  <Target Name="CleanDotsiderTraceHostBuild"
+          BeforeTargets="Clean">
+    <RemoveDir Directories="$(_DotsiderTraceHostBuildDirectory)" />
+  </Target>
+
   <Target Name="CopyDotsiderTraceHostToOutput"
           AfterTargets="Build"
           DependsOnTargets="_PublishDotsiderTraceHost"

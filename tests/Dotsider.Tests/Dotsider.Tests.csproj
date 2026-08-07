@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeDotsiderTraceHostInOutput>true</IncludeDotsiderTraceHostInOutput>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,13 +20,6 @@
     <ProjectReference Include="../../samples/MultiModuleManifest/MultiModuleManifest.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <Target Name="CopyDotsiderTraceHostToTestOutput" AfterTargets="Build">
-    <ItemGroup>
-      <_DotsiderTraceHostTestFile Include="../../src/Dotsider/$(BaseOutputPath)$(Configuration)/net10.0/tracehost/**/*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_DotsiderTraceHostTestFile)"
-          DestinationFiles="@(_DotsiderTraceHostTestFile->'$(OutDir)tracehost/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-  </Target>
+  <Import Project="../../build/Dotsider.TraceHost.targets" />
 
 </Project>
