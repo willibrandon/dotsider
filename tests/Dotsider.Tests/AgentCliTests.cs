@@ -141,7 +141,10 @@ public sealed class AgentCliTests
             Assert.AreEqual(0, exitCode);
             var expectedPath = Path.Combine(tempDir, "SKILL.md");
             Assert.IsTrue(File.Exists(expectedPath), $"Expected file at {expectedPath}");
-            Assert.Contains($"Created: {expectedPath}", stdout);
+            Assert.StartsWith("Created: ", stdout);
+            var createdPath = stdout["Created: ".Length..].Trim();
+            Assert.AreEqual("SKILL.md", Path.GetFileName(createdPath));
+            Assert.IsTrue(File.Exists(createdPath), $"Expected reported file at {createdPath}");
             Assert.Contains("name: dotsider", File.ReadAllText(expectedPath));
         }
         finally
