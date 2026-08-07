@@ -313,6 +313,9 @@ public class IlEditorLifecycleTests : IDisposable
 
         // Switch back to original method
         SelectMethodForRender(methodA);
+        await auto.WaitUntilAsync(
+            _ => _state.IlEditorMethod?.Token == methodA.Token,
+            description: "method A loaded");
         RequestEditorFocusForRender();
         EditorNode? restoredEditorNode = null;
         await auto.WaitUntilAsync(
