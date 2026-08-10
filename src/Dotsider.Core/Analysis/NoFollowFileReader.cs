@@ -16,6 +16,10 @@ internal static partial class NoFollowFileReader
     private const uint GenericRead = 0x8000_0000;
     private const uint OpenExisting = 3;
     private const int FileAttributeTagInfo = 9;
+    private const int LinuxOpenCloseOnExec = 0x0008_0000;
+    private const int LinuxOpenNoFollowArm = 0x0000_8000;
+    private const int LinuxOpenNoFollowGeneric = 0x0002_0000;
+    private const int LinuxOpenNonBlocking = 0x0000_0800;
 
     /// <summary>
     /// Reads all bytes from <paramref name="path"/> without following a link at the final path
@@ -94,10 +98,10 @@ internal static partial class NoFollowFileReader
         int flags;
         if (OperatingSystem.IsLinux())
         {
-            const int openCloseOnExec = 0x0008_0000;
-            const int openNoFollow = 0x0002_0000;
-            const int openNonBlocking = 0x0000_0800;
-            flags = openCloseOnExec | openNoFollow | openNonBlocking;
+            if (!TryGetLinuxOpenFlags(RuntimeInformation.ProcessArchitecture, out flags))
+            {
+                return null;
+            }
         }
         else if (OperatingSystem.IsMacOS())
         {
@@ -115,6 +119,32 @@ internal static partial class NoFollowFileReader
         return descriptor < 0
             ? null
             : new SafeFileHandle((IntPtr)descriptor, ownsHandle: true);
+    }
+
+    /// <summary>
+    /// Gets Linux open flags for an architecture whose ABI values are known.
+    /// Unknown architectures fail closed instead of opening a path without link protection.
+    /// </summary>
+    internal static bool TryGetLinuxOpenFlags(Architecture architecture, out int flags)
+    {
+        int openNoFollow = architecture switch
+        {
+            Architecture.Arm or
+            Architecture.Arm64 or
+            Architecture.Armv6 or
+            Architecture.Ppc64le => LinuxOpenNoFollowArm,
+            Architecture.LoongArch64 or
+            Architecture.RiscV64 or
+            Architecture.S390x or
+            Architecture.X64 or
+            Architecture.X86 => LinuxOpenNoFollowGeneric,
+            _ => 0,
+        };
+
+        flags = openNoFollow == 0
+            ? 0
+            : LinuxOpenCloseOnExec | openNoFollow | LinuxOpenNonBlocking;
+        return flags != 0;
     }
 
     [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]

@@ -678,6 +678,21 @@ internal class SampleAssemblyFixture
 
     private async Task PublishNativeAotProject(string relativePath)
     {
+        var projectName = Path.GetFileName(relativePath);
+        var assemblyName = projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal)
+            ? "NativeAotConsole"
+            : projectName;
+        var publishDirectory = Path.Combine(
+            _repoRoot,
+            relativePath,
+            "bin",
+            TestProcessEnvironment.ReleaseBuildConfiguration,
+            "net10.0",
+            RuntimeInformation.RuntimeIdentifier,
+            "publish");
+        var apphostExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+        var expectedOutput = Path.Combine(publishDirectory, $"{assemblyName}{apphostExtension}");
+        var expectedMstat = Path.Combine(publishDirectory, $"{assemblyName}.mstat");
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
@@ -697,13 +712,29 @@ internal class SampleAssemblyFixture
 
         try
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var sharesOutputWithMcpTests =
+                projectName.Equals("NativeAotConsole", StringComparison.Ordinal) ||
+                projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal);
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (sharesOutputWithMcpTests &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedOutput,
+                    projectDirectory,
+                    _repoRoot) &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedMstat,
+                    projectDirectory,
+                    _repoRoot))
+            {
+                return;
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"publish -c {TestProcessEnvironment.ReleaseBuildConfiguration} "
                     + $"-r {RuntimeInformation.RuntimeIdentifier} -v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -779,7 +810,13 @@ internal class SampleAssemblyFixture
                 rid,
                 "publish",
                 imageName);
-            if (File.Exists(imagePath) && ExistingReadyToRunPathOrNull(imagePath) is null)
+            if (ExistingReadyToRunPathOrNull(imagePath) is not null &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(imagePath, projectDir, _repoRoot))
+            {
+                return;
+            }
+
+            if (File.Exists(imagePath))
                 File.Delete(imagePath);
 
             var psi = new ProcessStartInfo
@@ -819,9 +856,6 @@ internal class SampleAssemblyFixture
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
             "bin", configuration, "net10.0", wasmRid, "publish", "dotnet.native.wasm");
-        if (File.Exists(expectedOutput))
-            return;
-
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + $"-{wasmRid}.lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
@@ -841,7 +875,15 @@ internal class SampleAssemblyFixture
 
         try
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                expectedOutput,
+                projectDirectory,
+                _repoRoot))
+            {
+                return;
+            }
+
             var arguments = $"publish -c {configuration} -r browser-wasm --self-contained true "
                 + "-p:PublishReadyToRun=false -p:WasmEmitSymbolMap=true ";
             if (runAotCompilation)
@@ -855,7 +897,7 @@ internal class SampleAssemblyFixture
             {
                 FileName = "dotnet",
                 Arguments = arguments + "-v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -883,6 +925,17 @@ internal class SampleAssemblyFixture
 
     private async Task PublishSelfContainedProject(string relativePath)
     {
+        var projectName = Path.GetFileName(relativePath);
+        var apphostExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+        var expectedOutput = Path.Combine(
+            _repoRoot,
+            relativePath,
+            "bin",
+            TestProcessEnvironment.ReleaseBuildConfiguration,
+            "net10.0",
+            RuntimeInformation.RuntimeIdentifier,
+            "publish",
+            $"{projectName}{apphostExtension}");
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
@@ -902,14 +955,23 @@ internal class SampleAssemblyFixture
 
         try
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (Dotsider.Core.Analysis.SingleFileBundleReader.IsBundle(expectedOutput, out _) &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedOutput,
+                    projectDirectory,
+                    _repoRoot))
+            {
+                return;
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"publish -c {TestProcessEnvironment.ReleaseBuildConfiguration} "
                     + $"-r {RuntimeInformation.RuntimeIdentifier} --self-contained "
                     + "-p:PublishSingleFile=true -v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -956,6 +1018,24 @@ internal class SampleAssemblyFixture
         try
         {
             var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectName = Path.GetFileName(projectDir);
+            var assemblyName = projectName.Equals("RichLibraryV2", StringComparison.Ordinal)
+                ? "RichLibrary"
+                : projectName;
+            var expectedOutput = Path.Combine(
+                projectDir,
+                "bin",
+                TestProcessEnvironment.DebugBuildConfiguration,
+                "net10.0",
+                $"{assemblyName}.dll");
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                expectedOutput,
+                projectDir,
+                _repoRoot))
+            {
+                return;
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",

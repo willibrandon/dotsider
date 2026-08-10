@@ -89,6 +89,77 @@ internal static class TestProcessEnvironment
             : Path.Combine(projectDirectory, "bin", configuration, targetFramework);
 
     /// <summary>
+    /// Determines whether a fixture output is newer than the source project and shared build inputs.
+    /// </summary>
+    /// <param name="outputPath">The output that represents a completed fixture build.</param>
+    /// <param name="projectDirectory">The sample project directory.</param>
+    /// <param name="repositoryRoot">The repository root containing shared build inputs.</param>
+    /// <returns><see langword="true"/> when the existing output can be reused safely.</returns>
+    internal static bool IsFixtureOutputCurrent(
+        string outputPath,
+        string projectDirectory,
+        string repositoryRoot)
+    {
+        if (!File.Exists(outputPath))
+            return false;
+
+        try
+        {
+            DateTime outputWriteTime = File.GetLastWriteTimeUtc(outputPath);
+            foreach (string inputPath in EnumerateFixtureInputs(projectDirectory, repositoryRoot))
+            {
+                if (File.GetLastWriteTimeUtc(inputPath) > outputWriteTime)
+                    return false;
+            }
+
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateFixtureInputs(
+        string projectDirectory,
+        string repositoryRoot)
+    {
+        foreach (string path in Directory.EnumerateFiles(projectDirectory, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(projectDirectory, path);
+            string firstSegment = relativePath.Split(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar)[0];
+            if (firstSegment.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                firstSegment.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+                firstSegment.Equals("artifacts", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            yield return path;
+        }
+
+        string[] sharedInputNames =
+        [
+            "Directory.Build.props",
+            "Directory.Packages.props",
+            "global.json",
+            "NuGet.config",
+        ];
+        foreach (string inputName in sharedInputNames)
+        {
+            string inputPath = Path.Combine(repositoryRoot, inputName);
+            if (File.Exists(inputPath))
+                yield return inputPath;
+        }
+    }
+
+    /// <summary>
     /// Removes inherited code-coverage profiler variables from <paramref name="startInfo"/>.
     /// </summary>
     /// <param name="startInfo">The child process start info to sanitize.</param>

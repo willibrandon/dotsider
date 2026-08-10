@@ -23,6 +23,9 @@ dotnet build
 dotnet test
 ```
 
+Integrated terminals limit .NET to four processors and disable reusable MSBuild
+nodes so full builds and tests fit within the container's 8 GB memory budget.
+
 Run the deployment integration tests explicitly:
 
 ```console
