@@ -39,6 +39,11 @@ internal sealed class DockerDeployFixture : IDisposable
     /// </summary>
     internal void Initialize()
     {
+        string dockerArchitecture = RunRequired(
+            "docker",
+            ["version", "--format", "{{.Server.Arch}}"]).StandardOutput;
+        (string dockerPlatform, string runtimeIdentifier) = ResolveDeploymentTarget(
+            dockerArchitecture);
         string artifacts = Path.Combine(_repositoryRoot, "artifacts", "deploy-tests");
         if (Directory.Exists(artifacts))
         {
@@ -54,7 +59,7 @@ internal sealed class DockerDeployFixture : IDisposable
                 "-c",
                 "Release",
                 "-r",
-                "linux-x64",
+                runtimeIdentifier,
                 "--self-contained",
                 "--artifacts-path",
                 Path.Combine(artifacts, "build", "deploy-host"),
@@ -69,7 +74,7 @@ internal sealed class DockerDeployFixture : IDisposable
                 "-c",
                 "Release",
                 "-r",
-                "linux-x64",
+                runtimeIdentifier,
                 "--self-contained",
                 "-p:PublishSingleFile=true",
                 "--artifacts-path",
@@ -85,7 +90,7 @@ internal sealed class DockerDeployFixture : IDisposable
                 "-c",
                 "Release",
                 "-r",
-                "linux-x64",
+                runtimeIdentifier,
                 "--artifacts-path",
                 Path.Combine(artifacts, "build", "sample"),
                 "-o",
@@ -107,6 +112,8 @@ internal sealed class DockerDeployFixture : IDisposable
                     "--load",
                     "--pull",
                     "--no-cache",
+                    "--platform",
+                    dockerPlatform,
                     "-t",
                     _imageName,
                     "-f",
@@ -121,7 +128,16 @@ internal sealed class DockerDeployFixture : IDisposable
 
         RunRequired(
             "docker",
-            ["run", "-d", "--privileged", "--name", _containerName, _imageName]);
+            [
+                "run",
+                "-d",
+                "--privileged",
+                "--platform",
+                dockerPlatform,
+                "--name",
+                _containerName,
+                _imageName,
+            ]);
         _containerCreated = true;
         WaitForSystemd();
         ExecRequired("/opt/test/dotsider-deploy-host", "provision");
@@ -217,7 +233,16 @@ internal sealed class DockerDeployFixture : IDisposable
         _builderCreated = result.ExitCode != 0;
     }
 
-    private void RunRequired(string fileName, IReadOnlyList<string> arguments)
+    internal static (string DockerPlatform, string RuntimeIdentifier) ResolveDeploymentTarget(
+        string dockerArchitecture) => dockerArchitecture.Trim().ToLowerInvariant() switch
+        {
+            "amd64" or "x86_64" => ("linux/amd64", "linux-x64"),
+            "arm64" or "aarch64" => ("linux/arm64", "linux-arm64"),
+            _ => throw new PlatformNotSupportedException(
+                $"Docker server architecture '{dockerArchitecture.Trim()}' is not supported by the deployment tests."),
+        };
+
+    private DockerResult RunRequired(string fileName, IReadOnlyList<string> arguments)
     {
         DockerResult result = Run(fileName, arguments);
         if (result.ExitCode != 0)
@@ -228,6 +253,8 @@ internal sealed class DockerDeployFixture : IDisposable
                 + Environment.NewLine
                 + result.StandardError.Trim());
         }
+
+        return result;
     }
 
     private DockerResult Run(string fileName, IReadOnlyList<string> arguments)
