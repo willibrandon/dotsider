@@ -31,7 +31,11 @@
       ],
       "settings": {
         "dotnet.defaultSolution": "Dotsider.slnx",
-        "dotnet.preferVisualStudioCodeFileSystemWatcher": true
+        "dotnet.preferVisualStudioCodeFileSystemWatcher": true,
+        "terminal.integrated.env.linux": {
+          "DOTNET_PROCESSOR_COUNT": "4",
+          "MSBUILDDISABLENODEREUSE": "1"
+        }
       }
     }
   },

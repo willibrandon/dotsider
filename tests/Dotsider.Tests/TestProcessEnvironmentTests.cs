@@ -53,6 +53,52 @@ public class TestProcessEnvironmentTests
     }
 
     /// <summary>
+    /// Fixture outputs are reused only while they are newer than relevant project inputs.
+    /// Generated build directories do not invalidate a completed fixture.
+    /// </summary>
+    [TestMethod]
+    public void IsFixtureOutputCurrent_SourceAndBuildArtifacts_DistinguishesInputs()
+    {
+        string repositoryRoot = Path.Combine(Path.GetTempPath(), $"dotsider-fixture-{Guid.NewGuid():N}");
+        string projectDirectory = Path.Combine(repositoryRoot, "sample");
+        string outputDirectory = Path.Combine(projectDirectory, "bin");
+        string generatedDirectory = Path.Combine(projectDirectory, "obj");
+        Directory.CreateDirectory(outputDirectory);
+        Directory.CreateDirectory(generatedDirectory);
+
+        try
+        {
+            string sourcePath = Path.Combine(projectDirectory, "Program.cs");
+            string outputPath = Path.Combine(outputDirectory, "sample.dll");
+            string generatedPath = Path.Combine(generatedDirectory, "generated.cs");
+            File.WriteAllText(sourcePath, "source");
+            File.WriteAllText(outputPath, "output");
+            File.WriteAllText(generatedPath, "generated");
+
+            DateTime baseline = DateTime.UtcNow.AddMinutes(-5);
+            File.SetLastWriteTimeUtc(sourcePath, baseline);
+            File.SetLastWriteTimeUtc(outputPath, baseline.AddMinutes(1));
+            File.SetLastWriteTimeUtc(generatedPath, baseline.AddMinutes(2));
+
+            Assert.IsTrue(TestProcessEnvironment.IsFixtureOutputCurrent(
+                outputPath,
+                projectDirectory,
+                repositoryRoot));
+
+            File.SetLastWriteTimeUtc(sourcePath, baseline.AddMinutes(2));
+
+            Assert.IsFalse(TestProcessEnvironment.IsFixtureOutputCurrent(
+                outputPath,
+                projectDirectory,
+                repositoryRoot));
+        }
+        finally
+        {
+            Directory.Delete(repositoryRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Artifact-layout fixture builds use a container-only artifacts root.
     /// </summary>
     [TestMethod]

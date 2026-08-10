@@ -72,6 +72,12 @@ public sealed partial class ScriptConventionTests : IDisposable
         string picketIgnore = File.ReadAllText(Path.Combine(root, ".devcontainer", "picket-image.ignore"));
         string initializer = File.ReadAllText(Path.Combine(root, "scripts", "Initialize-DevContainer.cs"));
         string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "dev-container.yml"));
+        using JsonDocument configurationDocument = JsonDocument.Parse(configuration);
+        JsonElement terminalEnvironment = configurationDocument.RootElement
+            .GetProperty("customizations")
+            .GetProperty("vscode")
+            .GetProperty("settings")
+            .GetProperty("terminal.integrated.env.linux");
 
         Assert.Contains("mcr.microsoft.com/devcontainers/base:noble", dockerfile);
         Assert.Contains("clang", dockerfile);
@@ -104,6 +110,8 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("Initialize-DevContainer.cs", configuration);
         Assert.Contains("\"waitFor\": \"postCreateCommand\"", configuration);
         Assert.Contains("\"dotnet.preferVisualStudioCodeFileSystemWatcher\": true", configuration);
+        Assert.AreEqual("4", terminalEnvironment.GetProperty("DOTNET_PROCESSOR_COUNT").GetString());
+        Assert.AreEqual("1", terminalEnvironment.GetProperty("MSBUILDDISABLENODEREUSE").GetString());
         Assert.Contains("Directory.Packages.props", initializer);
         Assert.Contains("RestoreFileApps(repositoryRoot)", initializer);
         Assert.Contains("[\"restore\", fileApp, \"--nologo\", \"--verbosity\", \"quiet\"]", initializer);
@@ -132,6 +140,21 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("--exit-code 1", workflow);
         Assert.Contains("actions/upload-artifact@v7", workflow);
         Assert.Contains("sha256:03aebbff795f9aedefa7c850889fa674e55d5a43b8b1bb8fc711e1cdd6bb3582", picketIgnore);
+    }
+
+    /// <summary>
+    /// Keeps Linux ARM64 in the full build-and-test matrix so architecture-specific behavior
+    /// is exercised on every pull request.
+    /// </summary>
+    [TestMethod]
+    public void ContinuousIntegration_RunsFullSuiteOnLinuxArm64()
+    {
+        string root = FindRepositoryRoot();
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+
+        Assert.Contains(
+            "os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-26]",
+            workflow);
     }
 
     /// <summary>

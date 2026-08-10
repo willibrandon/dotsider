@@ -247,13 +247,13 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
     private async Task BuildProject(string relativePath)
     {
-        // Skip if Dotsider.Tests already built this sample
         var projectName = Path.GetFileName(relativePath);
         var configuration = TestProcessEnvironment.DebugBuildConfiguration;
+        var assemblyName = projectName.Equals("RichLibraryV2", StringComparison.Ordinal)
+            ? "RichLibrary"
+            : projectName;
         var expectedDll = Path.Combine(_repoRoot, relativePath,
-            "bin", configuration, "net10.0", $"{projectName}.dll");
-        if (File.Exists(expectedDll))
-            return;
+            "bin", configuration, "net10.0", $"{assemblyName}.dll");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
@@ -275,18 +275,20 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         try
         {
             // Re-check after acquiring lock
-            if (File.Exists(expectedDll))
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                expectedDll,
+                projectDirectory,
+                _repoRoot))
             {
-                lockFile.Dispose();
                 return;
             }
 
-            var projectDir = Path.Combine(_repoRoot, relativePath);
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"build --no-restore -c {configuration} -v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -317,10 +319,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             "bin", configuration, "net10.0", rid, "publish",
             $"{Path.GetFileName(relativePath)}{apphostExt}");
 
-        // Skip if Dotsider.Tests already published
-        if (File.Exists(expectedOutput))
-            return;
-
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
@@ -341,19 +339,22 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         try
         {
             // Re-check after acquiring lock
-            if (File.Exists(expectedOutput))
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (Dotsider.Core.Analysis.SingleFileBundleReader.IsBundle(expectedOutput, out _) &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedOutput,
+                    projectDirectory,
+                    _repoRoot))
             {
-                lockFile.Dispose();
                 return;
             }
 
-            var projectDir = Path.Combine(_repoRoot, relativePath);
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"publish -c {configuration} -r {rid} --self-contained "
                     + "-p:PublishSingleFile=true -v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
             };
             TestProcessEnvironment.ConfigureBuild(psi);
@@ -378,10 +379,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
             "bin", configuration, "net10.0", rid, "publish", $"{Path.GetFileName(relativePath)}.dll");
 
-        // Reuse the Dotsider.Tests publish when it already ran (framework-dependent crossgen).
-        if (File.Exists(expectedOutput))
-            return;
-
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
         FileStream lockFile;
@@ -400,12 +397,19 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
         try
         {
-            if (File.Exists(expectedOutput)) { lockFile.Dispose(); return; }
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                expectedOutput,
+                projectDirectory,
+                _repoRoot))
+            {
+                return;
+            }
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"publish -c {configuration} -r {rid} --self-contained false -v q",
-                WorkingDirectory = Path.Combine(_repoRoot, relativePath),
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -429,9 +433,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var expectedOutput = Path.Combine(_repoRoot, relativePath,
             "bin", configuration, "net10.0", "browser-wasm", "publish", "dotnet.native.wasm");
 
-        if (File.Exists(expectedOutput))
-            return;
-
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + "-browser-wasm.lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
 
@@ -451,9 +452,12 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
         try
         {
-            if (File.Exists(expectedOutput))
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                expectedOutput,
+                projectDirectory,
+                _repoRoot))
             {
-                lockFile.Dispose();
                 return;
             }
 
@@ -462,7 +466,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 FileName = "dotnet",
                 Arguments = $"publish -c {configuration} -r browser-wasm --self-contained true "
                     + "-p:PublishReadyToRun=false -v q",
-                WorkingDirectory = Path.Combine(_repoRoot, relativePath),
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -487,15 +491,14 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
         var publishDir = Path.Combine(_repoRoot, relativePath,
             "bin", configuration, "net10.0", rid, "publish");
-        var expectedOutput = Path.Combine(publishDir,
-            $"{Path.GetFileName(relativePath)}{apphostExt}");
+        var projectName = Path.GetFileName(relativePath);
+        var assemblyName = projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal)
+            ? "NativeAotConsole"
+            : projectName;
+        var expectedOutput = Path.Combine(publishDir, $"{assemblyName}{apphostExt}");
         // The mstat sidecar joins the up-to-date check so a publish that predates sidecar
         // emission republishes once instead of leaving sidecar tests skipping forever.
-        var expectedMstat = Path.Combine(publishDir, $"{Path.GetFileName(relativePath)}.mstat");
-
-        // Skip if Dotsider.Tests already published
-        if (File.Exists(expectedOutput) && File.Exists(expectedMstat))
-            return;
+        var expectedMstat = Path.Combine(publishDir, $"{assemblyName}.mstat");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
         var lockPath = Path.Combine(Path.GetTempPath(), lockName);
@@ -517,18 +520,24 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         try
         {
             // Re-check after acquiring lock
-            if (File.Exists(expectedOutput) && File.Exists(expectedMstat))
+            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            if (TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedOutput,
+                    projectDirectory,
+                    _repoRoot) &&
+                TestProcessEnvironment.IsFixtureOutputCurrent(
+                    expectedMstat,
+                    projectDirectory,
+                    _repoRoot))
             {
-                lockFile.Dispose();
                 return;
             }
 
-            var projectDir = Path.Combine(_repoRoot, relativePath);
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
                 Arguments = $"publish -c {configuration} -r {rid} -v q",
-                WorkingDirectory = projectDir,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
             };
 
