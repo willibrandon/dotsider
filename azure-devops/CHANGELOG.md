@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.5
+
+- Present checks without a baseline as compact build snapshots instead of synthetic regressions.
+- Put the budget verdict first and shorten oversized contributor names in Markdown summaries.
+
 ## 0.24.4
 
 - Keep omitted optional paths unset instead of resolving them to the pipeline working directory.
