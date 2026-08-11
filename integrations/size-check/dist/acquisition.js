@@ -185,13 +185,20 @@ async function verifyChecksum(filePath, expected) {
 }
 async function listArchiveEntries(archivePath) {
     const workingDirectory = path.dirname(archivePath);
-    return (await run("tar", ["-tf", path.basename(archivePath)], workingDirectory)).stdout
+    return (await run(archiveTool(), ["-tf", path.basename(archivePath)], workingDirectory)).stdout
         .split(/\r?\n/u)
         .filter(entry => entry.length > 0);
 }
 async function extractArchive(archivePath, destinationPath) {
     const workingDirectory = path.dirname(archivePath);
-    await run("tar", ["-xf", path.basename(archivePath), "-C", path.relative(workingDirectory, destinationPath)], workingDirectory);
+    await run(archiveTool(), ["-xf", path.basename(archivePath), "-C", path.relative(workingDirectory, destinationPath)], workingDirectory);
+}
+function archiveTool() {
+    if (process.platform !== "win32") {
+        return "tar";
+    }
+    const windowsDirectory = process.env.SystemRoot ?? process.env.WINDIR ?? "C:\\Windows";
+    return path.join(windowsDirectory, "System32", "tar.exe");
 }
 async function resolveVersion(requested, token) {
     const normalized = requested.trim().replace(/^v/u, "");

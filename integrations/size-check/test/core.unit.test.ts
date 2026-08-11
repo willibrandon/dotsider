@@ -129,14 +129,58 @@ test("archive helpers handle absolute archive paths", async () => {
   }
 });
 
+test("archive helpers use Windows system tar for zip archives", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-zip-tool-"));
+  const originalPath = process.env.PATH;
+  try {
+    const source = path.join(directory, "source");
+    const destination = path.join(directory, "destination");
+    const archivePath = path.join(directory, "fixture.zip");
+    await fs.mkdir(source);
+    await fs.mkdir(destination);
+    await fs.writeFile(path.join(source, "payload.txt"), "verified zip payload", "utf8");
+
+    const windowsDirectory = process.env.SystemRoot ?? process.env.WINDIR ?? "C:\\Windows";
+    const systemTar = path.join(windowsDirectory, "System32", "tar.exe");
+    await runTar(
+      ["-a", "-cf", path.basename(archivePath), "-C", path.basename(source), "."],
+      directory,
+      systemTar,
+    );
+
+    process.env.PATH = directory;
+    const entries = await listArchiveEntries(archivePath);
+    assert.ok(entries.some(entry => entry.replaceAll("\\", "/").endsWith("/payload.txt")));
+
+    await extractArchive(archivePath, destination);
+    assert.equal(
+      await fs.readFile(path.join(destination, "payload.txt"), "utf8"),
+      "verified zip payload",
+    );
+  } finally {
+    if (originalPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = originalPath;
+    }
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Azure logging commands escape untrusted paths and messages", () => {
   assert.equal(escapeVsoMessage("100%\r\nnext"), "100%AZP25%0D%0Anext");
   assert.equal(escapeVsoProperty("a;b]c"), "a%3Bb%5Dc");
 });
 
-async function runTar(args: readonly string[], workingDirectory: string): Promise<void> {
+async function runTar(
+  args: readonly string[],
+  workingDirectory: string,
+  executable = "tar",
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn("tar", [...args], {
+    const child = spawn(executable, [...args], {
       cwd: workingDirectory,
       shell: false,
       windowsHide: true,
@@ -150,7 +194,7 @@ async function runTar(args: readonly string[], workingDirectory: string): Promis
       if (exitCode === 0) {
         resolve();
       } else {
-        reject(new Error(`tar ${args.join(" ")} failed with exit code ${exitCode}:\n${stderr}`));
+        reject(new Error(`${executable} ${args.join(" ")} failed with exit code ${exitCode}:\n${stderr}`));
       }
     });
   });
