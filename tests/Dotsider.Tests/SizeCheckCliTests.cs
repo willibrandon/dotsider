@@ -295,7 +295,7 @@ public class SizeCheckCliTests
         Assert.Contains("## Size check", stdout);
         Assert.Contains("| Kind | Added | Removed | Grown | Shrunk | Unchanged |", stdout);
         Assert.Contains("### Budgets", stdout);
-        Assert.Contains("**Result: FAIL", stdout);
+        Assert.Contains("> ❌ **FAIL** — a size budget was exceeded.", stdout);
     }
 
     /// <summary>
