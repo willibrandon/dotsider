@@ -70,6 +70,7 @@ try
     VerifyCommand("node", ["--version"], repositoryRoot);
     VerifyCommand("pnpm", ["--version"], repositoryRoot);
     VerifyCommand("clang", ["--version"], repositoryRoot);
+    VerifyCommand("file", ["--version"], repositoryRoot);
     VerifyCommand("llvm-objdump", ["--version"], repositoryRoot);
     VerifyCommand("docker", ["version", "--format", "{{.Server.Version}}"], repositoryRoot);
     VerifyGlobalToolVersion(ReadGlobalTools(repositoryRoot), cliPackageId, hex1bVersion);

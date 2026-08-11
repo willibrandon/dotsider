@@ -5,9 +5,10 @@ Container**. The first creation restores the .NET and documentation dependencies
 and installs the Hex1b CLI.
 
 The container includes the .NET 10 SDK, Native AOT prerequisites, the
-`wasm-tools` workload, Node.js 24, pnpm, GitHub CLI, LLVM, and an isolated Docker
-daemon. The Hex1b CLI is installed at the version used by dotsider and is
-available through the `hex1b` command.
+`wasm-tools` workload, Node.js 24, pnpm, GitHub CLI, LLVM, the `file` utility used
+to package Azure DevOps extensions, and an isolated Docker daemon. The Hex1b CLI
+is installed at the version used by dotsider and is available through the
+`hex1b` command.
 
 Docker-in-Docker requires the development container to run privileged. It uses
 its own Docker storage and does not mount the host Docker socket.
