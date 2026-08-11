@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.9
+
+- Align the size-check verdict with the rest of the report in GitHub and Azure Pipelines summaries.
+
 ## 0.24.8
 
 - Render size summaries as narrow lists with visible section dividers so GitHub and Azure Pipelines remain readable without hiding contributor details.
