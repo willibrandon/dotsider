@@ -439,9 +439,13 @@ jobs:
           cp dotsider-win-arm64-msi/dotsider-win-arm64.msi .
           cp dotsider-mcp-win-x64-msi/dotsider-mcp-win-x64.msi .
           cp dotsider-mcp-win-arm64-msi/dotsider-mcp-win-arm64.msi .
-          for file in azure-devops-extension/*.vsix azure-devops-extension/*.vsix.sha256; do
-            cp "$file" .
-          done
+          vsix=(dotsider-azure-devops-extension/*.vsix)
+          vsix_checksums=(dotsider-azure-devops-extension/*.vsix.sha256)
+          if (( ${#vsix[@]} != 1 || ${#vsix_checksums[@]} != 1 )); then
+            echo "::error::Expected one Azure DevOps VSIX and checksum in the downloaded integration artifact."
+            exit 1
+          fi
+          cp "${vsix[@]}" "${vsix_checksums[@]}" .
 
       - name: Calculate SHA256 checksums
         id: checksums

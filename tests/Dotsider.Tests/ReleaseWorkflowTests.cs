@@ -128,6 +128,9 @@ public class ReleaseWorkflowTests
         Assert.Contains("gh attestation verify", release);
         Assert.Contains("AZURE_DEVOPS_MARKETPLACE_PAT", release);
         Assert.Contains("pnpm exec tfx extension publish", release);
+        Assert.Contains("dotsider-azure-devops-extension/*.vsix", release);
+        Assert.Contains("Expected one Azure DevOps VSIX and checksum", release);
+        Assert.DoesNotContain("for file in azure-devops-extension/*.vsix", release);
         Assert.Contains("$task.version.Major = 1", release);
         Assert.Contains("$task.version.Patch = ([int]$versionParts[1] * 1000)", release);
         Assert.Contains("needs: [verify-size-check-release, build-ci-integrations]", release);
