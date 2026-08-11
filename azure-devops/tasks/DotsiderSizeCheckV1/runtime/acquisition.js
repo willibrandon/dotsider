@@ -41,6 +41,8 @@ exports.validateArchiveEntries = validateArchiveEntries;
 exports.prepareTool = prepareTool;
 exports.acquireTool = acquireTool;
 exports.verifyChecksum = verifyChecksum;
+exports.listArchiveEntries = listArchiveEntries;
+exports.extractArchive = extractArchive;
 const node_child_process_1 = require("node:child_process");
 const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
@@ -157,13 +159,11 @@ async function acquireTool(tool, token) {
         if (actual !== expected) {
             throw new Error(`Checksum verification failed for ${asset}: expected ${expected}, received ${actual}.`);
         }
-        const entries = (await run("tar", ["-tf", archivePath])).stdout
-            .split(/\r?\n/u)
-            .filter(entry => entry.length > 0);
+        const entries = await listArchiveEntries(archivePath);
         validateArchiveEntries(entries);
         const extracted = path.join(staging, "content");
         await fs.mkdir(extracted);
-        await run("tar", ["-xf", archivePath, "-C", extracted]);
+        await extractArchive(archivePath, extracted);
         const executable = path.join(extracted, process.platform === "win32" ? "dotsider.exe" : "dotsider");
         await assertFileExists(executable, "The verified Dotsider archive");
         if (process.platform !== "win32") {
@@ -182,6 +182,16 @@ async function verifyChecksum(filePath, expected) {
     if (actual !== expected.toLowerCase()) {
         throw new Error(`Checksum verification failed: expected ${expected.toLowerCase()}, received ${actual}.`);
     }
+}
+async function listArchiveEntries(archivePath) {
+    const workingDirectory = path.dirname(archivePath);
+    return (await run("tar", ["-tf", path.basename(archivePath)], workingDirectory)).stdout
+        .split(/\r?\n/u)
+        .filter(entry => entry.length > 0);
+}
+async function extractArchive(archivePath, destinationPath) {
+    const workingDirectory = path.dirname(archivePath);
+    await run("tar", ["-xf", path.basename(archivePath), "-C", path.relative(workingDirectory, destinationPath)], workingDirectory);
 }
 async function resolveVersion(requested, token) {
     const normalized = requested.trim().replace(/^v/u, "");
@@ -254,9 +264,13 @@ async function hashFile(filePath) {
     });
     return hash.digest("hex");
 }
-async function run(fileName, args) {
+async function run(fileName, args, workingDirectory) {
     return await new Promise((resolve, reject) => {
-        const child = (0, node_child_process_1.spawn)(fileName, [...args], { shell: false, windowsHide: true });
+        const child = (0, node_child_process_1.spawn)(fileName, [...args], {
+            cwd: workingDirectory,
+            shell: false,
+            windowsHide: true,
+        });
         let stdout = "";
         let stderr = "";
         child.stdout.setEncoding("utf8");

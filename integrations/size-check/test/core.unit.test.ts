@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { test } from "node:test";
-import { detectMuslRuntime, parseChecksum, resolveRid, validateArchiveEntries } from "../src/acquisition";
+import {
+  detectMuslRuntime,
+  extractArchive,
+  listArchiveEntries,
+  parseChecksum,
+  resolveRid,
+  validateArchiveEntries,
+} from "../src/acquisition";
 import { parseBudgets, parseTop } from "../src/input";
 import { buildSizeCheckArguments } from "../src/report";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
@@ -94,7 +105,53 @@ test("validateArchiveEntries rejects parent and absolute paths", () => {
   assert.throws(() => validateArchiveEntries(["C:\\Windows\\system.ini"]), /unsafe path/u);
 });
 
+test("archive helpers handle absolute archive paths", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-archive-path-"));
+  try {
+    const source = path.join(directory, "source");
+    const destination = path.join(directory, "destination");
+    const archivePath = path.join(directory, "fixture.tar.gz");
+    await fs.mkdir(source);
+    await fs.mkdir(destination);
+    await fs.writeFile(path.join(source, "payload.txt"), "verified archive payload", "utf8");
+    await runTar(["-czf", path.basename(archivePath), "-C", path.basename(source), "."], directory);
+
+    const entries = await listArchiveEntries(archivePath);
+    assert.ok(entries.some(entry => entry.replaceAll("\\", "/").endsWith("/payload.txt")));
+
+    await extractArchive(archivePath, destination);
+    assert.equal(
+      await fs.readFile(path.join(destination, "payload.txt"), "utf8"),
+      "verified archive payload",
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Azure logging commands escape untrusted paths and messages", () => {
   assert.equal(escapeVsoMessage("100%\r\nnext"), "100%AZP25%0D%0Anext");
   assert.equal(escapeVsoProperty("a;b]c"), "a%3Bb%5Dc");
 });
+
+async function runTar(args: readonly string[], workingDirectory: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("tar", [...args], {
+      cwd: workingDirectory,
+      shell: false,
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (value: string) => stderr += value);
+    child.on("error", reject);
+    child.on("close", exitCode => {
+      if (exitCode === 0) {
+        resolve();
+      } else {
+        reject(new Error(`tar ${args.join(" ")} failed with exit code ${exitCode}:\n${stderr}`));
+      }
+    });
+  });
+}

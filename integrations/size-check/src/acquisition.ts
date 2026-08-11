@@ -141,13 +141,11 @@ export async function acquireTool(tool: PreparedTool, token?: string): Promise<s
       throw new Error(`Checksum verification failed for ${asset}: expected ${expected}, received ${actual}.`);
     }
 
-    const entries = (await run("tar", ["-tf", archivePath])).stdout
-      .split(/\r?\n/u)
-      .filter(entry => entry.length > 0);
+    const entries = await listArchiveEntries(archivePath);
     validateArchiveEntries(entries);
     const extracted = path.join(staging, "content");
     await fs.mkdir(extracted);
-    await run("tar", ["-xf", archivePath, "-C", extracted]);
+    await extractArchive(archivePath, extracted);
 
     const executable = path.join(extracted, process.platform === "win32" ? "dotsider.exe" : "dotsider");
     await assertFileExists(executable, "The verified Dotsider archive");
@@ -168,6 +166,22 @@ export async function verifyChecksum(filePath: string, expected: string): Promis
   if (actual !== expected.toLowerCase()) {
     throw new Error(`Checksum verification failed: expected ${expected.toLowerCase()}, received ${actual}.`);
   }
+}
+
+export async function listArchiveEntries(archivePath: string): Promise<string[]> {
+  const workingDirectory = path.dirname(archivePath);
+  return (await run("tar", ["-tf", path.basename(archivePath)], workingDirectory)).stdout
+    .split(/\r?\n/u)
+    .filter(entry => entry.length > 0);
+}
+
+export async function extractArchive(archivePath: string, destinationPath: string): Promise<void> {
+  const workingDirectory = path.dirname(archivePath);
+  await run(
+    "tar",
+    ["-xf", path.basename(archivePath), "-C", path.relative(workingDirectory, destinationPath)],
+    workingDirectory,
+  );
 }
 
 async function resolveVersion(requested: string, token: string | undefined): Promise<string> {
@@ -246,9 +260,17 @@ async function hashFile(filePath: string): Promise<string> {
   return hash.digest("hex");
 }
 
-async function run(fileName: string, args: readonly string[]): Promise<ProcessResult> {
+async function run(
+  fileName: string,
+  args: readonly string[],
+  workingDirectory?: string,
+): Promise<ProcessResult> {
   return await new Promise<ProcessResult>((resolve, reject) => {
-    const child = spawn(fileName, [...args], { shell: false, windowsHide: true });
+    const child = spawn(fileName, [...args], {
+      cwd: workingDirectory,
+      shell: false,
+      windowsHide: true,
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");
