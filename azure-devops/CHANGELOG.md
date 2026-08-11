@@ -1,8 +1,13 @@
 # Changelog
 
+## 0.24.6
+
+- Require an explicit current or compare mode for size checks.
+- Show complete contributor names with clear spacing between report sections.
+
 ## 0.24.5
 
-- Present checks without a baseline as compact build snapshots instead of synthetic regressions.
+- Present checks without a baseline as current-build reports instead of synthetic regressions.
 - Put the budget verdict first and shorten oversized contributor names in Markdown summaries.
 
 ## 0.24.4

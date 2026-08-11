@@ -28,7 +28,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotsider-mcp</ToolCommandName>
     <PackageId>Dotsider.Mcp</PackageId>
-    <Version>0.24.5</Version>
+    <Version>0.24.6</Version>
     <Authors>willibrandon</Authors>
     <Description>MCP server for AI-assisted .NET assembly analysis with dotsider.</Description>
     <PackageTags>dotnet;assembly;mcp;ai;analysis;il;metadata</PackageTags>
