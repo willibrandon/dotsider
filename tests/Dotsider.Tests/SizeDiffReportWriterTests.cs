@@ -55,8 +55,9 @@ public sealed class SizeDiffReportWriterTests
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
 
         Assert.Contains(
-            "> ✅ **PASS** — all size budgets passed. No baseline comparison was run.",
+            "✅ **PASS** — all size budgets passed. No baseline comparison was run.",
             markdown);
+        Assert.DoesNotContain("> ✅", markdown);
         Assert.DoesNotContain("Snapshot", markdown);
         Assert.DoesNotContain("Legend", markdown);
         Assert.Contains("### Overview", markdown);

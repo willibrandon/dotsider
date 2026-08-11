@@ -300,7 +300,8 @@ public class SizeCheckCliTests
         Assert.Contains($"---{Environment.NewLine}{Environment.NewLine}### ", stdout);
         Assert.DoesNotContain("|", stdout);
         Assert.Contains("### Budgets", stdout);
-        Assert.Contains("> ❌ **FAIL** — a size budget was exceeded.", stdout);
+        Assert.Contains("❌ **FAIL** — a size budget was exceeded.", stdout);
+        Assert.DoesNotContain("> ❌", stdout);
     }
 
     /// <summary>

@@ -220,12 +220,12 @@ internal static class SizeDiffReportWriter
             var modeSuffix = currentMode ? " No baseline comparison was run." : "";
             sb.AppendLine((statusBudgets.Passed
                 ? statusBudgets.HasWarnings
-                    ? "> ⚠️ **PASS with warnings** — all error-severity size budgets passed."
-                    : "> ✅ **PASS** — all size budgets passed."
-                : "> ❌ **FAIL** — a size budget was exceeded.") + modeSuffix);
+                    ? "⚠️ **PASS with warnings** — all error-severity size budgets passed."
+                    : "✅ **PASS** — all size budgets passed."
+                : "❌ **FAIL** — a size budget was exceeded.") + modeSuffix);
         }
         else if (currentMode)
-            sb.AppendLine("> ℹ️ **CURRENT BUILD** — no baseline comparison was run.");
+            sb.AppendLine("ℹ️ **CURRENT BUILD** — no baseline comparison was run.");
 
         AppendSectionHeading(sb, "Overview");
         AppendMetric(sb, "Mode", currentMode ? "Current build" : "Compared with baseline");
