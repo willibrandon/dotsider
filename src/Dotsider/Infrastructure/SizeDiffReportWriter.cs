@@ -212,9 +212,9 @@ internal static class SizeDiffReportWriter
         var sb = new StringBuilder();
         sb.AppendLine("## Size check");
         sb.AppendLine();
-        sb.AppendLine($"**Target:** `{ctx.TargetPath}`  ");
+        sb.AppendLine($"**Target:** {MarkdownCodeSpan(ctx.TargetPath)}  ");
         if (ctx.BaselinePath is not null)
-            sb.AppendLine($"**Baseline:** `{ctx.BaselinePath}`  ");
+            sb.AppendLine($"**Baseline:** {MarkdownCodeSpan(ctx.BaselinePath)}  ");
         sb.AppendLine($"**Basis:** {BasisName(ctx.TotalBasis)}  ");
         sb.AppendLine($"**Total:** {FormatRange(ctx.LeftTotal, ctx.RightTotal)}  ");
         if (ctx.TotalBasis == SizeBasis.FileSize)
@@ -252,16 +252,17 @@ internal static class SizeDiffReportWriter
                     : evaluation.Budget.Severity == SizeBudgetSeverity.Warning ? "⚠️ WARN" : "❌ FAIL";
                 var label = evaluation.Budget.Name ?? evaluation.Budget.ToString();
                 var baseline = evaluation.BaselineBytes is { } b
-                    ? $"{DotsiderState.FormatSize(b)} → " : "";
-                sb.AppendLine($"| {verdict} | `{label}` | {baseline}"
-                    + $"{DotsiderState.FormatSize(evaluation.ActualBytes)} | {BasisName(evaluation.Basis)} |");
+                    ? $"{MarkdownSize(DotsiderState.FormatSize(b))} → " : "";
+                sb.AppendLine($"| {verdict} | {MarkdownCodeSpan(label)} | {baseline}"
+                    + $"{MarkdownSize(DotsiderState.FormatSize(evaluation.ActualBytes))} | "
+                    + $"{BasisName(evaluation.Basis)} |");
             }
 
             foreach (var evaluation in budgets.Evaluations.Where(e => !e.Passed))
             {
                 var label = evaluation.Budget.Name ?? evaluation.Budget.ToString();
                 sb.AppendLine();
-                sb.AppendLine($"#### `{label}`");
+                sb.AppendLine($"#### {MarkdownCodeSpan(label)}");
                 if (evaluation.Budget.Description is { } description)
                     sb.AppendLine($"{description}\n");
                 foreach (var violation in evaluation.Violations)
@@ -297,9 +298,10 @@ internal static class SizeDiffReportWriter
         sb.AppendLine("| --- | ---: | ---: | ---: |");
         foreach (var a in rows)
         {
-            sb.AppendLine($"| `{(a.Name.Length > 0 ? a.Name : "(global)")}` | "
-                + $"{DotsiderState.FormatSize(a.LeftSize)} | {DotsiderState.FormatSize(a.RightSize)} | "
-                + $"{SizeDiffTreemapView.FormatDelta(a.Delta)} |");
+            sb.AppendLine($"| {MarkdownCodeSpan(a.Name.Length > 0 ? a.Name : "(global)")} | "
+                + $"{MarkdownSize(DotsiderState.FormatSize(a.LeftSize))} | "
+                + $"{MarkdownSize(DotsiderState.FormatSize(a.RightSize))} | "
+                + $"{MarkdownSize(SizeDiffTreemapView.FormatDelta(a.Delta))} |");
         }
     }
 
@@ -323,11 +325,11 @@ internal static class SizeDiffReportWriter
         foreach (var (contributor, path) in explained)
         {
             sb.AppendLine();
-            sb.AppendLine($"**`{contributor.Name}`** — kept by (root first):");
+            sb.AppendLine($"**{MarkdownCodeSpan(contributor.Name)}** — kept by (root first):");
             sb.AppendLine();
             for (var i = 0; i < path!.Count; i++)
             {
-                sb.AppendLine($"{i + 1}. `{path[i].Label}`"
+                sb.AppendLine($"{i + 1}. {MarkdownCodeSpan(path[i].Label)}"
                     + (path[i].Reason is { } reason ? $" ({reason})" : ""));
             }
         }
@@ -346,9 +348,44 @@ internal static class SizeDiffReportWriter
         sb.AppendLine("| ---: | --- | --- | --- |");
         foreach (var c in rows)
         {
-            sb.AppendLine($"| {SizeDiffTreemapView.FormatDelta(c.Delta)} | {c.Kind} | "
-                + $"{DirectionName(c)} | `{ContributorLabel(c)}` |");
+            sb.AppendLine($"| {MarkdownSize(SizeDiffTreemapView.FormatDelta(c.Delta))} | {c.Kind} | "
+                + $"{DirectionName(c)} | {MarkdownCodeSpan(ContributorLabel(c))} |");
         }
+    }
+
+    /// <summary>
+    /// Keeps a formatted size on one line inside GitHub's narrow table columns.
+    /// </summary>
+    private static string MarkdownSize(string value) =>
+        value.Replace(" ", "&nbsp;", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Wraps arbitrary text in a CommonMark code span whose delimiter is longer than every
+    /// backtick run in the value. Padding keeps leading or trailing backticks and spaces part
+    /// of the rendered code instead of the delimiter.
+    /// </summary>
+    private static string MarkdownCodeSpan(string value)
+    {
+        var longestRun = 0;
+        var currentRun = 0;
+        foreach (var character in value)
+        {
+            if (character == '`')
+            {
+                currentRun++;
+                longestRun = Math.Max(longestRun, currentRun);
+            }
+            else
+            {
+                currentRun = 0;
+            }
+        }
+
+        var delimiter = new string('`', longestRun + 1);
+        var needsPadding = value.Length > 0
+            && (value[0] is '`' or ' ' || value[^1] is '`' or ' ');
+        var padding = needsPadding ? " " : "";
+        return $"{delimiter}{padding}{value}{padding}{delimiter}";
     }
 
     private static string ContributorLabel(SizeDiffContributor c)

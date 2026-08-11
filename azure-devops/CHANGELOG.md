@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.4
+
+- Keep omitted optional paths unset instead of resolving them to the pipeline working directory.
+- Preserve CLR generic names and keep size values on one line in Markdown reports.
+
 ## 0.24.3
 
 - Show measured size results in task logs and retain the failure reason when Azure Pipelines reports a failed size check.

@@ -107,11 +107,29 @@ test("Azure task requires an agent that provides its declared Node handlers", as
   const task = JSON.parse(await fs.readFile(taskPath, "utf8")) as {
     minimumAgentVersion?: string;
     execution?: Record<string, { target?: string }>;
+    inputs?: Array<{
+      name?: string;
+      type?: string;
+      defaultValue?: string;
+      required?: boolean;
+    }>;
   };
 
   assert.equal(task.minimumAgentVersion, "3.230.2");
   assert.equal(task.execution?.Node24?.target, "runtime/azure.js");
   assert.equal(task.execution?.Node20_1?.target, "runtime/azure.js");
+
+  for (const name of ["baseline", "budgetFile", "dotsiderPath"]) {
+    const input = task.inputs?.find(candidate => candidate.name === name);
+    assert.ok(input, `Expected the ${name} task input`);
+    assert.equal(
+      input.type,
+      "string",
+      `${name} must be a string so Azure does not root an empty filePath input`,
+    );
+    assert.equal(input.defaultValue, "");
+    assert.equal(input.required, false);
+  }
 });
 
 async function runNode(args: readonly string[], environment: NodeJS.ProcessEnv): Promise<ChildResult> {

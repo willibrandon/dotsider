@@ -84,6 +84,18 @@ internal static class CiIntegrationValidator
         Require(execution.TryGetProperty("Node20_1", out JsonElement node20)
             && node20.GetProperty("target").GetString() == "runtime/azure.js",
             "The Azure task must retain its Node 20 handler for older agents.");
+        Dictionary<string, JsonElement> inputs = rootElement.GetProperty("inputs")
+            .EnumerateArray()
+            .ToDictionary(input => input.GetProperty("name").GetString() ?? string.Empty);
+        foreach (string name in new[] { "baseline", "budgetFile", "dotsiderPath" })
+        {
+            JsonElement input = inputs[name];
+            Require(input.GetProperty("type").GetString() == "string"
+                && input.GetProperty("defaultValue").GetString() == string.Empty
+                && !input.GetProperty("required").GetBoolean(),
+                $"The optional Azure task input '{name}' must remain an empty string; "
+                    + "Azure roots empty filePath inputs at the working directory.");
+        }
 
         string extensionPath = Path.Combine(root, "azure-devops", "vss-extension.json");
         using JsonDocument extension = JsonDocument.Parse(File.ReadAllText(extensionPath));
