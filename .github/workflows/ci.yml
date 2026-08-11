@@ -139,6 +139,261 @@ jobs:
           -Rid ${{ matrix.rid }}
           -Version 0.0.0-ci
 
+  ci-integration-packages:
+    name: CI integration packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Restore integration dependencies
+        run: |
+          pnpm --dir integrations/size-check install --frozen-lockfile
+          pnpm --dir azure-devops install --frozen-lockfile
+          pnpm --dir integrations/size-check audit --audit-level low
+          pnpm --dir azure-devops audit --audit-level low
+
+      - name: Build and test integration runtime
+        run: |
+          pnpm --dir integrations/size-check build
+          pnpm --dir integrations/size-check validate
+          pnpm --dir integrations/size-check test:unit
+
+      - name: Package Azure DevOps extension
+        run: pnpm --dir azure-devops package:vsix
+
+      - name: Validate integration packages
+        shell: pwsh
+        run: >-
+          dotnet run --file ./scripts/Validate-CiIntegrations.cs --
+          -Vsix artifacts/azure-devops/willibrandon.dotsider-0.1.0.vsix
+
+      - name: Verify generated runtime is current
+        run: git diff --exit-code -- integrations/size-check/dist azure-devops/tasks/DotsiderSizeCheckV1/runtime
+
+      - name: Upload Azure DevOps extension
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dotsider-azure-devops-extension
+          path: artifacts/azure-devops/*.vsix
+          if-no-files-found: error
+
+  size-check-integrations:
+    name: Size check integration (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-x64
+            os: macos-26-intel
+          - rid: osx-arm64
+            os: macos-26
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Restore integration dependencies
+        run: pnpm --dir integrations/size-check install --frozen-lockfile
+
+      - name: Build integration runtime
+        run: pnpm --dir integrations/size-check build
+
+      - name: Publish real Native AOT integration applications
+        id: integration-assets
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE "artifacts/size-check/${{ matrix.rid }}"
+          $dotsiderDirectory = Join-Path $root 'dotsider'
+          $baselineDirectory = Join-Path $root 'baseline'
+          $targetDirectory = Join-Path $root 'target'
+          dotnet publish src/Dotsider/Dotsider.csproj -c Release -r '${{ matrix.rid }}' -p:Version=0.0.0-ci --output $dotsiderDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish samples/NativeAotConsole/NativeAotConsole.csproj -c Release -r '${{ matrix.rid }}' --output $baselineDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish samples/NativeAotConsoleV2/NativeAotConsoleV2.csproj -c Release -r '${{ matrix.rid }}' --output $targetDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          $dotsider = Join-Path $dotsiderDirectory "dotsider$suffix"
+          $baseline = Join-Path $baselineDirectory "NativeAotConsole$suffix"
+          $target = Join-Path $targetDirectory "NativeAotConsole$suffix"
+          $targetMstat = Join-Path $targetDirectory 'NativeAotConsole.mstat'
+          $targetDgml = Join-Path $targetDirectory 'NativeAotConsole.codegen.dgml.xml'
+          foreach ($required in @($dotsider, $baseline, $target, $targetMstat, $targetDgml)) {
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Missing real integration asset: $required" }
+          }
+
+          $archive = if ($IsWindows) { Join-Path $root 'dotsider.zip' } else { Join-Path $root 'dotsider.tar.gz' }
+          if ($IsWindows) {
+            Compress-Archive -Path (Join-Path $dotsiderDirectory '*') -DestinationPath $archive
+          } else {
+            & tar -czf $archive -C $dotsiderDirectory .
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $checksum = "$archive.sha256"
+          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $(Split-Path -Leaf $archive)" | Set-Content -LiteralPath $checksum -Encoding ascii
+
+          "DOTSIDER_INTEGRATION_EXE=$dotsider" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_BASELINE=$baseline" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_TARGET=$target" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_TARGET_MSTAT=$targetMstat" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_TARGET_DGML=$targetDgml" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_ARCHIVE=$archive" >> $env:GITHUB_ENV
+          "DOTSIDER_INTEGRATION_CHECKSUM=$checksum" >> $env:GITHUB_ENV
+          "exe=$dotsider" >> $env:GITHUB_OUTPUT
+          "baseline=$baseline" >> $env:GITHUB_OUTPUT
+          "target=$target" >> $env:GITHUB_OUTPUT
+
+      - name: Run action with a real comparison
+        id: passing
+        uses: ./
+        with:
+          target: ${{ steps.integration-assets.outputs.target }}
+          baseline: ${{ steps.integration-assets.outputs.baseline }}
+          top: '25'
+          why: 'true'
+          dotsider-version: not-a-release
+          dotsider-path: ${{ steps.integration-assets.outputs.exe }}
+          artifact-name: dotsider-size-check-pass-${{ matrix.rid }}
+
+      - name: Assert passing action outputs
+        shell: pwsh
+        run: |
+          if ('${{ steps.passing.outputs.result }}' -ne 'passed') { throw 'Expected passed result.' }
+          if ('${{ steps.passing.outputs.exit-code }}' -ne '0') { throw 'Expected exit code 0.' }
+          if ('${{ steps.passing.outputs.dotsider-version }}' -ne 'custom') { throw 'Expected custom tool version.' }
+          if ([string]::IsNullOrWhiteSpace('${{ steps.passing.outputs.delta }}')) { throw 'Expected a size delta.' }
+          if (-not (Test-Path -LiteralPath '${{ steps.passing.outputs.json-report-path }}')) { throw 'Missing JSON report.' }
+          if (-not (Test-Path -LiteralPath '${{ steps.passing.outputs.markdown-report-path }}')) { throw 'Missing Markdown report.' }
+
+      - name: Run action with a warning budget
+        id: warning
+        uses: ./
+        with:
+          target: ${{ steps.integration-assets.outputs.target }}
+          baseline: ${{ steps.integration-assets.outputs.baseline }}
+          budget-file: integrations/size-check/test/fixtures/warning-budgets.json
+          dotsider-path: ${{ steps.integration-assets.outputs.exe }}
+          report-directory: ${{ runner.temp }}/dotsider-warning
+          upload-reports: 'false'
+
+      - name: Assert warning action output
+        shell: pwsh
+        run: |
+          if ('${{ steps.warning.outputs.result }}' -ne 'passed-with-warnings') { throw 'Expected passed-with-warnings.' }
+          if ('${{ steps.warning.outputs.exit-code }}' -ne '0') { throw 'Expected warning exit code 0.' }
+
+      - name: Run action with an absolute budget
+        uses: ./
+        with:
+          target: ${{ steps.integration-assets.outputs.target }}
+          budgets: max=1gb
+          dotsider-path: ${{ steps.integration-assets.outputs.exe }}
+          report-directory: ${{ runner.temp }}/dotsider-absolute
+          upload-reports: 'false'
+
+      - name: Run action with a failing budget
+        id: failing
+        continue-on-error: true
+        uses: ./
+        with:
+          target: ${{ steps.integration-assets.outputs.target }}
+          baseline: ${{ steps.integration-assets.outputs.baseline }}
+          budgets: ns=NativeAotConsole.Telemetry:growth=0
+          dotsider-path: ${{ steps.integration-assets.outputs.exe }}
+          report-directory: ${{ runner.temp }}/dotsider-failing
+          artifact-name: dotsider-size-check-fail-${{ matrix.rid }}
+
+      - name: Assert failing action result
+        shell: pwsh
+        run: |
+          if ('${{ steps.failing.outcome }}' -ne 'failure') { throw 'Expected the action step to fail.' }
+          if ('${{ steps.failing.outputs.result }}' -ne 'budget-failed') { throw 'Expected budget-failed.' }
+          if ('${{ steps.failing.outputs.exit-code }}' -ne '2') { throw 'Expected Dotsider exit code 2.' }
+
+      - name: Download reports from the failed action
+        uses: actions/download-artifact@v8
+        with:
+          name: dotsider-size-check-fail-${{ matrix.rid }}
+          path: ${{ runner.temp }}/downloaded-size-check
+
+      - name: Assert failed-action reports were retained
+        shell: pwsh
+        run: |
+          $json = Get-ChildItem -LiteralPath '${{ runner.temp }}/downloaded-size-check' -Filter '*.json' -Recurse
+          $markdown = Get-ChildItem -LiteralPath '${{ runner.temp }}/downloaded-size-check' -Filter '*.md' -Recurse
+          if ($json.Count -ne 1 -or $markdown.Count -ne 1) { throw 'Expected one JSON and one Markdown report.' }
+          $report = Get-Content -LiteralPath $json.FullName -Raw | ConvertFrom-Json
+          if ($report.schemaVersion -ne 1 -or $report.budgets.passed) { throw 'Unexpected failed-action report.' }
+
+      - name: Run action with invalid input
+        id: invalid
+        continue-on-error: true
+        uses: ./
+        with:
+          target: ${{ steps.integration-assets.outputs.target }}
+          baseline: ${{ steps.integration-assets.outputs.baseline }}
+          budgets: invalid
+          dotsider-path: ${{ steps.integration-assets.outputs.exe }}
+          report-directory: ${{ runner.temp }}/dotsider-invalid
+          upload-reports: 'false'
+
+      - name: Assert invalid input result
+        shell: pwsh
+        run: |
+          if ('${{ steps.invalid.outcome }}' -ne 'failure') { throw 'Expected invalid input to fail.' }
+          if ('${{ steps.invalid.outputs.result }}' -ne 'error') { throw 'Expected error result.' }
+          if ('${{ steps.invalid.outputs.exit-code }}' -ne '1') { throw 'Expected Dotsider exit code 1.' }
+
+      - name: Test shared runtime and Azure handler on Node.js 24
+        run: pnpm --dir integrations/size-check test:integration
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '20'
+
+      - name: Test Azure fallback handler on Node.js 20
+        run: pnpm --dir integrations/size-check test:azure-integration
+
   deploy-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 45

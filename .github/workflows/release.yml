@@ -6,7 +6,9 @@ on:
       - 'v*'
 
 permissions:
+  attestations: write
   contents: write
+  id-token: write
 
 jobs:
   build-portable-packages:
@@ -293,8 +295,97 @@ jobs:
           name: dotsider-mcp-${{ matrix.rid }}-msi
           path: ./artifacts/native-aot-release/${{ matrix.rid }}/publish/dotsider-mcp-${{ matrix.rid }}.msi
 
+  build-ci-integrations:
+    name: Build CI integrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Restore integration dependencies
+        run: |
+          pnpm --dir integrations/size-check install --frozen-lockfile
+          pnpm --dir azure-devops install --frozen-lockfile
+          pnpm --dir integrations/size-check audit --audit-level low
+          pnpm --dir azure-devops audit --audit-level low
+
+      - name: Build and validate integration runtime
+        run: |
+          pnpm --dir integrations/size-check build
+          pnpm --dir integrations/size-check validate
+          pnpm --dir integrations/size-check test:unit
+          git diff --exit-code -- integrations/size-check/dist azure-devops/tasks/DotsiderSizeCheckV1/runtime
+
+      - name: Package versioned Azure DevOps extension
+        if: "!contains(github.ref_name, '-')"
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v') -replace '-.*$', ''
+          $versionParts = $version.Split('.')
+          if ($versionParts.Count -ne 3) { throw "Expected a three-part release version, got '$version'." }
+          $taskPath = 'azure-devops/tasks/DotsiderSizeCheckV1/task.json'
+          $task = Get-Content -LiteralPath $taskPath -Raw | ConvertFrom-Json -Depth 100
+          $task.version.Major = 1
+          $task.version.Minor = [int]$versionParts[0]
+          $task.version.Patch = ([int]$versionParts[1] * 1000) + [int]$versionParts[2]
+          [System.IO.File]::WriteAllText(
+            (Resolve-Path -LiteralPath $taskPath),
+            ($task | ConvertTo-Json -Depth 100) + "`n",
+            [System.Text.UTF8Encoding]::new($false))
+          $override = "{`"version`":`"$version`"}"
+          Push-Location azure-devops
+          try {
+            pnpm exec tfx extension create --manifest-globs vss-extension.json --output-path ../artifacts/azure-devops --rev-version false --override $override --no-color
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to package the Azure DevOps extension.' }
+          }
+          finally {
+            Pop-Location
+          }
+          $source = Get-ChildItem artifacts/azure-devops -Filter '*.vsix' | Select-Object -First 1
+          if (-not $source) { throw 'The Azure DevOps VSIX was not produced.' }
+          $destination = Join-Path $source.DirectoryName "dotsider-${{ github.ref_name }}-azure-devops.vsix"
+          Move-Item -LiteralPath $source.FullName -Destination $destination
+          $digest = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $(Split-Path -Leaf $destination)" | Set-Content -LiteralPath "$destination.sha256" -Encoding ascii
+
+      - name: Validate Azure DevOps extension
+        if: "!contains(github.ref_name, '-')"
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v') -replace '-.*$', ''
+          dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix artifacts/azure-devops/dotsider-${{ github.ref_name }}-azure-devops.vsix -Version $version
+
+      - name: Attest Azure DevOps extension
+        if: "!contains(github.ref_name, '-')"
+        uses: actions/attest@v4.2.2
+        with:
+          subject-path: artifacts/azure-devops/dotsider-${{ github.ref_name }}-azure-devops.vsix
+
+      - name: Upload Azure DevOps extension
+        if: "!contains(github.ref_name, '-')"
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dotsider-azure-devops-extension
+          path: |
+            artifacts/azure-devops/*.vsix
+            artifacts/azure-devops/*.vsix.sha256
+          if-no-files-found: error
+
   create-release:
-    needs: [publish-nuget, build-binaries, build-portable-packages]
+    needs: [publish-nuget, build-binaries, build-portable-packages, build-ci-integrations]
     runs-on: ubuntu-latest
     outputs:
       sha256_linux_x64: ${{ steps.checksums.outputs.sha256_linux_x64 }}
@@ -324,6 +415,7 @@ jobs:
       - name: Package binaries
         run: |
           cd artifacts
+          shopt -s nullglob
 
           for product in dotsider dotsider-mcp; do
             executable="$product"
@@ -345,6 +437,9 @@ jobs:
           cp dotsider-win-arm64-msi/dotsider-win-arm64.msi .
           cp dotsider-mcp-win-x64-msi/dotsider-mcp-win-x64.msi .
           cp dotsider-mcp-win-arm64-msi/dotsider-mcp-win-arm64.msi .
+          for file in azure-devops-extension/*.vsix azure-devops-extension/*.vsix.sha256; do
+            cp "$file" .
+          done
 
       - name: Calculate SHA256 checksums
         id: checksums
@@ -377,10 +472,19 @@ jobs:
 
           cat ./*.sha256
 
+      - name: Attest released archives and installers
+        uses: actions/attest@v4.2.2
+        with:
+          subject-path: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/*.msi
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          shopt -s nullglob
           TAG="${GITHUB_REF#refs/tags/}"
           RELEASE_FLAGS=()
           if [[ "$TAG" == *-* ]]; then
@@ -401,7 +505,234 @@ jobs:
             artifacts/*.zip \
             artifacts/*.tar.gz \
             artifacts/*.msi \
+            artifacts/*.vsix \
             artifacts/*.sha256
+
+  verify-size-check-release:
+    name: Verify size-check release (${{ matrix.rid }})
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-x64
+            os: macos-26-intel
+          - rid: osx-arm64
+            os: macos-26
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Publish real Native AOT comparison pair
+        id: comparison-assets
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'dotsider-size-check-release'
+          $baselineDirectory = Join-Path $root 'baseline'
+          $targetDirectory = Join-Path $root 'target'
+          dotnet publish samples/NativeAotConsole/NativeAotConsole.csproj -c Release -r '${{ matrix.rid }}' --output $baselineDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish samples/NativeAotConsoleV2/NativeAotConsoleV2.csproj -c Release -r '${{ matrix.rid }}' --output $targetDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          $baseline = Join-Path $baselineDirectory "NativeAotConsole$suffix"
+          $target = Join-Path $targetDirectory "NativeAotConsole$suffix"
+          foreach ($required in @($baseline, $target, (Join-Path $targetDirectory 'NativeAotConsole.mstat'))) {
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Missing real release test asset: $required" }
+          }
+          "DOTSIDER_RELEASE_BASELINE=$baseline" >> $env:GITHUB_ENV
+          "DOTSIDER_RELEASE_TARGET=$target" >> $env:GITHUB_ENV
+          "baseline=$baseline" >> $env:GITHUB_OUTPUT
+          "target=$target" >> $env:GITHUB_OUTPUT
+
+      - name: Acquire released Dotsider and run size check
+        id: released
+        uses: ./
+        with:
+          target: ${{ steps.comparison-assets.outputs.target }}
+          baseline: ${{ steps.comparison-assets.outputs.baseline }}
+          dotsider-version: ${{ github.ref_name }}
+          artifact-name: dotsider-size-check-release-${{ matrix.rid }}
+
+      - name: Assert released action outputs
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          if ('${{ steps.released.outputs.result }}' -ne 'passed') { throw 'Released action did not pass.' }
+          if ('${{ steps.released.outputs.exit-code }}' -ne '0') { throw 'Released action returned a nonzero exit code.' }
+          if ('${{ steps.released.outputs.dotsider-version }}' -ne $version) { throw 'Released action resolved the wrong version.' }
+          $report = Get-Content -LiteralPath '${{ steps.released.outputs.json-report-path }}' -Raw | ConvertFrom-Json
+          if ($report.schemaVersion -ne 1) { throw 'Released action returned an unsupported report schema.' }
+
+      - name: Reuse the resolved Dotsider tool
+        uses: ./
+        with:
+          target: ${{ steps.comparison-assets.outputs.target }}
+          baseline: ${{ steps.comparison-assets.outputs.baseline }}
+          dotsider-version: ${{ github.ref_name }}
+          report-directory: ${{ runner.temp }}/dotsider-size-check-cache-reuse
+          upload-reports: 'false'
+
+  publish-azure-devops-marketplace:
+    name: Publish Azure DevOps extension
+    if: "!contains(github.ref_name, '-')"
+    needs: [verify-size-check-release, build-ci-integrations]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      attestations: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Install Azure DevOps publishing dependencies
+        run: pnpm --dir azure-devops install --frozen-lockfile
+
+      - name: Download release extension
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assetName = "dotsider-${{ github.ref_name }}-azure-devops.vsix"
+          $directory = Join-Path $env:RUNNER_TEMP 'dotsider-marketplace-release'
+          New-Item -ItemType Directory -Force -Path $directory | Out-Null
+          gh release download '${{ github.ref_name }}' --repo $env:GITHUB_REPOSITORY --pattern $assetName --pattern "$assetName.sha256" --dir $directory
+          if ($LASTEXITCODE -ne 0) { throw 'Azure DevOps extension download failed.' }
+          "DOTSIDER_VSIX_PATH=$(Join-Path $directory $assetName)" >> $env:GITHUB_ENV
+          "DOTSIDER_VSIX_CHECKSUM_PATH=$(Join-Path $directory "$assetName.sha256")" >> $env:GITHUB_ENV
+
+      - name: Verify extension checksum, package, and attestation
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $expected = (Get-Content -LiteralPath $env:DOTSIDER_VSIX_CHECKSUM_PATH -Raw).Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)[0].ToLowerInvariant()
+          $actual = (Get-FileHash -LiteralPath $env:DOTSIDER_VSIX_PATH -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "VSIX checksum mismatch: expected $expected, received $actual." }
+          dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix $env:DOTSIDER_VSIX_PATH -Version '${{ github.ref_name }}'.TrimStart('v')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh attestation verify $env:DOTSIDER_VSIX_PATH --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw 'VSIX attestation verification failed.' }
+
+      - name: Publish extension idempotently
+        shell: pwsh
+        env:
+          AZURE_DEVOPS_MARKETPLACE_PAT: ${{ secrets.AZURE_DEVOPS_MARKETPLACE_PAT }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:AZURE_DEVOPS_MARKETPLACE_PAT)) {
+            throw 'AZURE_DEVOPS_MARKETPLACE_PAT is required.'
+          }
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          Push-Location azure-devops
+          try {
+            $extensionJson = pnpm exec tfx extension show --publisher willibrandon --extension-id dotsider --token $env:AZURE_DEVOPS_MARKETPLACE_PAT --json --no-prompt --no-color 2>$null
+            $published = $false
+            if ($LASTEXITCODE -eq 0) {
+              $extension = $extensionJson | ConvertFrom-Json -Depth 100
+              $published = @($extension.versions | ForEach-Object { $_.version }) -contains $version
+            }
+            if (-not $published) {
+              pnpm exec tfx extension publish --vsix $env:DOTSIDER_VSIX_PATH --token $env:AZURE_DEVOPS_MARKETPLACE_PAT --no-prompt --no-color
+              if ($LASTEXITCODE -ne 0) { throw 'Azure DevOps Marketplace publication failed.' }
+            } else {
+              Write-Host "Azure DevOps extension $version is already published."
+            }
+
+            $verifiedJson = pnpm exec tfx extension show --publisher willibrandon --extension-id dotsider --token $env:AZURE_DEVOPS_MARKETPLACE_PAT --json --no-prompt --no-color
+            if ($LASTEXITCODE -ne 0) { throw 'Published Azure DevOps extension could not be queried.' }
+            $verified = $verifiedJson | ConvertFrom-Json -Depth 100
+            if (@($verified.versions | ForEach-Object { $_.version }) -notcontains $version) {
+              throw "Azure DevOps Marketplace does not list extension version $version."
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
+  publish-github-action:
+    name: Advance GitHub Action release channel
+    if: "!contains(github.ref_name, '-')"
+    needs: publish-azure-devops-marketplace
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Advance GitHub Action major tag
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseTag = '${{ github.ref_name }}'
+          if ($releaseTag -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw "Expected a stable canonical release tag; received '$releaseTag'."
+          }
+          $majorTag = "v$($Matches[1])"
+          $releaseCommit = (git rev-parse "$releaseTag^{commit}").Trim()
+          $referencePath = "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$majorTag"
+          $existing = gh api $referencePath --jq '.object.sha' 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh api --method POST "repos/$env:GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$majorTag" -f sha=$releaseCommit >$null
+          } elseif ($existing -ne $releaseCommit) {
+            gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/git/refs/tags/$majorTag" -f sha=$releaseCommit -F force=true >$null
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Could not advance $majorTag to $releaseCommit." }
+          "GitHub Action tag ``$majorTag`` now targets ``$releaseCommit``." >> $env:GITHUB_STEP_SUMMARY
+
+  verify-github-marketplace:
+    name: Verify GitHub Marketplace listing
+    if: "!contains(github.ref_name, '-')"
+    needs: publish-github-action
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify released action listing
+        shell: pwsh
+        run: |
+          $marketplaceUrl = 'https://github.com/marketplace/actions/dotsider-size-check'
+          $repositoryLink = "href=`"/$env:GITHUB_REPOSITORY`""
+          for ($attempt = 1; $attempt -le 12; $attempt++) {
+            $response = Invoke-WebRequest -Uri $marketplaceUrl -MaximumRedirection 3 -SkipHttpErrorCheck
+            if ($response.StatusCode -eq 200 -and
+                $response.Content.Contains($repositoryLink, [StringComparison]::OrdinalIgnoreCase) -and
+                $response.Content.Contains('${{ github.ref_name }}', [StringComparison]::Ordinal)) {
+              exit 0
+            }
+            if ($attempt -lt 12) { Start-Sleep -Seconds 10 }
+          }
+          throw "GitHub Marketplace does not list $env:GITHUB_REPOSITORY at ${{ github.ref_name }}."
 
   update-homebrew:
     needs: create-release

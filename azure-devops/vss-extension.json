@@ -1,0 +1,101 @@
+{
+  "manifestVersion": 1,
+  "id": "dotsider",
+  "name": "Dotsider",
+  "version": "0.1.0",
+  "publisher": "willibrandon",
+  "galleryFlags": [
+    "Public"
+  ],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "description": "NativeAOT size budgets and reports for Azure Pipelines.",
+  "categories": [
+    "Azure Pipelines"
+  ],
+  "tags": [
+    ".NET",
+    "NativeAOT",
+    "size regression"
+  ],
+  "icons": {
+    "default": "images/extension-icon.png"
+  },
+  "branding": {
+    "color": "#17131f",
+    "theme": "dark"
+  },
+  "content": {
+    "details": {
+      "path": "README.md"
+    },
+    "license": {
+      "path": "LICENSE"
+    }
+  },
+  "links": {
+    "getstarted": {
+      "uri": "https://dotsider.dev/usage/size-regression/"
+    },
+    "learn": {
+      "uri": "https://dotsider.dev/"
+    },
+    "license": {
+      "uri": "https://github.com/willibrandon/dotsider/blob/main/LICENSE"
+    },
+    "privacypolicy": {
+      "uri": "https://github.com/willibrandon/dotsider/blob/main/azure-devops/PRIVACY.md"
+    },
+    "support": {
+      "uri": "https://github.com/willibrandon/dotsider/issues"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/willibrandon/dotsider"
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "addressable": true
+    },
+    {
+      "path": "LICENSE",
+      "addressable": true
+    },
+    {
+      "path": "CHANGELOG.md",
+      "addressable": true
+    },
+    {
+      "path": "COMPATIBILITY.md",
+      "addressable": true
+    },
+    {
+      "path": "PRIVACY.md",
+      "addressable": true
+    },
+    {
+      "path": "images/extension-icon.png",
+      "addressable": true
+    },
+    {
+      "path": "tasks/DotsiderSizeCheckV1"
+    }
+  ],
+  "contributions": [
+    {
+      "id": "DotsiderSizeCheck",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "tasks/DotsiderSizeCheckV1"
+      }
+    }
+  ]
+}

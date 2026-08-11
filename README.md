@@ -148,6 +148,37 @@ dotsider size-check out/pr/app --baseline baseline/app.mstat \
 dotsider size-check out/pr/app --budget max=25mb                        # absolute cap, no baseline
 ```
 
+GitHub Actions can acquire the matching released binary, verify its checksum, cache it, and
+retain both reports even when a budget fails:
+
+```yaml
+- name: Check NativeAOT size
+  uses: willibrandon/dotsider@v0
+  with:
+    target: out/pr/App
+    baseline: baseline/App.mstat
+    budgets: |
+      total:growth=1%
+      ns=MyApp.Generated:growth=0
+    why: true
+```
+
+Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
+
+```yaml
+- task: DotsiderSizeCheck@1
+  inputs:
+    target: '$(Build.ArtifactStagingDirectory)/current/App'
+    baseline: '$(Pipeline.Workspace)/baseline/App.mstat'
+    budgets: |
+      total:growth=1%
+      ns=MyApp.Generated:growth=0
+```
+
+Publishing the application and retrieving its baseline remain explicit build and artifact
+steps. See the [size-regression guide](https://dotsider.dev/usage/size-regression/) for the
+complete workflow, stable outputs, and offline `dotsider-path` option.
+
 Budgets: `[scope:]limit(,limit)*` — scope `total` / `ns=<Namespace>` (covers sub-namespaces) /
 `asm=<Assembly>`; limits `max=SIZE` and `growth=SIZE|PERCENT` (`25mb`, `10kb`, `1%`).
 `--budget-file` adds a JSON document whose object entries carry names, descriptions,

@@ -9,7 +9,7 @@
       "workloads": "wasm-tools"
     },
     "ghcr.io/devcontainers/features/node:2": {
-      "version": "22",
+      "version": "24",
       "pnpmVersion": "10.28.0"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {},

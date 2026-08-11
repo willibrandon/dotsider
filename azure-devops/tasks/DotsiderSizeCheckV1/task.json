@@ -1,0 +1,186 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "id": "8e7f6b61-7a2e-4df4-b930-20c0426a0baf",
+  "name": "DotsiderSizeCheck",
+  "friendlyName": "Dotsider size check",
+  "description": "Enforce NativeAOT size budgets and publish JSON and Markdown reports.",
+  "helpMarkDown": "Runs Dotsider against an application published with NativeAOT size sidecars. Publish the current application and retrieve any baseline in earlier pipeline steps.",
+  "category": "Build",
+  "author": "willibrandon",
+  "version": {
+    "Major": 1,
+    "Minor": 0,
+    "Patch": 0
+  },
+  "minimumAgentVersion": "3.220.0",
+  "instanceNameFormat": "Dotsider size check $(target)",
+  "inputs": [
+    {
+      "name": "target",
+      "type": "filePath",
+      "label": "Target",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "NativeAOT binary or .mstat report to check."
+    },
+    {
+      "name": "baseline",
+      "type": "filePath",
+      "label": "Baseline",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Baseline NativeAOT binary or .mstat report."
+    },
+    {
+      "name": "budgets",
+      "type": "multiLine",
+      "label": "Budgets",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Size budget expressions, one per line."
+    },
+    {
+      "name": "budgetFile",
+      "type": "filePath",
+      "label": "Budget file",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "JSON size budget file."
+    },
+    {
+      "name": "top",
+      "type": "string",
+      "label": "Top contributors",
+      "defaultValue": "10",
+      "required": true,
+      "helpMarkDown": "Number of contributors to include per report section."
+    },
+    {
+      "name": "why",
+      "type": "boolean",
+      "label": "Dependency chains",
+      "defaultValue": "false",
+      "required": true,
+      "helpMarkDown": "Include dependency chains from the target DGML sidecar."
+    },
+    {
+      "name": "dotsiderVersion",
+      "type": "string",
+      "label": "Dotsider version",
+      "defaultValue": "latest",
+      "required": true,
+      "helpMarkDown": "Exact released Dotsider version, or latest."
+    },
+    {
+      "name": "dotsiderPath",
+      "type": "filePath",
+      "label": "Dotsider executable",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Existing Dotsider executable. Bypasses download and checksum verification."
+    },
+    {
+      "name": "reportDirectory",
+      "type": "filePath",
+      "label": "Report directory",
+      "defaultValue": "$(Build.ArtifactStagingDirectory)/dotsider-size-check",
+      "required": true,
+      "helpMarkDown": "Directory for JSON and Markdown reports."
+    },
+    {
+      "name": "publishSummary",
+      "type": "boolean",
+      "label": "Publish summary",
+      "defaultValue": "true",
+      "required": true,
+      "helpMarkDown": "Publish the Markdown report as the pipeline summary."
+    },
+    {
+      "name": "publishReports",
+      "type": "boolean",
+      "label": "Publish reports",
+      "defaultValue": "true",
+      "required": true,
+      "helpMarkDown": "Publish JSON and Markdown reports as a build artifact."
+    },
+    {
+      "name": "artifactName",
+      "type": "string",
+      "label": "Artifact name",
+      "defaultValue": "dotsider-size-check",
+      "required": true,
+      "helpMarkDown": "Build artifact name for the reports."
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "result",
+      "description": "passed, passed-with-warnings, budget-failed, or error."
+    },
+    {
+      "name": "exitCode",
+      "description": "Dotsider size-check exit code."
+    },
+    {
+      "name": "jsonReportPath",
+      "description": "Absolute path to the JSON report."
+    },
+    {
+      "name": "markdownReportPath",
+      "description": "Absolute path to the Markdown report."
+    },
+    {
+      "name": "artifactName",
+      "description": "Published artifact name."
+    },
+    {
+      "name": "dotsiderVersion",
+      "description": "Resolved Dotsider version, or custom."
+    },
+    {
+      "name": "totalBasis",
+      "description": "Basis used for total-size evaluation."
+    },
+    {
+      "name": "baselineTotal",
+      "description": "Baseline total in bytes when supplied."
+    },
+    {
+      "name": "currentTotal",
+      "description": "Current total in bytes."
+    },
+    {
+      "name": "delta",
+      "description": "Size delta in bytes."
+    },
+    {
+      "name": "violationCount",
+      "description": "Number of budget violations."
+    }
+  ],
+  "execution": {
+    "Node24": {
+      "target": "runtime/azure.js"
+    },
+    "Node20_1": {
+      "target": "runtime/azure.js"
+    }
+  },
+  "restrictions": {
+    "settableVariables": {
+      "allowed": [
+        "result",
+        "exitCode",
+        "jsonReportPath",
+        "markdownReportPath",
+        "artifactName",
+        "dotsiderVersion",
+        "totalBasis",
+        "baselineTotal",
+        "currentTotal",
+        "delta",
+        "violationCount"
+      ]
+    }
+  }
+}

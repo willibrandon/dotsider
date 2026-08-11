@@ -2,6 +2,17 @@
 
 scripts/*.cs text eol=lf
 scripts/**/*.cs text eol=lf
+action.yml text eol=lf
+integrations/**/*.ts text eol=lf
+integrations/**/*.js text eol=lf
+integrations/**/*.json text eol=lf
+integrations/**/*.mjs text eol=lf
+integrations/**/*.yaml text eol=lf
+azure-devops/**/*.js text eol=lf
+azure-devops/**/*.json text eol=lf
+azure-devops/**/*.md text eol=lf
+azure-devops/**/*.yaml text eol=lf
+azure-devops/**/*.png binary
 .devcontainer/* text eol=lf
 deploy/Caddyfile text eol=lf
 deploy/*.json text eol=lf

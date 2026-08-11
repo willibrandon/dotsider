@@ -8,6 +8,7 @@ namespace Dotsider.Infrastructure;
 /// Is registered with source-generated JSON metadata for Native AOT.
 /// </summary>
 internal sealed record CliSizeReportPayload(
+    int SchemaVersion,
     string Target,
     string? Baseline,
     SizeBasis TotalBasis,

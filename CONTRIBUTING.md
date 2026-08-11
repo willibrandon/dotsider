@@ -11,8 +11,8 @@
 ```
 git clone https://github.com/willibrandon/dotsider.git
 cd dotsider
-dotnet build
-dotnet test
+dotnet build Dotsider.slnx
+dotnet test --solution Dotsider.slnx
 ```
 
 First test run is slower — the test setup prepares the 38-project sample matrix and restores its NuGet packages. Platform-specific fixtures are built where supported, and subsequent runs use cache.
@@ -21,9 +21,40 @@ First test run is slower — the test setup prepares the 38-project sample matri
 
 The checked-in development container provides the complete Linux toolchain,
 including Native AOT prerequisites, documentation tools, Docker, and the Hex1b
-CLI. Open the repository in Visual Studio Code and run **Dev Containers: Reopen
+CLI. Node.js 24 and pnpm are included for the GitHub Action and Azure Pipelines
+task. Open the repository in Visual Studio Code and run **Dev Containers: Reopen
 in Container**. See [`.devcontainer/README.md`](.devcontainer/README.md) for the
 included tools and Docker security model.
+
+### CI integration development
+
+The GitHub Action and Azure Pipelines task use a shared TypeScript runtime built
+with pnpm. Restore their dependencies from the repository root:
+
+```console
+pnpm --dir integrations/size-check install --frozen-lockfile
+pnpm --dir azure-devops install --frozen-lockfile
+```
+
+Build the GitHub and Azure adapters, run the unit tests, run both adapters against
+real host-RID NativeAOT applications, and validate the committed JavaScript:
+
+```console
+pnpm --dir integrations/size-check build
+pnpm --dir integrations/size-check test
+pnpm --dir integrations/size-check test:integration:local
+pnpm --dir integrations/size-check validate
+```
+
+Package and validate the Azure DevOps extension:
+
+```console
+pnpm --dir azure-devops package:vsix
+dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix artifacts/azure-devops/willibrandon.dotsider-0.1.0.vsix
+```
+
+See [`integrations/size-check/README.md`](integrations/size-check/README.md) for
+what the real integration suite publishes and the additional CI coverage.
 
 ## Project layout
 
@@ -56,9 +87,9 @@ A few rules that aren't in the editorconfig:
 Tests use MSTest on Microsoft Testing Platform. They exercise compiler-produced assemblies alongside focused synthetic images for malformed-input and boundary cases. `SampleAssemblyHost` initializes the shared `SampleAssemblyFixture` once for the test assembly.
 
 ```
-dotnet test                                             # everything
-dotnet test --filter "FullyQualifiedName~IlDisassembler" # one class
-dotnet test --verbosity normal                           # see individual test names
+dotnet test --solution Dotsider.slnx # everything
+dotnet test --project tests/Dotsider.Tests/Dotsider.Tests.csproj --filter "FullyQualifiedName~IlDisassembler" # one class
+dotnet test --solution Dotsider.slnx --verbosity normal # see individual test names
 ```
 
 CI runs on Ubuntu, Windows, and macOS. If it passes locally on one OS but fails on another, the most common culprits are path separators and line endings.

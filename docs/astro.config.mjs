@@ -98,6 +98,7 @@ export default defineConfig({
                 label: 'Reference',
                 items: [
                     { label: 'CLI Reference', slug: 'reference/cli' },
+                    { label: 'CI Integrations', slug: 'reference/ci-integrations' },
                     { label: 'Keyboard Shortcuts', slug: 'reference/keyboard' },
                     { label: 'MCP Server', slug: 'reference/mcp' },
                 ],
