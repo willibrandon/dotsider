@@ -32,6 +32,17 @@
       "helpMarkDown": "Baseline NativeAOT binary or .mstat report."
     },
     {
+      "name": "mode",
+      "type": "pickList",
+      "label": "Mode",
+      "required": true,
+      "options": {
+        "current": "Current build",
+        "compare": "Compare with baseline"
+      },
+      "helpMarkDown": "Use Current build to check absolute budgets or Compare with baseline to compare against a supplied baseline."
+    },
+    {
       "name": "budgets",
       "type": "multiLine",
       "label": "Budgets",
@@ -138,6 +149,10 @@
       "description": "Resolved Dotsider version, or custom."
     },
     {
+      "name": "mode",
+      "description": "current or compare."
+    },
+    {
       "name": "totalBasis",
       "description": "Basis used for total-size evaluation."
     },
@@ -175,6 +190,7 @@
         "markdownReportPath",
         "artifactName",
         "dotsiderVersion",
+        "mode",
         "totalBasis",
         "baselineTotal",
         "currentTotal",

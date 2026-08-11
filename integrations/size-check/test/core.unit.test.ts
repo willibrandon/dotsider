@@ -12,7 +12,7 @@ import {
   resolveRid,
   validateArchiveEntries,
 } from "../src/acquisition";
-import { parseBudgets, parseTop } from "../src/input";
+import { parseBudgets, parseMode, parseTop } from "../src/input";
 import { buildSizeCheckArguments, formatSizeCheckSummary } from "../src/report";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
@@ -45,14 +45,27 @@ test("buildSizeCheckArguments forwards every typed input as separate arguments",
 test("formatSizeCheckSummary reports the measured total, delta, and violations", () => {
   assert.equal(
     formatSizeCheckSummary({
+      mode: "compare",
       totalBasis: "fileSize",
       baselineTotal: "26214400",
       currentTotal: "36029560",
       delta: "9815160",
       violationCount: "1",
     }),
-    "34.4 MB total (fileSize); +9.4 MB from baseline; 1 budget violation",
+    "compared with baseline; 34.4 MB total (fileSize); +9.4 MB from baseline; 1 budget violation",
   );
+});
+
+test("parseMode accepts current without a baseline and compare with a baseline", () => {
+  assert.equal(parseMode("current", undefined), "current");
+  assert.equal(parseMode("compare", "/work/baseline.mstat"), "compare");
+});
+
+test("parseMode rejects missing, unknown, and contradictory inputs", () => {
+  assert.throws(() => parseMode(undefined, undefined), /mode is required/u);
+  assert.throws(() => parseMode("automatic", undefined), /'current' or 'compare'/u);
+  assert.throws(() => parseMode("current", "/work/baseline.mstat"), /must not be supplied/u);
+  assert.throws(() => parseMode("compare", undefined), /baseline is required/u);
 });
 
 test("parseBudgets repeats nonempty budget lines in order", () => {

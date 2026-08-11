@@ -64,6 +64,8 @@ internal static class CiIntegrationValidator
         Require(source.Contains("id: run\n      if: always()", StringComparison.Ordinal)
             || source.Contains("id: run\r\n      if: always()", StringComparison.Ordinal),
             "action.yml must emit stable run outputs after preparation fails.");
+        Require(source.Contains("DOTSIDER_INPUT_MODE: ${{ inputs.mode }}", StringComparison.Ordinal),
+            "action.yml must pass the required current-or-compare mode to the adapter.");
     }
 
     private static void ValidateAzureTask(string root)
@@ -87,6 +89,15 @@ internal static class CiIntegrationValidator
         Dictionary<string, JsonElement> inputs = rootElement.GetProperty("inputs")
             .EnumerateArray()
             .ToDictionary(input => input.GetProperty("name").GetString() ?? string.Empty);
+        JsonElement mode = inputs["mode"];
+        JsonElement modeOptions = mode.GetProperty("options");
+        Require(mode.GetProperty("type").GetString() == "pickList"
+            && mode.GetProperty("required").GetBoolean()
+            && !mode.TryGetProperty("defaultValue", out _)
+            && modeOptions.EnumerateObject().Count() == 2
+            && modeOptions.TryGetProperty("current", out _)
+            && modeOptions.TryGetProperty("compare", out _),
+            "The Azure task mode must require exactly current or compare without a default.");
         foreach (string name in new[] { "baseline", "budgetFile", "dotsiderPath" })
         {
             JsonElement input = inputs[name];

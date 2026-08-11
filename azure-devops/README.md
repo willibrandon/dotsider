@@ -7,6 +7,7 @@ Publish the application with NativeAOT size sidecars, download the baseline thro
 ```yaml
 - task: DotsiderSizeCheck@1
   inputs:
+    mode: compare
     target: '$(Build.ArtifactStagingDirectory)/current/myapp'
     baseline: '$(Pipeline.Workspace)/baseline/myapp'
     budgets: |
@@ -20,3 +21,5 @@ The task downloads the matching released Dotsider binary, verifies its published
 Exit code 2 means an error-severity budget was exceeded. Reports and the pipeline summary are published before the task fails. Exit code 1 means the command or its inputs were invalid.
 
 Application publishing and baseline retention stay explicit because their artifact lifetime and access rules belong to the pipeline that owns them.
+
+Use `mode: current` without `baseline` to check only absolute budgets. Use `mode: compare` with `baseline` to report changes. The task runs once in either mode.

@@ -16,6 +16,7 @@ test("Azure handler emits outputs from a real comparison", async () => {
   assert.equal(result.exitCode, 0, result.stderr);
   assert.match(result.stdout, /variable=result;isOutput=true;\]passed/u);
   assert.match(result.stdout, /variable=exitCode;isOutput=true;\]0/u);
+  assert.match(result.stdout, /variable=mode;isOutput=true;\]compare/u);
   assert.match(result.stdout, /##vso\[task.uploadsummary /u);
   assert.match(result.stdout, /##vso\[artifact.upload artifactname=dotsider-azure-test;/u);
 
@@ -52,6 +53,7 @@ async function runAzure(reportDirectory: string, budgets: string): Promise<Child
       windowsHide: true,
       env: {
         ...process.env,
+        INPUT_MODE: "compare",
         INPUT_TARGET: target,
         INPUT_BASELINE: baseline,
         INPUT_BUDGETS: budgets,

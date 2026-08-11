@@ -14,6 +14,7 @@ Markdown reports before failing a budget gate.
 - uses: willibrandon/dotsider@v0
   id: size
   with:
+    mode: compare
     target: out/current/App
     baseline: out/baseline/App.mstat
     budget-file: eng/size-budgets.json
@@ -32,6 +33,7 @@ Install **Dotsider** from the Azure DevOps Marketplace, then use the versioned t
 - task: DotsiderSizeCheck@1
   name: size
   inputs:
+    mode: compare
     target: '$(Build.ArtifactStagingDirectory)/current/App'
     baseline: '$(Pipeline.Workspace)/baseline/App.mstat'
     budgetFile: '$(Build.SourcesDirectory)/eng/size-budgets.json'
@@ -40,14 +42,15 @@ Install **Dotsider** from the Azure DevOps Marketplace, then use the versioned t
 ```
 
 The extension is public under publisher `willibrandon`. `DotsiderSizeCheck@1` requires agent
-3.220.0 or newer and supplies Node 24 and Node 20 handlers.
+3.230.2 or newer and supplies Node 24 and Node 20 handlers.
 
 ## Inputs
 
 | GitHub | Azure | Meaning |
 | --- | --- | --- |
+| `mode` | `mode` | Required: `current` checks absolute budgets; `compare` requires `baseline` |
 | `target` | `target` | Required NativeAOT binary or `.mstat` report |
-| `baseline` | `baseline` | Optional baseline binary or `.mstat` report |
+| `baseline` | `baseline` | Required in `compare` mode; forbidden in `current` mode |
 | `budgets` | `budgets` | Budget expressions, one per line |
 | `budget-file` | `budgetFile` | JSON budget document |
 | `top` | `top` | Contributors per section; default 10 |
@@ -63,7 +66,12 @@ The extension is public under publisher `willibrandon`. `DotsiderSizeCheck@1` re
 
 Both integrations expose `result`, `exitCode`, `jsonReportPath`, `markdownReportPath`,
 `artifactName`, `dotsiderVersion`, `totalBasis`, `baselineTotal`, `currentTotal`, `delta`, and
-`violationCount`. GitHub spells multiword outputs with hyphens; Azure uses camel case.
+`violationCount`, plus the resolved `mode`. GitHub spells multiword outputs with hyphens;
+Azure uses camel case.
+
+Each invocation runs one size check. Use `current` on builds that enforce absolute limits
+without a baseline. Use `compare` after downloading the baseline from a previous successful
+build.
 
 `result` is `passed`, `passed-with-warnings`, `budget-failed`, or `error`. A budget failure
 retains the raw exit code 2 and an input or execution error retains exit code 1. JSON reports

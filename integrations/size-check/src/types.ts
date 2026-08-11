@@ -1,4 +1,5 @@
 export interface SizeCheckInputs {
+  mode: "current" | "compare";
   target: string;
   baseline?: string;
   budgets: readonly string[];
@@ -69,6 +70,7 @@ export interface StableOutputs {
   markdownReportPath: string;
   artifactName: string;
   dotsiderVersion: string;
+  mode: "" | "current" | "compare";
   totalBasis: string;
   baselineTotal: string;
   currentTotal: string;

@@ -41,11 +41,32 @@ export function parseBudgets(value: string | undefined): string[] {
     .filter(line => line.length > 0);
 }
 
+export function parseMode(
+  value: string | undefined,
+  baseline: string | undefined,
+): "current" | "compare" {
+  const mode = required(value, "mode").toLowerCase();
+  if (mode === "current") {
+    if (baseline) {
+      throw new Error("baseline must not be supplied when mode is 'current'.");
+    }
+    return mode;
+  }
+  if (mode === "compare") {
+    if (!baseline) {
+      throw new Error("baseline is required when mode is 'compare'.");
+    }
+    return mode;
+  }
+  throw new Error(`mode must be 'current' or 'compare'; received '${value ?? ""}'.`);
+}
+
 export function createInputs(
   values: Readonly<Record<string, string | undefined>>,
   defaultReportRoot: string,
 ): SizeCheckInputs {
   const target = required(values.target, "target");
+  const baseline = optionalPath(values.baseline);
   const requestedDirectory = values.reportDirectory?.trim();
   const reportDirectory = path.resolve(
     requestedDirectory && requestedDirectory.length > 0
@@ -54,8 +75,9 @@ export function createInputs(
   );
 
   return {
+    mode: parseMode(values.mode, baseline),
     target: path.resolve(target),
-    baseline: optionalPath(values.baseline),
+    baseline,
     budgets: parseBudgets(values.budgets),
     budgetFile: optionalPath(values.budgetFile),
     top: parseTop(values.top),

@@ -57,6 +57,7 @@ async function prepare(): Promise<void> {
 
 async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   const inputs = createInputs({
+    mode: process.env.DOTSIDER_INPUT_MODE,
     target: process.env.DOTSIDER_INPUT_TARGET,
     baseline: process.env.DOTSIDER_INPUT_BASELINE,
     budgets: process.env.DOTSIDER_INPUT_BUDGETS,
@@ -99,6 +100,7 @@ function enforce(): void {
   }
   if (exitCode === 2) {
     const summary = formatSizeCheckSummary({
+      mode: (process.env.DOTSIDER_MODE || "") as StableOutputs["mode"],
       totalBasis: process.env.DOTSIDER_TOTAL_BASIS || "",
       baselineTotal: process.env.DOTSIDER_BASELINE_TOTAL || "",
       currentTotal: process.env.DOTSIDER_CURRENT_TOTAL || "",
@@ -140,6 +142,7 @@ function writeStableOutputs(outputs: StableOutputs): void {
     "markdown-report-path": outputs.markdownReportPath,
     "artifact-name": outputs.artifactName,
     "dotsider-version": outputs.dotsiderVersion,
+    mode: outputs.mode,
     "total-basis": outputs.totalBasis,
     "baseline-total": outputs.baselineTotal,
     "current-total": outputs.currentTotal,

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseBoolean = parseBoolean;
 exports.parseTop = parseTop;
 exports.parseBudgets = parseBudgets;
+exports.parseMode = parseMode;
 exports.createInputs = createInputs;
 const path = __importStar(require("node:path"));
 function parseBoolean(value, fallback) {
@@ -72,15 +73,33 @@ function parseBudgets(value) {
         .map(line => line.trim())
         .filter(line => line.length > 0);
 }
+function parseMode(value, baseline) {
+    const mode = required(value, "mode").toLowerCase();
+    if (mode === "current") {
+        if (baseline) {
+            throw new Error("baseline must not be supplied when mode is 'current'.");
+        }
+        return mode;
+    }
+    if (mode === "compare") {
+        if (!baseline) {
+            throw new Error("baseline is required when mode is 'compare'.");
+        }
+        return mode;
+    }
+    throw new Error(`mode must be 'current' or 'compare'; received '${value ?? ""}'.`);
+}
 function createInputs(values, defaultReportRoot) {
     const target = required(values.target, "target");
+    const baseline = optionalPath(values.baseline);
     const requestedDirectory = values.reportDirectory?.trim();
     const reportDirectory = path.resolve(requestedDirectory && requestedDirectory.length > 0
         ? requestedDirectory
         : path.join(defaultReportRoot, "dotsider-size-check"));
     return {
+        mode: parseMode(values.mode, baseline),
         target: path.resolve(target),
-        baseline: optionalPath(values.baseline),
+        baseline,
         budgets: parseBudgets(values.budgets),
         budgetFile: optionalPath(values.budgetFile),
         top: parseTop(values.top),

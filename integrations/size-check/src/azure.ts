@@ -20,6 +20,7 @@ async function main(): Promise<void> {
       || process.env.AGENT_TEMPDIRECTORY
       || os.tmpdir();
     const inputs = createInputs({
+      mode: getInput("mode"),
       target: getInput("target"),
       baseline: getInput("baseline"),
       budgets: getInput("budgets"),

@@ -15,6 +15,7 @@ const stableGithubOutputs = [
   "markdown-report-path",
   "artifact-name",
   "dotsider-version",
+  "mode",
   "total-basis",
   "baseline-total",
   "current-total",
@@ -28,6 +29,7 @@ const stableAzureOutputs = [
   "markdownReportPath",
   "artifactName",
   "dotsiderVersion",
+  "mode",
   "totalBasis",
   "baselineTotal",
   "currentTotal",
@@ -40,6 +42,7 @@ test("GitHub adapter writes stable error outputs before returning an input error
   const outputPath = path.join(directory, "github-output.txt");
   const child = await runNode([githubRuntime, "run"], {
     GITHUB_OUTPUT: outputPath,
+    DOTSIDER_INPUT_MODE: "current",
     DOTSIDER_INPUT_TARGET: "unused",
     DOTSIDER_INPUT_TOP: "10oops",
     DOTSIDER_INPUT_ARTIFACT_NAME: "review-error",
@@ -60,6 +63,7 @@ test("GitHub enforcement identifies the measured size and retained report", asyn
   const child = await runNode([githubRuntime, "enforce"], {
     DOTSIDER_EXIT_CODE: "2",
     DOTSIDER_RESULT: "budget-failed",
+    DOTSIDER_MODE: "current",
     DOTSIDER_TOTAL_BASIS: "fileSize",
     DOTSIDER_BASELINE_TOTAL: "",
     DOTSIDER_CURRENT_TOTAL: "36029560",
@@ -71,12 +75,13 @@ test("GitHub enforcement identifies the measured size and retained report", asyn
   assert.equal(child.exitCode, 1);
   assert.match(
     child.stdout,
-    /::error::Dotsider size budgets were exceeded: 34\.4 MB total \(fileSize\); 1 budget violation\. Full report: job summary and 'dotsider-size-check-osx-arm64' artifact\./u,
+    /::error::Dotsider size budgets were exceeded: current build \(no baseline comparison\); 34\.4 MB total \(fileSize\); 1 budget violation\. Full report: job summary and 'dotsider-size-check-osx-arm64' artifact\./u,
   );
 });
 
 test("Azure adapter writes stable error outputs before completing an input error", async () => {
   const child = await runNode([azureRuntime], {
+    INPUT_MODE: "current",
     INPUT_TARGET: "unused",
     INPUT_TOP: "10oops",
     INPUT_ARTIFACT_NAME: "review-error",
@@ -118,6 +123,12 @@ test("Azure task requires an agent that provides its declared Node handlers", as
   assert.equal(task.minimumAgentVersion, "3.230.2");
   assert.equal(task.execution?.Node24?.target, "runtime/azure.js");
   assert.equal(task.execution?.Node20_1?.target, "runtime/azure.js");
+
+  const mode = task.inputs?.find(candidate => candidate.name === "mode");
+  assert.ok(mode, "Expected the required mode input");
+  assert.equal(mode.type, "pickList");
+  assert.equal(mode.required, true);
+  assert.equal(mode.defaultValue, undefined);
 
   for (const name of ["baseline", "budgetFile", "dotsiderPath"]) {
     const input = task.inputs?.find(candidate => candidate.name === name);

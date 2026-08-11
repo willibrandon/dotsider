@@ -142,6 +142,7 @@ target's DGML sidecar): the root kept X, X kept Y, down to the new entry.
 - name: Size gate
   uses: willibrandon/dotsider@v0
   with:
+    mode: compare
     target: out/pr/App
     baseline: baseline/App.mstat
     budgets: |
@@ -166,6 +167,7 @@ belong to the application workflow.
 ```yaml
 - task: DotsiderSizeCheck@1
   inputs:
+    mode: compare
     target: '$(Build.SourcesDirectory)/out/pr/App'
     baseline: '$(Pipeline.Workspace)/size-baseline/App.mstat'
     budgets: |

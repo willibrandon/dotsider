@@ -25,7 +25,6 @@ internal static class SizeDiffReportWriter
         SizeBudgetReport? Budgets);
 
     private const int AggregateRows = 15;
-    private const int MarkdownContributorLabelLimit = 140;
 
     /// <summary>Builds the JSON document for the report.</summary>
     internal static CliSizeReportPayload BuildDocument(Context ctx)
@@ -211,30 +210,26 @@ internal static class SizeDiffReportWriter
     internal static string BuildMarkdown(Context ctx)
     {
         var sb = new StringBuilder();
-        var snapshot = ctx.BaselinePath is null;
+        var currentMode = ctx.BaselinePath is null;
         sb.AppendLine("## Size check");
 
         if (ctx.Budgets is { } statusBudgets)
         {
             sb.AppendLine();
-            sb.AppendLine(statusBudgets.Passed
+            var modeSuffix = currentMode ? " No baseline comparison was run." : "";
+            sb.AppendLine((statusBudgets.Passed
                 ? statusBudgets.HasWarnings
                     ? "> ⚠️ **PASS with warnings** — all error-severity size budgets passed."
                     : "> ✅ **PASS** — all size budgets passed."
-                : "> ❌ **FAIL** — a size budget was exceeded.");
+                : "> ❌ **FAIL** — a size budget was exceeded.") + modeSuffix);
         }
+        else if (currentMode)
+            sb.AppendLine("> ℹ️ **CURRENT BUILD** — no baseline comparison was run.");
 
-        if (snapshot)
-        {
-            sb.AppendLine();
-            sb.AppendLine("> ℹ️ **Snapshot** — no baseline was supplied.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("### Overview");
-        sb.AppendLine();
+        AppendSectionHeading(sb, "Overview");
         sb.AppendLine("| Metric | Value |");
         sb.AppendLine("| --- | --- |");
+        sb.AppendLine($"| Mode | {(currentMode ? "Current build" : "Compared with baseline")} |");
         sb.AppendLine($"| Target | {MarkdownCodeSpan(ctx.TargetPath)} |");
         if (ctx.BaselinePath is not null)
             sb.AppendLine($"| Baseline | {MarkdownCodeSpan(ctx.BaselinePath)} |");
@@ -243,57 +238,52 @@ internal static class SizeDiffReportWriter
         if (ctx.TotalBasis == SizeBasis.FileSize)
         {
             sb.AppendLine("| Mstat | "
-                + MarkdownRange(snapshot ? null : ctx.Diff.Summary.LeftTotal,
+                + MarkdownRange(currentMode ? null : ctx.Diff.Summary.LeftTotal,
                     ctx.Diff.Summary.RightTotal) + " |");
         }
 
         if (ctx.Budgets is { } budgets)
-            AppendBudgetTable(sb, budgets, snapshot);
+            AppendBudgetTable(sb, budgets, currentMode);
 
-        sb.AppendLine();
-        if (snapshot)
+        if (currentMode)
         {
-            sb.AppendLine("### Contents");
-            sb.AppendLine();
+            AppendSectionHeading(sb, "Contents");
             sb.AppendLine("| Kind | Count |");
             sb.AppendLine("| --- | ---: |");
             foreach (var c in ctx.Diff.Summary.Counts)
                 sb.AppendLine($"| {c.Kind} | {c.Added} |");
 
-            AppendAggregateTable(sb, "Assemblies", ctx.Diff.AssemblyDeltas, snapshot: true);
-            AppendAggregateTable(sb, "Namespaces", ctx.Diff.NamespaceDeltas, snapshot: true);
+            AppendAggregateTable(sb, "Assemblies", ctx.Diff.AssemblyDeltas, currentMode: true);
+            AppendAggregateTable(sb, "Namespaces", ctx.Diff.NamespaceDeltas, currentMode: true);
             var contributors = ctx.Diff.Contributors.Where(c => c.RightSize > 0).Take(ctx.Top).ToList();
-            AppendContributorTable(sb, $"Largest contributors (top {ctx.Top})", contributors, snapshot: true);
+            AppendContributorTable(sb, $"Largest contributors (top {ctx.Top})", contributors, currentMode: true);
             AppendWhyChains(sb, ctx, contributors);
         }
         else
         {
-            sb.AppendLine("### Changes");
-            sb.AppendLine();
+            AppendSectionHeading(sb, "Changes");
             sb.AppendLine("| Kind | Added | Removed | Grown | Shrunk | Unchanged |");
             sb.AppendLine("| --- | ---: | ---: | ---: | ---: | ---: |");
             foreach (var c in ctx.Diff.Summary.Counts)
                 sb.AppendLine($"| {c.Kind} | {c.Added} | {c.Removed} | {c.Grown} | {c.Shrunk} | {c.Unchanged} |");
 
-            AppendAggregateTable(sb, "Assemblies", ctx.Diff.AssemblyDeltas, snapshot: false);
-            AppendAggregateTable(sb, "Namespaces", ctx.Diff.NamespaceDeltas, snapshot: false);
+            AppendAggregateTable(sb, "Assemblies", ctx.Diff.AssemblyDeltas, currentMode: false);
+            AppendAggregateTable(sb, "Namespaces", ctx.Diff.NamespaceDeltas, currentMode: false);
 
             var regressions = ctx.Diff.Contributors.Where(c => c.Delta > 0).Take(ctx.Top).ToList();
-            AppendContributorTable(sb, $"Regressions (top {ctx.Top})", regressions, snapshot: false);
+            AppendContributorTable(sb, $"Regressions (top {ctx.Top})", regressions, currentMode: false);
             AppendWhyChains(sb, ctx, regressions);
             AppendContributorTable(sb, $"Improvements (top {ctx.Top})",
-                ctx.Diff.Contributors.Where(c => c.Delta < 0).Take(ctx.Top), snapshot: false);
+                ctx.Diff.Contributors.Where(c => c.Delta < 0).Take(ctx.Top), currentMode: false);
         }
 
         return sb.ToString();
     }
 
-    private static void AppendBudgetTable(StringBuilder sb, SizeBudgetReport budgets, bool snapshot)
+    private static void AppendBudgetTable(StringBuilder sb, SizeBudgetReport budgets, bool currentMode)
     {
-        sb.AppendLine();
-        sb.AppendLine("### Budgets");
-        sb.AppendLine();
-        sb.AppendLine(snapshot
+        AppendSectionHeading(sb, "Budgets");
+        sb.AppendLine(currentMode
             ? "| Status | Budget | Current | Basis |"
             : "| Status | Budget | Baseline → current | Basis |");
         sb.AppendLine("| --- | --- | ---: | --- |");
@@ -323,27 +313,25 @@ internal static class SizeDiffReportWriter
                     + $"**{DotsiderState.FormatSize(violation.OverageBytes)}**");
             }
 
-            AppendContributorTable(sb, "Top contributors", evaluation.TopContributors, snapshot);
+            AppendContributorTable(sb, "Top contributors", evaluation.TopContributors, currentMode);
         }
     }
 
     private static void AppendAggregateTable(
-        StringBuilder sb, string title, IReadOnlyList<SizeDiffAggregate> aggregates, bool snapshot)
+        StringBuilder sb, string title, IReadOnlyList<SizeDiffAggregate> aggregates, bool currentMode)
     {
-        var rows = aggregates.Where(a => snapshot ? a.RightSize > 0 : a.Delta != 0)
+        var rows = aggregates.Where(a => currentMode ? a.RightSize > 0 : a.Delta != 0)
             .Take(AggregateRows)
             .ToList();
         if (rows.Count == 0) return;
 
-        sb.AppendLine();
-        sb.AppendLine($"### {title}");
-        sb.AppendLine();
-        sb.AppendLine(snapshot ? "| Name | Size |" : "| Name | Baseline | Current | Δ |");
-        sb.AppendLine(snapshot ? "| --- | ---: |" : "| --- | ---: | ---: | ---: |");
+        AppendSectionHeading(sb, title);
+        sb.AppendLine(currentMode ? "| Name | Size |" : "| Name | Baseline | Current | Δ |");
+        sb.AppendLine(currentMode ? "| --- | ---: |" : "| --- | ---: | ---: | ---: |");
         foreach (var a in rows)
         {
             var name = MarkdownCodeSpan(a.Name.Length > 0 ? a.Name : "(global)");
-            if (snapshot)
+            if (currentMode)
             {
                 sb.AppendLine($"| {name} | {MarkdownSize(DotsiderState.FormatSize(a.RightSize))} |");
             }
@@ -371,8 +359,7 @@ internal static class SizeDiffReportWriter
             .ToList();
         if (explained.Count == 0) return;
 
-        sb.AppendLine();
-        sb.AppendLine("### Why did these appear?");
+        AppendSectionHeading(sb, "Why did these appear?");
         foreach (var (contributor, path) in explained)
         {
             sb.AppendLine();
@@ -387,23 +374,18 @@ internal static class SizeDiffReportWriter
     }
 
     private static void AppendContributorTable(
-        StringBuilder sb, string title, IEnumerable<SizeDiffContributor> contributors, bool snapshot)
+        StringBuilder sb, string title, IEnumerable<SizeDiffContributor> contributors, bool currentMode)
     {
         var rows = contributors.ToList();
         if (rows.Count == 0) return;
 
-        sb.AppendLine();
-        sb.AppendLine($"### {title}");
-        sb.AppendLine();
-        sb.AppendLine(snapshot ? "| Size | Kind | Name |" : "| Δ | Kind | Change | Name |");
-        sb.AppendLine(snapshot ? "| ---: | --- | --- |" : "| ---: | --- | --- | --- |");
-        var shortened = false;
+        AppendSectionHeading(sb, title);
+        sb.AppendLine(currentMode ? "| Size | Kind | Name |" : "| Δ | Kind | Change | Name |");
+        sb.AppendLine(currentMode ? "| ---: | --- | --- |" : "| ---: | --- | --- | --- |");
         foreach (var c in rows)
         {
-            var fullLabel = ContributorLabel(c);
-            var label = MarkdownContributorLabel(c);
-            shortened |= !string.Equals(label, fullLabel, StringComparison.Ordinal);
-            if (snapshot)
+            var label = ContributorLabel(c);
+            if (currentMode)
             {
                 sb.AppendLine($"| {MarkdownSize(DotsiderState.FormatSize(c.RightSize))} | {c.Kind} | "
                     + $"{MarkdownCodeSpan(label)} |");
@@ -415,34 +397,15 @@ internal static class SizeDiffReportWriter
             }
         }
 
-        if (shortened)
-        {
-            sb.AppendLine();
-            sb.AppendLine("_Full contributor names remain available in the JSON report._");
-        }
     }
 
-    private static string MarkdownContributorLabel(SizeDiffContributor contributor)
+    private static void AppendSectionHeading(StringBuilder sb, string title)
     {
-        var fullLabel = ContributorLabel(contributor);
-        if (fullLabel.Length <= MarkdownContributorLabelLimit)
-            return fullLabel;
-
-        var name = contributor.Name;
-        var suffix = fullLabel[name.Length..];
-        var openParenthesis = name.IndexOf('(');
-        var closeParenthesis = name.LastIndexOf(')');
-        if (openParenthesis >= 0 && closeParenthesis > openParenthesis)
-        {
-            var firstComma = name.IndexOf(',', openParenthesis + 1);
-            var secondComma = firstComma < 0 ? -1 : name.IndexOf(',', firstComma + 1);
-            var end = secondComma >= 0 ? secondComma : firstComma;
-            if (end >= 0)
-                return name[..end] + ", …)" + name[(closeParenthesis + 1)..] + suffix;
-        }
-
-        var available = Math.Max(20, MarkdownContributorLabelLimit - suffix.Length - 2);
-        return name[..Math.Min(name.Length, available)] + "…" + suffix;
+        sb.AppendLine();
+        sb.AppendLine("<br />");
+        sb.AppendLine();
+        sb.AppendLine($"### {title}");
+        sb.AppendLine();
     }
 
     private static string BudgetLabel(SizeBudget budget)

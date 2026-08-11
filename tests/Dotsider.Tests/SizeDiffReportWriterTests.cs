@@ -45,19 +45,22 @@ public sealed class SizeDiffReportWriterTests
     }
 
     /// <summary>
-    /// Verifies an absolute check is presented as a current-build snapshot rather than a
-    /// comparison against a synthetic empty build.
+    /// Verifies current-build mode reports absolute size without synthetic changes.
     /// </summary>
     [TestMethod]
-    public void BuildMarkdown_WithoutBaseline_UsesSnapshotLayout()
+    public void BuildMarkdown_WithoutBaseline_UsesCurrentBuildLayout()
     {
         var context = CreateContext("Compile()", withBudget: true);
 
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
 
-        Assert.Contains("> ✅ **PASS** — all size budgets passed.", markdown);
-        Assert.Contains("> ℹ️ **Snapshot** — no baseline was supplied.", markdown);
+        Assert.Contains(
+            "> ✅ **PASS** — all size budgets passed. No baseline comparison was run.",
+            markdown);
+        Assert.DoesNotContain("Snapshot", markdown);
+        Assert.DoesNotContain("Legend", markdown);
         Assert.Contains("### Overview", markdown);
+        Assert.Contains("| Mode | Current build |", markdown);
         Assert.Contains("### Budgets", markdown);
         Assert.Contains("| Status | Budget | Current | Basis |", markdown);
         Assert.Contains("`total: max 40.0 MB`", markdown);
@@ -68,6 +71,13 @@ public sealed class SizeDiffReportWriterTests
         Assert.Contains("### Largest contributors (top 20)", markdown);
         Assert.IsLessThan(markdown.IndexOf("### Largest contributors", StringComparison.Ordinal),
             markdown.IndexOf("### Contents", StringComparison.Ordinal));
+        var gap = $"<br />{Environment.NewLine}{Environment.NewLine}### ";
+        Assert.Contains(gap + "Overview", markdown);
+        Assert.Contains(gap + "Budgets", markdown);
+        Assert.Contains(gap + "Contents", markdown);
+        Assert.Contains(gap + "Assemblies", markdown);
+        Assert.Contains(gap + "Namespaces", markdown);
+        Assert.Contains(gap + "Largest contributors", markdown);
         Assert.DoesNotContain("| Kind | Added |", markdown);
         Assert.DoesNotContain("| Name | Baseline | Current |", markdown);
         Assert.DoesNotContain("### Regressions", markdown);
@@ -86,6 +96,7 @@ public sealed class SizeDiffReportWriterTests
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
 
         Assert.Contains("| Baseline | `/tmp/picket-baseline` |", markdown);
+        Assert.Contains("| Mode | Compared with baseline |", markdown);
         Assert.Contains("### Changes", markdown);
         Assert.Contains("| Kind | Added | Removed | Grown | Shrunk | Unchanged |", markdown);
         Assert.Contains("| Name | Baseline | Current | Δ |", markdown);
@@ -96,11 +107,10 @@ public sealed class SizeDiffReportWriterTests
     }
 
     /// <summary>
-    /// Verifies very long Native AOT method signatures do not dominate a CI summary while
-    /// the machine-readable report keeps the complete symbol name.
+    /// Verifies the Markdown report displays the complete Native AOT contributor name.
     /// </summary>
     [TestMethod]
-    public void BuildMarkdown_LongMethodName_CompactsSummaryAndPreservesJsonName()
+    public void BuildMarkdown_LongMethodName_DisplaysCompleteContributorName()
     {
         const string contributorName = "Compile(Scout.RegexNfa, Scout.RegexPrefilter, "
             + "System.Nullable`1<ulong>, Scout.RegexLiteralSetEngine, "
@@ -111,9 +121,9 @@ public sealed class SizeDiffReportWriterTests
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
         var document = SizeDiffReportWriter.BuildDocument(context);
 
-        Assert.Contains("`Compile(Scout.RegexNfa, Scout.RegexPrefilter, …)  [Scout.Automata]`", markdown);
-        Assert.Contains("_Full contributor names remain available in the JSON report._", markdown);
-        Assert.DoesNotContain(contributorName, markdown);
+        Assert.Contains(contributorName, markdown);
+        Assert.DoesNotContain("Full contributor names", markdown);
+        Assert.DoesNotContain("…", markdown);
         Assert.HasCount(1, document.Contributors);
         Assert.AreEqual(contributorName, document.Contributors[0].Name);
     }

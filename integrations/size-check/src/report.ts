@@ -4,7 +4,7 @@ import { SizeCheckExecution, SizeReport, StableOutputs } from "./types";
 
 type SizeCheckSummary = Pick<
   StableOutputs,
-  "totalBasis" | "baselineTotal" | "currentTotal" | "delta" | "violationCount"
+  "mode" | "totalBasis" | "baselineTotal" | "currentTotal" | "delta" | "violationCount"
 >;
 
 export function buildSizeCheckArguments(
@@ -101,6 +101,7 @@ export function createStableOutputs(
     markdownReportPath: path.resolve(execution.markdownReportPath),
     artifactName,
     dotsiderVersion,
+    mode: report?.baseline ? "compare" : report ? "current" : "",
     totalBasis: report?.totalBasis ?? "",
     baselineTotal: numberOutput(report?.leftTotal),
     currentTotal: numberOutput(report?.rightTotal),
@@ -120,6 +121,7 @@ export function createErrorOutputs(
     markdownReportPath: "",
     artifactName,
     dotsiderVersion,
+    mode: "",
     totalBasis: "",
     baselineTotal: "",
     currentTotal: "",
@@ -130,6 +132,11 @@ export function createErrorOutputs(
 
 export function formatSizeCheckSummary(outputs: SizeCheckSummary): string {
   const parts: string[] = [];
+  if (outputs.mode === "current") {
+    parts.push("current build (no baseline comparison)");
+  } else if (outputs.mode === "compare") {
+    parts.push("compared with baseline");
+  }
   const currentTotal = parseOutputNumber(outputs.currentTotal);
   if (currentTotal !== undefined) {
     parts.push(`${formatBytes(currentTotal)} total${outputs.totalBasis ? ` (${outputs.totalBasis})` : ""}`);

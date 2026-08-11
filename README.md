@@ -155,6 +155,7 @@ retain both reports even when a budget fails:
 - name: Check NativeAOT size
   uses: willibrandon/dotsider@v0
   with:
+    mode: compare
     target: out/pr/App
     baseline: baseline/App.mstat
     budgets: |
@@ -168,6 +169,7 @@ Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
 ```yaml
 - task: DotsiderSizeCheck@1
   inputs:
+    mode: compare
     target: '$(Build.ArtifactStagingDirectory)/current/App'
     baseline: '$(Pipeline.Workspace)/baseline/App.mstat'
     budgets: |

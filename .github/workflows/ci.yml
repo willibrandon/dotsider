@@ -301,6 +301,7 @@ jobs:
         id: passing
         uses: ./
         with:
+          mode: compare
           target: ${{ steps.integration-assets.outputs.target }}
           baseline: ${{ steps.integration-assets.outputs.baseline }}
           top: '25'
@@ -315,6 +316,7 @@ jobs:
           if ('${{ steps.passing.outputs.result }}' -ne 'passed') { throw 'Expected passed result.' }
           if ('${{ steps.passing.outputs.exit-code }}' -ne '0') { throw 'Expected exit code 0.' }
           if ('${{ steps.passing.outputs.dotsider-version }}' -ne 'custom') { throw 'Expected custom tool version.' }
+          if ('${{ steps.passing.outputs.mode }}' -ne 'compare') { throw 'Expected compare mode.' }
           if ([string]::IsNullOrWhiteSpace('${{ steps.passing.outputs.delta }}')) { throw 'Expected a size delta.' }
           if (-not (Test-Path -LiteralPath '${{ steps.passing.outputs.json-report-path }}')) { throw 'Missing JSON report.' }
           if (-not (Test-Path -LiteralPath '${{ steps.passing.outputs.markdown-report-path }}')) { throw 'Missing Markdown report.' }
@@ -323,6 +325,7 @@ jobs:
         id: warning
         uses: ./
         with:
+          mode: compare
           target: ${{ steps.integration-assets.outputs.target }}
           baseline: ${{ steps.integration-assets.outputs.baseline }}
           budget-file: integrations/size-check/test/fixtures/warning-budgets.json
@@ -339,6 +342,7 @@ jobs:
       - name: Run action with an absolute budget
         uses: ./
         with:
+          mode: current
           target: ${{ steps.integration-assets.outputs.target }}
           budgets: max=1gb
           dotsider-path: ${{ steps.integration-assets.outputs.exe }}

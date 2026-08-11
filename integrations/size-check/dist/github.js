@@ -82,6 +82,7 @@ async function prepare() {
 }
 async function run(onOutputs) {
     const inputs = (0, input_1.createInputs)({
+        mode: process.env.DOTSIDER_INPUT_MODE,
         target: process.env.DOTSIDER_INPUT_TARGET,
         baseline: process.env.DOTSIDER_INPUT_BASELINE,
         budgets: process.env.DOTSIDER_INPUT_BUDGETS,
@@ -121,6 +122,7 @@ function enforce() {
     }
     if (exitCode === 2) {
         const summary = (0, report_1.formatSizeCheckSummary)({
+            mode: (process.env.DOTSIDER_MODE || ""),
             totalBasis: process.env.DOTSIDER_TOTAL_BASIS || "",
             baselineTotal: process.env.DOTSIDER_BASELINE_TOTAL || "",
             currentTotal: process.env.DOTSIDER_CURRENT_TOTAL || "",
@@ -157,6 +159,7 @@ function writeStableOutputs(outputs) {
         "markdown-report-path": outputs.markdownReportPath,
         "artifact-name": outputs.artifactName,
         "dotsider-version": outputs.dotsiderVersion,
+        mode: outputs.mode,
         "total-basis": outputs.totalBasis,
         "baseline-total": outputs.baselineTotal,
         "current-total": outputs.currentTotal,

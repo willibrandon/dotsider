@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { parseChecksum, prepareTool, verifyChecksum } from "../src/acquisition";
 import { executeSizeCheck } from "../src/process";
+import { createStableOutputs } from "../src/report";
 import { SizeCheckInputs } from "../src/types";
 
 const executable = required("DOTSIDER_INTEGRATION_EXE");
@@ -52,6 +53,7 @@ test("GitHub adapter keeps real reports and writes error outputs when summary pu
     GITHUB_OUTPUT: outputPath,
     GITHUB_STEP_SUMMARY: summaryDirectory,
     RUNNER_TEMP: directory,
+    DOTSIDER_INPUT_MODE: "compare",
     DOTSIDER_INPUT_TARGET: target,
     DOTSIDER_INPUT_BASELINE: baseline,
     DOTSIDER_INPUT_TOP: "10",
@@ -115,9 +117,9 @@ test("real error budget returns budget-failed and keeps both reports", async () 
   assert.equal((await fs.stat(execution.jsonReportPath)).isFile(), true);
   assert.equal((await fs.stat(execution.markdownReportPath)).isFile(), true);
 
-  const enforcement = await runGitHubEnforcement(execution.exitCode, execution.result);
+  const enforcement = await runGitHubEnforcement(execution);
   assert.equal(enforcement.exitCode, 1);
-  assert.match(enforcement.stdout, /::error::Dotsider size budgets were exceeded\./u);
+  assert.match(enforcement.stdout, /::error::Dotsider size budgets were exceeded: compared with baseline; .* from baseline; 1 budget violation\./u);
 });
 
 test("real absolute budget without a baseline passes", async () => {
@@ -141,7 +143,7 @@ test("real invalid budget maps exit 1 to error", async () => {
   assert.equal(execution.result, "error");
   assert.match(execution.stderr, /budget|expected|invalid/iu);
 
-  const enforcement = await runGitHubEnforcement(execution.exitCode, execution.result);
+  const enforcement = await runGitHubEnforcement(execution);
   assert.equal(enforcement.exitCode, 1);
   assert.match(enforcement.stdout, /::error::Dotsider size check failed with exit code 1 \(error\)\./u);
 });
@@ -166,7 +168,9 @@ test("real packaged archive checksum accepts original and rejects modified bytes
 });
 
 async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInputs> {
+  const mode = overrides.baseline ? "compare" : "current";
   return {
+    mode,
     target,
     budgets: [],
     top: 10,
@@ -181,10 +185,18 @@ async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInp
   };
 }
 
-async function runGitHubEnforcement(exitCode: number, result: string): Promise<ChildResult> {
+async function runGitHubEnforcement(execution: Awaited<ReturnType<typeof executeSizeCheck>>): Promise<ChildResult> {
+  const outputs = createStableOutputs(execution, "dotsider-size-check", "custom");
   return await runGitHub("enforce", {
-    DOTSIDER_EXIT_CODE: String(exitCode),
-    DOTSIDER_RESULT: result,
+    DOTSIDER_EXIT_CODE: outputs.exitCode,
+    DOTSIDER_RESULT: outputs.result,
+    DOTSIDER_MODE: outputs.mode,
+    DOTSIDER_TOTAL_BASIS: outputs.totalBasis,
+    DOTSIDER_BASELINE_TOTAL: outputs.baselineTotal,
+    DOTSIDER_CURRENT_TOTAL: outputs.currentTotal,
+    DOTSIDER_DELTA: outputs.delta,
+    DOTSIDER_VIOLATION_COUNT: outputs.violationCount,
+    DOTSIDER_ARTIFACT_NAME: outputs.artifactName,
   });
 }
 
