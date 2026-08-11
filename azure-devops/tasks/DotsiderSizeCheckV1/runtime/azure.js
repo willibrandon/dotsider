@@ -55,7 +55,6 @@ async function main() {
             || process.env.AGENT_TEMPDIRECTORY
             || os.tmpdir();
         const inputs = (0, input_1.createInputs)({
-            mode: getInput("mode"),
             target: getInput("target"),
             baseline: getInput("baseline"),
             budgets: getInput("budgets"),

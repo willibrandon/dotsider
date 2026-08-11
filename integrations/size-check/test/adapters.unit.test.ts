@@ -15,7 +15,6 @@ const stableGithubOutputs = [
   "markdown-report-path",
   "artifact-name",
   "dotsider-version",
-  "mode",
   "total-basis",
   "baseline-total",
   "current-total",
@@ -29,7 +28,6 @@ const stableAzureOutputs = [
   "markdownReportPath",
   "artifactName",
   "dotsiderVersion",
-  "mode",
   "totalBasis",
   "baselineTotal",
   "currentTotal",
@@ -42,7 +40,6 @@ test("GitHub adapter writes stable error outputs before returning an input error
   const outputPath = path.join(directory, "github-output.txt");
   const child = await runNode([githubRuntime, "run"], {
     GITHUB_OUTPUT: outputPath,
-    DOTSIDER_INPUT_MODE: "current",
     DOTSIDER_INPUT_TARGET: "unused",
     DOTSIDER_INPUT_TOP: "10oops",
     DOTSIDER_INPUT_ARTIFACT_NAME: "review-error",
@@ -59,11 +56,27 @@ test("GitHub adapter writes stable error outputs before returning an input error
   assert.equal(outputs.get("violation-count"), "0");
 });
 
+test("GitHub Action exposes the baseline-driven contract", async () => {
+  const action = await fs.readFile(path.join(repositoryRoot, "action.yml"), "utf8");
+  assert.match(action, /inputs:\r?\n  target:\r?\n(?:.*\r?\n)*?    required: true/u);
+  assert.match(action, /  baseline:\r?\n(?:.*\r?\n)*?    required: false/u);
+  assert.doesNotMatch(action, /^  mode:/mu);
+  assert.doesNotMatch(action, /DOTSIDER_(?:INPUT_)?MODE|steps\.run\.outputs\.mode/u);
+  assert.doesNotMatch(action, /actions\/download-artifact/u);
+
+  const uploadStart = action.indexOf("- name: Upload Dotsider reports");
+  const enforceStart = action.indexOf("- name: Enforce Dotsider result");
+  assert.ok(uploadStart >= 0 && enforceStart > uploadStart);
+  const uploadStep = action.slice(uploadStart, enforceStart);
+  assert.match(uploadStep, /steps\.run\.outputs\.json-report-path/u);
+  assert.match(uploadStep, /steps\.run\.outputs\.markdown-report-path/u);
+  assert.doesNotMatch(uploadStep, /baseline/u);
+});
+
 test("GitHub enforcement identifies the measured size and retained report", async () => {
   const child = await runNode([githubRuntime, "enforce"], {
     DOTSIDER_EXIT_CODE: "2",
     DOTSIDER_RESULT: "budget-failed",
-    DOTSIDER_MODE: "current",
     DOTSIDER_TOTAL_BASIS: "fileSize",
     DOTSIDER_BASELINE_TOTAL: "",
     DOTSIDER_CURRENT_TOTAL: "36029560",
@@ -79,9 +92,24 @@ test("GitHub enforcement identifies the measured size and retained report", asyn
   );
 });
 
+test("GitHub enforcement identifies a comparison with a supplied baseline", async () => {
+  const child = await runNode([githubRuntime, "enforce"], {
+    DOTSIDER_EXIT_CODE: "2",
+    DOTSIDER_RESULT: "budget-failed",
+    DOTSIDER_TOTAL_BASIS: "fileSize",
+    DOTSIDER_BASELINE_TOTAL: "26214400",
+    DOTSIDER_CURRENT_TOTAL: "36029560",
+    DOTSIDER_DELTA: "9815160",
+    DOTSIDER_VIOLATION_COUNT: "1",
+    DOTSIDER_ARTIFACT_NAME: "dotsider-size-check-linux-x64",
+  });
+
+  assert.equal(child.exitCode, 1);
+  assert.match(child.stdout, /compared with baseline; 34\.4 MB total \(fileSize\); \+9\.4 MB from baseline/u);
+});
+
 test("Azure adapter writes stable error outputs before completing an input error", async () => {
   const child = await runNode([azureRuntime], {
-    INPUT_MODE: "current",
     INPUT_TARGET: "unused",
     INPUT_TOP: "10oops",
     INPUT_ARTIFACT_NAME: "review-error",
@@ -104,7 +132,7 @@ test("Azure adapter writes stable error outputs before completing an input error
   assert.match(child.stdout, /task\.logissue type=error;\]top must be a non-negative integer/u);
 });
 
-test("Azure task requires an agent that provides its declared Node handlers", async () => {
+test("Azure task exposes the baseline-driven contract on its supported Node handlers", async () => {
   const taskPath = path.join(
     repositoryRoot,
     "azure-devops/tasks/DotsiderSizeCheckV1/task.json",
@@ -118,20 +146,30 @@ test("Azure task requires an agent that provides its declared Node handlers", as
       defaultValue?: string;
       required?: boolean;
     }>;
+    outputVariables?: Array<{ name?: string }>;
+    restrictions?: { settableVariables?: { allowed?: string[] } };
   };
 
   assert.equal(task.minimumAgentVersion, "3.230.2");
   assert.equal(task.execution?.Node24?.target, "runtime/azure.js");
   assert.equal(task.execution?.Node20_1?.target, "runtime/azure.js");
 
-  const mode = task.inputs?.find(candidate => candidate.name === "mode");
-  assert.ok(mode, "Expected the required mode input");
-  assert.equal(mode.type, "pickList");
-  assert.equal(mode.required, true);
-  assert.equal(mode.defaultValue, undefined);
+  assert.equal(task.inputs?.some(candidate => candidate.name === "mode"), false);
+  assert.equal(task.outputVariables?.some(candidate => candidate.name === "mode"), false);
+  assert.equal(task.restrictions?.settableVariables?.allowed?.includes("mode"), false);
+
+  const target = task.inputs?.find(candidate => candidate.name === "target");
+  assert.ok(target, "Expected the required target input");
+  assert.equal(target.type, "filePath");
+  assert.equal(target.required, true);
 
   for (const name of ["baseline", "budgetFile", "dotsiderPath"]) {
-    const input = task.inputs?.find(candidate => candidate.name === name);
+    const input: {
+      name?: string;
+      type?: string;
+      defaultValue?: string;
+      required?: boolean;
+    } | undefined = task.inputs?.find(candidate => candidate.name === name);
     assert.ok(input, `Expected the ${name} task input`);
     assert.equal(
       input.type,
@@ -141,6 +179,8 @@ test("Azure task requires an agent that provides its declared Node handlers", as
     assert.equal(input.defaultValue, "");
     assert.equal(input.required, false);
   }
+
+  assert.deepEqual(task.outputVariables?.map(output => output.name), stableAzureOutputs);
 });
 
 async function runNode(args: readonly string[], environment: NodeJS.ProcessEnv): Promise<ChildResult> {

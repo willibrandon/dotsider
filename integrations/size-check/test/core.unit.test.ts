@@ -12,7 +12,7 @@ import {
   resolveRid,
   validateArchiveEntries,
 } from "../src/acquisition";
-import { parseBudgets, parseMode, parseTop } from "../src/input";
+import { createInputs, parseBudgets, parseTop } from "../src/input";
 import { buildSizeCheckArguments, formatSizeCheckSummary } from "../src/report";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
@@ -42,10 +42,32 @@ test("buildSizeCheckArguments forwards every typed input as separate arguments",
   ]);
 });
 
+test("buildSizeCheckArguments omits the baseline argument when none is supplied", () => {
+  const args = buildSizeCheckArguments(
+    "/work/current app",
+    undefined,
+    ["max=25mb"],
+    undefined,
+    10,
+    false,
+    "/reports/report.json",
+    "/reports/report.md",
+  );
+
+  assert.deepEqual(args, [
+    "size-check", "/work/current app",
+    "--format", "json",
+    "--output", "/reports/report.json",
+    "--summary-file", "/reports/report.md",
+    "--top", "10",
+    "--budget", "max=25mb",
+  ]);
+  assert.equal(args.includes("--baseline"), false);
+});
+
 test("formatSizeCheckSummary reports the measured total, delta, and violations", () => {
   assert.equal(
     formatSizeCheckSummary({
-      mode: "compare",
       totalBasis: "fileSize",
       baselineTotal: "26214400",
       currentTotal: "36029560",
@@ -56,16 +78,34 @@ test("formatSizeCheckSummary reports the measured total, delta, and violations",
   );
 });
 
-test("parseMode accepts current without a baseline and compare with a baseline", () => {
-  assert.equal(parseMode("current", undefined), "current");
-  assert.equal(parseMode("compare", "/work/baseline.mstat"), "compare");
+test("createInputs requires target and keeps the baseline optional without a separate mode", () => {
+  for (const target of [undefined, "", "   "]) {
+    assert.throws(
+      () => createInputs({ target }, "/reports"),
+      error => error instanceof Error && error.message === "target is required.",
+    );
+  }
+
+  const current = createInputs({ target: "current.mstat" }, "/reports");
+  const comparison = createInputs({
+    target: "current.mstat",
+    baseline: "baseline.mstat",
+  }, "/reports");
+
+  assert.equal(current.baseline, undefined);
+  assert.equal(comparison.baseline, path.resolve("baseline.mstat"));
+  assert.equal("mode" in current, false);
+  assert.equal("mode" in comparison, false);
 });
 
-test("parseMode rejects missing, unknown, and contradictory inputs", () => {
-  assert.throws(() => parseMode(undefined, undefined), /mode is required/u);
-  assert.throws(() => parseMode("automatic", undefined), /'current' or 'compare'/u);
-  assert.throws(() => parseMode("current", "/work/baseline.mstat"), /must not be supplied/u);
-  assert.throws(() => parseMode("compare", undefined), /baseline is required/u);
+test("formatSizeCheckSummary identifies a current build without a baseline total", () => {
+  assert.equal(formatSizeCheckSummary({
+    totalBasis: "fileSize",
+    baselineTotal: "",
+    currentTotal: "36029560",
+    delta: "36029560",
+    violationCount: "0",
+  }), "current build (no baseline comparison); 34.4 MB total (fileSize)");
 });
 
 test("parseBudgets repeats nonempty budget lines in order", () => {

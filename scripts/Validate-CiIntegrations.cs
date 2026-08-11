@@ -64,8 +64,18 @@ internal static class CiIntegrationValidator
         Require(source.Contains("id: run\n      if: always()", StringComparison.Ordinal)
             || source.Contains("id: run\r\n      if: always()", StringComparison.Ordinal),
             "action.yml must emit stable run outputs after preparation fails.");
-        Require(source.Contains("DOTSIDER_INPUT_MODE: ${{ inputs.mode }}", StringComparison.Ordinal),
-            "action.yml must pass the required current-or-compare mode to the adapter.");
+        Require(!source.Contains("inputs.mode", StringComparison.Ordinal)
+            && !source.Contains("steps.run.outputs.mode", StringComparison.Ordinal)
+            && !source.Contains("DOTSIDER_INPUT_MODE", StringComparison.Ordinal),
+            "action.yml must not expose a separate mode; supplying baseline controls comparison.");
+        Require(source.Contains("DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}", StringComparison.Ordinal),
+            "action.yml must pass the optional baseline to Dotsider.");
+        Require(!source.Contains("actions/download-artifact", StringComparison.Ordinal)
+            && !source.Contains("baseline artifact", StringComparison.OrdinalIgnoreCase),
+            "action.yml must not hide baseline discovery or retention.");
+        Require(source.Contains("${{ steps.run.outputs.json-report-path }}", StringComparison.Ordinal)
+            && source.Contains("${{ steps.run.outputs.markdown-report-path }}", StringComparison.Ordinal),
+            "action.yml must upload only the reports produced by Dotsider.");
     }
 
     private static void ValidateAzureTask(string root)
@@ -89,15 +99,12 @@ internal static class CiIntegrationValidator
         Dictionary<string, JsonElement> inputs = rootElement.GetProperty("inputs")
             .EnumerateArray()
             .ToDictionary(input => input.GetProperty("name").GetString() ?? string.Empty);
-        JsonElement mode = inputs["mode"];
-        JsonElement modeOptions = mode.GetProperty("options");
-        Require(mode.GetProperty("type").GetString() == "pickList"
-            && mode.GetProperty("required").GetBoolean()
-            && !mode.TryGetProperty("defaultValue", out _)
-            && modeOptions.EnumerateObject().Count() == 2
-            && modeOptions.TryGetProperty("current", out _)
-            && modeOptions.TryGetProperty("compare", out _),
-            "The Azure task mode must require exactly current or compare without a default.");
+        Require(!inputs.ContainsKey("mode"),
+            "The Azure task must not expose a separate mode; supplying baseline controls comparison.");
+        JsonElement target = inputs["target"];
+        Require(target.GetProperty("type").GetString() == "filePath"
+            && target.GetProperty("required").GetBoolean(),
+            "The Azure task target must remain required.");
         foreach (string name in new[] { "baseline", "budgetFile", "dotsiderPath" })
         {
             JsonElement input = inputs[name];
@@ -107,6 +114,38 @@ internal static class CiIntegrationValidator
                 $"The optional Azure task input '{name}' must remain an empty string; "
                     + "Azure roots empty filePath inputs at the working directory.");
         }
+        string[] stableOutputs =
+        [
+            "result",
+            "exitCode",
+            "jsonReportPath",
+            "markdownReportPath",
+            "artifactName",
+            "dotsiderVersion",
+            "totalBasis",
+            "baselineTotal",
+            "currentTotal",
+            "delta",
+            "violationCount",
+        ];
+        string[] outputVariables =
+        [
+            .. rootElement.GetProperty("outputVariables")
+                .EnumerateArray()
+                .Select(output => output.GetProperty("name").GetString() ?? string.Empty),
+        ];
+        Require(outputVariables.SequenceEqual(stableOutputs, StringComparer.Ordinal),
+            "The Azure task output contract must remain stable and must not expose mode.");
+        string[] settableVariables =
+        [
+            .. rootElement.GetProperty("restrictions")
+                .GetProperty("settableVariables")
+                .GetProperty("allowed")
+                .EnumerateArray()
+                .Select(value => value.GetString() ?? string.Empty),
+        ];
+        Require(settableVariables.SequenceEqual(stableOutputs, StringComparer.Ordinal),
+            "The Azure task may set only its documented output variables.");
 
         string extensionPath = Path.Combine(root, "azure-devops", "vss-extension.json");
         using JsonDocument extension = JsonDocument.Parse(File.ReadAllText(extensionPath));

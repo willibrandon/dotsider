@@ -111,7 +111,6 @@ function createStableOutputs(execution, artifactName, dotsiderVersion) {
         markdownReportPath: path.resolve(execution.markdownReportPath),
         artifactName,
         dotsiderVersion,
-        mode: report?.baseline ? "compare" : report ? "current" : "",
         totalBasis: report?.totalBasis ?? "",
         baselineTotal: numberOutput(report?.leftTotal),
         currentTotal: numberOutput(report?.rightTotal),
@@ -127,7 +126,6 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
         markdownReportPath: "",
         artifactName,
         dotsiderVersion,
-        mode: "",
         totalBasis: "",
         baselineTotal: "",
         currentTotal: "",
@@ -137,10 +135,10 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
 }
 function formatSizeCheckSummary(outputs) {
     const parts = [];
-    if (outputs.mode === "current") {
+    if (outputs.currentTotal !== "" && outputs.baselineTotal === "") {
         parts.push("current build (no baseline comparison)");
     }
-    else if (outputs.mode === "compare") {
+    else if (outputs.baselineTotal !== "") {
         parts.push("compared with baseline");
     }
     const currentTotal = parseOutputNumber(outputs.currentTotal);

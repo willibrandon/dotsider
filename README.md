@@ -148,20 +148,15 @@ dotsider size-check out/pr/app --baseline baseline/app.mstat \
 dotsider size-check out/pr/app --budget max=25mb                        # absolute cap, no baseline
 ```
 
-GitHub Actions can acquire the matching released binary, verify its checksum, cache it, and
-retain both reports even when a budget fails:
+Most projects should start with an absolute cap. This catches unexpected growth without any
+baseline build or artifact:
 
 ```yaml
 - name: Check NativeAOT size
   uses: willibrandon/dotsider@v0
   with:
-    mode: compare
     target: out/pr/App
-    baseline: baseline/App.mstat
-    budgets: |
-      total:growth=1%
-      ns=MyApp.Generated:growth=0
-    why: true
+    budgets: max=25mb
 ```
 
 Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
@@ -169,17 +164,15 @@ Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
 ```yaml
 - task: DotsiderSizeCheck@1
   inputs:
-    mode: compare
     target: '$(Build.ArtifactStagingDirectory)/current/App'
-    baseline: '$(Pipeline.Workspace)/baseline/App.mstat'
-    budgets: |
-      total:growth=1%
-      ns=MyApp.Generated:growth=0
+    budgets: max=25mb
 ```
 
-Publishing the application and retrieving its baseline remain explicit build and artifact
-steps. See the [size-regression guide](https://dotsider.dev/usage/size-regression/) for the
-complete workflow, stable outputs, and offline `dotsider-path` option.
+To gate the change from one build to another, also pass `baseline` and use `growth=` budgets.
+For pull requests, build the base commit and the current commit in the same job so both use
+the same SDK, runtime identifier, and runner. See the
+[size-regression guide](https://dotsider.dev/usage/size-regression/) for that workflow,
+stable outputs, and the offline `dotsider-path` option.
 
 Budgets: `[scope:]limit(,limit)*` — scope `total` / `ns=<Namespace>` (covers sub-namespaces) /
 `asm=<Assembly>`; limits `max=SIZE` and `growth=SIZE|PERCENT` (`25mb`, `10kb`, `1%`).

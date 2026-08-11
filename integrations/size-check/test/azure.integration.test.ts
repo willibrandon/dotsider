@@ -12,25 +12,35 @@ const runtime = path.resolve(__dirname, "../../../azure-devops/tasks/DotsiderSiz
 
 test("Azure handler emits outputs from a real comparison", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-pass-"));
-  const result = await runAzure(directory, "");
+  const result = await runAzure(directory, {
+    baseline,
+    budgets: "total:max=1gb,growth=1gb",
+  });
   assert.equal(result.exitCode, 0, result.stderr);
   assert.match(result.stdout, /variable=result;isOutput=true;\]passed/u);
   assert.match(result.stdout, /variable=exitCode;isOutput=true;\]0/u);
-  assert.match(result.stdout, /variable=mode;isOutput=true;\]compare/u);
+  assert.doesNotMatch(result.stdout, /variable=mode;isOutput=true;/u);
   assert.match(result.stdout, /##vso\[task.uploadsummary /u);
   assert.match(result.stdout, /##vso\[artifact.upload artifactname=dotsider-azure-test;/u);
 
   const report = JSON.parse(await fs.readFile(path.join(directory, "dotsider-size-check.json"), "utf8")) as {
     schemaVersion: number;
+    baseline?: string;
+    leftTotal?: number;
     summary: { delta: number };
   };
   assert.equal(report.schemaVersion, 1);
+  assert.equal(report.baseline, path.resolve(baseline));
+  assert.ok((report.leftTotal ?? 0) > 0);
   assert.notEqual(report.summary.delta, 0);
 });
 
 test("Azure handler publishes real reports before a budget failure", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-fail-"));
-  const result = await runAzure(directory, "ns=NativeAotConsole.Telemetry:growth=0");
+  const result = await runAzure(directory, {
+    baseline,
+    budgets: "ns=NativeAotConsole.Telemetry:growth=0",
+  });
   assert.equal(result.exitCode, 1);
   assert.match(result.stdout, /variable=result;isOutput=true;\]budget-failed/u);
   assert.match(result.stdout, /variable=exitCode;isOutput=true;\]2/u);
@@ -46,17 +56,51 @@ test("Azure handler publishes real reports before a budget failure", async () =>
   assert.equal((await fs.stat(path.join(directory, "dotsider-size-check.md"))).isFile(), true);
 });
 
-async function runAzure(reportDirectory: string, budgets: string): Promise<ChildResult> {
+test("Azure handler accepts an absolute budget without a baseline", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-current-"));
+  const result = await runAzure(directory, { budgets: "max=1gb" });
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /variable=result;isOutput=true;\]passed/u);
+  assert.match(result.stdout, /variable=baselineTotal;isOutput=true;\]\r?$/mu);
+  assert.match(result.stdout, /Dotsider size check: current build \(no baseline comparison\);/u);
+  const report = JSON.parse(await fs.readFile(path.join(directory, "dotsider-size-check.json"), "utf8")) as {
+    schemaVersion?: number;
+    baseline?: string | null;
+    rightTotal?: number;
+  };
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.baseline ?? null, null);
+  assert.ok((report.rightTotal ?? 0) > 0);
+  assert.equal((await fs.stat(path.join(directory, "dotsider-size-check.md"))).isFile(), true);
+});
+
+test("Azure handler rejects a growth budget without a baseline", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-growth-error-"));
+  const result = await runAzure(directory, { budgets: "growth=1%" });
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.stderr, /limits growth, which needs --baseline/u);
+  assert.match(result.stdout, /variable=result;isOutput=true;\]error/u);
+  assert.match(result.stdout, /variable=exitCode;isOutput=true;\]1/u);
+  assert.doesNotMatch(result.stdout, /##vso\[artifact\.upload/u);
+  assert.equal(await fileExists(path.join(directory, "dotsider-size-check.json")), false);
+  assert.equal(await fileExists(path.join(directory, "dotsider-size-check.md")), false);
+});
+
+async function runAzure(
+  reportDirectory: string,
+  options: { baseline?: string; budgets?: string },
+): Promise<ChildResult> {
   return await new Promise<ChildResult>((resolve, reject) => {
     const child = spawn(process.execPath, [runtime], {
       shell: false,
       windowsHide: true,
       env: {
         ...process.env,
-        INPUT_MODE: "compare",
         INPUT_TARGET: target,
-        INPUT_BASELINE: baseline,
-        INPUT_BUDGETS: budgets,
+        INPUT_BASELINE: options.baseline,
+        INPUT_BUDGETS: options.budgets,
         INPUT_TOP: "10",
         INPUT_WHY: "false",
         INPUT_DOTSIDER_VERSION: "not-a-release",
@@ -91,4 +135,12 @@ function required(name: string): string {
     throw new Error(`${name} is required; integration tests never substitute a fake executable or report.`);
   }
   return path.resolve(value);
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
 }

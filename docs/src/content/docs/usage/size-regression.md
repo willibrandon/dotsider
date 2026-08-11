@@ -57,10 +57,12 @@ tables). See [Diff Mode](/usage/diff-mode/) for the keys and the treemap encodin
 
 ## Headless: `dotsider size-check`
 
-The CI command. It compares a target against a baseline, renders the report in `text`,
-`json`, or `markdown`, evaluates size budgets, and exits non-zero when one breaks:
+The CI command. It measures a target, optionally compares it with a baseline, renders the
+report in `text`, `json`, or `markdown`, evaluates size budgets, and exits non-zero when one
+breaks:
 
 ```
+dotsider size-check out/pr/app --budget max=25mb
 dotsider size-check out/pr/app --baseline baseline/app.mstat --top 20
 dotsider size-check out/pr/app --baseline baseline/app.mstat \
   --budget max=25mb --budget growth=1% --budget ns=System.Text.Json:growth=10kb
@@ -129,26 +131,22 @@ target's DGML sidecar): the root kept X, X kept Y, down to the new entry.
 
 ### GitHub Actions
 
-```yaml
-- name: Publish PR build
-  run: dotnet publish src/App -c Release -r linux-x64 -o out/pr
+Start with an absolute cap. This workflow has one NativeAOT build and no baseline to store or
+retrieve:
 
-- name: Restore baseline size report
-  uses: actions/download-artifact@v8
-  with:
-    name: size-baseline        # published from the main branch build
-    path: baseline
+```yaml
+- uses: actions/checkout@v6
+
+- name: Publish NativeAOT application
+  run: >-
+    dotnet publish src/App/App.csproj -c Release -r linux-x64
+    -p:PublishAot=true -p:IlcGenerateMstatFile=true -o out/current
 
 - name: Size gate
   uses: willibrandon/dotsider@v0
   with:
-    mode: compare
-    target: out/pr/App
-    baseline: baseline/App.mstat
-    budgets: |
-      total:growth=1%
-      ns=MyApp.Generated:growth=0
-    why: true
+    target: out/current/App
+    budgets: max=25mb
 ```
 
 The action selects the release for the runner's OS and architecture, verifies its SHA-256
@@ -157,29 +155,103 @@ the Markdown and schema-versioned JSON reports before enforcing a budget failure
 `dotsider-version` to an exact release for reproducibility, or set `dotsider-path` to an
 existing executable for an offline or custom installation.
 
-Publish the current `.mstat` as the `size-baseline` artifact from the main-branch workflow so
-pull requests always diff against the latest mainline build. Application publishing and
-baseline retention remain visible because their runtimes, permissions, and retention policy
-belong to the application workflow.
+When an absolute cap is too coarse, build the pull request's base commit in a detached
+worktree and pass that output as `baseline`. Both builds happen on the same runner with the
+same SDK and NativeAOT toolchain; users do not change the workflow between runs:
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+
+- name: Publish base revision
+  shell: bash
+  env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  run: |
+    git worktree add --detach "$RUNNER_TEMP/dotsider-base" "$BASE_SHA"
+    dotnet publish "$RUNNER_TEMP/dotsider-base/src/App/App.csproj" \
+      -c Release -r linux-x64 -p:PublishAot=true \
+      -p:IlcGenerateMstatFile=true -o "$RUNNER_TEMP/dotsider-base-publish"
+
+- name: Publish pull request revision
+  run: >-
+    dotnet publish src/App/App.csproj -c Release -r linux-x64
+    -p:PublishAot=true -p:IlcGenerateMstatFile=true -p:IlcGenerateDgmlFile=true
+    -o out/current
+
+- name: Size comparison
+  uses: willibrandon/dotsider@v0
+  with:
+    target: out/current/App
+    baseline: ${{ runner.temp }}/dotsider-base-publish/App
+    budgets: |
+      total:max=25mb,growth=1%
+      ns=MyApp.Generated:growth=10kb
+    why: true
+```
+
+The project-specific publish commands remain in the workflow because the application owns
+its target framework, runtime identifier, conditional properties, and generated inputs.
+Dotsider does not search earlier workflow runs or silently replace a baseline.
 
 ### Azure DevOps
 
+The basic Azure Pipelines setup is the same one-build absolute check:
+
 ```yaml
+- checkout: self
+
+- pwsh: >-
+    dotnet publish src/App/App.csproj -c Release -r linux-x64
+    -p:PublishAot=true -p:IlcGenerateMstatFile=true
+    -o $(Build.ArtifactStagingDirectory)/current
+  displayName: Publish NativeAOT application
+
 - task: DotsiderSizeCheck@1
   inputs:
-    mode: compare
-    target: '$(Build.SourcesDirectory)/out/pr/App'
-    baseline: '$(Pipeline.Workspace)/size-baseline/App.mstat'
+    target: '$(Build.ArtifactStagingDirectory)/current/App'
+    budgets: max=25mb
+```
+
+For a pull-request comparison, fetch the target branch and publish it in a worktree before
+publishing the checked-out revision:
+
+```yaml
+- checkout: self
+  fetchDepth: 0
+
+- pwsh: |
+    $branch = '$(System.PullRequest.TargetBranch)' -replace '^refs/heads/', ''
+    $base = '$(Agent.TempDirectory)/dotsider-base'
+    git fetch origin $branch
+    git worktree add --detach $base "origin/$branch"
+    dotnet publish "$base/src/App/App.csproj" -c Release -r linux-x64 `
+      -p:PublishAot=true -p:IlcGenerateMstatFile=true `
+      -o '$(Agent.TempDirectory)/dotsider-base-publish'
+  displayName: Publish base revision
+
+- pwsh: >-
+    dotnet publish src/App/App.csproj -c Release -r linux-x64
+    -p:PublishAot=true -p:IlcGenerateMstatFile=true -p:IlcGenerateDgmlFile=true
+    -o $(Build.ArtifactStagingDirectory)/current
+  displayName: Publish pull request revision
+
+- task: DotsiderSizeCheck@1
+  inputs:
+    target: '$(Build.ArtifactStagingDirectory)/current/App'
+    baseline: '$(Agent.TempDirectory)/dotsider-base-publish/App'
     budgets: |
-      total:growth=1%
-      ns=MyApp.Generated:growth=0
+      total:max=25mb,growth=1%
+      ns=MyApp.Generated:growth=10kb
     why: true
 ```
 
 Install the public **Dotsider** extension from the Azure DevOps Marketplace. The task uses
 Node 24 on current agents and retains a Node 20 handler for older supported agents. Its tool
 selection, checksum verification, reports, summary, exit meanings, and typed outputs match
-the GitHub Action.
+the GitHub Action. Supplying `baseline` enables the comparison; omitting it keeps the task on
+the absolute current-build path. A `growth=` budget without a baseline is an input error.
 
 See [CI integrations](/reference/ci-integrations/) for every input and output, platform
 compatibility, report lifetime, and release policy.

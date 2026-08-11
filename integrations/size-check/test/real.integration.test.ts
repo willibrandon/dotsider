@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -31,15 +32,24 @@ test("explicit Dotsider path bypasses release resolution", async () => {
   assert.equal(tool.executablePath, path.resolve(executable));
 });
 
-test("real comparison writes schema 1 JSON and Markdown", async () => {
-  const execution = await executeSizeCheck(executable, await inputs({ baseline }));
+test("real comparison accepts max and growth without modifying the baseline", async () => {
+  const digestBefore = await sha256(baseline);
+  const execution = await executeSizeCheck(executable, await inputs({
+    baseline,
+    budgets: ["total:max=1gb,growth=1gb"],
+  }));
   assert.equal(execution.exitCode, 0);
   assert.equal(execution.result, "passed");
   assert.equal(execution.report?.schemaVersion, 1);
   assert.equal(execution.report?.target, path.resolve(target));
   assert.equal(execution.report?.baseline, path.resolve(baseline));
+  assert.ok((execution.report?.leftTotal ?? 0) > 0);
+  assert.ok((execution.report?.rightTotal ?? 0) > 0);
   assert.notEqual(execution.report?.summary.delta, 0);
+  assert.equal(execution.report?.budgets?.passed, true);
+  assert.equal(execution.report?.budgets?.evaluations?.length, 1);
   assert.match(await fs.readFile(execution.markdownReportPath, "utf8"), /Size check/u);
+  assert.equal(await sha256(baseline), digestBefore);
 });
 
 test("GitHub adapter keeps real reports and writes error outputs when summary publishing fails", async () => {
@@ -53,7 +63,6 @@ test("GitHub adapter keeps real reports and writes error outputs when summary pu
     GITHUB_OUTPUT: outputPath,
     GITHUB_STEP_SUMMARY: summaryDirectory,
     RUNNER_TEMP: directory,
-    DOTSIDER_INPUT_MODE: "compare",
     DOTSIDER_INPUT_TARGET: target,
     DOTSIDER_INPUT_BASELINE: baseline,
     DOTSIDER_INPUT_TOP: "10",
@@ -126,8 +135,106 @@ test("real absolute budget without a baseline passes", async () => {
   const execution = await executeSizeCheck(executable, await inputs({ budgets: ["max=1gb"] }));
   assert.equal(execution.exitCode, 0);
   assert.equal(execution.result, "passed");
+  assert.equal(execution.report?.schemaVersion, 1);
   assert.equal(execution.report?.baseline, undefined);
+  assert.equal(execution.report?.leftTotal ?? null, null);
   assert.ok((execution.report?.rightTotal ?? 0) > 0);
+  assert.equal(execution.report?.budgets?.passed, true);
+  const outputs = createStableOutputs(execution, "dotsider-size-check", "custom");
+  assert.deepEqual(Object.keys(outputs), [
+    "result",
+    "exitCode",
+    "jsonReportPath",
+    "markdownReportPath",
+    "artifactName",
+    "dotsiderVersion",
+    "totalBasis",
+    "baselineTotal",
+    "currentTotal",
+    "delta",
+    "violationCount",
+  ]);
+  assert.equal(outputs.baselineTotal, "");
+  assert.deepEqual(
+    (await fs.readdir(path.dirname(execution.jsonReportPath))).sort(),
+    ["dotsider-size-check.json", "dotsider-size-check.md"],
+  );
+});
+
+test("real growth budgets without a baseline return a direct error", async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-growth-budget-file-"));
+  const budgetFile = path.join(directory, "budgets.json");
+  await fs.writeFile(budgetFile, JSON.stringify({
+    budgets: [{
+      name: "warning growth",
+      growth: "1kb",
+      severity: "warning",
+    }],
+  }));
+
+  const cases: Array<{ name: string; overrides: Partial<SizeCheckInputs> }> = [
+    { name: "percentage", overrides: { budgets: ["growth=1%"] } },
+    { name: "bytes", overrides: { budgets: ["growth=1kb"] } },
+    { name: "combined", overrides: { budgets: ["total:max=1gb,growth=1kb"] } },
+    { name: "scoped", overrides: { budgets: ["ns=NativeAotConsole.Telemetry:growth=1kb"] } },
+    { name: "warning budget file", overrides: { budgetFile } },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      const execution = await executeSizeCheck(executable, await inputs(scenario.overrides));
+      assert.equal(execution.exitCode, 1);
+      assert.equal(execution.result, "error");
+      assert.match(execution.stderr, /limits growth, which needs --baseline/u);
+      assert.equal(await fileExists(execution.jsonReportPath), false);
+      assert.equal(await fileExists(execution.markdownReportPath), false);
+    });
+  }
+});
+
+test("GitHub adapter exposes stable error outputs for growth without a baseline", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-growth-error-"));
+  const outputPath = path.join(directory, "github-output.txt");
+  const child = await runGitHub("run", {
+    GITHUB_OUTPUT: outputPath,
+    RUNNER_TEMP: directory,
+    DOTSIDER_INPUT_TARGET: target,
+    DOTSIDER_INPUT_BUDGETS: "growth=1%",
+    DOTSIDER_INPUT_TOP: "10",
+    DOTSIDER_INPUT_WHY: "false",
+    DOTSIDER_INPUT_VERSION: "not-a-release",
+    DOTSIDER_INPUT_PATH: executable,
+    DOTSIDER_INPUT_REPORT_DIRECTORY: path.join(directory, "reports"),
+    DOTSIDER_INPUT_PUBLISH_SUMMARY: "true",
+    DOTSIDER_INPUT_PUBLISH_REPORTS: "true",
+    DOTSIDER_INPUT_ARTIFACT_NAME: "dotsider-growth-error",
+    DOTSIDER_PREPARED_VERSION: "custom",
+    DOTSIDER_PREPARED_RID: `unused-${process.arch}`,
+    DOTSIDER_PREPARED_CACHE_DIRECTORY: path.dirname(executable),
+    DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
+    DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
+    DOTSIDER_PREPARED_EXPLICIT: "true",
+  });
+
+  assert.equal(child.exitCode, 0);
+  assert.match(child.stderr, /limits growth, which needs --baseline/u);
+  const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+  assert.equal(outputs.get("result"), "error");
+  assert.equal(outputs.get("exit-code"), "1");
+  assert.equal(outputs.has("mode"), false);
+
+  const enforcement = await runGitHub("enforce", {
+    DOTSIDER_EXIT_CODE: outputs.get("exit-code"),
+    DOTSIDER_RESULT: outputs.get("result"),
+    DOTSIDER_TOTAL_BASIS: outputs.get("total-basis"),
+    DOTSIDER_BASELINE_TOTAL: outputs.get("baseline-total"),
+    DOTSIDER_CURRENT_TOTAL: outputs.get("current-total"),
+    DOTSIDER_DELTA: outputs.get("delta"),
+    DOTSIDER_VIOLATION_COUNT: outputs.get("violation-count"),
+    DOTSIDER_ARTIFACT_NAME: outputs.get("artifact-name"),
+  });
+  assert.equal(enforcement.exitCode, 1);
+  assert.match(enforcement.stdout, /Dotsider size check failed with exit code 1 \(error\)/u);
 });
 
 test("real why report contains a dependency chain", async () => {
@@ -168,9 +275,7 @@ test("real packaged archive checksum accepts original and rejects modified bytes
 });
 
 async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInputs> {
-  const mode = overrides.baseline ? "compare" : "current";
   return {
-    mode,
     target,
     budgets: [],
     top: 10,
@@ -190,7 +295,6 @@ async function runGitHubEnforcement(execution: Awaited<ReturnType<typeof execute
   return await runGitHub("enforce", {
     DOTSIDER_EXIT_CODE: outputs.exitCode,
     DOTSIDER_RESULT: outputs.result,
-    DOTSIDER_MODE: outputs.mode,
     DOTSIDER_TOTAL_BASIS: outputs.totalBasis,
     DOTSIDER_BASELINE_TOTAL: outputs.baselineTotal,
     DOTSIDER_CURRENT_TOTAL: outputs.currentTotal,
@@ -200,9 +304,9 @@ async function runGitHubEnforcement(execution: Awaited<ReturnType<typeof execute
   });
 }
 
-async function runGitHub(mode: string, environment: NodeJS.ProcessEnv): Promise<ChildResult> {
+async function runGitHub(commandName: string, environment: NodeJS.ProcessEnv): Promise<ChildResult> {
   return await new Promise<ChildResult>((resolve, reject) => {
-    const child = spawn(process.execPath, [githubRuntime, mode], {
+    const child = spawn(process.execPath, [githubRuntime, commandName], {
       shell: false,
       windowsHide: true,
       env: {
@@ -253,4 +357,16 @@ function required(name: string): string {
     throw new Error(`${name} is required; integration tests never substitute a fake executable or report.`);
   }
   return path.resolve(value);
+}
+
+async function sha256(filePath: string): Promise<string> {
+  return createHash("sha256").update(await fs.readFile(filePath)).digest("hex");
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
 }

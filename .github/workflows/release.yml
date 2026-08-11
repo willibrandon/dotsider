@@ -569,7 +569,6 @@ jobs:
         id: released
         uses: ./
         with:
-          mode: compare
           target: ${{ steps.comparison-assets.outputs.target }}
           baseline: ${{ steps.comparison-assets.outputs.baseline }}
           dotsider-version: ${{ github.ref_name }}
@@ -588,7 +587,6 @@ jobs:
       - name: Reuse the resolved Dotsider tool
         uses: ./
         with:
-          mode: compare
           target: ${{ steps.comparison-assets.outputs.target }}
           baseline: ${{ steps.comparison-assets.outputs.baseline }}
           dotsider-version: ${{ github.ref_name }}

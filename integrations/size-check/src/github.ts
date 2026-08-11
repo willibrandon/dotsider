@@ -9,13 +9,13 @@ import { PreparedTool, StableOutputs } from "./types";
 void main();
 
 async function main(): Promise<void> {
-  const mode = process.argv[2];
+  const commandName = process.argv[2];
   let errorOutputs = createErrorOutputs(
     optional(process.env.DOTSIDER_INPUT_ARTIFACT_NAME) || "dotsider-size-check",
     optional(process.env.DOTSIDER_PREPARED_VERSION) || "",
   );
   try {
-    switch (mode) {
+    switch (commandName) {
       case "prepare":
         await prepare();
         break;
@@ -28,11 +28,11 @@ async function main(): Promise<void> {
         enforce();
         break;
       default:
-        throw new Error("Expected the GitHub adapter mode: prepare, run, or enforce.");
+        throw new Error("Expected a GitHub adapter command: prepare, run, or enforce.");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (mode === "run") {
+    if (commandName === "run") {
       writeStableOutputs(errorOutputs);
     }
     command("error", {}, message);
@@ -57,7 +57,6 @@ async function prepare(): Promise<void> {
 
 async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   const inputs = createInputs({
-    mode: process.env.DOTSIDER_INPUT_MODE,
     target: process.env.DOTSIDER_INPUT_TARGET,
     baseline: process.env.DOTSIDER_INPUT_BASELINE,
     budgets: process.env.DOTSIDER_INPUT_BUDGETS,
@@ -100,7 +99,6 @@ function enforce(): void {
   }
   if (exitCode === 2) {
     const summary = formatSizeCheckSummary({
-      mode: (process.env.DOTSIDER_MODE || "") as StableOutputs["mode"],
       totalBasis: process.env.DOTSIDER_TOTAL_BASIS || "",
       baselineTotal: process.env.DOTSIDER_BASELINE_TOTAL || "",
       currentTotal: process.env.DOTSIDER_CURRENT_TOTAL || "",
@@ -142,7 +140,6 @@ function writeStableOutputs(outputs: StableOutputs): void {
     "markdown-report-path": outputs.markdownReportPath,
     "artifact-name": outputs.artifactName,
     "dotsider-version": outputs.dotsiderVersion,
-    mode: outputs.mode,
     "total-basis": outputs.totalBasis,
     "baseline-total": outputs.baselineTotal,
     "current-total": outputs.currentTotal,

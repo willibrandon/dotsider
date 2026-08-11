@@ -41,26 +41,6 @@ export function parseBudgets(value: string | undefined): string[] {
     .filter(line => line.length > 0);
 }
 
-export function parseMode(
-  value: string | undefined,
-  baseline: string | undefined,
-): "current" | "compare" {
-  const mode = required(value, "mode").toLowerCase();
-  if (mode === "current") {
-    if (baseline) {
-      throw new Error("baseline must not be supplied when mode is 'current'.");
-    }
-    return mode;
-  }
-  if (mode === "compare") {
-    if (!baseline) {
-      throw new Error("baseline is required when mode is 'compare'.");
-    }
-    return mode;
-  }
-  throw new Error(`mode must be 'current' or 'compare'; received '${value ?? ""}'.`);
-}
-
 export function createInputs(
   values: Readonly<Record<string, string | undefined>>,
   defaultReportRoot: string,
@@ -75,7 +55,6 @@ export function createInputs(
   );
 
   return {
-    mode: parseMode(values.mode, baseline),
     target: path.resolve(target),
     baseline,
     budgets: parseBudgets(values.budgets),

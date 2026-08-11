@@ -9,11 +9,8 @@ inputs:
     description: NativeAOT binary or .mstat report to check.
     required: true
   baseline:
-    description: Baseline NativeAOT binary or .mstat report.
+    description: Optional NativeAOT binary or .mstat report to compare with the target.
     required: false
-  mode:
-    description: Use current to check this build or compare to compare it with a supplied baseline.
-    required: true
   budgets:
     description: Size budget expressions, one per line.
     required: false
@@ -63,9 +60,6 @@ outputs:
   dotsider-version:
     description: Resolved Dotsider version, or custom for dotsider-path.
     value: ${{ steps.run.outputs.dotsider-version }}
-  mode:
-    description: current or compare.
-    value: ${{ steps.run.outputs.mode }}
   total-basis:
     description: Basis used for total-size evaluation.
     value: ${{ steps.run.outputs.total-basis }}
@@ -110,7 +104,6 @@ runs:
       if: always()
       shell: bash
       env:
-        DOTSIDER_INPUT_MODE: ${{ inputs.mode }}
         DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
         DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
         DOTSIDER_INPUT_BUDGETS: ${{ inputs.budgets }}
@@ -148,7 +141,6 @@ runs:
       env:
         DOTSIDER_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
         DOTSIDER_RESULT: ${{ steps.run.outputs.result }}
-        DOTSIDER_MODE: ${{ steps.run.outputs.mode }}
         DOTSIDER_TOTAL_BASIS: ${{ steps.run.outputs.total-basis }}
         DOTSIDER_BASELINE_TOTAL: ${{ steps.run.outputs.baseline-total }}
         DOTSIDER_CURRENT_TOTAL: ${{ steps.run.outputs.current-total }}

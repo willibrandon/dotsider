@@ -41,10 +41,10 @@ const process_1 = require("./process");
 const report_1 = require("./report");
 void main();
 async function main() {
-    const mode = process.argv[2];
+    const commandName = process.argv[2];
     let errorOutputs = (0, report_1.createErrorOutputs)(optional(process.env.DOTSIDER_INPUT_ARTIFACT_NAME) || "dotsider-size-check", optional(process.env.DOTSIDER_PREPARED_VERSION) || "");
     try {
-        switch (mode) {
+        switch (commandName) {
             case "prepare":
                 await prepare();
                 break;
@@ -57,12 +57,12 @@ async function main() {
                 enforce();
                 break;
             default:
-                throw new Error("Expected the GitHub adapter mode: prepare, run, or enforce.");
+                throw new Error("Expected a GitHub adapter command: prepare, run, or enforce.");
         }
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (mode === "run") {
+        if (commandName === "run") {
             writeStableOutputs(errorOutputs);
         }
         command("error", {}, message);
@@ -82,7 +82,6 @@ async function prepare() {
 }
 async function run(onOutputs) {
     const inputs = (0, input_1.createInputs)({
-        mode: process.env.DOTSIDER_INPUT_MODE,
         target: process.env.DOTSIDER_INPUT_TARGET,
         baseline: process.env.DOTSIDER_INPUT_BASELINE,
         budgets: process.env.DOTSIDER_INPUT_BUDGETS,
@@ -122,7 +121,6 @@ function enforce() {
     }
     if (exitCode === 2) {
         const summary = (0, report_1.formatSizeCheckSummary)({
-            mode: (process.env.DOTSIDER_MODE || ""),
             totalBasis: process.env.DOTSIDER_TOTAL_BASIS || "",
             baselineTotal: process.env.DOTSIDER_BASELINE_TOTAL || "",
             currentTotal: process.env.DOTSIDER_CURRENT_TOTAL || "",
@@ -159,7 +157,6 @@ function writeStableOutputs(outputs) {
         "markdown-report-path": outputs.markdownReportPath,
         "artifact-name": outputs.artifactName,
         "dotsider-version": outputs.dotsiderVersion,
-        mode: outputs.mode,
         "total-basis": outputs.totalBasis,
         "baseline-total": outputs.baselineTotal,
         "current-total": outputs.currentTotal,
