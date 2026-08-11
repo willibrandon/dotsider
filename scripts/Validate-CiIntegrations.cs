@@ -46,9 +46,15 @@ internal static class CiIntegrationValidator
         Require(source.Contains("actions/setup-node@v7.0.0", StringComparison.Ordinal)
             && source.Contains("node-version: '24'", StringComparison.Ordinal),
             "action.yml must select Node 24 explicitly.");
-        Require(source.IndexOf("Upload Dotsider reports", StringComparison.Ordinal)
-            < source.IndexOf("Enforce Dotsider result", StringComparison.Ordinal),
+        int runIndex = source.IndexOf("Run Dotsider size check", StringComparison.Ordinal);
+        int uploadIndex = source.IndexOf("Upload Dotsider reports", StringComparison.Ordinal);
+        int enforceIndex = source.IndexOf("Enforce Dotsider result", StringComparison.Ordinal);
+        Require(runIndex >= 0 && uploadIndex > runIndex && enforceIndex > uploadIndex,
             "action.yml must publish reports before enforcing a failure.");
+        Require(source.Contains(
+                "if: always() && inputs.upload-reports == 'true' && steps.run.outputs.result != 'error'",
+                StringComparison.Ordinal),
+            "action.yml must retain reports for budget failures.");
         Require(source.Contains("actions/cache@v6.1.0", StringComparison.Ordinal),
             "action.yml must cache verified releases by the prepared cache key.");
     }

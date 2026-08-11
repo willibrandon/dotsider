@@ -137,7 +137,14 @@ public class ReleaseWorkflowTests
         Assert.Contains("macos-26-intel", ci);
         Assert.Contains("pnpm --dir integrations/size-check test:integration", ci);
         Assert.Contains("uses: ./", ci);
-        Assert.Contains("actions/download-artifact@v8", ci);
+        int integrationJobStart = ci.IndexOf("  size-check-integrations:", StringComparison.Ordinal);
+        int integrationJobEnd = ci.IndexOf("  deploy-tests:", integrationJobStart, StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, integrationJobStart);
+        Assert.IsGreaterThan(integrationJobStart, integrationJobEnd);
+        string integrationJob = ci[integrationJobStart..integrationJobEnd];
+        Assert.DoesNotContain("continue-on-error", integrationJob);
+        Assert.DoesNotContain("Run action with a failing budget", integrationJob);
+        Assert.DoesNotContain("Run action with invalid input", integrationJob);
         Assert.Contains("using: composite", action);
         Assert.Contains("node-version: '24'", action);
         Assert.Contains("Node24", task);

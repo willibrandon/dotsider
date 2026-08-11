@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -14,6 +15,7 @@ const targetMstat = required("DOTSIDER_INTEGRATION_TARGET_MSTAT");
 const targetDgml = required("DOTSIDER_INTEGRATION_TARGET_DGML");
 const archive = required("DOTSIDER_INTEGRATION_ARCHIVE");
 const checksumSidecar = required("DOTSIDER_INTEGRATION_CHECKSUM");
+const githubRuntime = path.resolve(__dirname, "../../../integrations/size-check/dist/github.js");
 
 test("real NativeAOT fixtures and their required sidecars exist", async () => {
   for (const filePath of [executable, baseline, target, targetMstat, targetDgml, archive, checksumSidecar]) {
@@ -67,6 +69,10 @@ test("real error budget returns budget-failed and keeps both reports", async () 
   assert.equal(execution.report?.budgets?.passed, false);
   assert.equal((await fs.stat(execution.jsonReportPath)).isFile(), true);
   assert.equal((await fs.stat(execution.markdownReportPath)).isFile(), true);
+
+  const enforcement = await runGitHubEnforcement(execution.exitCode, execution.result);
+  assert.equal(enforcement.exitCode, 1);
+  assert.match(enforcement.stdout, /::error::Dotsider size budgets were exceeded\./u);
 });
 
 test("real absolute budget without a baseline passes", async () => {
@@ -89,6 +95,10 @@ test("real invalid budget maps exit 1 to error", async () => {
   assert.equal(execution.exitCode, 1);
   assert.equal(execution.result, "error");
   assert.match(execution.stderr, /budget|expected|invalid/iu);
+
+  const enforcement = await runGitHubEnforcement(execution.exitCode, execution.result);
+  assert.equal(enforcement.exitCode, 1);
+  assert.match(enforcement.stdout, /::error::Dotsider size check failed with exit code 1 \(error\)\./u);
 });
 
 test("real packaged archive checksum accepts original and rejects modified bytes", async () => {
@@ -124,6 +134,35 @@ async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInp
     artifactName: "dotsider-size-check-test",
     ...overrides,
   };
+}
+
+async function runGitHubEnforcement(exitCode: number, result: string): Promise<ChildResult> {
+  return await new Promise<ChildResult>((resolve, reject) => {
+    const child = spawn(process.execPath, [githubRuntime, "enforce"], {
+      shell: false,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        DOTSIDER_EXIT_CODE: String(exitCode),
+        DOTSIDER_RESULT: result,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (value: string) => stdout += value);
+    child.stderr.on("data", (value: string) => stderr += value);
+    child.on("error", reject);
+    child.on("close", childExitCode => resolve({ exitCode: childExitCode ?? 1, stdout, stderr }));
+  });
+}
+
+interface ChildResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
 }
 
 function required(name: string): string {
