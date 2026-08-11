@@ -44,6 +44,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Initialize-DevContainer.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Run-Tests.cs", readme);
+        Assert.Contains("dotnet run --file ./scripts/Validate-CiIntegrations.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Verify-NativeAot.cs", readme);
         Assert.Contains("FullyQualifiedName~", runTestsScript);
         Assert.DoesNotContain("dotnet-suggest", runTestsScript);
@@ -85,7 +86,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("zlib1g-dev", dockerfile);
         Assert.Contains("\"version\": \"10.0.302\"", configuration);
         Assert.Contains("\"workloads\": \"wasm-tools\"", configuration);
-        Assert.Contains("\"version\": \"22\"", configuration);
+        Assert.Contains("\"version\": \"24\"", configuration);
         Assert.Contains("\"pnpmVersion\": \"10.28.0\"", configuration);
         Assert.Contains("docker-in-docker:4", configuration);
         Assert.DoesNotContain("docker-outside-of-docker", configuration);
@@ -121,13 +122,21 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("Hex1b.Tool", initializer);
         Assert.DoesNotContain("Hex1b.McpServer", initializer);
         Assert.Contains("Run-Tests.cs", initializer);
+        Assert.Contains("Validate-CiIntegrations.cs", initializer);
         Assert.Contains("Verify-NativeAot.cs", initializer);
+        Assert.Contains("integrations/size-check", initializer);
+        Assert.Contains("azure-devops", initializer);
         Assert.Contains("safe.directory", initializer);
         Assert.Contains("[\"CI\"] = \"true\"", initializer);
         Assert.Contains("devcontainers/ci@v0.3", workflow);
         Assert.Contains("dotnet clean", workflow);
         Assert.Contains("dotnet build --no-restore", workflow);
         Assert.Contains("dotnet test --no-build", workflow);
+        Assert.Contains("pnpm --dir integrations/size-check build", workflow);
+        Assert.Contains("pnpm --dir integrations/size-check test:unit", workflow);
+        Assert.Contains("pnpm --dir integrations/size-check validate", workflow);
+        Assert.Contains("pnpm --dir azure-devops package:vsix", workflow);
+        Assert.Contains("Validate-CiIntegrations.cs", workflow);
         Assert.Contains(
             "DOTSIDER_RUN_DEPLOY_INTEGRATION=1 dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj --no-build",
             workflow);
@@ -396,7 +405,7 @@ public sealed partial class ScriptConventionTests : IDisposable
             Path.Combine(root, ".github", "workflows", "release.yml"));
         string script = File.ReadAllText(Path.Combine(root, "scripts", "Verify-NativeAot.cs"));
         int jobStart = ciWorkflow.IndexOf("  native-aot:", StringComparison.Ordinal);
-        int jobEnd = ciWorkflow.IndexOf("  deploy-tests:", jobStart, StringComparison.Ordinal);
+        int jobEnd = ciWorkflow.IndexOf("  ci-integration-packages:", jobStart, StringComparison.Ordinal);
 
         Assert.IsGreaterThanOrEqualTo(0, jobStart);
         Assert.IsGreaterThan(jobStart, jobEnd);

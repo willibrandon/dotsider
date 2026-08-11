@@ -49,6 +49,7 @@ internal static class SizeDiffReportWriter
             .ToList();
 
         return new CliSizeReportPayload(
+            1,
             ctx.TargetPath,
             ctx.BaselinePath,
             ctx.TotalBasis,

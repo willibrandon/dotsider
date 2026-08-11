@@ -1,0 +1,21 @@
+{
+  "name": "dotsider-azure-devops-extension",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "description": "Packaging tools for the Dotsider Azure DevOps extension.",
+  "license": "MIT",
+  "scripts": {
+    "package:vsix": "tfx extension create --manifest-globs vss-extension.json --output-path ../artifacts/azure-devops --rev-version false"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": "5.0.9",
+      "glob": "13.0.6",
+      "minimatch": "10.2.5"
+    }
+  },
+  "devDependencies": {
+    "tfx-cli": "0.23.4"
+  }
+}

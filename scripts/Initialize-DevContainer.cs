@@ -49,11 +49,28 @@ try
         {
             ["CI"] = "true",
         });
+    string[] pnpmPackageDirectories =
+    [
+        "integrations/size-check",
+        "azure-devops",
+    ];
+    foreach (string packageDirectory in pnpmPackageDirectories)
+    {
+        RunCommand(
+            "pnpm",
+            ["install", "--frozen-lockfile"],
+            Path.Combine(repositoryRoot, packageDirectory),
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["CI"] = "true",
+            });
+    }
 
     VerifyCommand("dotnet", ["--version"], repositoryRoot);
     VerifyCommand("node", ["--version"], repositoryRoot);
     VerifyCommand("pnpm", ["--version"], repositoryRoot);
     VerifyCommand("clang", ["--version"], repositoryRoot);
+    VerifyCommand("file", ["--version"], repositoryRoot);
     VerifyCommand("llvm-objdump", ["--version"], repositoryRoot);
     VerifyCommand("docker", ["version", "--format", "{{.Server.Version}}"], repositoryRoot);
     VerifyGlobalToolVersion(ReadGlobalTools(repositoryRoot), cliPackageId, hex1bVersion);
@@ -122,6 +139,7 @@ static void RestoreFileApps(string repositoryRoot)
         "scripts/Capture-DisasmOracle.cs",
         "scripts/Deploy-Website.cs",
         "scripts/Run-Tests.cs",
+        "scripts/Validate-CiIntegrations.cs",
         "scripts/Verify-NativeAot.cs",
     ];
     foreach (string fileApp in fileApps)

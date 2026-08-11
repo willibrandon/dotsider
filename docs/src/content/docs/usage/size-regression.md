@@ -134,39 +134,68 @@ target's DGML sidecar): the root kept X, X kept Y, down to the new entry.
   run: dotnet publish src/App -c Release -r linux-x64 -o out/pr
 
 - name: Restore baseline size report
-  uses: actions/download-artifact@v4
+  uses: actions/download-artifact@v8
   with:
     name: size-baseline        # published from the main branch build
     path: baseline
 
 - name: Size gate
-  run: >
-    dotsider size-check out/pr/App
-    --baseline baseline/App.mstat
-    --budget total:growth=1%
-    --budget ns=MyApp.Generated:growth=0
-    --format markdown --summary-file "$GITHUB_STEP_SUMMARY"
+  uses: willibrandon/dotsider@v0
+  with:
+    target: out/pr/App
+    baseline: baseline/App.mstat
+    budgets: |
+      total:growth=1%
+      ns=MyApp.Generated:growth=0
+    why: true
 ```
 
-The markdown report lands in the job's step summary; the exit code fails the job when an
-error-severity budget breaks. Publish the current `.mstat` as the `size-baseline` artifact
-from the main-branch workflow so pull requests always diff against the latest mainline build.
+The action selects the release for the runner's OS and architecture, verifies its SHA-256
+sidecar, and caches the result. It writes the Markdown report to the job summary and uploads
+the Markdown and schema-versioned JSON reports before enforcing a budget failure. Set
+`dotsider-version` to an exact release for reproducibility, or set `dotsider-path` to an
+existing executable for an offline or custom installation.
+
+Publish the current `.mstat` as the `size-baseline` artifact from the main-branch workflow so
+pull requests always diff against the latest mainline build. Application publishing and
+baseline retention remain visible because their runtimes, permissions, and retention policy
+belong to the application workflow.
 
 ### Azure DevOps
 
 ```yaml
-- script: >
-    dotsider size-check $(Build.SourcesDirectory)/out/pr/App
-    --baseline $(Pipeline.Workspace)/size-baseline/App.mstat
-    --budget total:growth=1%
-    --format markdown --summary-file $(Build.ArtifactStagingDirectory)/size-gate.md
-  displayName: Size gate
-- task: PublishBuildArtifacts@1
-  condition: always()
+- task: DotsiderSizeCheck@1
   inputs:
-    pathToPublish: $(Build.ArtifactStagingDirectory)/size-gate.md
-    artifactName: size-gate
+    target: '$(Build.SourcesDirectory)/out/pr/App'
+    baseline: '$(Pipeline.Workspace)/size-baseline/App.mstat'
+    budgets: |
+      total:growth=1%
+      ns=MyApp.Generated:growth=0
+    why: true
 ```
+
+Install the public **Dotsider** extension from the Azure DevOps Marketplace. The task uses
+Node 24 on current agents and retains a Node 20 handler for older supported agents. Its tool
+selection, checksum verification, reports, summary, exit meanings, and typed outputs match
+the GitHub Action.
+
+See [CI integrations](/reference/ci-integrations/) for every input and output, platform
+compatibility, report lifetime, and release policy.
+
+### Direct CLI
+
+The marketplaces are optional. An installed Dotsider executable can drive the same gate:
+
+```bash
+dotsider size-check out/pr/App \
+  --baseline baseline/App.mstat \
+  --budget total:growth=1% \
+  --budget ns=MyApp.Generated:growth=0 \
+  --format json --output artifacts/dotsider-size-check.json \
+  --summary-file artifacts/dotsider-size-check.md
+```
+
+Run report-upload steps with the platform's always condition if the CLI exits 2.
 
 ## From an agent
 

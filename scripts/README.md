@@ -12,6 +12,7 @@ dotnet run --file ./scripts/Run-Tests.cs
 dotnet run --file ./scripts/Initialize-DevContainer.cs
 dotnet run --file ./scripts/Deploy-Website.cs -- -Mode Package -DeployHost publish/deploy-host/dotsider-deploy-host
 dotnet run --file ./scripts/Capture-DisasmOracle.cs -- -Architecture riscv64 -Fixture path/to/blob.bin -OraclePath llvm-objdump -OutputDirectory artifacts/oracles/disasm -RuntimeRoot path/to/runtime -- -D -b binary -m riscv:rv64 path/to/blob.bin
+dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix artifacts/azure-devops/willibrandon.dotsider-0.1.0.vsix
 dotnet run --file ./scripts/Verify-NativeAot.cs -- -Mode CI -Rid linux-x64 -Version 0.0.0-ci
 ```
 
@@ -42,6 +43,7 @@ Current utilities:
 | `Deploy-Website.cs` | Package, provision, preflight, or deploy the dotsider.dev website. |
 | `Initialize-DevContainer.cs` | Restore dependencies and install the Hex1b CLI in the development container. |
 | `Run-Tests.cs` | Run `dotnet test` once or repeatedly with forwarded test arguments. |
+| `Validate-CiIntegrations.cs` | Validate the GitHub Action, Azure task, package-manager policy, and an optional VSIX. |
 | `Verify-NativeAot.cs` | Publish, package, and smoke-test Native AOT CI and release payloads. |
 
 Use each script's XML documentation and command-line help for option details.

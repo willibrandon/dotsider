@@ -104,6 +104,53 @@ public class ReleaseWorkflowTests
         Assert.Contains("$prTitle = \"New package: willibrandon.dotsider-mcp $version\"", releaseWorkflow);
     }
 
+    /// <summary>
+    /// Verifies CI integrations are released only after their generated runtime, real
+    /// cross-platform execution, checksums, attestations, and marketplace packages are checked.
+    /// </summary>
+    [TestMethod]
+    public void CiIntegrations_KeepReleaseVerificationAndPublicationGates()
+    {
+        string root = TestHelpers.GetRepoRoot();
+        string release = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"));
+        string ci = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        string action = File.ReadAllText(Path.Combine(root, "action.yml"));
+        string task = File.ReadAllText(Path.Combine(
+            root, "azure-devops", "tasks", "DotsiderSizeCheckV1", "task.json"));
+
+        Assert.Contains("build-ci-integrations:", release);
+        Assert.Contains("verify-size-check-release:", release);
+        Assert.Contains("publish-azure-devops-marketplace:", release);
+        Assert.Contains("publish-github-action:", release);
+        Assert.Contains("verify-github-marketplace:", release);
+        Assert.Contains("actions/attest@v4.2.2", release);
+        Assert.Contains("if: \"!contains(github.ref_name, '-')\"", release);
+        Assert.Contains("gh attestation verify", release);
+        Assert.Contains("AZURE_DEVOPS_MARKETPLACE_PAT", release);
+        Assert.Contains("pnpm exec tfx extension publish", release);
+        Assert.Contains("$task.version.Major = 1", release);
+        Assert.Contains("$task.version.Patch = ([int]$versionParts[1] * 1000)", release);
+        Assert.Contains("needs: [verify-size-check-release, build-ci-integrations]", release);
+        Assert.Contains("if: \"!contains(github.ref_name, '-')\"", release);
+        Assert.Contains("Size check integration (${{ matrix.rid }})", ci);
+        Assert.Contains("windows-11-arm", ci);
+        Assert.Contains("macos-26-intel", ci);
+        Assert.Contains("pnpm --dir integrations/size-check test:integration", ci);
+        Assert.Contains("uses: ./", ci);
+        int integrationJobStart = ci.IndexOf("  size-check-integrations:", StringComparison.Ordinal);
+        int integrationJobEnd = ci.IndexOf("  deploy-tests:", integrationJobStart, StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, integrationJobStart);
+        Assert.IsGreaterThan(integrationJobStart, integrationJobEnd);
+        string integrationJob = ci[integrationJobStart..integrationJobEnd];
+        Assert.DoesNotContain("continue-on-error", integrationJob);
+        Assert.DoesNotContain("Run action with a failing budget", integrationJob);
+        Assert.DoesNotContain("Run action with invalid input", integrationJob);
+        Assert.Contains("using: composite", action);
+        Assert.Contains("node-version: '24'", action);
+        Assert.Contains("Node24", task);
+        Assert.Contains("Node20_1", task);
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

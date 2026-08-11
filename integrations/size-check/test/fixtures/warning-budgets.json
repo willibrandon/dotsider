@@ -1,0 +1,10 @@
+{
+  "budgets": [
+    {
+      "name": "telemetry-watch",
+      "scope": "ns=NativeAotConsole.Telemetry",
+      "growth": "0",
+      "severity": "warning"
+    }
+  ]
+}

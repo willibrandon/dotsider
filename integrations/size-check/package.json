@@ -1,0 +1,24 @@
+{
+  "name": "@dotsider/size-check-integrations",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc --project tsconfig.github.json && tsc --project tsconfig.azure.json",
+    "test": "pnpm run test:unit",
+    "test:unit": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.unit.test.js",
+    "test:integration": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.integration.test.js",
+    "test:integration:local": "pnpm run build && pnpm run test:compile && node ../../artifacts/size-check-tests/test/run-real-integration.js",
+    "test:azure-integration": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/azure.integration.test.js",
+    "test:compile": "tsc --project tsconfig.tests.json",
+    "validate": "node scripts/validate-generated.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -232,6 +232,7 @@ public class SizeCheckCliTests
 
         Assert.AreEqual(2, exitCode);
         var json = JsonSerializer.Deserialize<JsonElement>(stdout);
+        Assert.AreEqual(1, json.GetProperty("schemaVersion").GetInt32());
         Assert.AreEqual("mstatTotal", json.GetProperty("totalBasis").GetString());
         Assert.IsGreaterThan(0, json.GetProperty("leftTotal").GetInt64());
         Assert.IsGreaterThan(0, json.GetProperty("rightTotal").GetInt64());

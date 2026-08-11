@@ -1,0 +1,144 @@
+name: Dotsider Size Check
+description: Enforce NativeAOT size budgets and publish a readable size report.
+author: willibrandon
+branding:
+  icon: activity
+  color: purple
+inputs:
+  target:
+    description: NativeAOT binary or .mstat report to check.
+    required: true
+  baseline:
+    description: Baseline NativeAOT binary or .mstat report.
+    required: false
+  budgets:
+    description: Size budget expressions, one per line.
+    required: false
+  budget-file:
+    description: JSON size budget file.
+    required: false
+  top:
+    description: Number of contributors to include per report section.
+    default: '10'
+  why:
+    description: Include dependency chains from the target DGML sidecar.
+    default: 'false'
+  dotsider-version:
+    description: Exact Dotsider version, or latest.
+    default: latest
+  dotsider-path:
+    description: Existing Dotsider executable. Bypasses download and checksum verification.
+    required: false
+  report-directory:
+    description: Directory for JSON and Markdown reports.
+    required: false
+  publish-summary:
+    description: Append the Markdown report to the job summary.
+    default: 'true'
+  upload-reports:
+    description: Upload JSON and Markdown reports as a workflow artifact.
+    default: 'true'
+  artifact-name:
+    description: Workflow artifact name.
+    default: dotsider-size-check
+outputs:
+  result:
+    description: passed, passed-with-warnings, budget-failed, or error.
+    value: ${{ steps.run.outputs.result }}
+  exit-code:
+    description: Dotsider size-check exit code.
+    value: ${{ steps.run.outputs.exit-code }}
+  json-report-path:
+    description: Absolute path to the JSON report.
+    value: ${{ steps.run.outputs.json-report-path }}
+  markdown-report-path:
+    description: Absolute path to the Markdown report.
+    value: ${{ steps.run.outputs.markdown-report-path }}
+  artifact-name:
+    description: Uploaded workflow artifact name.
+    value: ${{ steps.run.outputs.artifact-name }}
+  dotsider-version:
+    description: Resolved Dotsider version, or custom for dotsider-path.
+    value: ${{ steps.run.outputs.dotsider-version }}
+  total-basis:
+    description: Basis used for total-size evaluation.
+    value: ${{ steps.run.outputs.total-basis }}
+  baseline-total:
+    description: Baseline total in bytes when a baseline was supplied.
+    value: ${{ steps.run.outputs.baseline-total }}
+  current-total:
+    description: Current total in bytes.
+    value: ${{ steps.run.outputs.current-total }}
+  delta:
+    description: Size delta in bytes.
+    value: ${{ steps.run.outputs.delta }}
+  violation-count:
+    description: Number of budget violations.
+    value: ${{ steps.run.outputs.violation-count }}
+runs:
+  using: composite
+  steps:
+    - name: Use Node.js 24
+      uses: actions/setup-node@v7.0.0
+      with:
+        node-version: '24'
+
+    - name: Resolve Dotsider
+      id: prepare
+      shell: bash
+      env:
+        DOTSIDER_INPUT_VERSION: ${{ inputs.dotsider-version }}
+        DOTSIDER_INPUT_PATH: ${{ inputs.dotsider-path }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" prepare
+
+    - name: Restore Dotsider cache
+      if: steps.prepare.outcome == 'success' && steps.prepare.outputs.explicit != 'true'
+      uses: actions/cache@v6.1.0
+      with:
+        path: ${{ steps.prepare.outputs.cache-directory }}
+        key: ${{ runner.os }}-${{ steps.prepare.outputs.cache-key }}
+
+    - name: Run Dotsider size check
+      id: run
+      if: always()
+      shell: bash
+      env:
+        DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
+        DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
+        DOTSIDER_INPUT_BUDGETS: ${{ inputs.budgets }}
+        DOTSIDER_INPUT_BUDGET_FILE: ${{ inputs.budget-file }}
+        DOTSIDER_INPUT_TOP: ${{ inputs.top }}
+        DOTSIDER_INPUT_WHY: ${{ inputs.why }}
+        DOTSIDER_INPUT_VERSION: ${{ inputs.dotsider-version }}
+        DOTSIDER_INPUT_PATH: ${{ inputs.dotsider-path }}
+        DOTSIDER_INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
+        DOTSIDER_INPUT_PUBLISH_SUMMARY: ${{ inputs.publish-summary }}
+        DOTSIDER_INPUT_PUBLISH_REPORTS: ${{ inputs.upload-reports }}
+        DOTSIDER_INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        DOTSIDER_PREPARED_VERSION: ${{ steps.prepare.outputs.version }}
+        DOTSIDER_PREPARED_RID: ${{ steps.prepare.outputs.rid }}
+        DOTSIDER_PREPARED_CACHE_DIRECTORY: ${{ steps.prepare.outputs.cache-directory }}
+        DOTSIDER_PREPARED_EXECUTABLE_PATH: ${{ steps.prepare.outputs.executable-path }}
+        DOTSIDER_PREPARED_CACHE_KEY: ${{ steps.prepare.outputs.cache-key }}
+        DOTSIDER_PREPARED_EXPLICIT: ${{ steps.prepare.outputs.explicit }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" run
+
+    - name: Upload Dotsider reports
+      if: always() && inputs.upload-reports == 'true' && steps.run.outputs.result != 'error'
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: ${{ steps.run.outputs.artifact-name }}
+        path: |
+          ${{ steps.run.outputs.json-report-path }}
+          ${{ steps.run.outputs.markdown-report-path }}
+        if-no-files-found: error
+
+    - name: Enforce Dotsider result
+      if: always()
+      shell: bash
+      env:
+        DOTSIDER_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+        DOTSIDER_RESULT: ${{ steps.run.outputs.result }}
+      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" enforce

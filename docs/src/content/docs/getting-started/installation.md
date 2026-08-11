@@ -44,3 +44,10 @@ scoop install dotsider
 ## Download binary
 
 Grab a Native AOT archive from [Releases](https://github.com/willibrandon/dotsider/releases). Static analysis does not need the .NET SDK or runtime. Live tracing requires a .NET 10-or-later runtime for the included `tracehost` helper; keep the archive's `tracehost` directory beside the executable. Native symbols are available as separate archives for diagnostics.
+
+## CI marketplaces
+
+NativeAOT size gates do not require a separate Dotsider installation. Use
+`willibrandon/dotsider@v0` in GitHub Actions or install the public **Dotsider** Azure DevOps
+extension and use `DotsiderSizeCheck@1`. Both acquire a matching release, verify its checksum,
+and cache it. See [CI integrations](/reference/ci-integrations/).

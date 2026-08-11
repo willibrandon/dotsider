@@ -12,9 +12,13 @@ on:
       - 'global.json'
       - 'docs/package.json'
       - 'docs/pnpm-lock.yaml'
+      - 'action.yml'
+      - 'azure-devops/**'
+      - 'integrations/**'
       - 'scripts/Directory.Build.props'
       - 'scripts/Initialize-DevContainer.cs'
       - 'scripts/ScriptSupport.cs'
+      - 'scripts/Validate-CiIntegrations.cs'
       - 'tests/Dotsider.Deploy.Tests/**'
       - 'tests/deploy/**'
   pull_request:
@@ -28,9 +32,13 @@ on:
       - 'global.json'
       - 'docs/package.json'
       - 'docs/pnpm-lock.yaml'
+      - 'action.yml'
+      - 'azure-devops/**'
+      - 'integrations/**'
       - 'scripts/Directory.Build.props'
       - 'scripts/Initialize-DevContainer.cs'
       - 'scripts/ScriptSupport.cs'
+      - 'scripts/Validate-CiIntegrations.cs'
       - 'tests/Dotsider.Deploy.Tests/**'
       - 'tests/deploy/**'
   schedule:
@@ -60,6 +68,11 @@ jobs:
             dotnet build --no-restore
             dotnet test --no-build
             DOTSIDER_RUN_DEPLOY_INTEGRATION=1 dotnet test tests/Dotsider.Deploy.Tests/Dotsider.Deploy.Tests.csproj --no-build
+            pnpm --dir integrations/size-check build
+            pnpm --dir integrations/size-check test:unit
+            pnpm --dir integrations/size-check validate
+            pnpm --dir azure-devops package:vsix
+            dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix artifacts/azure-devops/willibrandon.dotsider-0.1.0.vsix
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
