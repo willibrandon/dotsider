@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.7
+
+- Remove the mode input. Supplying a baseline now enables comparison budgets; omitting it supports absolute budgets for the current build.
+
 ## 0.24.6
 
 - Require an explicit current or compare mode for size checks.
