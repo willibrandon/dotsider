@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.8
+
+- Render size summaries as narrow lists with visible section dividers so GitHub and Azure Pipelines remain readable without hiding contributor details.
+
 ## 0.24.7
 
 - Remove the mode input. Supplying a baseline now enables comparison budgets; omitting it supports absolute budgets for the current build.
