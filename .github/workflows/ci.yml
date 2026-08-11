@@ -175,6 +175,17 @@ jobs:
           pnpm --dir integrations/size-check validate
           pnpm --dir integrations/size-check test:unit
 
+      - name: Test live musl runtime detection without a distro marker
+        run: >-
+          docker run --rm
+          --volume "${{ github.workspace }}:/workspace"
+          --workdir /workspace
+          node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+          sh -ec
+          'mv /etc/alpine-release /tmp/alpine-release;
+          unset DOTSIDER_MUSL;
+          node --test artifacts/size-check-tests/test/musl.runtime.test.js'
+
       - name: Package Azure DevOps extension
         run: pnpm --dir azure-devops package:vsix
 

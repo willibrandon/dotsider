@@ -93,7 +93,7 @@ runs:
       run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" prepare
 
     - name: Restore Dotsider cache
-      if: steps.prepare.outputs.explicit != 'true'
+      if: steps.prepare.outcome == 'success' && steps.prepare.outputs.explicit != 'true'
       uses: actions/cache@v6.1.0
       with:
         path: ${{ steps.prepare.outputs.cache-directory }}
@@ -101,6 +101,7 @@ runs:
 
     - name: Run Dotsider size check
       id: run
+      if: always()
       shell: bash
       env:
         DOTSIDER_INPUT_TARGET: ${{ inputs.target }}

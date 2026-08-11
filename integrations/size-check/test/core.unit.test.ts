@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseChecksum, resolveRid, validateArchiveEntries } from "../src/acquisition";
-import { parseBudgets } from "../src/input";
+import { detectMuslRuntime, parseChecksum, resolveRid, validateArchiveEntries } from "../src/acquisition";
+import { parseBudgets, parseTop } from "../src/input";
 import { buildSizeCheckArguments } from "../src/report";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
@@ -38,6 +38,24 @@ test("parseBudgets repeats nonempty budget lines in order", () => {
   );
 });
 
+test("parseTop accepts only complete non-negative integers", () => {
+  assert.equal(parseTop(undefined), 10);
+  assert.equal(parseTop(" 0 "), 0);
+  assert.equal(parseTop("17"), 17);
+  assert.equal(parseTop("0004"), 4);
+});
+
+test("parseTop rejects malformed and unsafe numeric strings without accepting prefixes", () => {
+  for (const value of ["", " ", "-1", "+1", "10oops", "1.5", "1e2", "9007199254740992"]) {
+    assert.throws(
+      () => parseTop(value),
+      error => error instanceof Error
+        && error.message === `top must be a non-negative integer; received '${value}'.`,
+      `Expected '${value}' to be rejected in full`,
+    );
+  }
+});
+
 test("resolveRid maps every supported operating-system and architecture pair", () => {
   assert.equal(resolveRid("win32", "x64", false), "win-x64");
   assert.equal(resolveRid("win32", "arm64", false), "win-arm64");
@@ -52,6 +70,15 @@ test("resolveRid maps every supported operating-system and architecture pair", (
 test("resolveRid rejects unsupported platforms and architectures", () => {
   assert.throws(() => resolveRid("freebsd", "x64", false), /platform 'freebsd'/u);
   assert.throws(() => resolveRid("linux", "ia32", false), /architecture 'ia32'/u);
+});
+
+test("detectMuslRuntime uses the Node runtime libc report instead of a distro marker", () => {
+  assert.equal(detectMuslRuntime("linux", undefined, { header: { glibcVersionRuntime: "2.39" } }), false);
+  assert.equal(detectMuslRuntime("linux", undefined, { header: {} }), true);
+  assert.equal(detectMuslRuntime("linux", "1", { header: { glibcVersionRuntime: "2.39" } }), true);
+  assert.equal(detectMuslRuntime("linux", "0", { header: {} }), false);
+  assert.equal(detectMuslRuntime("darwin", "1", { header: {} }), false);
+  assert.equal(detectMuslRuntime("linux", undefined, undefined), undefined);
 });
 
 test("parseChecksum accepts release sidecars", () => {

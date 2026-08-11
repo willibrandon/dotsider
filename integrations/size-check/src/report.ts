@@ -104,6 +104,25 @@ export function createStableOutputs(
   };
 }
 
+export function createErrorOutputs(
+  artifactName: string,
+  dotsiderVersion: string,
+): StableOutputs {
+  return {
+    result: "error",
+    exitCode: "1",
+    jsonReportPath: "",
+    markdownReportPath: "",
+    artifactName,
+    dotsiderVersion,
+    totalBasis: "",
+    baselineTotal: "",
+    currentTotal: "",
+    delta: "",
+    violationCount: "0",
+  };
+}
+
 function numberOutput(value: number | null | undefined): string {
   return value === null || value === undefined ? "" : String(value);
 }

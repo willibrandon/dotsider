@@ -4,13 +4,17 @@ import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
-import { createStableOutputs } from "./report";
+import { createErrorOutputs, createStableOutputs } from "./report";
+import { StableOutputs } from "./types";
 
 if (require.main === module) {
   void main();
 }
 
 async function main(): Promise<void> {
+  let artifactName = getInput("artifactName") || "dotsider-size-check";
+  let dotsiderVersion = "";
+  let errorOutputs = createErrorOutputs(artifactName, dotsiderVersion);
   try {
     const defaultRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY
       || process.env.AGENT_TEMPDIRECTORY
@@ -29,14 +33,15 @@ async function main(): Promise<void> {
       publishReports: getInput("publishReports"),
       artifactName: getInput("artifactName"),
     }, defaultRoot);
+    artifactName = inputs.artifactName;
 
     const tool = await prepareTool(inputs.dotsiderVersion, inputs.dotsiderPath);
+    dotsiderVersion = tool.version;
     const executable = await acquireTool(tool);
     const execution = await executeSizeCheck(executable, inputs);
     const outputs = createStableOutputs(execution, inputs.artifactName, tool.version);
-    for (const [name, value] of Object.entries(outputs)) {
-      setOutput(name, value);
-    }
+    errorOutputs = { ...outputs, result: "error", exitCode: "1" };
+    writeStableOutputs(outputs);
 
     if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
       vso("task.uploadsummary", {}, execution.markdownReportPath);
@@ -60,6 +65,10 @@ async function main(): Promise<void> {
     }
     process.exitCode = 1;
   } catch (error) {
+    if (errorOutputs.artifactName !== artifactName || errorOutputs.dotsiderVersion !== dotsiderVersion) {
+      errorOutputs = createErrorOutputs(artifactName, dotsiderVersion);
+    }
+    writeStableOutputs(errorOutputs);
     complete("Failed", error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
@@ -93,6 +102,12 @@ export function escapeVsoMessage(value: string): string {
 
 function setOutput(name: string, value: string): void {
   vso("task.setvariable", { variable: name, isOutput: "true" }, value);
+}
+
+function writeStableOutputs(outputs: StableOutputs): void {
+  for (const [name, value] of Object.entries(outputs)) {
+    setOutput(name, value);
+  }
 }
 
 function complete(result: "Succeeded" | "Failed", message: string): void {

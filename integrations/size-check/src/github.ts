@@ -3,19 +3,26 @@ import * as os from "node:os";
 import { acquireTool, prepareTool } from "./acquisition";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
-import { createStableOutputs } from "./report";
+import { createErrorOutputs, createStableOutputs } from "./report";
 import { PreparedTool, StableOutputs } from "./types";
 
 void main();
 
 async function main(): Promise<void> {
+  const mode = process.argv[2];
+  let errorOutputs = createErrorOutputs(
+    optional(process.env.DOTSIDER_INPUT_ARTIFACT_NAME) || "dotsider-size-check",
+    optional(process.env.DOTSIDER_PREPARED_VERSION) || "",
+  );
   try {
-    switch (process.argv[2]) {
+    switch (mode) {
       case "prepare":
         await prepare();
         break;
       case "run":
-        await run();
+        await run(outputs => {
+          errorOutputs = { ...outputs, result: "error", exitCode: "1" };
+        });
         break;
       case "enforce":
         enforce();
@@ -25,6 +32,9 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (mode === "run") {
+      writeStableOutputs(errorOutputs);
+    }
     command("error", {}, message);
     process.exitCode = 1;
   }
@@ -45,7 +55,7 @@ async function prepare(): Promise<void> {
   });
 }
 
-async function run(): Promise<void> {
+async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   const inputs = createInputs({
     target: process.env.DOTSIDER_INPUT_TARGET,
     baseline: process.env.DOTSIDER_INPUT_BASELINE,
@@ -65,6 +75,7 @@ async function run(): Promise<void> {
   const executable = await acquireTool(tool);
   const execution = await executeSizeCheck(executable, inputs);
   const outputs = createStableOutputs(execution, inputs.artifactName, tool.version);
+  onOutputs(outputs);
   writeStableOutputs(outputs);
 
   if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {

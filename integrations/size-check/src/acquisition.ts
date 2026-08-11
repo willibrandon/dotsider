@@ -35,6 +35,29 @@ export function resolveRid(
   }
 }
 
+export function detectMuslRuntime(
+  platform: NodeJS.Platform,
+  override: string | undefined,
+  report: unknown,
+): boolean | undefined {
+  if (platform !== "linux") {
+    return false;
+  }
+  if (override !== undefined) {
+    return override === "1";
+  }
+  if (!report || typeof report !== "object") {
+    return undefined;
+  }
+
+  const header = (report as { header?: unknown }).header;
+  if (!header || typeof header !== "object") {
+    return undefined;
+  }
+  const glibcVersion = (header as { glibcVersionRuntime?: unknown }).glibcVersionRuntime;
+  return typeof glibcVersion !== "string" || glibcVersion.length === 0;
+}
+
 export function archiveName(rid: string): string {
   return `dotsider-${rid}.${rid.startsWith("win-") ? "zip" : "tar.gz"}`;
 }
@@ -255,6 +278,10 @@ async function isMuslHost(): Promise<boolean> {
   }
   if (process.env.DOTSIDER_MUSL !== undefined) {
     return process.env.DOTSIDER_MUSL === "1";
+  }
+  const detected = detectMuslRuntime(process.platform, undefined, process.report?.getReport());
+  if (detected !== undefined) {
+    return detected;
   }
   return await isFile("/etc/alpine-release");
 }

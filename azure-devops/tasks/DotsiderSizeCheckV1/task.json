@@ -12,7 +12,7 @@
     "Minor": 0,
     "Patch": 0
   },
-  "minimumAgentVersion": "3.220.0",
+  "minimumAgentVersion": "3.230.2",
   "instanceNameFormat": "Dotsider size check $(target)",
   "inputs": [
     {

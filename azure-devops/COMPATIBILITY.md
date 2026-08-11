@@ -1,6 +1,6 @@
 # Compatibility
 
-`DotsiderSizeCheck@1` requires Azure Pipelines agent 3.220.0 or newer. It provides Node 24 and Node 20 handlers so current and older supported agents can run the same task implementation.
+`DotsiderSizeCheck@1` requires Azure Pipelines agent 3.230.2 or newer. It provides Node 24 and Node 20 handlers so current and older supported agents can run the same task implementation.
 
 | Agent operating system | Architectures | Dotsider release |
 | --- | --- | --- |

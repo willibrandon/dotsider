@@ -47,6 +47,9 @@ if (require.main === module) {
     void main();
 }
 async function main() {
+    let artifactName = getInput("artifactName") || "dotsider-size-check";
+    let dotsiderVersion = "";
+    let errorOutputs = (0, report_1.createErrorOutputs)(artifactName, dotsiderVersion);
     try {
         const defaultRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY
             || process.env.AGENT_TEMPDIRECTORY
@@ -65,13 +68,14 @@ async function main() {
             publishReports: getInput("publishReports"),
             artifactName: getInput("artifactName"),
         }, defaultRoot);
+        artifactName = inputs.artifactName;
         const tool = await (0, acquisition_1.prepareTool)(inputs.dotsiderVersion, inputs.dotsiderPath);
+        dotsiderVersion = tool.version;
         const executable = await (0, acquisition_1.acquireTool)(tool);
         const execution = await (0, process_1.executeSizeCheck)(executable, inputs);
         const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version);
-        for (const [name, value] of Object.entries(outputs)) {
-            setOutput(name, value);
-        }
+        errorOutputs = { ...outputs, result: "error", exitCode: "1" };
+        writeStableOutputs(outputs);
         if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
             vso("task.uploadsummary", {}, execution.markdownReportPath);
         }
@@ -95,6 +99,10 @@ async function main() {
         process.exitCode = 1;
     }
     catch (error) {
+        if (errorOutputs.artifactName !== artifactName || errorOutputs.dotsiderVersion !== dotsiderVersion) {
+            errorOutputs = (0, report_1.createErrorOutputs)(artifactName, dotsiderVersion);
+        }
+        writeStableOutputs(errorOutputs);
         complete("Failed", error instanceof Error ? error.message : String(error));
         process.exitCode = 1;
     }
@@ -124,6 +132,11 @@ function escapeVsoMessage(value) {
 }
 function setOutput(name, value) {
     vso("task.setvariable", { variable: name, isOutput: "true" }, value);
+}
+function writeStableOutputs(outputs) {
+    for (const [name, value] of Object.entries(outputs)) {
+        setOutput(name, value);
+    }
 }
 function complete(result, message) {
     vso("task.complete", { result }, message);

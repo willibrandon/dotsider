@@ -57,6 +57,13 @@ internal static class CiIntegrationValidator
             "action.yml must retain reports for budget failures.");
         Require(source.Contains("actions/cache@v6.1.0", StringComparison.Ordinal),
             "action.yml must cache verified releases by the prepared cache key.");
+        Require(source.Contains(
+                "if: steps.prepare.outcome == 'success' && steps.prepare.outputs.explicit != 'true'",
+                StringComparison.Ordinal),
+            "action.yml must not restore the tool cache after preparation fails.");
+        Require(source.Contains("id: run\n      if: always()", StringComparison.Ordinal)
+            || source.Contains("id: run\r\n      if: always()", StringComparison.Ordinal),
+            "action.yml must emit stable run outputs after preparation fails.");
     }
 
     private static void ValidateAzureTask(string root)
@@ -68,6 +75,8 @@ internal static class CiIntegrationValidator
             "The Azure task name must remain DotsiderSizeCheck.");
         Require(rootElement.GetProperty("version").GetProperty("Major").GetInt32() == 1,
             "The Azure task major version must remain 1 for DotsiderSizeCheck@1.");
+        Require(rootElement.GetProperty("minimumAgentVersion").GetString() == "3.230.2",
+            "The Azure task must require an agent with the Node20_1 fallback handler.");
         JsonElement execution = rootElement.GetProperty("execution");
         Require(execution.TryGetProperty("Node24", out JsonElement node24)
             && node24.GetProperty("target").GetString() == "runtime/azure.js",
@@ -87,9 +96,10 @@ internal static class CiIntegrationValidator
 
     private static void ValidatePackageManager(string root)
     {
+        string integrationDirectory = Path.Combine(root, "integrations", "size-check");
         string[] directories =
         [
-            Path.Combine(root, "integrations", "size-check"),
+            integrationDirectory,
             Path.Combine(root, "azure-devops"),
         ];
         foreach (string directory in directories)
@@ -99,6 +109,24 @@ internal static class CiIntegrationValidator
             Require(!File.Exists(Path.Combine(directory, "package-lock.json")),
                 $"{Path.GetRelativePath(root, directory)} must not contain an npm lockfile.");
         }
+
+        string workspacePath = Path.Combine(integrationDirectory, "pnpm-workspace.yaml");
+        Require(File.Exists(workspacePath)
+            && File.ReadLines(workspacePath).Any(line =>
+                string.Equals(line.Trim(), "nodeLinker: hoisted", StringComparison.Ordinal)),
+            "The size-check integration must use pnpm's symlink-free hoisted linker.");
+
+        string editorProjectPath = Path.Combine(integrationDirectory, "tsconfig.json");
+        using JsonDocument editorProject = JsonDocument.Parse(File.ReadAllText(editorProjectPath));
+        JsonElement editorRoot = editorProject.RootElement;
+        Require(editorRoot.GetProperty("compilerOptions").GetProperty("noEmit").GetBoolean(),
+            "The size-check editor project must not emit runtime files.");
+        HashSet<string> editorIncludes = editorRoot.GetProperty("include")
+            .EnumerateArray()
+            .Select(value => value.GetString() ?? string.Empty)
+            .ToHashSet(StringComparer.Ordinal);
+        Require(editorIncludes.SetEquals(["src/**/*.ts", "test/**/*.ts"]),
+            "The size-check editor project must cover every source and test file.");
     }
 
     private static void ValidateVsix(string vsixPath, string? expectedVersion)

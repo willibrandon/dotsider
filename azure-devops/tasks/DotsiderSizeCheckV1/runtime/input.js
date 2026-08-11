@@ -56,8 +56,12 @@ function parseBoolean(value, fallback) {
     }
 }
 function parseTop(value) {
-    const parsed = Number.parseInt(value ?? "10", 10);
-    if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    const candidate = (value ?? "10").trim();
+    if (!/^\d+$/u.test(candidate)) {
+        throw new Error(`top must be a non-negative integer; received '${value ?? ""}'.`);
+    }
+    const parsed = Number(candidate);
+    if (!Number.isSafeInteger(parsed)) {
         throw new Error(`top must be a non-negative integer; received '${value ?? ""}'.`);
     }
     return parsed;

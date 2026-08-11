@@ -41,13 +41,17 @@ const process_1 = require("./process");
 const report_1 = require("./report");
 void main();
 async function main() {
+    const mode = process.argv[2];
+    let errorOutputs = (0, report_1.createErrorOutputs)(optional(process.env.DOTSIDER_INPUT_ARTIFACT_NAME) || "dotsider-size-check", optional(process.env.DOTSIDER_PREPARED_VERSION) || "");
     try {
-        switch (process.argv[2]) {
+        switch (mode) {
             case "prepare":
                 await prepare();
                 break;
             case "run":
-                await run();
+                await run(outputs => {
+                    errorOutputs = { ...outputs, result: "error", exitCode: "1" };
+                });
                 break;
             case "enforce":
                 enforce();
@@ -58,6 +62,9 @@ async function main() {
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        if (mode === "run") {
+            writeStableOutputs(errorOutputs);
+        }
         command("error", {}, message);
         process.exitCode = 1;
     }
@@ -73,7 +80,7 @@ async function prepare() {
         explicit: String(tool.explicit),
     });
 }
-async function run() {
+async function run(onOutputs) {
     const inputs = (0, input_1.createInputs)({
         target: process.env.DOTSIDER_INPUT_TARGET,
         baseline: process.env.DOTSIDER_INPUT_BASELINE,
@@ -92,6 +99,7 @@ async function run() {
     const executable = await (0, acquisition_1.acquireTool)(tool);
     const execution = await (0, process_1.executeSizeCheck)(executable, inputs);
     const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version);
+    onOutputs(outputs);
     writeStableOutputs(outputs);
     if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
         const summaryPath = process.env.GITHUB_STEP_SUMMARY;

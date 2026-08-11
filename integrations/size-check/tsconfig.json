@@ -1,20 +1,7 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "types": ["node"],
-    "rootDir": "src",
-    "outDir": "dist",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "declaration": false,
-    "sourceMap": false
+    "noEmit": true
   },
-  "include": [],
-  "files": ["src/github.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

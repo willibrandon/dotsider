@@ -1,8 +1,8 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "rootDir": "src",
     "outDir": "../../azure-devops/tasks/DotsiderSizeCheckV1/runtime"
   },
-  "include": [],
   "files": ["src/azure.ts"]
 }

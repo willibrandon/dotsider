@@ -41,6 +41,51 @@ test("real comparison writes schema 1 JSON and Markdown", async () => {
   assert.match(await fs.readFile(execution.markdownReportPath, "utf8"), /Size check/u);
 });
 
+test("GitHub adapter keeps real reports and writes error outputs when summary publishing fails", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-summary-error-"));
+  const reportDirectory = path.join(directory, "reports");
+  const outputPath = path.join(directory, "github-output.txt");
+  const summaryDirectory = path.join(directory, "summary-directory");
+  await fs.mkdir(summaryDirectory);
+
+  const child = await runGitHub("run", {
+    GITHUB_OUTPUT: outputPath,
+    GITHUB_STEP_SUMMARY: summaryDirectory,
+    RUNNER_TEMP: directory,
+    DOTSIDER_INPUT_TARGET: target,
+    DOTSIDER_INPUT_BASELINE: baseline,
+    DOTSIDER_INPUT_TOP: "10",
+    DOTSIDER_INPUT_WHY: "false",
+    DOTSIDER_INPUT_VERSION: "not-a-release",
+    DOTSIDER_INPUT_PATH: executable,
+    DOTSIDER_INPUT_REPORT_DIRECTORY: reportDirectory,
+    DOTSIDER_INPUT_PUBLISH_SUMMARY: "true",
+    DOTSIDER_INPUT_PUBLISH_REPORTS: "true",
+    DOTSIDER_INPUT_ARTIFACT_NAME: "dotsider-summary-error",
+    DOTSIDER_PREPARED_VERSION: "custom",
+    DOTSIDER_PREPARED_RID: `unused-${process.arch}`,
+    DOTSIDER_PREPARED_CACHE_DIRECTORY: path.dirname(executable),
+    DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
+    DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
+    DOTSIDER_PREPARED_EXPLICIT: "true",
+  });
+
+  assert.equal(child.exitCode, 1);
+  const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+  assert.equal(outputs.get("result"), "error");
+  assert.equal(outputs.get("exit-code"), "1");
+  assert.equal(outputs.get("artifact-name"), "dotsider-summary-error");
+  const jsonReportPath = outputs.get("json-report-path");
+  const markdownReportPath = outputs.get("markdown-report-path");
+  assert.ok(jsonReportPath);
+  assert.ok(markdownReportPath);
+  assert.equal(jsonReportPath, path.resolve(reportDirectory, "dotsider-size-check.json"));
+  assert.equal(markdownReportPath, path.resolve(reportDirectory, "dotsider-size-check.md"));
+  const report = JSON.parse(await fs.readFile(jsonReportPath, "utf8")) as { schemaVersion?: number };
+  assert.equal(report.schemaVersion, 1);
+  assert.equal((await fs.stat(markdownReportPath)).isFile(), true);
+});
+
 test("real warning budget returns passed-with-warnings", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-warning-"));
   const budgetFile = path.join(directory, "budgets.json");
@@ -137,14 +182,20 @@ async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInp
 }
 
 async function runGitHubEnforcement(exitCode: number, result: string): Promise<ChildResult> {
+  return await runGitHub("enforce", {
+    DOTSIDER_EXIT_CODE: String(exitCode),
+    DOTSIDER_RESULT: result,
+  });
+}
+
+async function runGitHub(mode: string, environment: NodeJS.ProcessEnv): Promise<ChildResult> {
   return await new Promise<ChildResult>((resolve, reject) => {
-    const child = spawn(process.execPath, [githubRuntime, "enforce"], {
+    const child = spawn(process.execPath, [githubRuntime, mode], {
       shell: false,
       windowsHide: true,
       env: {
         ...process.env,
-        DOTSIDER_EXIT_CODE: String(exitCode),
-        DOTSIDER_RESULT: result,
+        ...environment,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -157,6 +208,25 @@ async function runGitHubEnforcement(exitCode: number, result: string): Promise<C
     child.on("error", reject);
     child.on("close", childExitCode => resolve({ exitCode: childExitCode ?? 1, stdout, stderr }));
   });
+}
+
+function parseGitHubOutputs(source: string): Map<string, string> {
+  const lines = source.split(/\r?\n/u);
+  const outputs = new Map<string, string>();
+  for (let index = 0; index < lines.length; index++) {
+    const match = /^([^<]+)<<(.+)$/u.exec(lines[index] ?? "");
+    if (!match?.[1] || !match[2]) {
+      continue;
+    }
+    const value: string[] = [];
+    index++;
+    while (index < lines.length && lines[index] !== match[2]) {
+      value.push(lines[index] ?? "");
+      index++;
+    }
+    outputs.set(match[1], value.join("\n"));
+  }
+  return outputs;
 }
 
 interface ChildResult {

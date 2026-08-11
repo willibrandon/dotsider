@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveRid = resolveRid;
+exports.detectMuslRuntime = detectMuslRuntime;
 exports.archiveName = archiveName;
 exports.parseChecksum = parseChecksum;
 exports.validateArchiveEntries = validateArchiveEntries;
@@ -67,6 +68,23 @@ function resolveRid(platform = process.platform, architecture = process.arch, is
         default:
             throw new Error(`Dotsider releases do not support platform '${platform}'.`);
     }
+}
+function detectMuslRuntime(platform, override, report) {
+    if (platform !== "linux") {
+        return false;
+    }
+    if (override !== undefined) {
+        return override === "1";
+    }
+    if (!report || typeof report !== "object") {
+        return undefined;
+    }
+    const header = report.header;
+    if (!header || typeof header !== "object") {
+        return undefined;
+    }
+    const glibcVersion = header.glibcVersionRuntime;
+    return typeof glibcVersion !== "string" || glibcVersion.length === 0;
 }
 function archiveName(rid) {
     return `dotsider-${rid}.${rid.startsWith("win-") ? "zip" : "tar.gz"}`;
@@ -266,6 +284,10 @@ async function isMuslHost() {
     }
     if (process.env.DOTSIDER_MUSL !== undefined) {
         return process.env.DOTSIDER_MUSL === "1";
+    }
+    const detected = detectMuslRuntime(process.platform, undefined, process.report?.getReport());
+    if (detected !== undefined) {
+        return detected;
     }
     return await isFile("/etc/alpine-release");
 }

@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.28.0",
   "type": "commonjs",
   "scripts": {
-    "build": "tsc --project tsconfig.json && tsc --project tsconfig.azure.json",
+    "build": "tsc --project tsconfig.github.json && tsc --project tsconfig.azure.json",
     "test": "pnpm run test:unit",
     "test:unit": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.unit.test.js",
     "test:integration": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.integration.test.js",

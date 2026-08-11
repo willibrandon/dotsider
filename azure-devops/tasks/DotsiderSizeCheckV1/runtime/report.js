@@ -38,6 +38,7 @@ exports.readSizeReport = readSizeReport;
 exports.isSizeReport = isSizeReport;
 exports.classifyResult = classifyResult;
 exports.createStableOutputs = createStableOutputs;
+exports.createErrorOutputs = createErrorOutputs;
 const fs = __importStar(require("node:fs/promises"));
 const path = __importStar(require("node:path"));
 function buildSizeCheckArguments(target, baseline, budgets, budgetFile, top, why, jsonReportPath, markdownReportPath) {
@@ -114,6 +115,21 @@ function createStableOutputs(execution, artifactName, dotsiderVersion) {
         currentTotal: numberOutput(report?.rightTotal),
         delta: numberOutput(report?.summary.delta),
         violationCount: String(violationCount),
+    };
+}
+function createErrorOutputs(artifactName, dotsiderVersion) {
+    return {
+        result: "error",
+        exitCode: "1",
+        jsonReportPath: "",
+        markdownReportPath: "",
+        artifactName,
+        dotsiderVersion,
+        totalBasis: "",
+        baselineTotal: "",
+        currentTotal: "",
+        delta: "",
+        violationCount: "0",
     };
 }
 function numberOutput(value) {
