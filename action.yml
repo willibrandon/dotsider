@@ -141,4 +141,10 @@ runs:
       env:
         DOTSIDER_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
         DOTSIDER_RESULT: ${{ steps.run.outputs.result }}
+        DOTSIDER_TOTAL_BASIS: ${{ steps.run.outputs.total-basis }}
+        DOTSIDER_BASELINE_TOTAL: ${{ steps.run.outputs.baseline-total }}
+        DOTSIDER_CURRENT_TOTAL: ${{ steps.run.outputs.current-total }}
+        DOTSIDER_DELTA: ${{ steps.run.outputs.delta }}
+        DOTSIDER_VIOLATION_COUNT: ${{ steps.run.outputs.violation-count }}
+        DOTSIDER_ARTIFACT_NAME: ${{ steps.run.outputs.artifact-name }}
       run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" enforce

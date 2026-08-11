@@ -13,7 +13,7 @@ import {
   validateArchiveEntries,
 } from "../src/acquisition";
 import { parseBudgets, parseTop } from "../src/input";
-import { buildSizeCheckArguments } from "../src/report";
+import { buildSizeCheckArguments, formatSizeCheckSummary } from "../src/report";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
 test("buildSizeCheckArguments forwards every typed input as separate arguments", () => {
@@ -40,6 +40,19 @@ test("buildSizeCheckArguments forwards every typed input as separate arguments",
     "--budget-file", "/work/budgets.json",
     "--why",
   ]);
+});
+
+test("formatSizeCheckSummary reports the measured total, delta, and violations", () => {
+  assert.equal(
+    formatSizeCheckSummary({
+      totalBasis: "fileSize",
+      baselineTotal: "26214400",
+      currentTotal: "36029560",
+      delta: "9815160",
+      violationCount: "1",
+    }),
+    "34.4 MB total (fileSize); +9.4 MB from baseline; 1 budget violation",
+  );
 });
 
 test("parseBudgets repeats nonempty budget lines in order", () => {

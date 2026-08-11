@@ -33,10 +33,14 @@ test("Azure handler publishes real reports before a budget failure", async () =>
   assert.equal(result.exitCode, 1);
   assert.match(result.stdout, /variable=result;isOutput=true;\]budget-failed/u);
   assert.match(result.stdout, /variable=exitCode;isOutput=true;\]2/u);
+  assert.match(result.stdout, /Dotsider size check: .* budget violation/u);
+  assert.match(result.stdout, /##vso\[task\.logissue type=error;\]Dotsider size budgets were exceeded:/u);
   const publishIndex = result.stdout.indexOf("##vso[artifact.upload");
+  const issueIndex = result.stdout.indexOf("##vso[task.logissue type=error;");
   const failureIndex = result.stdout.indexOf("##vso[task.complete result=Failed;");
   assert.ok(publishIndex >= 0, "Expected the real report artifact command");
-  assert.ok(failureIndex > publishIndex, "Expected report publication before task failure");
+  assert.ok(issueIndex > publishIndex, "Expected report publication before the visible failure");
+  assert.ok(failureIndex > issueIndex, "Expected the visible failure before task completion");
   assert.equal((await fs.stat(path.join(directory, "dotsider-size-check.json"))).isFile(), true);
   assert.equal((await fs.stat(path.join(directory, "dotsider-size-check.md"))).isFile(), true);
 });

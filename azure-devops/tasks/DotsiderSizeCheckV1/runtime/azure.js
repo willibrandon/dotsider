@@ -76,6 +76,10 @@ async function main() {
         const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version);
         errorOutputs = { ...outputs, result: "error", exitCode: "1" };
         writeStableOutputs(outputs);
+        const summary = (0, report_1.formatSizeCheckSummary)(outputs);
+        if (summary) {
+            process.stdout.write(`Dotsider size check: ${summary}.${os.EOL}`);
+        }
         if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
             vso("task.uploadsummary", {}, execution.markdownReportPath);
         }
@@ -91,7 +95,7 @@ async function main() {
             return;
         }
         if (execution.exitCode === 2) {
-            complete("Failed", "Dotsider size budgets were exceeded.");
+            complete("Failed", `Dotsider size budgets were exceeded${summary ? `: ${summary}` : ""}.`);
         }
         else {
             complete("Failed", `Dotsider size check failed with exit code ${execution.exitCode}.`);
@@ -139,6 +143,9 @@ function writeStableOutputs(outputs) {
     }
 }
 function complete(result, message) {
+    if (result === "Failed") {
+        vso("task.logissue", { type: "error" }, message);
+    }
     vso("task.complete", { result }, message);
 }
 function vso(command, properties, message) {

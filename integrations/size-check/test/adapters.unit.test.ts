@@ -56,6 +56,25 @@ test("GitHub adapter writes stable error outputs before returning an input error
   assert.equal(outputs.get("violation-count"), "0");
 });
 
+test("GitHub enforcement identifies the measured size and retained report", async () => {
+  const child = await runNode([githubRuntime, "enforce"], {
+    DOTSIDER_EXIT_CODE: "2",
+    DOTSIDER_RESULT: "budget-failed",
+    DOTSIDER_TOTAL_BASIS: "fileSize",
+    DOTSIDER_BASELINE_TOTAL: "",
+    DOTSIDER_CURRENT_TOTAL: "36029560",
+    DOTSIDER_DELTA: "36029560",
+    DOTSIDER_VIOLATION_COUNT: "1",
+    DOTSIDER_ARTIFACT_NAME: "dotsider-size-check-osx-arm64",
+  });
+
+  assert.equal(child.exitCode, 1);
+  assert.match(
+    child.stdout,
+    /::error::Dotsider size budgets were exceeded: 34\.4 MB total \(fileSize\); 1 budget violation\. Full report: job summary and 'dotsider-size-check-osx-arm64' artifact\./u,
+  );
+});
+
 test("Azure adapter writes stable error outputs before completing an input error", async () => {
   const child = await runNode([azureRuntime], {
     INPUT_TARGET: "unused",
@@ -72,9 +91,12 @@ test("Azure adapter writes stable error outputs before completing an input error
   assert.match(child.stdout, /variable=exitCode;isOutput=true;\]1/u);
   assert.match(child.stdout, /variable=artifactName;isOutput=true;\]review-error/u);
   const outputIndex = child.stdout.indexOf("variable=result;isOutput=true;]error");
+  const issueIndex = child.stdout.indexOf("##vso[task.logissue type=error;");
   const completionIndex = child.stdout.indexOf("##vso[task.complete result=Failed;");
   assert.ok(outputIndex >= 0, "Expected stable error outputs");
-  assert.ok(completionIndex > outputIndex, "Expected stable outputs before task completion");
+  assert.ok(issueIndex > outputIndex, "Expected a visible error after stable outputs");
+  assert.ok(completionIndex > issueIndex, "Expected the visible error before task completion");
+  assert.match(child.stdout, /task\.logissue type=error;\]top must be a non-negative integer/u);
 });
 
 test("Azure task requires an agent that provides its declared Node handlers", async () => {

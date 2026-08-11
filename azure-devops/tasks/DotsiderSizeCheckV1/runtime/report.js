@@ -39,6 +39,7 @@ exports.isSizeReport = isSizeReport;
 exports.classifyResult = classifyResult;
 exports.createStableOutputs = createStableOutputs;
 exports.createErrorOutputs = createErrorOutputs;
+exports.formatSizeCheckSummary = formatSizeCheckSummary;
 const fs = __importStar(require("node:fs/promises"));
 const path = __importStar(require("node:path"));
 function buildSizeCheckArguments(target, baseline, budgets, budgetFile, top, why, jsonReportPath, markdownReportPath) {
@@ -132,6 +133,39 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
         violationCount: "0",
     };
 }
+function formatSizeCheckSummary(outputs) {
+    const parts = [];
+    const currentTotal = parseOutputNumber(outputs.currentTotal);
+    if (currentTotal !== undefined) {
+        parts.push(`${formatBytes(currentTotal)} total${outputs.totalBasis ? ` (${outputs.totalBasis})` : ""}`);
+    }
+    const delta = parseOutputNumber(outputs.delta);
+    if (outputs.baselineTotal !== "" && delta !== undefined) {
+        parts.push(`${delta >= 0 ? "+" : "-"}${formatBytes(Math.abs(delta))} from baseline`);
+    }
+    const violationCount = parseOutputNumber(outputs.violationCount);
+    if (violationCount !== undefined && violationCount > 0) {
+        parts.push(`${violationCount} budget violation${violationCount === 1 ? "" : "s"}`);
+    }
+    return parts.join("; ");
+}
 function numberOutput(value) {
     return value === null || value === undefined ? "" : String(value);
+}
+function parseOutputNumber(value) {
+    if (value.trim() === "") {
+        return undefined;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+function formatBytes(value) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let amount = value;
+    let unit = 0;
+    while (amount >= 1024 && unit < units.length - 1) {
+        amount /= 1024;
+        unit++;
+    }
+    return unit === 0 ? `${Math.round(amount)} B` : `${amount.toFixed(1)} ${units[unit]}`;
 }

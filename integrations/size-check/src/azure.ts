@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
-import { createErrorOutputs, createStableOutputs } from "./report";
+import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
 import { StableOutputs } from "./types";
 
 if (require.main === module) {
@@ -42,6 +42,10 @@ async function main(): Promise<void> {
     const outputs = createStableOutputs(execution, inputs.artifactName, tool.version);
     errorOutputs = { ...outputs, result: "error", exitCode: "1" };
     writeStableOutputs(outputs);
+    const summary = formatSizeCheckSummary(outputs);
+    if (summary) {
+      process.stdout.write(`Dotsider size check: ${summary}.${os.EOL}`);
+    }
 
     if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
       vso("task.uploadsummary", {}, execution.markdownReportPath);
@@ -59,7 +63,7 @@ async function main(): Promise<void> {
       return;
     }
     if (execution.exitCode === 2) {
-      complete("Failed", "Dotsider size budgets were exceeded.");
+      complete("Failed", `Dotsider size budgets were exceeded${summary ? `: ${summary}` : ""}.`);
     } else {
       complete("Failed", `Dotsider size check failed with exit code ${execution.exitCode}.`);
     }
@@ -111,6 +115,9 @@ function writeStableOutputs(outputs: StableOutputs): void {
 }
 
 function complete(result: "Succeeded" | "Failed", message: string): void {
+  if (result === "Failed") {
+    vso("task.logissue", { type: "error" }, message);
+  }
   vso("task.complete", { result }, message);
 }
 

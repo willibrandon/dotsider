@@ -3,7 +3,7 @@ import * as os from "node:os";
 import { acquireTool, prepareTool } from "./acquisition";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
-import { createErrorOutputs, createStableOutputs } from "./report";
+import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
 import { PreparedTool, StableOutputs } from "./types";
 
 void main();
@@ -77,6 +77,10 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   const outputs = createStableOutputs(execution, inputs.artifactName, tool.version);
   onOutputs(outputs);
   writeStableOutputs(outputs);
+  const summary = formatSizeCheckSummary(outputs);
+  if (summary) {
+    process.stdout.write(`Dotsider size check: ${summary}.\n`);
+  }
 
   if (inputs.publishSummary && await fileExists(execution.markdownReportPath)) {
     const summaryPath = process.env.GITHUB_STEP_SUMMARY;
@@ -94,7 +98,19 @@ function enforce(): void {
     return;
   }
   if (exitCode === 2) {
-    command("error", {}, "Dotsider size budgets were exceeded.");
+    const summary = formatSizeCheckSummary({
+      totalBasis: process.env.DOTSIDER_TOTAL_BASIS || "",
+      baselineTotal: process.env.DOTSIDER_BASELINE_TOTAL || "",
+      currentTotal: process.env.DOTSIDER_CURRENT_TOTAL || "",
+      delta: process.env.DOTSIDER_DELTA || "",
+      violationCount: process.env.DOTSIDER_VIOLATION_COUNT || "",
+    });
+    const artifactName = process.env.DOTSIDER_ARTIFACT_NAME || "dotsider-size-check";
+    command(
+      "error",
+      {},
+      `Dotsider size budgets were exceeded${summary ? `: ${summary}` : ""}. Full report: job summary and '${artifactName}' artifact.`,
+    );
   } else {
     command("error", {}, `Dotsider size check failed with exit code ${exitCode} (${result}).`);
   }

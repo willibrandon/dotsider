@@ -2,6 +2,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { SizeCheckExecution, SizeReport, StableOutputs } from "./types";
 
+type SizeCheckSummary = Pick<
+  StableOutputs,
+  "totalBasis" | "baselineTotal" | "currentTotal" | "delta" | "violationCount"
+>;
+
 export function buildSizeCheckArguments(
   target: string,
   baseline: string | undefined,
@@ -123,6 +128,45 @@ export function createErrorOutputs(
   };
 }
 
+export function formatSizeCheckSummary(outputs: SizeCheckSummary): string {
+  const parts: string[] = [];
+  const currentTotal = parseOutputNumber(outputs.currentTotal);
+  if (currentTotal !== undefined) {
+    parts.push(`${formatBytes(currentTotal)} total${outputs.totalBasis ? ` (${outputs.totalBasis})` : ""}`);
+  }
+
+  const delta = parseOutputNumber(outputs.delta);
+  if (outputs.baselineTotal !== "" && delta !== undefined) {
+    parts.push(`${delta >= 0 ? "+" : "-"}${formatBytes(Math.abs(delta))} from baseline`);
+  }
+
+  const violationCount = parseOutputNumber(outputs.violationCount);
+  if (violationCount !== undefined && violationCount > 0) {
+    parts.push(`${violationCount} budget violation${violationCount === 1 ? "" : "s"}`);
+  }
+
+  return parts.join("; ");
+}
+
 function numberOutput(value: number | null | undefined): string {
   return value === null || value === undefined ? "" : String(value);
+}
+
+function parseOutputNumber(value: string): number | undefined {
+  if (value.trim() === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function formatBytes(value: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let amount = value;
+  let unit = 0;
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit++;
+  }
+  return unit === 0 ? `${Math.round(amount)} B` : `${amount.toFixed(1)} ${units[unit]}`;
 }
