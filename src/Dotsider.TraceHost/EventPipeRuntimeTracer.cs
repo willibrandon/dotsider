@@ -88,12 +88,14 @@ internal sealed class EventPipeRuntimeTracer(
     // ProcessState, ExitCode, and ErrorMessage are read from the UI thread
     // and written from up to 3 threads (Process.Exited handler, EventPipe
     // background task, Stop/Dispose). A single lock synchronizes both reads
-    // and writes so that observers always see consistent state (e.g. ExitCode
-    // is set before ProcessState transitions to Exited).
+    // and writes. The OS exit handler records ExitCode, but the EventPipe task
+    // owns the Exited transition so buffered events are delivered first.
     private readonly Lock _stateLock = new();
     private TraceProcessState _processState = TraceProcessState.Idle;
     private int? _exitCode;
     private string? _errorMessage;
+    private bool _processExited;
+    private bool _eventProcessingComplete;
 
     /// <summary>The current state of the traced process.</summary>
     public TraceProcessState ProcessState
@@ -213,16 +215,19 @@ internal sealed class EventPipeRuntimeTracer(
         RunOnDedicatedThread(() => ReadOutput(_process.StandardOutput, false, startTime));
         RunOnDedicatedThread(() => ReadOutput(_process.StandardError, true, startTime));
 
-        // Handle process exit
+        // Record the OS exit immediately, but keep the trace Running until
+        // ProcessEventsLoop has drained the EventPipe stream. Publishing
+        // Exited sooner lets clients observe a final state before the last
+        // event messages have been delivered.
         _process.EnableRaisingEvents = true;
         _process.Exited += (_, _) =>
         {
             int? exitCode = TryReadExitCode();
             lock (_stateLock)
             {
+                _processExited = true;
                 _exitCode = exitCode;
-                if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
-                    _processState = TraceProcessState.Exited;
+                TryMarkExitedUnderLock();
             }
 
             _stopwatch?.Stop();
@@ -295,7 +300,7 @@ internal sealed class EventPipeRuntimeTracer(
 
                 // Process events — blocks until session ends
                 ProcessEventsLoop(session);
-                MarkExitedIfStarted();
+                MarkEventProcessingComplete();
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested) { /* user cancelled */ }
             catch (OperationCanceledException)
@@ -316,7 +321,7 @@ internal sealed class EventPipeRuntimeTracer(
             catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
             {
                 // Expected: process exited (pipe broke) or user cancelled
-                MarkExitedIfStarted();
+                MarkEventProcessingComplete();
             }
             catch (Exception ex)
             {
@@ -519,19 +524,22 @@ internal sealed class EventPipeRuntimeTracer(
         _diagnosticPortDirectory = null;
     }
 
-    private void MarkExitedIfStarted()
+    private void MarkEventProcessingComplete()
     {
-        if (_process is not { HasExited: true })
-            return;
-
-        int? exitCode = TryReadExitCode();
         lock (_stateLock)
         {
-            if (_processState is TraceProcessState.Running or TraceProcessState.Starting)
-            {
-                _exitCode = exitCode;
-                _processState = TraceProcessState.Exited;
-            }
+            _eventProcessingComplete = true;
+            TryMarkExitedUnderLock();
+        }
+    }
+
+    private void TryMarkExitedUnderLock()
+    {
+        if (_processExited
+            && _eventProcessingComplete
+            && _processState is TraceProcessState.Running or TraceProcessState.Starting)
+        {
+            _processState = TraceProcessState.Exited;
         }
     }
 

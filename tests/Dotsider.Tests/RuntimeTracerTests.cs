@@ -507,11 +507,8 @@ public sealed class RuntimeTracerTests : IDisposable
         await WaitForExitAsync(tracer, TimeSpan.FromSeconds(45));
         Assert.AreEqual(TraceProcessState.Exited, tracer.ProcessState);
 
-        var events = tracer.GetEvents();
-
-        await TestHelpers.WaitUntilAsync(() => tracer.ExitCode is not null, TimeSpan.FromSeconds(5));
         Assert.AreEqual(0, tracer.ExitCode);
-        Assert.IsNotEmpty(events);
+        Assert.IsNotEmpty(tracer.GetEvents());
     }
 
     // --- Lifecycle edge cases ---
@@ -587,14 +584,8 @@ public sealed class RuntimeTracerTests : IDisposable
     {
         var tracer = CreateTracer(Samples.HelloWorldDll);
         tracer.Start();
-        // Wait for the specific Format JIT events — ProcessState can transition
-        // to Exited before all events are flushed from the EventPipe buffer.
         await WaitForExitAsync(tracer, TimeSpan.FromSeconds(15));
         Assert.AreEqual(TraceProcessState.Exited, tracer.ProcessState);
-        await TestHelpers.WaitUntilAsync(
-            () => tracer.GetEvents().Count(e => e.Category == TraceEventCategory.JIT
-                && e.Detail.EndsWith(".Format") && e.MetadataToken > 0) >= 2,
-            TimeSpan.FromSeconds(10));
 
         var jitEvents = tracer.GetEvents()
             .Where(e => e.Category == TraceEventCategory.JIT)
