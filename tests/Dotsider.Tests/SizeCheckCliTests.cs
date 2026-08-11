@@ -280,10 +280,10 @@ public class SizeCheckCliTests
         Assert.AreEqual("mstatTotal", mixedJson.GetProperty("totalBasis").GetString());
     }
 
-    /// <summary>Verifies markdown output renders tables and the verdict line.</summary>
+    /// <summary>Verifies markdown output renders narrow lists, section dividers, and the verdict line.</summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task SizeCheck_FormatMarkdown_EmitsTables()
+    public async Task SizeCheck_FormatMarkdown_EmitsNarrowLists()
     {
         var (v1, v2) = RequireMstats();
 
@@ -293,7 +293,12 @@ public class SizeCheckCliTests
 
         Assert.AreEqual(2, exitCode);
         Assert.Contains("## Size check", stdout);
-        Assert.Contains("| Kind | Added | Removed | Grown | Shrunk | Unchanged |", stdout);
+        Assert.Contains("### Changes", stdout);
+        Assert.Contains("- **Method:** added", stdout);
+        Assert.Contains("### Regressions (top 10)", stdout);
+        Assert.Contains(" · Method · added — ", stdout);
+        Assert.Contains($"---{Environment.NewLine}{Environment.NewLine}### ", stdout);
+        Assert.DoesNotContain("|", stdout);
         Assert.Contains("### Budgets", stdout);
         Assert.Contains("> ❌ **FAIL** — a size budget was exceeded.", stdout);
     }

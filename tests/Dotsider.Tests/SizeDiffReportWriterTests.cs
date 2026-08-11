@@ -31,7 +31,7 @@ public sealed class SizeDiffReportWriterTests
     }
 
     /// <summary>
-    /// Verifies the size and unit stay together in a narrow Markdown table column.
+    /// Verifies the size and unit stay together in a narrow Markdown summary.
     /// </summary>
     [TestMethod]
     public void BuildMarkdown_ContributorDelta_UsesNonbreakingSpace()
@@ -40,8 +40,8 @@ public sealed class SizeDiffReportWriterTests
 
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
 
-        Assert.Contains("| 24.1&nbsp;KB | Method |", markdown);
-        Assert.DoesNotContain("| 24.1 KB | Method |", markdown);
+        Assert.Contains("- **24.1&nbsp;KB** · Method —", markdown);
+        Assert.DoesNotContain("- **24.1 KB** · Method —", markdown);
     }
 
     /// <summary>
@@ -60,29 +60,28 @@ public sealed class SizeDiffReportWriterTests
         Assert.DoesNotContain("Snapshot", markdown);
         Assert.DoesNotContain("Legend", markdown);
         Assert.Contains("### Overview", markdown);
-        Assert.Contains("| Mode | Current build |", markdown);
+        Assert.Contains("- **Mode:** Current build", markdown);
         Assert.Contains("### Budgets", markdown);
-        Assert.Contains("| Status | Budget | Current | Basis |", markdown);
+        Assert.Contains("- **✅ PASS** — `total: max 40.0 MB`", markdown);
+        Assert.Contains("  - **Value:** 34.9&nbsp;MB", markdown);
+        Assert.Contains("  - **Basis:** fileSize", markdown);
         Assert.Contains("`total: max 40.0 MB`", markdown);
         Assert.Contains("### Contents", markdown);
-        Assert.Contains("| Kind | Count |", markdown);
+        Assert.Contains("- **Method:** 1", markdown);
         Assert.Contains("### Assemblies", markdown);
-        Assert.Contains("| Name | Size |", markdown);
+        Assert.Contains("- `Scout.Automata` — **24.1&nbsp;KB**", markdown);
         Assert.Contains("### Largest contributors (top 20)", markdown);
         Assert.IsLessThan(markdown.IndexOf("### Largest contributors", StringComparison.Ordinal),
             markdown.IndexOf("### Contents", StringComparison.Ordinal));
-        var gap = $"<br />{Environment.NewLine}{Environment.NewLine}### ";
+        var gap = $"---{Environment.NewLine}{Environment.NewLine}### ";
         Assert.Contains(gap + "Overview", markdown);
         Assert.Contains(gap + "Budgets", markdown);
         Assert.Contains(gap + "Contents", markdown);
         Assert.Contains(gap + "Assemblies", markdown);
         Assert.Contains(gap + "Namespaces", markdown);
         Assert.Contains(gap + "Largest contributors", markdown);
-        Assert.DoesNotContain("| Kind | Added |", markdown);
-        Assert.DoesNotContain("| Name | Baseline | Current |", markdown);
+        Assert.DoesNotContain("|", markdown);
         Assert.DoesNotContain("### Regressions", markdown);
-        Assert.DoesNotContain("| Change |", markdown);
-        Assert.DoesNotContain("| added |", markdown);
     }
 
     /// <summary>
@@ -95,13 +94,14 @@ public sealed class SizeDiffReportWriterTests
 
         var markdown = SizeDiffReportWriter.BuildMarkdown(context);
 
-        Assert.Contains("| Baseline | `/tmp/picket-baseline` |", markdown);
-        Assert.Contains("| Mode | Compared with baseline |", markdown);
+        Assert.Contains("- **Baseline:** `/tmp/picket-baseline`", markdown);
+        Assert.Contains("- **Mode:** Compared with baseline", markdown);
         Assert.Contains("### Changes", markdown);
-        Assert.Contains("| Kind | Added | Removed | Grown | Shrunk | Unchanged |", markdown);
-        Assert.Contains("| Name | Baseline | Current | Δ |", markdown);
+        Assert.Contains("- **Method:** added 0 · removed 0 · grown 1 · shrunk 0 · unchanged 0", markdown);
+        Assert.Contains("- `Scout.Automata` — 9.8&nbsp;KB → 24.1&nbsp;KB (Δ+14.4&nbsp;KB)", markdown);
         Assert.Contains("### Regressions (top 20)", markdown);
-        Assert.Contains("| +14.4&nbsp;KB | Method | grown |", markdown);
+        Assert.Contains("- **+14.4&nbsp;KB** · Method · grown —", markdown);
+        Assert.DoesNotContain("|", markdown);
         Assert.DoesNotContain("### Contents", markdown);
         Assert.DoesNotContain("### Largest contributors", markdown);
     }
@@ -196,7 +196,7 @@ public sealed class SizeDiffReportWriterTests
                 Passed: true,
                 SizeBasis.FileSize,
                 ActualBytes: rightTotal,
-                BaselineBytes: null,
+                BaselineBytes: withBaseline ? leftTotal : null,
                 Violations: [],
                 TopContributors: [contributor]);
             budgets = new SizeBudgetReport(
