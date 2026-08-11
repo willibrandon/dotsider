@@ -149,6 +149,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          package_json_file: integrations/size-check/package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v7.0.0
@@ -218,6 +220,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          package_json_file: integrations/size-check/package.json
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v7.0.0
