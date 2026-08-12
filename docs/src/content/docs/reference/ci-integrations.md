@@ -146,7 +146,7 @@ never resolved through GitHub and is suitable for offline agents.
 
 The Azure extension is public under publisher `willibrandon`. `DotsiderSizeCheck@1` requires
 agent 3.230.2 or newer and supplies Node 24 and Node 20 handlers. Pin an immutable GitHub
-release such as `@v0.25.0` where supply-chain policy requires it; `@v0` tracks the latest
+release such as `@v0.25.1` where supply-chain policy requires it; `@v0` tracks the latest
 compatible release.
 
 Release CI tests acquisition on Windows x64 and ARM64, Linux x64 and ARM64, and macOS x64 and
