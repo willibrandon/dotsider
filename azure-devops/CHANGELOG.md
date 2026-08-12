@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.2
+
+- Link the Marketplace overview and Get Started entry directly to the CI integration guide and source.
+
 ## 0.25.1
 
 - Restore managed baselines when Azure supplies a pull-request target branch without the `refs/heads/` prefix.
