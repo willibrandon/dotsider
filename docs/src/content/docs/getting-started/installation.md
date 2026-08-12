@@ -47,7 +47,9 @@ Grab a Native AOT archive from [Releases](https://github.com/willibrandon/dotsid
 
 ## CI marketplaces
 
-NativeAOT size gates do not require a separate Dotsider installation. Use
-`willibrandon/dotsider@v0` in GitHub Actions or install the public **Dotsider** Azure DevOps
-extension and use `DotsiderSizeCheck@1`. Both acquire a matching release, verify its checksum,
-and cache it. See [CI integrations](/reference/ci-integrations/).
+NativeAOT size gates do not require a separate Dotsider installation. Use the
+[Dotsider Size Check action](https://github.com/marketplace/actions/dotsider-size-check) as
+`willibrandon/dotsider@v0`, or install the public
+[Dotsider Azure DevOps extension](https://marketplace.visualstudio.com/items?itemName=willibrandon.dotsider)
+and use `DotsiderSizeCheck@1`. Both acquire a matching release, verify its checksum, and cache
+it. See [CI integrations](/reference/ci-integrations/).

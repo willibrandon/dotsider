@@ -38,7 +38,7 @@
   },
   "links": {
     "getstarted": {
-      "uri": "https://dotsider.dev/usage/size-regression/"
+      "uri": "https://dotsider.dev/reference/ci-integrations/"
     },
     "learn": {
       "uri": "https://dotsider.dev/"

@@ -42,3 +42,7 @@ are disabled for that invocation. Use `baselineKey` only when the target path is
 Application publishing stays explicit because the project chooses its target framework,
 runtime identifier, and publish options. Managed artifacts are isolated by pipeline
 definition, job, logical target, and RID, and only wholly successful builds are eligible.
+
+See the [CI integration reference](https://dotsider.dev/reference/ci-integrations/) for
+inputs, outputs, compatibility, and complete examples. Source and issue tracking are on
+[GitHub](https://github.com/willibrandon/dotsider).

@@ -3,10 +3,14 @@ title: CI Integrations
 description: GitHub Actions and Azure Pipelines contracts for NativeAOT size checks.
 ---
 
-Dotsider publishes a composite GitHub Action and `DotsiderSizeCheck@1` Azure Pipelines task.
-Both run the existing `dotsider size-check` command, preserve its exit codes, publish the
-CLI-generated JSON and Markdown reports before failing a budget gate, and manage matching
-branch baselines without project-specific artifact queries.
+Dotsider publishes the
+[Dotsider Size Check GitHub Action](https://github.com/marketplace/actions/dotsider-size-check)
+and the
+[Dotsider Azure DevOps extension](https://marketplace.visualstudio.com/items?itemName=willibrandon.dotsider),
+which provides the `DotsiderSizeCheck@1` Azure Pipelines task. Both run the existing
+`dotsider size-check` command, preserve its exit codes, publish the CLI-generated JSON and
+Markdown reports before failing a budget gate, and manage matching branch baselines without
+project-specific artifact queries.
 
 ## Automatic branch baselines
 
@@ -144,10 +148,11 @@ bounded, checked for unsafe archive paths, verified against the adjacent SHA-256
 sidecar, and cached by exact version and runtime identifier. An explicit `dotsiderPath` is
 never resolved through GitHub and is suitable for offline agents.
 
-The Azure extension is public under publisher `willibrandon`. `DotsiderSizeCheck@1` requires
-agent 3.230.2 or newer and supplies Node 24 and Node 20 handlers. Pin an immutable GitHub
-release such as `@v0.25.1` where supply-chain policy requires it; `@v0` tracks the latest
-compatible release.
+The Azure extension is public under publisher
+[`willibrandon`](https://marketplace.visualstudio.com/publishers/willibrandon).
+`DotsiderSizeCheck@1` requires agent 3.230.2 or newer and supplies Node 24 and Node 20
+handlers. Pin an immutable GitHub release such as `@v0.25.1` where supply-chain policy
+requires it; `@v0` tracks the latest compatible release.
 
 Release CI tests acquisition on Windows x64 and ARM64, Linux x64 and ARM64, and macOS x64 and
 ARM64 before marketplace publication. Release archives and the Azure VSIX carry GitHub build
