@@ -317,7 +317,7 @@ test("Azure discovery treats no successful artifact as first run and clears its 
   }
 });
 
-test("Azure discovery downloads and verifies a real stored baseline archive", async () => {
+test("Azure pull-request discovery normalizes a short target branch and restores its baseline", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-restore-"));
   const target = path.join(directory, "app.mstat");
   await fs.writeFile(target, "real baseline mstat bytes");
@@ -330,8 +330,8 @@ test("Azure discovery downloads and verifies a real stored baseline archive", as
     provider: "azure-pipelines" as const,
     branch: "refs/heads/main",
     commit: "base-sha",
-    id: "41",
-    number: "20260811.1",
+    id: "304",
+    number: "304",
     artifactName,
   };
   const staged = path.join(directory, "staged");
@@ -341,8 +341,10 @@ test("Azure discovery downloads and verifies a real stored baseline archive", as
     [`${artifactName}/files/target.mstat`, await fs.readFile(path.join(staged, "files", "target.mstat"))],
   ]);
 
+  const requestedUrls: string[] = [];
   let root = "";
   const server = createServer((request, response) => {
+    requestedUrls.push(request.url ?? "");
     if (request.headers.authorization !== "Bearer secret-token") {
       response.statusCode = 401;
       response.end("missing token");
@@ -351,8 +353,8 @@ test("Azure discovery downloads and verifies a real stored baseline archive", as
     if (request.url?.includes("/_apis/build/builds?")) {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ value: [{
-        id: 41,
-        buildNumber: "20260811.1",
+        id: 304,
+        buildNumber: "304",
         sourceBranch: "refs/heads/main",
         sourceVersion: "base-sha",
         result: "succeeded",
@@ -379,8 +381,10 @@ test("Azure discovery downloads and verifies a real stored baseline archive", as
       SYSTEM_TEAMPROJECTID: "project",
       SYSTEM_DEFINITIONID: "12",
       SYSTEM_JOBNAME: "size",
-      BUILD_SOURCEBRANCH: "refs/heads/main",
-      BUILD_BUILDID: "99",
+      BUILD_REASON: "PullRequest",
+      SYSTEM_PULLREQUEST_TARGETBRANCH: "main",
+      BUILD_SOURCEBRANCH: "refs/pull/62/merge",
+      BUILD_BUILDID: "306",
       BUILD_SOURCESDIRECTORY: directory,
       AGENT_TEMPDIRECTORY: directory,
       ENDPOINT_AUTH_PARAMETER_SYSTEMVSSCONNECTION_ACCESSTOKEN: "secret-token",
@@ -388,7 +392,10 @@ test("Azure discovery downloads and verifies a real stored baseline archive", as
 
     const discovery = await discoverAzureBaseline(inputs(target), "linux-x64", environment);
     assert.equal(discovery.source.status, "restored");
-    assert.equal(discovery.source.id, "41");
+    assert.equal(discovery.source.id, "304");
+    assert.equal(discovery.source.branch, "refs/heads/main");
+    assert.equal(discovery.publish, false);
+    assert.ok(requestedUrls.some(url => url.includes("branchName=refs%2Fheads%2Fmain")));
     assert.ok(discovery.downloadDirectory);
     const restored = await restoreBaseline(discovery.downloadDirectory, identity, discovery.source);
     assert.equal(await fs.readFile(restored.targetPath, "utf8"), "real baseline mstat bytes");
