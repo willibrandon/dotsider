@@ -11,6 +11,8 @@ internal sealed record CliSizeReportPayload(
     int SchemaVersion,
     string Target,
     string? Baseline,
+    CliSizeArtifactPayload TargetArtifacts,
+    CliSizeArtifactPayload? BaselineArtifacts,
     SizeBasis TotalBasis,
     long? LeftTotal,
     long RightTotal,

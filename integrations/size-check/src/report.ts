@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { SizeCheckExecution, SizeReport, StableOutputs } from "./types";
+import { BaselineSource, SizeCheckExecution, SizeReport, StableOutputs } from "./types";
 
 type SizeCheckSummary = Pick<
   StableOutputs,
@@ -61,8 +61,10 @@ export function isSizeReport(value: unknown): value is SizeReport {
   }
 
   const report = value as Partial<SizeReport>;
-  return report.schemaVersion === 1
+  return report.schemaVersion === 2
     && typeof report.target === "string"
+    && !!report.targetArtifacts
+    && typeof report.targetArtifacts.mstatPath === "string"
     && typeof report.totalBasis === "string"
     && typeof report.rightTotal === "number"
     && !!report.summary
@@ -76,7 +78,7 @@ export function classifyResult(exitCode: number, report: SizeReport | undefined)
   if (exitCode !== 0 || report === undefined) {
     return "error";
   }
-  if (report.budgets?.hasWarnings === true) {
+  if (report.budgets?.hasWarnings === true || report.budgets?.hasDeferred === true) {
     return "passed-with-warnings";
   }
   return "passed";
@@ -86,6 +88,7 @@ export function createStableOutputs(
   execution: SizeCheckExecution,
   artifactName: string,
   dotsiderVersion: string,
+  baselineSource?: BaselineSource,
 ): StableOutputs {
   const report = execution.report;
   const evaluations = report?.budgets?.evaluations ?? [];
@@ -106,6 +109,11 @@ export function createStableOutputs(
     currentTotal: numberOutput(report?.rightTotal),
     delta: numberOutput(report?.summary.delta),
     violationCount: String(violationCount),
+    baselineStatus: baselineSource?.status ?? "",
+    baselineSourceId: baselineSource?.id ?? "",
+    baselineSourceCommit: baselineSource?.commit ?? "",
+    baselineSourceUrl: baselineSource?.url ?? "",
+    baselineArtifactName: baselineSource?.artifactName ?? "",
   };
 }
 
@@ -125,6 +133,11 @@ export function createErrorOutputs(
     currentTotal: "",
     delta: "",
     violationCount: "0",
+    baselineStatus: "",
+    baselineSourceId: "",
+    baselineSourceCommit: "",
+    baselineSourceUrl: "",
+    baselineArtifactName: "",
   };
 }
 

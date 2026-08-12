@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
+import { createServer } from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
@@ -29,7 +30,7 @@ test("Azure handler emits outputs from a real comparison", async () => {
     leftTotal?: number;
     summary: { delta: number };
   };
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.baseline, path.resolve(baseline));
   assert.ok((report.leftTotal ?? 0) > 0);
   assert.notEqual(report.summary.delta, 0);
@@ -69,29 +70,39 @@ test("Azure handler accepts an absolute budget without a baseline", async () => 
     baseline?: string | null;
     rightTotal?: number;
   };
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.baseline ?? null, null);
   assert.ok((report.rightTotal ?? 0) > 0);
   assert.equal((await fs.stat(path.join(directory, "dotsider-size-check.md"))).isFile(), true);
 });
 
-test("Azure handler rejects a growth budget without a baseline", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-growth-error-"));
+test("Azure handler defers growth on a confirmed first run", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-growth-first-run-"));
   const result = await runAzure(directory, { budgets: "growth=1%" });
 
-  assert.equal(result.exitCode, 1);
-  assert.match(result.stderr, /limits growth, which needs --baseline/u);
-  assert.match(result.stdout, /variable=result;isOutput=true;\]error/u);
-  assert.match(result.stdout, /variable=exitCode;isOutput=true;\]1/u);
-  assert.doesNotMatch(result.stdout, /##vso\[artifact\.upload/u);
-  assert.equal(await fileExists(path.join(directory, "dotsider-size-check.json")), false);
-  assert.equal(await fileExists(path.join(directory, "dotsider-size-check.md")), false);
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /variable=result;isOutput=true;\]passed-with-warnings/u);
+  assert.match(result.stdout, /variable=baselineStatus;isOutput=true;\]not-found/u);
+  const json = JSON.parse(await fs.readFile(path.join(directory, "dotsider-size-check.json"), "utf8")) as {
+    baselineSource?: { status?: string };
+    budgets?: { hasDeferred?: boolean };
+  };
+  assert.equal(json.baselineSource?.status, "not-found");
+  assert.equal(json.budgets?.hasDeferred, true);
+  assert.match(await fs.readFile(path.join(directory, "dotsider-size-check.md"), "utf8"), /DEFERRED/u);
 });
 
 async function runAzure(
   reportDirectory: string,
   options: { baseline?: string; budgets?: string },
 ): Promise<ChildResult> {
+  const server = createServer((_request, response) => {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ value: [] }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
   return await new Promise<ChildResult>((resolve, reject) => {
     const child = spawn(process.execPath, [runtime], {
       shell: false,
@@ -109,6 +120,18 @@ async function runAzure(
         INPUT_PUBLISH_SUMMARY: "true",
         INPUT_PUBLISH_REPORTS: "true",
         INPUT_ARTIFACT_NAME: "dotsider-azure-test",
+        SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: `http://127.0.0.1:${address.port}`,
+        SYSTEM_TEAMPROJECTID: "project-id",
+        SYSTEM_TEAMPROJECT: "project",
+        SYSTEM_DEFINITIONID: "77",
+        SYSTEM_JOBNAME: "size-check",
+        BUILD_SOURCEBRANCH: "refs/heads/main",
+        BUILD_BUILDID: "100",
+        BUILD_BUILDNUMBER: "100",
+        BUILD_SOURCEVERSION: "current-sha",
+        BUILD_SOURCESDIRECTORY: path.dirname(target),
+        AGENT_TEMPDIRECTORY: reportDirectory,
+        ENDPOINT_AUTH_PARAMETER_SYSTEMVSSCONNECTION_ACCESSTOKEN: "test-token",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -118,8 +141,14 @@ async function runAzure(
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (value: string) => stdout += value);
     child.stderr.on("data", (value: string) => stderr += value);
-    child.on("error", reject);
-    child.on("close", exitCode => resolve({ exitCode: exitCode ?? 1, stdout, stderr }));
+    child.on("error", error => {
+      server.close();
+      reject(error);
+    });
+    child.on("close", exitCode => {
+      server.close();
+      resolve({ exitCode: exitCode ?? 1, stdout, stderr });
+    });
   });
 }
 

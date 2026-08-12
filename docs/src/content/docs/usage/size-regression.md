@@ -131,8 +131,8 @@ target's DGML sidecar): the root kept X, X kept Y, down to the new entry.
 
 ### GitHub Actions
 
-Start with an absolute cap. This workflow has one NativeAOT build and no baseline to store or
-retrieve:
+Run the same job on pull requests and the target branch. The action keeps its own matching
+successful branch baseline:
 
 ```yaml
 - uses: actions/checkout@v6
@@ -146,58 +146,56 @@ retrieve:
   uses: willibrandon/dotsider@v0
   with:
     target: out/current/App
-    budgets: max=25mb
+    budgets: |
+      max=25mb
+      growth=1%
 ```
 
 The action selects the release for the runner's OS and architecture, verifies its SHA-256
 sidecar, and caches the result. It writes the Markdown report to the job summary and uploads
 the Markdown and schema-versioned JSON reports before enforcing a budget failure. Set
 `dotsider-version` to an exact release for reproducibility, or set `dotsider-path` to an
-existing executable for an offline or custom installation.
+existing executable for an offline or custom installation. Give the job `actions: read` and
+`contents: read` permissions so it can find earlier successful artifacts.
 
-When an absolute cap is too coarse, build the pull request's base commit in a detached
-worktree and pass that output as `baseline`. Both builds happen on the same runner with the
-same SDK and NativeAOT toolchain; users do not change the workflow between runs:
+On the first branch run, absolute limits are evaluated and growth limits are named as
+deferred. If the job succeeds, Dotsider uploads the binary, resolved `.mstat`, optional DGML,
+and a hashed manifest as the baseline. Later branch runs compare with their preceding
+successful run; pull requests compare with the newest successful run of their target branch.
+The artifact identity includes the workflow, job, logical target, and detected RID. Set
+`baseline-key` only when the target lives under a randomized temporary path.
+
+Supplying `baseline` remains an explicit override for release-to-release comparisons. It
+disables automatic discovery and retention for that action invocation.
+
+#### Manual and `/aot-size` reports
+
+An on-demand report uses artifacts emitted by the normal build; it does not check out or run
+pull-request code in the comment workflow. Add this to the normal PR and branch build after
+publishing:
 
 ```yaml
-- uses: actions/checkout@v6
+- name: Upload NativeAOT size input
+  uses: actions/upload-artifact@v7.0.1
   with:
-    fetch-depth: 0
-
-- name: Publish base revision
-  shell: bash
-  env:
-    BASE_SHA: ${{ github.event.pull_request.base.sha }}
-  run: |
-    git worktree add --detach "$RUNNER_TEMP/dotsider-base" "$BASE_SHA"
-    dotnet publish "$RUNNER_TEMP/dotsider-base/src/App/App.csproj" \
-      -c Release -r linux-x64 -p:PublishAot=true \
-      -p:IlcGenerateMstatFile=true -o "$RUNNER_TEMP/dotsider-base-publish"
-
-- name: Publish pull request revision
-  run: >-
-    dotnet publish src/App/App.csproj -c Release -r linux-x64
-    -p:PublishAot=true -p:IlcGenerateMstatFile=true -p:IlcGenerateDgmlFile=true
-    -o out/current
-
-- name: Size comparison
-  uses: willibrandon/dotsider@v0
-  with:
-    target: out/current/App
-    baseline: ${{ runner.temp }}/dotsider-base-publish/App
-    budgets: |
-      total:max=25mb,growth=1%
-      ns=MyApp.Generated:growth=10kb
-    why: true
+    name: nativeaot-size-linux-x64
+    path: |
+      out/current/App
+      out/current/App.mstat
+      out/current/App.codegen.dgml.xml
+    if-no-files-found: error
 ```
 
-The project-specific publish commands remain in the workflow because the application owns
-its target framework, runtime identifier, conditional properties, and generated inputs.
-Dotsider does not search earlier workflow runs or silently replace a baseline.
+Then copy the [`workflow_dispatch` and `/aot-size` template](https://github.com/willibrandon/dotsider/blob/main/integrations/size-check/examples/github-aot-size.yml).
+It accepts `/aot-size` in the pull-request conversation or a review comment, verifies that
+the author has write access, resolves the PR through GitHub's API,
+downloads the successful PR and base-branch input artifacts, runs Dotsider, and updates a
+single PR comment. Change the template's build workflow, artifact name, target path, and
+budgets to match the project.
 
 ### Azure DevOps
 
-The basic Azure Pipelines setup is the same one-build absolute check:
+Run the task after the NativeAOT publish on both pull requests and the target branch:
 
 ```yaml
 - checkout: self
@@ -211,47 +209,18 @@ The basic Azure Pipelines setup is the same one-build absolute check:
 - task: DotsiderSizeCheck@1
   inputs:
     target: '$(Build.ArtifactStagingDirectory)/current/App'
-    budgets: max=25mb
-```
-
-For a pull-request comparison, fetch the target branch and publish it in a worktree before
-publishing the checked-out revision:
-
-```yaml
-- checkout: self
-  fetchDepth: 0
-
-- pwsh: |
-    $branch = '$(System.PullRequest.TargetBranch)' -replace '^refs/heads/', ''
-    $base = '$(Agent.TempDirectory)/dotsider-base'
-    git fetch origin $branch
-    git worktree add --detach $base "origin/$branch"
-    dotnet publish "$base/src/App/App.csproj" -c Release -r linux-x64 `
-      -p:PublishAot=true -p:IlcGenerateMstatFile=true `
-      -o '$(Agent.TempDirectory)/dotsider-base-publish'
-  displayName: Publish base revision
-
-- pwsh: >-
-    dotnet publish src/App/App.csproj -c Release -r linux-x64
-    -p:PublishAot=true -p:IlcGenerateMstatFile=true -p:IlcGenerateDgmlFile=true
-    -o $(Build.ArtifactStagingDirectory)/current
-  displayName: Publish pull request revision
-
-- task: DotsiderSizeCheck@1
-  inputs:
-    target: '$(Build.ArtifactStagingDirectory)/current/App'
-    baseline: '$(Agent.TempDirectory)/dotsider-base-publish/App'
     budgets: |
-      total:max=25mb,growth=1%
-      ns=MyApp.Generated:growth=10kb
-    why: true
+      max=25mb
+      growth=1%
 ```
 
 Install the public **Dotsider** extension from the Azure DevOps Marketplace. The task uses
 Node 24 on current agents and retains a Node 20 handler for older supported agents. Its tool
-selection, checksum verification, reports, summary, exit meanings, and typed outputs match
-the GitHub Action. Supplying `baseline` enables the comparison; omitting it keeps the task on
-the absolute current-build path. A `growth=` budget without a baseline is an input error.
+selection, checksum verification, reports, summary, exit meanings, baseline lifecycle, and
+typed outputs match the GitHub Action. It uses the pipeline's short-lived OAuth token to read
+successful builds and artifacts from the same pipeline definition, then removes that token
+before Dotsider runs. A missing artifact is a first run; authentication, network, and corrupt
+artifact failures remain errors. Set `baseline` only for an explicit override.
 
 See [CI integrations](/reference/ci-integrations/) for every input and output, platform
 compatibility, report lifetime, and release policy.

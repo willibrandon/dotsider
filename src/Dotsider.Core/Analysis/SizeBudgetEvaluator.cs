@@ -21,7 +21,7 @@ public static class SizeBudgetEvaluator
     /// <param name="baselineTotalBytes">The baseline's total on <paramref name="totalBasis"/>, or null when the check runs without one.</param>
     /// <param name="defaultTopN">How many contributors a breach lists when its budget does not pin its own count.</param>
     /// <returns>The report, failing only on error-severity breaches.</returns>
-    /// <exception cref="ArgumentException">A total-scope growth budget was supplied without a baseline; callers reject that combination before evaluating.</exception>
+    /// <exception cref="ArgumentException">A growth budget was supplied without a baseline.</exception>
     public static SizeBudgetReport Evaluate(
         IReadOnlyList<SizeBudget> budgets,
         MstatDiffResult diff,
@@ -29,6 +29,34 @@ public static class SizeBudgetEvaluator
         long currentTotalBytes,
         long? baselineTotalBytes,
         int defaultTopN = 10)
+        => EvaluateCore(
+            budgets, diff, totalBasis, currentTotalBytes, baselineTotalBytes, defaultTopN,
+            deferGrowthWithoutBaseline: false);
+
+    /// <summary>
+    /// Evaluates budgets while deferring growth limits when a provider has established that no
+    /// baseline artifact exists. Absolute limits continue to be enforced.
+    /// </summary>
+    public static SizeBudgetReport Evaluate(
+        IReadOnlyList<SizeBudget> budgets,
+        MstatDiffResult diff,
+        SizeBasis totalBasis,
+        long currentTotalBytes,
+        long? baselineTotalBytes,
+        int defaultTopN,
+        bool deferGrowthWithoutBaseline)
+        => EvaluateCore(
+            budgets, diff, totalBasis, currentTotalBytes, baselineTotalBytes, defaultTopN,
+            deferGrowthWithoutBaseline);
+
+    private static SizeBudgetReport EvaluateCore(
+        IReadOnlyList<SizeBudget> budgets,
+        MstatDiffResult diff,
+        SizeBasis totalBasis,
+        long currentTotalBytes,
+        long? baselineTotalBytes,
+        int defaultTopN,
+        bool deferGrowthWithoutBaseline)
     {
         ArgumentNullException.ThrowIfNull(budgets);
         ArgumentNullException.ThrowIfNull(diff);
@@ -36,7 +64,7 @@ public static class SizeBudgetEvaluator
         var evaluations = new List<SizeBudgetEvaluation>(budgets.Count);
         foreach (var budget in budgets)
         {
-            if (budget.Scope == SizeBudgetScope.Total
+            if (!deferGrowthWithoutBaseline
                 && baselineTotalBytes is null
                 && (budget.MaxGrowthBytes is not null || budget.MaxGrowthPercent is not null))
             {
@@ -44,7 +72,9 @@ public static class SizeBudgetEvaluator
                     $"Budget '{budget}' limits growth but no baseline was supplied.", nameof(budgets));
             }
 
-            evaluations.Add(EvaluateOne(budget, diff, totalBasis, currentTotalBytes, baselineTotalBytes, defaultTopN));
+            evaluations.Add(EvaluateOne(
+                budget, diff, totalBasis, currentTotalBytes, baselineTotalBytes, defaultTopN,
+                deferGrowthWithoutBaseline));
         }
 
         return new SizeBudgetReport(
@@ -55,12 +85,16 @@ public static class SizeBudgetEvaluator
             RightTotal: currentTotalBytes,
             LeftMstatTotal: totalBasis == SizeBasis.FileSize ? diff.Summary.LeftTotal : null,
             RightMstatTotal: totalBasis == SizeBasis.FileSize ? diff.Summary.RightTotal : null,
-            evaluations);
+            evaluations)
+        {
+            HasDeferred = evaluations.Any(e => e.DeferredMetrics.Count > 0)
+        };
     }
 
     private static SizeBudgetEvaluation EvaluateOne(
         SizeBudget budget, MstatDiffResult diff, SizeBasis totalBasis,
-        long currentTotalBytes, long? baselineTotalBytes, int defaultTopN)
+        long currentTotalBytes, long? baselineTotalBytes, int defaultTopN,
+        bool deferGrowthWithoutBaseline)
     {
         var (actual, baseline, basis) = budget.Scope switch
         {
@@ -69,7 +103,11 @@ public static class SizeBudgetEvaluator
             _ => ScopeTotals(diff.AssemblyDeltas, n => string.Equals(n, budget.Target, StringComparison.Ordinal)),
         };
 
+        if (baselineTotalBytes is null && budget.Scope != SizeBudgetScope.Total)
+            baseline = null;
+
         var violations = new List<SizeBudgetViolation>();
+        var deferredMetrics = new List<SizeBudgetMetric>(2);
 
         if (budget.MaxBytes is { } maxBytes && actual > maxBytes)
         {
@@ -79,13 +117,22 @@ public static class SizeBudgetEvaluator
 
         var growth = actual - (baseline ?? 0);
 
-        if (budget.MaxGrowthBytes is { } maxGrowth && growth > maxGrowth)
+        var deferGrowth = deferGrowthWithoutBaseline && baselineTotalBytes is null;
+        if (budget.MaxGrowthBytes is not null && deferGrowth)
+        {
+            deferredMetrics.Add(SizeBudgetMetric.MaxGrowthBytes);
+        }
+        else if (budget.MaxGrowthBytes is { } maxGrowth && growth > maxGrowth)
         {
             violations.Add(new SizeBudgetViolation(
                 SizeBudgetMetric.MaxGrowthBytes, growth, maxGrowth, growth - maxGrowth, null, null));
         }
 
-        if (budget.MaxGrowthPercent is { } maxPercent)
+        if (budget.MaxGrowthPercent is not null && deferGrowth)
+        {
+            deferredMetrics.Add(SizeBudgetMetric.MaxGrowthPercent);
+        }
+        else if (budget.MaxGrowthPercent is { } maxPercent)
         {
             var baselineBytes = baseline ?? 0;
             if (baselineBytes == 0)
@@ -121,7 +168,10 @@ public static class SizeBudgetEvaluator
         return new SizeBudgetEvaluation(
             budget, violations.Count == 0, basis, actual,
             budget.Scope == SizeBudgetScope.Total ? baselineTotalBytes : baseline,
-            violations, contributors);
+            violations, contributors)
+        {
+            DeferredMetrics = deferredMetrics
+        };
     }
 
     private static (long Actual, long? Baseline, SizeBasis Basis) ScopeTotals(

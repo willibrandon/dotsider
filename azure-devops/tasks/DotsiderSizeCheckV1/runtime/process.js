@@ -45,6 +45,7 @@ async function runProcess(fileName, args) {
             shell: false,
             windowsHide: true,
             stdio: ["ignore", "pipe", "pipe"],
+            env: sanitizedChildEnvironment(),
         });
         let stdout = "";
         let stderr = "";
@@ -68,7 +69,7 @@ async function runProcess(fileName, args) {
         });
     });
 }
-async function executeSizeCheck(executablePath, inputs) {
+async function executeSizeCheck(executablePath, inputs, baselineNotFound = false) {
     await fs.mkdir(inputs.reportDirectory, { recursive: true });
     const jsonReportPath = path.join(inputs.reportDirectory, "dotsider-size-check.json");
     const markdownReportPath = path.join(inputs.reportDirectory, "dotsider-size-check.md");
@@ -77,7 +78,22 @@ async function executeSizeCheck(executablePath, inputs) {
         fs.rm(markdownReportPath, { force: true }),
     ]);
     const args = (0, report_1.buildSizeCheckArguments)(inputs.target, inputs.baseline, inputs.budgets, inputs.budgetFile, inputs.top, inputs.why, jsonReportPath, markdownReportPath);
-    const processResult = await runProcess(executablePath, args);
+    const previous = process.env.DOTSIDER_SIZE_CHECK_BASELINE_NOT_FOUND;
+    if (baselineNotFound) {
+        process.env.DOTSIDER_SIZE_CHECK_BASELINE_NOT_FOUND = "1";
+    }
+    let processResult;
+    try {
+        processResult = await runProcess(executablePath, args);
+    }
+    finally {
+        if (previous === undefined) {
+            delete process.env.DOTSIDER_SIZE_CHECK_BASELINE_NOT_FOUND;
+        }
+        else {
+            process.env.DOTSIDER_SIZE_CHECK_BASELINE_NOT_FOUND = previous;
+        }
+    }
     let report;
     try {
         report = await (0, report_1.readSizeReport)(jsonReportPath);
@@ -102,4 +118,19 @@ async function executeSizeCheck(executablePath, inputs) {
         report,
         stderr: processResult.stderr,
     };
+}
+function sanitizedChildEnvironment() {
+    const environment = { ...process.env };
+    for (const name of [
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "ACTIONS_RUNTIME_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ENDPOINT_AUTH_PARAMETER_SYSTEMVSSCONNECTION_ACCESSTOKEN",
+        "SYSTEM_ACCESSTOKEN",
+    ]) {
+        delete environment[name];
+    }
+    return environment;
 }

@@ -970,6 +970,16 @@ Defines the source generated JSON serialization contract metadata for a given ty
 public JsonTypeInfo<IReadOnlyList<SizeBudgetEvaluation>> IReadOnlyListSizeBudgetEvaluation { get; }
 ```
 
+### IReadOnlyListSizeBudgetMetric
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Returns:** [JsonTypeInfo\<SizeBudgetMetric\>\>](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)
+
+```csharp
+public JsonTypeInfo<IReadOnlyList<SizeBudgetMetric>> IReadOnlyListSizeBudgetMetric { get; }
+```
+
 ### IReadOnlyListSizeBudgetViolation
 
 Defines the source generated JSON serialization contract metadata for a given type.

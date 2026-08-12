@@ -13,6 +13,9 @@ namespace Dotsider.Commands;
 /// </summary>
 internal static class SizeCheckCommand
 {
+    private const string BaselineNotFoundEnvironmentVariable =
+        "DOTSIDER_SIZE_CHECK_BASELINE_NOT_FOUND";
+
     private static readonly Argument<FileInfo> s_targetArg = new("target")
     {
         Description = "Native AOT binary or .mstat size report to check"
@@ -147,11 +150,17 @@ internal static class SizeCheckCommand
             return 1;
         }
 
+        var baselineNotFound = baseline is null
+            && string.Equals(
+                Environment.GetEnvironmentVariable(BaselineNotFoundEnvironmentVariable),
+                "1",
+                StringComparison.Ordinal);
+
         if (baseline is null)
         {
             var growthBudget = budgets.FirstOrDefault(b =>
                 b.MaxGrowthBytes is not null || b.MaxGrowthPercent is not null);
-            if (growthBudget is not null)
+            if (growthBudget is not null && !baselineNotFound)
             {
                 OutputFormatter.WriteError(
                     $"Error: budget '{growthBudget.Name ?? growthBudget.ToString()}' limits growth, "
@@ -159,7 +168,7 @@ internal static class SizeCheckCommand
                 return 1;
             }
 
-            if (budgets.Count == 0)
+            if (budgets.Count == 0 && !baselineNotFound)
             {
                 OutputFormatter.WriteError(
                     "Error: nothing to do — give --baseline for a size-diff report, or --budget "
@@ -197,7 +206,8 @@ internal static class SizeCheckCommand
         if (budgets.Count > 0)
         {
             report = SizeBudgetEvaluator.Evaluate(
-                budgets, diff, totals.Basis, totals.RightTotal, totals.LeftTotal, defaultTopN: top);
+                budgets, diff, totals.Basis, totals.RightTotal, totals.LeftTotal, defaultTopN: top,
+                deferGrowthWithoutBaseline: baselineNotFound);
         }
 
         var whyPaths = why ? ResolveWhyPaths(targetSource, diff, top) : null;
@@ -211,7 +221,8 @@ internal static class SizeCheckCommand
         var context = new SizeDiffReportWriter.Context(
             targetSource.BinaryPath ?? targetSource.MstatPath,
             baselineSource is null ? null : baselineSource.BinaryPath ?? baselineSource.MstatPath,
-            diff, totals.Basis, totals.RightTotal, totals.LeftTotal, top, whyPaths, report);
+            diff, totals.Basis, totals.RightTotal, totals.LeftTotal, top, whyPaths, report,
+            targetSource, baselineSource);
 
         using (var fmt = new OutputFormatter(outputPath) { JsonMode = format == "json" })
         {

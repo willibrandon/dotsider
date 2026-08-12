@@ -35,4 +35,11 @@ dotnet run --file ./scripts/Validate-CiIntegrations.cs -- -Vsix artifacts/azure-
 ```
 
 CI repeats the real adapter suite on Windows, Linux, and macOS for x64 and ARM64.
-It also runs the Azure handler under Node.js 20 to verify the fallback handler.
+It also runs the Azure handler under Node.js 20 to verify the fallback handler. Baseline
+lifecycle tests use local provider API servers and real files: they exercise successful-run
+selection, first-run deferral, manifest hashing, provenance, token removal, and safe ZIP
+extraction without substituting a Dotsider executable or size report.
+
+`examples/github-aot-size.yml` is the reference on-demand workflow. It consumes NativeAOT
+size-input artifacts from a normal build and supports both manual dispatch and trusted
+`/aot-size` pull-request comments.

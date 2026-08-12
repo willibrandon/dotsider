@@ -9,8 +9,14 @@ const roots = [
   path.join(repositoryRoot, "azure-devops/tasks/DotsiderSizeCheckV1/runtime"),
 ];
 const expectedByRoot = new Map([
-  [roots[0], new Set(["acquisition.js", "github.js", "input.js", "process.js", "report.js", "types.js"])],
-  [roots[1], new Set(["acquisition.js", "azure.js", "input.js", "process.js", "report.js", "types.js"])],
+  [roots[0], new Set([
+    "acquisition.js", "baseline.js", "github-baseline.js", "github.js",
+    "input.js", "process.js", "report.js", "types.js",
+  ])],
+  [roots[1], new Set([
+    "acquisition.js", "azure-baseline.js", "azure.js", "baseline.js",
+    "input.js", "process.js", "report.js", "types.js",
+  ])],
 ]);
 const bundleMarkers = ["__webpack_require__", "webpackBootstrap", "parcelRequire", "__commonJS("];
 let totalBytes = 0;
@@ -46,8 +52,8 @@ for (const root of roots) {
 if (totalBytes > 150 * 1024) {
   throw new Error(`Generated JavaScript totals ${totalBytes} bytes; the combined limit is 150 KiB.`);
 }
-if (totalLines > 2_000) {
-  throw new Error(`Generated JavaScript totals ${totalLines} lines; the combined limit is 2,000 lines.`);
+if (totalLines > 3_500) {
+  throw new Error(`Generated JavaScript totals ${totalLines} lines; the combined limit is 3,500 lines.`);
 }
 
 process.stdout.write(`Validated ${totalBytes} bytes and ${totalLines} lines of plain tsc output.\n`);

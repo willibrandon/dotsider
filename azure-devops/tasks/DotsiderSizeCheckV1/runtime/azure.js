@@ -40,6 +40,8 @@ const fs = __importStar(require("node:fs/promises"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const acquisition_1 = require("./acquisition");
+const azure_baseline_1 = require("./azure-baseline");
+const baseline_1 = require("./baseline");
 const input_1 = require("./input");
 const process_1 = require("./process");
 const report_1 = require("./report");
@@ -54,9 +56,10 @@ async function main() {
         const defaultRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY
             || process.env.AGENT_TEMPDIRECTORY
             || os.tmpdir();
-        const inputs = (0, input_1.createInputs)({
+        let inputs = (0, input_1.createInputs)({
             target: getInput("target"),
             baseline: getInput("baseline"),
+            baselineKey: getInput("baselineKey"),
             budgets: getInput("budgets"),
             budgetFile: getInput("budgetFile"),
             top: getInput("top"),
@@ -72,8 +75,16 @@ async function main() {
         const tool = await (0, acquisition_1.prepareTool)(inputs.dotsiderVersion, inputs.dotsiderPath);
         dotsiderVersion = tool.version;
         const executable = await (0, acquisition_1.acquireTool)(tool);
-        const execution = await (0, process_1.executeSizeCheck)(executable, inputs);
-        const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version);
+        const discovery = await (0, azure_baseline_1.discoverAzureBaseline)(inputs, tool.rid);
+        if (discovery.source.status === "restored") {
+            const restored = await (0, baseline_1.restoreBaseline)(discovery.downloadDirectory || "", discovery.identity, discovery.source);
+            inputs = { ...inputs, baseline: restored.targetPath };
+        }
+        const execution = await (0, process_1.executeSizeCheck)(executable, inputs, discovery.source.status === "not-found");
+        if (execution.report && await fileExists(execution.markdownReportPath)) {
+            execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, discovery.source);
+        }
+        const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version, discovery.source);
         errorOutputs = { ...outputs, result: "error", exitCode: "1" };
         writeStableOutputs(outputs);
         const summary = (0, report_1.formatSizeCheckSummary)(outputs);
@@ -87,6 +98,12 @@ async function main() {
             && await fileExists(execution.jsonReportPath)
             && await fileExists(execution.markdownReportPath)) {
             vso("artifact.upload", { artifactname: inputs.artifactName }, inputs.reportDirectory);
+        }
+        if (discovery.publish && execution.report
+            && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+            const baselineDirectory = path.join(process.env.AGENT_TEMPDIRECTORY || os.tmpdir(), "dotsider-baseline-upload", discovery.artifactName);
+            await (0, baseline_1.stageBaseline)(execution.report, discovery.identity, currentAzureSource(discovery.artifactName), baselineDirectory);
+            vso("artifact.upload", { artifactname: discovery.artifactName }, baselineDirectory);
         }
         if (execution.exitCode === 0) {
             complete("Succeeded", execution.result === "passed-with-warnings"
@@ -110,6 +127,23 @@ async function main() {
         complete("Failed", error instanceof Error ? error.message : String(error));
         process.exitCode = 1;
     }
+}
+function currentAzureSource(artifactName) {
+    const collection = (process.env.SYSTEM_TEAMFOUNDATIONCOLLECTIONURI || "").replace(/\/$/u, "");
+    const project = process.env.SYSTEM_TEAMPROJECT || process.env.SYSTEM_TEAMPROJECTID || "";
+    const buildId = process.env.BUILD_BUILDID || "";
+    return {
+        status: "restored",
+        provider: "azure-pipelines",
+        branch: process.env.BUILD_SOURCEBRANCH,
+        commit: process.env.BUILD_SOURCEVERSION,
+        id: buildId,
+        number: process.env.BUILD_BUILDNUMBER,
+        url: collection && project && buildId
+            ? `${collection}/${encodeURIComponent(project)}/_build/results?buildId=${buildId}`
+            : undefined,
+        artifactName,
+    };
 }
 function getInput(name) {
     const variants = [

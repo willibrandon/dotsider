@@ -40,7 +40,7 @@ test("real comparison accepts max and growth without modifying the baseline", as
   }));
   assert.equal(execution.exitCode, 0);
   assert.equal(execution.result, "passed");
-  assert.equal(execution.report?.schemaVersion, 1);
+  assert.equal(execution.report?.schemaVersion, 2);
   assert.equal(execution.report?.target, path.resolve(target));
   assert.equal(execution.report?.baseline, path.resolve(baseline));
   assert.ok((execution.report?.leftTotal ?? 0) > 0);
@@ -93,7 +93,7 @@ test("GitHub adapter keeps real reports and writes error outputs when summary pu
   assert.equal(jsonReportPath, path.resolve(reportDirectory, "dotsider-size-check.json"));
   assert.equal(markdownReportPath, path.resolve(reportDirectory, "dotsider-size-check.md"));
   const report = JSON.parse(await fs.readFile(jsonReportPath, "utf8")) as { schemaVersion?: number };
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal((await fs.stat(markdownReportPath)).isFile(), true);
 });
 
@@ -135,7 +135,7 @@ test("real absolute budget without a baseline passes", async () => {
   const execution = await executeSizeCheck(executable, await inputs({ budgets: ["max=1gb"] }));
   assert.equal(execution.exitCode, 0);
   assert.equal(execution.result, "passed");
-  assert.equal(execution.report?.schemaVersion, 1);
+  assert.equal(execution.report?.schemaVersion, 2);
   assert.equal(execution.report?.baseline, undefined);
   assert.equal(execution.report?.leftTotal ?? null, null);
   assert.ok((execution.report?.rightTotal ?? 0) > 0);
@@ -153,6 +153,11 @@ test("real absolute budget without a baseline passes", async () => {
     "currentTotal",
     "delta",
     "violationCount",
+    "baselineStatus",
+    "baselineSourceId",
+    "baselineSourceCommit",
+    "baselineSourceUrl",
+    "baselineArtifactName",
   ]);
   assert.equal(outputs.baselineTotal, "");
   assert.deepEqual(
@@ -192,9 +197,32 @@ test("real growth budgets without a baseline return a direct error", async t => 
   }
 });
 
-test("GitHub adapter exposes stable error outputs for growth without a baseline", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-growth-error-"));
+test("real first-run policy defers growth and keeps absolute enforcement", async () => {
+  const execution = await executeSizeCheck(
+    executable,
+    await inputs({ budgets: ["max=1gb", "growth=1%", "ns=NativeAotConsole:growth=1kb"] }),
+    true,
+  );
+
+  assert.equal(execution.exitCode, 0, execution.stderr);
+  assert.equal(execution.result, "passed-with-warnings");
+  assert.equal(execution.report?.budgets?.hasDeferred, true);
+  assert.equal(execution.report?.budgets?.evaluations?.[0]?.deferredMetrics?.length ?? 0, 0);
+  assert.deepEqual(execution.report?.budgets?.evaluations?.[1]?.deferredMetrics, ["maxGrowthPercent"]);
+  assert.deepEqual(execution.report?.budgets?.evaluations?.[2]?.deferredMetrics, ["maxGrowthBytes"]);
+  assert.match(await fs.readFile(execution.markdownReportPath, "utf8"), /DEFERRED/u);
+});
+
+test("GitHub adapter exposes a deferred first-run result for growth without a stored baseline", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-growth-first-run-"));
   const outputPath = path.join(directory, "github-output.txt");
+  const identity = {
+    provider: "github-actions",
+    scope: "owner/repo/ci.yml",
+    job: "size",
+    target: "app",
+    rid: `unused-${process.arch}`,
+  };
   const child = await runGitHub("run", {
     GITHUB_OUTPUT: outputPath,
     RUNNER_TEMP: directory,
@@ -214,27 +242,24 @@ test("GitHub adapter exposes stable error outputs for growth without a baseline"
     DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
     DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
     DOTSIDER_PREPARED_EXPLICIT: "true",
+    DOTSIDER_BASELINE_SOURCE: JSON.stringify({
+      status: "not-found",
+      provider: "github-actions",
+      branch: "main",
+      artifactName: "dotsider-baseline-test",
+    }),
+    DOTSIDER_BASELINE_IDENTITY: JSON.stringify(identity),
+    DOTSIDER_BASELINE_ARTIFACT_NAME: "dotsider-baseline-test",
+    DOTSIDER_BASELINE_PUBLISH: "false",
   });
 
   assert.equal(child.exitCode, 0);
-  assert.match(child.stderr, /limits growth, which needs --baseline/u);
+  assert.doesNotMatch(child.stderr, /needs --baseline/u);
   const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
-  assert.equal(outputs.get("result"), "error");
-  assert.equal(outputs.get("exit-code"), "1");
+  assert.equal(outputs.get("result"), "passed-with-warnings");
+  assert.equal(outputs.get("exit-code"), "0");
+  assert.equal(outputs.get("baseline-status"), "not-found");
   assert.equal(outputs.has("mode"), false);
-
-  const enforcement = await runGitHub("enforce", {
-    DOTSIDER_EXIT_CODE: outputs.get("exit-code"),
-    DOTSIDER_RESULT: outputs.get("result"),
-    DOTSIDER_TOTAL_BASIS: outputs.get("total-basis"),
-    DOTSIDER_BASELINE_TOTAL: outputs.get("baseline-total"),
-    DOTSIDER_CURRENT_TOTAL: outputs.get("current-total"),
-    DOTSIDER_DELTA: outputs.get("delta"),
-    DOTSIDER_VIOLATION_COUNT: outputs.get("violation-count"),
-    DOTSIDER_ARTIFACT_NAME: outputs.get("artifact-name"),
-  });
-  assert.equal(enforcement.exitCode, 1);
-  assert.match(enforcement.stdout, /Dotsider size check failed with exit code 1 \(error\)/u);
 });
 
 test("real why report contains a dependency chain", async () => {

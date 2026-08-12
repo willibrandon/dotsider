@@ -205,6 +205,62 @@ public class SizeBudgetEvaluatorTests
     }
 
     /// <summary>
+    /// Verifies a confirmed first run defers every growth metric while still enforcing an
+    /// absolute limit in the same evaluation pass.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Evaluate_FirstRun_DefersGrowthAndEnforcesAbsoluteLimits()
+    {
+        TestSkip.When(Samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
+        var v2 = MstatReader.Read(Samples.NativeAotConsoleV2Mstat!);
+        Assert.IsNotNull(v2);
+        var diff = MstatDiffer.Compare(MstatData.Empty, v2);
+
+        var report = SizeBudgetEvaluator.Evaluate(
+            [
+                SizeBudgetParser.Parse("max=1b"),
+                SizeBudgetParser.Parse("ns=NativeAotConsole:growth=1b"),
+                SizeBudgetParser.Parse("asm=NativeAotConsole:growth=1%"),
+            ],
+            diff,
+            SizeBasis.MstatTotal,
+            diff.Summary.RightTotal,
+            baselineTotalBytes: null,
+            defaultTopN: 10,
+            deferGrowthWithoutBaseline: true);
+
+        Assert.IsFalse(report.Passed, "The absolute max budget must still fail.");
+        Assert.IsTrue(report.HasDeferred);
+        Assert.HasCount(1, report.Evaluations[0].Violations);
+        Assert.AreSequenceEqual<SizeBudgetMetric>(
+            [SizeBudgetMetric.MaxGrowthBytes],
+            report.Evaluations[1].DeferredMetrics);
+        Assert.AreSequenceEqual<SizeBudgetMetric>(
+            [SizeBudgetMetric.MaxGrowthPercent],
+            report.Evaluations[2].DeferredMetrics);
+        Assert.IsNull(report.Evaluations[1].BaselineBytes);
+        Assert.IsNull(report.Evaluations[2].BaselineBytes);
+    }
+
+    /// <summary>
+    /// Verifies strict evaluation rejects scoped growth without a baseline.
+    /// </summary>
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public void Evaluate_ScopedGrowthWithoutBaseline_Throws()
+    {
+        TestSkip.When(Samples.NativeAotConsoleV2Mstat is null, "V2 mstat sidecar was not produced");
+        var v2 = MstatReader.Read(Samples.NativeAotConsoleV2Mstat!);
+        Assert.IsNotNull(v2);
+        var diff = MstatDiffer.Compare(MstatData.Empty, v2);
+
+        Assert.ThrowsExactly<ArgumentException>(() => SizeBudgetEvaluator.Evaluate(
+            [SizeBudgetParser.Parse("asm=NativeAotConsole:growth=1b")], diff,
+            SizeBasis.MstatTotal, diff.Summary.RightTotal, baselineTotalBytes: null));
+    }
+
+    /// <summary>
     /// Verifies warning severity reports the breach without failing the check, and the
     /// warning surfaces through <see cref="SizeBudgetReport.HasWarnings"/>.
     /// </summary>

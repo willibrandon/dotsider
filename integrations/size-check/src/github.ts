@@ -1,10 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
+import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
+import { enrichReports, restoreBaseline, stageBaseline } from "./baseline";
+import { discoverGithubBaseline } from "./github-baseline";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
 import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
-import { PreparedTool, StableOutputs } from "./types";
+import { BaselineDiscovery, BaselineSource, PreparedTool, StableOutputs } from "./types";
 
 void main();
 
@@ -24,11 +27,14 @@ async function main(): Promise<void> {
           errorOutputs = { ...outputs, result: "error", exitCode: "1" };
         });
         break;
+      case "discover":
+        await discover();
+        break;
       case "enforce":
         enforce();
         break;
       default:
-        throw new Error("Expected a GitHub adapter command: prepare, run, or enforce.");
+        throw new Error("Expected a GitHub adapter command: prepare, discover, run, or enforce.");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -38,6 +44,20 @@ async function main(): Promise<void> {
     command("error", {}, message);
     process.exitCode = 1;
   }
+}
+
+async function discover(): Promise<void> {
+  const inputs = githubInputs();
+  const discovery = await discoverGithubBaseline(inputs, requiredEnvironment("DOTSIDER_PREPARED_RID"));
+  writeOutputs({
+    status: discovery.source.status,
+    "artifact-name": discovery.artifactName,
+    "run-id": discovery.runId ?? "",
+    "download-directory": discovery.downloadDirectory ?? "",
+    publish: String(discovery.publish),
+    identity: JSON.stringify(discovery.identity),
+    source: JSON.stringify(discovery.source),
+  });
 }
 
 async function prepare(): Promise<void> {
@@ -56,27 +76,49 @@ async function prepare(): Promise<void> {
 }
 
 async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
-  const inputs = createInputs({
-    target: process.env.DOTSIDER_INPUT_TARGET,
-    baseline: process.env.DOTSIDER_INPUT_BASELINE,
-    budgets: process.env.DOTSIDER_INPUT_BUDGETS,
-    budgetFile: process.env.DOTSIDER_INPUT_BUDGET_FILE,
-    top: process.env.DOTSIDER_INPUT_TOP,
-    why: process.env.DOTSIDER_INPUT_WHY,
-    dotsiderVersion: process.env.DOTSIDER_INPUT_VERSION,
-    dotsiderPath: process.env.DOTSIDER_INPUT_PATH,
-    reportDirectory: process.env.DOTSIDER_INPUT_REPORT_DIRECTORY,
-    publishSummary: process.env.DOTSIDER_INPUT_PUBLISH_SUMMARY,
-    publishReports: process.env.DOTSIDER_INPUT_PUBLISH_REPORTS,
-    artifactName: process.env.DOTSIDER_INPUT_ARTIFACT_NAME,
-  }, process.env.RUNNER_TEMP || os.tmpdir());
+  let inputs = githubInputs();
 
   const tool = preparedTool();
   const executable = await acquireTool(tool);
-  const execution = await executeSizeCheck(executable, inputs);
-  const outputs = createStableOutputs(execution, inputs.artifactName, tool.version);
+  const discovery = process.env.DOTSIDER_BASELINE_SOURCE
+    ? preparedDiscovery()
+    : await discoverGithubBaseline(inputs, tool.rid);
+  let source = discovery.source;
+  if (source.status === "restored") {
+    const directory = requiredEnvironment("DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY");
+    const restored = await restoreBaseline(directory, discovery.identity, source);
+    inputs = { ...inputs, baseline: restored.targetPath };
+  }
+
+  const execution = await executeSizeCheck(executable, inputs, source.status === "not-found");
+  if (execution.report && await fileExists(execution.markdownReportPath)) {
+    execution.report = await enrichReports(
+      execution.jsonReportPath,
+      execution.markdownReportPath,
+      source,
+    );
+  }
+  const outputs = createStableOutputs(execution, inputs.artifactName, tool.version, source);
   onOutputs(outputs);
   writeStableOutputs(outputs);
+
+  let baselineUploadPath = "";
+  let publishBaseline = false;
+  if (discovery.publish && execution.report
+      && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+    source = currentGithubSource(discovery.artifactName);
+    baselineUploadPath = await stageBaseline(
+      execution.report,
+      discovery.identity,
+      source,
+      pathForBaseline(inputs.reportDirectory),
+    );
+    publishBaseline = true;
+  }
+  writeOutputs({
+    "baseline-upload-path": baselineUploadPath,
+    "publish-baseline": String(publishBaseline),
+  });
   const summary = formatSizeCheckSummary(outputs);
   if (summary) {
     process.stdout.write(`Dotsider size check: ${summary}.\n`);
@@ -89,6 +131,53 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
       await fs.appendFile(summaryPath, `${markdown.trimEnd()}\n`);
     }
   }
+}
+
+function githubInputs() {
+  return createInputs({
+    target: process.env.DOTSIDER_INPUT_TARGET,
+    baseline: process.env.DOTSIDER_INPUT_BASELINE,
+    baselineKey: process.env.DOTSIDER_INPUT_BASELINE_KEY,
+    budgets: process.env.DOTSIDER_INPUT_BUDGETS,
+    budgetFile: process.env.DOTSIDER_INPUT_BUDGET_FILE,
+    top: process.env.DOTSIDER_INPUT_TOP,
+    why: process.env.DOTSIDER_INPUT_WHY,
+    dotsiderVersion: process.env.DOTSIDER_INPUT_VERSION,
+    dotsiderPath: process.env.DOTSIDER_INPUT_PATH,
+    reportDirectory: process.env.DOTSIDER_INPUT_REPORT_DIRECTORY,
+    publishSummary: process.env.DOTSIDER_INPUT_PUBLISH_SUMMARY,
+    publishReports: process.env.DOTSIDER_INPUT_PUBLISH_REPORTS,
+    artifactName: process.env.DOTSIDER_INPUT_ARTIFACT_NAME,
+  }, process.env.RUNNER_TEMP || os.tmpdir());
+}
+
+function preparedDiscovery(): BaselineDiscovery {
+  return {
+    source: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_SOURCE")) as BaselineSource,
+    identity: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_IDENTITY")) as BaselineDiscovery["identity"],
+    artifactName: requiredEnvironment("DOTSIDER_BASELINE_ARTIFACT_NAME"),
+    downloadDirectory: optional(process.env.DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY),
+    publish: process.env.DOTSIDER_BASELINE_PUBLISH === "true",
+  };
+}
+
+function currentGithubSource(artifactName: string): BaselineSource {
+  const repository = requiredEnvironment("GITHUB_REPOSITORY");
+  const runId = requiredEnvironment("GITHUB_RUN_ID");
+  return {
+    status: "restored",
+    provider: "github-actions",
+    branch: process.env.GITHUB_REF_NAME,
+    commit: process.env.GITHUB_SHA,
+    id: runId,
+    number: process.env.GITHUB_RUN_NUMBER,
+    url: `${process.env.GITHUB_SERVER_URL || "https://github.com"}/${repository}/actions/runs/${runId}`,
+    artifactName,
+  };
+}
+
+function pathForBaseline(reportDirectory: string): string {
+  return path.join(reportDirectory, ".baseline");
 }
 
 function enforce(): void {
@@ -145,6 +234,11 @@ function writeStableOutputs(outputs: StableOutputs): void {
     "current-total": outputs.currentTotal,
     delta: outputs.delta,
     "violation-count": outputs.violationCount,
+    "baseline-status": outputs.baselineStatus,
+    "baseline-source-id": outputs.baselineSourceId,
+    "baseline-source-commit": outputs.baselineSourceCommit,
+    "baseline-source-url": outputs.baselineSourceUrl,
+    "baseline-artifact-name": outputs.baselineArtifactName,
   });
 }
 

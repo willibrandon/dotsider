@@ -57,6 +57,7 @@ export function createInputs(
   return {
     target: path.resolve(target),
     baseline,
+    baselineKey: optional(values.baselineKey),
     budgets: parseBudgets(values.budgets),
     budgetFile: optionalPath(values.budgetFile),
     top: parseTop(values.top),
@@ -81,4 +82,9 @@ function required(value: string | undefined, name: string): string {
 function optionalPath(value: string | undefined): string | undefined {
   const candidate = value?.trim();
   return candidate ? path.resolve(candidate) : undefined;
+}
+
+function optional(value: string | undefined): string | undefined {
+  const candidate = value?.trim();
+  return candidate || undefined;
 }

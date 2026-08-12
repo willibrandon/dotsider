@@ -90,10 +90,12 @@ test("createInputs requires target and keeps the baseline optional without a sep
   const comparison = createInputs({
     target: "current.mstat",
     baseline: "baseline.mstat",
+    baselineKey: "console/linux-x64",
   }, "/reports");
 
   assert.equal(current.baseline, undefined);
   assert.equal(comparison.baseline, path.resolve("baseline.mstat"));
+  assert.equal(comparison.baselineKey, "console/linux-x64");
   assert.equal("mode" in current, false);
   assert.equal("mode" in comparison, false);
 });

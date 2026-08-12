@@ -61,6 +61,16 @@ One outcome per budget, in input order.
 public IReadOnlyList<SizeBudgetEvaluation> Evaluations { get; init; }
 ```
 
+### HasDeferred
+
+True when one or more growth limits were deferred because no baseline exists.
+
+**Returns:** [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+```csharp
+public bool HasDeferred { get; init; }
+```
+
 ### HasWarnings
 
 True when at least one warning-severity budget breached.

@@ -1,0 +1,231 @@
+name: NativeAOT size report
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to analyze
+        required: true
+        type: number
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions: read-all
+
+jobs:
+  authorize:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request) ||
+      github.event_name == 'pull_request_review_comment'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      should-run: ${{ steps.resolve.outputs.should-run }}
+      pr-number: ${{ steps.resolve.outputs.pr-number }}
+      head-sha: ${{ steps.resolve.outputs.head-sha }}
+      base-branch: ${{ steps.resolve.outputs.base-branch }}
+    steps:
+      - name: Authorize and resolve request
+        id: resolve
+        uses: actions/github-script@v8
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          DISPATCH_PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const isComment = context.eventName === 'issue_comment'
+              || context.eventName === 'pull_request_review_comment';
+            if (isComment) {
+              const command = (process.env.COMMENT_BODY || '').trim().toLowerCase();
+              if (!command.startsWith('/aot-size')) {
+                core.setOutput('should-run', 'false');
+                return;
+              }
+              const username = context.payload.comment?.user?.login;
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username });
+              if (!['admin', 'write'].includes(data.permission)) {
+                throw new Error('Only collaborators with write access may run /aot-size.');
+              }
+              if (context.eventName === 'pull_request_review_comment') {
+                await github.rest.reactions.createForPullRequestReviewComment({
+                  owner, repo, comment_id: context.payload.comment.id, content: 'eyes'
+                });
+              } else {
+                await github.rest.reactions.createForIssueComment({
+                  owner, repo, comment_id: context.payload.comment.id, content: 'eyes'
+                });
+              }
+            }
+
+            const prNumber = context.eventName === 'workflow_dispatch'
+              ? Number(process.env.DISPATCH_PR_NUMBER)
+              : context.eventName === 'pull_request_review_comment'
+                ? context.payload.pull_request.number
+                : context.payload.issue.number;
+            const { data: pull } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            core.setOutput('should-run', 'true');
+            core.setOutput('pr-number', String(pull.number));
+            core.setOutput('head-sha', pull.head.sha);
+            core.setOutput('base-branch', pull.base.ref);
+
+  analyze:
+    needs: authorize
+    if: needs.authorize.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    env:
+      # Change these three values to match the normal build workflow's uploaded input artifact.
+      BUILD_WORKFLOW: ci.yml
+      SIZE_INPUT_ARTIFACT: nativeaot-size-linux-x64
+      SIZE_TARGET: App
+    steps:
+      - name: Find pull-request and base artifacts
+        id: artifacts
+        uses: actions/github-script@v8
+        env:
+          HEAD_SHA: ${{ needs.authorize.outputs.head-sha }}
+          BASE_BRANCH: ${{ needs.authorize.outputs.base-branch }}
+          PR_NUMBER: ${{ needs.authorize.outputs.pr-number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const find = async (parameters, acceptRun) => {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: process.env.BUILD_WORKFLOW,
+                status: 'success', per_page: 100, ...parameters
+              });
+              for (const run of data.workflow_runs) {
+                if (!acceptRun(run)) continue;
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                  owner, repo, run_id: run.id, per_page: 100
+                });
+                if (artifacts.some(artifact => artifact.name === process.env.SIZE_INPUT_ARTIFACT && !artifact.expired)) {
+                  return run.id;
+                }
+              }
+              throw new Error(`No successful ${process.env.SIZE_INPUT_ARTIFACT} artifact was found.`);
+            };
+            const prNumber = Number(process.env.PR_NUMBER);
+            const currentRun = await find(
+              { head_sha: process.env.HEAD_SHA },
+              run => run.event === 'pull_request'
+                && run.pull_requests?.some(pull => pull.number === prNumber)
+            );
+            const baseRun = await find(
+              { branch: process.env.BASE_BRANCH },
+              run => run.event !== 'pull_request' && run.event !== 'pull_request_target'
+            );
+            core.setOutput('current-run', String(currentRun));
+            core.setOutput('base-run', String(baseRun));
+
+      - name: Download pull-request size input
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.SIZE_INPUT_ARTIFACT }}
+          path: ${{ runner.temp }}/current
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.artifacts.outputs.current-run }}
+
+      - name: Download base-branch size input
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.SIZE_INPUT_ARTIFACT }}
+          path: ${{ runner.temp }}/baseline
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.artifacts.outputs.base-run }}
+
+      - name: Compare NativeAOT size
+        id: size
+        continue-on-error: true
+        uses: willibrandon/dotsider@v0
+        with:
+          target: ${{ runner.temp }}/current/${{ env.SIZE_TARGET }}
+          baseline: ${{ runner.temp }}/baseline/${{ env.SIZE_TARGET }}
+          budgets: |
+            max=25mb
+            growth=1%
+          why: true
+          publish-summary: false
+          artifact-name: dotsider-size-report
+
+      - name: Prepare pull-request report
+        if: always()
+        shell: bash
+        env:
+          REPORT_PATH: ${{ steps.size.outputs.markdown-report-path }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          output="$RUNNER_TEMP/dotsider-aot-size-comment.md"
+          printf '%s\n' '<!-- dotsider-aot-size -->' > "$output"
+          if [[ -n "$REPORT_PATH" && -f "$REPORT_PATH" ]]; then
+            cat "$REPORT_PATH" >> "$output"
+          else
+            printf 'Dotsider size analysis failed. [Open the workflow run](%s).\n' "$RUN_URL" >> "$output"
+          fi
+
+      - name: Upload pull-request report
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dotsider-aot-size-comment-${{ github.run_id }}
+          path: ${{ runner.temp }}/dotsider-aot-size-comment.md
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Enforce result
+        if: steps.size.outcome == 'failure'
+        shell: bash
+        run: exit 1
+
+  comment:
+    needs: [authorize, analyze]
+    if: always() && needs.authorize.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Download pull-request report
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: dotsider-aot-size-comment-${{ github.run_id }}
+          path: ${{ runner.temp }}/comment
+
+      - name: Update pull-request report
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ needs.authorize.outputs.pr-number }}
+          REPORT_PATH: ${{ runner.temp }}/comment/dotsider-aot-size-comment.md
+        with:
+          script: |
+            const fs = require('node:fs');
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR_NUMBER);
+            const marker = '<!-- dotsider-aot-size -->';
+            const body = fs.existsSync(process.env.REPORT_PATH)
+              ? fs.readFileSync(process.env.REPORT_PATH, 'utf8')
+              : `${marker}\nDotsider size analysis failed. [Open the workflow run](${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}).`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100
+            });
+            const existing = comments.find(comment => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

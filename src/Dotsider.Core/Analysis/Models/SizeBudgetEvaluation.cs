@@ -26,4 +26,11 @@ public sealed record SizeBudgetEvaluation(
     long ActualBytes,
     long? BaselineBytes,
     IReadOnlyList<SizeBudgetViolation> Violations,
-    IReadOnlyList<SizeDiffContributor> TopContributors);
+    IReadOnlyList<SizeDiffContributor> TopContributors)
+{
+    /// <summary>
+    /// Growth limits that could not be evaluated because no baseline exists. Absolute limits
+    /// in the same budget are still evaluated normally.
+    /// </summary>
+    public IReadOnlyList<SizeBudgetMetric> DeferredMetrics { get; init; } = [];
+}

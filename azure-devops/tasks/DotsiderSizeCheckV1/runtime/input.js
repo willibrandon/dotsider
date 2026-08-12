@@ -82,6 +82,7 @@ function createInputs(values, defaultReportRoot) {
     return {
         target: path.resolve(target),
         baseline,
+        baselineKey: optional(values.baselineKey),
         budgets: parseBudgets(values.budgets),
         budgetFile: optionalPath(values.budgetFile),
         top: parseTop(values.top),
@@ -103,4 +104,8 @@ function required(value, name) {
 function optionalPath(value) {
     const candidate = value?.trim();
     return candidate ? path.resolve(candidate) : undefined;
+}
+function optional(value) {
+    const candidate = value?.trim();
+    return candidate || undefined;
 }

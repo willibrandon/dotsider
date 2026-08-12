@@ -115,7 +115,9 @@ internal static class DiffCommand
             totals.LeftTotal,
             JsonTop,
             WhyPaths: null,
-            Budgets: null);
+            Budgets: null,
+            TargetSource: rightSource,
+            BaselineSource: leftSource);
 
         using var fmt = new OutputFormatter { JsonMode = true };
         fmt.WriteJson(SizeDiffReportWriter.BuildDocument(context));

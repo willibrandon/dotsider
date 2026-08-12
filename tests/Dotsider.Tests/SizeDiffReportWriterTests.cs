@@ -108,6 +108,59 @@ public sealed class SizeDiffReportWriterTests
     }
 
     /// <summary>
+    /// Verifies first-run growth budgets are named as deferred rather than passed.
+    /// </summary>
+    [TestMethod]
+    public void BuildMarkdown_DeferredGrowth_ExplainsMissingBaseline()
+    {
+        var context = CreateContext("Compile()", withBudget: true, withDeferred: true);
+
+        var markdown = SizeDiffReportWriter.BuildMarkdown(context);
+
+        Assert.Contains("⚠️ **PASS with warnings** — evaluated size budgets passed.", markdown);
+        Assert.Contains("**⏸️ DEFERRED**", markdown);
+        Assert.Contains("**Deferred:** growth % until a baseline exists", markdown);
+        Assert.DoesNotContain("all size budgets passed", markdown);
+    }
+
+    /// <summary>
+    /// Verifies an absolute breach remains a failure when a growth limit in the same first-run
+    /// budget is deferred.
+    /// </summary>
+    [TestMethod]
+    public void BuildMarkdown_AbsoluteFailureWithDeferredGrowth_RemainsFailure()
+    {
+        var context = CreateContext("Compile()", withBudget: true, withDeferred: true);
+        var evaluation = context.Budgets!.Evaluations[0] with { Passed = false };
+        context = context with
+        {
+            Budgets = context.Budgets with { Passed = false, Evaluations = [evaluation] }
+        };
+
+        var markdown = SizeDiffReportWriter.BuildMarkdown(context);
+
+        Assert.Contains("❌ **FAIL** — a size budget was exceeded.", markdown);
+        Assert.Contains("**❌ FAIL**", markdown);
+        Assert.DoesNotContain("**⏸️ DEFERRED**", markdown);
+    }
+
+    /// <summary>
+    /// Verifies schema 2 names the resolved target-side artifacts.
+    /// </summary>
+    [TestMethod]
+    public void BuildDocument_IncludesResolvedArtifacts()
+    {
+        var context = CreateContext("Compile()");
+
+        var document = SizeDiffReportWriter.BuildDocument(context);
+
+        Assert.AreEqual(2, document.SchemaVersion);
+        Assert.AreEqual("/tmp/picket", document.TargetArtifacts.InputPath);
+        Assert.AreEqual("/tmp/picket", document.TargetArtifacts.MstatPath);
+        Assert.IsNull(document.BaselineArtifacts);
+    }
+
+    /// <summary>
     /// Verifies the Markdown report displays the complete Native AOT contributor name.
     /// </summary>
     [TestMethod]
@@ -133,7 +186,8 @@ public sealed class SizeDiffReportWriterTests
         string contributorName,
         long rightSize = 24_700,
         bool withBaseline = false,
-        bool withBudget = false)
+        bool withBudget = false,
+        bool withDeferred = false)
     {
         var leftSize = withBaseline ? 10_000 : 0;
         var delta = rightSize - leftSize;
@@ -191,7 +245,7 @@ public sealed class SizeDiffReportWriterTests
         SizeBudgetReport? budgets = null;
         if (withBudget)
         {
-            var budget = SizeBudgetParser.Parse("max=40mb");
+            var budget = SizeBudgetParser.Parse(withDeferred ? "growth=1%" : "max=40mb");
             var evaluation = new SizeBudgetEvaluation(
                 budget,
                 Passed: true,
@@ -199,7 +253,10 @@ public sealed class SizeDiffReportWriterTests
                 ActualBytes: rightTotal,
                 BaselineBytes: withBaseline ? leftTotal : null,
                 Violations: [],
-                TopContributors: [contributor]);
+                TopContributors: [contributor])
+            {
+                DeferredMetrics = withDeferred ? [SizeBudgetMetric.MaxGrowthPercent] : []
+            };
             budgets = new SizeBudgetReport(
                 Passed: true,
                 HasWarnings: false,
@@ -208,7 +265,10 @@ public sealed class SizeDiffReportWriterTests
                 RightTotal: rightTotal,
                 LeftMstatTotal: null,
                 RightMstatTotal: rightSize,
-                Evaluations: [evaluation]);
+                Evaluations: [evaluation])
+            {
+                HasDeferred = withDeferred
+            };
         }
 
         return new SizeDiffReportWriter.Context(
