@@ -148,15 +148,18 @@ dotsider size-check out/pr/app --baseline baseline/app.mstat \
 dotsider size-check out/pr/app --budget max=25mb                        # absolute cap, no baseline
 ```
 
-Most projects should start with an absolute cap. This catches unexpected growth without any
-baseline build or artifact:
+Run the action or task on pull requests and the target branch. The first successful branch
+run enforces absolute limits and stores a managed baseline; later pull requests compare with
+the newest successful target-branch run:
 
 ```yaml
 - name: Check NativeAOT size
   uses: willibrandon/dotsider@v0
   with:
     target: out/pr/App
-    budgets: max=25mb
+    budgets: |
+      max=25mb
+      growth=1%
 ```
 
 Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
@@ -168,11 +171,11 @@ Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
     budgets: max=25mb
 ```
 
-To gate the change from one build to another, also pass `baseline` and use `growth=` budgets.
-For pull requests, build the base commit and the current commit in the same job so both use
-the same SDK, runtime identifier, and runner. See the
+When no baseline exists yet, absolute limits run and growth limits are clearly deferred; a
+successful branch build establishes it. Set `baseline` only as an explicit override. See the
 [size-regression guide](https://dotsider.dev/usage/size-regression/) for that workflow,
-stable outputs, and the offline `dotsider-path` option.
+stable provenance outputs, optional `/aot-size` reports, and the offline `dotsider-path`
+option.
 
 Budgets: `[scope:]limit(,limit)*` — scope `total` / `ns=<Namespace>` (covers sub-namespaces) /
 `asm=<Assembly>`; limits `max=SIZE` and `growth=SIZE|PERCENT` (`25mb`, `10kb`, `1%`).

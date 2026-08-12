@@ -582,7 +582,7 @@ jobs:
           if ('${{ steps.released.outputs.exit-code }}' -ne '0') { throw 'Released action returned a nonzero exit code.' }
           if ('${{ steps.released.outputs.dotsider-version }}' -ne $version) { throw 'Released action resolved the wrong version.' }
           $report = Get-Content -LiteralPath '${{ steps.released.outputs.json-report-path }}' -Raw | ConvertFrom-Json
-          if ($report.schemaVersion -ne 1) { throw 'Released action returned an unsupported report schema.' }
+          if ($report.schemaVersion -ne 2) { throw 'Released action returned an unsupported report schema.' }
 
       - name: Reuse the resolved Dotsider tool
         uses: ./

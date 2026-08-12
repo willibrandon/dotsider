@@ -95,6 +95,17 @@ The budget that was evaluated.
 public SizeBudget Budget { get; init; }
 ```
 
+### DeferredMetrics
+
+Growth limits that could not be evaluated because no baseline exists. Absolute limits
+in the same budget are still evaluated normally.
+
+**Returns:** [IReadOnlyList\<SizeBudgetMetric\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+```csharp
+public IReadOnlyList<SizeBudgetMetric> DeferredMetrics { get; init; }
+```
+
 ### Passed
 
 True when no limit was breached.

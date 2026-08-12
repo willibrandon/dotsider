@@ -4,13 +4,16 @@ description: GitHub Actions and Azure Pipelines contracts for NativeAOT size che
 ---
 
 Dotsider publishes a composite GitHub Action and `DotsiderSizeCheck@1` Azure Pipelines task.
-Both run the existing `dotsider size-check` command, preserve its exit codes, and publish the
-CLI-generated JSON and Markdown reports before failing a budget gate.
+Both run the existing `dotsider size-check` command, preserve its exit codes, publish the
+CLI-generated JSON and Markdown reports before failing a budget gate, and manage matching
+branch baselines without project-specific artifact queries.
 
-## Start with an absolute limit
+## Automatic branch baselines
 
-An absolute limit needs only the NativeAOT build you already publish. It is the simplest
-useful guardrail and does not require a baseline:
+Run the integration after the NativeAOT publish on pull requests and on the target branch.
+The first successful branch run enforces absolute limits and stores the binary plus its
+resolved `.mstat` and optional DGML sidecars. Later branch runs compare with the preceding
+successful run; pull requests compare with the newest successful run of their target branch.
 
 ```yaml
 - uses: willibrandon/dotsider@v0
@@ -18,6 +21,14 @@ useful guardrail and does not require a baseline:
   with:
     target: out/current/App
     budgets: max=25mb
+```
+
+The job needs read access to earlier workflow artifacts:
+
+```yaml
+permissions:
+  actions: read
+  contents: read
 ```
 
 The equivalent Azure Pipelines task is:
@@ -30,13 +41,19 @@ The equivalent Azure Pipelines task is:
     budgets: max=25mb
 ```
 
-Choose the initial cap from a known-good build and leave enough room for ordinary compiler
-and dependency changes. Tighten it once the application has a stable size envelope.
+The Azure task uses the current pipeline's Build Service identity to read successful builds
+and artifacts from the same pipeline definition. No PAT is required. If access was removed,
+grant that identity read access to builds and artifacts.
 
-## Compare two builds
+When no matching baseline exists, `max=` limits still run and `growth=` limits are named as
+deferred in the summary and JSON report. A successful branch run then establishes the first
+baseline. Network, authentication, corrupt-artifact, and manifest-validation failures are
+errors; they never masquerade as a first run.
 
-Add `baseline` when the job already has an older build to compare. This enables `growth=`
-budgets and changes the report from current-build totals to a before-and-after comparison:
+## Explicit baseline override
+
+Set `baseline` when the job deliberately owns both inputs. That disables automatic discovery
+and publication for this invocation:
 
 ```yaml
 - uses: willibrandon/dotsider@v0
@@ -60,14 +77,22 @@ budgets and changes the report from current-build totals to a before-and-after c
     why: true
 ```
 
-For pull requests, build the base commit and current commit in the same job. That keeps the
-SDK, NativeAOT toolchain, runtime identifier, and runner constant, so the report measures the
-code change instead of a toolchain change. The [size-regression guide](/usage/size-regression/)
-contains complete GitHub Actions and Azure Pipelines examples.
+This remains useful for release-to-release checks or pipelines that intentionally rebuild
+the base revision with the current toolchain. The [size-regression guide](/usage/size-regression/)
+contains complete examples.
 
-Dotsider does not search workflow history or manage baseline artifacts. Projects vary too
-widely in runtime identifiers, publish properties, retention, permissions, and generated
-inputs for that behavior to be reliable inside a size-check action.
+## On-demand pull-request reports
+
+Projects that do not want to run the comparison on every pull request can publish the binary
+and sidecars from their normal build, then add a trusted `/aot-size` comment workflow. The
+command works in the pull-request conversation and in review comments. It
+downloads the successful PR and base-branch input artifacts, runs Dotsider with an explicit
+baseline, and updates one PR comment. The analysis job never checks out or executes PR code
+with a write-capable token, and the Dotsider child process does not inherit provider tokens.
+
+Copy the [on-demand workflow template](https://github.com/willibrandon/dotsider/blob/main/integrations/size-check/examples/github-aot-size.yml),
+then change its build workflow, artifact name, target path, and budgets. It also supports a
+manual `workflow_dispatch` with a pull-request number.
 
 ## Inputs
 
@@ -75,6 +100,7 @@ inputs for that behavior to be reliable inside a size-check action.
 | --- | --- | --- |
 | `target` | `target` | Required NativeAOT binary or `.mstat` report |
 | `baseline` | `baseline` | Optional older binary or `.mstat`; enables comparison and `growth=` budgets |
+| `baseline-key` | `baselineKey` | Stable logical target key when a temporary target path changes between runs |
 | `budgets` | `budgets` | Budget expressions, one per line |
 | `budget-file` | `budgetFile` | JSON budget document |
 | `top` | `top` | Contributors per section; default 10 |
@@ -86,20 +112,29 @@ inputs for that behavior to be reliable inside a size-check action.
 | `upload-reports` | `publishReports` | Publish both reports as an artifact |
 | `artifact-name` | `artifactName` | Report artifact name |
 
-Without `baseline`, use absolute `max=` budgets. With `baseline`, both `max=` and `growth=`
-budgets are valid. A growth budget without a baseline fails as an input error instead of
-silently skipping the check.
+An automatically missing baseline defers growth limits only after provider discovery proves
+that no matching artifact exists. Direct CLI use remains strict: growth budgets require
+`--baseline`.
 
 ## Outputs
 
 Both integrations expose `result`, `exitCode`, `jsonReportPath`, `markdownReportPath`,
 `artifactName`, `dotsiderVersion`, `totalBasis`, `baselineTotal`, `currentTotal`, `delta`, and
-`violationCount`. GitHub spells multiword outputs with hyphens; Azure uses camel case.
-`baselineTotal` is empty when no baseline was supplied.
+`violationCount`, `baselineStatus`, `baselineSourceId`, `baselineSourceCommit`,
+`baselineSourceUrl`, and `baselineArtifactName`. GitHub spells multiword outputs with
+hyphens; Azure uses camel case.
+`baselineStatus` is `restored`, `explicit`, or `not-found`; `baselineTotal` is empty on a
+first run.
 
 `result` is `passed`, `passed-with-warnings`, `budget-failed`, or `error`. A budget failure
 retains the raw exit code 2 and an input or execution error retains exit code 1. JSON reports
-carry `schemaVersion: 1` so consumers can reject an incompatible future shape explicitly.
+carry `schemaVersion: 2`, resolved target-side artifact paths, baseline provenance, and
+deferred budget metrics so consumers can reject an incompatible future shape explicitly.
+
+Managed artifact names are derived from the workflow or pipeline definition, stable job,
+logical target, and detected RID. Discovery searches only successful runs of the exact base
+branch. Pull-request artifacts are never eligible as baselines. `baseline-key` is normally
+unnecessary; use it when a randomized temporary target path would otherwise change identity.
 
 ## Acquisition and compatibility
 

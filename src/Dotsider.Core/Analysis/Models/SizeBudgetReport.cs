@@ -21,4 +21,10 @@ public sealed record SizeBudgetReport(
     long RightTotal,
     long? LeftMstatTotal,
     long? RightMstatTotal,
-    IReadOnlyList<SizeBudgetEvaluation> Evaluations);
+    IReadOnlyList<SizeBudgetEvaluation> Evaluations)
+{
+    /// <summary>
+    /// True when one or more growth limits were deferred because no baseline exists.
+    /// </summary>
+    public bool HasDeferred { get; init; }
+}

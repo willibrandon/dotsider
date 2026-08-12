@@ -20,6 +20,11 @@ const stableGithubOutputs = [
   "current-total",
   "delta",
   "violation-count",
+  "baseline-status",
+  "baseline-source-id",
+  "baseline-source-commit",
+  "baseline-source-url",
+  "baseline-artifact-name",
 ];
 const stableAzureOutputs = [
   "result",
@@ -33,6 +38,11 @@ const stableAzureOutputs = [
   "currentTotal",
   "delta",
   "violationCount",
+  "baselineStatus",
+  "baselineSourceId",
+  "baselineSourceCommit",
+  "baselineSourceUrl",
+  "baselineArtifactName",
 ];
 
 test("GitHub adapter writes stable error outputs before returning an input error", async () => {
@@ -56,13 +66,15 @@ test("GitHub adapter writes stable error outputs before returning an input error
   assert.equal(outputs.get("violation-count"), "0");
 });
 
-test("GitHub Action exposes the baseline-driven contract", async () => {
+test("GitHub Action exposes automatic baseline discovery and retention", async () => {
   const action = await fs.readFile(path.join(repositoryRoot, "action.yml"), "utf8");
   assert.match(action, /inputs:\r?\n  target:\r?\n(?:.*\r?\n)*?    required: true/u);
   assert.match(action, /  baseline:\r?\n(?:.*\r?\n)*?    required: false/u);
   assert.doesNotMatch(action, /^  mode:/mu);
   assert.doesNotMatch(action, /DOTSIDER_(?:INPUT_)?MODE|steps\.run\.outputs\.mode/u);
-  assert.doesNotMatch(action, /actions\/download-artifact/u);
+  assert.match(action, /actions\/download-artifact@v8/u);
+  assert.match(action, /Find Dotsider baseline/u);
+  assert.match(action, /Publish managed Dotsider baseline/u);
 
   const uploadStart = action.indexOf("- name: Upload Dotsider reports");
   const enforceStart = action.indexOf("- name: Enforce Dotsider result");
@@ -70,7 +82,7 @@ test("GitHub Action exposes the baseline-driven contract", async () => {
   const uploadStep = action.slice(uploadStart, enforceStart);
   assert.match(uploadStep, /steps\.run\.outputs\.json-report-path/u);
   assert.match(uploadStep, /steps\.run\.outputs\.markdown-report-path/u);
-  assert.doesNotMatch(uploadStep, /baseline/u);
+  assert.match(uploadStep, /steps\.run\.outputs\.baseline-artifact-name/u);
 });
 
 test("GitHub enforcement identifies the measured size and retained report", async () => {
@@ -163,7 +175,7 @@ test("Azure task exposes the baseline-driven contract on its supported Node hand
   assert.equal(target.type, "filePath");
   assert.equal(target.required, true);
 
-  for (const name of ["baseline", "budgetFile", "dotsiderPath"]) {
+  for (const name of ["baseline", "baselineKey", "budgetFile", "dotsiderPath"]) {
     const input: {
       name?: string;
       type?: string;

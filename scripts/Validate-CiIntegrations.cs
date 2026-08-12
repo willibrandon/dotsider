@@ -26,6 +26,7 @@ internal static class CiIntegrationValidator
         (string? vsix, string? expectedVersion) = ParseArguments(args, root);
 
         ValidateGitHubAction(root);
+        ValidateOnDemandWorkflow(root);
         ValidateAzureTask(root);
         ValidatePackageManager(root);
         if (vsix is not null)
@@ -35,6 +36,33 @@ internal static class CiIntegrationValidator
             ? "CI integration manifests are valid."
             : $"CI integration manifests and {Path.GetFileName(vsix)} are valid.");
         return 0;
+    }
+
+    private static void ValidateOnDemandWorkflow(string root)
+    {
+        string workflowPath = Path.Combine(
+            root, "integrations", "size-check", "examples", "github-aot-size.yml");
+        string source = File.ReadAllText(workflowPath);
+        Require(source.Contains("workflow_dispatch:", StringComparison.Ordinal)
+            && source.Contains("issue_comment:", StringComparison.Ordinal)
+            && source.Contains("pull_request_review_comment:", StringComparison.Ordinal)
+            && source.Contains("/aot-size", StringComparison.Ordinal),
+            "The on-demand example must support manual and /aot-size pull-request requests.");
+        Require(source.Contains("getCollaboratorPermissionLevel", StringComparison.Ordinal)
+            && source.Contains("['admin', 'write']", StringComparison.Ordinal),
+            "The /aot-size example must require collaborator write access.");
+        Require(source.Contains("actions/download-artifact@v8", StringComparison.Ordinal)
+            && source.Contains("current-run", StringComparison.Ordinal)
+            && source.Contains("base-run", StringComparison.Ordinal),
+            "The on-demand example must consume successful PR and base-branch build artifacts.");
+        Require(source.Contains("run.event === 'pull_request'", StringComparison.Ordinal)
+            && source.Contains("run.event !== 'pull_request'", StringComparison.Ordinal)
+            && source.Contains("comment:", StringComparison.Ordinal),
+            "The on-demand example must separate PR and branch runs and comment from a dedicated job.");
+        Require(!source.Contains("actions/checkout", StringComparison.Ordinal),
+            "The write-capable on-demand workflow must not check out pull-request code.");
+        Require(source.Contains("<!-- dotsider-aot-size -->", StringComparison.Ordinal),
+            "The on-demand example must update one identifiable pull-request comment.");
     }
 
     private static void ValidateGitHubAction(string root)
@@ -47,10 +75,13 @@ internal static class CiIntegrationValidator
             && source.Contains("node-version: '24'", StringComparison.Ordinal),
             "action.yml must select Node 24 explicitly.");
         int runIndex = source.IndexOf("Run Dotsider size check", StringComparison.Ordinal);
+        int discoverIndex = source.IndexOf("Find Dotsider baseline", StringComparison.Ordinal);
         int uploadIndex = source.IndexOf("Upload Dotsider reports", StringComparison.Ordinal);
+        int baselineUploadIndex = source.IndexOf("Publish managed Dotsider baseline", StringComparison.Ordinal);
         int enforceIndex = source.IndexOf("Enforce Dotsider result", StringComparison.Ordinal);
-        Require(runIndex >= 0 && uploadIndex > runIndex && enforceIndex > uploadIndex,
-            "action.yml must publish reports before enforcing a failure.");
+        Require(discoverIndex >= 0 && runIndex > discoverIndex && uploadIndex > runIndex
+            && baselineUploadIndex > uploadIndex && enforceIndex > baselineUploadIndex,
+            "action.yml must discover baselines, publish reports and the next baseline, then enforce.");
         Require(source.Contains(
                 "if: always() && inputs.upload-reports == 'true' && steps.run.outputs.result != 'error'",
                 StringComparison.Ordinal),
@@ -70,9 +101,12 @@ internal static class CiIntegrationValidator
             "action.yml must not expose a separate mode; supplying baseline controls comparison.");
         Require(source.Contains("DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}", StringComparison.Ordinal),
             "action.yml must pass the optional baseline to Dotsider.");
-        Require(!source.Contains("actions/download-artifact", StringComparison.Ordinal)
-            && !source.Contains("baseline artifact", StringComparison.OrdinalIgnoreCase),
-            "action.yml must not hide baseline discovery or retention.");
+        Require(source.Contains("actions/download-artifact@v8", StringComparison.Ordinal)
+            && source.Contains("steps.baseline.outputs.run-id", StringComparison.Ordinal),
+            "action.yml must restore the exact baseline artifact from the discovered successful run.");
+        Require(source.Contains("steps.run.outputs.publish-baseline", StringComparison.Ordinal)
+            && source.Contains("steps.run.outputs.baseline-upload-path", StringComparison.Ordinal),
+            "action.yml must retain the successful branch target as the next managed baseline.");
         Require(source.Contains("${{ steps.run.outputs.json-report-path }}", StringComparison.Ordinal)
             && source.Contains("${{ steps.run.outputs.markdown-report-path }}", StringComparison.Ordinal),
             "action.yml must upload only the reports produced by Dotsider.");
@@ -105,7 +139,7 @@ internal static class CiIntegrationValidator
         Require(target.GetProperty("type").GetString() == "filePath"
             && target.GetProperty("required").GetBoolean(),
             "The Azure task target must remain required.");
-        foreach (string name in new[] { "baseline", "budgetFile", "dotsiderPath" })
+        foreach (string name in new[] { "baseline", "baselineKey", "budgetFile", "dotsiderPath" })
         {
             JsonElement input = inputs[name];
             Require(input.GetProperty("type").GetString() == "string"
@@ -127,6 +161,11 @@ internal static class CiIntegrationValidator
             "currentTotal",
             "delta",
             "violationCount",
+            "baselineStatus",
+            "baselineSourceId",
+            "baselineSourceCommit",
+            "baselineSourceUrl",
+            "baselineArtifactName",
         ];
         string[] outputVariables =
         [
@@ -204,6 +243,8 @@ internal static class CiIntegrationValidator
             "extension.vsomanifest",
             "tasks/DotsiderSizeCheckV1/task.json",
             "tasks/DotsiderSizeCheckV1/runtime/azure.js",
+            "tasks/DotsiderSizeCheckV1/runtime/azure-baseline.js",
+            "tasks/DotsiderSizeCheckV1/runtime/baseline.js",
             "README.md",
             "LICENSE",
             "PRIVACY.md",

@@ -9,7 +9,10 @@ inputs:
     description: NativeAOT binary or .mstat report to check.
     required: true
   baseline:
-    description: Optional NativeAOT binary or .mstat report to compare with the target.
+    description: Optional explicit baseline override. By default, successful branch artifacts are managed automatically.
+    required: false
+  baseline-key:
+    description: Stable logical target key when the target path is temporary or otherwise changes between runs.
     required: false
   budgets:
     description: Size budget expressions, one per line.
@@ -75,6 +78,21 @@ outputs:
   violation-count:
     description: Number of budget violations.
     value: ${{ steps.run.outputs.violation-count }}
+  baseline-status:
+    description: explicit, restored, or not-found.
+    value: ${{ steps.run.outputs.baseline-status }}
+  baseline-source-id:
+    description: Provider run or build ID used as the baseline.
+    value: ${{ steps.run.outputs.baseline-source-id }}
+  baseline-source-commit:
+    description: Commit used as the baseline.
+    value: ${{ steps.run.outputs.baseline-source-commit }}
+  baseline-source-url:
+    description: Provider URL for the baseline run or build.
+    value: ${{ steps.run.outputs.baseline-source-url }}
+  baseline-artifact-name:
+    description: Managed baseline artifact name.
+    value: ${{ steps.run.outputs.baseline-artifact-name }}
 runs:
   using: composite
   steps:
@@ -99,6 +117,38 @@ runs:
         path: ${{ steps.prepare.outputs.cache-directory }}
         key: ${{ runner.os }}-${{ steps.prepare.outputs.cache-key }}
 
+    - name: Find Dotsider baseline
+      id: baseline
+      if: steps.prepare.outcome == 'success'
+      shell: bash
+      env:
+        DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
+        DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
+        DOTSIDER_INPUT_BASELINE_KEY: ${{ inputs.baseline-key }}
+        DOTSIDER_INPUT_BUDGETS: ${{ inputs.budgets }}
+        DOTSIDER_INPUT_BUDGET_FILE: ${{ inputs.budget-file }}
+        DOTSIDER_INPUT_TOP: ${{ inputs.top }}
+        DOTSIDER_INPUT_WHY: ${{ inputs.why }}
+        DOTSIDER_INPUT_VERSION: ${{ inputs.dotsider-version }}
+        DOTSIDER_INPUT_PATH: ${{ inputs.dotsider-path }}
+        DOTSIDER_INPUT_REPORT_DIRECTORY: ${{ inputs.report-directory }}
+        DOTSIDER_INPUT_PUBLISH_SUMMARY: ${{ inputs.publish-summary }}
+        DOTSIDER_INPUT_PUBLISH_REPORTS: ${{ inputs.upload-reports }}
+        DOTSIDER_INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        DOTSIDER_PREPARED_RID: ${{ steps.prepare.outputs.rid }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" discover
+
+    - name: Restore managed Dotsider baseline
+      if: steps.baseline.outputs.status == 'restored'
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ steps.baseline.outputs.artifact-name }}
+        path: ${{ steps.baseline.outputs.download-directory }}
+        github-token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        run-id: ${{ steps.baseline.outputs.run-id }}
+
     - name: Run Dotsider size check
       id: run
       if: always()
@@ -106,6 +156,7 @@ runs:
       env:
         DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
         DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
+        DOTSIDER_INPUT_BASELINE_KEY: ${{ inputs.baseline-key }}
         DOTSIDER_INPUT_BUDGETS: ${{ inputs.budgets }}
         DOTSIDER_INPUT_BUDGET_FILE: ${{ inputs.budget-file }}
         DOTSIDER_INPUT_TOP: ${{ inputs.top }}
@@ -122,6 +173,11 @@ runs:
         DOTSIDER_PREPARED_EXECUTABLE_PATH: ${{ steps.prepare.outputs.executable-path }}
         DOTSIDER_PREPARED_CACHE_KEY: ${{ steps.prepare.outputs.cache-key }}
         DOTSIDER_PREPARED_EXPLICIT: ${{ steps.prepare.outputs.explicit }}
+        DOTSIDER_BASELINE_SOURCE: ${{ steps.baseline.outputs.source }}
+        DOTSIDER_BASELINE_IDENTITY: ${{ steps.baseline.outputs.identity }}
+        DOTSIDER_BASELINE_ARTIFACT_NAME: ${{ steps.baseline.outputs.artifact-name }}
+        DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY: ${{ steps.baseline.outputs.download-directory }}
+        DOTSIDER_BASELINE_PUBLISH: ${{ steps.baseline.outputs.publish }}
         GITHUB_TOKEN: ${{ github.token }}
       run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" run
 
@@ -134,6 +190,15 @@ runs:
           ${{ steps.run.outputs.json-report-path }}
           ${{ steps.run.outputs.markdown-report-path }}
         if-no-files-found: error
+
+    - name: Publish managed Dotsider baseline
+      if: steps.run.outputs.publish-baseline == 'true'
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: ${{ steps.run.outputs.baseline-artifact-name }}
+        path: ${{ steps.run.outputs.baseline-upload-path }}
+        if-no-files-found: error
+        include-hidden-files: true
 
     - name: Enforce Dotsider result
       if: always()

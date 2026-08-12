@@ -26,6 +26,27 @@ public static class SizeBudgetEvaluator
 
 ## Methods
 
+### Evaluate(IReadOnlyList\<SizeBudget\>, MstatDiffResult, SizeBasis, long, long?, int, bool)
+
+Evaluates budgets while deferring growth limits when a provider has established that no
+baseline artifact exists. Absolute limits continue to be enforced.
+
+**Parameters:**
+
+- `budgets` ([IReadOnlyList\<SizeBudget\>](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1))
+- `diff` ([MstatDiffResult](/api/dotsider.core.analysis.models.mstatdiffresult/))
+- `totalBasis` ([SizeBasis](/api/dotsider.core.analysis.models.sizebasis/))
+- `currentTotalBytes` ([Int64](https://learn.microsoft.com/dotnet/api/system.int64))
+- `baselineTotalBytes` ([Nullable\<Int64\>](https://learn.microsoft.com/dotnet/api/system.nullable-1))
+- `defaultTopN` ([Int32](https://learn.microsoft.com/dotnet/api/system.int32))
+- `deferGrowthWithoutBaseline` ([Boolean](https://learn.microsoft.com/dotnet/api/system.boolean))
+
+**Returns:** [SizeBudgetReport](/api/dotsider.core.analysis.models.sizebudgetreport/)
+
+```csharp
+public static SizeBudgetReport Evaluate(IReadOnlyList<SizeBudget> budgets, MstatDiffResult diff, SizeBasis totalBasis, long currentTotalBytes, long? baselineTotalBytes, int defaultTopN, bool deferGrowthWithoutBaseline)
+```
+
 ### Evaluate(IReadOnlyList\<SizeBudget\>, MstatDiffResult, SizeBasis, long, long?, int)
 
 Evaluates budgets against a diff.
@@ -45,7 +66,7 @@ The report, failing only on error-severity breaches.
 
 **Exceptions:**
 
-- [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception): A total-scope growth budget was supplied without a baseline; callers reject that combination before evaluating.
+- [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception): A growth budget was supplied without a baseline.
 
 ```csharp
 public static SizeBudgetReport Evaluate(IReadOnlyList<SizeBudget> budgets, MstatDiffResult diff, SizeBasis totalBasis, long currentTotalBytes, long? baselineTotalBytes, int defaultTopN = 10)

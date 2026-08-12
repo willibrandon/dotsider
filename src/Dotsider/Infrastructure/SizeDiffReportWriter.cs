@@ -23,7 +23,9 @@ internal static class SizeDiffReportWriter
         long? LeftTotal,
         int Top,
         IReadOnlyDictionary<string, IReadOnlyList<DgmlPathStep>>? WhyPaths,
-        SizeBudgetReport? Budgets);
+        SizeBudgetReport? Budgets,
+        MstatSource? TargetSource = null,
+        MstatSource? BaselineSource = null);
 
     private const int AggregateRows = 15;
 
@@ -50,9 +52,11 @@ internal static class SizeDiffReportWriter
             .ToList();
 
         return new CliSizeReportPayload(
-            1,
+            2,
             ctx.TargetPath,
             ctx.BaselinePath,
+            ArtifactPayload(ctx.TargetPath, ctx.TargetSource),
+            ctx.BaselinePath is null ? null : ArtifactPayload(ctx.BaselinePath, ctx.BaselineSource),
             ctx.TotalBasis,
             ctx.LeftTotal,
             ctx.RightTotal,
@@ -66,6 +70,9 @@ internal static class SizeDiffReportWriter
             contributors,
             ctx.Budgets);
     }
+
+    private static CliSizeArtifactPayload ArtifactPayload(string inputPath, MstatSource? source) =>
+        new(inputPath, source?.MstatPath ?? inputPath, source?.BinaryPath, source?.DgmlPath);
 
     /// <summary>Writes the human-readable report through the formatter.</summary>
     internal static void WriteText(OutputFormatter fmt, Context ctx)
@@ -114,7 +121,8 @@ internal static class SizeDiffReportWriter
 
             fmt.WriteLine("");
             fmt.WriteLine(budgets.Passed
-                ? budgets.HasWarnings ? "Result: PASS (with warnings)" : "Result: PASS"
+                ? budgets.HasWarnings || budgets.HasDeferred
+                    ? "Result: PASS (with warnings)" : "Result: PASS"
                 : "Result: FAIL (a size budget was exceeded)");
         }
     }
@@ -196,6 +204,9 @@ internal static class SizeDiffReportWriter
                         : ""));
         }
 
+        foreach (var metric in evaluation.DeferredMetrics)
+            fmt.WriteLine($"        {MetricName(metric)}: deferred until a baseline exists");
+
         if (!evaluation.Passed && evaluation.TopContributors.Count > 0)
         {
             fmt.WriteLine("        Top contributors:");
@@ -219,8 +230,8 @@ internal static class SizeDiffReportWriter
             sb.AppendLine();
             var modeSuffix = currentMode ? " No baseline comparison was run." : "";
             sb.AppendLine((statusBudgets.Passed
-                ? statusBudgets.HasWarnings
-                    ? "⚠️ **PASS with warnings** — all error-severity size budgets passed."
+                ? statusBudgets.HasWarnings || statusBudgets.HasDeferred
+                    ? "⚠️ **PASS with warnings** — evaluated size budgets passed."
                     : "✅ **PASS** — all size budgets passed."
                 : "❌ **FAIL** — a size budget was exceeded.") + modeSuffix);
         }
@@ -284,8 +295,9 @@ internal static class SizeDiffReportWriter
         AppendSectionHeading(sb, "Budgets");
         foreach (var evaluation in budgets.Evaluations)
         {
-            var verdict = evaluation.Passed ? "✅ PASS"
-                : evaluation.Budget.Severity == SizeBudgetSeverity.Warning ? "⚠️ WARN" : "❌ FAIL";
+            var verdict = !evaluation.Passed
+                ? evaluation.Budget.Severity == SizeBudgetSeverity.Warning ? "⚠️ WARN" : "❌ FAIL"
+                : evaluation.DeferredMetrics.Count > 0 ? "⏸️ DEFERRED" : "✅ PASS";
             var value = evaluation.BaselineBytes is { } b
                 ? $"{MarkdownSize(DotsiderState.FormatSize(b))} → "
                     + MarkdownSize(DotsiderState.FormatSize(evaluation.ActualBytes))
@@ -293,6 +305,12 @@ internal static class SizeDiffReportWriter
             sb.AppendLine($"- **{verdict}** — {MarkdownCodeSpan(BudgetLabel(evaluation.Budget))}");
             sb.AppendLine($"  - **Value:** {value}");
             sb.AppendLine($"  - **Basis:** {BasisName(evaluation.Basis)}");
+            if (evaluation.DeferredMetrics.Count > 0)
+            {
+                sb.AppendLine("  - **Deferred:** "
+                    + string.Join(", ", evaluation.DeferredMetrics.Select(MetricName))
+                    + " until a baseline exists");
+            }
         }
 
         foreach (var evaluation in budgets.Evaluations.Where(e => !e.Passed))

@@ -81,8 +81,10 @@ function isSizeReport(value) {
         return false;
     }
     const report = value;
-    return report.schemaVersion === 1
+    return report.schemaVersion === 2
         && typeof report.target === "string"
+        && !!report.targetArtifacts
+        && typeof report.targetArtifacts.mstatPath === "string"
         && typeof report.totalBasis === "string"
         && typeof report.rightTotal === "number"
         && !!report.summary
@@ -95,12 +97,12 @@ function classifyResult(exitCode, report) {
     if (exitCode !== 0 || report === undefined) {
         return "error";
     }
-    if (report.budgets?.hasWarnings === true) {
+    if (report.budgets?.hasWarnings === true || report.budgets?.hasDeferred === true) {
         return "passed-with-warnings";
     }
     return "passed";
 }
-function createStableOutputs(execution, artifactName, dotsiderVersion) {
+function createStableOutputs(execution, artifactName, dotsiderVersion, baselineSource) {
     const report = execution.report;
     const evaluations = report?.budgets?.evaluations ?? [];
     const violationCount = evaluations.reduce((count, evaluation) => count + (evaluation.violations?.length ?? 0), 0);
@@ -116,6 +118,11 @@ function createStableOutputs(execution, artifactName, dotsiderVersion) {
         currentTotal: numberOutput(report?.rightTotal),
         delta: numberOutput(report?.summary.delta),
         violationCount: String(violationCount),
+        baselineStatus: baselineSource?.status ?? "",
+        baselineSourceId: baselineSource?.id ?? "",
+        baselineSourceCommit: baselineSource?.commit ?? "",
+        baselineSourceUrl: baselineSource?.url ?? "",
+        baselineArtifactName: baselineSource?.artifactName ?? "",
     };
 }
 function createErrorOutputs(artifactName, dotsiderVersion) {
@@ -131,6 +138,11 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
         currentTotal: "",
         delta: "",
         violationCount: "0",
+        baselineStatus: "",
+        baselineSourceId: "",
+        baselineSourceCommit: "",
+        baselineSourceUrl: "",
+        baselineArtifactName: "",
     };
 }
 function formatSizeCheckSummary(outputs) {

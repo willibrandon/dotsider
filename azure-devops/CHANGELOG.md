@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.0
+
+- Discover matching successful branch baselines automatically and retain passing branch builds for later comparisons.
+- Defer growth budgets on a genuine first run while continuing to enforce absolute limits.
+- Report the source build, commit, URL, artifact identity, and resolved size sidecars.
+
 ## 0.24.9
 
 - Align the size-check verdict with the rest of the report in GitHub and Azure Pipelines summaries.

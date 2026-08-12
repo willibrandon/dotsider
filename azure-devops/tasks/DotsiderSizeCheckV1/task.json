@@ -4,7 +4,7 @@
   "name": "DotsiderSizeCheck",
   "friendlyName": "Dotsider size check",
   "description": "Enforce NativeAOT size budgets and publish JSON and Markdown reports.",
-  "helpMarkDown": "Runs Dotsider against an application published with NativeAOT size sidecars. Omit the baseline for absolute budgets or supply one to compare builds.",
+  "helpMarkDown": "Runs Dotsider against an application published with NativeAOT size sidecars. Successful branch builds are retained automatically and pull requests compare with their target branch.",
   "category": "Build",
   "author": "willibrandon",
   "version": {
@@ -30,6 +30,14 @@
       "defaultValue": "",
       "required": false,
       "helpMarkDown": "Optional NativeAOT binary or .mstat report to compare with the target."
+    },
+    {
+      "name": "baselineKey",
+      "type": "string",
+      "label": "Baseline key",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Stable logical target key when the target path is temporary or otherwise changes between builds."
     },
     {
       "name": "budgets",
@@ -156,6 +164,26 @@
     {
       "name": "violationCount",
       "description": "Number of budget violations."
+    },
+    {
+      "name": "baselineStatus",
+      "description": "explicit, restored, or not-found."
+    },
+    {
+      "name": "baselineSourceId",
+      "description": "Provider build ID used as the baseline."
+    },
+    {
+      "name": "baselineSourceCommit",
+      "description": "Commit used as the baseline."
+    },
+    {
+      "name": "baselineSourceUrl",
+      "description": "Provider URL for the baseline build."
+    },
+    {
+      "name": "baselineArtifactName",
+      "description": "Managed baseline artifact name."
     }
   ],
   "execution": {
@@ -179,7 +207,12 @@
         "baselineTotal",
         "currentTotal",
         "delta",
-        "violationCount"
+        "violationCount",
+        "baselineStatus",
+        "baselineSourceId",
+        "baselineSourceCommit",
+        "baselineSourceUrl",
+        "baselineArtifactName"
       ]
     }
   }
