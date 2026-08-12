@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Restore managed baselines when Azure supplies a pull-request target branch without the `refs/heads/` prefix.
+
 ## 0.25.0
 
 - Discover matching successful branch baselines automatically and retain passing branch builds for later comparisons.

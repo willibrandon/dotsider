@@ -288,10 +288,13 @@ async function tryAzureArtifact(url: string, token: string): Promise<AzureArtifa
 }
 
 function targetBranch(environment: NodeJS.ProcessEnv): string | undefined {
-  const value = environment.BUILD_REASON === "PullRequest"
+  const pullRequest = environment.BUILD_REASON === "PullRequest";
+  const value = (pullRequest
     ? environment.SYSTEM_PULLREQUEST_TARGETBRANCH
-    : environment.BUILD_SOURCEBRANCH;
-  return value?.startsWith("refs/heads/") ? value : undefined;
+    : environment.BUILD_SOURCEBRANCH)?.trim();
+  if (!value) return undefined;
+  if (value.startsWith("refs/heads/")) return value;
+  return pullRequest && !value.startsWith("refs/") ? `refs/heads/${value}` : undefined;
 }
 
 function findEndOfCentralDirectory(buffer: Buffer): number {
