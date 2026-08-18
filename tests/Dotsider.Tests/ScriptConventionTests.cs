@@ -196,6 +196,8 @@ public sealed partial class ScriptConventionTests : IDisposable
             "artifact-name: dotsider-size-check-integration-fixture-${{ matrix.rid }}",
             job);
         Assert.DoesNotContain("dotsider-size-check-pass-", job);
+        Assert.DoesNotContain("baseline-key:", job);
+        Assert.DoesNotContain("baseline-status }}' -ne 'not-found'", job);
     }
 
     /// <summary>

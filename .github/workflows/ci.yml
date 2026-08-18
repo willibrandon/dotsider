@@ -350,10 +350,8 @@ jobs:
         uses: ./
         with:
           target: ${{ steps.integration-assets.outputs.target }}
-          baseline-key: first-run-${{ matrix.rid }}-${{ github.run_id }}
-          budgets: |
-            max=1gb
-            growth=1%
+          baseline: ${{ steps.integration-assets.outputs.baseline }}
+          budgets: max=1gb
           dotsider-path: ${{ steps.integration-assets.outputs.exe }}
           report-directory: ${{ runner.temp }}/dotsider-absolute
           publish-summary: 'false'
@@ -362,14 +360,14 @@ jobs:
       - name: Assert absolute-budget action output
         shell: pwsh
         run: |
-          if ('${{ steps.absolute.outputs.result }}' -ne 'passed-with-warnings') { throw 'Expected deferred growth warning.' }
+          if ('${{ steps.absolute.outputs.result }}' -ne 'passed') { throw 'Expected passed result.' }
           if ('${{ steps.absolute.outputs.exit-code }}' -ne '0') { throw 'Expected absolute budget exit code 0.' }
-          if ('${{ steps.absolute.outputs.baseline-status }}' -ne 'not-found') { throw 'Expected a first-run baseline status.' }
-          if (-not [string]::IsNullOrWhiteSpace('${{ steps.absolute.outputs.baseline-total }}')) { throw 'Expected no baseline total.' }
+          if ('${{ steps.absolute.outputs.baseline-status }}' -ne 'explicit') { throw 'Expected an explicit baseline status.' }
+          if ([string]::IsNullOrWhiteSpace('${{ steps.absolute.outputs.baseline-total }}')) { throw 'Expected a baseline total.' }
           if (-not (Test-Path -LiteralPath '${{ steps.absolute.outputs.json-report-path }}')) { throw 'Missing absolute JSON report.' }
           if (-not (Test-Path -LiteralPath '${{ steps.absolute.outputs.markdown-report-path }}')) { throw 'Missing absolute Markdown report.' }
           $report = Get-Content -Raw -LiteralPath '${{ steps.absolute.outputs.json-report-path }}' | ConvertFrom-Json
-          if (-not $report.budgets.hasDeferred) { throw 'Expected growth budgets to be deferred.' }
+          if ($report.budgets.hasDeferred) { throw 'Expected every budget to be evaluated.' }
 
       - name: Test shared runtime and Azure handler on Node.js 24
         run: pnpm --dir integrations/size-check test:integration
