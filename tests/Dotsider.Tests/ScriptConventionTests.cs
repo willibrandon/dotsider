@@ -167,6 +167,38 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     /// <summary>
+    /// Keeps deliberately different size-check fixtures from being presented as
+    /// pull-request size measurements in GitHub job summaries.
+    /// </summary>
+    [TestMethod]
+    public void SizeCheckIntegration_DoesNotPublishFixtureReportsAsPullRequestSummaries()
+    {
+        string root = FindRepositoryRoot();
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        int jobStart = workflow.IndexOf("  size-check-integrations:", StringComparison.Ordinal);
+        int jobEnd = workflow.IndexOf("  deploy-tests:", jobStart, StringComparison.Ordinal);
+
+        Assert.IsGreaterThanOrEqualTo(0, jobStart);
+        Assert.IsGreaterThan(jobStart, jobEnd);
+        string job = workflow[jobStart..jobEnd];
+        MatchCollection actionSteps = Regex.Matches(
+            job,
+            @"(?ms)^      - name: Run action .+?(?=^      - name:|\z)");
+
+        Assert.HasCount(3, actionSteps);
+        foreach (Match actionStep in actionSteps)
+        {
+            Assert.Contains("uses: ./", actionStep.Value);
+            Assert.Contains("publish-summary: 'false'", actionStep.Value);
+        }
+
+        Assert.Contains(
+            "artifact-name: dotsider-size-check-integration-fixture-${{ matrix.rid }}",
+            job);
+        Assert.DoesNotContain("dotsider-size-check-pass-", job);
+    }
+
+    /// <summary>
     /// Verifies the development container initializer builds and exposes safe usage text.
     /// Help must not restore dependencies or change the developer's global tool installation.
     /// The real initialization path is exercised when CI creates the development container.

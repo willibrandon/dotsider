@@ -310,7 +310,11 @@ jobs:
           why: 'true'
           dotsider-version: not-a-release
           dotsider-path: ${{ steps.integration-assets.outputs.exe }}
-          artifact-name: dotsider-size-check-pass-${{ matrix.rid }}
+          # This deliberately compares different test fixtures. Keep its report
+          # available for integration diagnostics without presenting it as a PR
+          # size result in the job summary.
+          publish-summary: 'false'
+          artifact-name: dotsider-size-check-integration-fixture-${{ matrix.rid }}
 
       - name: Assert passing action outputs
         shell: pwsh
@@ -332,6 +336,7 @@ jobs:
           budget-file: integrations/size-check/test/fixtures/warning-budgets.json
           dotsider-path: ${{ steps.integration-assets.outputs.exe }}
           report-directory: ${{ runner.temp }}/dotsider-warning
+          publish-summary: 'false'
           upload-reports: 'false'
 
       - name: Assert warning action output
@@ -351,6 +356,7 @@ jobs:
             growth=1%
           dotsider-path: ${{ steps.integration-assets.outputs.exe }}
           report-directory: ${{ runner.temp }}/dotsider-absolute
+          publish-summary: 'false'
           upload-reports: 'false'
 
       - name: Assert absolute-budget action output
