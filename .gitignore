@@ -499,6 +499,7 @@ $RECYCLE.BIN/
 
 # Dotnet CLI supporting files
 .dotnet_cli/
+.dotnet/
 
 # Playwright CLI files
 .playwright-cli/
