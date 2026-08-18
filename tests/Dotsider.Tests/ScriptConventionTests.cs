@@ -167,37 +167,17 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     /// <summary>
-    /// Keeps deliberately different size-check fixtures from being presented as
-    /// pull-request size measurements in GitHub job summaries.
+    /// Prevents repository CI from publishing Dotsider size-check reports or baselines.
     /// </summary>
     [TestMethod]
-    public void SizeCheckIntegration_DoesNotPublishFixtureReportsAsPullRequestSummaries()
+    public void ContinuousIntegration_DoesNotRunSizeChecks()
     {
         string root = FindRepositoryRoot();
         string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
-        int jobStart = workflow.IndexOf("  size-check-integrations:", StringComparison.Ordinal);
-        int jobEnd = workflow.IndexOf("  deploy-tests:", jobStart, StringComparison.Ordinal);
 
-        Assert.IsGreaterThanOrEqualTo(0, jobStart);
-        Assert.IsGreaterThan(jobStart, jobEnd);
-        string job = workflow[jobStart..jobEnd];
-        MatchCollection actionSteps = Regex.Matches(
-            job,
-            @"(?ms)^      - name: Run action .+?(?=^      - name:|\z)");
-
-        Assert.HasCount(3, actionSteps);
-        foreach (Match actionStep in actionSteps)
-        {
-            Assert.Contains("uses: ./", actionStep.Value);
-            Assert.Contains("publish-summary: 'false'", actionStep.Value);
-        }
-
-        Assert.Contains(
-            "artifact-name: dotsider-size-check-integration-fixture-${{ matrix.rid }}",
-            job);
-        Assert.DoesNotContain("dotsider-size-check-pass-", job);
-        Assert.DoesNotContain("baseline-key:", job);
-        Assert.DoesNotContain("baseline-status }}' -ne 'not-found'", job);
+        Assert.DoesNotContain("  size-check-integrations:", workflow);
+        Assert.DoesNotContain("DOTSIDER_INTEGRATION_", workflow);
+        Assert.DoesNotContain("artifact-name: dotsider-size-check-", workflow);
     }
 
     /// <summary>
