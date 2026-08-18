@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
-import { enrichReports, restoreBaseline, stageBaseline } from "./baseline";
+import { enrichReports, formatBaselineWarning, restoreBaseline, stageBaseline } from "./baseline";
 import { discoverGithubBaseline } from "./github-baseline";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
@@ -89,6 +89,8 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
     const restored = await restoreBaseline(directory, discovery.identity, source);
     inputs = { ...inputs, baseline: restored.targetPath };
   }
+  const baselineWarning = formatBaselineWarning(source);
+  if (baselineWarning) command("warning", {}, baselineWarning);
 
   const execution = await executeSizeCheck(executable, inputs, source.status === "not-found");
   if (execution.report && await fileExists(execution.markdownReportPath)) {
@@ -105,7 +107,7 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   let baselineUploadPath = "";
   let publishBaseline = false;
   if (discovery.publish && execution.report
-      && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+      && (outputs.result === "passed" || outputs.result === "passed-with-warnings")) {
     source = currentGithubSource(discovery.artifactName);
     baselineUploadPath = await stageBaseline(
       execution.report,
@@ -239,6 +241,8 @@ function writeStableOutputs(outputs: StableOutputs): void {
     "baseline-source-commit": outputs.baselineSourceCommit,
     "baseline-source-url": outputs.baselineSourceUrl,
     "baseline-artifact-name": outputs.baselineArtifactName,
+    "baseline-target-commit": outputs.baselineTargetCommit,
+    "baseline-freshness": outputs.baselineFreshness,
   });
 }
 

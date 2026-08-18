@@ -150,7 +150,9 @@ dotsider size-check out/pr/app --budget max=25mb                        # absolu
 
 Run the action or task on pull requests and the target branch. The first successful branch
 run enforces absolute limits and stores a managed baseline; later pull requests compare with
-the newest successful target-branch run:
+the newest successful target-branch run. If that run does not match the target parent of the
+pull-request merge that was actually tested, Dotsider warns with both commits and the source
+run while still evaluating the available baseline and every budget:
 
 ```yaml
 - name: Check NativeAOT size

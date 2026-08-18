@@ -112,6 +112,9 @@ async function run(onOutputs) {
         const restored = await (0, baseline_1.restoreBaseline)(directory, discovery.identity, source);
         inputs = { ...inputs, baseline: restored.targetPath };
     }
+    const baselineWarning = (0, baseline_1.formatBaselineWarning)(source);
+    if (baselineWarning)
+        command("warning", {}, baselineWarning);
     const execution = await (0, process_1.executeSizeCheck)(executable, inputs, source.status === "not-found");
     if (execution.report && await fileExists(execution.markdownReportPath)) {
         execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, source);
@@ -122,7 +125,7 @@ async function run(onOutputs) {
     let baselineUploadPath = "";
     let publishBaseline = false;
     if (discovery.publish && execution.report
-        && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+        && (outputs.result === "passed" || outputs.result === "passed-with-warnings")) {
         source = currentGithubSource(discovery.artifactName);
         baselineUploadPath = await (0, baseline_1.stageBaseline)(execution.report, discovery.identity, source, pathForBaseline(inputs.reportDirectory));
         publishBaseline = true;
@@ -240,6 +243,8 @@ function writeStableOutputs(outputs) {
         "baseline-source-commit": outputs.baselineSourceCommit,
         "baseline-source-url": outputs.baselineSourceUrl,
         "baseline-artifact-name": outputs.baselineArtifactName,
+        "baseline-target-commit": outputs.baselineTargetCommit,
+        "baseline-freshness": outputs.baselineFreshness,
     });
 }
 function writeOutputs(outputs) {

@@ -98,7 +98,7 @@ export function createStableOutputs(
   );
 
   return {
-    result: execution.result,
+    result: resultWithBaselineWarning(execution.result, baselineSource),
     exitCode: String(execution.exitCode),
     jsonReportPath: path.resolve(execution.jsonReportPath),
     markdownReportPath: path.resolve(execution.markdownReportPath),
@@ -114,6 +114,8 @@ export function createStableOutputs(
     baselineSourceCommit: baselineSource?.commit ?? "",
     baselineSourceUrl: baselineSource?.url ?? "",
     baselineArtifactName: baselineSource?.artifactName ?? "",
+    baselineTargetCommit: baselineSource?.targetCommit ?? "",
+    baselineFreshness: baselineSource?.freshness ?? "",
   };
 }
 
@@ -138,7 +140,18 @@ export function createErrorOutputs(
     baselineSourceCommit: "",
     baselineSourceUrl: "",
     baselineArtifactName: "",
+    baselineTargetCommit: "",
+    baselineFreshness: "",
   };
+}
+
+function resultWithBaselineWarning(
+  result: SizeCheckExecution["result"],
+  source: BaselineSource | undefined,
+): SizeCheckExecution["result"] {
+  return result === "passed" && (source?.freshness === "stale" || source?.freshness === "unknown")
+    ? "passed-with-warnings"
+    : result;
 }
 
 export function formatSizeCheckSummary(outputs: SizeCheckSummary): string {

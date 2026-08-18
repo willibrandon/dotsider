@@ -226,14 +226,50 @@ export async function enrichReports(
 
   const markdown = await fs.readFile(markdownPath, "utf8");
   const baselineLine = formatBaselineSource(source);
+  const warning = formatBaselineWarningMarkdown(source);
   const firstSection = /\r?\n---\r?\n/u.exec(markdown);
   const newline = markdown.includes("\r\n") ? "\r\n" : "\n";
+  const provenance = warning
+    ? `${baselineLine}${newline}${newline}> **Warning:** ${warning}`
+    : baselineLine;
   const enriched = firstSection?.index !== undefined
-    ? `${markdown.slice(0, firstSection.index).trimEnd()}${newline}${newline}${baselineLine}${newline}`
+    ? `${markdown.slice(0, firstSection.index).trimEnd()}${newline}${newline}${provenance}${newline}`
       + markdown.slice(firstSection.index)
-    : `${markdown.trimEnd()}${newline}${newline}${baselineLine}${newline}`;
+    : `${markdown.trimEnd()}${newline}${newline}${provenance}${newline}`;
   await fs.writeFile(markdownPath, enriched, "utf8");
   return report;
+}
+
+export function withManagedBaselineFreshness(
+  source: BaselineSource,
+  pullRequest: boolean,
+  targetCommit: string | undefined,
+): BaselineSource {
+  if (!pullRequest || source.status !== "restored") return source;
+  const target = targetCommit?.trim();
+  if (!target) return { ...source, freshness: "unknown" };
+  const baseline = source.commit?.trim();
+  return {
+    ...source,
+    targetCommit: target,
+    freshness: baseline && baseline.toLowerCase() === target.toLowerCase() ? "current" : "stale",
+  };
+}
+
+export function formatBaselineWarning(source: BaselineSource): string | undefined {
+  if (source.freshness === "stale") {
+    return "The managed baseline does not match this pull request target. "
+      + `The pull request targets commit '${shortCommit(source.targetCommit)}', but Dotsider restored commit `
+      + `'${shortCommit(source.commit)}' from ${plainSourceLabel(source)}. `
+      + `${refreshGuidance(source)} The available baseline and all configured budgets are still evaluated.`;
+  }
+  if (source.freshness === "unknown") {
+    return "Dotsider could not verify whether the managed baseline matches this pull request target. "
+      + `It restored commit '${shortCommit(source.commit)}' from ${plainSourceLabel(source)}, but could not determine `
+      + "the target commit. Ensure the triggering repository is checked out so Dotsider can inspect the pull request "
+      + "merge commit. The available baseline and all configured budgets are still evaluated.";
+  }
+  return undefined;
 }
 
 function formatBaselineSource(source: BaselineSource): string {
@@ -249,6 +285,51 @@ function formatBaselineSource(source: BaselineSource): string {
   const commit = source.commit ? ` at ${markdownCodeSpan(source.commit.slice(0, 12))}` : "";
   const branch = source.branch ? ` on ${markdownCodeSpan(source.branch)}` : "";
   return `**Baseline:** Restored from ${linked}${commit}${branch}.`;
+}
+
+function formatBaselineWarningMarkdown(source: BaselineSource): string | undefined {
+  if (source.freshness === "stale") {
+    return "The managed baseline does not match this pull request target. "
+      + `The pull request targets commit ${markdownCodeSpan(shortCommit(source.targetCommit))}, but Dotsider restored `
+      + `commit ${markdownCodeSpan(shortCommit(source.commit))} from ${markdownSourceLabel(source)}. `
+      + `${refreshGuidanceMarkdown(source)} The available baseline and all configured budgets are still evaluated.`;
+  }
+  if (source.freshness === "unknown") {
+    return "Dotsider could not verify whether the managed baseline matches this pull request target. "
+      + `It restored commit ${markdownCodeSpan(shortCommit(source.commit))} from ${markdownSourceLabel(source)}, but `
+      + "could not determine the target commit. Ensure the triggering repository is checked out so Dotsider can "
+      + "inspect the pull request merge commit. The available baseline and all configured budgets are still evaluated.";
+  }
+  return undefined;
+}
+
+function plainSourceLabel(source: BaselineSource): string {
+  const label = sourceLabel(source);
+  return source.url ? `${label} (${source.url})` : label;
+}
+
+function markdownSourceLabel(source: BaselineSource): string {
+  const label = sourceLabel(source);
+  return source.url ? `[${label}](${source.url})` : label;
+}
+
+function sourceLabel(source: BaselineSource): string {
+  const provider = source.provider === "azure-pipelines" ? "Azure Pipelines build" : "GitHub Actions run";
+  return `${provider} ${source.number ?? source.id ?? "unknown"}`;
+}
+
+function refreshGuidance(source: BaselineSource): string {
+  const branch = source.branch ? ` '${source.branch}'` : "";
+  return `The target branch${branch} needs a successful Dotsider size-check run to publish a current baseline.`;
+}
+
+function refreshGuidanceMarkdown(source: BaselineSource): string {
+  const branch = source.branch ? ` ${markdownCodeSpan(source.branch)}` : "";
+  return `The target branch${branch} needs a successful Dotsider size-check run to publish a current baseline.`;
+}
+
+function shortCommit(value: string | undefined): string {
+  return value?.slice(0, 12) || "unknown";
 }
 
 function markdownCodeSpan(value: string): string {

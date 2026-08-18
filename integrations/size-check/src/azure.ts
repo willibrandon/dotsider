@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
 import { discoverAzureBaseline } from "./azure-baseline";
-import { enrichReports, restoreBaseline, stageBaseline } from "./baseline";
+import { enrichReports, formatBaselineWarning, restoreBaseline, stageBaseline } from "./baseline";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
 import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
@@ -50,6 +50,8 @@ async function main(): Promise<void> {
       );
       inputs = { ...inputs, baseline: restored.targetPath };
     }
+    const baselineWarning = formatBaselineWarning(discovery.source);
+    if (baselineWarning) vso("task.logissue", { type: "warning" }, baselineWarning);
     const execution = await executeSizeCheck(
       executable,
       inputs,
@@ -84,7 +86,7 @@ async function main(): Promise<void> {
       vso("artifact.upload", { artifactname: inputs.artifactName }, inputs.reportDirectory);
     }
     if (discovery.publish && execution.report
-      && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+      && (outputs.result === "passed" || outputs.result === "passed-with-warnings")) {
       const baselineDirectory = path.join(
         process.env.AGENT_TEMPDIRECTORY || os.tmpdir(),
         "dotsider-baseline-upload",
@@ -100,7 +102,7 @@ async function main(): Promise<void> {
     }
 
     if (execution.exitCode === 0) {
-      complete("Succeeded", execution.result === "passed-with-warnings"
+      complete("Succeeded", outputs.result === "passed-with-warnings"
         ? "Dotsider size check passed with warnings."
         : "Dotsider size check passed.");
       return;

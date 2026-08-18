@@ -13,7 +13,8 @@ import {
   validateArchiveEntries,
 } from "../src/acquisition";
 import { createInputs, parseBudgets, parseTop } from "../src/input";
-import { buildSizeCheckArguments, formatSizeCheckSummary } from "../src/report";
+import { buildSizeCheckArguments, createStableOutputs, formatSizeCheckSummary } from "../src/report";
+import { SizeCheckExecution } from "../src/types";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
 test("buildSizeCheckArguments forwards every typed input as separate arguments", () => {
@@ -108,6 +109,35 @@ test("formatSizeCheckSummary identifies a current build without a baseline total
     delta: "36029560",
     violationCount: "0",
   }), "current build (no baseline comparison); 34.4 MB total (fileSize)");
+});
+
+test("stable outputs promote only successful stale comparisons to passed-with-warnings", () => {
+  const execution: SizeCheckExecution = {
+    result: "passed",
+    exitCode: 0,
+    jsonReportPath: "report.json",
+    markdownReportPath: "report.md",
+    stderr: "",
+  };
+  const source = {
+    status: "restored" as const,
+    provider: "github-actions" as const,
+    commit: "1111111111111111111111111111111111111111",
+    targetCommit: "2222222222222222222222222222222222222222",
+    freshness: "stale" as const,
+  };
+
+  const passed = createStableOutputs(execution, "report", "custom", source);
+  const unknown = createStableOutputs(execution, "report", "custom", { ...source, freshness: "unknown" });
+  const failed = createStableOutputs({ ...execution, result: "budget-failed", exitCode: 2 }, "report", "custom", source);
+
+  assert.equal(passed.result, "passed-with-warnings");
+  assert.equal(unknown.result, "passed-with-warnings");
+  assert.equal(passed.exitCode, "0");
+  assert.equal(passed.baselineTargetCommit, source.targetCommit);
+  assert.equal(passed.baselineFreshness, "stale");
+  assert.equal(failed.result, "budget-failed");
+  assert.equal(failed.exitCode, "2");
 });
 
 test("parseBudgets repeats nonempty budget lines in order", () => {

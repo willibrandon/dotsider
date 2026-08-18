@@ -80,6 +80,9 @@ async function main() {
             const restored = await (0, baseline_1.restoreBaseline)(discovery.downloadDirectory || "", discovery.identity, discovery.source);
             inputs = { ...inputs, baseline: restored.targetPath };
         }
+        const baselineWarning = (0, baseline_1.formatBaselineWarning)(discovery.source);
+        if (baselineWarning)
+            vso("task.logissue", { type: "warning" }, baselineWarning);
         const execution = await (0, process_1.executeSizeCheck)(executable, inputs, discovery.source.status === "not-found");
         if (execution.report && await fileExists(execution.markdownReportPath)) {
             execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, discovery.source);
@@ -100,13 +103,13 @@ async function main() {
             vso("artifact.upload", { artifactname: inputs.artifactName }, inputs.reportDirectory);
         }
         if (discovery.publish && execution.report
-            && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
+            && (outputs.result === "passed" || outputs.result === "passed-with-warnings")) {
             const baselineDirectory = path.join(process.env.AGENT_TEMPDIRECTORY || os.tmpdir(), "dotsider-baseline-upload", discovery.artifactName);
             await (0, baseline_1.stageBaseline)(execution.report, discovery.identity, currentAzureSource(discovery.artifactName), baselineDirectory);
             vso("artifact.upload", { artifactname: discovery.artifactName }, baselineDirectory);
         }
         if (execution.exitCode === 0) {
-            complete("Succeeded", execution.result === "passed-with-warnings"
+            complete("Succeeded", outputs.result === "passed-with-warnings"
                 ? "Dotsider size check passed with warnings."
                 : "Dotsider size check passed.");
             return;

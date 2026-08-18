@@ -52,6 +52,7 @@ export interface SizeArtifactPaths {
 
 export type BaselineStatus = "explicit" | "restored" | "not-found";
 export type BaselineProvider = "github-actions" | "azure-pipelines";
+export type BaselineFreshness = "current" | "stale" | "unknown";
 
 export interface BaselineSource {
   status: BaselineStatus;
@@ -63,6 +64,8 @@ export interface BaselineSource {
   url?: string;
   artifactName?: string;
   path?: string;
+  targetCommit?: string;
+  freshness?: BaselineFreshness;
 }
 
 export interface SizeReport {
@@ -107,6 +110,8 @@ export interface StableOutputs {
   baselineSourceCommit: string;
   baselineSourceUrl: string;
   baselineArtifactName: string;
+  baselineTargetCommit: string;
+  baselineFreshness: BaselineFreshness | "";
 }
 
 export interface BaselineIdentity {

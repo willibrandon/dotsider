@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.3
+
+- Warn when a managed pull-request baseline does not match the target commit while continuing to evaluate the available baseline and all budgets.
+- Expose the pull-request target commit and baseline freshness in reports and output variables.
+
 ## 0.25.2
 
 - Link the Marketplace overview and Get Started entry directly to the CI integration guide and source.

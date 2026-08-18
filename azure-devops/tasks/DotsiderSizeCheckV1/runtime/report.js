@@ -107,7 +107,7 @@ function createStableOutputs(execution, artifactName, dotsiderVersion, baselineS
     const evaluations = report?.budgets?.evaluations ?? [];
     const violationCount = evaluations.reduce((count, evaluation) => count + (evaluation.violations?.length ?? 0), 0);
     return {
-        result: execution.result,
+        result: resultWithBaselineWarning(execution.result, baselineSource),
         exitCode: String(execution.exitCode),
         jsonReportPath: path.resolve(execution.jsonReportPath),
         markdownReportPath: path.resolve(execution.markdownReportPath),
@@ -123,6 +123,8 @@ function createStableOutputs(execution, artifactName, dotsiderVersion, baselineS
         baselineSourceCommit: baselineSource?.commit ?? "",
         baselineSourceUrl: baselineSource?.url ?? "",
         baselineArtifactName: baselineSource?.artifactName ?? "",
+        baselineTargetCommit: baselineSource?.targetCommit ?? "",
+        baselineFreshness: baselineSource?.freshness ?? "",
     };
 }
 function createErrorOutputs(artifactName, dotsiderVersion) {
@@ -143,7 +145,14 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
         baselineSourceCommit: "",
         baselineSourceUrl: "",
         baselineArtifactName: "",
+        baselineTargetCommit: "",
+        baselineFreshness: "",
     };
+}
+function resultWithBaselineWarning(result, source) {
+    return result === "passed" && (source?.freshness === "stale" || source?.freshness === "unknown")
+        ? "passed-with-warnings"
+        : result;
 }
 function formatSizeCheckSummary(outputs) {
     const parts = [];

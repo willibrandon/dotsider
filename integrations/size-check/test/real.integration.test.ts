@@ -6,9 +6,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import { parseChecksum, prepareTool, verifyChecksum } from "../src/acquisition";
+import { stageBaseline } from "../src/baseline";
 import { executeSizeCheck } from "../src/process";
 import { createStableOutputs } from "../src/report";
-import { SizeCheckInputs } from "../src/types";
+import { SizeCheckInputs, SizeReport } from "../src/types";
 
 const executable = required("DOTSIDER_INTEGRATION_EXE");
 const baseline = required("DOTSIDER_INTEGRATION_BASELINE");
@@ -158,6 +159,8 @@ test("real absolute budget without a baseline passes", async () => {
     "baselineSourceCommit",
     "baselineSourceUrl",
     "baselineArtifactName",
+    "baselineTargetCommit",
+    "baselineFreshness",
   ]);
   assert.equal(outputs.baselineTotal, "");
   assert.deepEqual(
@@ -260,6 +263,89 @@ test("GitHub adapter exposes a deferred first-run result for growth without a st
   assert.equal(outputs.get("exit-code"), "0");
   assert.equal(outputs.get("baseline-status"), "not-found");
   assert.equal(outputs.has("mode"), false);
+});
+
+test("GitHub adapter warns for a stale managed baseline while completing the real comparison", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-stale-baseline-"));
+  const outputPath = path.join(directory, "github-output.txt");
+  const summaryPath = path.join(directory, "github-summary.md");
+  const reportDirectory = path.join(directory, "reports");
+  const staged = path.join(directory, "baseline");
+  const artifactName = "dotsider-baseline-test";
+  const identity = {
+    provider: "github-actions" as const,
+    scope: "owner/repo/ci.yml",
+    job: "size",
+    target: "app",
+    rid: `unused-${process.arch}`,
+  };
+  const storedSource = {
+    status: "restored" as const,
+    provider: "github-actions" as const,
+    branch: "main",
+    commit: "1111111111111111111111111111111111111111",
+    id: "41",
+    number: "9",
+    url: "https://example.test/run/41",
+    artifactName,
+  };
+  const staleSource = {
+    ...storedSource,
+    targetCommit: "2222222222222222222222222222222222222222",
+    freshness: "stale" as const,
+  };
+  const baselineMstat = path.join(path.dirname(baseline), "NativeAotConsole.mstat");
+  const baselineReport: SizeReport = {
+    schemaVersion: 2,
+    target: baseline,
+    targetArtifacts: {
+      inputPath: baseline,
+      binaryPath: baseline,
+      mstatPath: baselineMstat,
+    },
+    totalBasis: "fileSize",
+    leftTotal: null,
+    rightTotal: 1,
+    summary: { delta: 1 },
+  };
+  await stageBaseline(baselineReport, identity, storedSource, staged);
+
+  const child = await runGitHub("run", {
+    GITHUB_OUTPUT: outputPath,
+    GITHUB_STEP_SUMMARY: summaryPath,
+    RUNNER_TEMP: directory,
+    DOTSIDER_INPUT_TARGET: target,
+    DOTSIDER_INPUT_BUDGETS: "total:max=1gb,growth=1gb",
+    DOTSIDER_INPUT_TOP: "10",
+    DOTSIDER_INPUT_WHY: "false",
+    DOTSIDER_INPUT_VERSION: "not-a-release",
+    DOTSIDER_INPUT_PATH: executable,
+    DOTSIDER_INPUT_REPORT_DIRECTORY: reportDirectory,
+    DOTSIDER_INPUT_PUBLISH_SUMMARY: "true",
+    DOTSIDER_INPUT_PUBLISH_REPORTS: "true",
+    DOTSIDER_INPUT_ARTIFACT_NAME: "dotsider-stale-report",
+    DOTSIDER_PREPARED_VERSION: "custom",
+    DOTSIDER_PREPARED_RID: identity.rid,
+    DOTSIDER_PREPARED_CACHE_DIRECTORY: path.dirname(executable),
+    DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
+    DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
+    DOTSIDER_PREPARED_EXPLICIT: "true",
+    DOTSIDER_BASELINE_SOURCE: JSON.stringify(staleSource),
+    DOTSIDER_BASELINE_IDENTITY: JSON.stringify(identity),
+    DOTSIDER_BASELINE_ARTIFACT_NAME: artifactName,
+    DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY: staged,
+    DOTSIDER_BASELINE_PUBLISH: "false",
+  });
+
+  assert.equal(child.exitCode, 0, child.stderr);
+  assert.match(child.stdout, /::warning::The managed baseline does not match this pull request target/u);
+  assert.match(child.stdout, /222222222222.*111111111111.*GitHub Actions run 9/u);
+  const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+  assert.equal(outputs.get("result"), "passed-with-warnings");
+  assert.equal(outputs.get("exit-code"), "0");
+  assert.equal(outputs.get("baseline-target-commit"), staleSource.targetCommit);
+  assert.equal(outputs.get("baseline-freshness"), "stale");
+  assert.match(await fs.readFile(summaryPath, "utf8"), /> \*\*Warning:\*\* The managed baseline does not match/u);
 });
 
 test("real why report contains a dependency chain", async () => {

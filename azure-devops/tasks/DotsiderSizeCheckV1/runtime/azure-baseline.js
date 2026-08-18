@@ -35,7 +35,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.discoverAzureBaseline = discoverAzureBaseline;
 exports.takeAccessToken = takeAccessToken;
+exports.parseGitCommitParents = parseGitCommitParents;
 exports.extractZipArchive = extractZipArchive;
+exports.resolveLocalMergeTargetCommit = resolveLocalMergeTargetCommit;
+const node_child_process_1 = require("node:child_process");
 const node_zlib_1 = require("node:zlib");
 const fs = __importStar(require("node:fs/promises"));
 const path = __importStar(require("node:path"));
@@ -60,7 +63,8 @@ async function discoverAzureBaseline(inputs, preparedRid, environment = process.
     const identity = (0, baseline_1.createBaselineIdentity)("azure-pipelines", `${project}/${definition}`, job, inputs.target, targetRid, inputs.baselineKey, environment.PIPELINE_WORKSPACE || environment.BUILD_SOURCESDIRECTORY, environment.AGENT_TEMPDIRECTORY);
     const artifactName = (0, baseline_1.baselineArtifactName)(identity);
     const branch = targetBranch(environment);
-    const publish = environment.BUILD_REASON !== "PullRequest" && branch !== undefined;
+    const pullRequest = environment.BUILD_REASON === "PullRequest";
+    const publish = !pullRequest && branch !== undefined;
     if (!branch) {
         return {
             identity,
@@ -87,7 +91,10 @@ async function discoverAzureBaseline(inputs, preparedRid, environment = process.
             continue;
         const downloadDirectory = path.join(environment.AGENT_TEMPDIRECTORY || process.cwd(), "dotsider-baseline", artifactName);
         const baselineRoot = await downloadAndExtractZip(artifactUrl, token, downloadDirectory, collection);
-        const source = {
+        const targetCommit = pullRequest
+            ? await resolveAzureTargetCommit(collection, project, token, environment)
+            : undefined;
+        const source = (0, baseline_1.withManagedBaselineFreshness)({
             status: "restored",
             provider: "azure-pipelines",
             branch,
@@ -96,7 +103,7 @@ async function discoverAzureBaseline(inputs, preparedRid, environment = process.
             number: build.buildNumber,
             url: build._links?.web?.href,
             artifactName,
-        };
+        }, pullRequest, targetCommit);
         return { identity, artifactName, source, downloadDirectory: baselineRoot, publish };
     }
     return {
@@ -115,6 +122,21 @@ function takeAccessToken(environment = process.env) {
             + "Run DotsiderSizeCheck in an agent job with access to the current project.");
     }
     return token;
+}
+function parseGitCommitParents(commit) {
+    const parents = [];
+    for (const line of commit.split(/\r?\n/u)) {
+        if (line === "")
+            break;
+        if (!line.startsWith("parent "))
+            continue;
+        const parent = line.slice("parent ".length).trim();
+        if (!/^[0-9a-f]{40,64}$/iu.test(parent)) {
+            throw new Error("The Azure pull-request merge commit contains an invalid parent ID.");
+        }
+        parents.push(parent);
+    }
+    return parents;
 }
 async function extractZipArchive(buffer, destination) {
     if (buffer.length > maximumArchiveBytes)
@@ -252,13 +274,13 @@ async function isFile(filePath) {
         return false;
     }
 }
-async function azureJson(url, token) {
+async function azureJson(url, token, requiredPermission = "read builds and artifacts") {
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) {
-        const permission = response.status === 401 || response.status === 403
-            ? " Grant the project Build Service permission to read builds and artifacts."
+        const permissionGuidance = response.status === 401 || response.status === 403
+            ? ` Grant the project Build Service permission to ${requiredPermission}.`
             : "";
-        throw new Error(`Azure baseline discovery failed with HTTP ${response.status}.${permission}`);
+        throw new Error(`Azure baseline discovery failed with HTTP ${response.status}.${permissionGuidance}`);
     }
     return await response.json();
 }
@@ -284,6 +306,69 @@ function targetBranch(environment) {
     if (value.startsWith("refs/heads/"))
         return value;
     return pullRequest && !value.startsWith("refs/") ? `refs/heads/${value}` : undefined;
+}
+async function resolveAzureTargetCommit(collection, project, token, environment) {
+    const provider = environment.BUILD_REPOSITORY_PROVIDER?.trim().toLowerCase();
+    if (provider === "tfsgit") {
+        const repository = required(environment.BUILD_REPOSITORY_ID, "repository ID");
+        const mergeCommit = requiredCommit(environment.BUILD_SOURCEVERSION, "pull-request merge commit");
+        const url = `${collection}/${encodeURIComponent(project)}/_apis/git/repositories/`
+            + `${encodeURIComponent(repository)}/commits/${encodeURIComponent(mergeCommit)}?api-version=7.1`;
+        const commit = await azureJson(url, token, "read source commit metadata");
+        if (typeof commit.commitId !== "string" || commit.commitId.toLowerCase() !== mergeCommit.toLowerCase()) {
+            throw new Error("Azure returned metadata for a different pull-request merge commit.");
+        }
+        return requiredMergeParent(commit.parents);
+    }
+    return await resolveLocalMergeTargetCommit(environment);
+}
+async function resolveLocalMergeTargetCommit(environment) {
+    const mergeCommit = environment.BUILD_SOURCEVERSION?.trim();
+    if (!mergeCommit || !/^[0-9a-f]{40,64}$/iu.test(mergeCommit))
+        return undefined;
+    for (const repository of repositoryCandidates(environment)) {
+        try {
+            const raw = await readCommitObject(repository, mergeCommit);
+            const parents = parseGitCommitParents(raw);
+            if (parents.length >= 2)
+                return parents[0];
+        }
+        catch {
+            // A checkout is optional for external source providers. Try the next known repository location.
+        }
+    }
+    return undefined;
+}
+function repositoryCandidates(environment) {
+    const roots = [
+        environment.BUILD_REPOSITORY_LOCALPATH,
+        environment.BUILD_SOURCESDIRECTORY,
+        environment.SYSTEM_DEFAULTWORKINGDIRECTORY,
+    ].map(value => value?.trim()).filter((value) => !!value);
+    const name = environment.BUILD_REPOSITORY_NAME?.trim().replaceAll("\\", "/").split("/").pop();
+    return [...new Set([
+            ...roots,
+            ...(name ? roots.map(root => path.join(root, name)) : []),
+        ])];
+}
+async function readCommitObject(repository, commit) {
+    return await new Promise((resolve, reject) => {
+        (0, node_child_process_1.execFile)("git", ["-C", repository, "cat-file", "-p", commit], { encoding: "utf8", maxBuffer: 1024 * 1024, windowsHide: true }, (error, stdout) => error ? reject(error) : resolve(stdout));
+    });
+}
+function requiredMergeParent(parents) {
+    const parent = parents?.[0];
+    if (!parent || (parents?.length ?? 0) < 2 || !/^[0-9a-f]{40,64}$/iu.test(parent)) {
+        throw new Error("Azure did not report a valid pull-request merge commit with a target parent.");
+    }
+    return parent;
+}
+function requiredCommit(value, name) {
+    const commit = required(value, name);
+    if (!/^[0-9a-f]{40,64}$/iu.test(commit)) {
+        throw new Error(`Unable to determine the Azure Pipelines ${name}.`);
+    }
+    return commit;
 }
 function findEndOfCentralDirectory(buffer) {
     const lowerBound = Math.max(0, buffer.length - 65_557);

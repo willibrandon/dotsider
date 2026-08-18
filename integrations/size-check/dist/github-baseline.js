@@ -34,6 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.discoverGithubBaseline = discoverGithubBaseline;
+exports.resolveGithubMergeTargetCommit = resolveGithubMergeTargetCommit;
+const node_child_process_1 = require("node:child_process");
 const fs = __importStar(require("node:fs/promises"));
 const path = __importStar(require("node:path"));
 const baseline_1 = require("./baseline");
@@ -92,7 +94,10 @@ async function discoverGithubBaseline(inputs, preparedRid, environment = process
             || !artifactRunIds.has(run.id)) {
             continue;
         }
-        const source = {
+        const targetCommit = context.pullRequest
+            ? resolveGithubMergeTargetCommit(environment, context.mergeCommit, context.headCommit)
+            : undefined;
+        const source = (0, baseline_1.withManagedBaselineFreshness)({
             status: "restored",
             provider: "github-actions",
             branch: context.branch,
@@ -101,7 +106,7 @@ async function discoverGithubBaseline(inputs, preparedRid, environment = process
             number: String(run.run_number),
             url: run.html_url,
             artifactName,
-        };
+        }, context.pullRequest, targetCommit);
         return {
             identity,
             artifactName,
@@ -127,27 +132,60 @@ async function resolveContext(apiUrl, repository, token, environment) {
     const eventName = environment.GITHUB_EVENT_NAME || "";
     const event = await readEvent(environment.GITHUB_EVENT_PATH);
     if (eventName === "pull_request" || eventName === "pull_request_target") {
-        return { branch: objectString(event, "pull_request", "base", "ref"), publish: false };
+        return { branch: objectString(event, "pull_request", "base", "ref"), publish: false, pullRequest: true,
+            headCommit: objectString(event, "pull_request", "head", "sha"),
+            mergeCommit: eventName === "pull_request" ? environment.GITHUB_SHA : undefined };
     }
     if (eventName === "issue_comment" || eventName === "pull_request_review_comment") {
         const number = eventName === "issue_comment"
             ? objectNumber(event, "issue", "number")
             : objectNumber(event, "pull_request", "number");
         const pull = await githubJson(`${apiUrl}/repos/${repository}/pulls/${number}`, token);
-        return { branch: pull.base.ref, publish: false };
+        return pullRequestContext(pull);
     }
     if (eventName === "workflow_dispatch") {
         const dispatchNumber = objectOptionalNumber(event, "inputs", "pr_number");
         if (dispatchNumber !== undefined) {
             const pull = await githubJson(`${apiUrl}/repos/${repository}/pulls/${dispatchNumber}`, token);
-            return { branch: pull.base.ref, publish: false };
+            return pullRequestContext(pull);
         }
     }
     const ref = environment.GITHUB_REF || "";
     const branch = ref.startsWith("refs/heads/")
         ? ref.slice("refs/heads/".length)
         : environment.GITHUB_REF_TYPE === "branch" ? environment.GITHUB_REF_NAME : undefined;
-    return { branch, publish: branch !== undefined };
+    return { branch, publish: branch !== undefined, pullRequest: false };
+}
+function pullRequestContext(pull) {
+    if (!pull.base?.ref || !pull.head?.sha)
+        throw new Error("The GitHub pull request response is incomplete.");
+    return { branch: pull.base.ref, publish: false, pullRequest: true, headCommit: pull.head.sha,
+        mergeCommit: pull.merge_commit_sha || undefined };
+}
+function resolveGithubMergeTargetCommit(environment, expectedMergeCommit, expectedHeadCommit) {
+    const roots = [environment.GITHUB_WORKSPACE, process.cwd()].map(value => value?.trim())
+        .filter((value) => !!value);
+    const repositoryName = environment.GITHUB_REPOSITORY?.split("/").pop();
+    const repositories = [...new Set([...roots, ...(repositoryName ? roots.map(root => path.join(root, repositoryName)) : [])])];
+    for (const repository of repositories) {
+        try {
+            const testedCommit = gitOutput(repository, "rev-parse", "HEAD").trim();
+            if (!/^[0-9a-f]{40,64}$/iu.test(testedCommit))
+                continue;
+            const parents = [...gitOutput(repository, "cat-file", "-p", testedCommit)
+                    .matchAll(/^parent ([0-9a-f]{40,64})$/gimu)].map(match => match[1]);
+            if (parents.length !== 2)
+                continue;
+            const matchesMerge = isSameCommit(testedCommit, expectedMergeCommit);
+            const matchesHead = isSameCommit(parents[1], expectedHeadCommit);
+            if (matchesMerge || matchesHead)
+                return parents[0];
+        }
+        catch {
+            // A merge checkout is not guaranteed for every GitHub trigger. Try the next likely repository path.
+        }
+    }
+    return undefined;
 }
 async function githubJson(url, token) {
     const response = await fetch(url, {
@@ -205,6 +243,11 @@ function workflowFile(reference) {
     if (index < 0)
         throw new Error(`Unable to determine the workflow file from GITHUB_WORKFLOW_REF '${reference}'.`);
     return beforeRef.slice(index + marker.length);
+}
+const isSameCommit = (actual, expected) => !!expected && actual.toLowerCase() === expected.trim().toLowerCase();
+function gitOutput(repository, ...arguments_) {
+    return (0, node_child_process_1.execFileSync)("git", ["-C", repository, ...arguments_], { encoding: "utf8", maxBuffer: 1024 * 1024,
+        windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 }
 function required(value, name) {
     const candidate = value?.trim();

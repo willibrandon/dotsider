@@ -19,6 +19,11 @@ released Dotsider binary, verifies its published SHA-256 checksum, and caches it
 and runtime identifier. Set `dotsiderPath` to use an existing installation without network
 access.
 
+The task verifies that a restored pull-request baseline matches the exact target commit. A
+stale baseline produces a summary and log warning with both commits and the source build,
+then continues the comparison and all budgets. A successful target-branch size check refreshes
+the managed baseline.
+
 Exit code 2 means an error-severity budget was exceeded. Reports and the pipeline summary are published before the task fails. Exit code 1 means the command or its inputs were invalid.
 
 Add growth budgets immediately. When no stored baseline exists, they are reported as deferred

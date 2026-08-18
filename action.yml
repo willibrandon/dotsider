@@ -93,6 +93,12 @@ outputs:
   baseline-artifact-name:
     description: Managed baseline artifact name.
     value: ${{ steps.run.outputs.baseline-artifact-name }}
+  baseline-target-commit:
+    description: Pull request target commit used to verify managed baseline freshness.
+    value: ${{ steps.run.outputs.baseline-target-commit }}
+  baseline-freshness:
+    description: current, stale, unknown, or empty when freshness does not apply.
+    value: ${{ steps.run.outputs.baseline-freshness }}
 runs:
   using: composite
   steps:

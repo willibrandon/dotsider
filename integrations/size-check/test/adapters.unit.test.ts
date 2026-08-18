@@ -25,6 +25,8 @@ const stableGithubOutputs = [
   "baseline-source-commit",
   "baseline-source-url",
   "baseline-artifact-name",
+  "baseline-target-commit",
+  "baseline-freshness",
 ];
 const stableAzureOutputs = [
   "result",
@@ -43,6 +45,8 @@ const stableAzureOutputs = [
   "baselineSourceCommit",
   "baselineSourceUrl",
   "baselineArtifactName",
+  "baselineTargetCommit",
+  "baselineFreshness",
 ];
 
 test("GitHub adapter writes stable error outputs before returning an input error", async () => {
@@ -75,6 +79,8 @@ test("GitHub Action exposes automatic baseline discovery and retention", async (
   assert.match(action, /actions\/download-artifact@v8/u);
   assert.match(action, /Find Dotsider baseline/u);
   assert.match(action, /Publish managed Dotsider baseline/u);
+  assert.match(action, /  baseline-target-commit:\r?\n(?:.*\r?\n)*?    value: \$\{\{ steps\.run\.outputs\.baseline-target-commit \}\}/u);
+  assert.match(action, /  baseline-freshness:\r?\n(?:.*\r?\n)*?    value: \$\{\{ steps\.run\.outputs\.baseline-freshness \}\}/u);
 
   const uploadStart = action.indexOf("- name: Upload Dotsider reports");
   const enforceStart = action.indexOf("- name: Enforce Dotsider result");

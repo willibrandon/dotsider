@@ -19,6 +19,21 @@ The first successful branch run enforces absolute limits and stores the binary p
 resolved `.mstat` and optional DGML sidecars. Later branch runs compare with the preceding
 successful run; pull requests compare with the newest successful run of their target branch.
 
+For pull requests, Dotsider also verifies that the restored baseline commit is the exact
+target parent of the merge commit that was actually tested. On GitHub, it reads the first
+parent directly from the checked-out merge commit—even in the default depth-1 checkout—rather
+than trusting `pull_request.base.sha`, which can lag a regenerated merge ref. This applies to
+direct pull-request events and API-backed comment or manual-dispatch workflows. If the commits
+differ, the provider log and Markdown summary identify both commits and the source run, then
+explain that the target branch needs a successful size-check run to refresh its baseline. The
+available comparison and every configured budget still run; an otherwise passing check
+reports `passed-with-warnings`.
+
+If GitHub does not have the tested merge commit checked out, freshness is `unknown`; Dotsider
+does not substitute potentially stale pull-request metadata. Check out the pull-request merge
+ref before building when a comment-triggered or manually dispatched workflow needs freshness
+verification.
+
 ```yaml
 - uses: willibrandon/dotsider@v0
   id: size
@@ -45,9 +60,12 @@ The equivalent Azure Pipelines task is:
     budgets: max=25mb
 ```
 
-The Azure task uses the current pipeline's Build Service identity to read successful builds
-and artifacts from the same pipeline definition. No PAT is required. If access was removed,
-grant that identity read access to builds and artifacts.
+The Azure task uses the current pipeline's Build Service identity to read successful builds,
+artifacts, and exact merge-commit metadata from the same project. No PAT is required. If
+access was removed, grant that identity read access to builds, artifacts, and source metadata.
+For non-Azure source providers, the task reads the checked-out merge commit locally. If that
+checkout is unavailable, freshness is `unknown`, an actionable warning is shown, and the
+comparison continues without inventing a target commit.
 
 When no matching baseline exists, `max=` limits still run and `growth=` limits are named as
 deferred in the summary and JSON report. A successful branch run then establishes the first
@@ -125,14 +143,18 @@ that no matching artifact exists. Direct CLI use remains strict: growth budgets 
 Both integrations expose `result`, `exitCode`, `jsonReportPath`, `markdownReportPath`,
 `artifactName`, `dotsiderVersion`, `totalBasis`, `baselineTotal`, `currentTotal`, `delta`, and
 `violationCount`, `baselineStatus`, `baselineSourceId`, `baselineSourceCommit`,
-`baselineSourceUrl`, and `baselineArtifactName`. GitHub spells multiword outputs with
-hyphens; Azure uses camel case.
+`baselineSourceUrl`, `baselineArtifactName`, `baselineTargetCommit`, and
+`baselineFreshness`. GitHub spells multiword outputs with hyphens; Azure uses camel case.
 `baselineStatus` is `restored`, `explicit`, or `not-found`; `baselineTotal` is empty on a
-first run.
+first run. `baselineFreshness` is `current`, `stale`, or `unknown` for a restored managed
+pull-request baseline and empty when freshness does not apply. Full commit IDs are retained
+in JSON and outputs while human-readable warnings use their first 12 characters.
 
-`result` is `passed`, `passed-with-warnings`, `budget-failed`, or `error`. A budget failure
-retains the raw exit code 2 and an input or execution error retains exit code 1. JSON reports
-carry `schemaVersion: 2`, resolved target-side artifact paths, baseline provenance, and
+`result` is `passed`, `passed-with-warnings`, `budget-failed`, or `error`. A stale or
+unverifiable managed baseline upgrades an otherwise passing result to `passed-with-warnings`
+without changing exit code 0. A budget failure retains the raw exit code 2 and an input or
+execution error retains exit code 1. JSON reports carry `schemaVersion: 2`, resolved
+target-side artifact paths, baseline provenance (including target commit and freshness), and
 deferred budget metrics so consumers can reject an incompatible future shape explicitly.
 
 Managed artifact names are derived from the workflow or pipeline definition, stable job,

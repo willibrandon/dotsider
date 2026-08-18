@@ -498,6 +498,7 @@ $RECYCLE.BIN/
 .mcp.json
 
 # Dotnet CLI supporting files
+.dotnet/
 .dotnet_cli/
 
 # Playwright CLI files

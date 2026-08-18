@@ -1,18 +1,26 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
-import { discoverAzureBaseline, extractZipArchive } from "../src/azure-baseline";
+import {
+  discoverAzureBaseline,
+  extractZipArchive,
+  parseGitCommitParents,
+  resolveLocalMergeTargetCommit,
+} from "../src/azure-baseline";
 import {
   baselineArtifactName,
   createBaselineIdentity,
   detectRidFromHeader,
   detectTargetRid,
   enrichReports,
+  formatBaselineWarning,
   restoreBaseline,
   stageBaseline,
+  withManagedBaselineFreshness,
 } from "../src/baseline";
 import { discoverGithubBaseline } from "../src/github-baseline";
 import { SizeCheckInputs, SizeReport } from "../src/types";
@@ -154,15 +162,151 @@ test("report enrichment places provenance before the first CRLF report section",
   }
 });
 
-test("GitHub discovery skips pull-request and expired artifacts before selecting the base-branch baseline", async () => {
+test("managed baseline freshness only classifies restored pull-request baselines", () => {
+  const restored = {
+    status: "restored" as const,
+    provider: "github-actions" as const,
+    branch: "main",
+    commit: "ABCDEF1234567890",
+    id: "41",
+    number: "9",
+    url: "https://example.test/run/41",
+    artifactName: "baseline",
+  };
+
+  const current = withManagedBaselineFreshness(restored, true, "abcdef1234567890");
+  assert.deepEqual(current, {
+    ...restored,
+    targetCommit: "abcdef1234567890",
+    freshness: "current",
+  });
+  assert.equal(formatBaselineWarning(current), undefined);
+  const stale = withManagedBaselineFreshness(restored, true, "fedcba0987654321");
+  assert.equal(stale.freshness, "stale");
+  assert.equal(stale.targetCommit, "fedcba0987654321");
+  assert.equal(withManagedBaselineFreshness(restored, true, undefined).freshness, "unknown");
+  assert.equal(withManagedBaselineFreshness(restored, false, "fedcba0987654321").freshness, undefined);
+  assert.equal(withManagedBaselineFreshness({ status: "explicit", path: "base.mstat" }, true, "target").freshness, undefined);
+});
+
+test("stale report enrichment identifies both commits and the source run with refresh guidance", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-stale-baseline-report-"));
+  try {
+    const json = path.join(directory, "report.json");
+    const markdown = path.join(directory, "report.md");
+    const source = {
+      status: "restored" as const,
+      provider: "github-actions" as const,
+      branch: "main",
+      commit: "1111111111111111111111111111111111111111",
+      targetCommit: "2222222222222222222222222222222222222222",
+      freshness: "stale" as const,
+      id: "41",
+      number: "9",
+      url: "https://example.test/run/41",
+      artifactName: "baseline",
+    };
+    await fs.writeFile(json, JSON.stringify(report("app", "app.mstat")), "utf8");
+    await fs.writeFile(markdown, "## Size check\n\n---\n\n### Overview\n", "utf8");
+
+    const enriched = await enrichReports(json, markdown, source);
+    const summary = await fs.readFile(markdown, "utf8");
+    const warning = formatBaselineWarning(source);
+
+    assert.equal(enriched.baselineSource?.targetCommit, source.targetCommit);
+    assert.equal(enriched.baselineSource?.freshness, "stale");
+    assert.match(summary, /> \*\*Warning:\*\* The managed baseline does not match this pull request target/u);
+    assert.match(summary, /`222222222222`.*`111111111111`.*\[GitHub Actions run 9\]\(https:\/\/example\.test\/run\/41\)/u);
+    assert.match(summary, /target branch `main` needs a successful Dotsider size-check run/u);
+    assert.match(summary, /available baseline and all configured budgets are still evaluated/u);
+    assert.ok(warning);
+    assert.match(warning, /'222222222222'.*'111111111111'.*GitHub Actions run 9/u);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("raw Git commit parsing retains both merge parents from a shallow commit object", () => {
+  assert.deepEqual(parseGitCommitParents([
+    "tree 0123456789012345678901234567890123456789",
+    "parent 1111111111111111111111111111111111111111",
+    "parent 2222222222222222222222222222222222222222",
+    "author Example <example@example.test> 0 +0000",
+    "",
+    "Synthetic pull-request merge",
+  ].join("\n")), [
+    "1111111111111111111111111111111111111111",
+    "2222222222222222222222222222222222222222",
+  ]);
+});
+
+test("Azure external-provider resolution reads the target parent from a shallow merge checkout", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-shallow-merge-"));
+  try {
+    runGit(directory, "init", "--initial-branch=main");
+    runGit(directory, "config", "user.name", "Dotsider Tests");
+    runGit(directory, "config", "user.email", "dotsider@example.test");
+    await fs.writeFile(path.join(directory, "app.txt"), "base\n");
+    runGit(directory, "add", "app.txt");
+    runGit(directory, "commit", "-m", "base");
+    const targetCommit = runGit(directory, "rev-parse", "HEAD").trim();
+    runGit(directory, "switch", "-c", "feature");
+    await fs.writeFile(path.join(directory, "feature.txt"), "feature\n");
+    runGit(directory, "add", "feature.txt");
+    runGit(directory, "commit", "-m", "feature");
+    runGit(directory, "switch", "main");
+    runGit(directory, "merge", "--no-ff", "feature", "-m", "pull request merge");
+    const mergeCommit = runGit(directory, "rev-parse", "HEAD").trim();
+    const gitDirectory = runGit(directory, "rev-parse", "--git-dir").trim();
+    await fs.writeFile(path.resolve(directory, gitDirectory, "shallow"), `${mergeCommit}\n`, "ascii");
+
+    const resolved = await resolveLocalMergeTargetCommit({
+      BUILD_SOURCEVERSION: mergeCommit,
+      BUILD_REPOSITORY_LOCALPATH: directory,
+    });
+
+    assert.equal(resolved, targetCommit);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("GitHub freshness uses the tested shallow merge parent instead of stale PR base metadata", async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-discovery-"));
   const target = path.join(directory, "app.mstat");
   const eventPath = path.join(directory, "event.json");
+  runGit(directory, "init", "--initial-branch=main");
+  runGit(directory, "config", "user.name", "Dotsider Tests");
+  runGit(directory, "config", "user.email", "dotsider@example.test");
+  await fs.writeFile(path.join(directory, "base.txt"), "initial base\n");
+  runGit(directory, "add", "base.txt");
+  runGit(directory, "commit", "-m", "initial base");
+  const staleBaseCommit = runGit(directory, "rev-parse", "HEAD").trim();
+  runGit(directory, "switch", "-c", "feature");
+  await fs.writeFile(path.join(directory, "feature.txt"), "pull request\n");
+  runGit(directory, "add", "feature.txt");
+  runGit(directory, "commit", "-m", "pull request head");
+  const headCommit = runGit(directory, "rev-parse", "HEAD").trim();
+  runGit(directory, "switch", "main");
+  await fs.writeFile(path.join(directory, "base.txt"), "advanced base\n");
+  runGit(directory, "add", "base.txt");
+  runGit(directory, "commit", "-m", "advance target after PR metadata was captured");
+  const targetCommit = runGit(directory, "rev-parse", "HEAD").trim();
+  runGit(directory, "merge", "--no-ff", "feature", "-m", "synthetic pull request merge");
+  const mergeCommit = runGit(directory, "rev-parse", "HEAD").trim();
+  const gitDirectory = runGit(directory, "rev-parse", "--git-dir").trim();
+  await fs.writeFile(path.resolve(directory, gitDirectory, "shallow"), `${mergeCommit}\n`, "ascii");
   await fs.writeFile(target, "mstat");
-  await fs.writeFile(eventPath, JSON.stringify({ pull_request: { base: { ref: "main" } } }));
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
-    if (request.url?.includes("/actions/artifacts?")) {
+    if (request.url?.includes("/pulls/62")) {
+      response.end(JSON.stringify({
+        number: 62,
+        base: { ref: "main", sha: staleBaseCommit },
+        head: { sha: headCommit },
+        merge_commit_sha: mergeCommit,
+      }));
+    } else if (request.url?.includes("/actions/artifacts?")) {
       response.end(JSON.stringify({ artifacts: [
         { id: 8, name: expectedArtifact(target), expired: false, workflow_run: { id: 50 } },
         { id: 7, name: expectedArtifact(target), expired: true, workflow_run: { id: 49 } },
@@ -179,7 +323,7 @@ test("GitHub discovery skips pull-request and expired artifacts before selecting
           html_url: "https://example.test/run/49", event: "push", conclusion: "success",
         },
         {
-          id: 41, run_number: 9, head_branch: "main", head_sha: "base-sha",
+          id: 41, run_number: 9, head_branch: "main", head_sha: targetCommit,
           html_url: "https://example.test/run/41", event: "push", conclusion: "success",
         },
       ] }));
@@ -192,23 +336,73 @@ test("GitHub discovery skips pull-request and expired artifacts before selecting
   try {
     const address = server.address();
     assert.ok(address && typeof address !== "string");
-    const discovery = await discoverGithubBaseline(inputs(target), "linux-x64", {
+    const scenarios = [
+      {
+        name: "pull_request event",
+        eventName: "pull_request",
+        event: {
+          pull_request: {
+            base: { ref: "main", sha: staleBaseCommit },
+            head: { sha: headCommit },
+            merge_commit_sha: mergeCommit,
+          },
+        },
+      },
+      {
+        name: "issue_comment API lookup",
+        eventName: "issue_comment",
+        event: { issue: { number: 62 } },
+      },
+      {
+        name: "workflow_dispatch API lookup",
+        eventName: "workflow_dispatch",
+        event: { inputs: { pr_number: "62" } },
+      },
+    ];
+    for (const scenario of scenarios) {
+      await t.test(scenario.name, async () => {
+        await fs.writeFile(eventPath, JSON.stringify(scenario.event));
+        const discovery = await discoverGithubBaseline(inputs(target), "linux-x64", {
+          GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
+          GITHUB_REPOSITORY: "owner/repo",
+          GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
+          GITHUB_JOB: "size",
+          GITHUB_EVENT_NAME: scenario.eventName,
+          GITHUB_EVENT_PATH: eventPath,
+          GITHUB_SHA: scenario.eventName === "pull_request" ? mergeCommit : staleBaseCommit,
+          GITHUB_TOKEN: "token",
+          GITHUB_RUN_ID: "99",
+          GITHUB_WORKSPACE: directory,
+          RUNNER_TEMP: directory,
+        });
+        assert.equal(discovery.source.status, "restored");
+        assert.equal(discovery.source.id, "41");
+        assert.equal(discovery.source.branch, "main");
+        assert.equal(discovery.source.commit, targetCommit);
+        assert.equal(discovery.source.targetCommit, targetCommit);
+        assert.equal(discovery.source.freshness, "current");
+        assert.equal(discovery.publish, false);
+        assert.notEqual(staleBaseCommit, targetCommit);
+      });
+    }
+
+    await fs.rename(path.resolve(directory, gitDirectory), path.join(directory, "git-metadata-unavailable"));
+    await fs.writeFile(eventPath, JSON.stringify({ issue: { number: 62 } }));
+    const unknown = await discoverGithubBaseline(inputs(target), "linux-x64", {
       GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
       GITHUB_REPOSITORY: "owner/repo",
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
       GITHUB_JOB: "size",
-      GITHUB_EVENT_NAME: "pull_request",
+      GITHUB_EVENT_NAME: "issue_comment",
       GITHUB_EVENT_PATH: eventPath,
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
       GITHUB_WORKSPACE: directory,
       RUNNER_TEMP: directory,
     });
-    assert.equal(discovery.source.status, "restored");
-    assert.equal(discovery.source.id, "41");
-    assert.equal(discovery.source.branch, "main");
-    assert.equal(discovery.source.commit, "base-sha");
-    assert.equal(discovery.publish, false);
+    assert.equal(unknown.source.status, "restored");
+    assert.equal(unknown.source.targetCommit, undefined);
+    assert.equal(unknown.source.freshness, "unknown");
   } finally {
     server.close();
     await fs.rm(directory, { recursive: true, force: true });
@@ -325,11 +519,14 @@ test("Azure pull-request discovery normalizes a short target branch and restores
     "azure-pipelines", "project/12", "size", target, "linux-x64", "app", directory, directory,
   );
   const artifactName = baselineArtifactName(identity);
+  const baselineCommit = "1111111111111111111111111111111111111111";
+  const mergeCommit = "3333333333333333333333333333333333333333";
+  const targetCommit = "2222222222222222222222222222222222222222";
   const source = {
     status: "restored" as const,
     provider: "azure-pipelines" as const,
     branch: "refs/heads/main",
-    commit: "base-sha",
+    commit: baselineCommit,
     id: "304",
     number: "304",
     artifactName,
@@ -350,13 +547,19 @@ test("Azure pull-request discovery normalizes a short target branch and restores
       response.end("missing token");
       return;
     }
-    if (request.url?.includes("/_apis/build/builds?")) {
+    if (request.url?.includes("/_apis/git/repositories/repository/commits/")) {
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        commitId: mergeCommit,
+        parents: [targetCommit, "4444444444444444444444444444444444444444"],
+      }));
+    } else if (request.url?.includes("/_apis/build/builds?")) {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ value: [{
         id: 304,
         buildNumber: "304",
         sourceBranch: "refs/heads/main",
-        sourceVersion: "base-sha",
+        sourceVersion: baselineCommit,
         result: "succeeded",
       }] }));
     } else if (request.url?.includes("/artifacts?")
@@ -382,6 +585,9 @@ test("Azure pull-request discovery normalizes a short target branch and restores
       SYSTEM_DEFINITIONID: "12",
       SYSTEM_JOBNAME: "size",
       BUILD_REASON: "PullRequest",
+      BUILD_REPOSITORY_PROVIDER: "TfsGit",
+      BUILD_REPOSITORY_ID: "repository",
+      BUILD_SOURCEVERSION: mergeCommit,
       SYSTEM_PULLREQUEST_TARGETBRANCH: "main",
       BUILD_SOURCEBRANCH: "refs/pull/62/merge",
       BUILD_BUILDID: "306",
@@ -394,12 +600,28 @@ test("Azure pull-request discovery normalizes a short target branch and restores
     assert.equal(discovery.source.status, "restored");
     assert.equal(discovery.source.id, "304");
     assert.equal(discovery.source.branch, "refs/heads/main");
+    assert.equal(discovery.source.targetCommit, targetCommit);
+    assert.equal(discovery.source.freshness, "stale");
     assert.equal(discovery.publish, false);
     assert.ok(requestedUrls.some(url => url.includes("branchName=refs%2Fheads%2Fmain")));
     assert.ok(discovery.downloadDirectory);
     const restored = await restoreBaseline(discovery.downloadDirectory, identity, discovery.source);
     assert.equal(await fs.readFile(restored.targetPath, "utf8"), "real baseline mstat bytes");
     assert.equal(environment.ENDPOINT_AUTH_PARAMETER_SYSTEMVSSCONNECTION_ACCESSTOKEN, undefined);
+
+    const external = await discoverAzureBaseline(inputs(target), "linux-x64", {
+      ...environment,
+      BUILD_REPOSITORY_PROVIDER: "GitHub",
+      BUILD_REPOSITORY_ID: undefined,
+      BUILD_SOURCEVERSION: mergeCommit,
+      BUILD_REPOSITORY_LOCALPATH: path.join(directory, "missing-checkout"),
+      BUILD_SOURCESDIRECTORY: path.join(directory, "missing-checkout"),
+      ENDPOINT_AUTH_PARAMETER_SYSTEMVSSCONNECTION_ACCESSTOKEN: "secret-token",
+    });
+    assert.equal(external.source.status, "restored");
+    assert.equal(external.source.targetCommit, undefined);
+    assert.equal(external.source.freshness, "unknown");
+    assert.match(formatBaselineWarning(external.source) ?? "", /could not determine the target commit/u);
   } finally {
     server.close();
     await fs.rm(directory, { recursive: true, force: true });
@@ -557,4 +779,12 @@ function crc32(buffer: Buffer): number {
     for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function runGit(directory: string, ...args: readonly string[]): string {
+  return execFileSync("git", ["-C", directory, ...args], {
+    encoding: "utf8",
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
