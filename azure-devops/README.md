@@ -43,6 +43,17 @@ Application publishing stays explicit because the project chooses its target fra
 runtime identifier, and publish options. Managed artifacts are isolated by pipeline
 definition, job, logical target, and RID, and only wholly successful builds are eligible.
 
+For a pull request, Dotsider warns when the managed baseline comes from a different
+target-branch commit. The warning shows both commits and the baseline build, then asks for a
+successful size check on the target branch. The size check and budgets still run.
+`baselineComparisonStatus` is `current` when the commits match, `mismatched` when they
+differ, and `unknown` when commit details are unavailable.
+
+Keep `checkout: self` enabled so Dotsider can identify the target-branch commit. If Azure
+Repos must look it up through its API, the pipeline Build Service identity needs repository
+**Read** permission. Warnings leave the task successful. Future baselines come only from
+successful builds.
+
 See the [CI integration reference](https://dotsider.dev/reference/ci-integrations/) for
 inputs, outputs, compatibility, and complete examples. Source and issue tracking are on
 [GitHub](https://github.com/willibrandon/dotsider).

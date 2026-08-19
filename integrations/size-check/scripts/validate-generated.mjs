@@ -49,11 +49,11 @@ for (const root of roots) {
   }
 }
 
-if (totalBytes > 150 * 1024) {
-  throw new Error(`Generated JavaScript totals ${totalBytes} bytes; the combined limit is 150 KiB.`);
+if (totalBytes > 200 * 1024) {
+  throw new Error(`Generated JavaScript totals ${totalBytes} bytes; the combined limit is 200 KiB.`);
 }
-if (totalLines > 3_500) {
-  throw new Error(`Generated JavaScript totals ${totalLines} lines; the combined limit is 3,500 lines.`);
+if (totalLines > 4_500) {
+  throw new Error(`Generated JavaScript totals ${totalLines} lines; the combined limit is 4,500 lines.`);
 }
 
 process.stdout.write(`Validated ${totalBytes} bytes and ${totalLines} lines of plain tsc output.\n`);

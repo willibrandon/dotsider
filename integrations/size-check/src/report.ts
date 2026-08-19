@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { BaselineSource, SizeCheckExecution, SizeReport, StableOutputs } from "./types";
+import { BaselineComparison, BaselineSource, SizeCheckExecution, SizeReport, StableOutputs } from "./types";
 
 type SizeCheckSummary = Pick<
   StableOutputs,
@@ -89,6 +89,7 @@ export function createStableOutputs(
   artifactName: string,
   dotsiderVersion: string,
   baselineSource?: BaselineSource,
+  baselineComparison?: BaselineComparison,
 ): StableOutputs {
   const report = execution.report;
   const evaluations = report?.budgets?.evaluations ?? [];
@@ -98,7 +99,7 @@ export function createStableOutputs(
   );
 
   return {
-    result: execution.result,
+    result: resultWithBaselineWarning(execution.result, baselineComparison),
     exitCode: String(execution.exitCode),
     jsonReportPath: path.resolve(execution.jsonReportPath),
     markdownReportPath: path.resolve(execution.markdownReportPath),
@@ -114,12 +115,17 @@ export function createStableOutputs(
     baselineSourceCommit: baselineSource?.commit ?? "",
     baselineSourceUrl: baselineSource?.url ?? "",
     baselineArtifactName: baselineSource?.artifactName ?? "",
+    baselineTargetCommit: baselineComparison?.targetCommit ?? "",
+    baselineComparisonStatus: baselineComparison?.status ?? "",
+    baselineComparisonReason: baselineComparison?.status === "unknown" ? baselineComparison.reason : "",
   };
 }
 
 export function createErrorOutputs(
   artifactName: string,
   dotsiderVersion: string,
+  baselineSource?: BaselineSource,
+  baselineComparison?: BaselineComparison,
 ): StableOutputs {
   return {
     result: "error",
@@ -133,12 +139,24 @@ export function createErrorOutputs(
     currentTotal: "",
     delta: "",
     violationCount: "0",
-    baselineStatus: "",
-    baselineSourceId: "",
-    baselineSourceCommit: "",
-    baselineSourceUrl: "",
-    baselineArtifactName: "",
+    baselineStatus: baselineSource?.status ?? "",
+    baselineSourceId: baselineSource?.id ?? "",
+    baselineSourceCommit: baselineSource?.commit ?? "",
+    baselineSourceUrl: baselineSource?.url ?? "",
+    baselineArtifactName: baselineSource?.artifactName ?? "",
+    baselineTargetCommit: baselineComparison?.targetCommit ?? "",
+    baselineComparisonStatus: baselineComparison?.status ?? "",
+    baselineComparisonReason: baselineComparison?.status === "unknown" ? baselineComparison.reason : "",
   };
+}
+
+function resultWithBaselineWarning(
+  result: SizeCheckExecution["result"],
+  comparison: BaselineComparison | undefined,
+): SizeCheckExecution["result"] {
+  return result === "passed" && comparison && comparison.status !== "current"
+    ? "passed-with-warnings"
+    : result;
 }
 
 export function formatSizeCheckSummary(outputs: SizeCheckSummary): string {

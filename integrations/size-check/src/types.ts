@@ -53,6 +53,24 @@ export interface SizeArtifactPaths {
 export type BaselineStatus = "explicit" | "restored" | "not-found";
 export type BaselineProvider = "github-actions" | "azure-pipelines";
 
+export type BaselineComparisonReason =
+  | "permission-denied"
+  | "merge-not-ready"
+  | "merge-conflict"
+  | "merge-commit-unavailable"
+  | "provider-unavailable"
+  | "repository-not-checked-out"
+  | "git-unavailable"
+  | "commit-not-found"
+  | "unsupported-repository-provider"
+  | "not-a-test-merge"
+  | "response-mismatch"
+  | "candidate-search-incomplete";
+
+export type BaselineComparison =
+  | { status: "current" | "mismatched"; targetCommit: string }
+  | { status: "unknown"; targetCommit?: string; reason: BaselineComparisonReason };
+
 export interface BaselineSource {
   status: BaselineStatus;
   provider?: BaselineProvider;
@@ -72,6 +90,7 @@ export interface SizeReport {
   targetArtifacts: SizeArtifactPaths;
   baselineArtifacts?: SizeArtifactPaths | null;
   baselineSource?: BaselineSource;
+  baselineComparison?: BaselineComparison;
   totalBasis: string;
   leftTotal?: number | null;
   rightTotal: number;
@@ -107,6 +126,9 @@ export interface StableOutputs {
   baselineSourceCommit: string;
   baselineSourceUrl: string;
   baselineArtifactName: string;
+  baselineTargetCommit: string;
+  baselineComparisonStatus: BaselineComparison["status"] | "";
+  baselineComparisonReason: BaselineComparisonReason | "";
 }
 
 export interface BaselineIdentity {
@@ -119,6 +141,7 @@ export interface BaselineIdentity {
 
 export interface BaselineDiscovery {
   source: BaselineSource;
+  comparison?: BaselineComparison;
   identity: BaselineIdentity;
   artifactName: string;
   runId?: string;

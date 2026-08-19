@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
 import { discoverAzureBaseline } from "./azure-baseline";
-import { enrichReports, restoreBaseline, stageBaseline } from "./baseline";
+import { enrichReports, formatBaselineWarning, normalizeCommit, restoreBaseline, stageBaseline } from "./baseline";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
 import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
@@ -42,6 +42,12 @@ async function main(): Promise<void> {
     dotsiderVersion = tool.version;
     const executable = await acquireTool(tool);
     const discovery = await discoverAzureBaseline(inputs, tool.rid);
+    errorOutputs = createErrorOutputs(
+      inputs.artifactName,
+      tool.version,
+      discovery.source,
+      discovery.comparison,
+    );
     if (discovery.source.status === "restored") {
       const restored = await restoreBaseline(
         discovery.downloadDirectory || "",
@@ -50,6 +56,8 @@ async function main(): Promise<void> {
       );
       inputs = { ...inputs, baseline: restored.targetPath };
     }
+    const baselineWarning = formatBaselineWarning(discovery.source, discovery.comparison);
+    if (baselineWarning) vso("task.logissue", { type: "warning" }, baselineWarning);
     const execution = await executeSizeCheck(
       executable,
       inputs,
@@ -60,6 +68,7 @@ async function main(): Promise<void> {
         execution.jsonReportPath,
         execution.markdownReportPath,
         discovery.source,
+        discovery.comparison,
       );
     }
     const outputs = createStableOutputs(
@@ -67,6 +76,7 @@ async function main(): Promise<void> {
       inputs.artifactName,
       tool.version,
       discovery.source,
+      discovery.comparison,
     );
     errorOutputs = { ...outputs, result: "error", exitCode: "1" };
     writeStableOutputs(outputs);
@@ -129,7 +139,7 @@ function currentAzureSource(artifactName: string): BaselineSource {
     status: "restored",
     provider: "azure-pipelines",
     branch: process.env.BUILD_SOURCEBRANCH,
-    commit: process.env.BUILD_SOURCEVERSION,
+    commit: requiredCommit(process.env.BUILD_SOURCEVERSION, "Build.SourceVersion"),
     id: buildId,
     number: process.env.BUILD_BUILDNUMBER,
     url: collection && project && buildId
@@ -195,4 +205,10 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function requiredCommit(value: string | undefined, name: string): string {
+  const commit = normalizeCommit(value);
+  if (!commit) throw new Error(`${name} did not contain a full commit ID.`);
+  return commit;
 }

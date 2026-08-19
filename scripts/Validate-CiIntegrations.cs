@@ -166,6 +166,9 @@ internal static class CiIntegrationValidator
             "baselineSourceCommit",
             "baselineSourceUrl",
             "baselineArtifactName",
+            "baselineTargetCommit",
+            "baselineComparisonStatus",
+            "baselineComparisonReason",
         ];
         string[] outputVariables =
         [

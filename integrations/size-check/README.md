@@ -40,6 +40,16 @@ lifecycle tests use local provider API servers and real files: they exercise suc
 selection, first-run deferral, manifest hashing, provenance, token removal, and safe ZIP
 extraction without substituting a Dotsider executable or size report.
 
+Managed PR alignment tests use those established provider-contract servers for API response
+matrices and the real adapter suite for warnings, reports, budgets, and task lifecycle. New
+adapter integrations must use the real Dotsider executable and NativeAOT assets; do not
+substitute an executable, fabricate a report, mock the production resolver, or generate Git
+history. The open-PR CI job invokes both production resolvers against the actual shallow
+provider merge and independently checks parent 0 with `git cat-file -p "$GITHUB_SHA"`.
+
+The durable artifact contract remains baseline-manifest schema 1. Open-PR alignment is
+invocation data in report schema 2 and must not be written into staged branch baselines.
+
 `examples/github-aot-size.yml` is the reference on-demand workflow. It consumes NativeAOT
 size-input artifacts from a normal build and supports both manual dispatch and trusted
 `/aot-size` pull-request comments.

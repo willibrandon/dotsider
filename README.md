@@ -171,6 +171,12 @@ Azure Pipelines provides the same contract through `DotsiderSizeCheck@1`:
     budgets: max=25mb
 ```
 
+For a pull request, Dotsider warns when the managed baseline comes from a different
+target-branch commit. The warning shows both commits and the source run, then asks for a
+successful size check on the target branch. The size check and budgets still run. The status
+is `current` when the commits match, `mismatched` when they differ, and `unknown` when commit
+details are unavailable.
+
 When no baseline exists yet, absolute limits run and growth limits are clearly deferred; a
 successful branch build establishes it. Set `baseline` only as an explicit override. See the
 [size-regression guide](https://dotsider.dev/usage/size-regression/) for that workflow,

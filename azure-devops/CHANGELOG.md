@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Prefer a successful managed baseline produced from the validated open-PR target commit.
+- Report `current`, `mismatched`, or actionable `unknown` alignment without bypassing size budgets.
+- Identify the pull request's target-branch commit from the local Git checkout first and keep warnings `Succeeded` so successful branch baselines remain eligible.
+
 ## 0.25.2
 
 - Link the Marketplace overview and Get Started entry directly to the CI integration guide and source.
