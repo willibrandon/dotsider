@@ -1225,6 +1225,8 @@ test("Azure discovery reports Build Service permissions and clears a rejected to
 test("Azure local Git resolution uses exact objects and reports availability failures", async () => {
   const repository = path.resolve(__dirname, "../../..");
   const head = execFileSync("git", ["-C", repository, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const readmeBlob = execFileSync("git", ["-C", repository, "rev-parse", "HEAD:README.md"],
+    { encoding: "utf8" }).trim();
 
   assert.deepEqual(
     await resolveLocalMergeTargetCommit(path.join(repository, "missing-checkout"), head),
@@ -1239,7 +1241,7 @@ test("Azure local Git resolution uses exact objects and reports availability fai
     { status: "unknown", reason: "git-unavailable" },
   );
   assert.deepEqual(
-    await resolveLocalMergeTargetCommit(repository, head),
+    await resolveLocalMergeTargetCommit(repository, readmeBlob),
     { status: "unknown", reason: "not-a-test-merge" },
   );
   assert.deepEqual(parseGitCommitParents([
