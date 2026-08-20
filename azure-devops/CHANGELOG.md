@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.26.0
 
 - Prefer a successful managed baseline produced from the validated open-PR target commit.
 - Report `current`, `mismatched`, or actionable `unknown` alignment without bypassing size budgets.
