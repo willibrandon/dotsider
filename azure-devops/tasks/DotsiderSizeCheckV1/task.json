@@ -184,6 +184,18 @@
     {
       "name": "baselineArtifactName",
       "description": "Managed baseline artifact name."
+    },
+    {
+      "name": "baselineTargetCommit",
+      "description": "Target-branch commit that the pull request is checked against; empty when the comparison is skipped."
+    },
+    {
+      "name": "baselineComparisonStatus",
+      "description": "current, mismatched, unknown, or empty when the comparison is skipped."
+    },
+    {
+      "name": "baselineComparisonReason",
+      "description": "Stable reason when baselineComparisonStatus is unknown; otherwise empty."
     }
   ],
   "execution": {
@@ -212,7 +224,10 @@
         "baselineSourceId",
         "baselineSourceCommit",
         "baselineSourceUrl",
-        "baselineArtifactName"
+        "baselineArtifactName",
+        "baselineTargetCommit",
+        "baselineComparisonStatus",
+        "baselineComparisonReason"
       ]
     }
   }

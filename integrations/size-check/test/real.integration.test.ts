@@ -6,6 +6,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import { parseChecksum, prepareTool, verifyChecksum } from "../src/acquisition";
+import { stageBaseline } from "../src/baseline";
 import { executeSizeCheck } from "../src/process";
 import { createStableOutputs } from "../src/report";
 import { SizeCheckInputs } from "../src/types";
@@ -158,6 +159,9 @@ test("real absolute budget without a baseline passes", async () => {
     "baselineSourceCommit",
     "baselineSourceUrl",
     "baselineArtifactName",
+    "baselineTargetCommit",
+    "baselineComparisonStatus",
+    "baselineComparisonReason",
   ]);
   assert.equal(outputs.baselineTotal, "");
   assert.deepEqual(
@@ -262,6 +266,126 @@ test("GitHub adapter exposes a deferred first-run result for growth without a st
   assert.equal(outputs.has("mode"), false);
 });
 
+test("GitHub managed mismatch emits one native warning and enriches a real report", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-alignment-mismatch-"));
+  try {
+    const prepared = await prepareRealManagedBaseline(directory, "github-actions");
+    const outputPath = path.join(directory, "github-output.txt");
+    const summaryPath = path.join(directory, "summary.md");
+    await fs.writeFile(summaryPath, "");
+    const child = await runGitHub("run", githubManagedEnvironment(
+      directory,
+      outputPath,
+      prepared,
+      { status: "mismatched", targetCommit: "2222222222222222222222222222222222222222" },
+      { GITHUB_STEP_SUMMARY: summaryPath },
+    ));
+
+    assert.equal(child.exitCode, 0, child.stderr);
+    assert.equal((child.stdout.match(/::warning::/gu) ?? []).length, 1);
+    assert.match(child.stdout, /baseline was built from a different commit/u);
+    assert.match(child.stdout, /The size comparison and budgets will still run/u);
+    const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+    assert.equal(outputs.get("result"), "passed-with-warnings");
+    assert.equal(outputs.get("exit-code"), "0");
+    assert.equal(outputs.get("baseline-comparison-status"), "mismatched");
+    assert.equal(outputs.get("baseline-target-commit"), "2222222222222222222222222222222222222222");
+    assert.equal(outputs.get("baseline-comparison-reason"), "");
+    const jsonPath = requiredOutput(outputs, "json-report-path");
+    const report = JSON.parse(await fs.readFile(jsonPath, "utf8")) as {
+      schemaVersion?: number;
+      baselineSource?: { id?: string; commit?: string };
+      baselineComparison?: { status?: string; targetCommit?: string };
+    };
+    assert.equal(report.schemaVersion, 2);
+    assert.equal(report.baselineSource?.id, "41");
+    assert.equal(report.baselineSource?.commit, prepared.source.commit);
+    assert.deepEqual(report.baselineComparison, {
+      status: "mismatched",
+      targetCommit: "2222222222222222222222222222222222222222",
+    });
+    const markdown = await fs.readFile(requiredOutput(outputs, "markdown-report-path"), "utf8");
+    assert.match(markdown, /> \*\*Warning:\*\* The baseline was built from a different commit/u);
+    assert.doesNotMatch(markdown, /\b(?:stale|older|predates)\b/iu);
+    assert.match(await fs.readFile(summaryPath, "utf8"), /baseline was built from a different commit/u);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("managed mismatch plus a real budget failure evaluates later passing budgets", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-alignment-budget-"));
+  try {
+    const prepared = await prepareRealManagedBaseline(directory, "github-actions");
+    const outputPath = path.join(directory, "github-output.txt");
+    const child = await runGitHub("run", githubManagedEnvironment(
+      directory,
+      outputPath,
+      prepared,
+      { status: "mismatched", targetCommit: "2222222222222222222222222222222222222222" },
+      {
+        DOTSIDER_INPUT_BUDGETS: [
+          "ns=NativeAotConsole.Telemetry:growth=0",
+          "max=1gb",
+        ].join("\n"),
+      },
+    ));
+
+    assert.equal(child.exitCode, 0, child.stderr);
+    assert.equal((child.stdout.match(/::warning::/gu) ?? []).length, 1);
+    const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+    assert.equal(outputs.get("result"), "budget-failed");
+    assert.equal(outputs.get("exit-code"), "2");
+    const report = JSON.parse(await fs.readFile(requiredOutput(outputs, "json-report-path"), "utf8")) as {
+      budgets?: { evaluations?: Array<{ violations?: unknown[] }> };
+      baselineComparison?: { status?: string };
+    };
+    assert.equal(report.budgets?.evaluations?.length, 2);
+    assert.ok((report.budgets?.evaluations?.[0]?.violations?.length ?? 0) > 0);
+    assert.equal(report.budgets?.evaluations?.[1]?.violations?.length ?? 0, 0);
+    assert.equal(report.baselineComparison?.status, "mismatched");
+
+    const enforcement = await runGitHubEnforcement({
+      result: "budget-failed",
+      exitCode: 2,
+      jsonReportPath: requiredOutput(outputs, "json-report-path"),
+      markdownReportPath: requiredOutput(outputs, "markdown-report-path"),
+      report: report as never,
+      stderr: "",
+    });
+    assert.equal(enforcement.exitCode, 1);
+    assert.match(enforcement.stdout, /::error::Dotsider size budgets were exceeded/u);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("managed alignment unknown plus a real CLI error retains warning facts", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-alignment-error-"));
+  try {
+    const prepared = await prepareRealManagedBaseline(directory, "github-actions");
+    const outputPath = path.join(directory, "github-output.txt");
+    const child = await runGitHub("run", githubManagedEnvironment(
+      directory,
+      outputPath,
+      prepared,
+      { status: "unknown", reason: "permission-denied" },
+      { DOTSIDER_INPUT_BUDGETS: "invalid" },
+    ));
+
+    assert.equal(child.exitCode, 0, child.stderr);
+    assert.equal((child.stdout.match(/::warning::/gu) ?? []).length, 1);
+    const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+    assert.equal(outputs.get("result"), "error");
+    assert.equal(outputs.get("exit-code"), "1");
+    assert.equal(outputs.get("baseline-comparison-status"), "unknown");
+    assert.equal(outputs.get("baseline-comparison-reason"), "permission-denied");
+    assert.equal(await fileExists(path.join(directory, "reports", "dotsider-size-check.md")), false);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("real why report contains a dependency chain", async () => {
   const execution = await executeSizeCheck(executable, await inputs({ baseline, why: true, top: 25 }));
   assert.equal(execution.exitCode, 0);
@@ -311,6 +435,88 @@ async function inputs(overrides: Partial<SizeCheckInputs>): Promise<SizeCheckInp
     publishSummary: true,
     publishReports: true,
     artifactName: "dotsider-size-check-test",
+    ...overrides,
+  };
+}
+
+async function prepareRealManagedBaseline(
+  directory: string,
+  provider: "github-actions",
+): Promise<{
+  identity: { provider: "github-actions"; scope: string; job: string; target: string; rid: string };
+  source: {
+    status: "restored";
+    provider: "github-actions";
+    branch: string;
+    commit: string;
+    id: string;
+    number: string;
+    url: string;
+    artifactName: string;
+  };
+  artifactName: string;
+  directory: string;
+}> {
+  const execution = await executeSizeCheck(executable, await inputs({
+    target: baseline,
+    budgets: ["max=1gb"],
+  }));
+  assert.equal(execution.result, "passed", execution.stderr);
+  assert.ok(execution.report, "Expected Dotsider to write the real baseline report");
+  const identity = {
+    provider,
+    scope: "owner/repo/ci.yml",
+    job: "size",
+    target: "app",
+    rid: `unused-${process.arch}`,
+  } as const;
+  const artifactName = "dotsider-baseline-real";
+  const source = {
+    status: "restored" as const,
+    provider,
+    branch: "main`branch",
+    commit: "1111111111111111111111111111111111111111",
+    id: "41",
+    number: "9",
+    url: "https://example.test/run/(41)?value=100%",
+    artifactName,
+  };
+  const baselineDirectory = path.join(directory, "managed-baseline");
+  await stageBaseline(execution.report, identity, source, baselineDirectory);
+  return { identity, source, artifactName, directory: baselineDirectory };
+}
+
+function githubManagedEnvironment(
+  directory: string,
+  outputPath: string,
+  prepared: Awaited<ReturnType<typeof prepareRealManagedBaseline>>,
+  comparison: object,
+  overrides: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  return {
+    GITHUB_OUTPUT: outputPath,
+    RUNNER_TEMP: directory,
+    DOTSIDER_INPUT_TARGET: target,
+    DOTSIDER_INPUT_TOP: "10",
+    DOTSIDER_INPUT_WHY: "false",
+    DOTSIDER_INPUT_VERSION: "not-a-release",
+    DOTSIDER_INPUT_PATH: executable,
+    DOTSIDER_INPUT_REPORT_DIRECTORY: path.join(directory, "reports"),
+    DOTSIDER_INPUT_PUBLISH_SUMMARY: "true",
+    DOTSIDER_INPUT_PUBLISH_REPORTS: "true",
+    DOTSIDER_INPUT_ARTIFACT_NAME: "dotsider-alignment-real",
+    DOTSIDER_PREPARED_VERSION: "custom",
+    DOTSIDER_PREPARED_RID: `unused-${process.arch}`,
+    DOTSIDER_PREPARED_CACHE_DIRECTORY: path.dirname(executable),
+    DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
+    DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
+    DOTSIDER_PREPARED_EXPLICIT: "true",
+    DOTSIDER_BASELINE_SOURCE: JSON.stringify(prepared.source),
+    DOTSIDER_BASELINE_COMPARISON: JSON.stringify(comparison),
+    DOTSIDER_BASELINE_IDENTITY: JSON.stringify(prepared.identity),
+    DOTSIDER_BASELINE_ARTIFACT_NAME: prepared.artifactName,
+    DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY: prepared.directory,
+    DOTSIDER_BASELINE_PUBLISH: "false",
     ...overrides,
   };
 }
@@ -368,6 +574,12 @@ function parseGitHubOutputs(source: string): Map<string, string> {
     outputs.set(match[1], value.join("\n"));
   }
   return outputs;
+}
+
+function requiredOutput(outputs: ReadonlyMap<string, string>, name: string): string {
+  const value = outputs.get(name);
+  assert.ok(value, `Expected GitHub output '${name}'`);
+  return value;
 }
 
 interface ChildResult {

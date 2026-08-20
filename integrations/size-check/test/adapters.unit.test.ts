@@ -25,6 +25,9 @@ const stableGithubOutputs = [
   "baseline-source-commit",
   "baseline-source-url",
   "baseline-artifact-name",
+  "baseline-target-commit",
+  "baseline-comparison-status",
+  "baseline-comparison-reason",
 ];
 const stableAzureOutputs = [
   "result",
@@ -43,6 +46,9 @@ const stableAzureOutputs = [
   "baselineSourceCommit",
   "baselineSourceUrl",
   "baselineArtifactName",
+  "baselineTargetCommit",
+  "baselineComparisonStatus",
+  "baselineComparisonReason",
 ];
 
 test("GitHub adapter writes stable error outputs before returning an input error", async () => {

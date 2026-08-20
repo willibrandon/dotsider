@@ -76,15 +76,19 @@ async function main() {
         dotsiderVersion = tool.version;
         const executable = await (0, acquisition_1.acquireTool)(tool);
         const discovery = await (0, azure_baseline_1.discoverAzureBaseline)(inputs, tool.rid);
+        errorOutputs = (0, report_1.createErrorOutputs)(inputs.artifactName, tool.version, discovery.source, discovery.comparison);
         if (discovery.source.status === "restored") {
             const restored = await (0, baseline_1.restoreBaseline)(discovery.downloadDirectory || "", discovery.identity, discovery.source);
             inputs = { ...inputs, baseline: restored.targetPath };
         }
+        const baselineWarning = (0, baseline_1.formatBaselineWarning)(discovery.source, discovery.comparison);
+        if (baselineWarning)
+            vso("task.logissue", { type: "warning" }, baselineWarning);
         const execution = await (0, process_1.executeSizeCheck)(executable, inputs, discovery.source.status === "not-found");
         if (execution.report && await fileExists(execution.markdownReportPath)) {
-            execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, discovery.source);
+            execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, discovery.source, discovery.comparison);
         }
-        const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version, discovery.source);
+        const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version, discovery.source, discovery.comparison);
         errorOutputs = { ...outputs, result: "error", exitCode: "1" };
         writeStableOutputs(outputs);
         const summary = (0, report_1.formatSizeCheckSummary)(outputs);
@@ -136,7 +140,7 @@ function currentAzureSource(artifactName) {
         status: "restored",
         provider: "azure-pipelines",
         branch: process.env.BUILD_SOURCEBRANCH,
-        commit: process.env.BUILD_SOURCEVERSION,
+        commit: requiredCommit(process.env.BUILD_SOURCEVERSION, "Build.SourceVersion"),
         id: buildId,
         number: process.env.BUILD_BUILDNUMBER,
         url: collection && project && buildId
@@ -195,4 +199,10 @@ async function fileExists(filePath) {
     catch {
         return false;
     }
+}
+function requiredCommit(value, name) {
+    const commit = (0, baseline_1.normalizeCommit)(value);
+    if (!commit)
+        throw new Error(`${name} did not contain a full commit ID.`);
+    return commit;
 }

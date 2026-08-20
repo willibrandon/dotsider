@@ -93,6 +93,15 @@ outputs:
   baseline-artifact-name:
     description: Managed baseline artifact name.
     value: ${{ steps.run.outputs.baseline-artifact-name }}
+  baseline-target-commit:
+    description: Target-branch commit that the pull request is checked against; empty when the comparison is skipped.
+    value: ${{ steps.run.outputs.baseline-target-commit }}
+  baseline-comparison-status:
+    description: current, mismatched, unknown, or empty when the comparison is skipped.
+    value: ${{ steps.run.outputs.baseline-comparison-status }}
+  baseline-comparison-reason:
+    description: Stable reason when baseline-comparison-status is unknown; otherwise empty.
+    value: ${{ steps.run.outputs.baseline-comparison-reason }}
 runs:
   using: composite
   steps:
@@ -174,6 +183,7 @@ runs:
         DOTSIDER_PREPARED_CACHE_KEY: ${{ steps.prepare.outputs.cache-key }}
         DOTSIDER_PREPARED_EXPLICIT: ${{ steps.prepare.outputs.explicit }}
         DOTSIDER_BASELINE_SOURCE: ${{ steps.baseline.outputs.source }}
+        DOTSIDER_BASELINE_COMPARISON: ${{ steps.baseline.outputs.comparison }}
         DOTSIDER_BASELINE_IDENTITY: ${{ steps.baseline.outputs.identity }}
         DOTSIDER_BASELINE_ARTIFACT_NAME: ${{ steps.baseline.outputs.artifact-name }}
         DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY: ${{ steps.baseline.outputs.download-directory }}

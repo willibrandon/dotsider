@@ -86,6 +86,7 @@ async function discover() {
         publish: String(discovery.publish),
         identity: JSON.stringify(discovery.identity),
         source: JSON.stringify(discovery.source),
+        comparison: discovery.comparison ? JSON.stringify(discovery.comparison) : "",
     });
 }
 async function prepare() {
@@ -107,16 +108,21 @@ async function run(onOutputs) {
         ? preparedDiscovery()
         : await (0, github_baseline_1.discoverGithubBaseline)(inputs, tool.rid);
     let source = discovery.source;
+    const comparison = discovery.comparison;
+    onOutputs((0, report_1.createErrorOutputs)(inputs.artifactName, tool.version, source, comparison));
     if (source.status === "restored") {
         const directory = requiredEnvironment("DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY");
         const restored = await (0, baseline_1.restoreBaseline)(directory, discovery.identity, source);
         inputs = { ...inputs, baseline: restored.targetPath };
     }
+    const baselineWarning = (0, baseline_1.formatBaselineWarning)(source, comparison);
+    if (baselineWarning)
+        command("warning", {}, baselineWarning);
     const execution = await (0, process_1.executeSizeCheck)(executable, inputs, source.status === "not-found");
     if (execution.report && await fileExists(execution.markdownReportPath)) {
-        execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, source);
+        execution.report = await (0, baseline_1.enrichReports)(execution.jsonReportPath, execution.markdownReportPath, source, comparison);
     }
-    const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version, source);
+    const outputs = (0, report_1.createStableOutputs)(execution, inputs.artifactName, tool.version, source, comparison);
     onOutputs(outputs);
     writeStableOutputs(outputs);
     let baselineUploadPath = "";
@@ -163,6 +169,9 @@ function githubInputs() {
 function preparedDiscovery() {
     return {
         source: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_SOURCE")),
+        comparison: optional(process.env.DOTSIDER_BASELINE_COMPARISON)
+            ? JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_COMPARISON"))
+            : undefined,
         identity: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_IDENTITY")),
         artifactName: requiredEnvironment("DOTSIDER_BASELINE_ARTIFACT_NAME"),
         downloadDirectory: optional(process.env.DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY),
@@ -176,7 +185,7 @@ function currentGithubSource(artifactName) {
         status: "restored",
         provider: "github-actions",
         branch: process.env.GITHUB_REF_NAME,
-        commit: process.env.GITHUB_SHA,
+        commit: requiredCommit(process.env.GITHUB_SHA, "GITHUB_SHA"),
         id: runId,
         number: process.env.GITHUB_RUN_NUMBER,
         url: `${process.env.GITHUB_SERVER_URL || "https://github.com"}/${repository}/actions/runs/${runId}`,
@@ -240,6 +249,9 @@ function writeStableOutputs(outputs) {
         "baseline-source-commit": outputs.baselineSourceCommit,
         "baseline-source-url": outputs.baselineSourceUrl,
         "baseline-artifact-name": outputs.baselineArtifactName,
+        "baseline-target-commit": outputs.baselineTargetCommit,
+        "baseline-comparison-status": outputs.baselineComparisonStatus,
+        "baseline-comparison-reason": outputs.baselineComparisonReason,
     });
 }
 function writeOutputs(outputs) {
@@ -271,6 +283,12 @@ function requiredEnvironment(name) {
         throw new Error(`Required environment variable ${name} was not provided.`);
     }
     return value;
+}
+function requiredCommit(value, name) {
+    const commit = (0, baseline_1.normalizeCommit)(value);
+    if (!commit)
+        throw new Error(`Required environment variable ${name} did not contain a full commit ID.`);
+    return commit;
 }
 async function fileExists(filePath) {
     try {

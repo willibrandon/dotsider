@@ -13,7 +13,13 @@ import {
   validateArchiveEntries,
 } from "../src/acquisition";
 import { createInputs, parseBudgets, parseTop } from "../src/input";
-import { buildSizeCheckArguments, formatSizeCheckSummary } from "../src/report";
+import {
+  buildSizeCheckArguments,
+  createErrorOutputs,
+  createStableOutputs,
+  formatSizeCheckSummary,
+} from "../src/report";
+import { SizeCheckExecution } from "../src/types";
 import { escapeVsoMessage, escapeVsoProperty } from "../src/azure";
 
 test("buildSizeCheckArguments forwards every typed input as separate arguments", () => {
@@ -108,6 +114,96 @@ test("formatSizeCheckSummary identifies a current build without a baseline total
     delta: "36029560",
     violationCount: "0",
   }), "current build (no baseline comparison); 34.4 MB total (fileSize)");
+});
+
+test("managed baseline alignment warnings never override budget failures or execution errors", () => {
+  const execution = (result: SizeCheckExecution["result"], exitCode: number): SizeCheckExecution => ({
+    result,
+    exitCode,
+    jsonReportPath: "/reports/report.json",
+    markdownReportPath: "/reports/report.md",
+    stderr: "",
+  });
+  const mismatched = {
+    status: "mismatched" as const,
+    targetCommit: "2222222222222222222222222222222222222222",
+  };
+
+  assert.equal(createStableOutputs(execution("passed", 0), "reports", "1.0.0", undefined, mismatched).result,
+    "passed-with-warnings");
+  assert.equal(createStableOutputs(execution("passed-with-warnings", 0), "reports", "1.0.0", undefined, mismatched).result,
+    "passed-with-warnings");
+  assert.equal(createStableOutputs(execution("budget-failed", 2), "reports", "1.0.0", undefined, mismatched).result,
+    "budget-failed");
+  assert.equal(createStableOutputs(execution("error", 1), "reports", "1.0.0", undefined, mismatched).result,
+    "error");
+  assert.equal(createStableOutputs(execution("passed", 0), "reports", "1.0.0", undefined, {
+    status: "current",
+    targetCommit: mismatched.targetCommit,
+  }).result, "passed");
+});
+
+test("stable outputs expose current, mismatched, unknown, and not-applicable alignment", () => {
+  const execution: SizeCheckExecution = {
+    result: "passed",
+    exitCode: 0,
+    jsonReportPath: "/reports/report.json",
+    markdownReportPath: "/reports/report.md",
+    stderr: "",
+  };
+  const targetCommit = "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD".toLowerCase();
+
+  const current = createStableOutputs(execution, "reports", "1.0.0", undefined, {
+    status: "current",
+    targetCommit,
+  });
+  assert.equal(current.baselineComparisonStatus, "current");
+  assert.equal(current.baselineTargetCommit, targetCommit);
+  assert.equal(current.baselineComparisonReason, "");
+
+  const mismatched = createStableOutputs(execution, "reports", "1.0.0", undefined, {
+    status: "mismatched",
+    targetCommit,
+  });
+  assert.equal(mismatched.result, "passed-with-warnings");
+  assert.equal(mismatched.baselineComparisonStatus, "mismatched");
+  assert.equal(mismatched.baselineComparisonReason, "");
+
+  const unknown = createStableOutputs(execution, "reports", "1.0.0", undefined, {
+    status: "unknown",
+    targetCommit,
+    reason: "permission-denied",
+  });
+  assert.equal(unknown.baselineComparisonStatus, "unknown");
+  assert.equal(unknown.baselineTargetCommit, targetCommit);
+  assert.equal(unknown.baselineComparisonReason, "permission-denied");
+
+  const notApplicable = createStableOutputs(execution, "reports", "1.0.0");
+  assert.equal(notApplicable.baselineComparisonStatus, "");
+  assert.equal(notApplicable.baselineTargetCommit, "");
+  assert.equal(notApplicable.baselineComparisonReason, "");
+});
+
+test("error outputs retain alignment facts without overriding execution failure", () => {
+  const outputs = createErrorOutputs("reports", "1.0.0", {
+    status: "restored",
+    provider: "github-actions",
+    commit: "1111111111111111111111111111111111111111",
+    id: "41",
+    artifactName: "baseline",
+  }, {
+    status: "unknown",
+    targetCommit: "2222222222222222222222222222222222222222",
+    reason: "provider-unavailable",
+  });
+
+  assert.equal(outputs.result, "error");
+  assert.equal(outputs.exitCode, "1");
+  assert.equal(outputs.jsonReportPath, "");
+  assert.equal(outputs.markdownReportPath, "");
+  assert.equal(outputs.baselineComparisonStatus, "unknown");
+  assert.equal(outputs.baselineTargetCommit, "2222222222222222222222222222222222222222");
+  assert.equal(outputs.baselineComparisonReason, "provider-unavailable");
 });
 
 test("parseBudgets repeats nonempty budget lines in order", () => {

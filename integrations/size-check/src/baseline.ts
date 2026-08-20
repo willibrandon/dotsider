@@ -3,6 +3,8 @@ import { createReadStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
+  BaselineComparison,
+  BaselineComparisonReason,
   BaselineIdentity,
   BaselineSource,
   SizeReport,
@@ -219,21 +221,71 @@ export async function enrichReports(
   jsonPath: string,
   markdownPath: string,
   source: BaselineSource,
+  comparison?: BaselineComparison,
 ): Promise<SizeReport> {
   const report = JSON.parse(await fs.readFile(jsonPath, "utf8")) as SizeReport;
   report.baselineSource = source;
+  if (comparison) report.baselineComparison = comparison;
   await fs.writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   const markdown = await fs.readFile(markdownPath, "utf8");
   const baselineLine = formatBaselineSource(source);
+  const comparisonWarning = formatBaselineWarningMarkdown(source, comparison);
   const firstSection = /\r?\n---\r?\n/u.exec(markdown);
   const newline = markdown.includes("\r\n") ? "\r\n" : "\n";
+  const provenance = comparisonWarning
+    ? `${baselineLine}${newline}${newline}> **Warning:** ${comparisonWarning}`
+    : baselineLine;
   const enriched = firstSection?.index !== undefined
-    ? `${markdown.slice(0, firstSection.index).trimEnd()}${newline}${newline}${baselineLine}${newline}`
+    ? `${markdown.slice(0, firstSection.index).trimEnd()}${newline}${newline}${provenance}${newline}`
       + markdown.slice(firstSection.index)
-    : `${markdown.trimEnd()}${newline}${newline}${baselineLine}${newline}`;
+    : `${markdown.trimEnd()}${newline}${newline}${provenance}${newline}`;
   await fs.writeFile(markdownPath, enriched, "utf8");
   return report;
+}
+
+export function normalizeCommit(value: string | undefined): string | undefined {
+  const commit = value?.trim();
+  return commit && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(commit)
+    ? commit.toLowerCase()
+    : undefined;
+}
+
+export function compareBaseline(
+  baselineCommit: string,
+  targetCommit: string,
+): BaselineComparison {
+  const baseline = normalizeCommit(baselineCommit);
+  const target = normalizeCommit(targetCommit);
+  if (!baseline || !target) throw new Error("Managed baseline comparison requires valid full commit IDs.");
+  return { status: baseline === target ? "current" : "mismatched", targetCommit: target };
+}
+
+export function unknownBaselineComparison(
+  reason: BaselineComparisonReason,
+  targetCommit?: string,
+): BaselineComparison {
+  const target = normalizeCommit(targetCommit);
+  return target ? { status: "unknown", targetCommit: target, reason } : { status: "unknown", reason };
+}
+
+export function formatBaselineWarning(
+  source: BaselineSource,
+  comparison: BaselineComparison | undefined,
+): string | undefined {
+  if (!comparison || comparison.status === "current") return undefined;
+  const baseline = shortCommit(source.commit);
+  const target = comparison.targetCommit ? shortCommit(comparison.targetCommit) : undefined;
+  const facts = target
+    ? `This pull request uses target-branch commit '${target}'. The baseline comes from commit '${baseline}' in ${plainSourceLabel(source)}.`
+    : `The baseline comes from commit '${baseline}' in ${plainSourceLabel(source)}.`;
+  const detail = comparison.status === "unknown"
+    ? unknownGuidance(comparison.reason, source.provider)
+    : "Dotsider could not find a successful baseline for that target-branch commit. Rerun the pull request, or run a successful size check for that commit.";
+  return `${comparison.status === "mismatched"
+    ? "The baseline was built from a different commit."
+    : "Dotsider could not tell whether the baseline matches this pull request."} ${facts} ${detail} `
+    + "The size comparison and budgets will still run.";
 }
 
 function formatBaselineSource(source: BaselineSource): string {
@@ -245,10 +297,102 @@ function formatBaselineSource(source: BaselineSource): string {
     return `**Baseline:** No stored baseline was found${branch}; absolute budgets were evaluated and growth budgets were deferred.`;
   }
   const label = source.number ? `run ${source.number}` : `run ${source.id ?? "unknown"}`;
-  const linked = source.url ? `[${label}](${source.url})` : label;
+  const linked = source.url ? `[${label}](${markdownLinkDestination(source.url)})` : label;
   const commit = source.commit ? ` at ${markdownCodeSpan(source.commit.slice(0, 12))}` : "";
   const branch = source.branch ? ` on ${markdownCodeSpan(source.branch)}` : "";
   return `**Baseline:** Restored from ${linked}${commit}${branch}.`;
+}
+
+function formatBaselineWarningMarkdown(
+  source: BaselineSource,
+  comparison: BaselineComparison | undefined,
+): string | undefined {
+  if (!comparison || comparison.status === "current") return undefined;
+  const baseline = markdownCodeSpan(shortCommit(source.commit));
+  const target = comparison.targetCommit ? markdownCodeSpan(shortCommit(comparison.targetCommit)) : undefined;
+  const facts = target
+    ? `This pull request uses target-branch commit ${target}. The baseline comes from commit ${baseline} in ${markdownSourceLabel(source)}.`
+    : `The baseline comes from commit ${baseline} in ${markdownSourceLabel(source)}.`;
+  const detail = comparison.status === "unknown"
+    ? unknownGuidance(comparison.reason, source.provider)
+    : "Dotsider could not find a successful baseline for that target-branch commit. Rerun the pull request, or run a successful size check for that commit.";
+  return `${comparison.status === "mismatched"
+    ? "The baseline was built from a different commit."
+    : "Dotsider could not tell whether the baseline matches this pull request."} ${facts} ${detail} `
+    + "The size comparison and budgets will still run.";
+}
+
+function sourceLabel(source: BaselineSource): string {
+  const provider = source.provider === "azure-pipelines" ? "Azure Pipelines build" : "GitHub Actions run";
+  return `${provider} ${source.number ?? source.id ?? "unknown"}`;
+}
+
+function plainSourceLabel(source: BaselineSource): string {
+  const branch = source.branch ? ` on branch '${source.branch}'` : "";
+  const link = source.url ? ` (${source.url})` : "";
+  return `${sourceLabel(source)}${branch}${link}`;
+}
+
+function markdownSourceLabel(source: BaselineSource): string {
+  const label = sourceLabel(source);
+  const linked = source.url ? `[${label}](${markdownLinkDestination(source.url)})` : label;
+  const branch = source.branch ? ` on branch ${markdownCodeSpan(source.branch)}` : "";
+  return `${linked}${branch}`;
+}
+
+function unknownGuidance(
+  reason: BaselineComparisonReason,
+  provider: BaselineSource["provider"],
+): string {
+  switch (reason) {
+    case "permission-denied":
+      return provider === "azure-pipelines"
+        ? "Give the pipeline Build Service repository Read permission, or check out the repository."
+        : "Give the workflow contents: read permission so Dotsider can inspect the pull request commits.";
+    case "merge-not-ready":
+      return "GitHub is still preparing the pull request. Rerun the check in a minute.";
+    case "merge-conflict":
+      return "Resolve the pull request merge conflict and rerun the check.";
+    case "repository-not-checked-out":
+      return "Check out the triggering Git repository in the Azure job before running Dotsider.";
+    case "git-unavailable":
+      return "Install Git on the agent, or allow Azure Repos to provide the commit details.";
+    case "commit-not-found":
+      return "Make sure the pull request commit is present in the checkout, or allow Azure Repos to provide it.";
+    case "unsupported-repository-provider":
+      return "This check requires a supported Git repository.";
+    case "candidate-search-incomplete":
+      return "Dotsider could not finish searching previous builds. Rerun the check later.";
+    case "not-a-test-merge":
+    case "response-mismatch":
+      return "Refresh the pull request and rerun the check. The commit details returned by GitHub or Azure could not be used.";
+    case "merge-commit-unavailable":
+      return "Rerun the check after GitHub finishes preparing the pull request.";
+    case "provider-unavailable":
+      return "Rerun the check when GitHub or Azure can provide the commit details.";
+  }
+}
+
+function shortCommit(value: string | undefined): string {
+  return normalizeCommit(value)?.slice(0, 12) ?? "unknown";
+}
+
+function markdownLinkDestination(value: string): string {
+  let result = "";
+  for (let index = 0; index < value.length;) {
+    const codePoint = value.codePointAt(index) ?? 0;
+    const character = String.fromCodePoint(codePoint);
+    if (character === "%" && /^[0-9A-Fa-f]{2}$/u.test(value.slice(index + 1, index + 3))) {
+      result += character;
+      index++;
+      continue;
+    }
+    result += codePoint <= 0x20 || "%\\()[]<>`".includes(character)
+      ? `%${codePoint.toString(16).padStart(2, "0").toUpperCase()}`
+      : character;
+    index += character.length;
+  }
+  return result;
 }
 
 function markdownCodeSpan(value: string): string {

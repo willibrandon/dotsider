@@ -141,6 +141,8 @@ jobs:
 
   ci-integration-packages:
     name: CI integration packages
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -174,6 +176,24 @@ jobs:
           pnpm --dir integrations/size-check build
           pnpm --dir integrations/size-check validate
           pnpm --dir integrations/size-check test:unit
+
+      - name: Verify the live pull-request test-merge parent
+        if: github.event_name == 'pull_request' && github.event.pull_request.state == 'open'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          resolved="$(node integrations/size-check/test/resolve-live-pr-target.mjs)"
+          mapfile -t parents < <(git cat-file -p "$GITHUB_SHA" | sed -n 's/^parent //p')
+          if [[ "${#parents[@]}" -ne 2 ]]; then
+            echo "Expected the checked-out PR commit to have exactly two parents." >&2
+            exit 1
+          fi
+          if [[ "$resolved" != "${parents[0]}" ]]; then
+            echo "Resolver target '$resolved' did not match merge parent 0 '${parents[0]}'." >&2
+            exit 1
+          fi
 
       - name: Test live musl runtime detection without a distro marker
         run: >-

@@ -1,8 +1,22 @@
+import { spawn } from "node:child_process";
 import { inflateRawSync } from "node:zlib";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { baselineArtifactName, createBaselineIdentity, detectTargetRid } from "./baseline";
-import { BaselineDiscovery, BaselineSource, SizeCheckInputs } from "./types";
+import {
+  baselineArtifactName,
+  compareBaseline,
+  createBaselineIdentity,
+  detectTargetRid,
+  normalizeCommit,
+  unknownBaselineComparison,
+} from "./baseline";
+import {
+  BaselineComparison,
+  BaselineComparisonReason,
+  BaselineDiscovery,
+  BaselineSource,
+  SizeCheckInputs,
+} from "./types";
 
 const maximumArchiveBytes = 1024 * 1024 * 1024;
 
@@ -17,6 +31,37 @@ interface AzureBuild {
 
 interface AzureArtifact {
   name: string;
+}
+
+interface AzureCommit {
+  commitId?: string;
+  parents?: readonly string[];
+}
+
+interface AzureBuildPage {
+  value: AzureBuild[];
+  continuationToken?: string;
+}
+
+interface AzureCandidate {
+  build: AzureBuild;
+  artifactUrl: string;
+}
+
+type TargetResolution =
+  | { status: "resolved"; targetCommit: string }
+  | { status: "unknown"; reason: BaselineComparisonReason };
+
+interface LocalCommitResult {
+  status: "resolved" | "unknown";
+  targetCommit?: string;
+  reason?: BaselineComparisonReason;
+}
+
+class AzureHttpError extends Error {
+  public constructor(public readonly status: number, message: string) {
+    super(message);
+  }
 }
 
 export async function discoverAzureBaseline(
@@ -57,7 +102,8 @@ export async function discoverAzureBaseline(
   const artifactName = baselineArtifactName(identity);
 
   const branch = targetBranch(environment);
-  const publish = environment.BUILD_REASON !== "PullRequest" && branch !== undefined;
+  const pullRequest = environment.BUILD_REASON === "PullRequest";
+  const publish = !pullRequest && branch !== undefined;
   if (!branch) {
     return {
       identity,
@@ -72,47 +118,74 @@ export async function discoverAzureBaseline(
   const buildsUrl = `${apiRoot}/builds?definitions=${encodeURIComponent(definition)}`
     + `&branchName=${encodeURIComponent(branch)}&statusFilter=completed&resultFilter=succeeded`
     + "&queryOrder=queueTimeDescending&$top=100&api-version=7.1";
-  const builds = await azureJson<{ value?: AzureBuild[] }>(buildsUrl, token);
+  const firstPage = await azureBuildPage(buildsUrl, token);
   const currentBuild = Number(environment.BUILD_BUILDID || "0");
-  for (const build of builds.value ?? []) {
-    if (build.id === currentBuild || build.result.toLowerCase() !== "succeeded" || build.sourceBranch !== branch) {
-      continue;
-    }
-    const artifactUrl = `${apiRoot}/builds/${build.id}/artifacts?artifactName=${encodeURIComponent(artifactName)}`
-      + "&api-version=7.1";
-    const artifact = await tryAzureArtifact(artifactUrl, token);
-    if (!artifact || artifact.name !== artifactName) continue;
-
-    const downloadDirectory = path.join(
-      environment.AGENT_TEMPDIRECTORY || process.cwd(),
-      "dotsider-baseline",
+  const fallback = await findNewestAzureCandidate(
+    firstPage.value, apiRoot, token, artifactName, branch, currentBuild,
+  );
+  if (!fallback) {
+    return {
+      identity,
       artifactName,
-    );
-    const baselineRoot = await downloadAndExtractZip(
-      artifactUrl,
-      token,
-      downloadDirectory,
-      collection,
-    );
-    const source: BaselineSource = {
-      status: "restored",
-      provider: "azure-pipelines",
-      branch,
-      commit: build.sourceVersion,
-      id: String(build.id),
-      number: build.buildNumber,
-      url: build._links?.web?.href,
-      artifactName,
+      source: { status: "not-found", provider: "azure-pipelines", branch, artifactName },
+      publish,
     };
-    return { identity, artifactName, source, downloadDirectory: baselineRoot, publish };
   }
 
-  return {
-    identity,
+  let selected = fallback;
+  let comparison: BaselineComparison | undefined;
+  if (pullRequest) {
+    const target = await resolveAzureExpectedTarget(collection, project, token, environment);
+    if (target.status === "resolved") {
+      try {
+        const exact = await findExactAzureCandidate(
+          firstPage,
+          buildsUrl,
+          apiRoot,
+          token,
+          artifactName,
+          branch,
+          currentBuild,
+          target.targetCommit,
+        );
+        if (exact.candidate) selected = exact.candidate;
+        comparison = exact.complete
+          ? compareBaseline(requireAzureBuildCommit(selected.build), target.targetCommit)
+          : unknownBaselineComparison("candidate-search-incomplete", target.targetCommit);
+      } catch (error) {
+        if (error instanceof AzureHttpError && (error.status === 401 || error.status === 403)) {
+          throw error;
+        }
+        comparison = unknownBaselineComparison("candidate-search-incomplete", target.targetCommit);
+      }
+    } else {
+      comparison = unknownBaselineComparison(target.reason);
+    }
+  }
+
+  const downloadDirectory = path.join(
+    environment.AGENT_TEMPDIRECTORY || process.cwd(),
+    "dotsider-baseline",
     artifactName,
-    source: { status: "not-found", provider: "azure-pipelines", branch, artifactName },
-    publish,
+  );
+  const baselineRoot = await downloadAndExtractZip(
+    selected.artifactUrl,
+    token,
+    downloadDirectory,
+    collection,
+  );
+  const source: BaselineSource = {
+    status: "restored",
+    provider: "azure-pipelines",
+    branch,
+    commit: requireAzureBuildCommit(selected.build),
+    id: String(selected.build.id),
+    number: selected.build.buildNumber,
+    url: selected.build._links?.web?.href
+      || `${collection}/${encodeURIComponent(project)}/_build/results?buildId=${selected.build.id}`,
+    artifactName,
   };
+  return { identity, artifactName, source, comparison, downloadDirectory: baselineRoot, publish };
 }
 
 export function takeAccessToken(environment: NodeJS.ProcessEnv = process.env): string {
@@ -126,6 +199,245 @@ export function takeAccessToken(environment: NodeJS.ProcessEnv = process.env): s
     );
   }
   return token;
+}
+
+async function findNewestAzureCandidate(
+  builds: readonly AzureBuild[],
+  apiRoot: string,
+  token: string,
+  artifactName: string,
+  branch: string,
+  currentBuild: number,
+): Promise<AzureCandidate | undefined> {
+  for (const build of builds) {
+    if (!eligibleAzureBuild(build, branch, currentBuild)) continue;
+    const artifactUrl = azureArtifactUrl(apiRoot, build.id, artifactName);
+    const artifact = await tryAzureArtifact(artifactUrl, token);
+    if (!artifact || artifact.name !== artifactName) continue;
+    requireAzureBuildCommit(build);
+    return { build, artifactUrl };
+  }
+  return undefined;
+}
+
+async function findExactAzureCandidate(
+  firstPage: AzureBuildPage,
+  buildsUrl: string,
+  apiRoot: string,
+  token: string,
+  artifactName: string,
+  branch: string,
+  currentBuild: number,
+  targetCommit: string,
+): Promise<{ candidate?: AzureCandidate; complete: boolean }> {
+  let page = firstPage;
+  const seenTokens = new Set<string>();
+  while (true) {
+    for (const build of page.value) {
+      if (!eligibleAzureBuild(build, branch, currentBuild)) continue;
+      const commit = normalizeCommit(build.sourceVersion);
+      if (commit !== targetCommit) continue;
+      const artifactUrl = azureArtifactUrl(apiRoot, build.id, artifactName);
+      const artifact = await tryAzureArtifact(artifactUrl, token);
+      if (artifact?.name === artifactName) {
+        requireAzureBuildCommit(build);
+        return { candidate: { build, artifactUrl }, complete: true };
+      }
+    }
+    const continuation = page.continuationToken?.trim();
+    if (!continuation) return { complete: true };
+    if (seenTokens.has(continuation)) return { complete: false };
+    seenTokens.add(continuation);
+    page = await azureBuildPage(`${buildsUrl}&continuationToken=${encodeURIComponent(continuation)}`, token);
+  }
+}
+
+function eligibleAzureBuild(build: AzureBuild, branch: string, currentBuild: number): boolean {
+  return build.id !== currentBuild
+    && build.result.toLowerCase() === "succeeded"
+    && build.sourceBranch === branch;
+}
+
+function azureArtifactUrl(apiRoot: string, buildId: number, artifactName: string): string {
+  return `${apiRoot}/builds/${buildId}/artifacts?artifactName=${encodeURIComponent(artifactName)}`
+    + "&api-version=7.1";
+}
+
+function requireAzureBuildCommit(build: AzureBuild): string {
+  const commit = normalizeCommit(build.sourceVersion);
+  if (!commit) throw new Error(`Azure Pipelines build ${build.id} returned an invalid source commit ID.`);
+  return commit;
+}
+
+export async function resolveAzureExpectedTarget(
+  collection: string,
+  project: string,
+  token: string,
+  environment: NodeJS.ProcessEnv,
+): Promise<TargetResolution> {
+  const provider = environment.BUILD_REPOSITORY_PROVIDER?.trim().toLowerCase();
+  if (!provider || !["tfsgit", "git", "github"].includes(provider)) {
+    return { status: "unknown", reason: "unsupported-repository-provider" };
+  }
+  const mergeCommit = normalizeCommit(environment.BUILD_SOURCEVERSION);
+  const sourceCommit = environment.SYSTEM_PULLREQUEST_SOURCECOMMITID?.trim()
+    ? normalizeCommit(environment.SYSTEM_PULLREQUEST_SOURCECOMMITID)
+    : undefined;
+  if (!mergeCommit || (environment.SYSTEM_PULLREQUEST_SOURCECOMMITID?.trim() && !sourceCommit)) {
+    return { status: "unknown", reason: "not-a-test-merge" };
+  }
+
+  const local = await resolveLocalMergeTargetCommit(
+    environment.BUILD_REPOSITORY_LOCALPATH,
+    mergeCommit,
+    sourceCommit,
+  );
+  if (local.status === "resolved") return { status: "resolved", targetCommit: local.targetCommit! };
+  const localReason = local.reason!;
+  if (provider !== "tfsgit"
+      || !["repository-not-checked-out", "git-unavailable", "commit-not-found"].includes(localReason)) {
+    return { status: "unknown", reason: localReason };
+  }
+
+  return await resolveAzureReposCommit(collection, project, token, environment, mergeCommit, sourceCommit);
+}
+
+export async function resolveLocalMergeTargetCommit(
+  repository: string | undefined,
+  mergeCommit: string,
+  sourceCommit?: string,
+  gitExecutable = "git",
+): Promise<LocalCommitResult> {
+  const root = repository?.trim();
+  if (!root || !await isDirectory(root)) {
+    return { status: "unknown", reason: "repository-not-checked-out" };
+  }
+  const object = await readGitCommitObject(root, mergeCommit, gitExecutable);
+  if ("reason" in object) return { status: "unknown", reason: object.reason };
+  if (object.objectId !== mergeCommit) return { status: "unknown", reason: "response-mismatch" };
+  if (object.objectType !== "commit") return { status: "unknown", reason: "not-a-test-merge" };
+  return validateMergeParents(parseGitCommitParents(object.contents), sourceCommit);
+}
+
+export function parseGitCommitParents(commit: string): readonly string[] {
+  const parents: string[] = [];
+  for (const line of commit.split(/\r?\n/u)) {
+    if (line === "") break;
+    if (!line.startsWith("parent ")) continue;
+    parents.push(line.slice("parent ".length).trim());
+  }
+  return parents;
+}
+
+async function readGitCommitObject(
+  repository: string,
+  commit: string,
+  gitExecutable: string,
+): Promise<
+  | { objectId: string; objectType: string; contents: string }
+  | { reason: BaselineComparisonReason }
+> {
+  return await new Promise(resolve => {
+    const child = spawn(gitExecutable, ["-C", repository, "cat-file", "--batch"], {
+      env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" },
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let bytes = 0;
+    let settled = false;
+    const finish = (value: { objectId: string; objectType: string; contents: string }
+      | { reason: BaselineComparisonReason }) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    child.on("error", error => {
+      finish({ reason: (error as NodeJS.ErrnoException).code === "ENOENT" ? "git-unavailable" : "provider-unavailable" });
+    });
+    child.stdout.on("data", (chunk: Buffer) => {
+      bytes += chunk.length;
+      if (bytes <= 1024 * 1024) stdout.push(chunk);
+      else child.kill();
+    });
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("close", code => {
+      if (settled) return;
+      const error = Buffer.concat(stderr).toString("utf8");
+      if (code !== 0 || bytes > 1024 * 1024) {
+        finish({ reason: /not a git repository/iu.test(error)
+          ? "repository-not-checked-out"
+          : "commit-not-found" });
+        return;
+      }
+      const buffer = Buffer.concat(stdout);
+      const newline = buffer.indexOf(0x0a);
+      if (newline < 0) {
+        finish({ reason: "commit-not-found" });
+        return;
+      }
+      const header = buffer.subarray(0, newline).toString("ascii");
+      if (header.endsWith(" missing")) {
+        finish({ reason: "commit-not-found" });
+        return;
+      }
+      const match = /^([0-9a-f]+) ([a-z]+) ([0-9]+)$/iu.exec(header);
+      const size = match ? Number(match[3]) : NaN;
+      if (!match?.[1] || !match[2] || !Number.isSafeInteger(size) || size < 0
+          || newline + 1 + size > buffer.length) {
+        finish({ reason: "response-mismatch" });
+        return;
+      }
+      finish({
+        objectId: match[1].toLowerCase(),
+        objectType: match[2],
+        contents: buffer.subarray(newline + 1, newline + 1 + size).toString("utf8"),
+      });
+    });
+    child.stdin.end(`${commit}\n`, "ascii");
+  });
+}
+
+async function resolveAzureReposCommit(
+  collection: string,
+  project: string,
+  token: string,
+  environment: NodeJS.ProcessEnv,
+  mergeCommit: string,
+  sourceCommit: string | undefined,
+): Promise<TargetResolution> {
+  const repository = environment.BUILD_REPOSITORY_ID?.trim();
+  if (!repository) return { status: "unknown", reason: "provider-unavailable" };
+  const url = `${collection}/${encodeURIComponent(project)}/_apis/git/repositories/`
+    + `${encodeURIComponent(repository)}/commits/${encodeURIComponent(mergeCommit)}?api-version=7.1`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const commit = await azureJson<AzureCommit>(url, token, "read source commit metadata");
+      const returned = normalizeCommit(commit.commitId);
+      if (returned !== mergeCommit) return { status: "unknown", reason: "response-mismatch" };
+      return validateMergeParents(commit.parents ?? [], sourceCommit);
+    } catch (error) {
+      const status = error instanceof AzureHttpError ? error.status : 0;
+      if (status === 401 || status === 403) return { status: "unknown", reason: "permission-denied" };
+      if (status === 404) return { status: "unknown", reason: "commit-not-found" };
+      if (attempt === 2 || (status !== 0 && status !== 429 && status < 500)) {
+        return { status: "unknown", reason: "provider-unavailable" };
+      }
+      await delay(attempt === 0 ? 1000 : 2000);
+    }
+  }
+  return { status: "unknown", reason: "provider-unavailable" };
+}
+
+function validateMergeParents(parents: readonly string[], sourceCommit?: string): TargetResolution {
+  const normalized = parents.map(parent => normalizeCommit(parent));
+  if (normalized.length !== 2 || !normalized[0] || !normalized[1]
+      || (sourceCommit && normalized[1] !== sourceCommit)) {
+    return { status: "unknown", reason: "not-a-test-merge" };
+  }
+  return { status: "resolved", targetCommit: normalized[0] };
 }
 
 export async function extractZipArchive(buffer: Buffer, destination: string): Promise<void> {
@@ -264,15 +576,58 @@ async function isFile(filePath: string): Promise<boolean> {
   }
 }
 
-async function azureJson<T>(url: string, token: string): Promise<T> {
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+async function isDirectory(directoryPath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(directoryPath)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function azureJson<T>(
+  url: string,
+  token: string,
+  requiredPermission = "read builds and artifacts",
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  } catch (error) {
+    throw new AzureHttpError(0, error instanceof Error ? error.message : String(error));
+  }
+  if (!response.ok) {
+    const permission = response.status === 401 || response.status === 403
+      ? ` Grant the project Build Service permission to ${requiredPermission}.`
+      : "";
+    throw new AzureHttpError(
+      response.status,
+      `Azure baseline discovery failed with HTTP ${response.status}.${permission}`,
+    );
+  }
+  return await response.json() as T;
+}
+
+async function azureBuildPage(url: string, token: string): Promise<AzureBuildPage> {
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  } catch (error) {
+    throw new AzureHttpError(0, error instanceof Error ? error.message : String(error));
+  }
   if (!response.ok) {
     const permission = response.status === 401 || response.status === 403
       ? " Grant the project Build Service permission to read builds and artifacts."
       : "";
-    throw new Error(`Azure baseline discovery failed with HTTP ${response.status}.${permission}`);
+    throw new AzureHttpError(
+      response.status,
+      `Azure baseline discovery failed with HTTP ${response.status}.${permission}`,
+    );
   }
-  return await response.json() as T;
+  const value = await response.json() as { value?: AzureBuild[] };
+  return {
+    value: value.value ?? [],
+    continuationToken: response.headers.get("x-ms-continuationtoken") ?? undefined,
+  };
 }
 
 async function tryAzureArtifact(url: string, token: string): Promise<AzureArtifact | undefined> {
@@ -282,7 +637,10 @@ async function tryAzureArtifact(url: string, token: string): Promise<AzureArtifa
     const permission = response.status === 401 || response.status === 403
       ? " Grant the project Build Service permission to read builds and artifacts."
       : "";
-    throw new Error(`Azure baseline discovery failed with HTTP ${response.status}.${permission}`);
+    throw new AzureHttpError(
+      response.status,
+      `Azure baseline discovery failed with HTTP ${response.status}.${permission}`,
+    );
   }
   return await response.json() as AzureArtifact;
 }
@@ -336,4 +694,8 @@ function required(value: string | undefined, name: string): string {
   const candidate = value?.trim();
   if (!candidate) throw new Error(`Unable to determine the Azure Pipelines ${name}.`);
   return candidate;
+}
+
+async function delay(milliseconds: number): Promise<void> {
+  await new Promise<void>(resolve => setTimeout(resolve, milliseconds));
 }

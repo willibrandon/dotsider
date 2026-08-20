@@ -102,12 +102,12 @@ function classifyResult(exitCode, report) {
     }
     return "passed";
 }
-function createStableOutputs(execution, artifactName, dotsiderVersion, baselineSource) {
+function createStableOutputs(execution, artifactName, dotsiderVersion, baselineSource, baselineComparison) {
     const report = execution.report;
     const evaluations = report?.budgets?.evaluations ?? [];
     const violationCount = evaluations.reduce((count, evaluation) => count + (evaluation.violations?.length ?? 0), 0);
     return {
-        result: execution.result,
+        result: resultWithBaselineWarning(execution.result, baselineComparison),
         exitCode: String(execution.exitCode),
         jsonReportPath: path.resolve(execution.jsonReportPath),
         markdownReportPath: path.resolve(execution.markdownReportPath),
@@ -123,9 +123,12 @@ function createStableOutputs(execution, artifactName, dotsiderVersion, baselineS
         baselineSourceCommit: baselineSource?.commit ?? "",
         baselineSourceUrl: baselineSource?.url ?? "",
         baselineArtifactName: baselineSource?.artifactName ?? "",
+        baselineTargetCommit: baselineComparison?.targetCommit ?? "",
+        baselineComparisonStatus: baselineComparison?.status ?? "",
+        baselineComparisonReason: baselineComparison?.status === "unknown" ? baselineComparison.reason : "",
     };
 }
-function createErrorOutputs(artifactName, dotsiderVersion) {
+function createErrorOutputs(artifactName, dotsiderVersion, baselineSource, baselineComparison) {
     return {
         result: "error",
         exitCode: "1",
@@ -138,12 +141,20 @@ function createErrorOutputs(artifactName, dotsiderVersion) {
         currentTotal: "",
         delta: "",
         violationCount: "0",
-        baselineStatus: "",
-        baselineSourceId: "",
-        baselineSourceCommit: "",
-        baselineSourceUrl: "",
-        baselineArtifactName: "",
+        baselineStatus: baselineSource?.status ?? "",
+        baselineSourceId: baselineSource?.id ?? "",
+        baselineSourceCommit: baselineSource?.commit ?? "",
+        baselineSourceUrl: baselineSource?.url ?? "",
+        baselineArtifactName: baselineSource?.artifactName ?? "",
+        baselineTargetCommit: baselineComparison?.targetCommit ?? "",
+        baselineComparisonStatus: baselineComparison?.status ?? "",
+        baselineComparisonReason: baselineComparison?.status === "unknown" ? baselineComparison.reason : "",
     };
+}
+function resultWithBaselineWarning(result, comparison) {
+    return result === "passed" && comparison && comparison.status !== "current"
+        ? "passed-with-warnings"
+        : result;
 }
 function formatSizeCheckSummary(outputs) {
     const parts = [];

@@ -165,6 +165,17 @@ successful run; pull requests compare with the newest successful run of their ta
 The artifact identity includes the workflow, job, logical target, and detected RID. Set
 `baseline-key` only when the target lives under a randomized temporary path.
 
+For a pull request, Dotsider warns when the managed baseline comes from a different
+target-branch commit. The warning shows both commits and the source run, then asks for a
+successful size check on the target branch. The size check and budgets still run. `current`
+means the commits match, `mismatched` means they differ, and `unknown` means commit details
+are unavailable.
+
+This comparison appears for open pull requests with a managed baseline. Branch builds,
+explicit baselines, first runs, and closed or merged pull requests leave it empty. The size
+check and budgets always continue. GitHub requires `actions: read` to find baselines and
+`contents: read` to inspect commits.
+
 Supplying `baseline` remains an explicit override for release-to-release comparisons. It
 disables automatic discovery and retention for that action invocation.
 
@@ -221,6 +232,11 @@ typed outputs match the GitHub Action. It uses the pipeline's short-lived OAuth 
 successful builds and artifacts from the same pipeline definition, then removes that token
 before Dotsider runs. A missing artifact is a first run; authentication, network, and corrupt
 artifact failures remain errors. Set `baseline` only for an explicit override.
+
+Keep `checkout: self` enabled so Dotsider can identify the target-branch commit from the
+local Git checkout. If Azure Repos must look it up through its API, the pipeline Build
+Service identity needs repository **Read** permission. Warnings leave the task successful.
+Future baselines come only from successful builds.
 
 See [CI integrations](/reference/ci-integrations/) for every input and output, platform
 compatibility, report lifetime, and release policy.

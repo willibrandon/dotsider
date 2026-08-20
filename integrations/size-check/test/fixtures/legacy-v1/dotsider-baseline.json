@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "provider": "github-actions",
+    "scope": "owner/repo/ci.yml",
+    "job": "size",
+    "target": "app",
+    "rid": "linux-x64"
+  },
+  "source": {
+    "status": "restored",
+    "provider": "github-actions",
+    "branch": "main",
+    "commit": "1111111111111111111111111111111111111111",
+    "id": "10",
+    "number": "10",
+    "artifactName": "legacy-baseline"
+  },
+  "targetPath": "files/target.mstat",
+  "files": [
+    {
+      "role": "mstat",
+      "path": "files/target.mstat",
+      "bytes": 24,
+      "sha256": "82e3f39c8c124d00e8b89264d986b7e559f29a052a803f83b54439cd259537db"
+    }
+  ]
+}

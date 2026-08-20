@@ -2,12 +2,12 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { acquireTool, prepareTool } from "./acquisition";
-import { enrichReports, restoreBaseline, stageBaseline } from "./baseline";
+import { enrichReports, formatBaselineWarning, normalizeCommit, restoreBaseline, stageBaseline } from "./baseline";
 import { discoverGithubBaseline } from "./github-baseline";
 import { createInputs } from "./input";
 import { executeSizeCheck } from "./process";
 import { createErrorOutputs, createStableOutputs, formatSizeCheckSummary } from "./report";
-import { BaselineDiscovery, BaselineSource, PreparedTool, StableOutputs } from "./types";
+import { BaselineComparison, BaselineDiscovery, BaselineSource, PreparedTool, StableOutputs } from "./types";
 
 void main();
 
@@ -57,6 +57,7 @@ async function discover(): Promise<void> {
     publish: String(discovery.publish),
     identity: JSON.stringify(discovery.identity),
     source: JSON.stringify(discovery.source),
+    comparison: discovery.comparison ? JSON.stringify(discovery.comparison) : "",
   });
 }
 
@@ -84,11 +85,16 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
     ? preparedDiscovery()
     : await discoverGithubBaseline(inputs, tool.rid);
   let source = discovery.source;
+  const comparison = discovery.comparison;
+  onOutputs(createErrorOutputs(inputs.artifactName, tool.version, source, comparison));
   if (source.status === "restored") {
     const directory = requiredEnvironment("DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY");
     const restored = await restoreBaseline(directory, discovery.identity, source);
     inputs = { ...inputs, baseline: restored.targetPath };
   }
+
+  const baselineWarning = formatBaselineWarning(source, comparison);
+  if (baselineWarning) command("warning", {}, baselineWarning);
 
   const execution = await executeSizeCheck(executable, inputs, source.status === "not-found");
   if (execution.report && await fileExists(execution.markdownReportPath)) {
@@ -96,9 +102,10 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
       execution.jsonReportPath,
       execution.markdownReportPath,
       source,
+      comparison,
     );
   }
-  const outputs = createStableOutputs(execution, inputs.artifactName, tool.version, source);
+  const outputs = createStableOutputs(execution, inputs.artifactName, tool.version, source, comparison);
   onOutputs(outputs);
   writeStableOutputs(outputs);
 
@@ -154,6 +161,9 @@ function githubInputs() {
 function preparedDiscovery(): BaselineDiscovery {
   return {
     source: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_SOURCE")) as BaselineSource,
+    comparison: optional(process.env.DOTSIDER_BASELINE_COMPARISON)
+      ? JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_COMPARISON")) as BaselineComparison
+      : undefined,
     identity: JSON.parse(requiredEnvironment("DOTSIDER_BASELINE_IDENTITY")) as BaselineDiscovery["identity"],
     artifactName: requiredEnvironment("DOTSIDER_BASELINE_ARTIFACT_NAME"),
     downloadDirectory: optional(process.env.DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY),
@@ -168,7 +178,7 @@ function currentGithubSource(artifactName: string): BaselineSource {
     status: "restored",
     provider: "github-actions",
     branch: process.env.GITHUB_REF_NAME,
-    commit: process.env.GITHUB_SHA,
+    commit: requiredCommit(process.env.GITHUB_SHA, "GITHUB_SHA"),
     id: runId,
     number: process.env.GITHUB_RUN_NUMBER,
     url: `${process.env.GITHUB_SERVER_URL || "https://github.com"}/${repository}/actions/runs/${runId}`,
@@ -239,6 +249,9 @@ function writeStableOutputs(outputs: StableOutputs): void {
     "baseline-source-commit": outputs.baselineSourceCommit,
     "baseline-source-url": outputs.baselineSourceUrl,
     "baseline-artifact-name": outputs.baselineArtifactName,
+    "baseline-target-commit": outputs.baselineTargetCommit,
+    "baseline-comparison-status": outputs.baselineComparisonStatus,
+    "baseline-comparison-reason": outputs.baselineComparisonReason,
   });
 }
 
@@ -276,6 +289,12 @@ function requiredEnvironment(name: string): string {
     throw new Error(`Required environment variable ${name} was not provided.`);
   }
   return value;
+}
+
+function requiredCommit(value: string | undefined, name: string): string {
+  const commit = normalizeCommit(value);
+  if (!commit) throw new Error(`Required environment variable ${name} did not contain a full commit ID.`);
+  return commit;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
