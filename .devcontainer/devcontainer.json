@@ -27,7 +27,9 @@
       "extensions": [
         "astro-build.astro-vscode",
         "github.vscode-github-actions",
-        "ms-dotnettools.csdevkit"
+        "ms-dotnettools.csdevkit",
+        "willibrandon.logrotate",
+        "willibrandon.systemd"
       ],
       "settings": {
         "dotnet.defaultSolution": "Dotsider.slnx",
