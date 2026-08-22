@@ -30,7 +30,8 @@
         "ms-dotnettools.csdevkit",
         "willibrandon.caddyfile",
         "willibrandon.logrotate",
-        "willibrandon.systemd"
+        "willibrandon.systemd",
+        "willibrandon.vhs-tape"
       ],
       "settings": {
         "dotnet.defaultSolution": "Dotsider.slnx",
