@@ -28,6 +28,7 @@
         "astro-build.astro-vscode",
         "github.vscode-github-actions",
         "ms-dotnettools.csdevkit",
+        "willibrandon.caddyfile",
         "willibrandon.logrotate",
         "willibrandon.systemd"
       ],
