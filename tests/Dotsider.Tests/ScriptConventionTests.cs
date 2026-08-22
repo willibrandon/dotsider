@@ -81,9 +81,24 @@ public sealed partial class ScriptConventionTests : IDisposable
             .GetProperty("terminal.integrated.env.linux");
 
         Assert.Contains("mcr.microsoft.com/devcontainers/base:noble", dockerfile);
+        Assert.Contains("ARG TARGETARCH", dockerfile);
         Assert.Contains("clang", dockerfile);
+        Assert.Contains("ffmpeg", dockerfile);
+        Assert.Contains("libnss3", dockerfile);
+        Assert.Contains("libatk-bridge2.0-0t64", dockerfile);
+        Assert.Contains("libcups2t64", dockerfile);
+        Assert.Contains("libxcomposite1", dockerfile);
+        Assert.DoesNotContain("        chromium ", dockerfile);
         Assert.Contains("llvm", dockerfile);
         Assert.Contains("zlib1g-dev", dockerfile);
+        Assert.Contains("vhs_arch=x86_64", dockerfile);
+        Assert.Contains("vhs_arch=arm64", dockerfile);
+        Assert.Contains("vhs/releases/download/v0.11.0", dockerfile);
+        Assert.Contains("ttyd/releases/download/1.7.7", dockerfile);
+        Assert.Contains("99cb634587eaae0473c1ea377db80c3a048c27f99fe0a7febb1a1e8cb7ee5009", dockerfile);
+        Assert.Contains("af782cddbf844a377df6ea41c0e72339393fa021be3f6cb70a2f47d48675d92b", dockerfile);
+        Assert.Contains("8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55", dockerfile);
+        Assert.Contains("b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165", dockerfile);
         Assert.Contains("\"version\": \"10.0.302\"", configuration);
         Assert.Contains("\"workloads\": \"wasm-tools\"", configuration);
         Assert.Contains("\"version\": \"24\"", configuration);
@@ -127,6 +142,9 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("integrations/size-check", initializer);
         Assert.Contains("azure-devops", initializer);
         Assert.Contains("safe.directory", initializer);
+        Assert.Contains("VerifyCommand(\"ffmpeg\"", initializer);
+        Assert.Contains("VerifyCommand(\"ttyd\"", initializer);
+        Assert.Contains("VerifyCommand(\"vhs\"", initializer);
         Assert.Contains("[\"CI\"] = \"true\"", initializer);
         Assert.Contains("devcontainers/ci@v0.3", workflow);
         Assert.Contains("dotnet clean", workflow);
