@@ -823,6 +823,45 @@ test("GitHub discovery reports the permission required for an authorization fail
   }
 });
 
+test("GitHub discovery retries a transient transport failure", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-transport-retry-"));
+  const target = path.join(directory, "app.mstat");
+  await fs.writeFile(target, "mstat");
+  let requests = 0;
+  const server = createServer((request, response) => {
+    requests++;
+    if (requests === 1) {
+      request.socket.destroy();
+      return;
+    }
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ artifacts: [] }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const discovery = await discoverGithubBaseline(inputs(target), "linux-x64", {
+      GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
+      GITHUB_REPOSITORY: "owner/repo",
+      GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
+      GITHUB_JOB: "size",
+      GITHUB_EVENT_NAME: "push",
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_RUN_ID: "51",
+      GITHUB_TOKEN: "token",
+      GITHUB_WORKSPACE: directory,
+      RUNNER_TEMP: directory,
+    });
+
+    assert.equal(discovery.source.status, "not-found");
+    assert.equal(requests, 2);
+  } finally {
+    server.close();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("GitHub discovery proves a first run with one matching-artifact request", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-first-run-"));
   const target = path.join(directory, "app.mstat");
