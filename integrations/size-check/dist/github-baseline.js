@@ -354,20 +354,7 @@ function notFound(identity, artifactName, publish, branch) {
     };
 }
 async function githubJson(url, token) {
-    let response;
-    try {
-        response = await fetch(url, {
-            headers: {
-                Accept: "application/vnd.github+json",
-                Authorization: `Bearer ${token}`,
-                "X-GitHub-Api-Version": "2022-11-28",
-                "User-Agent": "dotsider-size-check",
-            },
-        });
-    }
-    catch (error) {
-        throw new GitHubHttpError(0, error instanceof Error ? error.message : String(error));
-    }
+    const response = await fetchGithub(url, token);
     if (!response.ok) {
         const responseMessage = await githubErrorMessage(response);
         const rateLimited = response.status === 429
@@ -381,6 +368,27 @@ async function githubJson(url, token) {
         throw new GitHubHttpError(response.status, `GitHub baseline discovery failed with HTTP ${response.status}.${permission}${throttled}`, rateLimited);
     }
     return await response.json();
+}
+async function fetchGithub(url, token) {
+    let lastError;
+    for (const delayMs of [0, 1000, 2000]) {
+        if (delayMs > 0)
+            await delay(delayMs);
+        try {
+            return await fetch(url, {
+                headers: {
+                    Accept: "application/vnd.github+json",
+                    Authorization: `Bearer ${token}`,
+                    "X-GitHub-Api-Version": "2022-11-28",
+                    "User-Agent": "dotsider-size-check",
+                },
+            });
+        }
+        catch (error) {
+            lastError = error;
+        }
+    }
+    throw new GitHubHttpError(0, lastError instanceof Error ? lastError.message : String(lastError));
 }
 async function githubErrorMessage(response) {
     try {
