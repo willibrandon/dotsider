@@ -25,7 +25,6 @@ public sealed class DependencyGraphRenderLayoutTests
     {
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var graph = DependencyGraphBuilder.Build(a);
-        var disambig = EmptyDisambig();
 
         var all = LayoutFor(graph, DependencyGraphScope.All, hideFramework: false, w: 200, h: 80);
         var direct = LayoutFor(graph, DependencyGraphScope.DirectOnly, hideFramework: false, w: 200, h: 80);
@@ -70,8 +69,8 @@ public sealed class DependencyGraphRenderLayoutTests
         using var scope = SyntheticAssemblyScope.Create();
         var pkt = new byte[] { 0xb7, 0x7a, 0x5c, 0x56, 0x19, 0x34, 0xe0, 0x89 };
         scope.WriteAssembly("IslandRoot",
-            refs: [("mscorlib", new Version(4, 0, 0, 0), (byte[]?)pkt)]);
-        var rootPath = Path.Combine(scope.Directory, "IslandRoot.dll");
+            refs: [("mscorlib", new Version(4, 0, 0, 0), pkt)]);
+        var rootPath = Path.Join(scope.Directory, "IslandRoot.dll");
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -100,7 +99,7 @@ public sealed class DependencyGraphRenderLayoutTests
             refs.Add(($"Wide{i:00}", new Version(1, 0, 0, 0)));
         }
         scope.WriteAssembly("WideRoot", refs: refs);
-        var rootPath = Path.Combine(scope.Directory, "WideRoot.dll");
+        var rootPath = Path.Join(scope.Directory, "WideRoot.dll");
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -268,7 +267,7 @@ public sealed class DependencyGraphRenderLayoutTests
             refs.Add(($"ManyRef{i:000}", new Version(1, 0, 0, 0)));
         }
         scope.WriteAssembly("ManyRoot", refs: refs);
-        var rootPath = Path.Combine(scope.Directory, "ManyRoot.dll");
+        var rootPath = Path.Join(scope.Directory, "ManyRoot.dll");
         using var a = new AssemblyAnalyzer(rootPath);
         return DependencyGraphBuilder.Build(a);
     }

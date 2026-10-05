@@ -82,7 +82,7 @@ internal sealed class DotsiderClient
             return await SendAsync(socketPath,
                 new DotsiderRequest { Method = "assembly-info" }, ct);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
         {
             return null;
         }

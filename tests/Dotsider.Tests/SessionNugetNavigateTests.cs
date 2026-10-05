@@ -170,12 +170,12 @@ public class SessionNugetNavigateTests : IAsyncDisposable
 
         var data = viewResponse.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.AreEqual(TabId.PeMetadata + 1, data.Value.GetProperty("tab").GetInt32());
+        Assert.AreEqual("nuget", TestAssert.HasValue(data).GetProperty("mode").GetString());
+        Assert.IsFalse(TestAssert.HasValue(data).GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(TabId.PeMetadata + 1, TestAssert.HasValue(data).GetProperty("tab").GetInt32());
         Assert.AreEqual(
             _nugetState!.SelectedDllEntry!.Name,
-            data.Value.GetProperty("selectedDll").GetString());
+            TestAssert.HasValue(data).GetProperty("selectedDll").GetString());
     }
 
     /// <summary>
@@ -195,10 +195,10 @@ public class SessionNugetNavigateTests : IAsyncDisposable
 
         var data = viewResponse.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual("nuget", TestAssert.HasValue(data).GetProperty("mode").GetString());
+        Assert.IsTrue(TestAssert.HasValue(data).GetProperty("isBrowsingPackage").GetBoolean());
         // Tab is null when browsing package — omitted from JSON (WhenWritingNull)
-        Assert.IsFalse(data.Value.TryGetProperty("tab", out _));
+        Assert.IsFalse(TestAssert.HasValue(data).TryGetProperty("tab", out _));
     }
 
     /// <summary>
@@ -266,7 +266,10 @@ public class SessionNugetNavigateTests : IAsyncDisposable
         if (_appTask is not null)
         {
             try { await _appTask; }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
         _nugetState?.Dispose();
         _app?.Dispose();

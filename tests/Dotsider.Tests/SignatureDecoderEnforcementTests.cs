@@ -13,7 +13,7 @@ public sealed partial class SignatureDecoderEnforcementTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void BannedSymbols_ContainsCompleteDecoderSurface()
     {
-        var policy = File.ReadAllText(Path.Combine(TestHelpers.GetRepoRoot(), "src", "BannedSymbols.txt"));
+        var policy = File.ReadAllText(Path.Join(TestHelpers.GetRepoRoot(), "src", "BannedSymbols.txt"));
         string[] expectedSymbols =
         [
             "MethodDefinition.DecodeSignature``2",
@@ -44,8 +44,8 @@ public sealed partial class SignatureDecoderEnforcementTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void ProductionSource_HasNoDecoderBypassOutsideFacade()
     {
-        var sourceRoot = Path.Combine(TestHelpers.GetRepoRoot(), "src");
-        var facadePath = Path.GetFullPath(Path.Combine(
+        var sourceRoot = Path.Join(TestHelpers.GetRepoRoot(), "src");
+        var facadePath = Path.GetFullPath(Path.Join(
             sourceRoot, "Dotsider.Core", "Analysis", "Signatures", "SafeSignatureDecoder.cs"));
         foreach (var file in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
         {

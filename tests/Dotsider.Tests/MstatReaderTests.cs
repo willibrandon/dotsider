@@ -130,7 +130,7 @@ public class MstatReaderTests
 
         Assert.IsTrue(MstatReader.Probe(Samples.NativeAotConsoleMstat!));
         Assert.IsFalse(MstatReader.Probe(Samples.RichLibraryDll));
-        Assert.IsFalse(MstatReader.Probe(Path.Combine(Path.GetTempPath(), "missing.mstat")));
+        Assert.IsFalse(MstatReader.Probe(Path.Join(Path.GetTempPath(), "missing.mstat")));
     }
 
     /// <summary>
@@ -271,7 +271,7 @@ public class MstatReaderTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_MissingFile_ReturnsNull()
     {
-        Assert.IsNull(MstatReader.Read(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mstat")));
+        Assert.IsNull(MstatReader.Read(Path.Join(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mstat")));
     }
 
     /// <summary>

@@ -737,8 +737,11 @@ public sealed class DotsiderState : IDisposable
     {
         get
         {
-            var snapshot = GraphSnapshot;
-            return snapshot?.NavigationById ?? Volatile.Read(ref _legacyGraphNavigation);
+            lock (_graphBuildLock)
+            {
+                var snapshot = GraphSnapshot;
+                return snapshot?.NavigationById ?? _legacyGraphNavigation;
+            }
         }
         set
         {
@@ -1768,8 +1771,9 @@ public sealed class DotsiderState : IDisposable
                 App.Invalidate();
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellationToken.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("NudgeExtraFramesAsync: {0}", handledException);
         }
     }
 
@@ -1933,7 +1937,7 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
@@ -2003,7 +2007,7 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
@@ -2057,7 +2061,7 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
@@ -2566,10 +2570,11 @@ public sealed class DotsiderState : IDisposable
         {
             result = graphBuilder(capturedAnalyzer, cancellation.Token);
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellation.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("BuildAndPublishGraph: {0}", handledException);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
         {
             error = exception;
         }

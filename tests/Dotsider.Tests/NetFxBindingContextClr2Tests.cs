@@ -91,7 +91,7 @@ public sealed class NetFxBindingContextClr2Tests
         Assert.EndsWith("GAC", list[2], StringComparison.OrdinalIgnoreCase);
         // All three rooted at the CLR 2 GAC location.
         var windir = Environment.GetEnvironmentVariable("WINDIR")!;
-        var clr2Root = Path.Combine(windir, "assembly");
+        var clr2Root = Path.Join(windir, "assembly");
         TestAssert.All(list, p => Assert.StartsWith(clr2Root, p, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -142,7 +142,7 @@ public sealed class NetFxBindingContextClr2Tests
         // confirm the path-resolution branch picked the right runtime dir.)
         var windir = Environment.GetEnvironmentVariable("WINDIR")!;
         var arch = Environment.Is64BitOperatingSystem ? "Framework64" : "Framework";
-        var machineConfig = Path.Combine(windir, "Microsoft.NET", arch, "v2.0.50727", "Config", "machine.config");
+        var machineConfig = Path.Join(windir, "Microsoft.NET", arch, "v2.0.50727", "Config", "machine.config");
         Assert.IsTrue(File.Exists(machineConfig), $"v2.0.50727 machine.config not found at {machineConfig}");
     }
 

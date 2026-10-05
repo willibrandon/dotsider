@@ -167,7 +167,7 @@ public sealed class TestSocketLifecycleTests
 
     private static string GetUniqueSocketPath()
     {
-        return Path.Combine(Path.GetTempPath(), $"dt-{Guid.NewGuid():N}");
+        return Path.Join(Path.GetTempPath(), $"dt-{Guid.NewGuid():N}");
     }
 
     private static Exception CreateShutdownShapedException(string faultKind) => faultKind switch

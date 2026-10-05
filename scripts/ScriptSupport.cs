@@ -207,7 +207,7 @@ internal static class ScriptSupport
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
             {
                 return directory.FullName;
             }
@@ -218,7 +218,7 @@ internal static class ScriptSupport
         directory = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
             {
                 return directory.FullName;
             }
@@ -245,7 +245,7 @@ internal static class ScriptSupport
 
         string resolvedPathValue = Path.IsPathFullyQualified(pathValue)
             ? pathValue
-            : Path.Combine(baseDirectory, pathValue);
+            : Path.Join(baseDirectory, pathValue);
         if (File.Exists(resolvedPathValue) || Directory.Exists(resolvedPathValue))
         {
             return Path.GetFullPath(resolvedPathValue);
@@ -633,7 +633,7 @@ internal static class ScriptSupport
         {
             foreach (string extension in extensions)
             {
-                string candidate = Path.Combine(directory, command.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? command : command + extension);
+                string candidate = Path.Join(directory, command.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? command : command + extension);
                 if (File.Exists(candidate))
                 {
                     return candidate;

@@ -173,9 +173,6 @@ public sealed class MstatDeduplicatedMethodBoundsTests
         var hostile = SyntheticMstat22Builder.Create([2_000_000], [0]);
         _ = Read(baseline);
         _ = Read(hostile);
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
 
         var baselineMinimum = long.MaxValue;
         var hostileMinimum = long.MaxValue;

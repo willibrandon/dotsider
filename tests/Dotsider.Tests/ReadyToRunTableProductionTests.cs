@@ -42,7 +42,7 @@ public sealed class ReadyToRunTableProductionTests
                 (ReadyToRunRuntimeFunctionTable.MaxRuntimeFunctionCount + 1) * recordSize),
             _ => throw new ArgumentOutOfRangeException(nameof(malformation)),
         };
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, _) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.RuntimeFunctions,
             [0],
@@ -65,7 +65,7 @@ public sealed class ReadyToRunTableProductionTests
     public void HotColdMap_MalformedRealTable_DisablesMethodMap()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, _) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.HotColdMap,
             new byte[8],
@@ -103,7 +103,7 @@ public sealed class ReadyToRunTableProductionTests
             Assert.IsNotNull(addressSpace);
             var valid = ReadyToRunRuntimeFunctionTable.TryRead(
                 new R2RNativeReader(baseline.RawBytes),
-                section.FileOffset.Value,
+                TestAssert.HasValue(section.FileOffset),
                 section.Size,
                 info.Architecture,
                 baseline.PeHeaders?.ImageBase ?? 0,
@@ -123,7 +123,7 @@ public sealed class ReadyToRunTableProductionTests
         var pair = new byte[8];
         BinaryPrimitives.WriteInt32LittleEndian(pair, cold);
         BinaryPrimitives.WriteInt32LittleEndian(pair.AsSpan(4), hot);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchImageWideTable(
+        var (Image, _) = ReadyToRunImagePatcher.PatchImageWideTable(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.HotColdMap,
             pair,

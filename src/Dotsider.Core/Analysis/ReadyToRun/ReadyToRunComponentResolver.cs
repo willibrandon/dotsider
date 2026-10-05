@@ -22,7 +22,7 @@ internal static class ReadyToRunComponentResolver
         {
             foreach (var ext in new[] { ".dll", ".exe" })
             {
-                var opened = TryOpenMatching(Path.Combine(directory, nameHint + ext), mvid, allowEmptyMvid: true);
+                var opened = TryOpenMatching(Path.Join(directory, nameHint + ext), mvid, allowEmptyMvid: true);
                 if (opened is not null) return opened;
             }
         }
@@ -46,7 +46,7 @@ internal static class ReadyToRunComponentResolver
     /// <returns>An owned analyzer for the composite, or null when it is not on disk.</returns>
     public static AssemblyAnalyzer? ResolveOwner(string directory, string ownerFileName)
     {
-        var path = Path.Combine(directory, ownerFileName);
+        var path = Path.Join(directory, ownerFileName);
         if (!File.Exists(path)) return null;
         try
         {

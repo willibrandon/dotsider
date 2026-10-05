@@ -49,7 +49,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
             {
                 var markdown = GenerateMarkdown(item);
                 var fileName = SanitizeFileName(item.Uid) + ".md";
-                var filePath = Path.Combine(_outputDir, fileName);
+                var filePath = Path.Join(_outputDir, fileName);
                 await File.WriteAllTextAsync(filePath, markdown);
                 generatedCount++;
             }
@@ -77,7 +77,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         {
             yaml.Load(reader);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is YamlDotNet.Core.YamlException)
         {
             Console.Error.WriteLine($"Failed to parse YAML: {ex.Message}");
             return;

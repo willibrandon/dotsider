@@ -23,9 +23,9 @@ public sealed class SampleManifestTests
         string root = CreatePayload(out string sample, out string manifest);
         try
         {
-            Directory.CreateDirectory(Path.Combine(sample, "nested"));
-            await File.WriteAllTextAsync(Path.Combine(sample, "z.dll"), "z", TestContext.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(sample, "nested", "a.json"), "a", TestContext.CancellationToken);
+            Directory.CreateDirectory(Path.Join(sample, "nested"));
+            await File.WriteAllTextAsync(Path.Join(sample, "z.dll"), "z", TestContext.CancellationToken);
+            await File.WriteAllTextAsync(Path.Join(sample, "nested", "a.json"), "a", TestContext.CancellationToken);
 
             await SampleManifest.CreateAsync(sample, manifest, TestContext.CancellationToken);
 
@@ -54,7 +54,7 @@ public sealed class SampleManifestTests
         string root = CreatePayload(out string sample, out string manifest);
         try
         {
-            string payload = Path.Combine(sample, "RichLibrary.dll");
+            string payload = Path.Join(sample, "RichLibrary.dll");
             await File.WriteAllTextAsync(payload, "original", TestContext.CancellationToken);
             await SampleManifest.CreateAsync(sample, manifest, TestContext.CancellationToken);
             if (change == "alter")
@@ -67,7 +67,7 @@ public sealed class SampleManifestTests
             }
             else
             {
-                await File.WriteAllTextAsync(Path.Combine(sample, "extra.dll"), "extra", TestContext.CancellationToken);
+                await File.WriteAllTextAsync(Path.Join(sample, "extra.dll"), "extra", TestContext.CancellationToken);
             }
 
             Assert.IsFalse(await SampleManifest.VerifyAsync(sample, manifest, TestContext.CancellationToken));
@@ -104,9 +104,9 @@ public sealed class SampleManifestTests
 
     private static string CreatePayload(out string sample, out string manifest)
     {
-        string root = Path.Combine(Path.GetTempPath(), "dotsider-sample-test-" + Guid.NewGuid().ToString("N"));
-        sample = Path.Combine(root, "sample");
-        manifest = Path.Combine(root, "sample.sha256");
+        string root = Path.Join(Path.GetTempPath(), "dotsider-sample-test-" + Guid.NewGuid().ToString("N"));
+        sample = Path.Join(root, "sample");
+        manifest = Path.Join(root, "sample.sha256");
         Directory.CreateDirectory(sample);
         return root;
     }

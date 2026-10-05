@@ -88,7 +88,7 @@ public class NativeSymbolReaderElfTests
 
     private static string Write(string directory, string name, byte[] bytes)
     {
-        var path = Path.Combine(directory, name);
+        var path = Path.Join(directory, name);
         File.WriteAllBytes(path, bytes);
         return path;
     }
@@ -470,7 +470,7 @@ public class NativeSymbolReaderElfTests
         var dir = Directory.CreateTempSubdirectory("dotsider-ehframe-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
 
             var info = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);

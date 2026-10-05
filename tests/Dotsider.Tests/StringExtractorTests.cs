@@ -246,7 +246,7 @@ public class StringExtractorTests
     public void RuntimeAssembly_ExtractUserStrings_DoesNotThrow()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var systemRuntime = Path.Combine(runtimeDir, "System.Runtime.dll");
+        var systemRuntime = Path.Join(runtimeDir, "System.Runtime.dll");
         Assert.IsTrue(File.Exists(systemRuntime), $"System.Runtime.dll not found at {runtimeDir}");
 
         using var a = new AssemblyAnalyzer(systemRuntime);
@@ -270,7 +270,7 @@ public class StringExtractorTests
     public void RuntimeAssembly_ExtractMetadataStrings_DoesNotThrow()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var systemRuntime = Path.Combine(runtimeDir, "System.Runtime.dll");
+        var systemRuntime = Path.Join(runtimeDir, "System.Runtime.dll");
         Assert.IsTrue(File.Exists(systemRuntime), $"System.Runtime.dll not found at {runtimeDir}");
 
         using var a = new AssemblyAnalyzer(systemRuntime);

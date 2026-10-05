@@ -152,7 +152,7 @@ public sealed class NetFxBinderClr2Tests
         var result = NetFxBinder.Bind(requested, ctx);
         Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
         Assert.AreEqual(oracle["NetFxBindingRedirects.Clr2.PrivatePathLib"].Location, result.LoadedPath, ignoreCase: true);
-        Assert.Contains(Path.Combine("lib", "NetFxBindingRedirects.Clr2.PrivatePathLib.dll"),
+        Assert.Contains(Path.Join("lib", "NetFxBindingRedirects.Clr2.PrivatePathLib.dll"),
             result.LoadedPath!, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -197,12 +197,12 @@ public sealed class NetFxBinderClr2Tests
         var token = $"{asmName.Version}__{pkt}";
 
         using var temp = new TempDir();
-        var gacBucket = Path.Combine(temp.Path, "assembly", "GAC", name, token);
+        var gacBucket = Path.Join(temp.Path, "assembly", "GAC", name, token);
         Directory.CreateDirectory(gacBucket);
-        var stagedDll = Path.Combine(gacBucket, $"{name}.dll");
+        var stagedDll = Path.Join(gacBucket, $"{name}.dll");
         File.Copy(sourceDll, stagedDll);
 
-        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Combine(temp.Path, "assembly"));
+        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Join(temp.Path, "assembly"));
         var requested = new AssemblyRefInfo(name, asmName.Version!.ToString(), "neutral", pkt);
         var result = NetFxBinder.Bind(requested, ctx);
 
@@ -246,11 +246,11 @@ public sealed class NetFxBinderClr2Tests
         var v4Token = $"v4.0_{asmName.Version}__{pkt}";
 
         using var temp = new TempDir();
-        var gacBucket = Path.Combine(temp.Path, "assembly", "GAC_MSIL", name, v4Token);
+        var gacBucket = Path.Join(temp.Path, "assembly", "GAC_MSIL", name, v4Token);
         Directory.CreateDirectory(gacBucket);
-        File.Copy(sourceDll, Path.Combine(gacBucket, $"{name}.dll"));
+        File.Copy(sourceDll, Path.Join(gacBucket, $"{name}.dll"));
 
-        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Combine(temp.Path, "assembly"));
+        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Join(temp.Path, "assembly"));
         var requested = new AssemblyRefInfo(name, asmName.Version!.ToString(), "neutral", pkt);
         var result = NetFxBinder.Bind(requested, ctx);
 
@@ -268,7 +268,7 @@ public sealed class NetFxBinderClr2Tests
     {
         SkipIfNotWindows();
         var windir = Environment.GetEnvironmentVariable("WINDIR")!;
-        var stdolePath = Path.Combine(windir, "assembly", "GAC", "stdole", "7.0.3300.0__b03f5f7f11d50a3a", "stdole.dll");
+        var stdolePath = Path.Join(windir, "assembly", "GAC", "stdole", "7.0.3300.0__b03f5f7f11d50a3a", "stdole.dll");
         if (!File.Exists(stdolePath))
             Assert.Inconclusive("stdole not present at the canonical bare-GAC path on this host.");
 
@@ -294,14 +294,14 @@ public sealed class NetFxBinderClr2Tests
         // BindingPolicy.LoadFrom path enumerates policy.<major>.<minor>.<simpleName>* under
         // the supplied gacRoots and reads the .config siblings.
         using var temp = new TempDir();
-        var gacRoot = Path.Combine(temp.Path, "assembly");
+        var gacRoot = Path.Join(temp.Path, "assembly");
         var policyName = "policy.1.0.Acme.Synthetic";
-        var policyDir = Path.Combine(gacRoot, "GAC_MSIL", policyName, "1.0.0.0__1111111111111111");
+        var policyDir = Path.Join(gacRoot, "GAC_MSIL", policyName, "1.0.0.0__1111111111111111");
         Directory.CreateDirectory(policyDir);
 
         // The .dll is a placeholder — the binder reads the .config sibling, not the assembly.
-        File.WriteAllBytes(Path.Combine(policyDir, $"{policyName}.dll"), [0x4D, 0x5A]);
-        File.WriteAllText(Path.Combine(policyDir, $"{policyName}.config"), """
+        File.WriteAllBytes(Path.Join(policyDir, $"{policyName}.dll"), [0x4D, 0x5A]);
+        File.WriteAllText(Path.Join(policyDir, $"{policyName}.config"), """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <runtime>
@@ -340,12 +340,12 @@ public sealed class NetFxBinderClr2Tests
         var token = $"{asmName.Version}__{pkt}";
 
         using var temp = new TempDir();
-        var gacBucket = Path.Combine(temp.Path, "assembly", bucket, name, token);
+        var gacBucket = Path.Join(temp.Path, "assembly", bucket, name, token);
         Directory.CreateDirectory(gacBucket);
-        var stagedDll = Path.Combine(gacBucket, $"{name}.dll");
+        var stagedDll = Path.Join(gacBucket, $"{name}.dll");
         File.Copy(sourceDll, stagedDll);
 
-        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Combine(temp.Path, "assembly"));
+        var ctx = MakeSyntheticClr2Context(gacRoot: Path.Join(temp.Path, "assembly"));
         var requested = new AssemblyRefInfo(name, asmName.Version!.ToString(), "neutral", pkt);
         var result = NetFxBinder.Bind(requested, ctx);
 
@@ -358,7 +358,7 @@ public sealed class NetFxBinderClr2Tests
         // Use the CodeBaseLib.dll the fixture builds — it's strong-named with a known PKT
         // and lives under the fixture's isolated Debug-equivalent output directory.
         var repoRoot = TestHelpers.GetRepoRoot();
-        var dll = Path.Combine(repoRoot, "samples", "NetFxBindingRedirects.Clr2.CodeBaseLib",
+        var dll = Path.Join(repoRoot, "samples", "NetFxBindingRedirects.Clr2.CodeBaseLib",
             "bin", TestProcessEnvironment.DebugBuildConfiguration, "net35",
             "NetFxBindingRedirects.Clr2.CodeBaseLib.dll");
         Assert.IsTrue(File.Exists(dll), $"Signed sample DLL not built at {dll}");
@@ -373,7 +373,7 @@ public sealed class NetFxBinderClr2Tests
             gacRoots: [gacRoot],
             runtimeVersion: NetFxRuntimeVersion.Clr2);
         return new NetFxBindingContext(
-            EntryAssemblyPath: Path.Combine(Path.GetTempPath(), "no-such-root.exe"),
+            EntryAssemblyPath: Path.Join(Path.GetTempPath(), "no-such-root.exe"),
             AppBaseDirectory: Path.GetTempPath(),
             ConfigPath: null,
             TargetFramework: null,
@@ -415,14 +415,14 @@ public sealed class NetFxBinderClr2Tests
 
     private sealed class TempDir : IDisposable
     {
-        public string Path { get; } = System.IO.Path.Combine(
+        public string Path { get; } = System.IO.Path.Join(
             System.IO.Path.GetTempPath(), $"dotsider-clr2-binder-{Guid.NewGuid():N}");
 
         public TempDir() => Directory.CreateDirectory(Path);
 
         public void Dispose()
         {
-            try { Directory.Delete(Path, recursive: true); } catch { /* best effort */ }
+            try { Directory.Delete(Path, recursive: true); } catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
     }
 }

@@ -23,8 +23,9 @@ internal static class TraceHostControlChannel
                 return;
             }
         }
-        catch (IOException)
+        catch (IOException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("MonitorAsync: {0}", handledException);
         }
 
         stop();

@@ -470,12 +470,12 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void EmbeddedSourceLib_InvalidEmbeddedPdb_UsesMatchingSidecar()
     {
-        string directory = Path.Combine(
+        string directory = Path.Join(
             Path.GetTempPath(),
             $"dotsider-embedded-pdb-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        string assemblyPath = Path.Combine(directory, "EmbeddedSourceLib.dll");
-        string pdbPath = Path.Combine(directory, "EmbeddedSourceLib.pdb");
+        string assemblyPath = Path.Join(directory, "EmbeddedSourceLib.dll");
+        string pdbPath = Path.Join(directory, "EmbeddedSourceLib.pdb");
 
         try
         {
@@ -617,7 +617,7 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_IsIdempotent()
     {
-        var a = new AssemblyAnalyzer(Samples.HelloWorldDll);
+        using var a = new AssemblyAnalyzer(Samples.HelloWorldDll);
         a.Dispose();
         a.Dispose(); // should not throw
     }
@@ -629,7 +629,7 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void InvalidFilePath_ThrowsFileNotFound()
     {
-        var path = Path.Combine(Path.GetTempPath(), "nonexistent-dotsider-test-" + Guid.NewGuid() + ".dll");
+        var path = Path.Join(Path.GetTempPath(), "nonexistent-dotsider-test-" + Guid.NewGuid() + ".dll");
         Assert.ThrowsExactly<FileNotFoundException>(() => new AssemblyAnalyzer(path));
     }
 
@@ -1148,7 +1148,7 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void AccessAfterDispose_AssemblyRefs_ThrowsInsteadOfCrashing()
     {
-        var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         Assert.IsTrue(a.HasMetadata);
         a.Dispose();
 
@@ -1201,7 +1201,7 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void AccessAfterDispose_GetMethodBody_ThrowsInsteadOfCrashing()
     {
-        var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var method = a.MethodDefs.First(m => m.Rva > 0);
         a.Dispose();
         Assert.ThrowsExactly<ObjectDisposedException>(() => a.GetMethodBody(method));
@@ -1214,7 +1214,7 @@ public class AssemblyAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void AccessAfterDispose_ResolveToken_ThrowsInsteadOfCrashing()
     {
-        var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
+        using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var token = a.MethodDefs.First(m => m.Rva > 0).Token;
         a.Dispose();
         Assert.ThrowsExactly<ObjectDisposedException>(() => a.ResolveToken(token));
@@ -1256,7 +1256,7 @@ public class AssemblyAnalyzerTests
         var dir = Directory.CreateTempSubdirectory("dotsider-nosidecar-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             using var a = new AssemblyAnalyzer(exeCopy);
 
@@ -1284,9 +1284,9 @@ public class AssemblyAnalyzerTests
         var dir = Directory.CreateTempSubdirectory("dotsider-stray-");
         try
         {
-            var dllCopy = Path.Combine(dir.FullName, "RichLibrary.dll");
+            var dllCopy = Path.Join(dir.FullName, "RichLibrary.dll");
             File.Copy(Samples.RichLibraryDll, dllCopy);
-            File.Copy(Samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, "RichLibrary.mstat"));
+            File.Copy(Samples.NativeAotConsoleMstat!, Path.Join(dir.FullName, "RichLibrary.mstat"));
             using var a = new AssemblyAnalyzer(dllCopy);
 
             Assert.IsNull(a.MstatPath);
@@ -1311,10 +1311,10 @@ public class AssemblyAnalyzerTests
         try
         {
             var name = Path.GetFileName(Samples.NativeAotConsoleExe!);
-            var exeCopy = Path.Combine(dir.FullName, name);
+            var exeCopy = Path.Join(dir.FullName, name);
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
-            File.WriteAllBytes(Path.Combine(dir.FullName, stem + ".mstat"), [0xDE, 0xAD]);
+            File.WriteAllBytes(Path.Join(dir.FullName, stem + ".mstat"), [0xDE, 0xAD]);
             using var a = new AssemblyAnalyzer(exeCopy);
 
             Assert.IsNotNull(a.MstatPath);
@@ -1360,7 +1360,7 @@ public class AssemblyAnalyzerTests
         var dir = Directory.CreateTempSubdirectory("dotsider-nopdb-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             using var a = new AssemblyAnalyzer(exeCopy);
 
@@ -1389,7 +1389,7 @@ public class AssemblyAnalyzerTests
         try
         {
             var name = Path.GetFileName(Samples.NativeAotConsoleExe!);
-            var exeCopy = Path.Combine(dir.FullName, name);
+            var exeCopy = Path.Join(dir.FullName, name);
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
 
@@ -1397,7 +1397,7 @@ public class AssemblyAnalyzerTests
             // in a copy of the real PDB, leaving the container otherwise intact.
             var pdb = File.ReadAllBytes(Samples.NativeAotConsoleSymbols!);
             MutatePdbGuid(pdb);
-            File.WriteAllBytes(Path.Combine(dir.FullName, stem + ".pdb"), pdb);
+            File.WriteAllBytes(Path.Join(dir.FullName, stem + ".pdb"), pdb);
 
             using var a = new AssemblyAnalyzer(exeCopy);
 

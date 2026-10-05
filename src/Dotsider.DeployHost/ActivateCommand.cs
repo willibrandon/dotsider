@@ -100,7 +100,7 @@ internal sealed class ActivateCommand(
     {
         foreach (string fileName in new[] { ".RichLibrary.dll.bak", ".RichLibrary.dll.sha256" })
         {
-            string path = Path.Combine(DeployPaths.WebsiteDirectory, fileName);
+            string path = Path.Join(DeployPaths.WebsiteDirectory, fileName);
             if (File.Exists(path))
             {
                 File.Delete(path);
@@ -112,7 +112,7 @@ internal sealed class ActivateCommand(
     {
         foreach (string fileName in new[] { "caddy-report.sh", "integrity-check.sh" })
         {
-            string path = Path.Combine(DeployPaths.WebsiteDirectory, fileName);
+            string path = Path.Join(DeployPaths.WebsiteDirectory, fileName);
             if (File.Exists(path))
             {
                 File.Delete(path);

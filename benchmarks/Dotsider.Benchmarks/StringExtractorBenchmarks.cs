@@ -21,8 +21,8 @@ public class StringExtractorBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
-        _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
+        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.CoreLib.dll"));
+        _xmlAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.Xml.dll"));
     }
 
     /// <summary>

@@ -41,7 +41,7 @@ internal static class DeploymentApp
                 _ => throw new InvalidOperationException("Unsupported deployment mode."),
             };
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Net.Http.HttpRequestException or TimeoutException or System.Text.Json.JsonException)
         {
             Console.Error.WriteLine($"Deployment failed: {exception.Message}");
             return 1;
@@ -57,7 +57,7 @@ internal static class DeploymentApp
             "dotnet",
             [
                 "publish",
-                Path.Combine(options.RepositoryRoot, "src", "Dotsider.DeployHost", "Dotsider.DeployHost.csproj"),
+                Path.Join(options.RepositoryRoot, "src", "Dotsider.DeployHost", "Dotsider.DeployHost.csproj"),
                 "-c",
                 "Release",
                 "-r",

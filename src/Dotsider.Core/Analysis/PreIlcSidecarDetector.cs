@@ -42,7 +42,7 @@ public static class PreIlcSidecarDetector
         {
             return FindCore(binaryPath);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -66,7 +66,7 @@ public static class PreIlcSidecarDetector
         // Origin 1: the ILC response file — names the exact files the compiler consumed.
         if (tree is not null)
         {
-            var candidateRsp = Path.Combine(tree.NativeDir, stem + ".ilc.rsp");
+            var candidateRsp = Path.Join(tree.NativeDir, stem + ".ilc.rsp");
             if (File.Exists(candidateRsp))
             {
                 rspPath = candidateRsp;
@@ -100,7 +100,7 @@ public static class PreIlcSidecarDetector
         // Origin 2: the SDK's conventional intermediate location for the recognized tree.
         if (managed is null && tree is not null)
         {
-            var candidate = Path.Combine(tree.ObjDir, stem + ".dll");
+            var candidate = Path.Join(tree.ObjDir, stem + ".dll");
             if (File.Exists(candidate) && !PathsEqual(candidate, fullPath))
             {
                 if (TryReadAssemblyIdentity(candidate, out var name)
@@ -120,7 +120,7 @@ public static class PreIlcSidecarDetector
         // for a Windows native AOT library, whose managed input shares its exact filename.
         if (managed is null)
         {
-            var candidate = Path.Combine(binaryDir, stem + ".dll");
+            var candidate = Path.Join(binaryDir, stem + ".dll");
             if (File.Exists(candidate) && !PathsEqual(candidate, fullPath))
             {
                 if (TryReadAssemblyIdentity(candidate, out var name)
@@ -149,9 +149,9 @@ public static class PreIlcSidecarDetector
         string? mstat = null, codegenDgml = null, scanDgml = null;
         if (tree is not null)
         {
-            mstat = ExistingOrNull(Path.Combine(tree.NativeDir, stem + ".mstat"));
-            codegenDgml = ExistingOrNull(Path.Combine(tree.NativeDir, stem + ".codegen.dgml.xml"));
-            scanDgml = ExistingOrNull(Path.Combine(tree.NativeDir, stem + ".scan.dgml.xml"));
+            mstat = ExistingOrNull(Path.Join(tree.NativeDir, stem + ".mstat"));
+            codegenDgml = ExistingOrNull(Path.Join(tree.NativeDir, stem + ".codegen.dgml.xml"));
+            scanDgml = ExistingOrNull(Path.Join(tree.NativeDir, stem + ".scan.dgml.xml"));
         }
 
         var local = new List<string>();
@@ -207,9 +207,9 @@ public static class PreIlcSidecarDetector
         foreach (var anchor in ClassicShapes(segments))
         {
             var projectDir = JoinSegments(binaryDir, segments, anchor);
-            var objDir = Path.Combine(
+            var objDir = Path.Join(
                 projectDir, "obj", segments[anchor + 1], segments[anchor + 2], segments[anchor + 3]);
-            var layout = new TreeLayout(projectDir, objDir, Path.Combine(objDir, "native"));
+            var layout = new TreeLayout(projectDir, objDir, Path.Join(objDir, "native"));
             if (Directory.Exists(layout.ObjDir)) return layout;
         }
 
@@ -218,9 +218,9 @@ public static class PreIlcSidecarDetector
         if (n >= 3 && (SegEquals(segments[n - 3], "publish") || SegEquals(segments[n - 3], "bin")))
         {
             var root = JoinSegments(binaryDir, segments, n - 3);
-            var objDir = Path.Combine(root, "obj", segments[n - 2], segments[n - 1]);
+            var objDir = Path.Join(root, "obj", segments[n - 2], segments[n - 1]);
             if (Directory.Exists(objDir))
-                return new TreeLayout(null, objDir, Path.Combine(objDir, "native"));
+                return new TreeLayout(null, objDir, Path.Join(objDir, "native"));
         }
 
         return null;
@@ -265,7 +265,7 @@ public static class PreIlcSidecarDetector
 
         var result = root;
         for (var i = covered; i < count; i++)
-            result = Path.Combine(result, segments[i]);
+            result = Path.Join(result, segments[i]);
         return result;
     }
 
@@ -361,7 +361,7 @@ public static class PreIlcSidecarDetector
             {
                 var include = Unquote(token[1..]);
                 if (include.Length == 0) continue;
-                if (!Path.IsPathRooted(include)) include = Path.Combine(baseDir, include);
+                if (!Path.IsPathRooted(include)) include = Path.Join(baseDir, include);
                 ExpandResponseFile(include, tokens, visited, depth + 1, notes);
                 continue;
             }
@@ -386,9 +386,9 @@ public static class PreIlcSidecarDetector
         try
         {
             if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
-            return projectDir is null ? null : Path.GetFullPath(Path.Combine(projectDir, path));
+            return projectDir is null ? null : Path.GetFullPath(Path.Join(projectDir, path));
         }
-        catch
+        catch (Exception caughtException) when (caughtException is ArgumentException or System.IO.IOException or NotSupportedException)
         {
             return null;
         }
@@ -407,7 +407,7 @@ public static class PreIlcSidecarDetector
             simpleName = metadata.GetString(metadata.GetAssemblyDefinition().Name);
             return true;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return false;
         }
@@ -450,7 +450,7 @@ public static class PreIlcSidecarDetector
                 var dllStem = dllName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
                     ? dllName[..^4]
                     : dllName;
-                var candidate = Path.Combine(Path.GetDirectoryName(dllPath)!, dllStem + ".pdb");
+                var candidate = Path.Join(Path.GetDirectoryName(dllPath)!, dllStem + ".pdb");
                 if (File.Exists(candidate))
                 {
                     pdbPath = candidate;
@@ -460,7 +460,7 @@ public static class PreIlcSidecarDetector
 
             return hasEmbedded ? PreIlcPdbStatus.Embedded : PreIlcPdbStatus.Missing;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return pdbPath is not null ? PreIlcPdbStatus.Mismatched : PreIlcPdbStatus.Missing;
         }
@@ -544,12 +544,12 @@ public static class PreIlcSidecarDetector
         if (!string.IsNullOrEmpty(env))
         {
             try { roots.Add(Path.GetFullPath(env)); }
-            catch { /* malformed env value — ignore */ }
+            catch (Exception caughtException) when (caughtException is ArgumentException or System.IO.IOException or NotSupportedException) { /* malformed env value — ignore */ }
         }
 
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrEmpty(profile))
-            roots.Add(Path.Combine(profile, ".nuget", "packages"));
+            roots.Add(Path.Join(profile, ".nuget", "packages"));
 
         return roots;
     }

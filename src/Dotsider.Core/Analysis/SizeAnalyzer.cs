@@ -48,7 +48,7 @@ public static class SizeAnalyzer
                     if (body is not null)
                         size = body.GetILBytes()?.Length ?? 0;
                 }
-                catch
+                catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
                 {
                     // Skip methods with unreadable bodies
                 }

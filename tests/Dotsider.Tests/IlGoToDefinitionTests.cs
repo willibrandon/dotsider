@@ -183,8 +183,8 @@ public sealed class IlGoToDefinitionTests : IDisposable
             m.Name == "CallLocalMethod" && m.DeclaringType.Contains("IlNavigationFixture"));
         var result = dis.DisassembleWithText(method);
         Assert.IsNotNull(result);
-        var sequenceCommentCount = result.Value.Instructions.Count(i => i.SequenceStartLine is not null);
-        Assert.HasCount(result.Value.HeaderLineCount + result.Value.Instructions.Count + sequenceCommentCount, result.Value.Text.Split('\n'));
+        var sequenceCommentCount = TestAssert.HasValue(result).Instructions.Count(i => i.SequenceStartLine is not null);
+        Assert.HasCount(TestAssert.HasValue(result).HeaderLineCount + TestAssert.HasValue(result).Instructions.Count + sequenceCommentCount, TestAssert.HasValue(result).Text.Split('\n'));
     }
 
     // --- Full end-to-end UI tests ---
@@ -422,8 +422,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         // Verify back stack has entry
         Assert.ContainsSingle(_state!.IlBackStack);
-        Assert.IsNotNull(_state.IlSelectedMethod);
-        Assert.AreEqual("LocalTarget", _state.IlSelectedMethod.Name);
+        Assert.AreEqual("LocalTarget", TestAssert.NotNull(_state.IlSelectedMethod).Name);
 
         // Press Escape
         await auto.EscapeAsync(cts.Token);
@@ -462,13 +461,13 @@ public sealed class IlGoToDefinitionTests : IDisposable
         state.IlSelectedMethod = method;
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
-        var doc = new Hex1b.Documents.Hex1bDocument(result.Value.Text);
+        var doc = new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text);
         state.IlEditorState = new EditorState(doc) { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
         // Find the call instruction token
-        var callInst = result.Value.Instructions.FirstOrDefault(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.FirstOrDefault(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.IsNotNull(callInst);
 
@@ -508,13 +507,13 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
         // ldfld _counter → LocalField target
-        var fieldInst = result.Value.Instructions.First(i =>
+        var fieldInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "ldfld" && i.MetadataToken is not null);
         state.NavigateToIlDefinition(fieldInst.MetadataToken!.Value);
 
@@ -551,12 +550,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null);
         state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
         Assert.ContainsSingle(state.IlBackStack);
@@ -593,12 +592,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
@@ -644,12 +643,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var ldsInst = result.Value.Instructions.First(i =>
+        var ldsInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "ldsfld" && i.MetadataToken is not null);
         var navigated = state.NavigateToIlDefinition(ldsInst.MetadataToken!.Value);
 
@@ -695,12 +694,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var castInst = result.Value.Instructions.First(i =>
+        var castInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "castclass" && i.MetadataToken is not null);
         var navigated = state.NavigateToIlDefinition(castInst.MetadataToken!.Value);
 
@@ -747,12 +746,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
@@ -925,12 +924,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(dis).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var inst = dis.Value.Instructions.First(i =>
+        var inst = TestAssert.HasValue(dis).Instructions.First(i =>
             i.OpCode == opCode && i.MetadataToken is not null
             && (operandSubstring.Length == 0 || i.Operand.Contains(operandSubstring)));
         Assert.IsTrue(state.NavigateToIlDefinition(inst.MetadataToken!.Value));
@@ -993,11 +992,11 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(dis).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
-        var callInst = dis.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(dis).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
@@ -1036,11 +1035,11 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(dis).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
-        var callInst = dis.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(dis).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
@@ -1083,11 +1082,11 @@ public sealed class IlGoToDefinitionTests : IDisposable
 
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis!.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(dis).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
-        var callInst = dis.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(dis).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("LocalTarget"));
         Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
@@ -1387,12 +1386,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var dis = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(dis);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(dis.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(dis).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = dis.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(dis).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         Assert.IsTrue(state.NavigateToIlDefinition(callInst.MetadataToken!.Value));
 
@@ -1478,13 +1477,13 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
         // Find the call instruction targeting mscorlib
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null);
 
         // Resolver must identify this as an external method in mscorlib
@@ -1562,12 +1561,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null && i.Operand.Contains("WriteLine"));
         var navigated = state.NavigateToIlDefinition(callInst.MetadataToken!.Value);
 
@@ -1604,13 +1603,13 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
         // Find ldsfld string.Empty
-        var fieldInst = result.Value.Instructions.First(i =>
+        var fieldInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "ldsfld" && i.MetadataToken is not null && i.Operand.Contains("Empty"));
 
         var target = IlNavigationResolver.Resolve(state.Analyzer, fieldInst.MetadataToken!.Value);
@@ -1681,12 +1680,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var callInst = result.Value.Instructions.First(i =>
+        var callInst = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "call" && i.MetadataToken is not null
             && MetadataTokens.EntityHandle(i.MetadataToken.Value).Kind
                 == HandleKind.MethodSpecification);
@@ -1739,7 +1738,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
         using var analyzer = new AssemblyAnalyzer(Samples.RichLibraryDll);
         // HandleKind.MethodSpecification = 0x2B. Row 0xFFFFFF is well past any real row,
         // so reader.GetMethodSpecification will throw BadImageFormatException.
-        var invalidToken = unchecked((int)0x2BFFFFFF);
+        var invalidToken = unchecked(0x2BFFFFFF);
 
         var target = IlNavigationResolver.Resolve(analyzer, invalidToken);
 
@@ -1799,12 +1798,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(moveNext);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = moveNext;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var (inst, nav) = result.Value.Instructions
+        var (inst, _) = TestAssert.HasValue(result).Instructions
             .Where(i => i.OpCode == opCode && i.MetadataToken is not null)
             .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
                 state.Analyzer, i.MetadataToken!.Value)))
@@ -1845,12 +1844,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var (inst, nav) = result.Value.Instructions
+        var (inst, _) = TestAssert.HasValue(result).Instructions
             .Where(i => i.OpCode == "newobj" && i.MetadataToken is not null)
             .Select(i => (inst: i, nav: IlNavigationResolver.Resolve(
                 state.Analyzer, i.MetadataToken!.Value)))
@@ -1976,12 +1975,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var initobj = result.Value.Instructions.First(i =>
+        var initobj = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "initobj" && i.MetadataToken is not null);
 
         var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);
@@ -2036,12 +2035,12 @@ public sealed class IlGoToDefinitionTests : IDisposable
         var result = state.IlDisassembler!.DisassembleWithText(method);
         Assert.IsNotNull(result);
         state.IlEditorState = new EditorState(
-            new Hex1b.Documents.Hex1bDocument(result.Value.Text))
+            new Hex1b.Documents.Hex1bDocument(TestAssert.HasValue(result).Text))
         { IsReadOnly = true };
         state.IlEditorMethod = method;
         state.IlEditorAnalyzer = state.Analyzer;
 
-        var initobj = result.Value.Instructions.First(i =>
+        var initobj = TestAssert.HasValue(result).Instructions.First(i =>
             i.OpCode == "initobj" && i.MetadataToken is not null);
 
         var navigated = state.NavigateToIlDefinition(initobj.MetadataToken!.Value);

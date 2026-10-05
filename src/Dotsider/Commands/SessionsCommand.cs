@@ -81,7 +81,7 @@ internal static class SessionsCommand
 
             return response;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
         {
             OutputFormatter.WriteError($"Error: Could not connect to PID {pid}: {ex.Message}");
             return null;
@@ -335,7 +335,7 @@ internal static class SessionsCommand
                     return 1;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
             {
                 OutputFormatter.WriteError($"Error: Could not capture from PID {pid}: {ex.Message}");
                 return 1;

@@ -59,36 +59,22 @@ public class StandardModeYankIntegrationTests : IDisposable
     /// <summary>
     /// Safely checks if the focused node is an EditorNode.
     /// Returns false instead of throwing during early app lifecycle
-    /// when the focus ring has not been initialized yet.
+    /// before the app state or focused editor is available.
     /// </summary>
     private bool IsFocusedOnEditor()
     {
-        try
-        {
-            return _state?.App.FocusedNode is EditorNode;
-        }
-        catch (NullReferenceException)
-        {
-            return false;
-        }
+        return _state?.App.FocusedNode is EditorNode;
     }
 
     /// <summary>
     /// Safely checks if the focused node is an EditorNode with a specific state.
     /// Returns false instead of throwing during early app lifecycle
-    /// when the focus ring has not been initialized yet.
+    /// before the app state or focused editor is available.
     /// </summary>
     private bool IsFocusedOnEditor(EditorState? expectedState)
     {
-        try
-        {
-            return _state?.App.FocusedNode is EditorNode { State: var es }
+        return _state?.App.FocusedNode is EditorNode { State: var es }
                 && es == expectedState;
-        }
-        catch (NullReferenceException)
-        {
-            return false;
-        }
     }
 
     private EditorNode? FindEditorNode(EditorState? expectedState)
@@ -157,7 +143,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsFalse(IsFocusedOnEditor());
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_TabTogglesFocusBetweenEditorAndTable: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -203,7 +193,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_YankOnFocusedRow_ShowsNotificationAndFlash: {0}", handledException);
+        }
     }
 
     // --- PE/Metadata tab ---
@@ -243,14 +237,17 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is not EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is not EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PeMetadata_TabCyclesThroughHeadersAndTable: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -288,7 +285,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(initialSubTab, _state.PeSubTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PeMetadata_LeftRightDoNotSwitchSubTabsWhenEditorFocused: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -331,7 +332,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             "Focus should return to table after popup closes");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PeMetadata_DetailPopupIsEditorAndEscCloses: {0}", handledException);
+        }
     }
 
     // --- Strings tab ---
@@ -357,7 +362,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Strings_YankOnFocusedRow_CopiesStringValue: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -395,7 +404,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(initialSourceTab, _state.StringsSourceTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Strings_LeftRightDoNotSwitchTabsWhenPopupOpen: {0}", handledException);
+        }
     }
 
     // --- Hex Dump tab ---
@@ -433,7 +446,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.MatchesRegex(@"Yanked: [0-9A-F]{2} [0-9A-F]{2}", notification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_SelectionYank_CopiesUppercaseHexBytes: {0}", handledException);
+        }
     }
 
     // --- Focus restoration ---
@@ -471,7 +488,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             "Focus should land on table after closing detail popup");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("FocusRestoration_AfterDetailPopupClose_LandsOnTable: {0}", handledException);
+        }
     }
 
     // --- PE/Metadata editor selection + yank ---
@@ -510,7 +531,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PeHeaders_SelectionYank_CopiesTextAndFlashes: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -553,7 +578,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PeDetailPopup_SelectionYank_Works: {0}", handledException);
+        }
     }
 
     // --- Strings detail popup selection + yank ---
@@ -591,7 +620,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StringsDetailPopup_SelectionYank_Works: {0}", handledException);
+        }
     }
 
     // --- General tab double-click word selection ---
@@ -678,7 +711,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             () =>
             {
                 var es = _state!.GeneralInfoEditorState;
-                if (es?.Cursor.HasSelection != true)
+                if (es is not { Cursor.HasSelection: true })
                     return false;
 
                 var selectedText = es.Document.GetText(es.Cursor.SelectionRange);
@@ -703,7 +736,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsNotNull(_state.YankNotification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_DoubleClickWordSelection_AdjustsBoundaryAndYanks: {0}", handledException);
+        }
     }
 
     // --- Size Map drill ---
@@ -738,7 +775,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsNotEmpty(_state.TreemapBreadcrumb);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeMap_SelectThenEnterDrills: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -770,7 +811,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsEmpty(_state.TreemapBreadcrumb);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeMap_EnterWithoutSelection_DoesNothing: {0}", handledException);
+        }
     }
 
     // --- Esc regression: nested cross-view + assembly stack ---
@@ -878,7 +923,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsEmpty(_state.NavigationStack);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("EscBack_CrossViewTakesPriorityOverAssemblyStack: {0}", handledException);
+        }
     }
 
     // --- Esc regression: Dynamic filter clears before assembly pop ---
@@ -955,7 +1004,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(TabId.General, _state.CurrentTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("EscBack_DynamicFilterClearsBeforeAssemblyPop: {0}", handledException);
+        }
     }
 
     // --- Size Map regression: zero-match search Enter is no-op ---
@@ -981,8 +1034,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.OemQuestion)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is TextBoxNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Type("zzzznotanamespace")
             .Key(Hex1bKey.Enter)
@@ -1006,7 +1058,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(-1, _state.TreemapMatchIndex);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeMap_EnterAfterZeroMatchSearch_DoesNotDrill: {0}", handledException);
+        }
     }
 
     // --- Strings detail popup regression: content must be visible on screen ---
@@ -1048,7 +1104,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StringsDetail_PopupShowsStringContentOnScreen: {0}", handledException);
+        }
     }
 
     // --- Yank notification auto-clear ---
@@ -1088,7 +1148,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsNull(_state.YankNotification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("YankNotification_AutoClears_After1500ms: {0}", handledException);
+        }
     }
 
     // --- Yank flash on table row ---
@@ -1129,7 +1193,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsFalse(_state.YankFlashRow);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_YankFlash_SetsAndClears: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1189,7 +1257,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsTrue(_state.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_IwSelectsWordInEditor: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1222,7 +1294,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsTrue(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_IWSelectsWORDInEditor: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1290,7 +1366,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(9, _state.GeneralInfoEditorState.Cursor.Position.Value);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_YiwYanksWordFromEditor: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1323,7 +1403,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(VimMotionState.Idle, _state!.VimPending);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_InterruptedByGlobalKey_DoesNotSelect: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1358,7 +1442,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsFalse(_state!.GeneralInfoEditorState!.Cursor.HasSelection);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("General_RandomLetterCancels: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1387,7 +1475,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(VimMotionState.Idle, _state!.VimPending);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_YDoesNotArmOnHexNormal: {0}", handledException);
+        }
     }
 
     // --- Triple-click line selection ---
@@ -1479,7 +1571,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .WaitUntil(_ =>
             {
                 var es = _state.IlEditorState;
-                if (es?.Cursor.HasSelection != true)
+                if (es is not { Cursor.HasSelection: true })
                     return false;
 
                 return es.Document.GetText(es.Cursor.SelectionRange)
@@ -1512,7 +1604,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("IlInspector_TripleClickSelectsOnlyCurrentLine: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1565,7 +1661,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.DoesNotContain("\n", selected);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("IlInspector_ShiftV_SelectsCurrentLine: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1628,7 +1728,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("IlInspector_YY_YanksCurrentLine: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1690,7 +1794,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.EndsWith("samples/RichLibrary/Services/UserService.cs", yankedText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("IlInspector_SourceLinkUrlYank_CopiesResolvedUrl: {0}", handledException);
+        }
     }
 
     // --- Hex Dump / Data Interpretation ---
@@ -1733,7 +1841,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState));
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_TabTogglesFocusBetweenHexEditorAndDataInterp: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1770,7 +1882,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DataInterp_SelectionYank_CopiesTextAndFlashes: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1803,7 +1919,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         _ = await TypeYAndCaptureNotificationAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DataInterp_WordSelectionAndYanks: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1851,7 +1971,11 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreEqual(HexEditMode.Insert, _state!.HexMode);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_InsertModeOnlyActivatesFromHexEditor: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1882,8 +2006,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Type("/")
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is TextBoxNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Type("4D")
             .Key(Hex1bKey.Enter)
@@ -1902,8 +2025,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Type("/")
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is TextBoxNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))
@@ -1914,7 +2036,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             "Search dismiss should refocus to hex editor");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_SearchRefocusesToHexEditor: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -1967,6 +2093,10 @@ public class StandardModeYankIntegrationTests : IDisposable
         Assert.AreNotEqual(textBeforeEndian, textAfterEndian);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_DataInterpUpdatesOnCursorMoveAndEndianToggle: {0}", handledException);
+        }
     }
 }

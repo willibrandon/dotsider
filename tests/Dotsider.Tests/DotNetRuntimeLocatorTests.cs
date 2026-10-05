@@ -24,7 +24,7 @@ public sealed class DotNetRuntimeLocatorTests : IDisposable
         var basePath = DotNetRuntimeLocator.FindDotNetBasePath();
         Assert.IsNotNull(basePath);
         Assert.IsTrue(Directory.Exists(basePath));
-        Assert.IsTrue(Directory.Exists(Path.Combine(basePath, "shared")));
+        Assert.IsTrue(Directory.Exists(Path.Join(basePath, "shared")));
     }
 
     /// <summary>Verifies that System.Runtime can be found in the shared framework.</summary>

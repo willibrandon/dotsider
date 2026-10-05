@@ -22,7 +22,7 @@ internal sealed class SyntheticAssemblyScope : IDisposable
     /// <summary>Creates a new temp directory scope.</summary>
     public static SyntheticAssemblyScope Create()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-depgraph-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-depgraph-" + Guid.NewGuid().ToString("N"));
         System.IO.Directory.CreateDirectory(dir);
         return new SyntheticAssemblyScope(dir);
     }
@@ -45,9 +45,9 @@ internal sealed class SyntheticAssemblyScope : IDisposable
             name, version ?? new Version(1, 0, 0, 0),
             refs is null
                 ? []
-                : [.. refs.Select(r => (r.Name, r.Version, (byte[]?)null))],
+                : [.. refs.Select(r => (r.Name, r.Version, default(byte[]?)))],
             typeRefs ?? []);
-        var path = Path.Combine(Directory, $"{name}.dll");
+        var path = Path.Join(Directory, $"{name}.dll");
         File.WriteAllBytes(path, bytes);
         return path;
     }
@@ -66,7 +66,7 @@ internal sealed class SyntheticAssemblyScope : IDisposable
             name, new Version(1, 0, 0, 0),
             [.. refs],
             []);
-        var path = Path.Combine(Directory, $"{name}.dll");
+        var path = Path.Join(Directory, $"{name}.dll");
         File.WriteAllBytes(path, bytes);
         return path;
     }
@@ -75,7 +75,10 @@ internal sealed class SyntheticAssemblyScope : IDisposable
     public void Dispose()
     {
         try { System.IO.Directory.Delete(Directory, recursive: true); }
-        catch { }
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dispose: {0}", handledException);
+        }
     }
 
     private static byte[] BuildAssembly(

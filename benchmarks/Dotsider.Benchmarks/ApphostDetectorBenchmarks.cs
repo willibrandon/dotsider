@@ -42,12 +42,12 @@ public class ApphostDetectorBenchmarks
 
         // Create fake non-apphost .exe (mirrors ApphostDetectorTests pattern):
         // embeds the DLL name but NOT "hostfxr", so full binary scan returns negative
-        _tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-bench-{Guid.NewGuid().ToString("N")[..8]}");
+        _tempDir = Path.Join(Path.GetTempPath(), $"dotsider-bench-{Guid.NewGuid().ToString("N")[..8]}");
         Directory.CreateDirectory(_tempDir);
 
         var fakeDllName = "FakeLauncher.dll";
-        _fakeExePath = Path.Combine(_tempDir, "FakeLauncher.exe");
-        var fakeDllPath = Path.Combine(_tempDir, fakeDllName);
+        _fakeExePath = Path.Join(_tempDir, "FakeLauncher.exe");
+        var fakeDllPath = Path.Join(_tempDir, fakeDllName);
 
         var exeContent = new byte[512];
         Encoding.UTF8.GetBytes(fakeDllName).CopyTo(exeContent, 64);
@@ -70,7 +70,7 @@ public class ApphostDetectorBenchmarks
     public void Cleanup()
     {
         try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, recursive: true); }
-        catch { /* best effort */ }
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
     }
 
     /// <summary>

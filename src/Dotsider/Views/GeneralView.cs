@@ -40,7 +40,7 @@ public static class GeneralView
         var query = search.Query;
 
         // Filter assembly refs by search query
-        var refs = (IReadOnlyList<AssemblyRefInfo>)metadataAnalyzer.AssemblyRefs;
+        var refs = metadataAnalyzer.AssemblyRefs;
         if (!string.IsNullOrEmpty(query))
         {
             refs = [.. refs

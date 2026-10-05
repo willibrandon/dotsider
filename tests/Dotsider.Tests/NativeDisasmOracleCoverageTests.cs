@@ -24,7 +24,7 @@ public sealed class NativeDisasmOracleCoverageTests
         string directory, string fileName, NativeArchitecture expectedArchitecture)
     {
         var root = FindRepositoryRoot();
-        var fixturePath = Path.Combine(
+        var fixturePath = Path.Join(
             root, "tests", "Dotsider.Tests", "Fixtures", "Disasm", directory, fileName);
 
         Assert.IsTrue(File.Exists(fixturePath), fixturePath);
@@ -35,7 +35,7 @@ public sealed class NativeDisasmOracleCoverageTests
 
         Assert.AreEqual(expectedArchitecture, architecture);
         Assert.AreEqual("scripts/Capture-DisasmOracle.cs", fixture.GetProperty("oracle").GetProperty("script").GetString());
-        Assert.IsTrue(File.Exists(Path.Combine(root, "scripts", "Capture-DisasmOracle.cs")));
+        Assert.IsTrue(File.Exists(Path.Join(root, "scripts", "Capture-DisasmOracle.cs")));
 
         var runtimeFiles = fixture.GetProperty("runtimeFiles").EnumerateArray().ToArray();
         Assert.IsNotEmpty(runtimeFiles);
@@ -48,7 +48,7 @@ public sealed class NativeDisasmOracleCoverageTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
                 return directory.FullName;
 
             directory = directory.Parent;

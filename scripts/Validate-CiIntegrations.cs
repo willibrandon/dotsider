@@ -40,7 +40,7 @@ internal static class CiIntegrationValidator
 
     private static void ValidateOnDemandWorkflow(string root)
     {
-        string workflowPath = Path.Combine(
+        string workflowPath = Path.Join(
             root, "integrations", "size-check", "examples", "github-aot-size.yml");
         string source = File.ReadAllText(workflowPath);
         Require(source.Contains("workflow_dispatch:", StringComparison.Ordinal)
@@ -67,7 +67,7 @@ internal static class CiIntegrationValidator
 
     private static void ValidateGitHubAction(string root)
     {
-        string actionPath = Path.Combine(root, "action.yml");
+        string actionPath = Path.Join(root, "action.yml");
         string source = File.ReadAllText(actionPath);
         Require(source.Contains("using: composite", StringComparison.Ordinal),
             "action.yml must remain a composite action.");
@@ -117,7 +117,7 @@ internal static class CiIntegrationValidator
 
     private static void ValidateAzureTask(string root)
     {
-        string taskPath = Path.Combine(root, "azure-devops", "tasks", "DotsiderSizeCheckV1", "task.json");
+        string taskPath = Path.Join(root, "azure-devops", "tasks", "DotsiderSizeCheckV1", "task.json");
         using JsonDocument document = JsonDocument.Parse(File.ReadAllText(taskPath));
         JsonElement rootElement = document.RootElement;
         Require(rootElement.GetProperty("name").GetString() == "DotsiderSizeCheck",
@@ -192,7 +192,7 @@ internal static class CiIntegrationValidator
         Require(settableVariables.SequenceEqual(stableOutputs, StringComparer.Ordinal),
             "The Azure task may set only its documented output variables.");
 
-        string extensionPath = Path.Combine(root, "azure-devops", "vss-extension.json");
+        string extensionPath = Path.Join(root, "azure-devops", "vss-extension.json");
         using JsonDocument extension = JsonDocument.Parse(File.ReadAllText(extensionPath));
         Require(extension.RootElement.GetProperty("publisher").GetString() == "willibrandon",
             "The Azure extension publisher must be willibrandon.");
@@ -203,27 +203,27 @@ internal static class CiIntegrationValidator
 
     private static void ValidatePackageManager(string root)
     {
-        string integrationDirectory = Path.Combine(root, "integrations", "size-check");
+        string integrationDirectory = Path.Join(root, "integrations", "size-check");
         string[] directories =
         [
             integrationDirectory,
-            Path.Combine(root, "azure-devops"),
+            Path.Join(root, "azure-devops"),
         ];
         foreach (string directory in directories)
         {
-            Require(File.Exists(Path.Combine(directory, "pnpm-lock.yaml")),
+            Require(File.Exists(Path.Join(directory, "pnpm-lock.yaml")),
                 $"{Path.GetRelativePath(root, directory)} must commit a pnpm lockfile.");
-            Require(!File.Exists(Path.Combine(directory, "package-lock.json")),
+            Require(!File.Exists(Path.Join(directory, "package-lock.json")),
                 $"{Path.GetRelativePath(root, directory)} must not contain an npm lockfile.");
         }
 
-        string workspacePath = Path.Combine(integrationDirectory, "pnpm-workspace.yaml");
+        string workspacePath = Path.Join(integrationDirectory, "pnpm-workspace.yaml");
         Require(File.Exists(workspacePath)
             && File.ReadLines(workspacePath).Any(line =>
                 string.Equals(line.Trim(), "nodeLinker: hoisted", StringComparison.Ordinal)),
             "The size-check integration must use pnpm's symlink-free hoisted linker.");
 
-        string editorProjectPath = Path.Combine(integrationDirectory, "tsconfig.json");
+        string editorProjectPath = Path.Join(integrationDirectory, "tsconfig.json");
         using JsonDocument editorProject = JsonDocument.Parse(File.ReadAllText(editorProjectPath));
         JsonElement editorRoot = editorProject.RootElement;
         Require(editorRoot.GetProperty("compilerOptions").GetProperty("noEmit").GetBoolean(),

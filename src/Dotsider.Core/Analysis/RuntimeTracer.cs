@@ -215,6 +215,7 @@ public sealed class RuntimeTracer(
             }
             catch (Exception exception) when (exception is IOException or InvalidOperationException)
             {
+                System.Diagnostics.Trace.TraceInformation("Stop: {0}", exception);
             }
         }
 
@@ -314,7 +315,7 @@ public sealed class RuntimeTracer(
             return traceHostPath;
         }
 
-        var expectedPath = Path.Combine(
+        var expectedPath = Path.Join(
             baseDirectory,
             "tracehost",
             "dotsider-tracehost.dll");
@@ -326,16 +327,16 @@ public sealed class RuntimeTracer(
         string baseDirectory,
         out string traceHostPath)
     {
-        var traceHostDirectory = Path.Combine(baseDirectory, "tracehost");
-        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Combine(traceHostDirectory, file))))
+        var traceHostDirectory = Path.Join(baseDirectory, "tracehost");
+        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Join(traceHostDirectory, file))))
         {
-            traceHostPath = Path.Combine(traceHostDirectory, "dotsider-tracehost.dll");
+            traceHostPath = Path.Join(traceHostDirectory, "dotsider-tracehost.dll");
             return true;
         }
 
-        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Combine(baseDirectory, file))))
+        if (RequiredTraceHostFiles.All(file => File.Exists(Path.Join(baseDirectory, file))))
         {
-            traceHostPath = Path.Combine(baseDirectory, "dotsider-tracehost.dll");
+            traceHostPath = Path.Join(baseDirectory, "dotsider-tracehost.dll");
             return true;
         }
 
@@ -364,7 +365,7 @@ public sealed class RuntimeTracer(
         {
             var configuredBasePath = Path.GetDirectoryName(configuredHost);
             if (configuredBasePath is not null
-                && Directory.Exists(Path.Combine(configuredBasePath, "shared")))
+                && Directory.Exists(Path.Join(configuredBasePath, "shared")))
             {
                 return configuredBasePath;
             }
@@ -376,13 +377,13 @@ public sealed class RuntimeTracer(
     private static string? ResolveDotNetHostPath(string dotNetBasePath)
     {
         var hostName = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
-        var hostPath = Path.Combine(dotNetBasePath, hostName);
+        var hostPath = Path.Join(dotNetBasePath, hostName);
         return File.Exists(hostPath) ? hostPath : null;
     }
 
     private static bool HasCompatibleRuntime(string dotNetBasePath)
     {
-        var frameworkDirectory = Path.Combine(
+        var frameworkDirectory = Path.Join(
             dotNetBasePath,
             "shared",
             "Microsoft.NETCore.App");
@@ -443,8 +444,9 @@ public sealed class RuntimeTracer(
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
             CompleteAfterTraceHostExit(process.ExitCode);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellationToken.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("ReadMessagesAsync: {0}", handledException);
         }
         catch (JsonException exception)
         {
@@ -475,11 +477,13 @@ public sealed class RuntimeTracer(
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellationToken.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("ReadTraceHostErrorsAsync: {0}", handledException);
         }
-        catch (IOException)
+        catch (IOException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("ReadTraceHostErrorsAsync: {0}", handledException);
         }
     }
 

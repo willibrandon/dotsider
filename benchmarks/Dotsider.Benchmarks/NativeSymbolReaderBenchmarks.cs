@@ -41,11 +41,11 @@ public class NativeSymbolReaderBenchmarks
 
         // A copy with no sidecars in reach forces the unwind-data fallback.
         _tempDir = Directory.CreateTempSubdirectory("dotsider-bench-symbols-").FullName;
-        _bareExePath = Path.Combine(_tempDir, Path.GetFileName(_exePath));
+        _bareExePath = Path.Join(_tempDir, Path.GetFileName(_exePath));
         File.Copy(_exePath, _bareExePath);
         _bareExeBytes = File.ReadAllBytes(_bareExePath);
 
-        var pdb = Path.Combine(Path.GetDirectoryName(_exePath)!, "NativeAotConsole.pdb");
+        var pdb = Path.Join(Path.GetDirectoryName(_exePath)!, "NativeAotConsole.pdb");
         _pdbPath = File.Exists(pdb) ? pdb : StageMinimalPdb();
         if (!NativePdbReader.TryReadPdbId(_pdbPath, out _, out _))
             throw new InvalidOperationException($"probe target is not a readable PDB: {_pdbPath}");
@@ -110,7 +110,7 @@ public class NativeSymbolReaderBenchmarks
         // Block map: the single directory block.
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(4 * blockSize), 3);
 
-        var path = Path.Combine(_tempDir, "probe-target.pdb");
+        var path = Path.Join(_tempDir, "probe-target.pdb");
         File.WriteAllBytes(path, image);
         return path;
     }

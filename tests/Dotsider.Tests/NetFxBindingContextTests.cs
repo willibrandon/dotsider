@@ -109,11 +109,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_HonorsAppliesToFilter()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-applies-to-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-applies-to-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>
@@ -139,11 +139,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_MalformedXml_ReturnsEmptyPolicy()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-malformed-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-malformed-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath, "<configuration><runtime><not-closed");
             var parsed = BindingPolicy.ParseConfigFile(configPath, PolicyLayer.AppConfig);
             Assert.IsEmpty(parsed.Redirects);
@@ -159,11 +159,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_InvalidSectionDroppedButRestApplied()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-invalid-section-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-invalid-section-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>
@@ -197,11 +197,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_DocumentOrderAcrossMultipleAssemblyBindingBlocks_FirstMatchWins()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-doc-order-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-doc-order-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>
@@ -242,11 +242,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_ProcessorArchitectureFilter_ExcludesNonMatchingEntries()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-arch-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-arch-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>
@@ -301,11 +301,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void PrivatePaths_HonorAppliesToFilter_DropNonV4Blocks()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-privatepath-applies-to-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-privatepath-applies-to-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>
@@ -381,11 +381,11 @@ public sealed class NetFxBindingContextTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_RuntimeScopedPublisherPolicyApplyNo_SuppressesGloballyForAllIdentities()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-policy-runtime-disable-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-policy-runtime-disable-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var configPath = Path.Combine(dir, "fake.exe.config");
+            var configPath = Path.Join(dir, "fake.exe.config");
             File.WriteAllText(configPath,
                 """
                 <?xml version="1.0" encoding="utf-8"?>

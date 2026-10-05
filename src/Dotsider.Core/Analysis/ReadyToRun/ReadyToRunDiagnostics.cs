@@ -53,7 +53,7 @@ internal static class ReadyToRunDiagnostics
                 Trace.WriteLine(line);
             }
         }
-        catch (Exception)
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Diagnostics must never change ReadyToRun parsing behavior.
         }
@@ -85,7 +85,7 @@ internal static class ReadyToRunDiagnostics
             writer.WriteLine($"{DateTimeOffset.UtcNow:O} pid={Environment.ProcessId} diagnostics-start");
             return writer;
         }
-        catch (Exception)
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }

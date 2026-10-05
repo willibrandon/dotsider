@@ -453,7 +453,7 @@ public class YankHelperTests : IDisposable
     public void Diff_Types_FocusedRow_ReturnsFormattedText()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
@@ -476,7 +476,7 @@ public class YankHelperTests : IDisposable
     public void Diff_Methods_FocusedRow_ReturnsFormattedText()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
@@ -498,7 +498,7 @@ public class YankHelperTests : IDisposable
     public void Diff_Refs_FocusedRow_ReturnsFormattedText()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
@@ -520,7 +520,7 @@ public class YankHelperTests : IDisposable
     public void Diff_Summary_ReturnsNull()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
@@ -536,7 +536,7 @@ public class YankHelperTests : IDisposable
     public void Diff_NoFocusedKey_ReturnsNull()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
@@ -648,7 +648,7 @@ public class YankHelperTests : IDisposable
     public void FindYankProvider_NuGetState_MatchesPackageInfoAndDelegates()
     {
         var workload = new Hex1bAppWorkloadAdapter();
-        var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
+        using         var terminal = Hex1bTerminal.CreateBuilder().WithWorkload(workload).WithHeadless().WithDimensions(80, 24).Build();
         var app = new Hex1bApp(_ => Task.FromResult<Hex1bWidget>(new TextBlockWidget("")),
             new Hex1bAppOptions { WorkloadAdapter = workload });
         using var nugetState = new NuGetState(app, Samples.RichLibraryNupkg);

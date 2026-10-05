@@ -31,7 +31,7 @@ public class NativeAotDetectorBenchmarks
 
         _nativeAotBytes = File.ReadAllBytes(
             BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole"));
-        _coreLibBytes = File.ReadAllBytes(Path.Combine(
+        _coreLibBytes = File.ReadAllBytes(Path.Join(
             RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll"));
         _apphostBytes = File.ReadAllBytes(BenchmarkHelpers.GetBuildPath(
             "samples/HelloWorld", "HelloWorld" + BenchmarkHelpers.ApphostExtension));

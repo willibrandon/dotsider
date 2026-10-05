@@ -66,11 +66,11 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             ? "website-publish-devcontainer"
             : "website-publish";
 
-        WebsitePublishedDir = Path.Combine(_repoRoot, "tests", "Dotsider.Website.Tests",
+        WebsitePublishedDir = Path.Join(_repoRoot, "tests", "Dotsider.Website.Tests",
             "bin", publishDirectoryName);
-        WebsitePublishedExe = Path.Combine(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
+        WebsitePublishedExe = Path.Join(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
 
-        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-website-publish.lock");
+        var lockPath = Path.Join(Path.GetTempPath(), "dotsider-build-website-publish.lock");
         FileStream lockFile;
         while (true)
         {
@@ -117,10 +117,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         // deploy layout exactly; tests then exercise the same shape production runs.
         var rid = RuntimeInformation.RuntimeIdentifier;
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
-        SamplePublishedDir = Path.Combine(WebsitePublishedDir, "sample");
-        RichLibraryDll = Path.Combine(SamplePublishedDir, "RichLibrary.dll");
+        SamplePublishedDir = Path.Join(WebsitePublishedDir, "sample");
+        RichLibraryDll = Path.Join(SamplePublishedDir, "RichLibrary.dll");
 
-        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-sample-publish.lock");
+        var lockPath = Path.Join(Path.GetTempPath(), "dotsider-build-sample-publish.lock");
         FileStream lockFile;
         while (true)
         {
@@ -174,7 +174,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var dir = AppContext.BaseDirectory;
         while (dir != null)
         {
-            if (File.Exists(Path.Combine(dir, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(dir, "Dotsider.slnx")))
                 return dir;
             dir = Path.GetDirectoryName(dir);
         }

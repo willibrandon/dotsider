@@ -394,12 +394,12 @@ public sealed record BindingPolicy(
         foreach (var root in roots)
         {
             if (string.IsNullOrEmpty(root)) continue;
-            var frameworkRoot = Path.Combine(root!, "Reference Assemblies", "Microsoft", "Framework");
+            var frameworkRoot = Path.Join(root!, "Reference Assemblies", "Microsoft", "Framework");
             if (!Directory.Exists(frameworkRoot)) continue;
 
             if (runtimeVersion == NetFxRuntimeVersion.Clr4)
             {
-                var refRoot = Path.Combine(frameworkRoot, ".NETFramework");
+                var refRoot = Path.Join(frameworkRoot, ".NETFramework");
                 if (!Directory.Exists(refRoot)) continue;
                 IEnumerable<string> versionDirs;
                 try { versionDirs = Directory.EnumerateDirectories(refRoot, "v4.*"); }
@@ -408,7 +408,7 @@ public sealed record BindingPolicy(
                 foreach (var versionDir in versionDirs)
                 {
                     AddDllNamesFrom(versionDir, names);
-                    var facades = Path.Combine(versionDir, "Facades");
+                    var facades = Path.Join(versionDir, "Facades");
                     if (Directory.Exists(facades)) AddDllNamesFrom(facades, names);
                 }
             }
@@ -416,16 +416,16 @@ public sealed record BindingPolicy(
             {
                 // Three legacy locations for the Clr2 surface: v3.5 (with optional Client
                 // profile), v3.0, and the .NETFramework\v3.5 mirror added when 4.0 shipped.
-                var v35 = Path.Combine(frameworkRoot, "v3.5");
+                var v35 = Path.Join(frameworkRoot, "v3.5");
                 if (Directory.Exists(v35))
                 {
                     AddDllNamesFrom(v35, names);
-                    var clientProfile = Path.Combine(v35, "Profile", "Client");
+                    var clientProfile = Path.Join(v35, "Profile", "Client");
                     if (Directory.Exists(clientProfile)) AddDllNamesFrom(clientProfile, names);
                 }
-                var v30 = Path.Combine(frameworkRoot, "v3.0");
+                var v30 = Path.Join(frameworkRoot, "v3.0");
                 if (Directory.Exists(v30)) AddDllNamesFrom(v30, names);
-                var netFxV35 = Path.Combine(frameworkRoot, ".NETFramework", "v3.5");
+                var netFxV35 = Path.Join(frameworkRoot, ".NETFramework", "v3.5");
                 if (Directory.Exists(netFxV35)) AddDllNamesFrom(netFxV35, names);
             }
         }
@@ -451,7 +451,7 @@ public sealed record BindingPolicy(
         if (string.IsNullOrEmpty(windir)) return;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
         var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
-        var dir = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir);
+        var dir = Path.Join(windir!, "Microsoft.NET", subdir, runtimeDir);
         if (!Directory.Exists(dir)) return;
 
         IEnumerable<string> files;
@@ -495,7 +495,7 @@ public sealed record BindingPolicy(
             if (!Directory.Exists(root)) continue;
             foreach (var gacSubdir in subdirs)
             {
-                var gacPath = Path.Combine(root, gacSubdir);
+                var gacPath = Path.Join(root, gacSubdir);
                 if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> nameDirs;
                 try { nameDirs = Directory.EnumerateDirectories(gacPath); }
@@ -602,7 +602,7 @@ public sealed record BindingPolicy(
                     analyzer.Culture ?? "neutral",
                     analyzer.PublicKeyToken);
         }
-        catch { return null; }
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>
@@ -759,7 +759,7 @@ public sealed record BindingPolicy(
         if (string.IsNullOrEmpty(windir)) return null;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
         var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
-        var path = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir, "Config", "machine.config");
+        var path = Path.Join(windir!, "Microsoft.NET", subdir, runtimeDir, "Config", "machine.config");
         return File.Exists(path) ? path : null;
     }
 
@@ -785,7 +785,7 @@ public sealed record BindingPolicy(
             if (!Directory.Exists(root)) continue;
             foreach (var subdir in subdirs)
             {
-                var gacPath = Path.Combine(root, subdir);
+                var gacPath = Path.Join(root, subdir);
                 if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> policyFamilies;
                 try

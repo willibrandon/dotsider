@@ -66,7 +66,7 @@ namespace NetFxBindingRedirects.Clr2
                     "NetFxBindingRedirects.Clr2.CodeBaseLib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=d4a9fecb5ef90905");
                 Capture(entries, "NetFxBindingRedirects.Clr2.CodeBaseLib", cbAsm);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or BadImageFormatException or System.Resources.MissingManifestResourceException or System.Resources.MissingSatelliteAssemblyException)
             {
                 CaptureFailure(entries, "NetFxBindingRedirects.Clr2.CodeBaseLib", ex);
             }
@@ -99,7 +99,7 @@ namespace NetFxBindingRedirects.Clr2
                     Capture(entries, "NetFxBindingRedirects.Clr2.CulturedLib.resources(fr)", satellite);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or BadImageFormatException or System.Resources.MissingManifestResourceException or System.Resources.MissingSatelliteAssemblyException)
             {
                 CaptureFailure(entries, "NetFxBindingRedirects.Clr2.CulturedLib", ex);
             }
@@ -112,7 +112,7 @@ namespace NetFxBindingRedirects.Clr2
                     "NetFxBindingRedirects.Clr2.MissingCodeBase, Version=9.9.9.9, Culture=neutral, PublicKeyToken=0123456789abcdef");
                 Capture(entries, "NetFxBindingRedirects.Clr2.MissingCodeBase", missingAsm);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or BadImageFormatException or System.Resources.MissingManifestResourceException or System.Resources.MissingSatelliteAssemblyException)
             {
                 CaptureFailure(entries, "NetFxBindingRedirects.Clr2.MissingCodeBase", ex);
             }

@@ -263,7 +263,7 @@ public class MalformedPeTests
         var validPe = File.ReadAllBytes(Samples.HelloWorldDll);
         foreach (var (description, bytes) in GenerateMalformedBinaries(validPe))
         {
-            var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
+            var tempPath = Path.Join(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
             try
             {
                 File.WriteAllBytes(tempPath, bytes);
@@ -275,12 +275,17 @@ public class MalformedPeTests
                 catch (Exception ex) when (ex is BadImageFormatException or IOException or
                     UnauthorizedAccessException or ArgumentException or InvalidOperationException or OverflowException)
                 {
+                    System.Diagnostics.Trace.TraceInformation("AllMalformedBinaries_ThrowOrConstruct_NeverCrash: {0}", ex);
                     // Expected — these are the recoverable exceptions AssemblyAnalyzer should throw
                 }
             }
             finally
             {
-                try { File.Delete(tempPath); } catch { }
+                try { File.Delete(tempPath); }
+                catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+                {
+                    System.Diagnostics.Trace.TraceInformation("AllMalformedBinaries_ThrowOrConstruct_NeverCrash: {0}", handledException);
+                }
             }
         }
     }
@@ -355,7 +360,7 @@ public class MalformedPeTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void ZeroByteFile_ThrowsBadImageFormat()
     {
-        var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
+        var tempPath = Path.Join(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
         try
         {
             File.WriteAllBytes(tempPath, []);
@@ -366,7 +371,11 @@ public class MalformedPeTests
         }
         finally
         {
-            try { File.Delete(tempPath); } catch { }
+            try { File.Delete(tempPath); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("ZeroByteFile_ThrowsBadImageFormat: {0}", handledException);
+            }
         }
     }
 
@@ -390,7 +399,7 @@ public class MalformedPeTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void TruncatedMzHeader_ThrowsBadImageFormat()
     {
-        var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
+        var tempPath = Path.Join(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
         try
         {
             // Just the MZ magic bytes with no PE signature pointer
@@ -402,7 +411,11 @@ public class MalformedPeTests
         }
         finally
         {
-            try { File.Delete(tempPath); } catch { }
+            try { File.Delete(tempPath); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("TruncatedMzHeader_ThrowsBadImageFormat: {0}", handledException);
+            }
         }
     }
 
@@ -417,7 +430,7 @@ public class MalformedPeTests
         // Keep DOS header + PE signature but truncate before CLR metadata
         var truncated = validPe[..Math.Min(256, validPe.Length)];
 
-        var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
+        var tempPath = Path.Join(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
         try
         {
             File.WriteAllBytes(tempPath, truncated);
@@ -428,7 +441,11 @@ public class MalformedPeTests
         }
         finally
         {
-            try { File.Delete(tempPath); } catch { }
+            try { File.Delete(tempPath); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("ValidPeHeader_TruncatedBeforeMetadata_ThrowsBadImageFormat: {0}", handledException);
+            }
         }
     }
 
@@ -455,7 +472,7 @@ public class MalformedPeTests
             var originalFile = state.Analyzer.FileName;
 
             // Try to push a truncated PE
-            var tempPath = Path.Combine(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
+            var tempPath = Path.Join(Path.GetTempPath(), $"dotsider-fuzz-{Guid.NewGuid():N}.dll");
             try
             {
                 var validPe = File.ReadAllBytes(Samples.HelloWorldDll);
@@ -467,7 +484,11 @@ public class MalformedPeTests
             }
             finally
             {
-                try { File.Delete(tempPath); } catch { }
+                try { File.Delete(tempPath); }
+                catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+                {
+                    System.Diagnostics.Trace.TraceInformation("PushAssembly_MalformedFile_ReturnsFalseAndPreservesState: {0}", handledException);
+                }
             }
         }
         finally

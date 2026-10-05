@@ -141,8 +141,14 @@ public class PreIlcRoutingTests : IDisposable
         GC.SuppressFinalize(this);
         _cts?.Cancel();
         try { _runTask?.Wait(TimeSpan.FromSeconds(5)); }
-        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { }
-        catch (OperationCanceledException) { }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException))
+        {
+            System.Diagnostics.Trace.TraceInformation("Dispose: {0}", ex);
+        }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dispose: {0}", handledException);
+        }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();

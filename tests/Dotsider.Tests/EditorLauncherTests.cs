@@ -47,7 +47,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
     [Timeout(30_000, CooperativeCancellation = true)]
     public void CreateAssociationStartInfo_TxtPath_UsesPlatformAssociation()
     {
-        var sourcePath = Path.GetFullPath(Path.Combine("temp", "Source.txt"));
+        var sourcePath = Path.GetFullPath(Path.Join("temp", "Source.txt"));
 
         var startInfo = EditorLauncher.CreateAssociationStartInfo(sourcePath);
 
@@ -75,7 +75,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
             source);
 
         Assert.AreEqual(
-            Path.Combine(Environment.SystemDirectory, "cmd.exe"),
+            Path.Join(Environment.SystemDirectory, "cmd.exe"),
             startInfo.FileName);
         Assert.IsFalse(startInfo.UseShellExecute);
         Assert.AreEqual(Path.GetDirectoryName(script), startInfo.WorkingDirectory);
@@ -122,9 +122,9 @@ public sealed class EditorLauncherTests(TestContext testContext)
             "dotsider-editor & % ! ^ (-");
         try
         {
-            var script = Path.Combine(directory.FullName, "shim.cmd");
-            var capture = Path.Combine(directory.FullName, "captured.txt");
-            var source = Path.Combine(directory.FullName, "source file.cs");
+            var script = Path.Join(directory.FullName, "shim.cmd");
+            var capture = Path.Join(directory.FullName, "captured.txt");
+            var source = Path.Join(directory.FullName, "source file.cs");
             File.WriteAllText(
                 script,
                 "@echo off\r\n" +
@@ -194,9 +194,9 @@ public sealed class EditorLauncherTests(TestContext testContext)
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-unix-shim-");
         try
         {
-            var script = Path.Combine(directory.FullName, "editor");
-            var capture = Path.Combine(directory.FullName, "captured.txt");
-            var source = Path.Combine(directory.FullName, "source file.cs");
+            var script = Path.Join(directory.FullName, "editor");
+            var capture = Path.Join(directory.FullName, "captured.txt");
+            var source = Path.Join(directory.FullName, "source file.cs");
             File.WriteAllText(
                 script,
                 "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$DOTSIDER_CAPTURE\"\n");
@@ -433,7 +433,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-kind-");
         try
         {
-            var editor = Path.Combine(directory.FullName, $"editor{extension}");
+            var editor = Path.Join(directory.FullName, $"editor{extension}");
             File.WriteAllText(editor, "");
             ProcessStartInfo? captured = null;
 
@@ -455,7 +455,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
             Assert.IsNotNull(captured);
             Assert.AreEqual(
                 usesSystemCommandInterpreter
-                    ? Path.Combine(Environment.SystemDirectory, "cmd.exe")
+                    ? Path.Join(Environment.SystemDirectory, "cmd.exe")
                     : Path.GetFullPath(editor),
                 captured.FileName,
                 ignoreCase: true);
@@ -479,7 +479,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-quote-");
         try
         {
-            var editor = Path.Combine(directory.FullName, "editor.cmd");
+            var editor = Path.Join(directory.FullName, "editor.cmd");
             File.WriteAllText(editor, "");
             var configured = $"\"{editor}\" \"quote\\\"value\"";
             var startCount = 0;
@@ -700,7 +700,7 @@ public sealed class EditorLauncherTests(TestContext testContext)
     private static string CreateResolvedEditorFile(out DirectoryInfo directory)
     {
         directory = Directory.CreateTempSubdirectory("dotsider-editor-launch-");
-        var path = Path.Combine(
+        var path = Path.Join(
             directory.FullName,
             OperatingSystem.IsWindows() ? "editor.exe" : "editor");
         File.WriteAllText(path, "");

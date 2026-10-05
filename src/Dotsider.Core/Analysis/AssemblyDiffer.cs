@@ -382,7 +382,7 @@ public static class AssemblyDiffer
                                 MetadataTokens.UserStringHandle(rightToken & 0x00FFFFFF));
                             if (leftStr != rightStr) return true;
                         }
-                        catch
+                        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
                         {
                             if (leftToken != rightToken) return true;
                         }

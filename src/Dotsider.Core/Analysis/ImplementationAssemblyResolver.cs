@@ -637,7 +637,7 @@ public static class ImplementationAssemblyResolver
                 return null;
             }
 
-            modulePath = Path.GetFullPath(Path.Combine(manifestDirectory, moduleName));
+            modulePath = Path.GetFullPath(Path.Join(manifestDirectory, moduleName));
             var moduleDirectory = Path.GetDirectoryName(modulePath);
             var pathComparison = OperatingSystem.IsWindows()
                 ? StringComparison.OrdinalIgnoreCase
@@ -956,7 +956,7 @@ public static class ImplementationAssemblyResolver
                 return false;
             }
         }
-        catch { return false; }
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException) { return false; }
     }
 
     /// <summary>

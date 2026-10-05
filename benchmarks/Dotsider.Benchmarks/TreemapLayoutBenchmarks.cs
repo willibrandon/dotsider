@@ -25,8 +25,8 @@ public class TreemapLayoutBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
-        _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
+        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.CoreLib.dll"));
+        _xmlAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.Xml.dll"));
 
         _coreLibChildren = SizeAnalyzer.BuildSizeTree(_coreLibAnalyzer).Children;
         _xmlChildren = SizeAnalyzer.BuildSizeTree(_xmlAnalyzer).Children;

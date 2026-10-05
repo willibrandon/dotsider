@@ -46,7 +46,7 @@ public static class ApphostDetector
         var dllName = exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
             ? Path.GetFileNameWithoutExtension(fileName) + ".dll"
             : fileName + ".dll";
-        var dllPath = Path.Combine(Path.GetDirectoryName(exePath)!, dllName);
+        var dllPath = Path.Join(Path.GetDirectoryName(exePath)!, dllName);
         if (!File.Exists(dllPath))
             return null;
 
@@ -64,7 +64,7 @@ public static class ApphostDetector
                 || !ContainsSequence(exeBytes, "hostfxr"u8))
                 return null;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -80,7 +80,7 @@ public static class ApphostDetector
             _ = peReader.GetMetadataReader();
             return dllPath;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }

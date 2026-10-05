@@ -64,7 +64,7 @@ public class SizeCheckCliTests
     public async Task SizeCheck_WarningOnlyBreach_Exit0()
     {
         var (v1, v2) = RequireMstats();
-        var budgetFile = Path.Combine(Path.GetTempPath(), $"dotsider-budgets-{Guid.NewGuid():N}.json");
+        var budgetFile = Path.Join(Path.GetTempPath(), $"dotsider-budgets-{Guid.NewGuid():N}.json");
         try
         {
             await File.WriteAllTextAsync(budgetFile, """
@@ -104,7 +104,7 @@ public class SizeCheckCliTests
         var tempDir = Directory.CreateTempSubdirectory("dotsider-nomstat-");
         try
         {
-            var lonelyExe = Path.Combine(tempDir.FullName, Path.GetFileName(Fixture.NativeAotConsoleExe!));
+            var lonelyExe = Path.Join(tempDir.FullName, Path.GetFileName(Fixture.NativeAotConsoleExe!));
             File.Copy(Fixture.NativeAotConsoleExe!, lonelyExe);
 
             var (exitCode, _, stderr) = await TestHelpers.RunDotsiderAsync(
@@ -130,7 +130,7 @@ public class SizeCheckCliTests
     public async Task SizeCheck_TruncatedBaseline_NoCrash()
     {
         var (v1, v2) = RequireMstats();
-        var truncated = Path.Combine(Path.GetTempPath(), $"dotsider-badbase-{Guid.NewGuid():N}.mstat");
+        var truncated = Path.Join(Path.GetTempPath(), $"dotsider-badbase-{Guid.NewGuid():N}.mstat");
         try
         {
             var bytes = await File.ReadAllBytesAsync(v1, CancellationToken.None);
@@ -198,7 +198,7 @@ public class SizeCheckCliTests
     public async Task SizeCheck_InvalidBudgetFileJson_Exit1()
     {
         var (v1, v2) = RequireMstats();
-        var budgetFile = Path.Combine(Path.GetTempPath(), $"dotsider-badjson-{Guid.NewGuid():N}.json");
+        var budgetFile = Path.Join(Path.GetTempPath(), $"dotsider-badjson-{Guid.NewGuid():N}.json");
         try
         {
             await File.WriteAllTextAsync(budgetFile, "{ not json", CancellationToken.None);
@@ -317,7 +317,7 @@ public class SizeCheckCliTests
     public async Task SizeCheck_SummaryFile_WritesMarkdownAlongsideText()
     {
         var (v1, v2) = RequireMstats();
-        var summaryFile = Path.Combine(Path.GetTempPath(), $"dotsider-summary-{Guid.NewGuid():N}.md");
+        var summaryFile = Path.Join(Path.GetTempPath(), $"dotsider-summary-{Guid.NewGuid():N}.md");
         try
         {
             var (exitCode, stdout, _) = await TestHelpers.RunDotsiderAsync(

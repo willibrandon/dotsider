@@ -61,7 +61,7 @@ public sealed class TerminalOutputCliTests(TestContext testContext)
     public async Task AnalyzeText_HostileMetadataNames_AllPresentationSinksAreSafe()
     {
         var assemblyPath = CreateSyntheticAssembly();
-        var outputPath = Path.Combine(
+        var outputPath = Path.Join(
             Path.GetTempPath(),
             $"dotsider-terminal-output-{Guid.NewGuid():N}.txt");
         try
@@ -171,7 +171,7 @@ public sealed class TerminalOutputCliTests(TestContext testContext)
 
     private static string CreateSyntheticAssembly()
     {
-        var path = Path.Combine(
+        var path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-terminal-metadata-{Guid.NewGuid():N}.dll");
         File.WriteAllBytes(

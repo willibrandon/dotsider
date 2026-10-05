@@ -23,8 +23,8 @@ public class TestProcessEnvironmentTests
         string configuration)
     {
         string baseDirectory = useDevelopmentContainerLayout
-            ? Path.Combine("root", "bin", "devcontainer", configuration, "net10.0")
-            : Path.Combine("root", "bin", configuration, "net10.0");
+            ? Path.Join("root", "bin", "devcontainer", configuration, "net10.0")
+            : Path.Join("root", "bin", configuration, "net10.0");
 
         string actual = TestProcessEnvironment.GetBuildConfiguration(baseDirectory);
 
@@ -59,18 +59,18 @@ public class TestProcessEnvironmentTests
     [TestMethod]
     public void IsFixtureOutputCurrent_SourceAndBuildArtifacts_DistinguishesInputs()
     {
-        string repositoryRoot = Path.Combine(Path.GetTempPath(), $"dotsider-fixture-{Guid.NewGuid():N}");
-        string projectDirectory = Path.Combine(repositoryRoot, "sample");
-        string outputDirectory = Path.Combine(projectDirectory, "bin");
-        string generatedDirectory = Path.Combine(projectDirectory, "obj");
+        string repositoryRoot = Path.Join(Path.GetTempPath(), $"dotsider-fixture-{Guid.NewGuid():N}");
+        string projectDirectory = Path.Join(repositoryRoot, "sample");
+        string outputDirectory = Path.Join(projectDirectory, "bin");
+        string generatedDirectory = Path.Join(projectDirectory, "obj");
         Directory.CreateDirectory(outputDirectory);
         Directory.CreateDirectory(generatedDirectory);
 
         try
         {
-            string sourcePath = Path.Combine(projectDirectory, "Program.cs");
-            string outputPath = Path.Combine(outputDirectory, "sample.dll");
-            string generatedPath = Path.Combine(generatedDirectory, "generated.cs");
+            string sourcePath = Path.Join(projectDirectory, "Program.cs");
+            string outputPath = Path.Join(outputDirectory, "sample.dll");
+            string generatedPath = Path.Join(generatedDirectory, "generated.cs");
             File.WriteAllText(sourcePath, "source");
             File.WriteAllText(outputPath, "output");
             File.WriteAllText(generatedPath, "generated");

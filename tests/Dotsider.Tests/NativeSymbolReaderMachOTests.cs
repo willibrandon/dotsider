@@ -44,9 +44,9 @@ public class NativeSymbolReaderMachOTests
 
     private static string WriteDsym(string directory, string imageName, byte[] innerBytes)
     {
-        var dwarfDir = Path.Combine(directory, imageName + ".dSYM", "Contents", "Resources", "DWARF");
+        var dwarfDir = Path.Join(directory, imageName + ".dSYM", "Contents", "Resources", "DWARF");
         Directory.CreateDirectory(dwarfDir);
-        var inner = Path.Combine(dwarfDir, imageName);
+        var inner = Path.Join(dwarfDir, imageName);
         File.WriteAllBytes(inner, innerBytes);
         return inner;
     }
@@ -64,7 +64,7 @@ public class NativeSymbolReaderMachOTests
             var image = SyntheticImageBuilders.BuildMachO(
                 [TextSegment()],
                 symbols: [("_frost_main", SectType, 1, 0x1_0000_1010)]);
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, image);
 
             var result = NativeSymbolReader.Read(path, File.ReadAllBytes(path), []);
@@ -99,7 +99,7 @@ public class NativeSymbolReaderMachOTests
                     ("__DATA", 0x1_0000_4000, new[] { ("__const", 0x1_0000_4000UL, 0u, new byte[0x100]) }),
                 ],
                 uuid: UuidA);
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, image);
 
             var (info, abbrev) = MinimalDwarf("frost_main", 0x1_0000_1010, 0x40);
@@ -155,7 +155,7 @@ public class NativeSymbolReaderMachOTests
                 [TextSegment()],
                 uuid: UuidA,
                 functionStarts: new DwarfBlob().ULeb(0x1010).ULeb(0).ToArray());
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, image);
 
             var (info, abbrev) = MinimalDwarf("fn", 0x1_0000_1010, 0x10);
@@ -190,7 +190,7 @@ public class NativeSymbolReaderMachOTests
         var dir = Directory.CreateTempSubdirectory("dotsider-macho-");
         try
         {
-            var withStarts = Path.Combine(dir.FullName, "app");
+            var withStarts = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(withStarts, SyntheticImageBuilders.BuildMachO(
                 [TextSegment()],
                 functionStarts: new DwarfBlob().ULeb(0x1010).ULeb(0x40).ULeb(0).ToArray()));
@@ -200,7 +200,7 @@ public class NativeSymbolReaderMachOTests
             Assert.AreEqual(NativeSymbolSource.FunctionStartsFallback, result.Source);
             Assert.IsNotEmpty(result.Symbols);
 
-            var bare = Path.Combine(dir.FullName, "bare");
+            var bare = Path.Join(dir.FullName, "bare");
             File.WriteAllBytes(bare, SyntheticImageBuilders.BuildMachO([TextSegment()]));
             var empty = NativeSymbolReader.Read(bare, File.ReadAllBytes(bare), []);
 
@@ -228,7 +228,7 @@ public class NativeSymbolReaderMachOTests
             var matching = SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidA);
             var other = SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidB, cpuType: 0x0100_0007);
             var fat = SyntheticImageBuilders.BuildFat(other, matching); // match is the second slice
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, fat);
 
             var (info, abbrev) = MinimalDwarf("sliced_fn", 0x1_0000_1010, 0x20);
@@ -242,10 +242,10 @@ public class NativeSymbolReaderMachOTests
             var symbol = Assert.ContainsSingle(s => s.Name == "sliced_fn", result.Symbols);
             var slices = MachOImageReader.ReadFatSlices(fat);
             Assert.IsNotNull(symbol.FileOffset);
-            Assert.IsGreaterThan(slices[1].Offset, symbol.FileOffset.Value, "the file offset must be shifted into the chosen slice's archive region");
+            Assert.IsGreaterThan(slices[1].Offset, TestAssert.HasValue(symbol.FileOffset), "the file offset must be shifted into the chosen slice's archive region");
 
             // No dSYM, no AOT signal: ambiguous, deterministically.
-            var bare = Path.Combine(dir.FullName, "bare");
+            var bare = Path.Join(dir.FullName, "bare");
             File.WriteAllBytes(bare, fat);
             var ambiguous = NativeSymbolReader.Read(bare, File.ReadAllBytes(bare), []);
 
@@ -272,7 +272,7 @@ public class NativeSymbolReaderMachOTests
         var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
         try
         {
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, SyntheticImageBuilders.BuildMachO([TextSegment()], uuid: UuidA));
 
             var (info, abbrev) = MinimalDwarf("frost_main", 0x1_0000_1010, 0x40);
@@ -310,7 +310,7 @@ public class NativeSymbolReaderMachOTests
         var dir = Directory.CreateTempSubdirectory("dotsider-fatdsym-");
         try
         {
-            var path = Path.Combine(dir.FullName, "app");
+            var path = Path.Join(dir.FullName, "app");
             File.WriteAllBytes(path, SyntheticImageBuilders.BuildMachO(
                 [TextSegment()],
                 uuid: UuidA,
@@ -388,7 +388,7 @@ public class NativeSymbolReaderMachOTests
         var dir = Directory.CreateTempSubdirectory("dotsider-fstarts-");
         try
         {
-            var copy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var copy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.WriteAllBytes(copy, bytes);
 
             var info = NativeSymbolReader.Read(copy, File.ReadAllBytes(copy), []);

@@ -17,7 +17,7 @@ public class SessionDiffModeTests
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
@@ -107,8 +107,8 @@ public class SessionDiffModeTests
 
         var diffSession = FindSessionByPid(sessions, _diffPid);
         Assert.IsNotNull(diffSession);
-        Assert.AreEqual("diff", diffSession.Value.GetProperty("mode").GetString());
-        Assert.Contains("\u2194", diffSession.Value.GetProperty("fileName").GetString()!);
+        Assert.AreEqual("diff", TestAssert.HasValue(diffSession).GetProperty("mode").GetString());
+        Assert.Contains("\u2194", TestAssert.HasValue(diffSession).GetProperty("fileName").GetString()!);
     }
 
     /// <summary>
@@ -142,11 +142,11 @@ public class SessionDiffModeTests
 
         var data = response.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
+        Assert.AreEqual("diff", TestAssert.HasValue(data).GetProperty("mode").GetString());
 
         // Verify real analyzer data is present
-        var left = data.Value.GetProperty("left");
-        var right = data.Value.GetProperty("right");
+        var left = TestAssert.HasValue(data).GetProperty("left");
+        var right = TestAssert.HasValue(data).GetProperty("right");
         Assert.AreEqual("RichLibrary", left.GetProperty("assemblyName").GetString());
         Assert.AreEqual("RichLibrary", right.GetProperty("assemblyName").GetString());
         Assert.AreNotEqual(
@@ -173,9 +173,9 @@ public class SessionDiffModeTests
         Assert.IsTrue(response.Success);
         var data = response.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("diff", data.Value.GetProperty("mode").GetString());
-        Assert.AreEqual(3, data.Value.GetProperty("tab").GetInt32());
-        Assert.AreEqual("addedOnly", data.Value.GetProperty("filterMode").GetString());
+        Assert.AreEqual("diff", TestAssert.HasValue(data).GetProperty("mode").GetString());
+        Assert.AreEqual(3, TestAssert.HasValue(data).GetProperty("tab").GetInt32());
+        Assert.AreEqual("addedOnly", TestAssert.HasValue(data).GetProperty("filterMode").GetString());
     }
 
     /// <summary>

@@ -29,7 +29,7 @@ public sealed class InstallManifestTests
             string sourceFileName = Path.GetFileName(file.Destination) == "caddy-metrics"
                 ? "caddy-metrics-logrotate"
                 : Path.GetFileName(file.Destination);
-            string sourcePath = Path.Combine(repositoryRoot, "deploy", sourceFileName);
+            string sourcePath = Path.Join(repositoryRoot, "deploy", sourceFileName);
             await using Stream resource = assembly.GetManifestResourceStream(file.Resource)!;
             using var reader = new MemoryStream();
             await resource.CopyToAsync(reader, TestContext.CancellationToken);
@@ -52,8 +52,8 @@ public sealed class InstallManifestTests
     public void SystemdHelpers_InvokeInstalledDeployHost()
     {
         string repositoryRoot = FindRepositoryRoot();
-        string report = File.ReadAllText(Path.Combine(repositoryRoot, "deploy", "caddy-report.service"));
-        string integrity = File.ReadAllText(Path.Combine(repositoryRoot, "deploy", "integrity-check.service"));
+        string report = File.ReadAllText(Path.Join(repositoryRoot, "deploy", "caddy-report.service"));
+        string integrity = File.ReadAllText(Path.Join(repositoryRoot, "deploy", "integrity-check.service"));
 
         Assert.Contains("ExecStart=/usr/local/libexec/dotsider-deploy-host report", report);
         Assert.Contains("ExecStart=/usr/local/libexec/dotsider-deploy-host integrity", integrity);
@@ -69,7 +69,7 @@ public sealed class InstallManifestTests
     [TestMethod]
     public void Caddyfile_CoversEstablishedStaticAssetExtensions()
     {
-        string caddyfile = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "deploy", "Caddyfile"));
+        string caddyfile = File.ReadAllText(Path.Join(FindRepositoryRoot(), "deploy", "Caddyfile"));
 
         foreach (string extension in new[] { "*.js", "*.css", "*.png", "*.webp", "*.avif", "*.gif", "*.ico", "*.jpg", "*.svg", "*.woff2" })
         {
@@ -80,7 +80,7 @@ public sealed class InstallManifestTests
     private static string FindRepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+        while (directory is not null && !File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
         {
             directory = directory.Parent;
         }

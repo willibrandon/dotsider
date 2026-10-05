@@ -86,7 +86,7 @@ public static class DotNetRuntimeLocator
 
         foreach (var pack in packs)
         {
-            var packDir = Path.Combine(basePath, "shared", pack);
+            var packDir = Path.Join(basePath, "shared", pack);
             if (!Directory.Exists(packDir))
                 continue;
 
@@ -94,11 +94,11 @@ public static class DotNetRuntimeLocator
             if (versionFolder is null)
                 continue;
 
-            var dllPath = Path.Combine(packDir, versionFolder, $"{assemblyName}.dll");
+            var dllPath = Path.Join(packDir, versionFolder, $"{assemblyName}.dll");
             if (File.Exists(dllPath))
                 return new FrameworkAssemblyInfo(dllPath, pack);
 
-            var exePath = Path.Combine(packDir, versionFolder, $"{assemblyName}.exe");
+            var exePath = Path.Join(packDir, versionFolder, $"{assemblyName}.exe");
             if (File.Exists(exePath))
                 return new FrameworkAssemblyInfo(exePath, pack);
         }
@@ -113,7 +113,7 @@ public static class DotNetRuntimeLocator
         {
             dirs = new DirectoryInfo(packDir).GetDirectories();
         }
-        catch
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return null;
         }
@@ -196,7 +196,7 @@ public static class DotNetRuntimeLocator
 
         foreach (var path in wellKnownPaths)
         {
-            if (Directory.Exists(Path.Combine(path, "shared")))
+            if (Directory.Exists(Path.Join(path, "shared")))
                 return path;
         }
 
@@ -217,7 +217,7 @@ public static class DotNetRuntimeLocator
         {
             try
             {
-                var fileName = Path.Combine(item, dotnetExeName);
+                var fileName = Path.Join(item, dotnetExeName);
                 if (!File.Exists(fileName))
                     continue;
 
@@ -234,7 +234,7 @@ public static class DotNetRuntimeLocator
                 }
 
                 var dir = Path.GetDirectoryName(fileName);
-                if (dir is not null && Directory.Exists(Path.Combine(dir, "shared")))
+                if (dir is not null && Directory.Exists(Path.Join(dir, "shared")))
                     return dir;
             }
             catch (ArgumentException)
@@ -253,7 +253,7 @@ public static class DotNetRuntimeLocator
             var target = File.ResolveLinkTarget(path, returnFinalTarget: true);
             return target?.FullName;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return null;
         }

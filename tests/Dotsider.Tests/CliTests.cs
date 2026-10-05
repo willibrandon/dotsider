@@ -69,7 +69,7 @@ public class CliTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Analyze_OversizedEmbeddedPdb_JsonReportsInvalidProvenance()
     {
-        string path = Path.Combine(
+        string path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-oversized-embedded-pdb-{Guid.NewGuid():N}.dll");
 

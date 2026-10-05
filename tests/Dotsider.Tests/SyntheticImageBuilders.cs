@@ -412,17 +412,18 @@ internal static class SyntheticImageBuilders
         }).ToArray()).ToArray();
 
         var strings = new List<byte> { 0 };
-        var nameOffsets = new uint[symbols?.Length ?? 0];
-        for (var i = 0; i < (symbols?.Length ?? 0); i++)
+        var symbolEntries = symbols ?? [];
+        var nameOffsets = new uint[symbolEntries.Length];
+        for (var i = 0; i < symbolEntries.Length; i++)
         {
-            if (symbols![i].Name.Length == 0)
+            if (symbolEntries[i].Name.Length == 0)
             {
                 nameOffsets[i] = 0;
                 continue;
             }
 
             nameOffsets[i] = (uint)strings.Count;
-            strings.AddRange(System.Text.Encoding.UTF8.GetBytes(symbols[i].Name));
+            strings.AddRange(System.Text.Encoding.UTF8.GetBytes(symbolEntries[i].Name));
             strings.Add(0);
         }
 

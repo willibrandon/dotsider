@@ -98,7 +98,7 @@ public sealed class NativeImportResolver
 
             return slots.Count > 0 ? new NativeImportResolver(slots) : null;
         }
-        catch (Exception)
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Best-effort: a malformed import table or an out-of-range read must never crash the
             // disassembly it composes into — the targets simply stay unresolved.
@@ -138,7 +138,7 @@ public sealed class NativeImportResolver
             if (dynsym is null || dynstr is null) return null;
 
             var slots = new Dictionary<ulong, string>();
-            foreach (var relocSection in (string[])[".rela.plt", ".rela.dyn"])
+            foreach (var relocSection in new string[] { ".rela.plt", ".rela.dyn" })
             {
                 if (!ElfImageReader.TryGetSection(bytes, relocSection, out var section)) continue;
                 var relocs = Read(section);
@@ -147,7 +147,7 @@ public sealed class NativeImportResolver
 
             return slots.Count > 0 ? new NativeImportResolver(slots) : null;
         }
-        catch (Exception)
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -244,7 +244,7 @@ public sealed class NativeImportResolver
 
             return slots.Count > 0 ? new NativeImportResolver(slots) : null;
         }
-        catch (Exception)
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }

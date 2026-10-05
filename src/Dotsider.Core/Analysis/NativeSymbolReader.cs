@@ -267,7 +267,7 @@ public static class NativeSymbolReader
     {
         var name = Path.GetFileName(imagePath);
         if (string.IsNullOrEmpty(name)) return null;
-        var inner = Path.Combine(imagePath + ".dSYM", "Contents", "Resources", "DWARF", name);
+        var inner = Path.Join(imagePath + ".dSYM", "Contents", "Resources", "DWARF", name);
         return File.Exists(inner) ? inner : null;
     }
 
@@ -428,8 +428,8 @@ public static class NativeSymbolReader
 
         var candidates = new List<string>(2);
         if (ElfImageReader.TryReadDebugLink(image, out var linkName, out _) && linkName.Length > 0)
-            candidates.Add(Path.Combine(directory, Path.GetFileName(linkName)));
-        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".dbg");
+            candidates.Add(Path.Join(directory, Path.GetFileName(linkName)));
+        var conventional = Path.Join(directory, Path.GetFileNameWithoutExtension(imagePath) + ".dbg");
         if (!candidates.Contains(conventional)) candidates.Add(conventional);
 
         (string, byte[], ElfSidecarMatch)? mismatch = null;
@@ -611,8 +611,8 @@ public static class NativeSymbolReader
 
         var candidates = new List<string>(2);
         if (!string.IsNullOrEmpty(id.PdbPath))
-            candidates.Add(Path.Combine(directory, Path.GetFileName(id.PdbPath)));
-        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb");
+            candidates.Add(Path.Join(directory, Path.GetFileName(id.PdbPath)));
+        var conventional = Path.Join(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb");
         if (!candidates.Contains(conventional)) candidates.Add(conventional);
 
         (PdbProbe, string?) firstDefect = (PdbProbe.None, null);

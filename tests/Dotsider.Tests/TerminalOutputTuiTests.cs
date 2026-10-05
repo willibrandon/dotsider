@@ -168,7 +168,7 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
 
     private static string CreateSyntheticAssembly()
     {
-        var path = Path.Combine(
+        var path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-terminal-tui-{Guid.NewGuid():N}.dll");
         File.WriteAllBytes(

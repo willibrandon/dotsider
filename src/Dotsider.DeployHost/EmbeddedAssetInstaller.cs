@@ -21,7 +21,7 @@ internal sealed class EmbeddedAssetInstaller(IProcessRunner processRunner, Assem
     internal async Task<InstallChanges> InstallAsync(CancellationToken cancellationToken)
     {
         InstallManifest manifest = InstallManifestLoader.Load(_assembly);
-        string stagingDirectory = Path.Combine(
+        string stagingDirectory = Path.Join(
             Path.GetTempPath(),
             "dotsider-deploy-assets-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stagingDirectory);
@@ -34,7 +34,7 @@ internal sealed class EmbeddedAssetInstaller(IProcessRunner processRunner, Assem
             var candidates = new Dictionary<InstallFile, string>();
             foreach (InstallFile file in manifest.Files)
             {
-                string candidatePath = Path.Combine(stagingDirectory, Path.GetFileName(file.Destination));
+                string candidatePath = Path.Join(stagingDirectory, Path.GetFileName(file.Destination));
                 await ExtractAsync(file.Resource, candidatePath, cancellationToken).ConfigureAwait(false);
                 candidates.Add(file, candidatePath);
             }

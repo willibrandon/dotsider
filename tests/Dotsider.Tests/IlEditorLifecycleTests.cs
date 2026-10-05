@@ -233,8 +233,8 @@ public class IlEditorLifecycleTests : IDisposable
 
         state.RestoreFromIlBackEntry(entry);
 
-        Assert.IsTrue(state.IlCachedEditors.ContainsKey(keyB));
-        Assert.AreSame(editorStateB, state.IlCachedEditors[keyB]);
+        Assert.IsTrue(state.IlCachedEditors.TryGetValue(keyB, out var cachedEditor));
+        Assert.AreSame(editorStateB, cachedEditor);
     }
 
     /// <summary>

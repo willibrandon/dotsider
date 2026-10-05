@@ -55,7 +55,7 @@ internal sealed class DotsiderDiagnosticsListener(
         var dir = SocketDirectoryHelper.EnsureSocketDirectory();
 
         var pid = overridePid ?? Environment.ProcessId;
-        _socketPath = Path.Combine(dir, $"{pid}.dotsider.socket");
+        _socketPath = Path.Join(dir, $"{pid}.dotsider.socket");
 
         // Clean up stale socket from a previous crash
         if (File.Exists(_socketPath))
@@ -90,8 +90,9 @@ internal sealed class DotsiderDiagnosticsListener(
             {
                 break;
             }
-            catch
+            catch (Exception handledException) when (handledException is System.Net.Sockets.SocketException)
             {
+                System.Diagnostics.Trace.TraceInformation("AcceptConnectionsAsync: {0}", handledException);
                 // Log and continue accepting
             }
         }
@@ -120,8 +121,9 @@ internal sealed class DotsiderDiagnosticsListener(
                         DotsiderProtocol.MaxRequestBytes,
                         readCts.Token);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException handledException)
                 {
+                    System.Diagnostics.Trace.TraceInformation("HandleConnectionAsync: {0}", handledException);
                 }
 
                 var rejection = DotsiderResponse.Fail(
@@ -129,8 +131,9 @@ internal sealed class DotsiderDiagnosticsListener(
                 await w.WriteLineAsync(
                     JsonSerializer.Serialize(rejection, DotsiderJsonContext.Protocol.DotsiderResponse));
             }
-            catch
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or ObjectDisposedException or System.Text.Json.JsonException)
             {
+                System.Diagnostics.Trace.TraceInformation("HandleConnectionAsync: {0}", handledException);
                 // Connection-level errors are silently dropped
             }
 
@@ -243,8 +246,9 @@ internal sealed class DotsiderDiagnosticsListener(
             await writer.WriteLineAsync(
                 JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.DotsiderResponse));
         }
-        catch
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or ObjectDisposedException or System.Text.Json.JsonException)
         {
+            System.Diagnostics.Trace.TraceInformation("HandleConnectionAsync: {0}", handledException);
             // Connection-level errors are silently dropped
         }
         finally
@@ -347,7 +351,7 @@ internal sealed class DotsiderDiagnosticsListener(
                 _ => DotsiderResponse.Fail($"Unknown method: {request.Method}")
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
         {
             return DotsiderResponse.Fail(ex.Message);
         }
@@ -505,7 +509,7 @@ internal sealed class DotsiderDiagnosticsListener(
             {
                 instructions = state.IlDisassembler!.Disassemble(method);
             }
-            catch
+            catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
             {
                 continue;
             }
@@ -1169,13 +1173,12 @@ internal sealed class DotsiderDiagnosticsListener(
     private DotsiderResponse HandleNavigateToIlDefinition(DotsiderRequest request)
     {
         var state = RequireState();
-        var token = request.Token;
-        if (token is null)
+        if (request.Token is not { } token)
             return DotsiderResponse.Fail("Token is required for navigate-to-il-definition");
 
         state.PendingMutations.Enqueue(s =>
         {
-            s.NavigateToIlDefinition(token.Value);
+            s.NavigateToIlDefinition(token);
             s.App.Invalidate();
         });
         state.App.Invalidate();
@@ -1209,9 +1212,9 @@ internal sealed class DotsiderDiagnosticsListener(
             }
             // Priority 4: IL selection clear
             else if (s.CurrentTab == TabId.IlInspector
-                && s.IlEditorState?.Cursor.HasSelection == true)
+                && s.IlEditorState is { Cursor.HasSelection: true } editor)
             {
-                s.IlEditorState.Cursor.SelectionAnchor = null;
+                editor.Cursor.SelectionAnchor = null;
                 s.App.Invalidate();
             }
         });
@@ -1296,7 +1299,11 @@ internal sealed class DotsiderDiagnosticsListener(
 
         if (_acceptLoop is not null)
         {
-            try { await _acceptLoop; } catch { /* expected */ }
+            try { await _acceptLoop; }
+            catch (Exception handledException) when (handledException is OperationCanceledException or System.Net.Sockets.SocketException)
+            { /* expected */
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
 
         // Drain: acquire all slots. Each active handler holds one slot and will

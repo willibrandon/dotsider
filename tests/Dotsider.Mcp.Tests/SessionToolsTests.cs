@@ -287,8 +287,8 @@ public class SessionToolsTests : McpServerTestBase
             {
                 Mode = "nuget",
                 IsBrowsingPackage = true,
-                Tab = (int?)null,
-                SelectedDll = (string?)null,
+                Tab = default(int?),
+                SelectedDll = default(string?),
             }));
         listener.StartListening(overridePid: pid);
 

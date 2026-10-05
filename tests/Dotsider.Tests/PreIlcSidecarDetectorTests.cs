@@ -16,7 +16,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
 
     private string NewTempDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"dotsider-preilc-{Guid.NewGuid():N}");
+        var dir = Path.Join(Path.GetTempPath(), $"dotsider-preilc-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         _tempFiles.Add(dir);
         return dir;
@@ -37,12 +37,12 @@ public class PreIlcSidecarDetectorTests : IDisposable
     /// <summary>Creates a classic <c>bin\cfg\tfm\rid[\publish]</c> tree with a dummy binary and returns its path.</summary>
     private static string CreateClassicTree(string root, string stem, out string objDir, bool publish = true)
     {
-        var projDir = Path.Combine(root, stem);
-        var ridDir = Path.Combine(projDir, "bin", "Release", "net10.0", "win-x64");
-        var exeDir = publish ? Path.Combine(ridDir, "publish") : ridDir;
-        objDir = Path.Combine(projDir, "obj", "Release", "net10.0", "win-x64");
+        var projDir = Path.Join(root, stem);
+        var ridDir = Path.Join(projDir, "bin", "Release", "net10.0", "win-x64");
+        var exeDir = publish ? Path.Join(ridDir, "publish") : ridDir;
+        objDir = Path.Join(projDir, "obj", "Release", "net10.0", "win-x64");
         Directory.CreateDirectory(objDir);
-        var exePath = Path.Combine(exeDir, stem + ".exe");
+        var exePath = Path.Join(exeDir, stem + ".exe");
         WriteDummyBinary(exePath);
         return exePath;
     }
@@ -54,14 +54,14 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
         Assert.IsNotNull(result);
         Assert.IsTrue(result!.HasAttachableCompanion);
         Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result.Origin);
-        Assert.AreEqual(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.AreEqual(Path.Join(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
     }
 
     /// <summary>Verifies the classic non-publish bin directory is recognized too.</summary>
@@ -71,7 +71,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir, publish: false);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -85,16 +85,16 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_ArtifactsLayout_FindsBuildTreeLayoutDll()
     {
         var root = NewTempDir();
-        var exe = Path.Combine(root, "artifacts", "publish", "HelloWorld", "release_win-x64", "HelloWorld.exe");
+        var exe = Path.Join(root, "artifacts", "publish", "HelloWorld", "release_win-x64", "HelloWorld.exe");
         WriteDummyBinary(exe);
-        var objDir = Path.Combine(root, "artifacts", "obj", "HelloWorld", "release_win-x64");
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        var objDir = Path.Join(root, "artifacts", "obj", "HelloWorld", "release_win-x64");
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
         Assert.IsNotNull(result);
         Assert.AreEqual(PreIlcAssemblyOrigin.BuildTreeLayout, result!.Origin);
-        Assert.AreEqual(Path.Combine(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.AreEqual(Path.Join(objDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
     }
 
     /// <summary>Verifies the response file outranks the conventional obj location.</summary>
@@ -104,14 +104,14 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
-        var altDir = Path.Combine(objDir, "alt");
-        CopyInto(Samples.HelloWorldDll, Path.Combine(altDir, "HelloWorld.dll"));
-        var nativeDir = Path.Combine(objDir, "native");
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
+        var altDir = Path.Join(objDir, "alt");
+        CopyInto(Samples.HelloWorldDll, Path.Join(altDir, "HelloWorld.dll"));
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"),
+        File.WriteAllLines(Path.Join(nativeDir, "HelloWorld.ilc.rsp"),
         [
-            Path.Combine("obj", "Release", "net10.0", "win-x64", "alt", "HelloWorld.dll"),
+            Path.Join("obj", "Release", "net10.0", "win-x64", "alt", "HelloWorld.dll"),
             "-o:obj\\Release\\net10.0\\win-x64\\native\\HelloWorld.obj",
         ]);
 
@@ -119,8 +119,8 @@ public class PreIlcSidecarDetectorTests : IDisposable
 
         Assert.IsNotNull(result);
         Assert.AreEqual(PreIlcAssemblyOrigin.IlcResponseFile, result!.Origin);
-        Assert.AreEqual(Path.Combine(altDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
-        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), result.IlcResponseFilePath);
+        Assert.AreEqual(Path.Join(altDir, "HelloWorld.dll"), result.ManagedAssemblyPath);
+        Assert.AreEqual(Path.Join(nativeDir, "HelloWorld.ilc.rsp"), result.IlcResponseFilePath);
     }
 
     /// <summary>Verifies quoted and absolute root-input tokens both resolve.</summary>
@@ -130,11 +130,11 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        var dllPath = Path.Combine(objDir, "HelloWorld.dll");
+        var dllPath = Path.Join(objDir, "HelloWorld.dll");
         CopyInto(Samples.HelloWorldDll, dllPath);
-        var nativeDir = Path.Combine(objDir, "native");
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), [$"\"{dllPath}\""]);
+        File.WriteAllLines(Path.Join(nativeDir, "HelloWorld.ilc.rsp"), [$"\"{dllPath}\""]);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -150,13 +150,13 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        var dllPath = Path.Combine(objDir, "HelloWorld.dll");
+        var dllPath = Path.Join(objDir, "HelloWorld.dll");
         CopyInto(Samples.HelloWorldDll, dllPath);
-        var libPath = Path.Combine(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
+        var libPath = Path.Join(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
         CopyInto(Samples.RichLibraryDll, libPath);
-        var nativeDir = Path.Combine(objDir, "native");
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"), [dllPath, "-r", libPath]);
+        File.WriteAllLines(Path.Join(nativeDir, "HelloWorld.ilc.rsp"), [dllPath, "-r", libPath]);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -171,12 +171,12 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        var dllPath = Path.Combine(objDir, "HelloWorld.dll");
+        var dllPath = Path.Join(objDir, "HelloWorld.dll");
         CopyInto(Samples.HelloWorldDll, dllPath);
-        var nativeDir = Path.Combine(objDir, "native");
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        var rsp = Path.Combine(nativeDir, "HelloWorld.ilc.rsp");
-        var inner = Path.Combine(nativeDir, "inner.rsp");
+        var rsp = Path.Join(nativeDir, "HelloWorld.ilc.rsp");
+        var inner = Path.Join(nativeDir, "inner.rsp");
         File.WriteAllLines(rsp, ["@inner.rsp"]);
         File.WriteAllLines(inner, [dllPath, "@HelloWorld.ilc.rsp"]);
 
@@ -198,26 +198,26 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        var dllPath = Path.Combine(objDir, "HelloWorld.dll");
+        var dllPath = Path.Join(objDir, "HelloWorld.dll");
         CopyInto(Samples.HelloWorldDll, dllPath);
 
-        var packageRef = Path.Combine(root, "custom-cache",
+        var packageRef = Path.Join(root, "custom-cache",
             "microsoft.netcore.app.runtime.nativeaot.win-x64", "10.0.9", "lib", "System.Runtime.dll");
         WriteDummyBinary(packageRef);
-        var otherPackageRef = Path.Combine(root, "custom-cache", "somelib", "1.0.0", "lib", "SomeLib.dll");
+        var otherPackageRef = Path.Join(root, "custom-cache", "somelib", "1.0.0", "lib", "SomeLib.dll");
         WriteDummyBinary(otherPackageRef);
 
-        var localRef = Path.Combine(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
+        var localRef = Path.Join(root, "libproj", "bin", "Release", "net10.0", "RichLibrary.dll");
         CopyInto(Samples.RichLibraryDll, localRef);
 
-        var unclassifiable = Path.Combine(root, "misc", "Elsewhere.dll");
+        var unclassifiable = Path.Join(root, "misc", "Elsewhere.dll");
         CopyInto(Samples.RichLibraryDll, unclassifiable);
 
-        var missing = Path.Combine(root, "gone", "Missing.dll");
+        var missing = Path.Join(root, "gone", "Missing.dll");
 
-        var nativeDir = Path.Combine(objDir, "native");
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"),
+        File.WriteAllLines(Path.Join(nativeDir, "HelloWorld.ilc.rsp"),
         [
             dllPath,
             $"-r:{packageRef}",
@@ -244,11 +244,11 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
-        var nativeDir = Path.Combine(objDir, "native");
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        File.WriteAllLines(Path.Combine(nativeDir, "HelloWorld.ilc.rsp"),
-            [Path.Combine("obj", "does-not-exist", "HelloWorld.dll")]);
+        File.WriteAllLines(Path.Join(nativeDir, "HelloWorld.ilc.rsp"),
+            [Path.Join("obj", "does-not-exist", "HelloWorld.dll")]);
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -263,9 +263,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_SiblingOnly_FindsSiblingAssembly()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -279,9 +279,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_ExtensionlessBinary_UsesFullNameStem()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld");
+        var exe = Path.Join(dir, "HelloWorld");
         WriteDummyBinary(exe);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -297,9 +297,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
         foreach (var ext in new[] { ".so", ".dylib" })
         {
             var dir = NewTempDir();
-            var binary = Path.Combine(dir, "RichLibrary" + ext);
+            var binary = Path.Join(dir, "RichLibrary" + ext);
             WriteDummyBinary(binary);
-            CopyInto(Samples.RichLibraryDll, Path.Combine(dir, "RichLibrary.dll"));
+            CopyInto(Samples.RichLibraryDll, Path.Join(dir, "RichLibrary.dll"));
 
             var result = PreIlcSidecarDetector.Find(binary);
 
@@ -314,7 +314,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_NativeLibrarySelfCollision_ReturnsNull()
     {
         var dir = NewTempDir();
-        var binary = Path.Combine(dir, "HelloWorld.dll");
+        var binary = Path.Join(dir, "HelloWorld.dll");
         WriteDummyBinary(binary);
 
         var result = PreIlcSidecarDetector.Find(binary);
@@ -329,7 +329,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(objDir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(objDir, "HelloWorld.dll"));
 
         var mangled = exe.Replace('\\', '/')
             .Replace("/bin/", "/BIN/", StringComparison.Ordinal)
@@ -346,9 +346,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_SiblingNameMismatch_ReturnsNull()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.RichLibraryDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.RichLibraryDll, Path.Join(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -361,9 +361,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_SiblingWithoutMetadata_ReturnsNull()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        WriteDummyBinary(Path.Combine(dir, "HelloWorld.dll"));
+        WriteDummyBinary(Path.Join(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -379,16 +379,16 @@ public class PreIlcSidecarDetectorTests : IDisposable
         TestSkip.When(!File.Exists(sourcePdb), "HelloWorld.pdb was not produced");
 
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
-        CopyInto(sourcePdb, Path.Combine(dir, "HelloWorld.pdb"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(dir, "HelloWorld.dll"));
+        CopyInto(sourcePdb, Path.Join(dir, "HelloWorld.pdb"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
         Assert.IsNotNull(result);
         Assert.AreEqual(PreIlcPdbStatus.Matched, result!.PdbStatus);
-        Assert.AreEqual(Path.Combine(dir, "HelloWorld.pdb"), result.ManagedPdbPath);
+        Assert.AreEqual(Path.Join(dir, "HelloWorld.pdb"), result.ManagedPdbPath);
     }
 
     /// <summary>Verifies a foreign PDB reports Mismatched but the dll is still offered.</summary>
@@ -400,10 +400,10 @@ public class PreIlcSidecarDetectorTests : IDisposable
         TestSkip.When(!File.Exists(foreignPdb), "RichLibrary.pdb was not produced");
 
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
-        CopyInto(foreignPdb, Path.Combine(dir, "HelloWorld.pdb"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(dir, "HelloWorld.dll"));
+        CopyInto(foreignPdb, Path.Join(dir, "HelloWorld.pdb"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -418,9 +418,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_EmbeddedPdb_ReportsEmbedded()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "EmbeddedSourceLib.exe");
+        var exe = Path.Join(dir, "EmbeddedSourceLib.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.EmbeddedSourceLibDll, Path.Combine(dir, "EmbeddedSourceLib.dll"));
+        CopyInto(Samples.EmbeddedSourceLibDll, Path.Join(dir, "EmbeddedSourceLib.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -434,9 +434,9 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_AbsentPdb_ReportsMissing()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
-        CopyInto(Samples.HelloWorldDll, Path.Combine(dir, "HelloWorld.dll"));
+        CopyInto(Samples.HelloWorldDll, Path.Join(dir, "HelloWorld.dll"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
@@ -450,7 +450,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_OutsideAnyTree_ReturnsNull()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "Standalone.exe");
+        var exe = Path.Join(dir, "Standalone.exe");
         WriteDummyBinary(exe);
 
         var result = PreIlcSidecarDetector.Find(exe);
@@ -465,18 +465,18 @@ public class PreIlcSidecarDetectorTests : IDisposable
     {
         var root = NewTempDir();
         var exe = CreateClassicTree(root, "HelloWorld", out var objDir);
-        var nativeDir = Path.Combine(objDir, "native");
+        var nativeDir = Path.Join(objDir, "native");
         Directory.CreateDirectory(nativeDir);
-        WriteDummyBinary(Path.Combine(nativeDir, "HelloWorld.mstat"));
-        WriteDummyBinary(Path.Combine(nativeDir, "HelloWorld.codegen.dgml.xml"));
+        WriteDummyBinary(Path.Join(nativeDir, "HelloWorld.mstat"));
+        WriteDummyBinary(Path.Join(nativeDir, "HelloWorld.codegen.dgml.xml"));
 
         var result = PreIlcSidecarDetector.Find(exe);
 
         Assert.IsNotNull(result);
         Assert.IsFalse(result!.HasAttachableCompanion);
         Assert.AreEqual(PreIlcAssemblyOrigin.None, result.Origin);
-        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.mstat"), result.MstatPath);
-        Assert.AreEqual(Path.Combine(nativeDir, "HelloWorld.codegen.dgml.xml"), result.CodegenDgmlPath);
+        Assert.AreEqual(Path.Join(nativeDir, "HelloWorld.mstat"), result.MstatPath);
+        Assert.AreEqual(Path.Join(nativeDir, "HelloWorld.codegen.dgml.xml"), result.CodegenDgmlPath);
         Assert.IsNull(result.ScanDgmlPath);
     }
 
@@ -486,10 +486,10 @@ public class PreIlcSidecarDetectorTests : IDisposable
     public void Find_StaleManagedInput_NotesStaleness()
     {
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "HelloWorld.exe");
+        var exe = Path.Join(dir, "HelloWorld.exe");
         WriteDummyBinary(exe);
         File.SetLastWriteTimeUtc(exe, DateTime.UtcNow.AddHours(-2));
-        var dll = Path.Combine(dir, "HelloWorld.dll");
+        var dll = Path.Join(dir, "HelloWorld.dll");
         CopyInto(Samples.HelloWorldDll, dll);
         File.SetLastWriteTimeUtc(dll, DateTime.UtcNow);
 
@@ -537,14 +537,14 @@ public class PreIlcSidecarDetectorTests : IDisposable
         Assert.IsNotNull(result);
         Assert.IsTrue(result!.HasAttachableCompanion);
         var artifactsObj = TestProcessEnvironment.IsDevelopmentContainer
-            ? Path.Combine("artifacts", "devcontainer", "obj")
-            : Path.Combine("artifacts", "obj");
+            ? Path.Join("artifacts", "devcontainer", "obj")
+            : Path.Join("artifacts", "obj");
         Assert.Contains(artifactsObj, result.ManagedAssemblyPath!, StringComparison.OrdinalIgnoreCase);
         Assert.IsNotNull(result.MstatPath);
         Assert.IsNotNull(result.CodegenDgmlPath);
 
         var exeDir = Path.GetDirectoryName(Samples.NativeAotArtifactsExe!)!;
-        Assert.IsFalse(File.Exists(Path.Combine(exeDir, "NativeAotArtifactsConsole.mstat")));
+        Assert.IsFalse(File.Exists(Path.Join(exeDir, "NativeAotArtifactsConsole.mstat")));
     }
 
     /// <summary>Verifies the real Native AOT library publish finds its companion via tree, not sibling.</summary>
@@ -575,7 +575,7 @@ public class PreIlcSidecarDetectorTests : IDisposable
                 if (File.Exists(path)) File.Delete(path);
                 else if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
             }
-            catch { /* best effort */ }
+            catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
     }
 }

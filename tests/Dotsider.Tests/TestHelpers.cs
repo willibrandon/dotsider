@@ -52,7 +52,7 @@ internal static class TestHelpers
         var dir = AppContext.BaseDirectory;
         while (dir != null)
         {
-            if (File.Exists(Path.Combine(dir, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(dir, "Dotsider.slnx")))
                 return dir;
             dir = Path.GetDirectoryName(dir);
         }
@@ -68,10 +68,10 @@ internal static class TestHelpers
     internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunDotsiderAsync(
         params string[] arguments)
     {
-        var copiedCli = Path.Combine(AppContext.BaseDirectory, "dotsider.dll");
+        var copiedCli = Path.Join(AppContext.BaseDirectory, "dotsider.dll");
         var runArgs = File.Exists(copiedCli)
             ? $"\"{copiedCli}\" "
-            : $"run --no-build -c {s_dotsiderBuildConfig} --project \"{Path.Combine(GetRepoRoot(), "src", "Dotsider")}\" -- ";
+            : $"run --no-build -c {s_dotsiderBuildConfig} --project \"{Path.Join(GetRepoRoot(), "src", "Dotsider")}\" -- ";
 
         var psi = new ProcessStartInfo
         {

@@ -138,10 +138,10 @@ public sealed record NetFxBindingContext(
         var result = new List<string>();
         foreach (var root in GacRoots)
         {
-            result.Add(Path.Combine(root, "GAC_MSIL"));
-            result.Add(Path.Combine(root, arch));
+            result.Add(Path.Join(root, "GAC_MSIL"));
+            result.Add(Path.Join(root, arch));
             if (RuntimeVersion == NetFxRuntimeVersion.Clr2)
-                result.Add(Path.Combine(root, "GAC"));
+                result.Add(Path.Join(root, "GAC"));
         }
         return result;
     }
@@ -160,14 +160,14 @@ public sealed record NetFxBindingContext(
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return [];
         var windir = Environment.GetEnvironmentVariable("WINDIR");
         if (string.IsNullOrEmpty(windir)) return [];
-        var root = Path.Combine(windir!, "assembly");
+        var root = Path.Join(windir!, "assembly");
         if (!Directory.Exists(root)) return [];
         var arch = EffectiveArchitecture == NetFxArchitecture.Amd64 ? "GAC_64" : "GAC_32";
         return
         [
-            Path.Combine(root, "GAC_MSIL"),
-            Path.Combine(root, arch),
-            Path.Combine(root, "GAC"),
+            Path.Join(root, "GAC_MSIL"),
+            Path.Join(root, arch),
+            Path.Join(root, "GAC"),
         ];
     }
 
@@ -185,7 +185,7 @@ public sealed record NetFxBindingContext(
         if (string.IsNullOrEmpty(windir)) return null;
         var subdir = EffectiveArchitecture == NetFxArchitecture.Amd64 ? "Framework64" : "Framework";
         var runtimeDir = RuntimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
-        var path = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir);
+        var path = Path.Join(windir!, "Microsoft.NET", subdir, runtimeDir);
         return Directory.Exists(path) ? path : null;
     }
 
@@ -196,8 +196,8 @@ public sealed record NetFxBindingContext(
         if (string.IsNullOrEmpty(windir)) return [];
         // Clr4 GAC: %WINDIR%\Microsoft.NET\assembly. Clr2 GAC: %WINDIR%\assembly.
         var path = runtimeVersion == NetFxRuntimeVersion.Clr2
-            ? Path.Combine(windir!, "assembly")
-            : Path.Combine(windir!, "Microsoft.NET", "assembly");
+            ? Path.Join(windir!, "assembly")
+            : Path.Join(windir!, "Microsoft.NET", "assembly");
         return Directory.Exists(path) ? [path] : [];
     }
 

@@ -73,7 +73,7 @@ public class ApphostDetectorTests : IDisposable
     public void FindCompanionDll_NonExistentFile_ReturnsNull()
     {
         var result = ApphostDetector.FindCompanionDll(
-            Path.Combine(Path.GetTempPath(), "nonexistent-assembly.exe"));
+            Path.Join(Path.GetTempPath(), "nonexistent-assembly.exe"));
 
         Assert.IsNull(result);
     }
@@ -87,12 +87,12 @@ public class ApphostDetectorTests : IDisposable
     {
         // Simulate a native launcher that embeds the DLL name for its own reasons
         // but is not a .NET apphost (no hostfxr reference).
-        var dir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var dir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
 
         var fakeDllName = "FakeLauncher.dll";
-        var fakeExePath = Path.Combine(dir, "FakeLauncher.exe");
-        var fakeDllPath = Path.Combine(dir, fakeDllName);
+        var fakeExePath = Path.Join(dir, "FakeLauncher.exe");
+        var fakeDllPath = Path.Join(dir, fakeDllName);
 
         // Write a fake .exe containing the DLL name but NOT hostfxr
         var exeContent = new byte[512];
@@ -137,7 +137,7 @@ public class ApphostDetectorTests : IDisposable
                 if (File.Exists(path)) File.Delete(path);
                 else if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
             }
-            catch { /* best effort */ }
+            catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
     }
 }

@@ -8,7 +8,7 @@ namespace Dotsider.Tests;
 [TestClass]
 public sealed class AgentCliTests
 {
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
@@ -34,12 +34,12 @@ public sealed class AgentCliTests
     [TestMethod]
     public async Task Agent_Init_WithPath_CreatesFile()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
-        var outputPath = Path.Combine(tempDir, "SKILL.md");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var outputPath = Path.Join(tempDir, "SKILL.md");
 
         try
         {
-            var (exitCode, stdout, _) = await RunDotsiderAsync(
+            var (exitCode, _, _) = await RunDotsiderAsync(
                 "agent", "init", "--path", outputPath);
 
             Assert.AreEqual(0, exitCode);
@@ -60,8 +60,8 @@ public sealed class AgentCliTests
     [TestMethod]
     public async Task Agent_Init_NoForce_ErrorsIfExists()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
-        var outputPath = Path.Combine(tempDir, "SKILL.md");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var outputPath = Path.Join(tempDir, "SKILL.md");
 
         try
         {
@@ -88,15 +88,15 @@ public sealed class AgentCliTests
     [TestMethod]
     public async Task Agent_Init_Force_OverwritesExisting()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
-        var outputPath = Path.Combine(tempDir, "SKILL.md");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var outputPath = Path.Join(tempDir, "SKILL.md");
 
         try
         {
             Directory.CreateDirectory(tempDir);
             File.WriteAllText(outputPath, "existing content");
 
-            var (exitCode, stdout, _) = await RunDotsiderAsync(
+            var (exitCode, _, _) = await RunDotsiderAsync(
                 "agent", "init", "--path", outputPath, "--force");
 
             Assert.AreEqual(0, exitCode);
@@ -117,7 +117,7 @@ public sealed class AgentCliTests
     [TestMethod]
     public async Task Agent_Init_NoOptions_CreatesSkillInCurrentDirectory()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
 
         try
         {
@@ -127,7 +127,7 @@ public sealed class AgentCliTests
                 tempDir, "agent", "init");
 
             Assert.AreEqual(0, exitCode);
-            var expectedPath = Path.Combine(tempDir, "SKILL.md");
+            var expectedPath = Path.Join(tempDir, "SKILL.md");
             Assert.IsTrue(File.Exists(expectedPath), $"Expected file at {expectedPath}");
             Assert.StartsWith("Created: ", stdout);
             var createdPath = stdout["Created: ".Length..].Trim();

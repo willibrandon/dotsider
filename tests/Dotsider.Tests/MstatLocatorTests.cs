@@ -70,7 +70,7 @@ public class MstatLocatorTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_MissingFile_ReturnsNull()
     {
-        Assert.IsNull(MstatLocator.Resolve(Path.Combine(Path.GetTempPath(), "does-not-exist.mstat")));
+        Assert.IsNull(MstatLocator.Resolve(Path.Join(Path.GetTempPath(), "does-not-exist.mstat")));
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ public class MstatLocatorTests
     {
         TestSkip.When(Samples.NativeAotConsoleMstat is null, "mstat sidecar was not produced");
 
-        var truncated = Path.Combine(Path.GetTempPath(), $"dotsider-truncated-{Guid.NewGuid():N}.mstat");
+        var truncated = Path.Join(Path.GetTempPath(), $"dotsider-truncated-{Guid.NewGuid():N}.mstat");
         try
         {
             var bytes = File.ReadAllBytes(Samples.NativeAotConsoleMstat!);

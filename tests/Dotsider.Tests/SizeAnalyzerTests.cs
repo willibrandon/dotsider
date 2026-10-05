@@ -294,7 +294,7 @@ public class SizeAnalyzerTests
         var dir = Directory.CreateTempSubdirectory("dotsider-sizemap-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             using var a = new AssemblyAnalyzer(exeCopy);
 

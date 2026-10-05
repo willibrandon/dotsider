@@ -139,15 +139,17 @@ public static class HexDumpView
                 // Tab: cycle focus between hex editor and data interpretation editor
                 // Suppressed during jump dialog and active search to avoid stealing focus from TextBox
                 if (!state.HexJumpDialogOpen && !isSearchEditing)
-                bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
                 {
-                    state.VimPending = VimMotionState.Idle;
-                    if (state.App.FocusedNode is EditorNode { State: var es } && es == state.HexEditorState)
-                        state.App.RequestFocus(node => node is EditorNode e && e.State == state.DataInterpEditorState);
-                    else
-                        state.App.RequestFocus(node => node is EditorNode e && e.State == state.HexEditorState);
-                    state.App.Invalidate();
-                }, "Toggle focus");
+                    bindings.Key(Hex1bKey.Tab).Global().Action(_ =>
+                    {
+                        state.VimPending = VimMotionState.Idle;
+                        if (state.App.FocusedNode is EditorNode { State: var es } && es == state.HexEditorState)
+                            state.App.RequestFocus(node => node is EditorNode e && e.State == state.DataInterpEditorState);
+                        else
+                            state.App.RequestFocus(node => node is EditorNode e && e.State == state.HexEditorState);
+                        state.App.Invalidate();
+                    }, "Toggle focus");
+                }
 
                 // Vim navigation and mode switching — only when not editing search
                 if (!isSearchEditing)

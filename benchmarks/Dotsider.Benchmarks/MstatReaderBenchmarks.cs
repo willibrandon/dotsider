@@ -23,7 +23,7 @@ public class MstatReaderBenchmarks
     {
         BenchmarkHelpers.PublishNativeAotSample("samples/NativeAotConsole");
         var exe = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole");
-        _mstatPath = Path.Combine(Path.GetDirectoryName(exe)!, "NativeAotConsole.mstat");
+        _mstatPath = Path.Join(Path.GetDirectoryName(exe)!, "NativeAotConsole.mstat");
         if (!File.Exists(_mstatPath))
             throw new InvalidOperationException($"mstat sidecar not found at {_mstatPath}");
     }

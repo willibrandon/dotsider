@@ -137,7 +137,11 @@ public class SearchInputTests : IAsyncDisposable
         _appCts.Cancel();
         drainCts.Cancel();
         await StopRunTaskAsync();
-        try { await drainTask; } catch { }
+        try { await drainTask; }
+        catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SearchInput_ViaWebSocket_CharactersReachSearchBar: {0}", handledException);
+        }
     }
 
     private static async Task DrainOutputAsync(WebSocket ws, StringBuilder output, CancellationToken ct)
@@ -155,8 +159,14 @@ public class SearchInputTests : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
+        catch (WebSocketException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
     }
 
     private static async Task WaitForOutputAsync(
@@ -207,7 +217,10 @@ public class SearchInputTests : IAsyncDisposable
         _serverSocket?.Dispose();
 
         try { await _runTask.WaitAsync(TimeSpan.FromSeconds(2)); }
-        catch { }
+        catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StopRunTaskAsync: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -227,7 +240,10 @@ public class SearchInputTests : IAsyncDisposable
         if (_presentation != null)
         {
             try { await _presentation.DisposeAsync(); }
-            catch { }
+            catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
 
         _clientWs?.Dispose();

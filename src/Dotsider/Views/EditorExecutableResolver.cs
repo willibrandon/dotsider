@@ -60,7 +60,7 @@ internal static class EditorExecutableResolver
             if (!TryNormalizeRootedPathEntry(entry, out var directory))
                 continue;
 
-            if (TryWindowsCandidate(Path.Combine(directory, token), pathExtensions, out resolvedPath))
+            if (TryWindowsCandidate(Path.Join(directory, token), pathExtensions, out resolvedPath))
                 return true;
         }
 
@@ -106,7 +106,7 @@ internal static class EditorExecutableResolver
             if (!TryNormalizeRootedPathEntry(entry, out var directory))
                 continue;
 
-            var candidate = Path.Combine(directory, token);
+            var candidate = Path.Join(directory, token);
             if (!IsUnixExecutable(candidate))
                 continue;
 

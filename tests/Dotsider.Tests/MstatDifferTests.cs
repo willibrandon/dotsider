@@ -266,7 +266,8 @@ public class MstatDifferTests
             c.Kind == SizeNodeKind.FrozenObject
             && c.AssemblyName == MstatSizeIndex.UnattributedName);
         TestSkip.When(literals is null, "frozen literals byte-identical across the builds");
-        Assert.IsGreaterThan(1, literals!.LeftEntryCount);
+        literals = TestAssert.NotNull(literals);
+        Assert.IsGreaterThan(1, literals.LeftEntryCount);
         Assert.IsGreaterThan(1, literals.RightEntryCount);
         Assert.IsGreaterThan(1, literals.RightNodeNames.Count);
     }
@@ -307,7 +308,7 @@ public class MstatDifferTests
     {
         TestSkip.When(Samples.NativeAotConsoleMstat is null, "V1 mstat sidecar was not produced");
 
-        var patched = Path.Combine(Path.GetTempPath(), $"dotsider-nonames-{Guid.NewGuid():N}.mstat");
+        var patched = Path.Join(Path.GetTempPath(), $"dotsider-nonames-{Guid.NewGuid():N}.mstat");
         try
         {
             var bytes = File.ReadAllBytes(Samples.NativeAotConsoleMstat!);

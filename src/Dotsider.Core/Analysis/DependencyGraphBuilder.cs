@@ -601,7 +601,7 @@ public static class DependencyGraphBuilder
             };
             queue.Enqueue((childAnalyzer, childId, OwnsDispose: true));
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             byId[childId] = byId[childId] with { Unresolved = true };
             navById[childId] = childNav with

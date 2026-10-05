@@ -91,12 +91,13 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
             offset += (doc.GetLineText(line + 1)?.Length ?? 0) + 1; // +1 for newline
         }
 
+        var sb = new StringBuilder(viewport.Width * 3);
         for (var row = 0; row < Rows && row < viewport.Height; row++)
         {
             var screenY = viewport.Y + row;
             var lineText = doc.GetLineText(row + 1) ?? "";
             var fields = lineText.Split('\t');
-            var sb = new StringBuilder(viewport.Width * 3);
+            sb.Clear();
 
             // Track document column offset within the line
             var docCol = 0;

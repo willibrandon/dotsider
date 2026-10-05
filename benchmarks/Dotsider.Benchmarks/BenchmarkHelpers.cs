@@ -17,7 +17,7 @@ internal static class BenchmarkHelpers
             Environment.GetEnvironmentVariable("DOTSIDER_DEV_CONTAINER"),
             "1",
             StringComparison.Ordinal)
-            ? Path.Combine("bin", "devcontainer")
+            ? Path.Join("bin", "devcontainer")
             : "bin";
     private static string? _repoRoot;
 
@@ -33,7 +33,7 @@ internal static class BenchmarkHelpers
         var dir = AppContext.BaseDirectory;
         while (dir is not null)
         {
-            if (File.Exists(Path.Combine(dir, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(dir, "Dotsider.slnx")))
             {
                 _repoRoot = dir;
                 return dir;
@@ -53,7 +53,7 @@ internal static class BenchmarkHelpers
     /// <returns>The absolute path to the project directory.</returns>
     internal static string BuildSample(string relativePath)
     {
-        var projectDir = Path.Combine(GetRepoRoot(), relativePath);
+        var projectDir = Path.Join(GetRepoRoot(), relativePath);
         return BuildCache.GetOrAdd($"build:{relativePath}", _ =>
         {
             RunDotNet(projectDir, "build -c Debug -v q");
@@ -69,7 +69,7 @@ internal static class BenchmarkHelpers
     /// <returns>The absolute path to the project directory.</returns>
     internal static string PublishSelfContainedSample(string relativePath)
     {
-        var projectDir = Path.Combine(GetRepoRoot(), relativePath);
+        var projectDir = Path.Join(GetRepoRoot(), relativePath);
         return BuildCache.GetOrAdd($"publish:{relativePath}", _ =>
         {
             var rid = RuntimeInformation.RuntimeIdentifier;
@@ -86,7 +86,7 @@ internal static class BenchmarkHelpers
     /// <returns>The absolute path to the project directory.</returns>
     internal static string PublishNativeAotSample(string relativePath)
     {
-        var projectDir = Path.Combine(GetRepoRoot(), relativePath);
+        var projectDir = Path.Join(GetRepoRoot(), relativePath);
         return BuildCache.GetOrAdd($"publish-aot:{relativePath}", _ =>
         {
             var rid = RuntimeInformation.RuntimeIdentifier;
@@ -107,7 +107,7 @@ internal static class BenchmarkHelpers
     internal static string GetPublishPath(string relativePath, string assemblyName)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
-        return Path.Combine(GetRepoRoot(), relativePath, s_buildOutputRoot, "Release", "net10.0", rid, "publish",
+        return Path.Join(GetRepoRoot(), relativePath, s_buildOutputRoot, "Release", "net10.0", rid, "publish",
             assemblyName + ApphostExtension);
     }
 
@@ -115,7 +115,7 @@ internal static class BenchmarkHelpers
     /// Computes the Debug build output path for a sample.
     /// </summary>
     internal static string GetBuildPath(string relativePath, string fileName)
-        => Path.Combine(GetRepoRoot(), relativePath, s_buildOutputRoot, "Debug", "net10.0", fileName);
+        => Path.Join(GetRepoRoot(), relativePath, s_buildOutputRoot, "Debug", "net10.0", fileName);
 
     private static void RunDotNet(string workingDirectory, string arguments)
     {

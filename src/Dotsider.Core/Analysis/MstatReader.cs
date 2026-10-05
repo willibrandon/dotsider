@@ -99,7 +99,7 @@ public static class MstatReader
 
             return false;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return false;
         }
@@ -141,7 +141,7 @@ public static class MstatReader
                 ReadManifestResources(streams, mr),
                 ReadDeduplicatedMethods(streams, resolver, names));
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Not a PE, no metadata, or damaged beyond the lenient per-stream recovery.
             return null;

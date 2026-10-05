@@ -140,7 +140,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
     public async Task DotsiderClient_OversizedTypedRequest_FailsBeforeConnect()
     {
         var response = await DotsiderClient.SendAsync(
-            Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}"),
+            Path.Join(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}"),
             new DotsiderRequest
             {
                 Method = "assembly-info",
@@ -181,7 +181,7 @@ public sealed class DiagnosticsRequestLimitTests(TestContext testContext)
     [Timeout(15_000, CooperativeCancellation = true)]
     public async Task DotsiderClient_RawTransport_DoesNotApplyDotsiderLimit()
     {
-        var socketPath = Path.Combine(Path.GetTempPath(), $"raw-{Guid.NewGuid():N}");
+        var socketPath = Path.Join(Path.GetTempPath(), $"raw-{Guid.NewGuid():N}");
         await using var socket = new TestRawJsonSocket(socketPath);
         socket.OnRequest(static _ => """{"accepted":true}""");
         socket.Start();

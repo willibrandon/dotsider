@@ -26,10 +26,10 @@ public class AssemblyDifferBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
+        var coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
         _coreLibAnalyzer = new AssemblyAnalyzer(coreLibPath);
         _coreLibAnalyzer2 = new AssemblyAnalyzer(coreLibPath);
-        _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
+        _xmlAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.Xml.dll"));
 
         BenchmarkHelpers.BuildSample("samples/RichLibrary");
         BenchmarkHelpers.BuildSample("samples/RichLibraryV2");

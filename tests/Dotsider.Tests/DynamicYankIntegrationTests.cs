@@ -53,18 +53,13 @@ public class DynamicYankIntegrationTests : IDisposable
 
     private bool IsFocusedOnEditor()
     {
-        try { return _state?.App.FocusedNode is EditorNode; }
-        catch (NullReferenceException) { return false; }
+        return _state?.App.FocusedNode is EditorNode;
     }
 
     private bool IsFocusedOnEditor(EditorState? expectedState)
     {
-        try
-        {
-            return _state?.App.FocusedNode is EditorNode { State: var es }
+        return _state?.App.FocusedNode is EditorNode { State: var es }
                 && es == expectedState;
-        }
-        catch (NullReferenceException) { return false; }
     }
 
     private Hex1bTerminalInputSequenceBuilder LaunchTraceAndWaitForExit()
@@ -146,7 +141,11 @@ public class DynamicYankIntegrationTests : IDisposable
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Events_YankOnFocusedRow_CopiesPayload_AndFlashes: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -181,7 +180,11 @@ public class DynamicYankIntegrationTests : IDisposable
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Output_YankOnFocusedRow_CopiesPayload_AndFlashes: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -215,7 +218,11 @@ public class DynamicYankIntegrationTests : IDisposable
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Events_YankFlashDuringSearch: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -241,7 +248,11 @@ public class DynamicYankIntegrationTests : IDisposable
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Counters_SelectionYank_Works: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -269,7 +280,11 @@ public class DynamicYankIntegrationTests : IDisposable
             "CopyToClipboard should have emitted an OSC 52 sequence");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Summary_SelectionYank_Works: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -306,7 +321,11 @@ public class DynamicYankIntegrationTests : IDisposable
         Assert.AreEqual(DynamicSubTabId.Counters, _state.DynamicSubTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_LeftRightNavigateSubTabsFromEditorFocus: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -335,7 +354,11 @@ public class DynamicYankIntegrationTests : IDisposable
         Assert.AreEqual(TabId.Dynamic, _state.CurrentTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_TabFromEditor_FocusesSubtabStrip_StaysOnSubTab: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -376,7 +399,11 @@ public class DynamicYankIntegrationTests : IDisposable
         Assert.IsNull(_state.DynamicSummaryEditorText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Rerun_ClearsDynamicEditorCaches: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -414,7 +441,11 @@ public class DynamicYankIntegrationTests : IDisposable
 
         _state.Tracer?.Stop();
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Counters_LiveUpdate_PreservesSelectionWhileFocused: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -457,7 +488,11 @@ public class DynamicYankIntegrationTests : IDisposable
 
         _state.Tracer?.Stop();
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Summary_LiveUpdate_PreservesSelectionWhileFocused: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -554,7 +589,11 @@ public class DynamicYankIntegrationTests : IDisposable
         Assert.AreNotSame(frozenState, _state.DynamicSummaryEditorState);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dynamic_Summary_PostExitRefresh_UpdatesWhileFocused: {0}", handledException);
+        }
     }
 
     /// <summary>

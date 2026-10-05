@@ -219,15 +219,8 @@ public sealed class SizeDiffApp(SizeDiffState state)
                 hints.Add(s.Section("Esc: Clear"));
             hints.Add(s.Section("/: Search"));
 
-            try
-            {
-                if (_state.App.FocusedNode is EditorNode)
-                    hints.Add(s.Section("y: Yank | V: Line | iw: Word"));
-            }
-            catch (NullReferenceException)
-            {
-                // Focus ring not yet initialized
-            }
+            if (_state.App.FocusedNode is EditorNode)
+                hints.Add(s.Section("y: Yank | V: Line | iw: Word"));
 
             hints.Add(s.Spacer());
 

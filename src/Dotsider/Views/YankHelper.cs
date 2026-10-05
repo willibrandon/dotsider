@@ -234,7 +234,7 @@ public static class YankHelper
 
     private static string? FormatSection(IReadOnlyList<SectionInfo> sections, object key)
     {
-        var s = sections.FirstOrDefault(x => (object)x.Name == key || x.Name.Equals(key));
+        var s = sections.FirstOrDefault(x => x.Name.Equals(key));
         return s is null ? null
             : $"{s.Name}\t0x{s.VirtualAddress:X8}\t{s.VirtualSize}\t0x{s.RawDataOffset:X8}\t{s.RawDataSize}\t{s.Characteristics}";
     }
@@ -281,7 +281,7 @@ public static class YankHelper
 
     private static string? FormatResource(IReadOnlyList<ResourceInfo> resources, object key)
     {
-        var r = resources.FirstOrDefault(x => (object)x.Name == key || x.Name.Equals(key));
+        var r = resources.FirstOrDefault(x => x.Name.Equals(key));
         return r is null ? null
             : $"{r.Name}\t{r.Visibility}\t0x{r.Offset:X8}\t{r.Size}\t{(r.IsLinked ? "Yes" : "No")}";
     }

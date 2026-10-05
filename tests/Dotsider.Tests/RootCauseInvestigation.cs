@@ -20,7 +20,7 @@ public class IlWalkRegressionTests
     public void CoreLib_AllTokenOperands_ResolveWithoutFallback()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
+        var coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
         using var analyzer = new AssemblyAnalyzer(coreLibPath);
         var reader = analyzer.GetMetadataReader()!;
 
@@ -77,7 +77,7 @@ public class IlWalkRegressionTests
 
                     EntityHandle handle;
                     try { handle = MetadataTokens.EntityHandle(token); }
-                    catch
+                    catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
                     {
                         failures.Add($"{method.DeclaringType}::{method.Name} @ IL_{instrOffset:X4}: " +
                             $"invalid token 0x{token:X8} after {op}");
@@ -116,7 +116,7 @@ public class IlWalkRegressionTests
                                 break;
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
                     {
                         failures.Add($"{method.DeclaringType}::{method.Name} @ IL_{instrOffset:X4}: " +
                             $"0x{token:X8} ({handle.Kind} row {row}) after {op} — " +
@@ -172,7 +172,7 @@ public class IlWalkRegressionTests
     public void CoreLib_DistinctAnalyzerDiff_NoResolverFallbacks()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
+        var coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
         using var left = new AssemblyAnalyzer(coreLibPath);
         using var right = new AssemblyAnalyzer(coreLibPath);
 

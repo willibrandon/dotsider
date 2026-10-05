@@ -64,7 +64,7 @@ public class AssemblyToolsTests : McpServerTestBase
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetAssemblyInfo_OversizedEmbeddedPdb_ReportsInvalidProvenance()
     {
-        string path = Path.Combine(
+        string path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-mcp-oversized-embedded-pdb-{Guid.NewGuid():N}.dll");
 

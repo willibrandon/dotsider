@@ -48,7 +48,7 @@ internal static class SyntheticSingleFileBundle
         string relativePath = "Test.dll",
         byte[]? payload = null)
     {
-        var path = Path.Combine(Path.GetTempPath(), $"dotsider-single-file-{Guid.NewGuid():N}.bundle");
+        var path = Path.Join(Path.GetTempPath(), $"dotsider-single-file-{Guid.NewGuid():N}.bundle");
         payload ??= [0x4d, 0x5a, 0x90, 0x00];
 
         using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);

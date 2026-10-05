@@ -56,7 +56,7 @@ internal static class DeployHostApplication
         {
             return 130;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Net.Http.HttpRequestException or TimeoutException or System.Text.Json.JsonException)
         {
             Console.Error.WriteLine($"Deployment failed: {exception.Message}");
             return 1;

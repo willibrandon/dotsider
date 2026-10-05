@@ -15,7 +15,7 @@ public sealed partial class TerminalOutputEnforcementTests
     [TestMethod]
     public void ProductionSource_HasNoUnescapedConsoleOutput()
     {
-        var sourceRoot = Path.Combine(TestHelpers.GetRepoRoot(), "src", "Dotsider");
+        var sourceRoot = Path.Join(TestHelpers.GetRepoRoot(), "src", "Dotsider");
         var matches = Directory
             .EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
             .SelectMany(
@@ -26,7 +26,7 @@ public sealed partial class TerminalOutputEnforcementTests
 
         Assert.HasCount(1, matches);
         Assert.EndsWith(
-            Path.Combine("Dotsider", "Program.cs"),
+            Path.Join("Dotsider", "Program.cs"),
             matches[0].File,
             StringComparison.OrdinalIgnoreCase);
     }

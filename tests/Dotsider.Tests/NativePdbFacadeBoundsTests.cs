@@ -31,9 +31,9 @@ public sealed class NativePdbFacadeBoundsTests
 
         try
         {
-            var imagePath = Path.Combine(directory.FullName, "fixture.exe");
+            var imagePath = Path.Join(directory.FullName, "fixture.exe");
             File.WriteAllBytes(imagePath, image);
-            File.WriteAllBytes(Path.Combine(directory.FullName, pdbName), pdb);
+            File.WriteAllBytes(Path.Join(directory.FullName, pdbName), pdb);
 
             var info = NativeSymbolReader.Read(imagePath, image, []);
 

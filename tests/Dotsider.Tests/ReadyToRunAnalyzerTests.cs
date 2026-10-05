@@ -101,7 +101,7 @@ public class ReadyToRunAnalyzerTests
     {
         TestSkip.When(Samples.ReadyToRunConsoleExe is null, SkipReason);
         // The apphost launcher sits beside its managed companion; the companion is the R2R image.
-        var companion = Path.Combine(
+        var companion = Path.Join(
             Path.GetDirectoryName(Samples.ReadyToRunConsoleExe!)!, "ReadyToRunConsole.dll");
         Assert.IsTrue(File.Exists(companion), "the R2R companion must sit beside its apphost");
 

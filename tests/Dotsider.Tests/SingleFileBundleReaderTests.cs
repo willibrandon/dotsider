@@ -100,8 +100,8 @@ public sealed class SingleFileBundleReaderTests
     {
         var result = SingleFileBundleReader.FindEntryAssembly(Samples.SelfContainedConsoleExe!);
         Assert.IsNotNull(result);
-        Assert.AreEqual("SelfContainedConsole.dll", result.Value.Name);
-        Assert.IsGreaterThan(0, result.Value.Bytes.Length);
+        Assert.AreEqual("SelfContainedConsole.dll", TestAssert.HasValue(result).Name);
+        Assert.IsGreaterThan(0, TestAssert.HasValue(result).Bytes.Length);
     }
 
     /// <summary>Verifies that the extracted entry assembly has valid metadata.</summary>
@@ -111,7 +111,7 @@ public sealed class SingleFileBundleReaderTests
     {
         var result = SingleFileBundleReader.FindEntryAssembly(Samples.SelfContainedConsoleExe!);
         Assert.IsNotNull(result);
-        using var analyzer = new AssemblyAnalyzer(result.Value.Bytes, result.Value.Name);
+        using var analyzer = new AssemblyAnalyzer(TestAssert.HasValue(result).Bytes, TestAssert.HasValue(result).Name);
         Assert.IsTrue(analyzer.HasMetadata);
         Assert.AreEqual("SelfContainedConsole", analyzer.AssemblyName);
     }
@@ -450,8 +450,9 @@ public sealed class SingleFileBundleReaderTests
                 {
                     _ = SingleFileBundleReader.ReadManifest(stream);
                 }
-                catch (InvalidDataException)
+                catch (InvalidDataException handledException)
                 {
+                    System.Diagnostics.Trace.TraceInformation("ReadManifest_BoundedMutations_DoNotEscapeInvalidDataException: {0}", handledException);
                 }
             }
         }

@@ -53,13 +53,13 @@ internal static class MetadataNestingConsumerMetadata
         metadata.AddMemberReference(
             MetadataTokens.TypeReferenceHandle(1),
             metadata.GetOrAddString("ReferencedMethod"),
-            metadata.GetOrAddBlob((byte[])[0x00, 0x00, 0x01]));
+            metadata.GetOrAddBlob(new byte[] { 0x00, 0x00, 0x01 }));
         var typeSpecification = metadata.AddTypeSpecification(
-            metadata.GetOrAddBlob((byte[])[0x15, 0x12, 0x05, 0x01, 0x08]));
+            metadata.GetOrAddBlob(new byte[] { 0x15, 0x12, 0x05, 0x01, 0x08 }));
         metadata.AddMemberReference(
             typeSpecification,
             metadata.GetOrAddString("TypeSpecificationMethod"),
-            metadata.GetOrAddBlob((byte[])[0x00, 0x00, 0x01]));
+            metadata.GetOrAddBlob(new byte[] { 0x00, 0x00, 0x01 }));
 
         return Serialize(metadata);
     }
@@ -133,7 +133,7 @@ internal static class MetadataNestingConsumerMetadata
             MetadataTokens.FieldDefinitionHandle(1),
             MetadataTokens.MethodDefinitionHandle(1));
         var localSignature = metadata.AddStandaloneSignature(
-            metadata.GetOrAddBlob((byte[])[0x07, 0x01, 0x12, 0x05]));
+            metadata.GetOrAddBlob(new byte[] { 0x07, 0x01, 0x12, 0x05 }));
 
         var ilStream = new BlobBuilder();
         var code = new BlobBuilder();
@@ -145,7 +145,7 @@ internal static class MetadataNestingConsumerMetadata
             localVariablesSignature: localSignature);
 
         var methodSignature = metadata.GetOrAddBlob(
-            (byte[])[0x10, 0x01, 0x01, 0x01, 0x12, 0x05]);
+            new byte[] { 0x10, 0x01, 0x01, 0x01, 0x12, 0x05 });
         var method = metadata.AddMethodDefinition(
             MethodAttributes.Public | MethodAttributes.Static,
             MethodImplAttributes.IL,
@@ -161,7 +161,7 @@ internal static class MetadataNestingConsumerMetadata
         metadata.AddFieldDefinition(
             FieldAttributes.Public | FieldAttributes.Static,
             metadata.GetOrAddString("TargetField"),
-            metadata.GetOrAddBlob((byte[])[0x06, 0x12, 0x05]));
+            metadata.GetOrAddBlob(new byte[] { 0x06, 0x12, 0x05 }));
 
         metadata.AddMemberReference(
             owner,
@@ -170,10 +170,10 @@ internal static class MetadataNestingConsumerMetadata
         metadata.AddMemberReference(
             owner,
             metadata.GetOrAddString("TargetField"),
-            metadata.GetOrAddBlob((byte[])[0x06, 0x12, 0x05]));
+            metadata.GetOrAddBlob(new byte[] { 0x06, 0x12, 0x05 }));
         metadata.AddMethodSpecification(
             method,
-            metadata.GetOrAddBlob((byte[])[0x0A, 0x01, 0x12, 0x05]));
+            metadata.GetOrAddBlob(new byte[] { 0x0A, 0x01, 0x12, 0x05 }));
 
         var image = Serialize(metadata, ilStream);
         if (malformedChain == "CorruptName")
@@ -419,12 +419,12 @@ internal static class MetadataNestingConsumerMetadata
         metadata.AddFieldDefinition(
             FieldAttributes.Public,
             metadata.GetOrAddString("Value"),
-            metadata.GetOrAddBlob((byte[])[0x06, 0x08]));
+            metadata.GetOrAddBlob(new byte[] { 0x06, 0x08 }));
         metadata.AddMethodDefinition(
             MethodAttributes.Public | MethodAttributes.Static,
             MethodImplAttributes.IL,
             metadata.GetOrAddString("Run"),
-            metadata.GetOrAddBlob((byte[])[0x00, 0x00, 0x01]),
+            metadata.GetOrAddBlob(new byte[] { 0x00, 0x00, 0x01 }),
             bodyOffset: 0,
             parameterList: MetadataTokens.ParameterHandle(1));
         return Serialize(metadata);

@@ -23,7 +23,7 @@ public class ImplementationAssemblyResolverColdBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
+        _coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
     }
 
     /// <summary>
@@ -87,7 +87,7 @@ public class ImplementationAssemblyResolverWarmBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
+        _coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
 
         // Warm the cache
         ImplementationAssemblyResolver.Resolve(

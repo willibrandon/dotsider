@@ -132,7 +132,7 @@ public class DgmlReaderTests
         var path = graph.PathToRoot("Leaf");
 
         Assert.HasCount(3, path);
-        Assert.AreEqual(("Main method", (string?)null), (path[0].Label, path[0].Reason));
+        Assert.AreEqual(("Main method", default(string?)), (path[0].Label, path[0].Reason));
         Assert.AreEqual(("Helper", "call"), (path[1].Label, path[1].Reason));
         Assert.AreEqual(("Leaf", "field access"), (path[2].Label, path[2].Reason));
     }
@@ -267,7 +267,7 @@ public class DgmlReaderTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_MissingFile_ReturnsNull()
     {
-        Assert.IsNull(DgmlReader.Read(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.dgml.xml")));
+        Assert.IsNull(DgmlReader.Read(Path.Join(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.dgml.xml")));
     }
 
     private static MemoryStream ToStream(string xml) => new(Encoding.UTF8.GetBytes(xml));

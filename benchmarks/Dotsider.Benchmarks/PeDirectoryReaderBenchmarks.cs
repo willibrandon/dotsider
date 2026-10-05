@@ -25,7 +25,7 @@ public class PeDirectoryReaderBenchmarks
     {
         BenchmarkHelpers.PublishNativeAotSample("samples/NativeAotConsole");
         _nativeAotPath = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole");
-        _coreLibPath = Path.Combine(
+        _coreLibPath = Path.Join(
             RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
     }
 

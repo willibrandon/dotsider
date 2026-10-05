@@ -49,7 +49,6 @@ public static class DependencyGraphView
             allNodes, allEdges, nav, state.DepGraphScope, state.DepGraphHideFramework);
         var nodes = visible.Nodes;
         var edges = visible.Edges;
-        var indexById = visible.IndexById;
         var disambig = ComputeDisambiguation(nodes);
 
         // Clamp selection index to current visible size. Preserve -1 (no selection) so

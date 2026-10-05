@@ -383,7 +383,7 @@ public class DiffToolsTests : McpServerTestBase
     public async Task CheckSizeBudgets_BudgetFilePath_Honored()
     {
         var (v1, v2) = RequireMstats();
-        var budgetFile = Path.Combine(Path.GetTempPath(), $"dotsider-mcp-budgets-{Guid.NewGuid():N}.json");
+        var budgetFile = Path.Join(Path.GetTempPath(), $"dotsider-mcp-budgets-{Guid.NewGuid():N}.json");
         try
         {
             await File.WriteAllTextAsync(

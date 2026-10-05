@@ -100,7 +100,7 @@ public sealed class DeploymentContainerTests
         foreach ((string source, string destination) in files)
         {
             Assert.AreEqual(
-                File.ReadAllText(Path.Combine(repositoryRoot, "deploy", source)),
+                File.ReadAllText(Path.Join(repositoryRoot, "deploy", source)),
                 ExecRequired(fixture, "cat", destination));
             Assert.AreEqual("root:root 644", ExecRequired(fixture, "stat", "-c", "%U:%G %a", destination).Trim());
         }
@@ -277,7 +277,7 @@ public sealed class DeploymentContainerTests
     private static string FindRepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+        while (directory is not null && !File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
         {
             directory = directory.Parent;
         }

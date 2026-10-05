@@ -139,7 +139,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -181,7 +181,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -226,7 +226,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -271,7 +271,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -318,7 +318,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -373,7 +373,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -438,7 +438,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -492,7 +492,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
         await TestHelpers.WaitUntilAsync(
             () => terminal.CreateSnapshot().InAlternateScreen,
             TimeSpan.FromSeconds(5),
@@ -548,7 +548,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
 
         // Navigate to hex tab and enter insert mode via builder (bypasses adapter)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -605,7 +605,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
 
         // Activate search (editing mode, not confirmed)
         await new Hex1bTerminalInputSequenceBuilder()
@@ -660,7 +660,7 @@ public class EscapeTimeoutPresentationAdapterTests
             .Build();
 
         escAdapter.Terminal = terminal;
-        var runTask = terminal.RunAsync(ct);
+        _ = terminal.RunAsync(ct);
 
         // Activate search, then wait for the search TextBox to take focus so the query
         // keystrokes below land in it. The old wait matched the TextBox's "[" chrome on

@@ -252,7 +252,7 @@ public static class DynamicAnalysisView
                         _ when es == state.DynamicCpuEditorState => state.DynamicMemoryEditorState,
                         _ when es == state.DynamicMemoryEditorState => state.DynamicGcEditorState,
                         _ when es == state.DynamicGcEditorState => state.DynamicThreadingEditorState,
-                        _ => (EditorState?)null // Threading → subtab strip
+                        _ => default(EditorState?) // Threading → subtab strip
                     } : state.DynamicCpuEditorState; // subtab strip → CPU
 
                     if (next is not null)
@@ -367,12 +367,12 @@ public static class DynamicAnalysisView
     private static VStackWidget BuildEventsSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
-        var allEvents = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+        var allEvents = tracer.GetEvents();
         state.CanNavigateJitEvent = ResolveJitEventMethod(state, allEvents) is not null;
         var search = state.Search[TabId.Dynamic];
         var query = search.Query;
 
-        var events = (IReadOnlyList<TraceEventEntry>)allEvents;
+        var events = allEvents;
         if (state.DynamicCategoryFilter is { } filter)
             events = [.. events.Where(e => e.Category == filter)];
 
@@ -568,7 +568,7 @@ public static class DynamicAnalysisView
     private static TableWidget<OutputLine> BuildOutputSubTab(
         WidgetContext<VStackWidget> ctx, DotsiderState state, RuntimeTracer tracer)
     {
-        var output = (IReadOnlyList<OutputLine>)tracer.GetOutput();
+        var output = tracer.GetOutput();
         var search = state.Search[TabId.Dynamic];
         var query = search.Query;
 
@@ -857,7 +857,7 @@ public static class DynamicAnalysisView
 
         if (state.DynamicSubTab == DynamicSubTabId.Events)
         {
-            var events = (IReadOnlyList<TraceEventEntry>)tracer.GetEvents();
+            var events = tracer.GetEvents();
             if (state.DynamicCategoryFilter is { } catFilter)
                 events = [.. events.Where(e => e.Category == catFilter)];
             events = [.. events.Where(e =>
@@ -885,7 +885,7 @@ public static class DynamicAnalysisView
         }
         else if (state.DynamicSubTab == DynamicSubTabId.Output)
         {
-            var output = (IReadOnlyList<OutputLine>)tracer.GetOutput();
+            var output = tracer.GetOutput();
             output = [.. output.Where(o =>
                 o.Text.Contains(search.Query, StringComparison.OrdinalIgnoreCase))];
 

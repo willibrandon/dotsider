@@ -49,7 +49,7 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
                     results.Add(new StringEntry(offset, value, StringSource.UserStrings));
                 }
             }
-            catch
+            catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
             {
                 SkippedUserStringCount++;
             }
@@ -95,7 +95,7 @@ public sealed class StringExtractor(AssemblyAnalyzer analyzer)
                     results.Add(new StringEntry(offset, value, StringSource.MetadataStrings));
                 }
             }
-            catch
+            catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
             {
                 SkippedMetadataStringCount++;
             }

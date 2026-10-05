@@ -15,7 +15,7 @@ public class ReadyToRunRoutingTests
 
     private const string SkipReason = "ReadyToRun crossgen2 publish did not run on this leg.";
 
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;

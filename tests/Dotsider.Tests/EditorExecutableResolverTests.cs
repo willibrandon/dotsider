@@ -22,7 +22,7 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-resolver-");
         try
         {
-            var expected = Path.Combine(directory.FullName, "code.cmd");
+            var expected = Path.Join(directory.FullName, "code.cmd");
             File.WriteAllText(expected, "");
 
             var resolved = EditorExecutableResolver.TryResolveWindows(
@@ -54,8 +54,8 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-order-");
         try
         {
-            var batch = Path.Combine(directory.FullName, "editor.cmd");
-            var executable = Path.Combine(directory.FullName, "editor.exe");
+            var batch = Path.Join(directory.FullName, "editor.cmd");
+            var executable = Path.Join(directory.FullName, "editor.exe");
             File.WriteAllText(batch, "");
             File.WriteAllText(executable, "");
 
@@ -89,9 +89,9 @@ public sealed class EditorExecutableResolverTests
         var secondDirectory = Directory.CreateTempSubdirectory("dotsider-editor-second-");
         try
         {
-            var expected = Path.Combine(firstDirectory.FullName, "editor.exe");
+            var expected = Path.Join(firstDirectory.FullName, "editor.exe");
             File.WriteAllText(expected, "");
-            File.WriteAllText(Path.Combine(secondDirectory.FullName, "editor.exe"), "");
+            File.WriteAllText(Path.Join(secondDirectory.FullName, "editor.exe"), "");
 
             var resolved = EditorExecutableResolver.TryResolveWindows(
                 "editor",
@@ -128,7 +128,7 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-target-");
         try
         {
-            var expected = Path.Combine(directory.FullName, $"editor{extension}");
+            var expected = Path.Join(directory.FullName, $"editor{extension}");
             File.WriteAllText(expected, "");
 
             var resolved = EditorExecutableResolver.TryResolveWindows(
@@ -161,9 +161,9 @@ public sealed class EditorExecutableResolverTests
         var searchDirectory = Directory.CreateTempSubdirectory("dotsider-editor-search-");
         try
         {
-            var expected = Path.Combine(explicitDirectory.FullName, "editor.exe");
+            var expected = Path.Join(explicitDirectory.FullName, "editor.exe");
             File.WriteAllText(expected, "");
-            File.WriteAllText(Path.Combine(searchDirectory.FullName, "editor.exe"), "");
+            File.WriteAllText(Path.Join(searchDirectory.FullName, "editor.exe"), "");
 
             var resolved = EditorExecutableResolver.TryResolveWindows(
                 expected,
@@ -192,7 +192,7 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-relative-");
         try
         {
-            var expected = Path.Combine(directory.FullName, "editor.exe");
+            var expected = Path.Join(directory.FullName, "editor.exe");
             File.WriteAllText(expected, "");
             var relative = Path.GetRelativePath(Environment.CurrentDirectory, expected);
             Assert.IsTrue(relative.Contains(
@@ -262,7 +262,7 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-unix-");
         try
         {
-            var expected = Path.Combine(directory.FullName, "editor");
+            var expected = Path.Join(directory.FullName, "editor");
             File.WriteAllText(expected, "#!/bin/sh\nexit 0\n");
             MakeExecutable(expected);
 
@@ -291,8 +291,8 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-nonexec-");
         try
         {
-            File.WriteAllText(Path.Combine(directory.FullName, "editor"), "#!/bin/sh\n");
-            Directory.CreateDirectory(Path.Combine(directory.FullName, "directory-editor"));
+            File.WriteAllText(Path.Join(directory.FullName, "editor"), "#!/bin/sh\n");
+            Directory.CreateDirectory(Path.Join(directory.FullName, "directory-editor"));
 
             Assert.IsFalse(EditorExecutableResolver.TryResolveUnix(
                 "editor",
@@ -322,10 +322,10 @@ public sealed class EditorExecutableResolverTests
         var searchDirectory = Directory.CreateTempSubdirectory("dotsider-editor-unix-search-");
         try
         {
-            var expected = Path.Combine(explicitDirectory.FullName, "editor");
+            var expected = Path.Join(explicitDirectory.FullName, "editor");
             File.WriteAllText(expected, "#!/bin/sh\nexit 0\n");
             MakeExecutable(expected);
-            var poison = Path.Combine(searchDirectory.FullName, "editor");
+            var poison = Path.Join(searchDirectory.FullName, "editor");
             File.WriteAllText(poison, "#!/bin/sh\nexit 1\n");
             MakeExecutable(poison);
 
@@ -356,7 +356,7 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-unix-relative-");
         try
         {
-            var expected = Path.Combine(directory.FullName, "editor");
+            var expected = Path.Join(directory.FullName, "editor");
             File.WriteAllText(expected, "#!/bin/sh\nexit 0\n");
             MakeExecutable(expected);
             var relative = Path.GetRelativePath(Environment.CurrentDirectory, expected);
@@ -388,8 +388,8 @@ public sealed class EditorExecutableResolverTests
         var directory = Directory.CreateTempSubdirectory("dotsider-editor-symlink-");
         try
         {
-            var target = Path.Combine(directory.FullName, "target");
-            var link = Path.Combine(directory.FullName, "editor");
+            var target = Path.Join(directory.FullName, "target");
+            var link = Path.Join(directory.FullName, "editor");
             File.WriteAllText(target, "#!/bin/sh\nexit 0\n");
             MakeExecutable(target);
             File.CreateSymbolicLink(link, target);
@@ -418,13 +418,13 @@ public sealed class EditorExecutableResolverTests
     public void TryResolveUnix_PoisonedImplicitDirectories_SearchesOnlySuppliedPath()
     {
         var fileName = $"dotsider-editor-poison-{Guid.NewGuid():N}";
-        var currentDirectoryPoison = Path.Combine(Environment.CurrentDirectory, fileName);
+        var currentDirectoryPoison = Path.Join(Environment.CurrentDirectory, fileName);
         var searchDirectory = Directory.CreateTempSubdirectory("dotsider-editor-clean-");
         try
         {
             File.WriteAllText(currentDirectoryPoison, "#!/bin/sh\nexit 1\n");
             MakeExecutable(currentDirectoryPoison);
-            var expected = Path.Combine(searchDirectory.FullName, fileName);
+            var expected = Path.Join(searchDirectory.FullName, fileName);
             File.WriteAllText(expected, "#!/bin/sh\nexit 0\n");
             MakeExecutable(expected);
 

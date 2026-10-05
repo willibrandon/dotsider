@@ -22,7 +22,7 @@ public sealed class MetricsReportCommandTests
         string directory = CreateTemporaryDirectory();
         try
         {
-            string logPath = Path.Combine(directory, "metrics.log");
+            string logPath = Path.Join(directory, "metrics.log");
             var handler = new StubHttpMessageHandler();
             using var client = new HttpClient(handler);
             var time = new FakeTimeProvider(new DateTimeOffset(2026, 8, 7, 12, 34, 56, TimeSpan.Zero));
@@ -54,7 +54,7 @@ public sealed class MetricsReportCommandTests
         string directory = CreateTemporaryDirectory();
         try
         {
-            string logPath = Path.Combine(directory, "metrics.log");
+            string logPath = Path.Join(directory, "metrics.log");
             var handler = new StubHttpMessageHandler(
                 static _ => new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable));
             using var client = new HttpClient(handler);
@@ -74,7 +74,7 @@ public sealed class MetricsReportCommandTests
 
     private static string CreateTemporaryDirectory()
     {
-        string path = Path.Combine(Path.GetTempPath(), "dotsider-deploy-test-" + Guid.NewGuid().ToString("N"));
+        string path = Path.Join(Path.GetTempPath(), "dotsider-deploy-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
     }

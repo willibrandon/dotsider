@@ -1,7 +1,6 @@
 using Dotsider.Core.Protocol;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Runtime.ExceptionServices;
 using System.Text.Json;
 
 namespace Dotsider.Tests;
@@ -90,7 +89,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
             }
 
             // Handle each connection inline (test server, single-threaded is fine)
-            ExceptionDispatchInfo? handlerFailure = null;
+            var invokingHandler = false;
             var stopAfterConnection = false;
             try
             {
@@ -114,35 +113,24 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
                 }
                 else if (_handlers.TryGetValue(request.Method, out var handler))
                 {
-                    try
-                    {
-                        var data = handler(request);
-                        response = DotsiderResponse.Ok(TestJsonResponse.Element(data));
-                    }
-                    catch (Exception ex)
-                    {
-                        handlerFailure = ExceptionDispatchInfo.Capture(ex);
-                        response = default!;
-                    }
+                    invokingHandler = true;
+                    var data = handler(request);
+                    response = DotsiderResponse.Ok(TestJsonResponse.Element(data));
+                    invokingHandler = false;
                 }
                 else
                 {
                     response = DotsiderResponse.Fail($"Unknown method: {request.Method}");
                 }
-
-                if (handlerFailure is null)
-                {
-                    var responseJson = JsonSerializer.Serialize(
-                        response, DotsiderJsonContext.Protocol.DotsiderResponse);
-                    await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
-                }
+                var responseJson = JsonSerializer.Serialize(
+                    response, DotsiderJsonContext.Protocol.DotsiderResponse);
+                await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
             }
-            catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
+            catch (Exception ex) when (!invokingHandler && IsExpectedShutdownException(ex, cancellationToken))
             {
                 stopAfterConnection = true;
             }
 
-            handlerFailure?.Throw();
             if (stopAfterConnection)
             {
                 break;

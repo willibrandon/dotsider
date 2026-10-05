@@ -126,7 +126,7 @@ public sealed class DotsiderGraphBuildTests(TestContext testContext) : IDisposab
 
         var compatibleTopology = state.CachedGraph;
         Assert.IsNotNull(compatibleTopology);
-        Assert.AreSame(node, Assert.ContainsSingle(compatibleTopology.Value.Nodes));
+        Assert.AreSame(node, Assert.ContainsSingle(TestAssert.HasValue(compatibleTopology).Nodes));
         Assert.AreSame(navigation, state.GraphNavigation![node.Id]);
     }
 
@@ -156,7 +156,7 @@ public sealed class DotsiderGraphBuildTests(TestContext testContext) : IDisposab
         Assert.IsNotNull(compatibleTopology);
         Assert.AreEqual(
             "compatible",
-            Assert.ContainsSingle(compatibleTopology.Value.Nodes).Name);
+            Assert.ContainsSingle(TestAssert.HasValue(compatibleTopology).Nodes).Name);
 
         state.CachedGraph = null;
 
@@ -337,7 +337,7 @@ public sealed class DotsiderGraphBuildTests(TestContext testContext) : IDisposab
     {
         var cancellationToken = _testContext.CancellationToken;
         var directory = Directory.CreateTempSubdirectory("dotsider-graph-save-test-").FullName;
-        var assemblyPath = Path.Combine(directory, "HelloWorld.dll");
+        var assemblyPath = Path.Join(directory, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, assemblyPath);
 
         var state = new DotsiderState(CreateApp(), assemblyPath);

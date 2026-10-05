@@ -154,12 +154,8 @@ public class IlInspectorViewTests : IDisposable
         var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                try
-                {
-                    if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode) stableCount++;
-                    else stableCount = 0;
-                }
-                catch (NullReferenceException) { stableCount = 0; }
+                if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode) stableCount++;
+                else stableCount = 0;
                 return stableCount >= 3;
             },
             description: "focus stable on ScrollPanelNode across consecutive frames");
@@ -177,8 +173,8 @@ public class IlInspectorViewTests : IDisposable
         await auto.KeyAsync(Hex1bKey.DownArrow, ct: ct);
 
         // Editor cursor must not have moved (table consumed the key, not editor)
-        Assert.IsNotNull(_state.IlEditorState);
-        Assert.AreEqual(cursorBefore, _state.IlEditorState.Cursor.Position);
+        var currentEditor = TestAssert.NotNull(_state.IlEditorState);
+        Assert.AreEqual(cursorBefore, currentEditor.Cursor.Position);
 
         _cts!.Cancel();
         await runTask;
@@ -250,17 +246,10 @@ public class IlInspectorViewTests : IDisposable
         var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                try
-                {
-                    if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode)
-                        stableCount++;
-                    else
-                        stableCount = 0;
-                }
-                catch (NullReferenceException)
-                {
+                if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode)
+                    stableCount++;
+                else
                     stableCount = 0;
-                }
 
                 return stableCount >= 3;
             },

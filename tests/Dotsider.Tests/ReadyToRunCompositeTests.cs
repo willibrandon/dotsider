@@ -139,11 +139,11 @@ public class ReadyToRunCompositeTests
         TestSkip.When(Samples.ReadyToRunComponentLibDll is null, SkipReason);
 
         // Relocate the real component DLL away from its owner composite: a genuine "owner missing" case.
-        var temp = Path.Combine(Path.GetTempPath(), $"r2r-orphan-{Guid.NewGuid():N}");
+        var temp = Path.Join(Path.GetTempPath(), $"r2r-orphan-{Guid.NewGuid():N}");
         Directory.CreateDirectory(temp);
         try
         {
-            var orphan = Path.Combine(temp, Path.GetFileName(Samples.ReadyToRunComponentLibDll!));
+            var orphan = Path.Join(temp, Path.GetFileName(Samples.ReadyToRunComponentLibDll!));
             File.Copy(Samples.ReadyToRunComponentLibDll!, orphan);
 
             using var analyzer = new AssemblyAnalyzer(orphan);
@@ -170,11 +170,11 @@ public class ReadyToRunCompositeTests
         TestSkip.When(Samples.ReadyToRunCompositeImage is null, SkipReason);
 
         // Relocate only the composite away from its component siblings: metadata can't be resolved.
-        var temp = Path.Combine(Path.GetTempPath(), $"r2r-lonely-{Guid.NewGuid():N}");
+        var temp = Path.Join(Path.GetTempPath(), $"r2r-lonely-{Guid.NewGuid():N}");
         Directory.CreateDirectory(temp);
         try
         {
-            var lonely = Path.Combine(temp, Path.GetFileName(Samples.ReadyToRunCompositeImage!));
+            var lonely = Path.Join(temp, Path.GetFileName(Samples.ReadyToRunCompositeImage!));
             File.Copy(Samples.ReadyToRunCompositeImage!, lonely);
 
             using var analyzer = new AssemblyAnalyzer(lonely);

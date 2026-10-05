@@ -40,7 +40,7 @@ internal static class PortablePdbUtilities
 
                 return new SourceLinkInfo(mappings);
             }
-            catch
+            catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.Text.Json.JsonException)
             {
                 return new SourceLinkInfo([]);
             }

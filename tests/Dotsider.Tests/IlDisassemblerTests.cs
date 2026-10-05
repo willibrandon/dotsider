@@ -123,10 +123,10 @@ public class IlDisassemblerTests
         Assert.IsNotNull(result);
         Assert.Contains(instruction => instruction.SequenceDocument?.EndsWith("UserService.cs",
                 StringComparison.OrdinalIgnoreCase) == true
-                && instruction.SourceLinkUrl is not null, result.Value.Instructions);
-        Assert.Contains(instruction => instruction.LocalName == "id", result.Value.Instructions);
-        Assert.Contains(instruction => instruction.LocalName == "user", result.Value.Instructions);
-        TestAssert.All(result.Value.Instructions,
+                && instruction.SourceLinkUrl is not null, TestAssert.HasValue(result).Instructions);
+        Assert.Contains(instruction => instruction.LocalName == "id", TestAssert.HasValue(result).Instructions);
+        Assert.Contains(instruction => instruction.LocalName == "user", TestAssert.HasValue(result).Instructions);
+        TestAssert.All(TestAssert.HasValue(result).Instructions,
             instruction => Assert.IsTrue(instruction.DisplayLine is null or > 0));
     }
 
@@ -144,10 +144,10 @@ public class IlDisassemblerTests
         var result = disasm.DisassembleWithText(method);
 
         Assert.IsNotNull(result);
-        var markerCount = result.Value.Text
+        var markerCount = TestAssert.HasValue(result).Text
             .Split('\n')
             .Count(line => line.Contains("[source link]", StringComparison.Ordinal));
-        var distinctUrlCount = result.Value.Instructions
+        var distinctUrlCount = TestAssert.HasValue(result).Instructions
             .Where(instruction => !instruction.SequenceHidden)
             .Select(instruction => instruction.SourceLinkUrl)
             .Where(url => !string.IsNullOrEmpty(url))
@@ -172,7 +172,7 @@ public class IlDisassemblerTests
         var result = disasm.DisassembleWithText(method);
 
         Assert.IsNotNull(result);
-        var lines = result.Value.Text.Split('\n');
+        var lines = TestAssert.HasValue(result).Text.Split('\n');
         Assert.Contains(line => line == "// (hidden)", lines);
 
         var firstVisibleSourceLine = lines.First(line =>
@@ -254,7 +254,6 @@ public class IlDisassemblerTests
     public void EmptyLib_CanConstruct_NoMethodsToDisassemble()
     {
         using var a = new AssemblyAnalyzer(Samples.EmptyLibDll);
-        var disasm = new IlDisassembler(a);
         var methodsWithIl = a.MethodDefs.Where(m => m.Rva != 0).ToList();
         // Either no methods or only compiler-generated
         Assert.IsLessThanOrEqualTo(2, methodsWithIl.Count);

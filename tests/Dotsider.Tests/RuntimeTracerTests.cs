@@ -135,7 +135,7 @@ public sealed class RuntimeTracerTests : IDisposable
     [TestMethod]
     public void Constructor_MissingTarget_ThrowsFileNotFoundException()
     {
-        var missingPath = Path.Combine(
+        var missingPath = Path.Join(
             Path.GetTempPath(),
             $"dotsider-missing-{Guid.NewGuid():N}.dll");
 
@@ -154,7 +154,7 @@ public sealed class RuntimeTracerTests : IDisposable
     public void Constructor_UnsupportedDirectLaunchTarget_ThrowsArgumentException()
     {
         var extension = OperatingSystem.IsWindows() ? ".cmd" : ".txt";
-        var path = Path.Combine(
+        var path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-unsupported-{Guid.NewGuid():N}{extension}");
         File.WriteAllText(path, "test");
@@ -231,11 +231,11 @@ public sealed class RuntimeTracerTests : IDisposable
         try
         {
             File.WriteAllText(
-                Path.Combine(
+                Path.Join(
                     dotNetDirectory.FullName,
                     OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"),
                 "test");
-            Directory.CreateDirectory(Path.Combine(
+            Directory.CreateDirectory(Path.Join(
                 dotNetDirectory.FullName,
                 "shared",
                 "Microsoft.NETCore.App",
@@ -535,7 +535,7 @@ public sealed class RuntimeTracerTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dispose_WhileRunning_CleansUp()
     {
-        var tracer = CreateTracer(Samples.HelloWorldDll);
+        using var tracer = CreateTracer(Samples.HelloWorldDll);
         tracer.Start();
         await TestHelpers.WaitUntilAsync(
             () => tracer.ProcessState is TraceProcessState.Running or TraceProcessState.Exited
@@ -552,7 +552,7 @@ public sealed class RuntimeTracerTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_CalledTwice_NoThrow()
     {
-        var tracer = CreateTracer(Samples.HelloWorldDll);
+        using var tracer = CreateTracer(Samples.HelloWorldDll);
         tracer.Dispose();
         tracer.Dispose(); // should not throw
         _tracer = null;
@@ -656,15 +656,15 @@ public sealed class RuntimeTracerTests : IDisposable
     {
         var baseDirectory = Directory.CreateTempSubdirectory("dotsider-tracehost-layout-");
         var traceHostDirectory = Directory.CreateDirectory(
-            Path.Combine(baseDirectory.FullName, "tracehost"));
+            Path.Join(baseDirectory.FullName, "tracehost"));
         File.WriteAllText(
-            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.deps.json"),
+            Path.Join(traceHostDirectory.FullName, "dotsider-tracehost.deps.json"),
             "{}");
         File.WriteAllText(
-            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.dll"),
+            Path.Join(traceHostDirectory.FullName, "dotsider-tracehost.dll"),
             "test");
         File.WriteAllText(
-            Path.Combine(traceHostDirectory.FullName, "dotsider-tracehost.runtimeconfig.json"),
+            Path.Join(traceHostDirectory.FullName, "dotsider-tracehost.runtimeconfig.json"),
             "{}");
         return baseDirectory;
     }
@@ -672,7 +672,7 @@ public sealed class RuntimeTracerTests : IDisposable
     private static string CreateExecutableTestFile()
     {
         var extension = OperatingSystem.IsWindows() ? ".exe" : "";
-        var path = Path.Combine(
+        var path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-executable-{Guid.NewGuid():N}{extension}");
         File.WriteAllText(path, "test");

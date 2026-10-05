@@ -65,7 +65,10 @@ public sealed class BundleResolutionRegressionTests : IAsyncDisposable
                 if (response.IsSuccessStatusCode)
                     return port;
             }
-            catch (HttpRequestException) { }
+            catch (HttpRequestException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("StartWebsiteAsync: {0}", handledException);
+            }
             await Task.Delay(100, ct);
         }
 
@@ -228,8 +231,14 @@ public sealed class BundleResolutionRegressionTests : IAsyncDisposable
                 lock (output) { output.Append(Encoding.UTF8.GetString(buffer, 0, result.Count)); }
             }
         }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
+        catch (WebSocketException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -258,9 +267,15 @@ public sealed class BundleResolutionRegressionTests : IAsyncDisposable
         if (_serverProcess is not null)
         {
             try { _serverProcess.Kill(entireProcessTree: true); }
-            catch { /* already exited */ }
+            catch (Exception handledException) when (handledException is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException)
+            { /* already exited */
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
             try { await _serverProcess.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); }
-            catch { /* don't hang */ }
+            catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+            { /* don't hang */
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
             _serverProcess.Dispose();
         }
 

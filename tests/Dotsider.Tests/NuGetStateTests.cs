@@ -93,7 +93,7 @@ public class NuGetStateTests : IDisposable
     public void Dispose_CleansUp()
     {
         var app = CreateApp();
-        var state = new NuGetState(app, Samples.RichLibraryNupkg);
+        using var state = new NuGetState(app, Samples.RichLibraryNupkg);
         state.Dispose();
         state.Dispose(); // idempotent
     }

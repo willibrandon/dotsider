@@ -77,7 +77,7 @@ public sealed class EventPipeRuntimeTracerTests
         Assert.IsNotNull(directoryPath);
         try
         {
-            Assert.AreEqual(Path.Combine(directoryPath, "p"), port);
+            Assert.AreEqual(Path.Join(directoryPath, "p"), port);
             Assert.StartsWith(Path.GetFullPath(Path.GetTempPath()), directoryPath);
 
             const UnixFileMode expected =

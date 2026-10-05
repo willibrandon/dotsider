@@ -82,8 +82,9 @@ internal sealed class ProcessRunner : IProcessRunner
                 process.Kill(entireProcessTree: true);
             }
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryKill: {0}", handledException);
         }
     }
 }

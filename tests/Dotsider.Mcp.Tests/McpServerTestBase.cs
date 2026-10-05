@@ -130,11 +130,13 @@ public abstract class McpServerTestBase : IAsyncDisposable
         {
             await _serverTask.WaitAsync(TimeSpan.FromSeconds(5));
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
         }
-        catch (TimeoutException)
+        catch (TimeoutException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
         }
 
         if (_serviceProvider is not null)

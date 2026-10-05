@@ -87,7 +87,11 @@ public class InfoEditorViewRendererTests : IDisposable
         Assert.IsFalse(foundTilde, "InfoEditorViewRenderer should not show ~ filler lines");
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("InfoRenderer_NeverShowsTilde_InSmallDocument: {0}", handledException);
+        }
     }
 
     /// <summary>

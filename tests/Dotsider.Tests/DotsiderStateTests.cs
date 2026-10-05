@@ -601,11 +601,11 @@ public class DotsiderStateTests : IDisposable
 
         var symbol = state.Analyzer.NativeSymbols!.Symbols.First(s => s.FileOffset is not null && s.Size > 0);
         state.IlSelectedNativeSymbol = symbol;
-        state.NavigateToHexFileOffset(symbol.FileOffset!.Value);
+        state.NavigateToHexFileOffset(TestAssert.HasValue(symbol.FileOffset));
 
         Assert.AreEqual(TabId.HexDump, state.CurrentTab);
-        Assert.AreEqual((int)symbol.FileOffset.Value, state.HexEditorState.ByteCursorOffset);
-        Assert.AreEqual(symbol.FileOffset.Value, state.HexScrollTarget);
+        Assert.AreEqual((int)TestAssert.HasValue(symbol.FileOffset), state.HexEditorState.ByteCursorOffset);
+        Assert.AreEqual(TestAssert.HasValue(symbol.FileOffset), state.HexScrollTarget);
         Assert.IsNotNull(state.CrossViewBackTarget);
         Assert.AreEqual(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
     }

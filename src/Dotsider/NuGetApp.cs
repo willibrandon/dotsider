@@ -1,4 +1,3 @@
-using Dotsider.Core.Analysis.Models;
 using Dotsider.Infrastructure;
 using Dotsider.Views;
 using Hex1b;
@@ -93,17 +92,10 @@ public sealed class NuGetApp(NuGetState state)
                 }
 
                 // iw/iW hint — show when a read-only editor is focused (not hex dump)
-                try
-                {
-                    var isHexDump = _state.SelectedDllState is
+                var isHexDump = _state.SelectedDllState is
                         { CurrentTab: TabId.HexDump };
                     if (_state.App.FocusedNode is EditorNode && !isHexDump)
                         hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
-                }
-                catch (NullReferenceException)
-                {
-                    // Focus ring not yet initialized
-                }
 
                 hints.Add(s.Spacer());
 
@@ -144,10 +136,10 @@ public sealed class NuGetApp(NuGetState state)
 
             var browserSearch = _state.BrowserSearch;
             // Gate on BOTH browser and embedded DLL inspector input state
-            var dllSearch = _state.SelectedDllState?.Search[_state.SelectedDllState.CurrentTab];
+            var dllState = _state.SelectedDllState;
+            var dllSearch = dllState?.Search[dllState.CurrentTab];
             var dllSearchEditing = dllSearch is { IsActive: true, IsConfirmed: false };
-            var hexInsertMode = _state.SelectedDllState is { CurrentTab: TabId.HexDump }
-                && _state.SelectedDllState.HexMode == HexEditMode.Insert;
+            var hexInsertMode = dllState is { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Insert };
             var hexJumpOpen = _state.SelectedDllState?.HexJumpDialogOpen == true;
             var dllEditingArgs = _state.SelectedDllState?.DynamicEditingArgs == true;
             var isSearchEditing = (browserSearch.IsActive && !browserSearch.IsConfirmed)
@@ -192,7 +184,7 @@ public sealed class NuGetApp(NuGetState state)
                 bindings.Key(Hex1bKey.Enter).Action(_ =>
                 {
                     // Filter against search query so Enter cannot open a hidden DLL
-                    var visibleDlls = (IReadOnlyList<NuGetFileEntry>)_state.Package.DllFiles;
+                    var visibleDlls = _state.Package.DllFiles;
                     var q = browserSearch.Query;
                     if (!string.IsNullOrEmpty(q))
                     {

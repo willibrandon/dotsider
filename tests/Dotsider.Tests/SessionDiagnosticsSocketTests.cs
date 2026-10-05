@@ -92,11 +92,11 @@ public class SessionDiagnosticsSocketTests
     private static McpDiagnosticsPresentationFilter CreateDiagnosticsFilter(int socketId)
     {
         var filter = new McpDiagnosticsPresentationFilter($"dotsider-test-{socketId}");
-        var socketDirectory = Path.Combine(
+        var socketDirectory = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".hex1b",
             "sockets");
-        var socketPath = Path.Combine(socketDirectory, $"{socketId}.diagnostics.socket");
+        var socketPath = Path.Join(socketDirectory, $"{socketId}.diagnostics.socket");
 
         typeof(McpDiagnosticsPresentationFilter)
             .GetField("_socketPath", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -133,7 +133,11 @@ public class SessionDiagnosticsSocketTests
         DotsiderState state, Task runTask, CancellationTokenSource cts)
     {
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StopAndDisposeAsync: {0}", handledException);
+        }
 
         await listener.DisposeAsync();
         state.Dispose();

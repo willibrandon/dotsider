@@ -17,7 +17,7 @@ public class SessionNugetModeTests
 {
     private static SampleAssemblyFixture Samples => SampleAssemblyHost.Instance;
 
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
@@ -95,8 +95,8 @@ public class SessionNugetModeTests
 
         var nugetSession = FindSessionByPid(sessions, _nugetPid);
         Assert.IsNotNull(nugetSession);
-        Assert.AreEqual("nuget", nugetSession.Value.GetProperty("mode").GetString());
-        Assert.Contains(".nupkg", nugetSession.Value.GetProperty("fileName").GetString()!);
+        Assert.AreEqual("nuget", TestAssert.HasValue(nugetSession).GetProperty("mode").GetString());
+        Assert.Contains(".nupkg", TestAssert.HasValue(nugetSession).GetProperty("fileName").GetString()!);
     }
 
     /// <summary>
@@ -130,12 +130,12 @@ public class SessionNugetModeTests
 
         var data = response.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
+        Assert.AreEqual("nuget", TestAssert.HasValue(data).GetProperty("mode").GetString());
 
         // Verify real package data is present
-        Assert.AreEqual("RichLibrary", data.Value.GetProperty("packageId").GetString());
-        Assert.AreEqual("2.5.1", data.Value.GetProperty("packageVersion").GetString());
-        Assert.IsGreaterThan(0, data.Value.GetProperty("dllCount").GetInt32());
+        Assert.AreEqual("RichLibrary", TestAssert.HasValue(data).GetProperty("packageId").GetString());
+        Assert.AreEqual("2.5.1", TestAssert.HasValue(data).GetProperty("packageVersion").GetString());
+        Assert.IsGreaterThan(0, TestAssert.HasValue(data).GetProperty("dllCount").GetInt32());
     }
 
     /// <summary>
@@ -153,10 +153,10 @@ public class SessionNugetModeTests
         Assert.IsTrue(response.Success);
         var data = response.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.IsTrue(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual("nuget", TestAssert.HasValue(data).GetProperty("mode").GetString());
+        Assert.IsTrue(TestAssert.HasValue(data).GetProperty("isBrowsingPackage").GetBoolean());
         // Tab is null when browsing package — omitted from JSON (WhenWritingNull)
-        Assert.IsFalse(data.Value.TryGetProperty("tab", out _));
+        Assert.IsFalse(TestAssert.HasValue(data).TryGetProperty("tab", out _));
     }
 
     /// <summary>
@@ -179,10 +179,10 @@ public class SessionNugetModeTests
         Assert.IsTrue(response.Success);
         var data = response.Data;
         Assert.IsNotNull(data);
-        Assert.AreEqual("nuget", data.Value.GetProperty("mode").GetString());
-        Assert.IsFalse(data.Value.GetProperty("isBrowsingPackage").GetBoolean());
-        Assert.AreEqual(TabId.Strings + 1, data.Value.GetProperty("tab").GetInt32());
-        Assert.AreEqual("RichLibrary.dll", data.Value.GetProperty("selectedDll").GetString());
+        Assert.AreEqual("nuget", TestAssert.HasValue(data).GetProperty("mode").GetString());
+        Assert.IsFalse(TestAssert.HasValue(data).GetProperty("isBrowsingPackage").GetBoolean());
+        Assert.AreEqual(TabId.Strings + 1, TestAssert.HasValue(data).GetProperty("tab").GetInt32());
+        Assert.AreEqual("RichLibrary.dll", TestAssert.HasValue(data).GetProperty("selectedDll").GetString());
     }
 
     /// <summary>

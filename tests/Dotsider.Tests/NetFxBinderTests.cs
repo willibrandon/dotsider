@@ -237,7 +237,7 @@ public sealed class NetFxBinderTests
             CodeBases: [codeBase],
             PublisherPolicyDisabledFor: []);
         var ctx = new NetFxBindingContext(
-            EntryAssemblyPath: Path.Combine(Path.GetTempPath(), "no-such-root.exe"),
+            EntryAssemblyPath: Path.Join(Path.GetTempPath(), "no-such-root.exe"),
             AppBaseDirectory: Path.GetTempPath(),
             ConfigPath: null,
             TargetFramework: ".NETFramework,Version=v4.8",

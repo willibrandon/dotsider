@@ -110,7 +110,7 @@ public static class NuGetDepsJsonResolver
         if (dir is null) return null;
 
         var baseName = Path.GetFileNameWithoutExtension(referencingAssemblyPath);
-        var direct = Path.Combine(dir, $"{baseName}.deps.json");
+        var direct = Path.Join(dir, $"{baseName}.deps.json");
         return File.Exists(direct) ? direct : null;
     }
 
@@ -198,6 +198,6 @@ public static class NuGetDepsJsonResolver
             : Environment.GetEnvironmentVariable("HOME");
 
         if (!string.IsNullOrEmpty(home))
-            yield return Path.Combine(home, ".nuget", "packages");
+            yield return Path.Join(home, ".nuget", "packages");
     }
 }
