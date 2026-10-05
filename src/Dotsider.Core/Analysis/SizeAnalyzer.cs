@@ -476,7 +476,7 @@ public static class SizeAnalyzer
                     $"{category}/{symbol.Name}@0x{symbol.VirtualAddress:x}",
                     symbol.Size, kind, []));
 
-        foreach (var symbol in info.Symbols.Where(symbol => !(symbol.Size <= 0)))
+        foreach (var symbol in info.Symbols.Where(symbol => symbol.Size > 0))
         {
             switch (symbol.Kind)
             {

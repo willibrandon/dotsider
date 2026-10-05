@@ -155,11 +155,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    using (var stateScope = state)
-                    {
-                        state?.Dispose(); // Exercise idempotent package cleanup.
-                        state = null;
-                    }
+                    using var stateScope = state;
+                    state = null;
                 }
             }
 
@@ -307,10 +304,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    using (var stateScope = state)
-                    {
-                        state = null;
-                    }
+                    using var stateScope = state;
+                    state = null;
                 }
             }
         }

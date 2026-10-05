@@ -23,8 +23,7 @@ public sealed class ReadyToRunIndex
         _byToken = byToken;
         _ranges = ranges;
         TotalCodeSize = totalCodeSize;
-        foreach (var m in methods.Where(m => m.IsGenericInstantiation))
-            InstantiationCount++;
+        InstantiationCount = methods.Count(m => m.IsGenericInstantiation);
     }
 
     /// <summary>Every precompiled method entry (base methods and generic instantiations).</summary>

@@ -21,7 +21,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
     /// </summary>
     public async Task ConvertAllAsync()
     {
-        foreach (var yamlFile in Directory.GetFiles(_yamlDir, "*.yml").Where(yamlFile => !(Path.GetFileName(yamlFile) == "toc.yml")))
+        foreach (var yamlFile in Directory.GetFiles(_yamlDir, "*.yml").Where(yamlFile => Path.GetFileName(yamlFile) != "toc.yml"))
         {
 
             var content = await File.ReadAllTextAsync(yamlFile);
@@ -85,10 +85,9 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         if (root.Children.TryGetValue(new YamlScalarNode("items"), out var itemsNode) &&
             itemsNode is YamlSequenceNode items)
         {
-            foreach (var apiItem in items.OfType<YamlMappingNode>().Select(itemNode => ParseApiItem(itemNode)))
+            foreach (var apiItem in items.OfType<YamlMappingNode>().Select(ParseApiItem).OfType<ApiItem>())
             {
-                if (apiItem != null)
-                    _items[apiItem.Uid] = apiItem;
+                _items[apiItem.Uid] = apiItem;
             }
         }
     }

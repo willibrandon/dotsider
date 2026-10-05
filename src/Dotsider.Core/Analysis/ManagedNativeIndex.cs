@@ -164,7 +164,7 @@ public sealed class ManagedNativeIndex
             sourceLookups.Add(lookup);
         }
 
-        foreach (var symbol in nativeSymbols.Where(symbol => !(symbol.Kind != NativeSymbolKind.Function)))
+        foreach (var symbol in nativeSymbols.Where(symbol => symbol.Kind == NativeSymbolKind.Function))
         {
 
             foreach (var lookup in sourceLookups)

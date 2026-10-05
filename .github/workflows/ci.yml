@@ -209,6 +209,13 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DOTSIDER_EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          DOTSIDER_EVENT_PR_STATE: ${{ github.event.pull_request.state }}
+          DOTSIDER_EVENT_PR_MERGED: ${{ github.event.pull_request.merged }}
+          DOTSIDER_EVENT_PR_MERGEABLE: ${{ toJSON(github.event.pull_request.mergeable) }}
+          DOTSIDER_EVENT_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          DOTSIDER_EVENT_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DOTSIDER_EVENT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           resolved="$(node integrations/size-check/test/resolve-live-pr-target.mjs)"

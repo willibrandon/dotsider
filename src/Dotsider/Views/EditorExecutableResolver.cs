@@ -101,14 +101,12 @@ internal static class EditorExecutableResolver
             return false;
         }
 
-        foreach (var directory in pathEntries
+        foreach (var candidate in pathEntries
                      .Select(entry => TryNormalizeRootedPathEntry(entry, out var normalized) ? normalized : null)
-                     .OfType<string>())
+                     .OfType<string>()
+                     .Select(directory => Path.Join(directory, token))
+                     .Where(IsUnixExecutable))
         {
-
-            var candidate = Path.Join(directory, token);
-            if (!IsUnixExecutable(candidate))
-                continue;
 
             resolvedPath = Path.GetFullPath(candidate);
             return true;

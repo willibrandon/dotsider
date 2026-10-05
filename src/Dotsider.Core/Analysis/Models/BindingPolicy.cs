@@ -160,13 +160,11 @@ public sealed record BindingPolicy(
     {
         if (!Version.TryParse(effective.Version, out var version))
             return null;
-        foreach (var cb in CodeBases.Where(cb => string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)))
-        {
-            if (!PktEquals(cb.PublicKeyToken, effective.PublicKeyToken)) continue;
-            if (!CultureEquals(cb.Culture, effective.Culture)) continue;
-            if (cb.Version == version) return cb;
-        }
-        return null;
+        return CodeBases.FirstOrDefault(cb =>
+            string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)
+            && PktEquals(cb.PublicKeyToken, effective.PublicKeyToken)
+            && CultureEquals(cb.Culture, effective.Culture)
+            && cb.Version == version);
     }
 
     /// <summary>
@@ -457,16 +455,19 @@ public sealed record BindingPolicy(
         catch (UnauthorizedAccessException) { return; }
         catch (IOException) { return; }
 
-        foreach (var identity in files.Select(file => TryReadAssemblyIdentity(file)))
+        var entries = files.Select(TryReadAssemblyIdentity)
+            .Where(identity => identity.HasValue)
+            .Select(identity => identity.GetValueOrDefault())
+            .Where(identity => !string.IsNullOrEmpty(identity.PublicKeyToken)
+                && AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.PublicKeyToken))
+            .Select(identity => (identity.Name, identity.PublicKeyToken,
+                Version: Version.TryParse(identity.Version, out var version) ? version : null))
+            .Where(entry => entry.Version is not null);
+        foreach (var entry in entries)
         {
-            if (identity is null) continue;
-            if (string.IsNullOrEmpty(identity.Value.PublicKeyToken)) continue;
-            if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.Value.PublicKeyToken!))
-                continue;
-            if (!Version.TryParse(identity.Value.Version, out var v)) continue;
-            var key = (identity.Value.Name, identity.Value.PublicKeyToken!);
-            if (!table.TryGetValue(key, out var existing) || v > existing)
-                table[key] = v;
+            var key = (entry.Name, entry.PublicKeyToken!);
+            if (!table.TryGetValue(key, out var existing) || entry.Version > existing)
+                table[key] = entry.Version!;
         }
     }
 
@@ -489,9 +490,8 @@ public sealed record BindingPolicy(
 
         foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            foreach (var gacPath in subdirs.Select(gacSubdir => Path.Join(root, gacSubdir)))
+            foreach (var gacPath in subdirs.Select(gacSubdir => Path.Join(root, gacSubdir)).Where(Directory.Exists))
             {
-                if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> nameDirs;
                 try { nameDirs = Directory.EnumerateDirectories(gacPath); }
                 catch (UnauthorizedAccessException) { continue; }
@@ -511,13 +511,16 @@ public sealed record BindingPolicy(
                     catch (UnauthorizedAccessException) { continue; }
                     catch (IOException) { continue; }
 
-                    foreach (var token in tokenDirs.Select(tokenDir => Path.GetFileName(tokenDir)))
+                    var entries = tokenDirs.Select(Path.GetFileName).OfType<string>()
+                        .Select(token => TryParseGacToken(token, runtimeVersion, out var version, out var pkt)
+                            ? (Version: version, PublicKeyToken: pkt) : default)
+                        .Where(entry => entry.Version is not null && entry.PublicKeyToken is not null
+                            && AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(entry.PublicKeyToken));
+                    foreach (var entry in entries)
                     {
-                        if (!TryParseGacToken(token, runtimeVersion, out var version, out var pkt)) continue;
-                        if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(pkt!)) continue;
-                        var key = (simpleName, pkt!);
-                        if (!table.TryGetValue(key, out var existing) || version > existing)
-                            table[key] = version;
+                        var key = (simpleName, entry.PublicKeyToken!);
+                        if (!table.TryGetValue(key, out var existing) || entry.Version > existing)
+                            table[key] = entry.Version!;
                     }
                 }
             }
@@ -621,12 +624,10 @@ public sealed record BindingPolicy(
             // <publisherPolicy apply="no"/> at runtime scope disables for every bind in the
             // AppDomain regardless of <dependentAssembly> blocks. Capture per-document and
             // surface it via the parse result so BindingPolicy can flip the global flag.
-            var globalPublisherPolicyDisabled = false;
-            foreach (var pp in runtime.Elements().Where(e => e.Name.LocalName == "publisherPolicy").Where(pp => string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase)))
-            {
-                globalPublisherPolicyDisabled = true;
-                anyGlobalDisable = true;
-            }
+            var globalPublisherPolicyDisabled = runtime.Elements().Any(element =>
+                element.Name.LocalName == "publisherPolicy"
+                && string.Equals(element.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase));
+            anyGlobalDisable |= globalPublisherPolicyDisabled;
 
             foreach (var binding in runtime.Elements().Where(e => e.Name.LocalName == "assemblyBinding"))
             {
@@ -677,9 +678,9 @@ public sealed record BindingPolicy(
         var procArch = identity.Attribute("processorArchitecture")?.Value;
 
         // Per-dependentAssembly <publisherPolicy apply="no"/>.
-        var localPublisherPolicyDisabled = false;
-        foreach (var pp in dependent.Elements().Where(e => e.Name.LocalName == "publisherPolicy").Where(pp => string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase)))
-            localPublisherPolicyDisabled = true;
+        var localPublisherPolicyDisabled = dependent.Elements().Any(element =>
+            element.Name.LocalName == "publisherPolicy"
+            && string.Equals(element.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase));
         if (globalPublisherPolicyDisabled || localPublisherPolicyDisabled)
             disabled.Add((name, pkt, culture));
 
@@ -770,9 +771,8 @@ public sealed record BindingPolicy(
             : ["GAC_MSIL", archSubdir];
         foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            foreach (var gacPath in subdirs.Select(subdir => Path.Join(root, subdir)))
+            foreach (var gacPath in subdirs.Select(subdir => Path.Join(root, subdir)).Where(Directory.Exists))
             {
-                if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> policyFamilies;
                 try
                 {

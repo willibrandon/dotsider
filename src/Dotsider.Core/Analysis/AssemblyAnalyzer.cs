@@ -3165,9 +3165,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null)
             return "Microsoft.NETCore.App";
 
-        foreach (var r in _metadataReader.AssemblyReferences.Select(h => _metadataReader.GetAssemblyReference(h)))
+        foreach (var name in _metadataReader.AssemblyReferences
+            .Select(_metadataReader.GetAssemblyReference)
+            .Select(reference => _metadataReader.GetString(reference.Name)))
         {
-            var name = _metadataReader.GetString(r.Name);
 
             if (name is "WindowsBase" or "PresentationFramework" or "PresentationCore")
                 return "Microsoft.WindowsDesktop.App";

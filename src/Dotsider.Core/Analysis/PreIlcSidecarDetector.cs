@@ -352,9 +352,8 @@ public static class PreIlcSidecarDetector
         }
 
         var baseDir = Path.GetDirectoryName(fullPath) ?? string.Empty;
-        foreach (var token in lines.Select(line => line.Trim()))
+        foreach (var token in lines.Select(line => line.Trim()).Where(token => token.Length > 0))
         {
-            if (token.Length == 0) continue;
 
             if (token[0] == '@')
             {

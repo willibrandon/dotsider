@@ -103,10 +103,7 @@ internal sealed class ActivateCommand(
     {
         foreach (var path in LegacySampleFiles.Select(fileName => Path.Join(DeployPaths.WebsiteDirectory, fileName)))
         {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
+            File.Delete(path);
         }
     }
 
@@ -114,10 +111,7 @@ internal sealed class ActivateCommand(
     {
         foreach (var path in LegacyScripts.Select(fileName => Path.Join(DeployPaths.WebsiteDirectory, fileName)))
         {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
+            File.Delete(path);
         }
     }
 

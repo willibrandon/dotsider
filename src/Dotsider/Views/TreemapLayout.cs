@@ -122,14 +122,9 @@ public static class TreemapLayout
         var rowLength = rowArea / shortSide;
         if (rowLength <= 0) return double.MaxValue;
 
-        var worst = 0.0;
-        foreach (var itemArea in row.Select(idx => (double)items[idx].Size / totalSize * w * h))
-        {
-            var itemLength = itemArea / rowLength;
-            if (itemLength <= 0) continue;
-            var aspect = Math.Max(rowLength / itemLength, itemLength / rowLength);
-            worst = Math.Max(worst, aspect);
-        }
-        return worst;
+        return row.Select(idx => (double)items[idx].Size / totalSize * w * h / rowLength)
+            .Where(length => length > 0 || double.IsNaN(length))
+            .Select(length => Math.Max(rowLength / length, length / rowLength))
+            .Aggregate(0.0, Math.Max);
     }
 }

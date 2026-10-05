@@ -121,6 +121,37 @@ test("staged baselines verify identity, lengths, and SHA-256 before restoration"
   }
 });
 
+test("staging preserves the private directory and removes stale payloads", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-private-baseline-"));
+  try {
+    const binary = path.join(directory, "app");
+    const mstat = path.join(directory, "app.mstat");
+    const dgml = path.join(directory, "app.dgml.xml");
+    await Promise.all([
+      fs.writeFile(binary, "native binary"),
+      fs.writeFile(mstat, "mstat bytes"),
+      fs.writeFile(dgml, "<DirectedGraph />"),
+    ]);
+    const staged = await fs.mkdtemp(path.join(directory, "upload-"));
+    await fs.mkdir(path.join(staged, "files"));
+    await fs.writeFile(path.join(staged, "files", "stale"), "old payload");
+    const before = await fs.stat(staged);
+    const identity = createBaselineIdentity(
+      "github-actions", "owner/repo/ci.yml", "size", binary, "linux-x64", "app", directory, directory,
+    );
+    await stageBaseline(report(binary, mstat, dgml), identity, {
+      status: "restored", provider: "github-actions", id: "12", commit: "abc", artifactName: "baseline",
+    }, staged);
+    const after = await fs.stat(staged);
+    assert.equal(after.ino, before.ino, "Staging must retain the directory created atomically by mkdtemp");
+    if (process.platform !== "win32") assert.equal(after.mode & 0o777, 0o700);
+    await assert.rejects(fs.stat(path.join(staged, "files", "stale")), { code: "ENOENT" });
+    assert.equal(await fs.readFile((await restoreBaseline(staged, identity)).targetPath, "utf8"), "native binary");
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("legacy v1 managed artifacts restore without invocation alignment fields", async () => {
   const fixture = path.resolve(__dirname, "../../../integrations/size-check/test/fixtures/legacy-v1");
   const restored = await restoreBaseline(fixture, {
@@ -288,7 +319,7 @@ test("unknown alignment warnings give provider-specific guidance for every stabl
 test("GitHub discovery aligns open PR contexts to merge parent zero and prefers the exact baseline", async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-discovery-"));
   const target = path.join(directory, "app.mstat");
-  const eventPath = path.join(directory, "event.json");
+  let eventEnvironment: NodeJS.ProcessEnv = {};
   const staleBase = "1111111111111111111111111111111111111111";
   const expectedTarget = "2222222222222222222222222222222222222222";
   const head = "3333333333333333333333333333333333333333";
@@ -410,14 +441,14 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
     ];
     for (const scenario of scenarios) {
       await t.test(scenario.name, async () => {
-        await fs.writeFile(eventPath, JSON.stringify(scenario.event));
+        eventEnvironment = githubEventEnvironment(scenario.event);
         const discovery = await discoverGithubBaseline(inputs(target), "linux-x64", {
           GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
           GITHUB_REPOSITORY: "owner/repo",
           GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
           GITHUB_JOB: "size",
           GITHUB_EVENT_NAME: scenario.eventName,
-          GITHUB_EVENT_PATH: eventPath,
+          ...eventEnvironment,
           GITHUB_SHA: scenario.githubSha,
           GITHUB_TOKEN: "token",
           GITHUB_RUN_ID: "99",
@@ -432,14 +463,14 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
     }
 
     includeExact = false;
-    await fs.writeFile(eventPath, JSON.stringify(scenarios[0]!.event));
+    eventEnvironment = githubEventEnvironment(scenarios[0]!.event);
     const mismatched = await discoverGithubBaseline(inputs(target), "linux-x64", {
       GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
       GITHUB_REPOSITORY: "owner/repo",
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "pull_request",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: merge,
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
@@ -457,7 +488,7 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "pull_request",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: merge,
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
@@ -486,7 +517,7 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
           GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
           GITHUB_JOB: "size",
           GITHUB_EVENT_NAME: "pull_request",
-          GITHUB_EVENT_PATH: eventPath,
+          ...eventEnvironment,
           GITHUB_SHA: merge,
           GITHUB_TOKEN: "token",
           GITHUB_RUN_ID: "99",
@@ -510,7 +541,7 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
         GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
         GITHUB_JOB: "size",
         GITHUB_EVENT_NAME: "pull_request",
-        GITHUB_EVENT_PATH: eventPath,
+        ...eventEnvironment,
         GITHUB_SHA: merge,
         GITHUB_TOKEN: "token",
         GITHUB_RUN_ID: "99",
@@ -522,17 +553,17 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
     exactSearchFailure = "none";
 
     const beforeClosed = commitRequests;
-    await fs.writeFile(eventPath, JSON.stringify({ pull_request: {
+    eventEnvironment = githubEventEnvironment({ pull_request: {
       number: 62, state: "closed", merged: true, mergeable: true,
       merge_commit_sha: merge, base: { ref: "main", sha: staleBase }, head: { sha: head },
-    } }));
+    } });
     const closed = await discoverGithubBaseline(inputs(target), "linux-x64", {
       GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
       GITHUB_REPOSITORY: "owner/repo",
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/feature",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "pull_request",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: merge,
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
@@ -550,7 +581,7 @@ test("GitHub discovery aligns open PR contexts to merge parent zero and prefers 
 test("GitHub event-bound contexts classify unavailable PR merge commits deterministically", async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-merge-unavailable-"));
   const target = path.join(directory, "app.mstat");
-  const eventPath = path.join(directory, "event.json");
+  let eventEnvironment: NodeJS.ProcessEnv = {};
   const head = "3333333333333333333333333333333333333333";
   const baselineCommit = "5555555555555555555555555555555555555555";
   await fs.writeFile(target, "mstat");
@@ -588,7 +619,7 @@ test("GitHub event-bound contexts classify unavailable PR merge commits determin
     ] as const;
     for (const scenario of scenarios) {
       await t.test(String(scenario.mergeable), async () => {
-        await fs.writeFile(eventPath, JSON.stringify({ pull_request: {
+        eventEnvironment = githubEventEnvironment({ pull_request: {
           number: 62,
           state: "open",
           merged: false,
@@ -596,14 +627,14 @@ test("GitHub event-bound contexts classify unavailable PR merge commits determin
           merge_commit_sha: null,
           base: { ref: "main", sha: "1111111111111111111111111111111111111111" },
           head: { sha: head },
-        } }));
+        } });
         const discovery = await discoverGithubBaseline(inputs(target), "linux-x64", {
           GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
           GITHUB_REPOSITORY: "owner/repo",
           GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
           GITHUB_JOB: "size",
           GITHUB_EVENT_NAME: "pull_request_target",
-          GITHUB_EVENT_PATH: eventPath,
+          ...eventEnvironment,
           GITHUB_SHA: "6666666666666666666666666666666666666666",
           GITHUB_TOKEN: "token",
           GITHUB_RUN_ID: "99",
@@ -624,13 +655,13 @@ test("GitHub event-bound contexts classify unavailable PR merge commits determin
 test("GitHub API-backed PR resolution retries mergeability and validates commit metadata", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-merge-retry-"));
   const target = path.join(directory, "app.mstat");
-  const eventPath = path.join(directory, "event.json");
+  let eventEnvironment: NodeJS.ProcessEnv = {};
   const expectedTarget = "2222222222222222222222222222222222222222";
   const head = "3333333333333333333333333333333333333333";
   const merge = "4444444444444444444444444444444444444444";
   const baselineCommit = "5555555555555555555555555555555555555555";
   await fs.writeFile(target, "mstat");
-  await fs.writeFile(eventPath, JSON.stringify({ issue: { number: 62 } }));
+  eventEnvironment = githubEventEnvironment({ issue: { number: 62 } });
   let pullRequests = 0;
   let keepMergeabilityPending = false;
   let commitRequests = 0;
@@ -675,7 +706,7 @@ test("GitHub API-backed PR resolution retries mergeability and validates commit 
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "issue_comment",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: "6666666666666666666666666666666666666666",
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
@@ -694,7 +725,7 @@ test("GitHub API-backed PR resolution retries mergeability and validates commit 
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "issue_comment",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: "6666666666666666666666666666666666666666",
       GITHUB_TOKEN: "token",
       GITHUB_RUN_ID: "99",
@@ -713,16 +744,16 @@ test("GitHub API-backed PR resolution retries mergeability and validates commit 
 test("GitHub optional commit-metadata failures become stable unknown reasons", async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-metadata-reasons-"));
   const target = path.join(directory, "app.mstat");
-  const eventPath = path.join(directory, "event.json");
+  let eventEnvironment: NodeJS.ProcessEnv = {};
   const expectedTarget = "2222222222222222222222222222222222222222";
   const head = "3333333333333333333333333333333333333333";
   const merge = "4444444444444444444444444444444444444444";
   const baselineCommit = "5555555555555555555555555555555555555555";
   await fs.writeFile(target, "mstat");
-  await fs.writeFile(eventPath, JSON.stringify({ pull_request: {
+  eventEnvironment = githubEventEnvironment({ pull_request: {
     number: 62, state: "open", merged: false, mergeable: true, merge_commit_sha: merge,
     base: { ref: "main" }, head: { sha: head },
-  } }));
+  } });
   let responseMode = "permission";
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
@@ -774,7 +805,7 @@ test("GitHub optional commit-metadata failures become stable unknown reasons", a
           GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
           GITHUB_JOB: "size",
           GITHUB_EVENT_NAME: "pull_request_target",
-          GITHUB_EVENT_PATH: eventPath,
+          ...eventEnvironment,
           GITHUB_SHA: baselineCommit,
           GITHUB_TOKEN: "token",
           GITHUB_RUN_ID: "99",
@@ -865,7 +896,7 @@ test("GitHub discovery retries a transient transport failure", async () => {
 test("GitHub discovery proves a first run with one matching-artifact request", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-first-run-"));
   const target = path.join(directory, "app.mstat");
-  const eventPath = path.join(directory, "event.json");
+  let eventEnvironment: NodeJS.ProcessEnv = {};
   await fs.writeFile(target, "mstat");
   let requests = 0;
   const server = createServer((_request, response) => {
@@ -895,7 +926,7 @@ test("GitHub discovery proves a first run with one matching-artifact request", a
     assert.equal(discovery.publish, true);
     assert.equal(requests, 1);
 
-    await fs.writeFile(eventPath, JSON.stringify({ pull_request: {
+    eventEnvironment = githubEventEnvironment({ pull_request: {
       number: 62,
       state: "open",
       merged: false,
@@ -903,14 +934,14 @@ test("GitHub discovery proves a first run with one matching-artifact request", a
       merge_commit_sha: "5555555555555555555555555555555555555555",
       base: { ref: "main" },
       head: { sha: "3333333333333333333333333333333333333333" },
-    } }));
+    } });
     const pullRequestFirstRun = await discoverGithubBaseline(inputs(target), "linux-x64", {
       GITHUB_API_URL: `http://127.0.0.1:${address.port}`,
       GITHUB_REPOSITORY: "owner/repo",
       GITHUB_WORKFLOW_REF: "owner/repo/.github/workflows/ci.yml@refs/heads/main",
       GITHUB_JOB: "size",
       GITHUB_EVENT_NAME: "pull_request",
-      GITHUB_EVENT_PATH: eventPath,
+      ...eventEnvironment,
       GITHUB_SHA: "4444444444444444444444444444444444444444",
       GITHUB_RUN_ID: "52",
       GITHUB_TOKEN: "token",
@@ -1412,4 +1443,24 @@ function crc32(buffer: Buffer): number {
     for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function githubEventEnvironment(event: {
+  pull_request?: {
+    number: number; state?: string; merged?: boolean; mergeable?: boolean | null;
+    merge_commit_sha?: string | null; base?: { ref: string; sha?: string }; head?: { sha: string };
+  };
+  issue?: { number: number };
+  inputs?: { pr_number?: string };
+}): NodeJS.ProcessEnv {
+  const pull = event.pull_request;
+  return {
+    DOTSIDER_EVENT_PR_NUMBER: String(pull?.number ?? event.issue?.number ?? event.inputs?.pr_number ?? ""),
+    DOTSIDER_EVENT_PR_STATE: pull?.state,
+    DOTSIDER_EVENT_PR_MERGED: String(pull?.merged ?? false),
+    DOTSIDER_EVENT_PR_MERGEABLE: JSON.stringify(pull?.mergeable),
+    DOTSIDER_EVENT_PR_MERGE_SHA: pull?.merge_commit_sha ?? "",
+    DOTSIDER_EVENT_PR_BASE_REF: pull?.base?.ref,
+    DOTSIDER_EVENT_PR_HEAD_SHA: pull?.head?.sha,
+  };
 }

@@ -14,10 +14,10 @@ internal static class PortablePdbUtilities
     {
         if (pdbReader is null) return new SourceLinkInfo([]);
 
-        foreach (var info in pdbReader.CustomDebugInformation.Select(handle => pdbReader.GetCustomDebugInformation(handle)))
+        foreach (var info in pdbReader.CustomDebugInformation
+            .Select(pdbReader.GetCustomDebugInformation)
+            .Where(info => pdbReader.GetGuid(info.Kind) == SourceLinkKind))
         {
-            if (pdbReader.GetGuid(info.Kind) != SourceLinkKind)
-                continue;
 
             try
             {

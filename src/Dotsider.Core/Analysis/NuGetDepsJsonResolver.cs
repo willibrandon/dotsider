@@ -124,24 +124,20 @@ public static class NuGetDepsJsonResolver
         if (!root.TryGetProperty("targets", out var targets) || targets.ValueKind != JsonValueKind.Object)
             return false;
 
-        foreach (var target in targets.EnumerateObject().Where(target => !(target.Value.ValueKind != JsonValueKind.Object)))
+        var runtimeLibraries = targets.EnumerateObject()
+            .Where(target => target.Value.ValueKind == JsonValueKind.Object)
+            .SelectMany(target => target.Value.EnumerateObject())
+            .Where(lib => lib.Value.ValueKind == JsonValueKind.Object)
+            .Select(lib => (lib.Name, Runtime: lib.Value.TryGetProperty("runtime", out var runtime) ? runtime : default))
+            .Where(lib => lib.Runtime.ValueKind == JsonValueKind.Object);
+        foreach (var (name, runtime) in runtimeLibraries)
         {
-
-            foreach (var lib in target.Value.EnumerateObject().Where(lib => !(lib.Value.ValueKind != JsonValueKind.Object)))
+            foreach (var asset in runtime.EnumerateObject().Where(asset =>
+                string.Equals(GetPortableFileNameWithoutExtension(asset.Name), assemblyName, StringComparison.OrdinalIgnoreCase)))
             {
-                if (!lib.Value.TryGetProperty("runtime", out var runtime) || runtime.ValueKind != JsonValueKind.Object)
-                    continue;
-
-                foreach (var asset in runtime.EnumerateObject())
-                {
-                    var fileName = GetPortableFileNameWithoutExtension(asset.Name);
-                    if (string.Equals(fileName, assemblyName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        libraryKey = lib.Name;
-                        runtimeRelative = asset.Name;
-                        return true;
-                    }
-                }
+                libraryKey = name;
+                runtimeRelative = asset.Name;
+                return true;
             }
         }
 

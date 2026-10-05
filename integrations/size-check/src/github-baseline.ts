@@ -1,4 +1,3 @@
-import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   baselineArtifactName,
@@ -355,9 +354,8 @@ async function resolveContext(
   environment: NodeJS.ProcessEnv,
 ): Promise<GitHubBaselineContext> {
   const eventName = environment.GITHUB_EVENT_NAME || "";
-  const event = await readEvent(environment.GITHUB_EVENT_PATH);
   if (eventName === "pull_request" || eventName === "pull_request_target") {
-    const pull = eventPullRequest(event);
+    const pull = eventPullRequest(environment);
     const branch = pull.base.ref;
     if (!isOpenPullRequest(pull)) return { branch, publish: false };
     return {
@@ -372,14 +370,13 @@ async function resolveContext(
     };
   }
   if (eventName === "issue_comment" || eventName === "pull_request_review_comment") {
-    const number = eventName === "issue_comment"
-      ? objectNumber(event, "issue", "number")
-      : objectNumber(event, "pull_request", "number");
+    const number = pullRequestNumber(environment.DOTSIDER_EVENT_PR_NUMBER);
+    if (number === undefined) throw new Error("The GitHub event context does not identify a pull request.");
     const pull = await githubJson<PullRequestData>(`${apiUrl}/repos/${repository}/pulls/${number}`, token);
     return apiPullRequestContext(pull);
   }
   if (eventName === "workflow_dispatch") {
-    const dispatchNumber = objectOptionalNumber(event, "inputs", "pr_number");
+    const dispatchNumber = pullRequestNumber(environment.DOTSIDER_EVENT_PR_NUMBER);
     if (dispatchNumber !== undefined) {
       const pull = await githubJson<PullRequestData>(
         `${apiUrl}/repos/${repository}/pulls/${dispatchNumber}`,
@@ -413,19 +410,17 @@ function pullRequestDetails(pull: PullRequestData, apiBacked: boolean): PullRequ
   };
 }
 
-function eventPullRequest(event: Record<string, unknown>): PullRequestData {
-  const value = asRecord(event.pull_request);
-  if (!value) throw new Error("The GitHub event payload is incomplete.");
-  const base = asRecord(value.base);
-  const head = asRecord(value.head);
-  const result = {
-    number: objectOptionalNumber(value, "number") ?? 0,
-    state: typeof value.state === "string" ? value.state : "",
-    merged: value.merged === true,
-    mergeable: typeof value.mergeable === "boolean" || value.mergeable === null ? value.mergeable : undefined,
-    merge_commit_sha: typeof value.merge_commit_sha === "string" ? value.merge_commit_sha : null,
-    base: { ref: typeof base?.ref === "string" ? base.ref : "" },
-    head: { sha: typeof head?.sha === "string" ? head.sha : "" },
+function eventPullRequest(environment: NodeJS.ProcessEnv): PullRequestData {
+  const result: PullRequestData = {
+    number: pullRequestNumber(environment.DOTSIDER_EVENT_PR_NUMBER) ?? 0,
+    state: environment.DOTSIDER_EVENT_PR_STATE || "",
+    merged: environment.DOTSIDER_EVENT_PR_MERGED === "true",
+    mergeable: environment.DOTSIDER_EVENT_PR_MERGEABLE === "true" ? true
+      : environment.DOTSIDER_EVENT_PR_MERGEABLE === "false" ? false
+        : environment.DOTSIDER_EVENT_PR_MERGEABLE === "null" ? null : undefined,
+    merge_commit_sha: normalizeCommit(environment.DOTSIDER_EVENT_PR_MERGE_SHA) ?? null,
+    base: { ref: environment.DOTSIDER_EVENT_PR_BASE_REF || "" },
+    head: { sha: normalizeCommit(environment.DOTSIDER_EVENT_PR_HEAD_SHA) || "" },
   };
   requirePullRequest(result);
   return result;
@@ -533,29 +528,10 @@ async function githubErrorMessage(response: Response): Promise<string> {
   return "";
 }
 
-async function readEvent(eventPath: string | undefined): Promise<Record<string, unknown>> {
-  if (!eventPath) return {};
-  return JSON.parse(await fs.readFile(eventPath, "utf8")) as Record<string, unknown>;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" ? value as Record<string, unknown> : undefined;
-}
-
-function objectNumber(value: unknown, ...keys: string[]): number {
-  const result = objectOptionalNumber(value, ...keys);
-  if (result === undefined) throw new Error("The GitHub event payload does not identify a pull request.");
-  return result;
-}
-
-function objectOptionalNumber(value: unknown, ...keys: string[]): number | undefined {
-  let current = value;
-  for (const key of keys) {
-    if (!current || typeof current !== "object") return undefined;
-    current = (current as Record<string, unknown>)[key];
-  }
-  const parsed = typeof current === "number" ? current : typeof current === "string" ? Number(current) : NaN;
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+function pullRequestNumber(value: string | undefined): number | undefined {
+  if (!value || !/^[1-9]\d*$/u.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 function workflowFile(reference: string): string {

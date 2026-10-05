@@ -131,6 +131,13 @@ runs:
       if: steps.prepare.outcome == 'success'
       shell: bash
       env:
+        DOTSIDER_EVENT_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+        DOTSIDER_EVENT_PR_STATE: ${{ github.event.pull_request.state }}
+        DOTSIDER_EVENT_PR_MERGED: ${{ github.event.pull_request.merged }}
+        DOTSIDER_EVENT_PR_MERGEABLE: ${{ toJSON(github.event.pull_request.mergeable) }}
+        DOTSIDER_EVENT_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        DOTSIDER_EVENT_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        DOTSIDER_EVENT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
         DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
         DOTSIDER_INPUT_BASELINE_KEY: ${{ inputs.baseline-key }}
@@ -163,6 +170,13 @@ runs:
       if: always()
       shell: bash
       env:
+        DOTSIDER_EVENT_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+        DOTSIDER_EVENT_PR_STATE: ${{ github.event.pull_request.state }}
+        DOTSIDER_EVENT_PR_MERGED: ${{ github.event.pull_request.merged }}
+        DOTSIDER_EVENT_PR_MERGEABLE: ${{ toJSON(github.event.pull_request.mergeable) }}
+        DOTSIDER_EVENT_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        DOTSIDER_EVENT_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        DOTSIDER_EVENT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         DOTSIDER_INPUT_TARGET: ${{ inputs.target }}
         DOTSIDER_INPUT_BASELINE: ${{ inputs.baseline }}
         DOTSIDER_INPUT_BASELINE_KEY: ${{ inputs.baseline-key }}

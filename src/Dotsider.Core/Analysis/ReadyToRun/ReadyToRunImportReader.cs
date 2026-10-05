@@ -167,14 +167,16 @@ internal sealed class ReadyToRunImportMap
 
         // The delay-load method-call thunk region (section 106) — named as a region in TryResolve.
         ulong thunkStart = 0, thunkEnd = 0;
-        foreach (var s in info.Sections.Where(s => s.Type == (int)ReadyToRunSectionType.DelayLoadMethodCallThunks && s.Size > 0))
+        var thunkRanges = info.Sections
+            .Where(section => section.Type == (int)ReadyToRunSectionType.DelayLoadMethodCallThunks && section.Size > 0)
+            .Select(section => NativeImageRange.TryAdd(imageBase, unchecked((uint)section.Rva), out var start)
+                && NativeImageRange.TryAdd(start, (uint)section.Size, out var end)
+                    ? (Valid: true, Start: start, End: end) : default)
+            .Where(range => range.Valid);
+        foreach (var (_, start, end) in thunkRanges)
         {
-            if (NativeImageRange.TryAdd(imageBase, unchecked((uint)s.Rva), out var start)
-                && NativeImageRange.TryAdd(start, (uint)s.Size, out var end))
-            {
-                thunkStart = start;
-                thunkEnd = end;
-            }
+            thunkStart = start;
+            thunkEnd = end;
         }
 
         return map.Count > 0 || thunkEnd > thunkStart

@@ -64,8 +64,7 @@ public static class ReadyToRunDisassembler
                     : instruction);
 
             text.Append(rangeText);
-            foreach (var c in rangeText.Where(c => c == '\n'))
-                newlineOffset++;
+            newlineOffset += rangeText.Count(c => c == '\n');
             rendered = true;
         }
 

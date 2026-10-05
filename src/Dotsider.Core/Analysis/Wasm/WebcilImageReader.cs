@@ -576,7 +576,7 @@ internal sealed class WebcilImageReader
     {
         offset = 0;
         available = 0;
-        foreach (WebcilSection section in sections.Where(section => !(rva < section.VirtualAddress)))
+        foreach (WebcilSection section in sections.Where(section => rva >= section.VirtualAddress))
         {
 
             uint delta = rva - section.VirtualAddress;

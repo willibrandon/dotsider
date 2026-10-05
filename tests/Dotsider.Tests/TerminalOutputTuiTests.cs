@@ -82,8 +82,8 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
             }
             finally
             {
-                using (var stateScope = state)
                 {
+                    using var stateScope = state;
                     state = null;
                 }
                 File.Delete(assemblyPath);
@@ -163,8 +163,8 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
             }
             finally
             {
-                using (var stateScope = state)
                 {
+                    using var stateScope = state;
                     state = null;
                 }
                 File.Delete(assemblyPath);

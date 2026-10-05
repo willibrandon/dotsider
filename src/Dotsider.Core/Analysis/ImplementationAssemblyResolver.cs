@@ -922,22 +922,16 @@ public static class ImplementationAssemblyResolver
                 // on the assembly definition and never have IL bodies.
                 if (reader.IsAssembly)
                 {
-                    foreach (var attr in reader.GetCustomAttributes(EntityHandle.AssemblyDefinition).Select(handle => reader.GetCustomAttribute(handle)))
-                    {
-                        if (attr.Constructor.Kind == HandleKind.MemberReference)
-                        {
-                            var ctor = reader.GetMemberReference((MemberReferenceHandle)attr.Constructor);
-                            if (ctor.Parent.Kind == HandleKind.TypeReference)
-                            {
-                                var typeRef = reader.GetTypeReference((TypeReferenceHandle)ctor.Parent);
-                                if (reader.GetString(typeRef.Name) == "ReferenceAssemblyAttribute"
-                                    && reader.GetString(typeRef.Namespace) == "System.Runtime.CompilerServices")
-                                {
-                                    return false;
-                                }
-                            }
-                        }
-                    }
+                    var referenceAssemblyAttribute = reader.GetCustomAttributes(EntityHandle.AssemblyDefinition)
+                        .Select(reader.GetCustomAttribute)
+                        .Where(attribute => attribute.Constructor.Kind == HandleKind.MemberReference)
+                        .Select(attribute => reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor))
+                        .Where(constructor => constructor.Parent.Kind == HandleKind.TypeReference)
+                        .Select(constructor => reader.GetTypeReference((TypeReferenceHandle)constructor.Parent))
+                        .Any(type => reader.GetString(type.Name) == "ReferenceAssemblyAttribute"
+                            && reader.GetString(type.Namespace) == "System.Runtime.CompilerServices");
+                    if (referenceAssemblyAttribute)
+                        return false;
                 }
 
                 // Stub assemblies (e.g. mscorlib) have metadata and type forwarders
