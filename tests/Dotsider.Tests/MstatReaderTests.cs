@@ -397,9 +397,8 @@ public class MstatReaderTests
     {
         byte[]? methodsIl = null;
         var module = reader.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
-        foreach (var handle in module.GetMethods())
+        foreach (var method in module.GetMethods().Select(handle => reader.GetMethodDefinition(handle)))
         {
-            var method = reader.GetMethodDefinition(handle);
             if (reader.GetString(method.Name) == "Methods")
             {
                 methodsIl = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();

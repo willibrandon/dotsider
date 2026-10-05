@@ -28,11 +28,11 @@ public sealed class DgmlGraph
         // CSR-style reverse adjacency: for each node, the indices of its incoming links.
         // Links with endpoints that resolve to no node are kept in Links but not indexed.
         var counts = new int[nodes.Count + 1];
-        foreach (var link in links)
-        {
-            if (_indexById.TryGetValue(link.TargetId, out var target) && _indexById.ContainsKey(link.SourceId))
-                counts[target + 1]++;
-        }
+        foreach (var target in links
+                     .Where(link => _indexById.ContainsKey(link.SourceId))
+                     .Select(link => _indexById.GetValueOrDefault(link.TargetId, -1))
+                     .Where(target => target >= 0))
+            counts[target + 1]++;
 
         for (var i = 1; i < counts.Length; i++)
             counts[i] += counts[i - 1];

@@ -638,9 +638,8 @@ internal class SampleAssemblyFixture
             _repoRoot, "samples", project, artifactsDirectory, "publish", project);
         if (!Directory.Exists(publishRoot)) return null;
 
-        foreach (var pivotDir in Directory.GetDirectories(publishRoot))
+        foreach (var candidate in Directory.GetDirectories(publishRoot).Select(pivotDir => Path.Join(pivotDir, fileName)))
         {
-            var candidate = Path.Join(pivotDir, fileName);
             if (File.Exists(candidate)) return candidate;
         }
 
@@ -715,7 +714,7 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var sharesOutputWithMcpTests =
                 projectName.Equals("NativeAotConsole", StringComparison.Ordinal) ||
@@ -768,10 +767,6 @@ internal class SampleAssemblyFixture
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     /// <summary>
@@ -800,7 +795,7 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDir = Path.Join(_repoRoot, relativePath);
             var projectName = Path.GetFileName(projectDir);
@@ -844,10 +839,6 @@ internal class SampleAssemblyFixture
                 File.Delete(imagePath);
             // A non-zero exit means crossgen2 is unavailable for this RID; leave the outputs absent.
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     /// <summary>
@@ -878,7 +869,7 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
@@ -914,10 +905,6 @@ internal class SampleAssemblyFixture
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // A non-zero exit means wasm-tools is unavailable; leave the outputs absent.
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 
@@ -958,7 +945,7 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (Dotsider.Core.Analysis.SingleFileBundleReader.IsBundle(expectedOutput, out _) &&
@@ -992,10 +979,6 @@ internal class SampleAssemblyFixture
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task BuildProject(string relativePath)
@@ -1020,7 +1003,7 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDir = Path.Join(_repoRoot, relativePath);
             var projectName = Path.GetFileName(projectDir);
@@ -1060,10 +1043,6 @@ internal class SampleAssemblyFixture
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
                     $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 

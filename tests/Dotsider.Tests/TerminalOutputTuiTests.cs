@@ -22,7 +22,7 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
     public async Task StringsView_ControlPayload_RendersVisibleTextWithoutTerminalEffects()
     {
         var assemblyPath = CreateSyntheticAssembly();
-        var workload = new Hex1bAppWorkloadAdapter();
+        using var workload = new Hex1bAppWorkloadAdapter();
         using var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
         using var terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(workload)
@@ -48,6 +48,7 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
                 WorkloadAdapter = clipboard
             });
 
+        using var appScope = app;
         var runTask = app.RunAsync(_testContext.CancellationToken);
         try
         {
@@ -81,8 +82,10 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
             }
             finally
             {
-                state?.Dispose();
-                app.Dispose();
+                using (var stateScope = state)
+                {
+                    state = null;
+                }
                 File.Delete(assemblyPath);
             }
         }
@@ -97,7 +100,7 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
     public async Task PeMetadataView_ControlNames_RenderVisibleTextWithoutTerminalEffects()
     {
         var assemblyPath = CreateSyntheticAssembly();
-        var workload = new Hex1bAppWorkloadAdapter();
+        using var workload = new Hex1bAppWorkloadAdapter();
         using var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
         using var terminal = Hex1bTerminal.CreateBuilder()
             .WithWorkload(workload)
@@ -124,6 +127,7 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
                 WorkloadAdapter = clipboard
             });
 
+        using var appScope = app;
         var runTask = app.RunAsync(_testContext.CancellationToken);
         try
         {
@@ -159,8 +163,10 @@ public sealed class TerminalOutputTuiTests(TestContext testContext)
             }
             finally
             {
-                state?.Dispose();
-                app.Dispose();
+                using (var stateScope = state)
+                {
+                    state = null;
+                }
                 File.Delete(assemblyPath);
             }
         }

@@ -31,17 +31,13 @@ public sealed class IlSourceLinkDecorationProvider : ITextDecorationProvider
             return [];
 
         var spans = new List<TextDecorationSpan>();
-        foreach (var instruction in Instructions)
+        foreach (var markerLine in Instructions
+                     .Where(instruction => instruction.DisplayLine.HasValue
+                         && instruction.SequenceStartLine is not null
+                         && !string.IsNullOrWhiteSpace(instruction.SourceLinkUrl))
+                     .Select(instruction => instruction.DisplayLine.GetValueOrDefault() - 1)
+                     .Where(line => line >= startLine && line <= endLine && line >= 1 && line <= document.LineCount))
         {
-            if (instruction.DisplayLine is not { } instructionLine
-                || instruction.SequenceStartLine is null
-                || string.IsNullOrWhiteSpace(instruction.SourceLinkUrl))
-                continue;
-
-            var markerLine = instructionLine - 1;
-            if (markerLine < startLine || markerLine > endLine || markerLine < 1
-                || markerLine > document.LineCount)
-                continue;
 
             var lineText = document.GetLineText(markerLine);
             var markerStart = lineText.IndexOf(SourceLinkMarker, StringComparison.Ordinal);

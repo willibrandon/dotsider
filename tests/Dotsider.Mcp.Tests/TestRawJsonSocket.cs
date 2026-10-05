@@ -150,6 +150,7 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
     private async Task DisposeCoreAsync()
     {
         _cts.Cancel();
+        using var cancellationScope = _cts;
         _listener.Dispose();
 
         try
@@ -161,8 +162,6 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
         }
         finally
         {
-            _cts.Dispose();
-
             if (File.Exists(_socketPath))
             {
                 File.Delete(_socketPath);

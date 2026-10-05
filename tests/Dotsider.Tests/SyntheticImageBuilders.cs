@@ -74,6 +74,37 @@ internal static class SyntheticImageBuilders
         return b;
     }
 
+    private static byte[] BuildMsfDirectory(List<byte[]?> allStreams, List<int[]> streamBlockLists)
+    {
+        // Directory bytes: numStreams, sizes, then per-stream block lists.
+        var dir = new List<byte>();
+        void PutI32(List<byte> b, int v) { Span<byte> t = stackalloc byte[4]; BinaryPrimitives.WriteInt32LittleEndian(t, v); b.AddRange(t); }
+        PutI32(dir, allStreams.Count);
+        for (var i = 0; i < allStreams.Count; i++)
+            PutI32(dir, allStreams[i] is null ? unchecked((int)0xFFFFFFFF) : allStreams[i]!.Length);
+        for (var i = 0; i < allStreams.Count; i++)
+            foreach (var block in streamBlockLists[i]) PutI32(dir, block);
+
+        return [.. dir];
+    }
+
+    private static void WriteMsfStreams(byte[] image, List<byte[]?> allStreams,
+        List<int[]> streamBlockLists, int blockSize)
+    {
+        // Stream data.
+        for (var i = 0; i < allStreams.Count; i++)
+        {
+            var s = allStreams[i];
+            if (s is null) continue;
+            for (var j = 0; j < streamBlockLists[i].Length; j++)
+            {
+                var off = j * blockSize;
+                var n = Math.Min(blockSize, s.Length - off);
+                s.AsSpan(off, n).CopyTo(image.AsSpan(streamBlockLists[i][j] * blockSize));
+            }
+        }
+    }
+
     /// <summary>
     /// Builds a minimal MSF 7.0 container with a multi-block stream directory and the given
     /// stream contents. Stream 0 is empty; the supplied streams follow as streams 1..n. A nil
@@ -102,16 +133,7 @@ internal static class SyntheticImageBuilders
             streamBlockLists.Add(list);
         }
 
-        // Directory bytes: numStreams, sizes, then per-stream block lists.
-        var dir = new List<byte>();
-        void PutI32(List<byte> b, int v) { Span<byte> t = stackalloc byte[4]; BinaryPrimitives.WriteInt32LittleEndian(t, v); b.AddRange(t); }
-        PutI32(dir, allStreams.Count);
-        for (var i = 0; i < allStreams.Count; i++)
-            PutI32(dir, allStreams[i] is null ? unchecked((int)0xFFFFFFFF) : allStreams[i]!.Length);
-        for (var i = 0; i < allStreams.Count; i++)
-            foreach (var block in streamBlockLists[i]) PutI32(dir, block);
-
-        var directoryBytes = dir.ToArray();
+        var directoryBytes = BuildMsfDirectory(allStreams, streamBlockLists);
         var directoryBlockCount = BlockCount(directoryBytes.Length);
         var directoryFirstBlock = nextBlock;
         nextBlock += directoryBlockCount;
@@ -128,18 +150,7 @@ internal static class SyntheticImageBuilders
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(44), directoryBytes.Length);
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(52), blockMapBlock);
 
-        // Stream data.
-        for (var i = 0; i < allStreams.Count; i++)
-        {
-            var s = allStreams[i];
-            if (s is null) continue;
-            for (var j = 0; j < streamBlockLists[i].Length; j++)
-            {
-                var off = j * blockSize;
-                var n = Math.Min(blockSize, s.Length - off);
-                s.AsSpan(off, n).CopyTo(image.AsSpan(streamBlockLists[i][j] * blockSize));
-            }
-        }
+        WriteMsfStreams(image, allStreams, streamBlockLists, blockSize);
 
         // Directory blocks.
         for (var i = 0; i < directoryBlockCount; i++)

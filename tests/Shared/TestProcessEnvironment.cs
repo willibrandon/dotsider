@@ -151,9 +151,8 @@ internal static class TestProcessEnvironment
             "global.json",
             "NuGet.config",
         ];
-        foreach (string inputName in sharedInputNames)
+        foreach (var inputPath in sharedInputNames.Select(inputName => Path.Join(repositoryRoot, inputName)))
         {
-            string inputPath = Path.Join(repositoryRoot, inputName);
             if (File.Exists(inputPath))
                 yield return inputPath;
         }

@@ -137,7 +137,7 @@ public sealed class NuGetApp(NuGetState state)
             var browserSearch = _state.BrowserSearch;
             // Gate on BOTH browser and embedded DLL inspector input state
             var dllState = _state.SelectedDllState;
-            var dllSearch = dllState?.Search[dllState.CurrentTab];
+            var dllSearch = dllState is { } selectedDll ? selectedDll.Search[selectedDll.CurrentTab] : null;
             var dllSearchEditing = dllSearch is { IsActive: true, IsConfirmed: false };
             var hexInsertMode = dllState is { CurrentTab: TabId.HexDump, HexMode: HexEditMode.Insert };
             var hexJumpOpen = _state.SelectedDllState?.HexJumpDialogOpen == true;

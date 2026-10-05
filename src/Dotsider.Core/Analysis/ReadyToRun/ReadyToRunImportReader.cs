@@ -90,12 +90,11 @@ internal sealed class ReadyToRunImportMap
         if (analyzer.ReadyToRunInfo is not { Status: ReadyToRunStatus.Valid } info)
             return null;
         ReadyToRunSectionEntry? section = null;
-        foreach (var s in info.Sections)
-            if (s.Type == (int)ReadyToRunSectionType.ImportSections)
-            {
-                section = s;
-                break;
-            }
+        foreach (var s in info.Sections.Where(s => s.Type == (int)ReadyToRunSectionType.ImportSections))
+        {
+            section = s;
+            break;
+        }
 
         if (section is not { FileOffset: { } sectionOffset, Size: > 0 } sec)
             return null;
@@ -120,72 +119,63 @@ internal sealed class ReadyToRunImportMap
             or NativeArchitecture.Wasm32 ? 4 : 8;
 
         // Cross-module fixups (composite) resolve their token against the owning component's metadata.
+        using var providerOwners = new OwnedResources<AssemblyAnalyzer>();
         Dictionary<Guid, AssemblyAnalyzer>? transientProviders = null;
         var moduleContext = components is { Count: > 0 }
             ? ReadyToRunModuleContext.Create(
-                info, components, mvid => ResolveProvider(analyzer, components, providerFor, mvid, ref transientProviders))
+                info, components, mvid => ResolveProvider(analyzer, components, providerFor, mvid, ref transientProviders, providerOwners))
             : ReadyToRunModuleContext.ForImage(analyzer);
 
         var map = new Dictionary<ulong, string>();
-        try
+        var reader = new R2RNativeReader(analyzer.RawBytes);
+        var metadata = analyzer.GetMetadataReader();
+        var methodDefs = analyzer.MethodDefs;
+        var traversalBudget = new ReadyToRunTraversalBudget();
+        var recordCount = validatedSectionSize / ImportSectionRecordSize;
+        var record = validatedSectionOffset;
+        for (var recordIndex = 0; recordIndex < recordCount; recordIndex++)
         {
-            var reader = new R2RNativeReader(analyzer.RawBytes);
-            var metadata = analyzer.GetMetadataReader();
-            var methodDefs = analyzer.MethodDefs;
-            var traversalBudget = new ReadyToRunTraversalBudget();
-            var recordCount = validatedSectionSize / ImportSectionRecordSize;
-            var record = validatedSectionOffset;
-            for (var recordIndex = 0; recordIndex < recordCount; recordIndex++)
+            try
             {
-                try
-                {
-                    if (!ReadRecord(
-                            reader,
-                            record,
-                            imageBase,
-                            addressSpace,
-                            pointerSize,
-                            metadata,
-                            methodDefs,
-                            moduleContext,
-                            map,
-                            traversalBudget))
-                    {
-                        ReadyToRunDiagnostics.Write(
-                            $"import-budget-exhausted record=0x{record:X} "
-                            + $"limit={ReadyToRunTraversalBudget.MaximumWork}");
-                        break;
-                    }
-                }
-                catch (Exception exception) when (IsMalformedImportException(exception))
+                if (!ReadRecord(
+                        reader,
+                        record,
+                        imageBase,
+                        addressSpace,
+                        pointerSize,
+                        metadata,
+                        methodDefs,
+                        moduleContext,
+                        map,
+                        traversalBudget))
                 {
                     ReadyToRunDiagnostics.Write(
-                        $"import-record-rejected record=0x{record:X} "
-                        + $"exception={exception.GetType().Name} message={exception.Message}");
+                        $"import-budget-exhausted record=0x{record:X} "
+                        + $"limit={ReadyToRunTraversalBudget.MaximumWork}");
+                    break;
                 }
-
-                record += ImportSectionRecordSize;
             }
-        }
-        finally
-        {
-            if (transientProviders is not null)
-                foreach (var provider in transientProviders.Values)
-                    provider.Dispose();
+            catch (Exception exception) when (IsMalformedImportException(exception))
+            {
+                ReadyToRunDiagnostics.Write(
+                    $"import-record-rejected record=0x{record:X} "
+                    + $"exception={exception.GetType().Name} message={exception.Message}");
+            }
+
+            record += ImportSectionRecordSize;
         }
 
         // The delay-load method-call thunk region (section 106) — named as a region in TryResolve.
         ulong thunkStart = 0, thunkEnd = 0;
-        foreach (var s in info.Sections)
-            if (s.Type == (int)ReadyToRunSectionType.DelayLoadMethodCallThunks && s.Size > 0)
+        foreach (var s in info.Sections.Where(s => s.Type == (int)ReadyToRunSectionType.DelayLoadMethodCallThunks && s.Size > 0))
+        {
+            if (NativeImageRange.TryAdd(imageBase, unchecked((uint)s.Rva), out var start)
+                && NativeImageRange.TryAdd(start, (uint)s.Size, out var end))
             {
-                if (NativeImageRange.TryAdd(imageBase, unchecked((uint)s.Rva), out var start)
-                    && NativeImageRange.TryAdd(start, (uint)s.Size, out var end))
-                {
-                    thunkStart = start;
-                    thunkEnd = end;
-                }
+                thunkStart = start;
+                thunkEnd = end;
             }
+        }
 
         return map.Count > 0 || thunkEnd > thunkStart
             ? new ReadyToRunImportMap(map, thunkStart, thunkEnd)
@@ -197,7 +187,8 @@ internal sealed class ReadyToRunImportMap
         IReadOnlyList<ReadyToRunComponent> components,
         Func<Guid, AssemblyAnalyzer?>? providerFor,
         Guid mvid,
-        ref Dictionary<Guid, AssemblyAnalyzer>? transientProviders)
+        ref Dictionary<Guid, AssemblyAnalyzer>? transientProviders,
+        OwnedResources<AssemblyAnalyzer> providerOwners)
     {
         if (transientProviders is not null && transientProviders.TryGetValue(mvid, out var cached))
         {
@@ -230,7 +221,7 @@ internal sealed class ReadyToRunImportMap
             return null;
 
         transientProviders ??= [];
-        transientProviders[mvid] = opened;
+        transientProviders[mvid] = providerOwners.Add(opened);
         return opened;
     }
 

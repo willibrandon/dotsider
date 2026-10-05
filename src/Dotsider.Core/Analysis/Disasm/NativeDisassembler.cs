@@ -519,11 +519,11 @@ public static class NativeDisassembler
 
         // Addresses that are the target of an intra-function label get a "loc_…:" line above them.
         var labels = new HashSet<ulong>();
-        foreach (var insn in instructions)
-        {
-            if (insn.TargetKind == NativeTargetKind.LocalLabel && insn.TargetAddress is { } t)
-                labels.Add(t);
-        }
+        labels.UnionWith(instructions
+            .Where(insn => insn.TargetKind == NativeTargetKind.LocalLabel)
+            .Select(insn => insn.TargetAddress)
+            .Where(address => address.HasValue)
+            .Select(address => address.GetValueOrDefault()));
 
         var rendered = new List<NativeInstruction>(instructions.Count);
         var lastLine = 0;

@@ -71,7 +71,6 @@ public class HexSaveStressTests : IDisposable
         Directory.CreateDirectory(tempDir);
         var tempDll = Path.Join(tempDir, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, tempDll);
-        FileStream? fileLock = null;
 
         try
         {
@@ -93,11 +92,10 @@ public class HexSaveStressTests : IDisposable
             // Unix:    pre-create the .tmp file so Phase 1 can still write
             //          to it, then remove directory write permission so
             //          rename() fails with EACCES.
-            if (OperatingSystem.IsWindows())
-            {
-                fileLock = new FileStream(tempDll, FileMode.Open, FileAccess.Read, FileShare.Read);
-            }
-            else
+            using var fileLock = OperatingSystem.IsWindows()
+                ? new FileStream(tempDll, FileMode.Open, FileAccess.Read, FileShare.Read)
+                : null;
+            if (!OperatingSystem.IsWindows())
             {
                 File.WriteAllBytes(tempDll + ".tmp", []);
                 File.SetUnixFileMode(tempDir,
@@ -121,7 +119,6 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            fileLock?.Dispose();
             if (!OperatingSystem.IsWindows())
             {
                 try

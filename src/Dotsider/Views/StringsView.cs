@@ -154,36 +154,34 @@ public static class StringsView
 
                 // Left/Right arrows to switch sub-tabs. Detail popups behave modally,
                 // so their editor/click-away surface owns navigation while open.
-                if (!isSearchEditing && state.StringsDetailContent is null)
+                if (!isSearchEditing && state.StringsDetailContent is null
+                    && state.App.FocusedNode is not EditorNode)
                 {
-                    if (state.App.FocusedNode is not EditorNode)
+                    bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
                     {
-                        bindings.Key(Hex1bKey.LeftArrow).Global().Action(_ =>
+                        state.VimPending = VimMotionState.Idle;
+                        if (state.StringsSourceTab > 0)
                         {
-                            state.VimPending = VimMotionState.Idle;
-                            if (state.StringsSourceTab > 0)
-                            {
-                                state.StringsSourceTab--;
-                                search.Reset();
-                                state.StringsFocusedKey = null;
-                                state.RequestContentFocus();
-                                state.App.Invalidate();
-                            }
-                        }, "Previous sub-tab");
+                            state.StringsSourceTab--;
+                            search.Reset();
+                            state.StringsFocusedKey = null;
+                            state.RequestContentFocus();
+                            state.App.Invalidate();
+                        }
+                    }, "Previous sub-tab");
 
-                        bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                    bindings.Key(Hex1bKey.RightArrow).Global().Action(_ =>
+                    {
+                        state.VimPending = VimMotionState.Idle;
+                        if (state.StringsSourceTab < StringsSubTabId.Count - 1)
                         {
-                            state.VimPending = VimMotionState.Idle;
-                            if (state.StringsSourceTab < StringsSubTabId.Count - 1)
-                            {
-                                state.StringsSourceTab++;
+                            state.StringsSourceTab++;
                             search.Reset();
                             state.StringsFocusedKey = null;
                             state.RequestContentFocus();
                             state.App.Invalidate();
                         }
                     }, "Next sub-tab");
-                    }
                 }
 
                 bindings.Key(Hex1bKey.OemPlus).Action(_ =>

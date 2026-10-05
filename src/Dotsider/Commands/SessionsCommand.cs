@@ -171,23 +171,23 @@ internal static class SessionsCommand
             }
             else
             {
-                var info = infoResponse.Data;
+                var info = infoResponse.Data ?? default;
                 var view = viewResponse.Data;
 
                 formatter.WriteLine($"PID:        {pid}");
-                formatter.WriteLine($"File:       {info?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
-                formatter.WriteLine($"Assembly:   {info?.GetPropertyOrNull("assemblyName")?.GetString() ?? ""}");
-                formatter.WriteLine($"Version:    {info?.GetPropertyOrNull("assemblyVersion")?.GetString() ?? ""}");
-                formatter.WriteLine($"Framework:  {info?.GetPropertyOrNull("targetFramework")?.GetString() ?? ""}");
-                formatter.WriteLine($"Arch:       {info?.GetPropertyOrNull("architecture")?.GetString() ?? ""}");
-                formatter.WriteLine($"Types:      {info?.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
-                formatter.WriteLine($"Methods:    {info?.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine($"File:       {info.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
+                formatter.WriteLine($"Assembly:   {info.GetPropertyOrNull("assemblyName")?.GetString() ?? ""}");
+                formatter.WriteLine($"Version:    {info.GetPropertyOrNull("assemblyVersion")?.GetString() ?? ""}");
+                formatter.WriteLine($"Framework:  {info.GetPropertyOrNull("targetFramework")?.GetString() ?? ""}");
+                formatter.WriteLine($"Arch:       {info.GetPropertyOrNull("architecture")?.GetString() ?? ""}");
+                formatter.WriteLine($"Types:      {info.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine($"Methods:    {info.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
                 formatter.WriteLine("");
-                var displayName = info?.GetPropertyOrNull("displayName")?.GetString();
-                if (displayName is not null && displayName != info?.GetPropertyOrNull("fileName")?.GetString())
+                var displayName = info.GetPropertyOrNull("displayName")?.GetString();
+                if (displayName is not null && displayName != info.GetPropertyOrNull("fileName")?.GetString())
                     formatter.WriteLine($"Display:    {displayName} (from bundle)");
 
-                var runtimePack = info?.GetPropertyOrNull("preferredRuntimePack")?.GetString();
+                var runtimePack = info.GetPropertyOrNull("preferredRuntimePack")?.GetString();
                 if (runtimePack is not null)
                     formatter.WriteLine($"Runtime Pack: {runtimePack}");
 

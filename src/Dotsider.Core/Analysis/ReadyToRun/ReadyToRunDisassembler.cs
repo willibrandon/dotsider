@@ -42,15 +42,14 @@ public static class ReadyToRunDisassembler
         var newlineOffset = 0; // lines already emitted, so each block's DisplayLine re-bases into the joined document
         var rendered = false;
 
-        foreach (var range in entry.CodeRanges)
+        foreach (var (rangeText, rangeInstructions, _) in entry.CodeRanges
+                     .Select(range => info.TryFindByAddress(range.VirtualAddress, out var symbol) ? symbol : null)
+                     .OfType<NativeSymbol>()
+                     .Select(symbol => NativeDisassembler.DisassembleSymbol(
+                         codeImage, symbol, managedNameResolver, readyToRunImportResolver))
+                     .Where(result => result.HasValue)
+                     .Select(result => result.GetValueOrDefault()))
         {
-            if (!info.TryFindByAddress(range.VirtualAddress, out var symbol))
-                continue;
-
-            var result = NativeDisassembler.DisassembleSymbol(
-                codeImage, symbol, managedNameResolver, readyToRunImportResolver);
-            if (result is not { } r)
-                continue;
 
             if (rendered)
             {
@@ -59,15 +58,14 @@ public static class ReadyToRunDisassembler
             }
 
             var offset = newlineOffset;
-            foreach (var instruction in r.Instructions)
+            foreach (var instruction in rangeInstructions)
                 instructions.Add(instruction.DisplayLine is { } line
                     ? instruction with { DisplayLine = line + offset }
                     : instruction);
 
-            text.Append(r.Text);
-            foreach (var c in r.Text)
-                if (c == '\n')
-                    newlineOffset++;
+            text.Append(rangeText);
+            foreach (var c in rangeText.Where(c => c == '\n'))
+                newlineOffset++;
             rendered = true;
         }
 

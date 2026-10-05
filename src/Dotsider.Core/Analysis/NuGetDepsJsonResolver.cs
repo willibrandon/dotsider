@@ -124,13 +124,11 @@ public static class NuGetDepsJsonResolver
         if (!root.TryGetProperty("targets", out var targets) || targets.ValueKind != JsonValueKind.Object)
             return false;
 
-        foreach (var target in targets.EnumerateObject())
+        foreach (var target in targets.EnumerateObject().Where(target => !(target.Value.ValueKind != JsonValueKind.Object)))
         {
-            if (target.Value.ValueKind != JsonValueKind.Object) continue;
 
-            foreach (var lib in target.Value.EnumerateObject())
+            foreach (var lib in target.Value.EnumerateObject().Where(lib => !(lib.Value.ValueKind != JsonValueKind.Object)))
             {
-                if (lib.Value.ValueKind != JsonValueKind.Object) continue;
                 if (!lib.Value.TryGetProperty("runtime", out var runtime) || runtime.ValueKind != JsonValueKind.Object)
                     continue;
 

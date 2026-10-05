@@ -272,7 +272,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
             var projectDirectory = Path.Join(_repoRoot, relativePath);
@@ -304,10 +304,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishSelfContainedProject(string relativePath)
@@ -336,7 +332,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
             var projectDirectory = Path.Join(_repoRoot, relativePath);
@@ -366,10 +362,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishReadyToRunProject(string relativePath)
@@ -395,7 +387,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
@@ -420,10 +412,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // A non-zero exit means crossgen2 is unavailable for this RID; the outputs stay absent.
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 
@@ -450,7 +438,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
@@ -477,10 +465,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             _ = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // A non-zero exit means wasm-tools is unavailable; the output stays absent.
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 
@@ -517,7 +501,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
             var projectDirectory = Path.Join(_repoRoot, relativePath);
@@ -554,10 +538,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 

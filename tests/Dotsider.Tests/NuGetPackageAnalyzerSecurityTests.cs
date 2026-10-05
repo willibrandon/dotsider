@@ -838,38 +838,40 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
 
                 try
                 {
-                    var openTask = Task.Factory.StartNew(
-                        () =>
-                        {
-                            barrier.SignalAndWait(cancellationToken);
-                            try
+                    using (package)
+                    {
+                        var openTask = Task.Factory.StartNew(
+                            () =>
                             {
-                                using var analyzer = package.OpenDll(entry);
-                                Assert.AreEqual("RichLibrary", analyzer.AssemblyName);
-                            }
-                            catch (ObjectDisposedException handledException)
+                                barrier.SignalAndWait(cancellationToken);
+                                try
+                                {
+                                    using var analyzer = package.OpenDll(entry);
+                                    Assert.AreEqual("RichLibrary", analyzer.AssemblyName);
+                                }
+                                catch (ObjectDisposedException handledException)
+                                {
+                                    System.Diagnostics.Trace.TraceInformation("OpenDll_RacingDispose_ProducesOnlySerializedOutcomes: {0}", handledException);
+                                }
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default);
+                        var disposeTask = Task.Factory.StartNew(
+                            () =>
                             {
-                                System.Diagnostics.Trace.TraceInformation("OpenDll_RacingDispose_ProducesOnlySerializedOutcomes: {0}", handledException);
-                            }
-                        },
-                        cancellationToken,
-                        TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default);
-                    var disposeTask = Task.Factory.StartNew(
-                        () =>
-                        {
-                            barrier.SignalAndWait(cancellationToken);
-                            package.Dispose();
-                        },
-                        cancellationToken,
-                        TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default);
+                                barrier.SignalAndWait(cancellationToken);
+                                package.Dispose();
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default);
 
-                    await Task.WhenAll(openTask, disposeTask).WaitAsync(cancellationToken);
+                        await Task.WhenAll(openTask, disposeTask).WaitAsync(cancellationToken);
+                    }
                 }
                 finally
                 {
-                    package.Dispose();
 
                     if (package.ExtractionDirectory is { } extractionDirectory)
                         DeleteDirectory(extractionDirectory);

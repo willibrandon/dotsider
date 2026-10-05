@@ -312,14 +312,12 @@ internal static class ElfImageReader
     internal static bool TryMapAddress(
         IReadOnlyList<ElfSection> sections, ulong va, out string sectionName, out long fileOffset)
     {
-        foreach (var section in sections)
-        {
-            if (section.Type == ShtNoBits
+        foreach (var section in sections.Where(section => !(section.Type == ShtNoBits
                 || section.Address == 0
                 || section.FileOffset < 0
                 || section.Size <= 0
-                || va < section.Address)
-                continue;
+                || va < section.Address)))
+        {
 
             var delta = va - section.Address;
             if (delta >= (ulong)section.Size

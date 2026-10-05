@@ -176,7 +176,9 @@ internal sealed class EventPipeRuntimeTracer(
         _cts = new CancellationTokenSource();
         _stopwatch = Stopwatch.StartNew();
         _diagnosticPort = CreateDiagnosticPort(out _diagnosticPortDirectory);
-        var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        using var connectOwner = new OwnedResource<CancellationTokenSource>(
+            CancellationTokenSource.CreateLinkedTokenSource(_cts.Token));
+        var connectCts = connectOwner.Value;
         connectCts.CancelAfter(ConnectTimeout);
         var connectorTask = DiagnosticsClientConnector.FromDiagnosticPort(_diagnosticPort, connectCts.Token);
 
@@ -199,7 +201,6 @@ internal sealed class EventPipeRuntimeTracer(
             }
 
             connectCts.Cancel();
-            connectCts.Dispose();
             MarkDirty();
             return;
         }
@@ -264,6 +265,7 @@ internal sealed class EventPipeRuntimeTracer(
         var providers = BuildProviders();
         _processingTask = Task.Factory.StartNew(async () =>
         {
+            using var processingCancellation = connectCts;
             try
             {
                 _connector = await connectorTask.ConfigureAwait(false);
@@ -336,13 +338,13 @@ internal sealed class EventPipeRuntimeTracer(
             }
             finally
             {
-                connectCts.Dispose();
                 DisposeDiagnosticConnector();
                 CleanupDiagnosticPort();
                 _stopwatch?.Stop();
                 _invalidate();
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
+        connectOwner.Release();
     }
 
     /// <summary>Stops the traced process and event collection.</summary>
@@ -785,11 +787,9 @@ internal sealed class EventPipeRuntimeTracer(
             if (TryGetDouble(payload, "Mean", out var meanValue))
                 _counterAccumulators[counterName] = meanValue;
         }
-        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetDouble(payload, "Increment", out var incrementValue))
-                _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
-        }
+        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase)
+            && TryGetDouble(payload, "Increment", out var incrementValue))
+            _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
 
         return BuildCounterSnapshot();
     }

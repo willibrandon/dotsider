@@ -24,11 +24,10 @@ internal sealed class StubHttpMessageHandler(
     {
         cancellationToken.ThrowIfCancellationRequested();
         RequestUris.Add(request.RequestUri!);
-        HttpResponseMessage response = responseFactory?.Invoke(request)
+        return Task.FromResult(responseFactory?.Invoke(request)
             ?? new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{\"data\":{\"result\":[{\"value\":[0,\"1.25\"]}]}}"),
-            };
-        return Task.FromResult(response);
+            });
     }
 }

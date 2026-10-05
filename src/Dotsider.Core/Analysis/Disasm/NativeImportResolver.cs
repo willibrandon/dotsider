@@ -138,12 +138,14 @@ public sealed class NativeImportResolver
             if (dynsym is null || dynstr is null) return null;
 
             var slots = new Dictionary<ulong, string>();
-            foreach (var relocSection in new string[] { ".rela.plt", ".rela.dyn" })
+            void MapSection(string sectionName)
             {
-                if (!ElfImageReader.TryGetSection(bytes, relocSection, out var section)) continue;
+                if (!ElfImageReader.TryGetSection(rawBytes.Span, sectionName, out var section)) return;
                 var relocs = Read(section);
                 if (relocs is not null) MapElfRelocations(relocs, dynsym, dynstr, slots);
             }
+            MapSection(".rela.plt");
+            MapSection(".rela.dyn");
 
             return slots.Count > 0 ? new NativeImportResolver(slots) : null;
         }
@@ -359,13 +361,11 @@ public sealed class NativeImportResolver
     private static int RvaToOffset(PEReader pe, int rva)
     {
         if (rva < 0) return -1;
-        foreach (var section in pe.PEHeaders.SectionHeaders)
-        {
-            if (section.VirtualAddress < 0
+        foreach (var section in pe.PEHeaders.SectionHeaders.Where(section => !(section.VirtualAddress < 0
                 || section.VirtualSize <= 0
                 || section.PointerToRawData < 0
-                || rva < section.VirtualAddress)
-                continue;
+                || rva < section.VirtualAddress)))
+        {
 
             var delta = (uint)(rva - section.VirtualAddress);
             if (delta >= (uint)section.VirtualSize

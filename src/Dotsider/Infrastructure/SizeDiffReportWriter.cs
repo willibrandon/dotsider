@@ -166,9 +166,10 @@ internal static class SizeDiffReportWriter
 
         if (ctx.WhyPaths is { } whyPaths)
         {
-            foreach (var c in rows)
+            foreach (var (c, path) in rows
+                         .Select(c => (Contributor: c, Path: whyPaths.GetValueOrDefault(c.FullPath) ?? []))
+                         .Where(entry => entry.Path.Count > 0))
             {
-                if (whyPaths.GetValueOrDefault(c.FullPath) is not { Count: > 0 } path) continue;
                 fmt.WriteLine($"  why {c.Name} (root first):");
                 for (var i = 0; i < path.Count; i++)
                 {

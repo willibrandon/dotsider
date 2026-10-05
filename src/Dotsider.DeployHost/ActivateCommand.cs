@@ -10,6 +10,9 @@ internal sealed class ActivateCommand(
     HttpClient httpClient,
     TextWriter writer)
 {
+    private static readonly string[] LegacySampleFiles = [".RichLibrary.dll.bak", ".RichLibrary.dll.sha256"];
+    private static readonly string[] LegacyScripts = ["caddy-report.sh", "integrity-check.sh"];
+
     /// <summary>
     /// Installs the candidate host, applies embedded assets, and activates deployed content.
     /// Service configuration is validated before it replaces installed files.
@@ -98,9 +101,8 @@ internal sealed class ActivateCommand(
 
     private static void DeleteLegacySampleFiles()
     {
-        foreach (string fileName in new[] { ".RichLibrary.dll.bak", ".RichLibrary.dll.sha256" })
+        foreach (var path in LegacySampleFiles.Select(fileName => Path.Join(DeployPaths.WebsiteDirectory, fileName)))
         {
-            string path = Path.Join(DeployPaths.WebsiteDirectory, fileName);
             if (File.Exists(path))
             {
                 File.Delete(path);
@@ -110,9 +112,8 @@ internal sealed class ActivateCommand(
 
     private static void DeleteLegacyScripts()
     {
-        foreach (string fileName in new[] { "caddy-report.sh", "integrity-check.sh" })
+        foreach (var path in LegacyScripts.Select(fileName => Path.Join(DeployPaths.WebsiteDirectory, fileName)))
         {
-            string path = Path.Join(DeployPaths.WebsiteDirectory, fileName);
             if (File.Exists(path))
             {
                 File.Delete(path);

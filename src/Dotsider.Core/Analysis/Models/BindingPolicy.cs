@@ -160,9 +160,8 @@ public sealed record BindingPolicy(
     {
         if (!Version.TryParse(effective.Version, out var version))
             return null;
-        foreach (var cb in CodeBases)
+        foreach (var cb in CodeBases.Where(cb => string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)))
         {
-            if (!string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)) continue;
             if (!PktEquals(cb.PublicKeyToken, effective.PublicKeyToken)) continue;
             if (!CultureEquals(cb.Culture, effective.Culture)) continue;
             if (cb.Version == version) return cb;
@@ -391,9 +390,8 @@ public sealed record BindingPolicy(
             Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
             Environment.GetEnvironmentVariable("ProgramFiles"),
         };
-        foreach (var root in roots)
+        foreach (var root in roots.Where(root => !(string.IsNullOrEmpty(root))))
         {
-            if (string.IsNullOrEmpty(root)) continue;
             var frameworkRoot = Path.Join(root!, "Reference Assemblies", "Microsoft", "Framework");
             if (!Directory.Exists(frameworkRoot)) continue;
 
@@ -459,9 +457,8 @@ public sealed record BindingPolicy(
         catch (UnauthorizedAccessException) { return; }
         catch (IOException) { return; }
 
-        foreach (var file in files)
+        foreach (var identity in files.Select(file => TryReadAssemblyIdentity(file)))
         {
-            var identity = TryReadAssemblyIdentity(file);
             if (identity is null) continue;
             if (string.IsNullOrEmpty(identity.Value.PublicKeyToken)) continue;
             if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.Value.PublicKeyToken!))
@@ -490,12 +487,10 @@ public sealed record BindingPolicy(
             ? ["GAC_MSIL", archSubdir, "GAC"]
             : ["GAC_MSIL", archSubdir];
 
-        foreach (var root in gacRoots)
+        foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            if (!Directory.Exists(root)) continue;
-            foreach (var gacSubdir in subdirs)
+            foreach (var gacPath in subdirs.Select(gacSubdir => Path.Join(root, gacSubdir)))
             {
-                var gacPath = Path.Join(root, gacSubdir);
                 if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> nameDirs;
                 try { nameDirs = Directory.EnumerateDirectories(gacPath); }
@@ -516,9 +511,8 @@ public sealed record BindingPolicy(
                     catch (UnauthorizedAccessException) { continue; }
                     catch (IOException) { continue; }
 
-                    foreach (var tokenDir in tokenDirs)
+                    foreach (var token in tokenDirs.Select(tokenDir => Path.GetFileName(tokenDir)))
                     {
-                        var token = Path.GetFileName(tokenDir);
                         if (!TryParseGacToken(token, runtimeVersion, out var version, out var pkt)) continue;
                         if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(pkt!)) continue;
                         var key = (simpleName, pkt!);
@@ -628,13 +622,10 @@ public sealed record BindingPolicy(
             // AppDomain regardless of <dependentAssembly> blocks. Capture per-document and
             // surface it via the parse result so BindingPolicy can flip the global flag.
             var globalPublisherPolicyDisabled = false;
-            foreach (var pp in runtime.Elements().Where(e => e.Name.LocalName == "publisherPolicy"))
+            foreach (var pp in runtime.Elements().Where(e => e.Name.LocalName == "publisherPolicy").Where(pp => string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase)))
             {
-                if (string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase))
-                {
-                    globalPublisherPolicyDisabled = true;
-                    anyGlobalDisable = true;
-                }
+                globalPublisherPolicyDisabled = true;
+                anyGlobalDisable = true;
             }
 
             foreach (var binding in runtime.Elements().Where(e => e.Name.LocalName == "assemblyBinding"))
@@ -687,11 +678,8 @@ public sealed record BindingPolicy(
 
         // Per-dependentAssembly <publisherPolicy apply="no"/>.
         var localPublisherPolicyDisabled = false;
-        foreach (var pp in dependent.Elements().Where(e => e.Name.LocalName == "publisherPolicy"))
-        {
-            if (string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase))
-                localPublisherPolicyDisabled = true;
-        }
+        foreach (var pp in dependent.Elements().Where(e => e.Name.LocalName == "publisherPolicy").Where(pp => string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase)))
+            localPublisherPolicyDisabled = true;
         if (globalPublisherPolicyDisabled || localPublisherPolicyDisabled)
             disabled.Add((name, pkt, culture));
 
@@ -780,12 +768,10 @@ public sealed record BindingPolicy(
         string[] subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
             ? ["GAC_MSIL", archSubdir, "GAC"]
             : ["GAC_MSIL", archSubdir];
-        foreach (var root in gacRoots)
+        foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            if (!Directory.Exists(root)) continue;
-            foreach (var subdir in subdirs)
+            foreach (var gacPath in subdirs.Select(subdir => Path.Join(root, subdir)))
             {
-                var gacPath = Path.Join(root, subdir);
                 if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> policyFamilies;
                 try

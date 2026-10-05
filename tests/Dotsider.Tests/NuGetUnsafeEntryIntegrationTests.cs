@@ -50,8 +50,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 (unsafeEntryPath, assemblyBytes),
                 (safeEntryPath, assemblyBytes));
 
-            var workload = new Hex1bAppWorkloadAdapter();
-            var terminal = Hex1bTerminal.CreateBuilder()
+            using var workload = new Hex1bAppWorkloadAdapter();
+            using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithWorkload(workload)
                 .WithHeadless()
                 .WithDimensions(120, 30)
@@ -72,6 +72,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                     WorkloadAdapter = workload
                 });
 
+            using var appScope = app;
             var runTask = app.RunAsync(cancellationToken);
             string? extractedPath = null;
             string? extractionRoot = null;
@@ -154,16 +155,10 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    try
+                    using (var stateScope = state)
                     {
-                        state?.Dispose();
-                        state?.Dispose();
-                    }
-                    finally
-                    {
-                        app.Dispose();
-                        terminal.Dispose();
-                        workload.Dispose();
+                        state?.Dispose(); // Exercise idempotent package cleanup.
+                        state = null;
                     }
                 }
             }
@@ -227,9 +222,9 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 RawDescription,
                 (entryPath, []));
 
-            var workload = new Hex1bAppWorkloadAdapter();
-            var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
-            var terminal = Hex1bTerminal.CreateBuilder()
+            using var workload = new Hex1bAppWorkloadAdapter();
+            using var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
+            using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithWorkload(workload)
                 .WithHeadless()
                 .WithDimensions(120, 30)
@@ -250,6 +245,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                     WorkloadAdapter = clipboard
                 });
 
+            using var appScope = app;
             var runTask = app.RunAsync(cancellationToken);
             var rawMetadataRendered = false;
             try
@@ -311,15 +307,9 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    try
+                    using (var stateScope = state)
                     {
-                        state?.Dispose();
-                    }
-                    finally
-                    {
-                        app.Dispose();
-                        terminal.Dispose();
-                        clipboard.Dispose();
+                        state = null;
                     }
                 }
             }

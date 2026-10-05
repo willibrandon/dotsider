@@ -218,8 +218,10 @@ public class PreIlcOfferTests : IDisposable
         }
         finally
         {
-            _state?.Dispose();
-            _state = null;
+            using (_state)
+            {
+                _state = null;
+            }
             try { Directory.Delete(tempDir, recursive: true); }
             catch (IOException handledException)
             {

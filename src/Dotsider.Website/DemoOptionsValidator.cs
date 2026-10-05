@@ -31,15 +31,12 @@ internal sealed class DemoOptionsValidator : IValidateOptions<DemoOptions>
         }
         else
         {
-            foreach (var trustedProxy in options.TrustedProxies)
+            foreach (var trustedProxy in options.TrustedProxies.Where(trustedProxy => string.IsNullOrWhiteSpace(trustedProxy)
+                    || !IPAddress.TryParse(trustedProxy, out _)))
             {
-                if (string.IsNullOrWhiteSpace(trustedProxy)
-                    || !IPAddress.TryParse(trustedProxy, out _))
-                {
-                    failures.Add(
-                        $"Demo:TrustedProxies contains an invalid IP address: " +
-                        $"'{trustedProxy ?? "(null)"}'.");
-                }
+                failures.Add(
+                    $"Demo:TrustedProxies contains an invalid IP address: " +
+                    $"'{trustedProxy ?? "(null)"}'.");
             }
         }
 

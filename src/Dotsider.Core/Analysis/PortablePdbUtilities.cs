@@ -14,9 +14,8 @@ internal static class PortablePdbUtilities
     {
         if (pdbReader is null) return new SourceLinkInfo([]);
 
-        foreach (var handle in pdbReader.CustomDebugInformation)
+        foreach (var info in pdbReader.CustomDebugInformation.Select(handle => pdbReader.GetCustomDebugInformation(handle)))
         {
-            var info = pdbReader.GetCustomDebugInformation(handle);
             if (pdbReader.GetGuid(info.Kind) != SourceLinkKind)
                 continue;
 
@@ -28,15 +27,11 @@ internal static class PortablePdbUtilities
                     || documents.ValueKind != JsonValueKind.Object)
                     return new SourceLinkInfo([]);
 
-                var mappings = new List<SourceLinkMapping>();
-                foreach (var property in documents.EnumerateObject())
-                {
-                    if (property.Value.ValueKind == JsonValueKind.String
-                        && property.Value.GetString() is { Length: > 0 } url)
-                    {
-                        mappings.Add(new SourceLinkMapping(property.Name, url));
-                    }
-                }
+                var mappings = documents.EnumerateObject()
+                    .Where(property => property.Value.ValueKind == JsonValueKind.String)
+                    .Select(property => new SourceLinkMapping(property.Name, property.Value.GetString() ?? ""))
+                    .Where(mapping => mapping.UrlTemplate.Length > 0)
+                    .ToList();
 
                 return new SourceLinkInfo(mappings);
             }

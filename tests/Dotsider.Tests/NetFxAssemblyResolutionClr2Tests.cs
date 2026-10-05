@@ -60,9 +60,8 @@ public sealed class NetFxAssemblyResolutionClr2Tests
 
         // No Unresolved or IdentityMismatch leaves anywhere in the graph (the sample is
         // self-contained — every reference is reachable on this Windows host).
-        foreach (var node in graph.Nodes)
+        foreach (var nav in graph.Nodes.Select(node => graph.NavigationById[node.Id]))
         {
-            var nav = graph.NavigationById[node.Id];
             Assert.AreNotEqual(AssemblyProvenance.Unresolved, nav.Provenance);
             Assert.AreNotEqual(AssemblyProvenance.IdentityMismatch, nav.Provenance);
         }

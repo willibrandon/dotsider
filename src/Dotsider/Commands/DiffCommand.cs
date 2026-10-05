@@ -127,6 +127,7 @@ internal static class DiffCommand
     private static async Task<int> RunSizeDiffTui(
         MstatSource leftSource, MstatSource rightSource, int escTimeoutMs, CancellationToken ct)
     {
+        using var states = new OwnedResources<SizeDiffState>();
         SizeDiffState? capturedState = null;
 
         await using var diagnosticsListener = new DotsiderDiagnosticsListener(
@@ -186,13 +187,14 @@ internal static class DiffCommand
         {
             if (capturedState is null)
             {
-                var state = new SizeDiffState(hex1bApp!, leftSource, rightSource);
+                var state = states.Add(new SizeDiffState(hex1bApp!, leftSource, rightSource));
                 capturedState = state;
                 sizeDiffApp = new SizeDiffApp(state);
             }
 
             return sizeDiffApp!.Build(ctx);
         }, appOptions);
+        using var appScope = hex1bApp;
 
         diagnosticsListener.StartListening();
 
@@ -205,8 +207,6 @@ internal static class DiffCommand
         finally
         {
             CursorColorHelper.ResetCursorColor();
-            hex1bApp.Dispose();
-            capturedState?.Dispose();
         }
 
         return 0;
@@ -240,6 +240,7 @@ internal static class DiffCommand
                 break;
         }
 
+        using var leftScope = leftAnalyzer;
         var rightResult = AssemblyLoader.Open(right.FullName);
         AssemblyAnalyzer rightAnalyzer;
         switch (rightResult)
@@ -265,6 +266,8 @@ internal static class DiffCommand
                 break;
         }
 
+        using var rightScope = rightAnalyzer;
+        using var states = new OwnedResources<DiffState>();
         DiffState? capturedDiffState = null;
 
         await using var diagnosticsListener = new DotsiderDiagnosticsListener(
@@ -327,13 +330,14 @@ internal static class DiffCommand
         {
             if (capturedDiffState is null)
             {
-                var diffState = new DiffState(diffHex1bApp!, leftAnalyzer, rightAnalyzer);
+                var diffState = states.Add(new DiffState(diffHex1bApp!, leftAnalyzer, rightAnalyzer));
                 capturedDiffState = diffState;
                 diffApp = new DiffApp(diffState);
             }
 
             return diffApp!.Build(ctx);
         }, diffAppOptions);
+        using var appScope = diffHex1bApp;
 
         diagnosticsListener.StartListening();
 
@@ -346,7 +350,6 @@ internal static class DiffCommand
         finally
         {
             CursorColorHelper.ResetCursorColor();
-            diffHex1bApp.Dispose();
         }
 
         return 0;

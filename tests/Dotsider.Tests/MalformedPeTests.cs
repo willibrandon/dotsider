@@ -456,17 +456,16 @@ public class MalformedPeTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void PushAssembly_MalformedFile_ReturnsFalseAndPreservesState()
     {
-        var workload = new Hex1b.Hex1bAppWorkloadAdapter();
-        var terminal = Hex1b.Hex1bTerminal.CreateBuilder()
+        using var workload = new Hex1b.Hex1bAppWorkloadAdapter();
+        using var terminal = Hex1b.Hex1bTerminal.CreateBuilder()
             .WithWorkload(workload)
             .WithHeadless()
             .WithDimensions(80, 24)
             .Build();
-        var app = new Hex1b.Hex1bApp(
+        using var app = new Hex1b.Hex1bApp(
             _ => Task.FromResult<Hex1b.Widgets.Hex1bWidget>(new Hex1b.Widgets.TextBlockWidget("test")),
             new Hex1b.Hex1bAppOptions { WorkloadAdapter = workload });
 
-        try
         {
             using var state = new DotsiderState(app, Samples.HelloWorldDll);
             var originalFile = state.Analyzer.FileName;
@@ -491,11 +490,6 @@ public class MalformedPeTests
                 }
             }
         }
-        finally
-        {
-            app.Dispose();
-            terminal.Dispose();
-            workload.Dispose();
-        }
+
     }
 }

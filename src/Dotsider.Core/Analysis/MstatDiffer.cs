@@ -93,11 +93,8 @@ public static class MstatDiffer
         var matches = new List<Match>(Math.Max(left.Entries.Count, right.Entries.Count));
         foreach (var l in left.Entries)
             matches.Add(new Match(rightByKey.GetValueOrDefault(l.Key) ?? l, l, rightByKey.GetValueOrDefault(l.Key)));
-        foreach (var r in right.Entries)
-        {
-            if (!leftByKey.ContainsKey(r.Key))
-                matches.Add(new Match(r, null, r));
-        }
+        foreach (var r in right.Entries.Where(r => !leftByKey.ContainsKey(r.Key)))
+            matches.Add(new Match(r, null, r));
 
         return matches;
     }

@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Protocol;
 using Dotsider.Mcp;
@@ -97,11 +98,14 @@ public class McpToolBenchmarks
             if (File.Exists(socketPath))
                 File.Delete(socketPath);
 
-            var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            using var listenerOwner = new OwnedResource<Socket>(
+                new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified));
+            var listener = listenerOwner.Value;
             listener.Bind(new UnixDomainSocketEndPoint(socketPath));
             listener.Listen(5);
 
-            var cts = new CancellationTokenSource();
+            using var cancellationOwner = new OwnedResource<CancellationTokenSource>(new CancellationTokenSource());
+            var cts = cancellationOwner.Value;
             var loop = Task.Run(async () =>
             {
                 while (!cts.Token.IsCancellationRequested)
@@ -117,6 +121,8 @@ public class McpToolBenchmarks
             });
 
             _sessionSockets.Add((listener, socketPath, loop, cts));
+            listenerOwner.Release();
+            cancellationOwner.Release();
         }
     }
 

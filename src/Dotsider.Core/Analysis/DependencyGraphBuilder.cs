@@ -109,7 +109,7 @@ public static class DependencyGraphBuilder
                 var (current, currentId, ownsDispose) = queue.Dequeue();
                 var currentDepth = depthById[currentId];
 
-                try
+                using (ownsDispose ? current : null)
                 {
                     var refs = current.HasMetadata ? current.AssemblyRefs : [];
                     var typeRefs = current.HasMetadata ? current.TypeRefs : [];
@@ -169,11 +169,6 @@ public static class DependencyGraphBuilder
                             DependencyGraphBuildCheckpoint.ManagedAssemblyReferenceProcessed,
                             cancellationToken);
                     }
-                }
-                finally
-                {
-                    if (ownsDispose)
-                        current.Dispose();
                 }
             }
         }

@@ -30,12 +30,11 @@ internal static class WasmDisassembler
         var decoded = NativeDisassembler.Disassemble(code, symbol.VirtualAddress, NativeArchitecture.Wasm32);
         var instructions = new List<NativeInstruction>(decoded.Count);
 
-        foreach (var insn in decoded)
+        foreach (var withOffset in decoded.Select(insn => insn with
         {
-            var withOffset = insn with
-            {
-                FileOffset = fileOffset + (long)(insn.Address - symbol.VirtualAddress),
-            };
+            FileOffset = fileOffset + (long)(insn.Address - symbol.VirtualAddress),
+        }))
+        {
 
             instructions.Add(ResolveWasmTarget(withOffset, module, function, functionByIndex));
         }

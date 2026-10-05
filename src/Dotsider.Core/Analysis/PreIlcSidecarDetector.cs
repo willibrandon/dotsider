@@ -352,9 +352,8 @@ public static class PreIlcSidecarDetector
         }
 
         var baseDir = Path.GetDirectoryName(fullPath) ?? string.Empty;
-        foreach (var line in lines)
+        foreach (var token in lines.Select(line => line.Trim()))
         {
-            var token = line.Trim();
             if (token.Length == 0) continue;
 
             if (token[0] == '@')
@@ -474,10 +473,8 @@ public static class PreIlcSidecarDetector
         var packageRoots = DiscoverPackageRoots(references);
         var otherListed = 0;
 
-        foreach (var reference in references)
+        foreach (var reference in references.Where(reference => !(rootManagedPath is not null && PathsEqual(reference, rootManagedPath))))
         {
-            if (rootManagedPath is not null && PathsEqual(reference, rootManagedPath))
-                continue;
 
             if (!File.Exists(reference))
             {

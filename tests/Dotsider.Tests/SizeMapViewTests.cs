@@ -339,7 +339,7 @@ public class SizeMapViewTests : IDisposable
         // Drive selection to a node-named leaf deterministically: focus the Frozen Objects
         // category (string literals always join the graph) and select its largest entry.
         _state = TestAssert.NotNull(_state);
-            var frozen = TestAssert.NotNull(_state.CachedSizeTree).Children.First(c => c.Name == "Frozen Objects");
+        var frozen = TestAssert.NotNull(_state.CachedSizeTree).Children.First(c => c.Name == "Frozen Objects");
         _state.TreemapBreadcrumb.Push(_state.CachedSizeTree!);
         _state.TreemapCurrentLevel = frozen;
         _state.TreemapSelectedIndex = 0;
@@ -410,8 +410,10 @@ public class SizeMapViewTests : IDisposable
             {
                 System.Diagnostics.Trace.TraceInformation("SizeMap_NativeAot_WhyKeyWithoutDgml_ExplainsMissingGraph: {0}", handledException);
             }
-            _state?.Dispose();
-            _state = null;
+            using (_state)
+            {
+                _state = null;
+            }
             dir.Delete(recursive: true);
         }
     }

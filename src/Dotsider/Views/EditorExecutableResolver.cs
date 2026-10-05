@@ -55,10 +55,10 @@ internal static class EditorExecutableResolver
             return TryWindowsCandidate(explicitPath, pathExtensions, out resolvedPath);
         }
 
-        foreach (var entry in pathEntries)
+        foreach (var directory in pathEntries
+                     .Select(entry => TryNormalizeRootedPathEntry(entry, out var normalized) ? normalized : null)
+                     .OfType<string>())
         {
-            if (!TryNormalizeRootedPathEntry(entry, out var directory))
-                continue;
 
             if (TryWindowsCandidate(Path.Join(directory, token), pathExtensions, out resolvedPath))
                 return true;
@@ -101,10 +101,10 @@ internal static class EditorExecutableResolver
             return false;
         }
 
-        foreach (var entry in pathEntries)
+        foreach (var directory in pathEntries
+                     .Select(entry => TryNormalizeRootedPathEntry(entry, out var normalized) ? normalized : null)
+                     .OfType<string>())
         {
-            if (!TryNormalizeRootedPathEntry(entry, out var directory))
-                continue;
 
             var candidate = Path.Join(directory, token);
             if (!IsUnixExecutable(candidate))
@@ -141,11 +141,10 @@ internal static class EditorExecutableResolver
     {
         var source = string.IsNullOrWhiteSpace(value) ? DefaultPathExtensions : value;
         var extensions = new List<string>();
-        foreach (var item in source.Split(
+        foreach (var extension in source.Split(
                      ';',
-                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(item => item.StartsWith('.') ? item : $".{item}"))
         {
-            var extension = item.StartsWith('.') ? item : $".{item}";
             if (!IsSupportedWindowsExtension(extension)
                 || extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             {

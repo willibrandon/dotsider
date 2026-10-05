@@ -69,10 +69,8 @@ public static class CorrelationQuery
         foreach (var companion in companions.All)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var method in companion.MethodDefs)
+            foreach (var method in companion.MethodDefs.Where(method => method.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase)))
             {
-                if (!method.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase))
-                    continue;
                 if (typeFilter is not null
                     && !method.DeclaringType.EndsWith(typeFilter, StringComparison.OrdinalIgnoreCase))
                     continue;

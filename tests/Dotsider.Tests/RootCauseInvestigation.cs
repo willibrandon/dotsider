@@ -27,9 +27,8 @@ public class IlWalkRegressionTests
         var failures = new List<string>();
         int tokensChecked = 0;
 
-        foreach (var method in analyzer.MethodDefs)
+        foreach (var method in analyzer.MethodDefs.Where(method => !(method.Rva == 0)))
         {
-            if (method.Rva == 0) continue;
             MethodBodyBlock? body;
             try { body = analyzer.GetMethodBody(method); }
             catch (BadImageFormatException) { continue; }

@@ -221,9 +221,8 @@ public class IlDisassemblerTests
     {
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var disasm = new IlDisassembler(a);
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             Assert.IsNotNull(instructions);
         }
     }
@@ -285,9 +284,8 @@ public class IlDisassemblerTests
     {
         using var a = new AssemblyAnalyzer(Samples.MinimalApiDll);
         var disasm = new IlDisassembler(a);
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0).Take(20))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Take(20).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             Assert.IsNotNull(instructions);
         }
     }
@@ -365,9 +363,8 @@ public class IlDisassemblerTests
     {
         using var a = new AssemblyAnalyzer(Samples.ComplexAppDll);
         var disasm = new IlDisassembler(a);
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             Assert.IsNotNull(instructions);
         }
     }
@@ -382,9 +379,8 @@ public class IlDisassemblerTests
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var disasm = new IlDisassembler(a);
         // Find any method that loads a string literal
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             var ldstr = instructions.FirstOrDefault(i => i.OpCode.Contains("ldstr"));
             if (ldstr is not null)
             {
@@ -403,9 +399,8 @@ public class IlDisassemblerTests
     {
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var disasm = new IlDisassembler(a);
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             var branch = instructions.FirstOrDefault(i =>
                 i.OpCode.Contains("br") || i.OpCode.Contains("brtrue") || i.OpCode.Contains("brfalse"));
             if (branch is not null)
@@ -425,9 +420,8 @@ public class IlDisassemblerTests
     {
         using var a = new AssemblyAnalyzer(Samples.RichLibraryDll);
         var disasm = new IlDisassembler(a);
-        foreach (var method in a.MethodDefs.Where(m => m.Rva != 0))
+        foreach (var instructions in a.MethodDefs.Where(m => m.Rva != 0).Select(method => disasm.Disassemble(method)))
         {
-            var instructions = disasm.Disassemble(method);
             var call = instructions.FirstOrDefault(i =>
                 i.OpCode == "call" || i.OpCode == "callvirt" || i.OpCode == "newobj");
             if (call is not null)

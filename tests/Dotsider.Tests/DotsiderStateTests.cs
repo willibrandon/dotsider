@@ -342,13 +342,13 @@ public class DotsiderStateTests : IDisposable
         var app = CreateApp();
         string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll,
             Samples.MinimalApiDll, Samples.NativeLibDll, Samples.EmptyLibDll, Samples.RichLibraryV2Dll];
-        foreach (var path in paths)
-        {
-            using var state = new DotsiderState(app, path);
-            Assert.IsNotNull(state.Analyzer);
-            Assert.IsNotNull(state.IlDisassembler);
-            Assert.IsNotNull(state.StringExtractor);
-        }
+        foreach (var state in paths.Select(path => new DotsiderState(app, path)))
+            using (state)
+            {
+                Assert.IsNotNull(state.Analyzer);
+                Assert.IsNotNull(state.IlDisassembler);
+                Assert.IsNotNull(state.StringExtractor);
+            }
     }
 
     // --- Cross-View Navigation Tests ---

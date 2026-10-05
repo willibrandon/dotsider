@@ -555,11 +555,11 @@ public class AssemblyAnalyzerTests
     {
         string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll,
             Samples.MinimalApiDll, Samples.NativeLibDll];
-        foreach (var path in paths)
-        {
-            using var a = new AssemblyAnalyzer(path);
-            Assert.IsNotEmpty(a.CustomAttributes);
-        }
+        foreach (var a in paths.Select(path => new AssemblyAnalyzer(path)))
+            using (a)
+            {
+                Assert.IsNotEmpty(a.CustomAttributes);
+            }
     }
 
     /// <summary>
@@ -571,11 +571,11 @@ public class AssemblyAnalyzerTests
     {
         string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll,
             Samples.MinimalApiDll, Samples.NativeLibDll, Samples.EmptyLibDll];
-        foreach (var path in paths)
-        {
-            using var a = new AssemblyAnalyzer(path);
-            Assert.IsGreaterThan(0, a.FileSize);
-        }
+        foreach (var a in paths.Select(path => new AssemblyAnalyzer(path)))
+            using (a)
+            {
+                Assert.IsGreaterThan(0, a.FileSize);
+            }
     }
 
     /// <summary>
@@ -587,12 +587,12 @@ public class AssemblyAnalyzerTests
     {
         string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll,
             Samples.MinimalApiDll, Samples.NativeLibDll, Samples.EmptyLibDll];
-        foreach (var path in paths)
-        {
-            using var a = new AssemblyAnalyzer(path);
-            Assert.IsNotNull(a.ClrHeader);
-            Assert.IsGreaterThan(0, a.ClrHeader!.MetadataSize);
-        }
+        foreach (var a in paths.Select(path => new AssemblyAnalyzer(path)))
+            using (a)
+            {
+                Assert.IsNotNull(a.ClrHeader);
+                Assert.IsGreaterThan(0, a.ClrHeader!.MetadataSize);
+            }
     }
 
     // --- Edge cases ---

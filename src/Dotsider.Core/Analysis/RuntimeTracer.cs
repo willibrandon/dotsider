@@ -394,9 +394,8 @@ public sealed class RuntimeTracer(
 
         try
         {
-            foreach (var directory in Directory.EnumerateDirectories(frameworkDirectory))
+            foreach (var directoryName in Directory.EnumerateDirectories(frameworkDirectory).Select(directory => Path.GetFileName(directory)))
             {
-                var directoryName = Path.GetFileName(directory);
                 var suffixIndex = directoryName.IndexOf('-');
                 var versionText = suffixIndex < 0
                     ? directoryName

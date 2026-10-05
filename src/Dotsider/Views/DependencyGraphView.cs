@@ -375,10 +375,12 @@ public static class DependencyGraphView
 
         var hasQuery = !string.IsNullOrEmpty(query);
 
-        foreach (var edge in layout.Edges)
+        foreach (var (edge, srcIdx, tgtIdx) in layout.Edges
+                     .Select(edge => (edge,
+                         Source: layout.IndexById.GetValueOrDefault(edge.SourceId, -1),
+                         Target: layout.IndexById.GetValueOrDefault(edge.TargetId, -1)))
+                     .Where(entry => entry.Source >= 0 && entry.Target >= 0))
         {
-            if (!layout.IndexById.TryGetValue(edge.SourceId, out var srcIdx)) continue;
-            if (!layout.IndexById.TryGetValue(edge.TargetId, out var tgtIdx)) continue;
 
             var src = renderNodes[srcIdx];
             var tgt = renderNodes[tgtIdx];
@@ -672,10 +674,8 @@ public static class DependencyGraphView
             {
                 var cur = queue.Dequeue();
                 if (!outgoingBySource.TryGetValue(cur, out var children)) continue;
-                foreach (var childId in children)
-                {
-                    if (reachable.Add(childId)) queue.Enqueue(childId);
-                }
+                foreach (var childId in children.Where(childId => reachable.Add(childId)))
+                    queue.Enqueue(childId);
             }
         }
 
@@ -758,9 +758,8 @@ public static class DependencyGraphView
         {
             var cur = bfs.Dequeue();
             if (!outgoingBySource.TryGetValue(cur, out var children)) continue;
-            foreach (var childId in children)
+            foreach (var childId in children.Where(childId => !(visibleDepth.ContainsKey(childId))))
             {
-                if (visibleDepth.ContainsKey(childId)) continue;
                 visibleDepth[childId] = visibleDepth[cur] + 1;
                 bfs.Enqueue(childId);
             }
@@ -779,11 +778,9 @@ public static class DependencyGraphView
 
         // Phase 1: pack each depth band into rows keyed by actual label widths.
         var bandRows = new List<List<List<string>>>();
-        foreach (var group in depthGroups)
+        foreach (var idsInDepth in depthGroups.Select(group => group
+                     .OrderBy(id => nodeOrder.GetValueOrDefault(id, int.MaxValue)).ToList()))
         {
-            var idsInDepth = group
-                .OrderBy(id => nodeOrder.TryGetValue(id, out var o) ? o : int.MaxValue)
-                .ToList();
 
             var rows = new List<List<string>>();
             var currentRow = new List<string>();

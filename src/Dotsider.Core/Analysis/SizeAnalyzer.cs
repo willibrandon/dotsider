@@ -69,10 +69,10 @@ public static class SizeAnalyzer
         foreach (var nsGroup in typesByNamespace)
         {
             var typeNodes = new List<SizeNode>();
-            foreach (var typeDef in nsGroup)
+            foreach (var (typeDef, methods) in nsGroup
+                         .Select(type => (Type: type, Methods: byType.GetValueOrDefault(type.FullName) ?? []))
+                         .Where(entry => entry.Methods.Count > 0))
             {
-                if (!byType.TryGetValue(typeDef.FullName, out var methods))
-                    continue;
 
                 var methodNodes = methods
                     .Where(m => m.Size > 0)
@@ -476,9 +476,8 @@ public static class SizeAnalyzer
                     $"{category}/{symbol.Name}@0x{symbol.VirtualAddress:x}",
                     symbol.Size, kind, []));
 
-        foreach (var symbol in info.Symbols)
+        foreach (var symbol in info.Symbols.Where(symbol => !(symbol.Size <= 0)))
         {
-            if (symbol.Size <= 0) continue;
             switch (symbol.Kind)
             {
                 case NativeSymbolKind.Function

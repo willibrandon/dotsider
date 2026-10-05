@@ -65,20 +65,15 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
         var yankBgAnsi = bgAnsi;
         if (decorationProviders is not null)
         {
-            foreach (var provider in decorationProviders)
+            foreach (var span in decorationProviders
+                         .SelectMany(provider => provider.GetDecorations(1, doc.LineCount, doc))
+                         .Where(span => span.Decoration.Background is { IsDefault: false }))
             {
-                var spans = provider.GetDecorations(1, doc.LineCount, doc);
-                foreach (var span in spans)
-                {
-                    if (span.Decoration.Background is { IsDefault: false } yankBg)
-                    {
-                        yankStart = doc.PositionToOffset(span.Start).Value;
-                        yankEnd = doc.PositionToOffset(span.End).Value;
-                        yankBgAnsi = yankBg.ToBackgroundAnsi();
-                        if (span.Decoration.Foreground is { IsDefault: false } yankFgColor)
-                            yankFgAnsi = yankFgColor.ToForegroundAnsi();
-                    }
-                }
+                yankStart = doc.PositionToOffset(span.Start).Value;
+                yankEnd = doc.PositionToOffset(span.End).Value;
+                yankBgAnsi = span.Decoration.Background.GetValueOrDefault().ToBackgroundAnsi();
+                if (span.Decoration.Foreground is { IsDefault: false } yankFgColor)
+                    yankFgAnsi = yankFgColor.ToForegroundAnsi();
             }
         }
 

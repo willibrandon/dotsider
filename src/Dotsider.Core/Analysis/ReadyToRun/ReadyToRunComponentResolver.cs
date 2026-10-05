@@ -30,9 +30,8 @@ internal static class ReadyToRunComponentResolver
         // Otherwise scan siblings for the exact MVID; a name mismatch must not pick an arbitrary file.
         if (mvid != Guid.Empty && Directory.Exists(directory))
         {
-            foreach (var file in Directory.EnumerateFiles(directory, "*.dll"))
+            foreach (var opened in Directory.EnumerateFiles(directory, "*.dll").Select(file => TryOpenMatching(file, mvid, allowEmptyMvid: false)))
             {
-                var opened = TryOpenMatching(file, mvid, allowEmptyMvid: false);
                 if (opened is not null) return opened;
             }
         }
@@ -61,29 +60,23 @@ internal static class ReadyToRunComponentResolver
     private static AssemblyAnalyzer? TryOpenMatching(string path, Guid mvid, bool allowEmptyMvid)
     {
         if (!File.Exists(path)) return null;
-        AssemblyAnalyzer? analyzer = null;
         try
         {
-            analyzer = new AssemblyAnalyzer(path);
+            using var owner = new OwnedResource<AssemblyAnalyzer>(new AssemblyAnalyzer(path));
+            var analyzer = owner.Value;
             var reader = analyzer.GetMetadataReader();
             if (reader is not null)
             {
                 var candidate = reader.GetGuid(reader.GetModuleDefinition().Mvid);
                 if (candidate == mvid || (allowEmptyMvid && mvid == Guid.Empty))
                 {
-                    var resolved = analyzer;
-                    analyzer = null;
-                    return resolved;
+                    return owner.Release();
                 }
             }
         }
         catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
         {
             // Not a readable managed assembly; treat as no match.
-        }
-        finally
-        {
-            analyzer?.Dispose();
         }
 
         return null;

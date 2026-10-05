@@ -213,9 +213,11 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
         }
         finally
         {
-            _cts.Dispose();
-            if (File.Exists(SocketPath))
-                File.Delete(SocketPath);
+            using (_cts)
+            {
+                if (File.Exists(SocketPath))
+                    File.Delete(SocketPath);
+            }
         }
     }
 

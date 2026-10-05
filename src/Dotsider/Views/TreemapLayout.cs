@@ -123,9 +123,8 @@ public static class TreemapLayout
         if (rowLength <= 0) return double.MaxValue;
 
         var worst = 0.0;
-        foreach (var idx in row)
+        foreach (var itemArea in row.Select(idx => (double)items[idx].Size / totalSize * w * h))
         {
-            var itemArea = (double)items[idx].Size / totalSize * w * h;
             var itemLength = itemArea / rowLength;
             if (itemLength <= 0) continue;
             var aspect = Math.Max(rowLength / itemLength, itemLength / rowLength);

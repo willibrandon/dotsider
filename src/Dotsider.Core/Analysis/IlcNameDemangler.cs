@@ -254,15 +254,10 @@ internal sealed class IlcNameDemangler
         // Any second writer marks the key ambiguous — even with an identical display name,
         // duplicates mean overloads, and no signature can say which one a symbol is. The shared
         // name survives when it is the same, so the symbol can still be named, just not exactly.
-        if (_methodByKey.TryGetValue(key, out var existing))
-        {
-            _methodByKey[key] = new MethodJoin(
+        _methodByKey[key] = _methodByKey.TryGetValue(key, out var existing)
+            ? new MethodJoin(
                 string.Equals(existing.Name, value, StringComparison.Ordinal) ? existing.Name : null,
-                Ambiguous: true);
-        }
-        else
-        {
-            _methodByKey[key] = new MethodJoin(value, Ambiguous: false);
-        }
+                Ambiguous: true)
+            : new MethodJoin(value, Ambiguous: false);
     }
 }

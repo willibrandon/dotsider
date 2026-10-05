@@ -82,7 +82,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             catch (IOException) { await Task.Delay(200); }
         }
 
-        try
+        using (lockFile)
         {
             var psi = new ProcessStartInfo
             {
@@ -101,10 +101,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
                     $"Website publish failed (exit {process.ExitCode})");
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 
@@ -132,7 +128,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             catch (IOException) { await Task.Delay(200); }
         }
 
-        try
+        using (lockFile)
         {
             // Clean the sample directory before publishing. `dotnet publish -o` is additive
             // — it overwrites files it emits but does not remove anything left behind. If a
@@ -162,10 +158,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             if (process.ExitCode != 0)
                 throw new InvalidOperationException(
                     $"Sample publish failed (exit {process.ExitCode}):\n{stdout}\n{stderr}");
-        }
-        finally
-        {
-            lockFile.Dispose();
         }
     }
 

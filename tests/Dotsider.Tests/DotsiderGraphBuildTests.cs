@@ -399,8 +399,10 @@ public sealed class DotsiderGraphBuildTests(TestContext testContext) : IDisposab
         }
         finally
         {
-            releaseAfterCancellation.Set();
-            state.Dispose();
+            using (state)
+            {
+                releaseAfterCancellation.Set();
+            }
             Directory.Delete(directory, recursive: true);
         }
     }

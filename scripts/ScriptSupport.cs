@@ -42,23 +42,20 @@ internal static class ScriptSupport
         var arrayOptionSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var switchOptionSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string option in valueOptions)
+        foreach (var key in valueOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             valueOptionSet.Add(key);
             knownOptions.Add(key);
         }
 
-        foreach (string option in arrayOptions)
+        foreach (var key in arrayOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             arrayOptionSet.Add(key);
             knownOptions.Add(key);
         }
 
-        foreach (string option in switchOptions)
+        foreach (var key in switchOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             switchOptionSet.Add(key);
             knownOptions.Add(key);
         }
@@ -488,9 +485,8 @@ internal static class ScriptSupport
     internal static JsonArray ToJsonArray(IEnumerable<string> values)
     {
         var array = new JsonArray();
-        foreach (string value in values)
+        foreach (JsonNode? node in values.Select(value => JsonValue.Create(value)))
         {
-            JsonNode? node = JsonValue.Create(value);
             array.Add(node);
         }
 

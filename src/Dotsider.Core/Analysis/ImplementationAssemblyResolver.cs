@@ -316,9 +316,8 @@ public static class ImplementationAssemblyResolver
             ResolvedAssembly? exportedOwner = null;
             AssemblyRefInfo? exportedReference = null;
 
-            foreach (var h in reader.TypeDefinitions)
+            foreach (var fullName in reader.TypeDefinitions.Select(h => GetTypeDefFullName(reader, h)))
             {
-                var fullName = GetTypeDefFullName(reader, h);
                 if (fullName is null)
                 {
                     malformedMetadata = true;
@@ -923,9 +922,8 @@ public static class ImplementationAssemblyResolver
                 // on the assembly definition and never have IL bodies.
                 if (reader.IsAssembly)
                 {
-                    foreach (var handle in reader.GetCustomAttributes(EntityHandle.AssemblyDefinition))
+                    foreach (var attr in reader.GetCustomAttributes(EntityHandle.AssemblyDefinition).Select(handle => reader.GetCustomAttribute(handle)))
                     {
-                        var attr = reader.GetCustomAttribute(handle);
                         if (attr.Constructor.Kind == HandleKind.MemberReference)
                         {
                             var ctor = reader.GetMemberReference((MemberReferenceHandle)attr.Constructor);
