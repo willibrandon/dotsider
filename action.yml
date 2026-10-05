@@ -117,7 +117,7 @@ runs:
         DOTSIDER_INPUT_VERSION: ${{ inputs.dotsider-version }}
         DOTSIDER_INPUT_PATH: ${{ inputs.dotsider-path }}
         GITHUB_TOKEN: ${{ github.token }}
-      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" prepare
+      run: node "$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js" prepare
 
     - name: Restore Dotsider cache
       if: steps.prepare.outcome == 'success' && steps.prepare.outputs.explicit != 'true'
@@ -146,7 +146,7 @@ runs:
         DOTSIDER_INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
         DOTSIDER_PREPARED_RID: ${{ steps.prepare.outputs.rid }}
         GITHUB_TOKEN: ${{ github.token }}
-      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" discover
+      run: node "$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js" discover
 
     - name: Restore managed Dotsider baseline
       if: steps.baseline.outputs.status == 'restored'
@@ -189,7 +189,7 @@ runs:
         DOTSIDER_BASELINE_DOWNLOAD_DIRECTORY: ${{ steps.baseline.outputs.download-directory }}
         DOTSIDER_BASELINE_PUBLISH: ${{ steps.baseline.outputs.publish }}
         GITHUB_TOKEN: ${{ github.token }}
-      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" run
+      run: node "$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js" run
 
     - name: Upload Dotsider reports
       if: always() && inputs.upload-reports == 'true' && steps.run.outputs.result != 'error'
@@ -222,4 +222,4 @@ runs:
         DOTSIDER_DELTA: ${{ steps.run.outputs.delta }}
         DOTSIDER_VIOLATION_COUNT: ${{ steps.run.outputs.violation-count }}
         DOTSIDER_ARTIFACT_NAME: ${{ steps.run.outputs.artifact-name }}
-      run: node "${{ github.action_path }}/integrations/size-check/dist/github.js" enforce
+      run: node "$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js" enforce
