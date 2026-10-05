@@ -71,6 +71,9 @@ internal static class CiIntegrationValidator
         string source = File.ReadAllText(actionPath);
         Require(source.Contains("using: composite", StringComparison.Ordinal),
             "action.yml must remain a composite action.");
+        Require(source.Contains("node \"$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js\"", StringComparison.Ordinal)
+            && !source.Contains("github.action_path", StringComparison.Ordinal),
+            "action.yml must locate its runtime through GITHUB_ACTION_PATH, which the runner maps into job containers.");
         Require(source.Contains("actions/setup-node@v7.0.0", StringComparison.Ordinal)
             && source.Contains("node-version: '24'", StringComparison.Ordinal),
             "action.yml must select Node 24 explicitly.");
