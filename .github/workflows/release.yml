@@ -321,8 +321,9 @@ jobs:
         run: |
           pnpm --dir integrations/size-check install --frozen-lockfile
           pnpm --dir azure-devops install --frozen-lockfile
-          pnpm --dir integrations/size-check audit --audit-level low
-          pnpm --dir azure-devops audit --audit-level low
+
+      - name: Audit integration dependencies
+        run: node integrations/size-check/scripts/audit-dependencies.mjs
 
       - name: Build and validate integration runtime
         run: |

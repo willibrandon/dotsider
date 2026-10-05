@@ -11,6 +11,18 @@ pnpm --dir integrations/size-check install --frozen-lockfile
 pnpm --dir azure-devops install --frozen-lockfile
 ```
 
+Run the same dependency audit as CI and releases:
+
+```console
+node integrations/size-check/scripts/audit-dependencies.mjs
+```
+
+The audit reports every finding. It defers only
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+in the Azure packaging tool's `tfx-cli` → `braces` dependency while the registry
+reports no patched version. Once the advisory lists a patched version, it blocks
+the build again. All other advisories and audit errors fail the build.
+
 Build both adapters, run the fast tests, and validate the committed JavaScript:
 
 ```console

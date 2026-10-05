@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.github.json && tsc --project tsconfig.azure.json",
     "test": "pnpm run test:unit",
-    "test:unit": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.unit.test.js",
+    "test:unit": "node --test scripts/*.test.mjs && pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.unit.test.js",
     "test:integration": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/*.integration.test.js",
     "test:integration:local": "pnpm run build && pnpm run test:compile && node ../../artifacts/size-check-tests/test/run-real-integration.js",
     "test:azure-integration": "pnpm run test:compile && node --test ../../artifacts/size-check-tests/test/azure.integration.test.js",
