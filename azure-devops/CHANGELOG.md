@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.2
+
+- No extension changes; this release corrects the winget publishing workflow.
+
 ## 0.26.1
 
 - Update the extension packaging tools and dependencies.

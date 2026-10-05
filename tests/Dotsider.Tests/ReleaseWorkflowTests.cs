@@ -99,9 +99,7 @@ public class ReleaseWorkflowTests
         Assert.DoesNotContain("[skip ci]", releaseWorkflow);
 
         Assert.Contains("$prTitle = \"Update willibrandon.dotsider to $version\"", releaseWorkflow);
-        Assert.Contains("$prTitle = \"New package: willibrandon.dotsider $version\"", releaseWorkflow);
         Assert.Contains("$prTitle = \"Update willibrandon.dotsider-mcp to $version\"", releaseWorkflow);
-        Assert.Contains("$prTitle = \"New package: willibrandon.dotsider-mcp $version\"", releaseWorkflow);
     }
 
     /// <summary>
