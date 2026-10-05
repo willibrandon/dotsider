@@ -1,0 +1,5 @@
+name: dotsider CodeQL configuration
+
+# Run the full suite without exclusions. Every finding fails the workflow.
+queries:
+  - uses: security-and-quality

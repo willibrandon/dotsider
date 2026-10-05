@@ -372,6 +372,46 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     /// <summary>
+    /// CodeQL must fail for every finding, including notes and suppressed results, and for incomplete analysis.
+    /// </summary>
+    [TestMethod]
+    [DataRow("{\"runs\":[{\"results\":[]}]}", 0)]
+    [DataRow("{\"runs\":[{\"results\":[{\"ruleId\":\"test/rule\",\"level\":\"note\",\"message\":{\"text\":\"Finding\"}}]}]}", 1)]
+    [DataRow("{\"runs\":[{\"results\":[{\"suppressions\":[{\"kind\":\"inSource\"}]}]}]}", 1)]
+    [DataRow("{\"runs\":[]}", 1)]
+    [DataRow("{\"runs\":[{}]}", 1)]
+    [DataRow("{\"runs\":[{\"results\":[],\"invocations\":[{\"executionSuccessful\":false}]}]}", 1)]
+    [DataRow("invalid json", 1)]
+    public void VerifyCodeQl_RequiresCompleteAnalysisWithoutFindings(string sarif, int expectedExitCode)
+    {
+        string root = FindRepositoryRoot();
+        string results = Path.Combine(_tempRoot, "codeql");
+        Directory.CreateDirectory(results);
+        File.WriteAllText(Path.Combine(results, "test.sarif"), sarif);
+
+        var (exitCode, stdout, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"), results);
+
+        if (expectedExitCode == 0)
+            Assert.AreEqual(0, exitCode, stderr);
+        else
+            Assert.AreNotEqual(0, exitCode, stdout);
+    }
+
+    /// <summary>
+    /// Missing scan output cannot be treated as a successful clean analysis.
+    /// </summary>
+    [TestMethod]
+    public void VerifyCodeQl_RejectsMissingResults()
+    {
+        string root = FindRepositoryRoot();
+        var (exitCode, _, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"),
+            Path.Combine(_tempRoot, "missing-codeql-results"));
+
+        Assert.AreNotEqual(0, exitCode);
+        Assert.Contains("no SARIF file", stderr);
+    }
+
+    /// <summary>
     /// Verifies the repeated test runner app builds and exposes usage without running tests.
     /// Flake-hunting helpers should remain cheap to validate in normal unit tests.
     /// The real suite is exercised by CI through the script's forwarded dotnet test command.
