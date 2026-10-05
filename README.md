@@ -427,7 +427,7 @@ scripts/                      Test, deployment, and native-disassembly utilities
 benchmarks/Dotsider.Benchmarks/ BenchmarkDotNet performance suite
 docs/                         Starlight documentation site
 deploy/                       Hosted-demo deployment and monitoring configuration
-wix/ and winget/              Windows installer and package manifests
+wix/                         Windows installer definitions
 ```
 
 ## Testing

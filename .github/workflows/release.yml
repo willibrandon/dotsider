@@ -922,44 +922,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Extract version from tag
+      - name: Read published release metadata
         id: version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-
-      - name: Check if dotsider package exists in winget-pkgs
-        id: check
-        shell: pwsh
-        run: |
-          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/w/willibrandon/dotsider" -Method Head -SkipHttpErrorCheck
-          if ($response.StatusCode -eq 200) {
-            echo "exists=true" >> $env:GITHUB_OUTPUT
-          } else {
-            echo "exists=false" >> $env:GITHUB_OUTPUT
+          $version = $env:RELEASE_TAG -replace '^v', ''
+          $releaseDate = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json publishedAt --jq '.publishedAt[:10]'
+          if ($LASTEXITCODE -ne 0 -or $releaseDate -notmatch '^\d{4}-\d{2}-\d{2}$') {
+            throw "Failed to read the publication date for $env:RELEASE_TAG"
           }
-
-      - name: Check if dotsider-mcp package exists in winget-pkgs
-        id: check_mcp
-        shell: pwsh
-        run: |
-          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/w/willibrandon/dotsider-mcp" -Method Head -SkipHttpErrorCheck
-          if ($response.StatusCode -eq 200) {
-            echo "exists=true" >> $env:GITHUB_OUTPUT
-          } else {
-            echo "exists=false" >> $env:GITHUB_OUTPUT
-          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "release_date=$releaseDate" >> $env:GITHUB_OUTPUT
 
       - name: Install wingetcreate
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
+      # Both packages are already published. Always update their upstream manifests
+      # so metadata is preserved; lookup failures must never trigger a template fallback.
       # --- dotsider winget submission ---
 
-      - name: Generate dotsider winget manifest (update existing)
-        if: steps.check.outputs.exists == 'true'
+      - name: Update dotsider winget manifest
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -970,69 +957,18 @@ jobs:
 
           .\wingetcreate.exe update willibrandon.dotsider `
             --version $version `
+            --release-date '${{ steps.version.outputs.release_date }}' `
+            --release-notes-url "https://github.com/willibrandon/dotsider/releases/tag/v$version" `
             --urls $urlX64 $urlArm64 `
             --token $env:GH_TOKEN `
             --out manifests
-
-      - name: Generate dotsider winget manifest (new package)
-        if: steps.check.outputs.exists == 'false'
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-
-          # Use checked-in manifest templates
-          $manifestDir = "manifests/w/willibrandon/dotsider/$version"
-          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
-          Copy-Item winget/willibrandon.dotsider.yaml $manifestDir/
-          Copy-Item winget/willibrandon.dotsider.installer.yaml $manifestDir/
-          Copy-Item winget/willibrandon.dotsider.locale.en-US.yaml $manifestDir/
-
-          # Update version and URL in copied manifests
-          Get-ChildItem $manifestDir -Filter *.yaml | ForEach-Object {
-            (Get-Content $_.FullName) -replace '0\.3\.0', $version | Set-Content $_.FullName
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to update willibrandon.dotsider from its published winget manifest"
           }
-          $installerYaml = "$manifestDir/willibrandon.dotsider.installer.yaml"
-          (Get-Content $installerYaml) -replace 'v0\.3\.0', "v$version" | Set-Content $installerYaml
-
-          # Process both architectures
-          $archs = @(
-            @{ Rid = 'x64'; ShaSuffix = 'X64'; PcSuffix = 'X64' },
-            @{ Rid = 'arm64'; ShaSuffix = 'ARM64'; PcSuffix = 'ARM64' }
-          )
-          foreach ($arch in $archs) {
-            $url = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-win-$($arch.Rid).msi"
-            $msiFile = New-TemporaryFile
-            Invoke-WebRequest -Uri $url -OutFile $msiFile.FullName
-
-            $sha256 = (Get-FileHash $msiFile.FullName -Algorithm SHA256).Hash
-            (Get-Content $installerYaml) -replace "PLACEHOLDER_SHA256_$($arch.ShaSuffix)", $sha256 | Set-Content $installerYaml
-
-            $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
-            $stream = [System.IO.File]::OpenRead($msiFile.FullName)
-            $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
-            $productCode = $null
-            while ($null -ne ($line = $reader.ReadLine())) {
-              if ($line -match $pattern) {
-                $productCode = $Matches[1]
-                break
-              }
-            }
-            $reader.Close()
-            $stream.Close()
-            Remove-Item $msiFile.FullName
-
-            if ($productCode) {
-              (Get-Content $installerYaml) -replace "\{PLACEHOLDER_PRODUCT_CODE_$($arch.PcSuffix)\}", $productCode | Set-Content $installerYaml
-            }
-          }
-
-          Write-Host "Generated dotsider manifests:"
-          Get-ChildItem $manifestDir | ForEach-Object { Write-Host $_.Name }
 
       # --- dotsider-mcp winget submission ---
 
-      - name: Generate dotsider-mcp winget manifest (update existing)
-        if: steps.check_mcp.outputs.exists == 'true'
+      - name: Update dotsider-mcp winget manifest
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1043,64 +979,14 @@ jobs:
 
           .\wingetcreate.exe update willibrandon.dotsider-mcp `
             --version $version `
+            --release-date '${{ steps.version.outputs.release_date }}' `
+            --release-notes-url "https://github.com/willibrandon/dotsider/releases/tag/v$version" `
             --urls $urlX64 $urlArm64 `
             --token $env:GH_TOKEN `
             --out manifests-mcp
-
-      - name: Generate dotsider-mcp winget manifest (new package)
-        if: steps.check_mcp.outputs.exists == 'false'
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-
-          # Use checked-in manifest templates
-          $manifestDir = "manifests-mcp/w/willibrandon/dotsider-mcp/$version"
-          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
-          Copy-Item winget/willibrandon.dotsider-mcp.yaml $manifestDir/
-          Copy-Item winget/willibrandon.dotsider-mcp.installer.yaml $manifestDir/
-          Copy-Item winget/willibrandon.dotsider-mcp.locale.en-US.yaml $manifestDir/
-
-          # Update version and URL in copied manifests
-          Get-ChildItem $manifestDir -Filter *.yaml | ForEach-Object {
-            (Get-Content $_.FullName) -replace '0\.3\.0', $version | Set-Content $_.FullName
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to update willibrandon.dotsider-mcp from its published winget manifest"
           }
-          $installerYaml = "$manifestDir/willibrandon.dotsider-mcp.installer.yaml"
-          (Get-Content $installerYaml) -replace 'v0\.3\.0', "v$version" | Set-Content $installerYaml
-
-          # Process both architectures
-          $archs = @(
-            @{ Rid = 'x64'; ShaSuffix = 'X64'; PcSuffix = 'X64' },
-            @{ Rid = 'arm64'; ShaSuffix = 'ARM64'; PcSuffix = 'ARM64' }
-          )
-          foreach ($arch in $archs) {
-            $url = "https://github.com/willibrandon/dotsider/releases/download/v$version/dotsider-mcp-win-$($arch.Rid).msi"
-            $msiFile = New-TemporaryFile
-            Invoke-WebRequest -Uri $url -OutFile $msiFile.FullName
-
-            $sha256 = (Get-FileHash $msiFile.FullName -Algorithm SHA256).Hash
-            (Get-Content $installerYaml) -replace "PLACEHOLDER_SHA256_$($arch.ShaSuffix)", $sha256 | Set-Content $installerYaml
-
-            $pattern = 'ProductCode(\{[0-9a-fA-F-]{36}\})'
-            $stream = [System.IO.File]::OpenRead($msiFile.FullName)
-            $reader = [System.IO.StreamReader]::New($stream, [System.Text.Encoding]::ASCII)
-            $productCode = $null
-            while ($null -ne ($line = $reader.ReadLine())) {
-              if ($line -match $pattern) {
-                $productCode = $Matches[1]
-                break
-              }
-            }
-            $reader.Close()
-            $stream.Close()
-            Remove-Item $msiFile.FullName
-
-            if ($productCode) {
-              (Get-Content $installerYaml) -replace "\{PLACEHOLDER_PRODUCT_CODE_$($arch.PcSuffix)\}", $productCode | Set-Content $installerYaml
-            }
-          }
-
-          Write-Host "Generated dotsider-mcp manifests:"
-          Get-ChildItem $manifestDir | ForEach-Object { Write-Host $_.Name }
 
       - name: Submit dotsider winget PR via GitHub API
         shell: pwsh
@@ -1236,14 +1122,8 @@ jobs:
 
           Upsert-WingetBranch -Branch $branch -Sha $newCommitSha
 
-          $exists = "${{ steps.check.outputs.exists }}"
-          if ($exists -eq "true") {
-            $prTitle = "Update willibrandon.dotsider to $version"
-            $prBody = "## Description`n`nUpdate dotsider to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
-          } else {
-            $prTitle = "New package: willibrandon.dotsider $version"
-            $prBody = "## Description`n`nAdd dotsider version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
-          }
+          $prTitle = "Update willibrandon.dotsider to $version"
+          $prBody = "## Description`n`nUpdate dotsider to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
 
           New-WingetPullRequest -Branch $branch -Title $prTitle -Body $prBody
 
@@ -1378,13 +1258,7 @@ jobs:
 
           Upsert-WingetBranch -Branch $branch -Sha $newCommitSha
 
-          $exists = "${{ steps.check_mcp.outputs.exists }}"
-          if ($exists -eq "true") {
-            $prTitle = "Update willibrandon.dotsider-mcp to $version"
-            $prBody = "## Description`n`nUpdate dotsider-mcp to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
-          } else {
-            $prTitle = "New package: willibrandon.dotsider-mcp $version"
-            $prBody = "## Description`n`nAdd dotsider-mcp version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
-          }
+          $prTitle = "Update willibrandon.dotsider-mcp to $version"
+          $prBody = "## Description`n`nUpdate dotsider-mcp to version $version`n`n## Release notes`n`nhttps://github.com/willibrandon/dotsider/releases/tag/v$version"
 
           New-WingetPullRequest -Branch $branch -Title $prTitle -Body $prBody
